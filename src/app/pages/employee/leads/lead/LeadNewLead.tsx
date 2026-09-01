@@ -48,7 +48,6 @@ import { useDispatch, useSelector } from "react-redux";
 import eventBus from "@utils/EventBus";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { mapLeadToFormInitialValues } from "./utils";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
 import ChartVisibilitySettings from "@pages/company/settings/ChartVisibilitySettings";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
@@ -1567,6 +1566,50 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 </div>
               )}
 
+            </div>
+
+            {/* Right side: KPI summary */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              border: '1px solid #E2E8F0',
+              borderRadius: '6px',
+              padding: '0 12px',
+              background: '#F8FAFC',
+              height: '32px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              width: isMobile ? '100%' : 'auto'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
+                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCost(totalFilteredCost)}</span>
+              </div>
+              <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
+                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
+                  {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
+                </span>
+              </div>
+            </div>
+
+
+          </div>
+        )}
+      </Box>
+
+      <MaterialTable
+        columns={columns}
+        data={quickFilteredData}
+        tableName="LeadsTablesMainV2"
+        defaultSorting={[{ id: "inquiryDate", desc: true }]}
+        // Returns elements, not a <FilterToolbar/> component declared in render —
+        // a fresh component type each render remounts the controls mid-interaction
+        // (the Assigned To autocomplete would lose focus on every keystroke).
+        renderTopToolbarRightActions={() => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               {/* Status Filter */}
               <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 140 }}>
                 <Select
@@ -1820,45 +1863,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   ✕ Clear Filters
                 </button>
               )}
-            </div>
-
-            {/* Right side: KPI summary */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              border: '1px solid #E2E8F0',
-              borderRadius: '6px',
-              padding: '0 12px',
-              background: '#F8FAFC',
-              height: '32px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-              width: isMobile ? '100%' : 'auto'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
-                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCost(totalFilteredCost)}</span>
-              </div>
-              <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
-                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
-                  {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
-                </span>
-              </div>
-            </div>
-
-
-          </div>
+          </Box>
         )}
-      </Box>
-
-      <MaterialTable
-        columns={columns}
-        data={quickFilteredData}
-        tableName="LeadsTablesMainV2"
-        defaultSorting={[{ id: "inquiryDate", desc: true }]}
         renderExportActions={() => (
           <ExportButton
             data={quickFilteredData}

@@ -90,11 +90,9 @@ const ProjectTablePage = () => {
   const [alignment, setAlignment] = useState<DateMode>("monthly");
   // Filters sync with URL params — persist across navigation without page reload
   const {
-    searchText,
     projectStatusFilter,
     projectManagerFilter,
     showMissingAddress,
-    updateSearchText,
     updateStatusFilter,
     updateManagerFilter,
     updateMissingAddress,
@@ -765,26 +763,9 @@ const ProjectTablePage = () => {
       ? rowManagerIds(item).includes(projectManagerFilter)
       : true;
 
-    let searchMatch = true;
-    if (searchText) {
-      const pmName = pmNames(item);
-      const serviceName = projectServices?.find((s: any) => s.id === item.service)?.name || "";
-      const categoryName = projectCategories?.find((c: any) => c.id === item.category)?.name || "";
-
-      // Robust search: "dmart" matches "D Mart", "D-Mart", "D_Mart", etc.
-      searchMatch = searchAcrossFields(searchText, [
-        item.projectName,
-        item.projectPrefix,
-        item.client,
-        item.contact,
-        item.projectStatus?.name,
-        pmName,
-        serviceName,
-        categoryName,
-      ]);
-    }
-
-    return dateMatch && projectStatusMatch && projectManagerMatch && searchMatch;
+    // Text search is the table's own "Search in All Columns" box now — this page
+    // no longer keeps a second search input (or a ?search= param) of its own.
+    return dateMatch && projectStatusMatch && projectManagerMatch;
   });
 
   // "Missing Address" is a GLOBAL view: the count and the list ignore the period
@@ -798,7 +779,7 @@ const ProjectTablePage = () => {
   // Note: showMissingAddress is intentionally NOT part of hasAnyFilter — its own
   // toggle button turns it off, so surfacing a separate "Clear filters" chip for it
   // would only shift the toolbar layout when the button is clicked.
-  const hasAnyFilter = projectStatusFilter || projectManagerFilter || searchText;
+  const hasAnyFilter = projectStatusFilter || projectManagerFilter;
   const clearAllFilters = clearFiltersURL;
 
   const totalFilteredCost = (quickFilteredData ?? []).reduce(
@@ -974,128 +955,9 @@ const ProjectTablePage = () => {
               </div>
             )}
 
-            {/* Search */}
-            <TextField
-              size="small"
-              placeholder="Search…"
-              value={searchText}
-              onChange={(e) => updateSearchText(e.target.value)}
-              sx={{
-                minWidth: isMobile ? "100%" : 180,
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "6px",
-                  height: FILTER_HEIGHT,
-                  fontFamily: "Inter",
-                  fontSize: "12px",
-                  "& fieldset": { borderColor: searchText ? "#1E3A8A" : "#E2E8F0" },
-                  "&:hover fieldset": { borderColor: "#1E3A8A" },
-                  "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
-                },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <KTIcon iconName="magnifier" className="fs-6" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            {/* Project Status Filter */}
-            {projectStatuses.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 150 }}>
-                <Select
-                  value={projectStatusFilter}
-                  onChange={(e) => updateStatusFilter(e.target.value)}
-                  displayEmpty
-                  sx={pillSelectSx(!!projectStatusFilter)}
-                  renderValue={(val) => {
-                    if (!val) {
-                      return (
-                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                          Project Status
-                        </span>
-                      );
-                    }
-                    const st = projectStatuses.find((s: any) => s.id === val);
-                    return (
-                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
-                        {st?.name || val}
-                      </span>
-                    );
-                  }}
-                  MenuProps={menuSx}
-                >
-                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                    All Project Statuses
-                  </MenuItem>
-                  {projectStatuses.map((st: any) => (
-                    <MenuItem key={st.id} value={st.id} sx={{ fontSize: "12px" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color || "#64748B", display: "inline-block", flexShrink: 0 }} />
-                        {st.name}
-                      </span>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-
-            {/* Project Manager Filter */}
-            {projectManagerOptions.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 160 }}>
-                <Select
-                  value={projectManagerFilter}
-                  onChange={(e) => updateManagerFilter(e.target.value)}
-                  displayEmpty
-                  sx={pillSelectSx(!!projectManagerFilter)}
-                  renderValue={(val) => {
-                    if (!val) {
-                      return (
-                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                          Project Manager
-                        </span>
-                      );
-                    }
-                    const emp = projectManagerOptions.find((e: any) => e.employeeId === val);
-                    return (
-                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
-                        {emp?.employeeName || val}
-                      </span>
-                    );
-                  }}
-                  MenuProps={menuSx}
-                >
-                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                    All Project Managers
-                  </MenuItem>
-                  {projectManagerOptions.map((emp: any) => (
-                    <MenuItem key={emp.employeeId} value={emp.employeeId} sx={{ fontSize: "12px" }}>
-                      {emp.employeeName}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-
-            {hasAnyFilter && (
-              <button
-                onClick={clearAllFilters}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  color: "#1E3A8A",
-                  fontWeight: 600,
-                  fontFamily: "Inter, sans-serif",
-                  padding: "2px 8px",
-                  whiteSpace: "nowrap"
-                }}
-              >
-                ✕ Clear Filters
-              </button>
-            )}
+            {/* Search / Status / Manager / Clear now live inside the table's own toolbar
+                (renderTopToolbarRightActions below), next to its column picker and
+                search — same arrangement as the reimbursement tables. */}
           </div>
 
           {/* Right-side group: budget/results pill + missing-address toggle, kept together */}
@@ -1157,6 +1019,105 @@ const ProjectTablePage = () => {
         // discards them so latest-start-date-first applies for everyone.
         tableName="ProjectTableV4"
         defaultSorting={[{ id: "projectStartDate", desc: true }]}
+        // Returns elements, not a <FilterToolbar/> component declared in render —
+        // a fresh component type each render remounts the controls mid-interaction.
+        renderTopToolbarRightActions={() => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {projectStatuses.length > 0 && (
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <Select
+                  value={projectStatusFilter}
+                  onChange={(e) => updateStatusFilter(e.target.value)}
+                  displayEmpty
+                  sx={pillSelectSx(!!projectStatusFilter)}
+                  renderValue={(val) => {
+                    if (!val) {
+                      return (
+                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
+                          Project Status
+                        </span>
+                      );
+                    }
+                    const st = projectStatuses.find((s: any) => s.id === val);
+                    return (
+                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
+                        {st?.name || val}
+                      </span>
+                    );
+                  }}
+                  MenuProps={menuSx}
+                >
+                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
+                    All Project Statuses
+                  </MenuItem>
+                  {projectStatuses.map((st: any) => (
+                    <MenuItem key={st.id} value={st.id} sx={{ fontSize: "12px" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+                        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color || "#64748B", display: "inline-block", flexShrink: 0 }} />
+                        {st.name}
+                      </span>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {projectManagerOptions.length > 0 && (
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <Select
+                  value={projectManagerFilter}
+                  onChange={(e) => updateManagerFilter(e.target.value)}
+                  displayEmpty
+                  sx={pillSelectSx(!!projectManagerFilter)}
+                  renderValue={(val) => {
+                    if (!val) {
+                      return (
+                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
+                          Project Manager
+                        </span>
+                      );
+                    }
+                    const emp = projectManagerOptions.find((e: any) => e.employeeId === val);
+                    return (
+                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
+                        {emp?.employeeName || val}
+                      </span>
+                    );
+                  }}
+                  MenuProps={menuSx}
+                >
+                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
+                    All Project Managers
+                  </MenuItem>
+                  {projectManagerOptions.map((emp: any) => (
+                    <MenuItem key={emp.employeeId} value={emp.employeeId} sx={{ fontSize: "12px" }}>
+                      {emp.employeeName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {hasAnyFilter && (
+              <button
+                onClick={clearAllFilters}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  color: "#1E3A8A",
+                  fontWeight: 600,
+                  fontFamily: "Inter, sans-serif",
+                  padding: "2px 8px",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                ✕ Clear Filters
+              </button>
+            )}
+          </Box>
+        )}
         renderExportActions={() => (
           <ExportButton
             data={quickFilteredData}
