@@ -369,7 +369,7 @@ const MonthlySalaryComparison = ({
     ];
 
     return (
-        <div className="card mb-5" style={{
+        <div className="card mb-5 d-none d-md-block" style={{
             padding: compact ? '16px' : '24px',
             boxShadow: '0 4px 20px rgba(0,0,0,.04)',
             borderRadius: '16px',

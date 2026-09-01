@@ -621,6 +621,16 @@ export const LEAD_PROJECT_COMPANY = {
 
 // Payment Plans (stage-wise fee break-up) — configured under Lead Configuration and
 // selected on a lead's commercial step.
+// Payment Stage master — the index labels ("1", "Stage 1", "Stage A") a plan's stages are
+// numbered with. Indexes stages; does not name them.
+export const PAYMENT_STAGE = {
+    GET_ALL_PAYMENT_STAGES: "api/payment-stages",
+    CREATE_PAYMENT_STAGE: "api/payment-stages",
+    REORDER_PAYMENT_STAGES: "api/payment-stages/reorder",
+    UPDATE_PAYMENT_STAGE: "api/payment-stages/:id",
+    DELETE_PAYMENT_STAGE: "api/payment-stages/:id",
+};
+
 export const PAYMENT_PLAN = {
     GET_ALL_PAYMENT_PLANS: "api/payment-plans",
     GET_PAYMENT_PLAN_BY_ID: "api/payment-plans/:id",

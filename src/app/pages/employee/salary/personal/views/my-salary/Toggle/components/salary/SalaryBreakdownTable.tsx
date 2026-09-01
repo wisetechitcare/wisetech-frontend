@@ -192,32 +192,143 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
     ];
 
     return (
-        <Paper elevation={0} sx={{ borderRadius: '16px', border: '1px solid #e5edf6', p: 1.75, boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 20px rgba(15, 23, 42, 0.045)' }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-                <Box>
-                    <Typography sx={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>
+        <Paper
+            elevation={0}
+            sx={{
+                borderRadius: '16px',
+                border: '1px solid #e5edf6',
+                p: { xs: 1.5, sm: 1.75 },
+                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 20px rgba(15, 23, 42, 0.045)',
+            }}
+        >
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    justifyContent: 'space-between',
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    gap: { xs: 1.25, sm: 2 },
+                    mb: 1.5,
+                }}
+            >
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography sx={{ fontSize: { xs: 16, sm: 17 }, fontWeight: 800, color: '#0f172a' }}>
                         Yearly Salary Breakdown
                     </Typography>
-                    <Typography sx={{ mt: 0.3, fontSize: 12, color: '#64748b' }}>
+                    <Typography sx={{ mt: 0.3, fontSize: { xs: 11.5, sm: 12 }, color: '#64748b', lineHeight: 1.4 }}>
                         Month-wise view of salary, payment status, and statutory deductions.
                     </Typography>
                 </Box>
                 {hasRealRows && (
-                    <ExportButton
-                        data={exportData}
-                        columns={exportColumns}
-                        filename="yearly-salary-breakdown"
-                        title="Yearly Salary Breakdown"
-                        subtitle="Month-wise salary, payment status and statutory deductions"
-                        sheetName="Yearly Salary"
-                        showTotals
-                        totalLabel="TOTAL"
-                    />
+                    // Full width on a phone. Floated right on its own line it spent a whole
+                    // row on one control and still read as detached from the card — and a
+                    // right-hugging split button is an awkward thumb reach.
+                    <Box sx={{ alignSelf: { xs: 'stretch', sm: 'center' }, flexShrink: 0 }}>
+                        <ExportButton
+                            data={exportData}
+                            columns={exportColumns}
+                            filename="yearly-salary-breakdown"
+                            title="Yearly Salary Breakdown"
+                            subtitle="Month-wise salary, payment status and statutory deductions"
+                            sheetName="Yearly Salary"
+                            showTotals
+                            totalLabel="TOTAL"
+                            sx={{ width: { xs: '100%', sm: 'auto' } }}
+                        />
+                    </Box>
                 )}
-            </Stack>
+            </Box>
+
+            {/* Mobile: one card per month.
+                The table is 860px of thirteen columns, so on a phone it was a sideways
+                scroll where the month scrolled out of view before the money arrived — you
+                could see a number without knowing which month it belonged to. The card keeps
+                the month, the three figures that answer "was I paid", and the deductions
+                that are actually non-zero this year. */}
+            <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 1 }}>
+                {realRows.map((row) => {
+                    // Only the heads this employee actually has, using the same flags that
+                    // decide the table's columns — so the two views never disagree.
+                    const deductions = [
+                        ...(colPf ? [{ label: 'PF', value: row.pfDeduction, state: row.pfStatus }] : []),
+                        ...(colPtax ? [{ label: 'PTax', value: row.ptaxDeduction, state: row.ptaxStatus }] : []),
+                        ...(colTds ? [{ label: tdsLabel, value: row.tdsDeduction, state: row.tdsStatus }] : []),
+                        ...(colTds2 ? [{ label: 'TDS 2', value: row.tds2Deduction, state: undefined }] : []),
+                        ...(colRetention ? [{ label: 'Retention', value: row.retention ?? '', state: row.retentionStatus }] : []),
+                    ].filter((d) => parseAmount(d.value) > 0);
+
+                    return (
+                        <Box
+                            key={row.month}
+                            sx={{
+                                border: '1px solid #e9eff6', borderRadius: '12px',
+                                p: 1.25, backgroundColor: '#ffffff',
+                            }}
+                        >
+                            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
+                                <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>
+                                    {row.month}
+                                </Typography>
+                                <StateChip state={row.status} />
+                            </Stack>
+
+                            {/* Read together: paid AGAINST payable, with what is left. */}
+                            <Stack direction="row" alignItems="flex-end" justifyContent="space-between" spacing={1}>
+                                <Box>
+                                    <Typography sx={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>Net Payable</Typography>
+                                    <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>{row.netPayable}</Typography>
+                                </Box>
+                                {colPaid && (
+                                    <Box>
+                                        <Typography sx={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>Paid</Typography>
+                                        <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#1d4ed8' }}>{row.paid}</Typography>
+                                    </Box>
+                                )}
+                                {colPending && (
+                                    <Box sx={{ textAlign: 'right' }}>
+                                        <Typography sx={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>Pending</Typography>
+                                        <Typography sx={{
+                                            fontSize: 13.5, fontWeight: 700,
+                                            color: parseAmount(row.pending) > 0 ? '#dc2626' : '#16a34a',
+                                        }}>
+                                            {row.pending}
+                                        </Typography>
+                                    </Box>
+                                )}
+                            </Stack>
+
+                            {/* Secondary by design — deductions explain the gap, they are not
+                                the answer someone opened this for. Zero heads are omitted
+                                rather than printed as a row of ₹0. */}
+                            {(deductions.length > 0 || (colGovt && row.govtStatus && row.govtStatus !== 'None')) && (
+                                <Stack
+                                    direction="row" flexWrap="wrap" alignItems="center" columnGap={1.25} rowGap={0.5}
+                                    sx={{ mt: 1, pt: 1, borderTop: '1px solid #f1f5f9' }}
+                                >
+                                    {deductions.map((d) => (
+                                        <Typography key={d.label} sx={{ fontSize: 11, color: '#64748b' }}>
+                                            {d.label}{' '}
+                                            <Box component="span" sx={{ fontWeight: 700, color: '#334155' }}>{d.value}</Box>
+                                        </Typography>
+                                    ))}
+                                    {colGovt && row.govtStatus && row.govtStatus !== 'None' && (
+                                        <Tooltip title={row.govtDetail ?? ''} disableHoverListener={!row.govtDetail}>
+                                            <Typography sx={{ fontSize: 11, color: '#64748b' }}>
+                                                Govt{' '}
+                                                <Box component="span" sx={{ fontWeight: 700, color: '#334155' }}>{row.govtStatus}</Box>
+                                            </Typography>
+                                        </Tooltip>
+                                    )}
+                                </Stack>
+                            )}
+                        </Box>
+                    );
+                })}
+            </Box>
 
             <TableContainer
                 sx={{
+                    display: { xs: 'none', md: 'block' },
                     border: '1px solid #e9eff6',
                     borderRadius: '14px',
                     overflowX: 'auto',

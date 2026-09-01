@@ -54,6 +54,8 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
   // it is split back into the (categoryId, subCategoryId) pair on save.
   const [scopeNodeId, setScopeNodeId] = useState("");
   const [rows, setRows] = useState<PlanStage[]>([]);
+  /** The numbering vocabulary for this plan's stages. "" = number by position. */
+  const [paymentStageGroupId, setPaymentStageGroupId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +67,7 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
       setDescription(initialData.description || "");
       setIsDefault(!!initialData.isDefault);
       setScopeNodeId(nodeIdFromScope(initialData));
+      setPaymentStageGroupId(initialData.paymentStageGroupId ?? "");
       setRows(
         (initialData.stages || [])
           .slice()
@@ -75,6 +78,7 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
       setDescription("");
       setIsDefault(false);
       setScopeNodeId("");
+      setPaymentStageGroupId("");
       setRows(DEFAULT_STAGES.map((s) => toPlanStage(s.name, s.percentage)));
     }
   }, [show, isEditing, initialData]);
@@ -138,6 +142,8 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
       stages,
       categoryId: scope?.categoryId,
       subCategoryId: scope?.subCategoryId ?? null,
+      // Explicit null clears it; the server treats absent as "leave alone", so always send.
+      paymentStageGroupId: paymentStageGroupId || null,
     };
 
     setIsSubmitting(true);
@@ -235,7 +241,13 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
         {/* One tree: a stage row IS the branch its deliverables hang off. Stage edits are
             form state and save with this modal; deliverables save on every action, because
             they belong to a stage row that already exists on the server. */}
-        <PaymentPlanStagesTree stages={rows} onChange={setRows} showDeliverables />
+        <PaymentPlanStagesTree
+          stages={rows}
+          onChange={setRows}
+          showDeliverables
+          paymentStageGroupId={paymentStageGroupId}
+          onPaymentStageGroupChange={setPaymentStageGroupId}
+        />
       </Modal.Body>
 
       <Modal.Footer style={{ borderTop: "none" }}>

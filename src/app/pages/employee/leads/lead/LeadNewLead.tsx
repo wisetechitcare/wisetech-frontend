@@ -15,7 +15,7 @@ import {
   TextField,
   InputAdornment,
 } from "@mui/material";
-import { deleteLead, getAllLeadsComplete } from "@services/leads";
+import { getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference, getUserTablePreferences } from "@services/users";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SelectLeadOrganizationDialog from "./SelectLeadOrganizationDialog";
@@ -198,9 +198,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // New leads pick their organization before the wizard opens — it decides the
   // lead's prefix and number series.
   const [showOrgPicker, setShowOrgPicker] = useState(false);
-  const [selectedLead, setSelectedLead] = useState<any>(null);
   const [tableData, setTableData] = useState<any[]>([]);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [formValues, setFormValues] = useState<any>(null);
@@ -1004,80 +1002,17 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         return "N/A";
       },
     },
-    ...(hideNewLeadButton
-      ? []
-      : [
-        {
-          accessorKey: "actions",
-          header: "Actions",
-          size: 100,
-          enableEditing: false,
-          Cell: ({ row }: { row: any }) => (
-            <Box sx={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const currLead = rawLeadsData.find(
-                    (l: any) => l.id === row.original.id,
-                  );
-                  setFormValues(mapLeadToFormInitialValues(currLead));
-                  setSelectedLead(row.original);
-                }}
-              >
-                <KTIcon iconName="pencil" className="fs-2" />
-              </button>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteLead(row.original.id);
-                }}
-              >
-                <KTIcon iconName="trash" className="fs-2" />
-              </button>
-            </Box>
-          ),
-        },
-      ]),
   ], [
     projectServices,
     projectCategories,
     projectSubcategories,
     allemployees,
     rawLeadsData,
-    hideNewLeadButton,
     fileLocCompanyMap,
     fileLocTypeMap,
   ]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
-
-  // Improved delete from file 2: optimistic update + success confirmation + eventBus emit
-  const handleDeleteLead = async (id: string) => {
-    try {
-      const confirmed = await rejectConfirmation("Yes, delete it!");
-      if (confirmed) {
-        setDeletingId(id);
-
-        // Optimistic UI update
-        setTableData((prev) => prev.filter((l: any) => l.id !== id));
-        setRawLeadsDatas((prev) => prev.filter((l: any) => l.id !== id));
-
-        await deleteLead(id);
-
-        successConfirmation("Lead deleted successfully!");
-        eventBus.emit(EVENT_KEYS.leadDeleted, { id });
-      }
-    } catch (error) {
-      console.error("Error deleting lead:", error);
-      errorConfirmation("Failed to delete lead. Please try again.");
-      // Revert optimistic update
-      fetchAllData();
-    } finally {
-      setDeletingId(null);
-    }
-  };
 
   function handleCloseChartSettingsModal() {
     setShowChartSettingsModal(false);

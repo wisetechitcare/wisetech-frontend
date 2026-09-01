@@ -19,6 +19,7 @@ import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
 import ProjectConfigForm from "./components/ProjectConfigForm";
 import PaymentPlanModal from "../../leads/configuration/components/PaymentPlanModal";
+import PaymentStageEditor from "./components/PaymentStageEditor";
 import { ProjectItem } from "@models/clientProject";
 import { PaymentPlan } from "@models/leads";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
@@ -645,6 +646,18 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
                   </ChipGrid>
                 )
               }
+            </ConfigSectionCard>
+
+            {/* 3b. Payment Stage — the index labels the plans above are numbered with.
+                Sits directly under Payment Plans because it only exists to serve them. */}
+            <ConfigSectionCard
+              title="Payment Stage"
+              description="Numbering groups for payment plan stages — 1 / 2 / 3, or a / b / c, or Stage I / Stage II. A plan picks one group and every stage takes its Sr No from it in order. This numbers stages; it does not name them."
+              icon="bi-123"
+              iconColor="green"
+              loading={loading}
+            >
+              <PaymentStageEditor />
             </ConfigSectionCard>
 
             {/* 4. Stakeholders Services — Team Management */}

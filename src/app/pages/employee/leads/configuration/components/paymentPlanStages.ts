@@ -22,6 +22,7 @@ export interface PlanStage {
    * it holds anything.
    */
   deliverableCount?: number;
+  // No numbering field: the Sr No comes from the PLAN's chosen group, by position.
 }
 
 let seq = 0;
