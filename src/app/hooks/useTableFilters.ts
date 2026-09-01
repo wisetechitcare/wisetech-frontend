@@ -3,7 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 
 /**
  * Syncs table filter state with URL params so filters persist across navigation.
- * Filters are read from ?search=...&status=...&manager=... on every render.
+ * Filters are read from ?status=...&manager=...&missingAddr=... on every render.
+ * Text search is deliberately NOT here: the table component owns its own search
+ * box, and a second page-level one meant two inputs filtering the same rows.
  *
  * The URL is the SINGLE source of truth — there is deliberately no useState
  * mirror and no syncing effect. An earlier version kept filters in state,
