@@ -1,14 +1,19 @@
-import React, { useCallback, useState } from "react";
-import { alpha, Box, Collapse, InputAdornment, Stack, TextField, Typography, useMediaQuery } from "@mui/material";
+import React, { useCallback, useEffect, useState } from "react";
+import { alpha, Box, Collapse, InputAdornment, MenuItem, Stack, TextField, Typography, useMediaQuery } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import ReorderableGroup, { DragHandle, type DragHandleProps } from "@app/modules/common/components/ReorderableGroup";
 import { WtButton, WtIconButton } from "@app/modules/common/components/ui";
 import StageDeliverableList from "./StageDeliverableList";
 import { autoFixPercentages, pct, stageTotal, toPlanStage, type PlanStage } from "./paymentPlanStages";
+import { getAllPaymentStageGroups } from "@services/paymentStage";
+import { stageSrNo, type PaymentStageGroup } from "@models/leads";
 
 interface Props {
   stages: PlanStage[];
   onChange: (next: PlanStage[]) => void;
+  /** The plan's chosen numbering group. Empty string = number by position. */
+  paymentStageGroupId?: string;
+  onPaymentStageGroupChange?: (id: string) => void;
   /**
    * Whether a stage can be opened to reveal its deliverables. Deliverables are project
    * configuration: a lead shows the fee split and nothing else, so a lead-side editor
@@ -20,12 +25,34 @@ interface Props {
 /** Indent of the deliverable branch — lines the rail up under the disclosure chevron. */
 const BRANCH_INDENT = { xs: 3.25, sm: 4.25 };
 
-const PaymentPlanStagesTree: React.FC<Props> = ({ stages, onChange, showDeliverables = true }) => {
+const PaymentPlanStagesTree: React.FC<Props> = ({
+  stages, onChange, showDeliverables = true,
+  paymentStageGroupId = "", onPaymentStageGroupChange,
+}) => {
   const [expandedUid, setExpandedUid] = useState<string | null>(null);
   // A branch keeps its list mounted once opened, so closing and reopening doesn't refetch.
   const [visited, setVisited] = useState<Record<string, boolean>>({});
   const [counts, setCounts] = useState<Record<string, number>>({});
   const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+
+  // The numbering groups this plan can be numbered with. An empty list is normal, not an
+  // error: the selector is not rendered and stages number by position.
+  const [groups, setGroups] = useState<PaymentStageGroup[]>([]);
+  useEffect(() => {
+    let alive = true;
+    getAllPaymentStageGroups()
+      .then((res) => {
+        if (alive) setGroups((res?.paymentStageGroups ?? []).filter((g: PaymentStageGroup) => g.isActive));
+      })
+      // Numbering is presentation, not the plan. If the groups cannot be reached the editor
+      // still saves percentages — it just falls back to positions.
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
+
+  // The labels actually in force. Resolved from the live list so renaming a group's labels
+  // is reflected without reopening the plan.
+  const activeLabels = groups.find((g) => g.id === paymentStageGroupId)?.labels ?? [];
 
   const setCount = useCallback((stageId: string, n: number) => {
     setCounts((prev) => (prev[stageId] === n ? prev : { ...prev, [stageId]: n }));
@@ -129,8 +156,27 @@ const PaymentPlanStagesTree: React.FC<Props> = ({ stages, onChange, showDelivera
             </WtIconButton>
           )}
 
-          <Typography sx={{ width: 18, flexShrink: 0, textAlign: "center", fontSize: 12, fontWeight: 700, color: "text.disabled" }}>
-            {index + 1}
+          {/* The Sr No. Read-only by design: it is derived from the plan's chosen group by
+              position, so it cannot be set per stage — that is exactly what let a plan end
+              up numbered "1, 2, Stage C, 4". Falls back to the position when no group is
+              chosen, or when the group has fewer labels than the plan has stages. */}
+          <Typography
+            title={
+              activeLabels.length === 0
+                ? "Numbered by position — pick a numbering group above"
+                : index < activeLabels.length
+                  ? `From the chosen numbering group`
+                  : "The group has no label for this position — numbered by position"
+            }
+            sx={{
+              minWidth: 22, flexShrink: 0, textAlign: "center", px: 0.5,
+              fontSize: 12, fontWeight: 700,
+              // Muted when it is only a fallback, so a group that is too short is visible
+              // rather than silently indistinguishable from a real label.
+              color: index < activeLabels.length ? "text.primary" : "text.disabled",
+            }}
+          >
+            {stageSrNo(index, activeLabels)}
           </Typography>
 
           <TextField
@@ -210,16 +256,53 @@ const PaymentPlanStagesTree: React.FC<Props> = ({ stages, onChange, showDelivera
               : "Each stage is a % of the total commercial cost."}
           </Typography>
         </Box>
-        {!isValid && stages.length > 0 && (
-          <WtButton
-            tone="primary" size="small" ghost onClick={autoFix}
-            startIcon={<KTIcon iconName="wrench" className="fs-6" />}
-            sx={{ flexShrink: 0, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
-          >
-            Auto-fix to 100%
-          </WtButton>
-        )}
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ flexShrink: 0 }}>
+          {/* ONE choice for the whole plan. Numbering is a property of the plan, not of each
+              stage — picking per stage is what allowed "1, 2, Stage C, 4". */}
+          {onPaymentStageGroupChange && groups.length > 0 && (
+            <TextField
+              select
+              size="small"
+              label="Numbering"
+              value={paymentStageGroupId}
+              onChange={(e) => onPaymentStageGroupChange(e.target.value)}
+              SelectProps={{ displayEmpty: true }}
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 150, "& .MuiInputBase-input": { fontSize: 12.5, fontWeight: 600 } }}
+            >
+              <MenuItem value="">
+                <Box component="span" sx={{ color: "text.disabled" }}>By position (1, 2, 3)</Box>
+              </MenuItem>
+              {groups.map((g) => (
+                <MenuItem key={g.id} value={g.id} sx={{ fontSize: 12.5 }}>
+                  {g.name}
+                  <Box component="span" sx={{ color: "text.disabled", ml: 0.75, fontSize: 11.5 }}>
+                    {g.labels.slice(0, 3).join(", ")}{g.labels.length > 3 ? "…" : ""}
+                  </Box>
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+          {!isValid && stages.length > 0 && (
+            <WtButton
+              tone="primary" size="small" ghost onClick={autoFix}
+              startIcon={<KTIcon iconName="wrench" className="fs-6" />}
+              sx={{ flexShrink: 0, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
+            >
+              Auto-fix to 100%
+            </WtButton>
+          )}
+        </Stack>
       </Stack>
+
+      {/* A group shorter than the plan is not an error, but it is worth saying — otherwise
+          the greyed fallback numbers look like a rendering bug. */}
+      {activeLabels.length > 0 && stages.length > activeLabels.length && (
+        <Typography sx={{ fontSize: 11.5, color: "text.secondary", mb: 1 }}>
+          This group has {activeLabels.length} label{activeLabels.length === 1 ? "" : "s"} for {stages.length} stages —
+          the rest are numbered by position.
+        </Typography>
+      )}
 
       {stages.length === 0 ? (
         <Box
