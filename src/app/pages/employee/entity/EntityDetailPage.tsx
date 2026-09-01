@@ -25,7 +25,6 @@ import { TasksTab, TimesheetTab, ReimbursementTab } from './detail/sections/Proj
 import DocumentsTab from './detail/sections/DocumentsTab';
 import AuditSection from './detail/sections/AuditSection';
 import TeamsSection from './detail/sections/TeamsSection';
-import BillingSection from './detail/sections/BillingSection';
 import ExecutionSection from './detail/sections/ExecutionSection';
 import MeetingsList from '@app/modules/common/components/MeetingsList';
 import ProjectStatusControl from './detail/ProjectStatusControl';
@@ -208,8 +207,6 @@ const EntityDetailPage: React.FC = () => {
       case 'meetings':
         // Meetings are linked by projectId = the lead id (lead-as-master).
         return <MeetingsList mode="project" targetId={lead.id} />;
-      case 'billing':
-        return <BillingSection lead={lead} />;
       default:
         return null;
     }
