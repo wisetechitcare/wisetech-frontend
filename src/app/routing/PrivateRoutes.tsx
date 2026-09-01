@@ -34,6 +34,7 @@ const OnBoardingDocs = lazy(() => import('@pages/company/OnboardingDocs'))
 const PersonalAttendanceView = lazy(() => import('@pages/employee/PersonalAttendanceView'))
 const EmployeesAttendanceView = lazy(() => import('@pages/employee/EmployeesAttendanceView'))
 const AdminAndEmployeeReimbursementViewer = lazy(() => import('@pages/employee/reimbursement/AdminAndEmployeeReimbursementViewer'))
+const BillingRoutes = lazy(() => import('@pages/billing/routes/BillingRoutes'))
 const Salary = lazy(() => import('@pages/employee/salary/Salary'))
 const Increment = lazy(() => import('@pages/employee/increment/Increment'))
 const Media = lazy(() => import('@pages/company/Media'))
@@ -242,6 +243,19 @@ const PrivateRoutes = () => {
           }
         />
 
+        {/* Billing is its own top-level ERP module: one nested route tree that owns its
+            header tabs, so every Billing page is a real URL under /billing/*. Access per
+            tab is handled inside via the `billing.*` access areas. */}
+        <Route
+          path='/billing/*'
+          element={
+            <SuspensedView>
+              <BillingRoutes />
+            </SuspensedView>
+          }
+        />
+        {/* The Accounts queue used to live under Finance; keep the old link working. */}
+        <Route path='/finance/billing-queue' element={<Navigate to='/billing/accounts' replace />} />
         {hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
           path='/finance/reimbursements'
           element={
