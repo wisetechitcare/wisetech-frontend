@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Tooltip } from "@mui/material";
 import {
   getAllPaymentStageGroups,
   createPaymentStageGroup,
@@ -35,6 +36,14 @@ const PaymentStageEditor: React.FC = () => {
   /** `${groupId}:${index}` of the label under the cursor — reorder/remove appear only there,
    *  so four labels show four controls instead of twelve. */
   const [hoverKey, setHoverKey] = useState<string | null>(null);
+  /** Everything here is renamed in place — click the text, type, Enter or blur to save,
+   *  Escape to abandon. A group name and a label are each one short string; a dialog to
+   *  change "b" to "c" is three clicks of ceremony around one keystroke. */
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+  /** `${groupId}:${index}` — a label is identified by its position, not its text. */
+  const [editingLabelKey, setEditingLabelKey] = useState<string | null>(null);
+  const [editingLabelValue, setEditingLabelValue] = useState("");
   const labelRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const load = async () => {
@@ -63,6 +72,34 @@ const PaymentStageEditor: React.FC = () => {
       await load();                                  // server is the truth; put it back
       setError(apiErrorMessage(err, "Could not save that change."));
     }
+  };
+
+  /** Rename a group. No-ops on an unchanged or emptied name rather than writing it. */
+  const commitGroupName = async (group: PaymentStageGroup) => {
+    const name = editingGroupName.trim();
+    setEditingGroupId(null);
+    if (!name || name === group.name) return;
+    setGroups((prev) => prev.map((g) => (g.id === group.id ? { ...g, name } : g)));
+    try {
+      await updatePaymentStageGroup(group.id, { name });
+      setError(null);
+    } catch (err) {
+      await load();
+      setError(apiErrorMessage(err, "Could not rename that group."));
+    }
+  };
+
+  /** Rename one label in place. Position is preserved — renaming is not reordering. */
+  const commitLabel = async (group: PaymentStageGroup, index: number) => {
+    const label = editingLabelValue.trim();
+    setEditingLabelKey(null);
+    const current = group.labels[index];
+    if (!label || label === current) return;
+    if (group.labels.some((l, i) => i !== index && l === label)) {
+      setError(`"${label}" is already in ${group.name} — every label in a group must be different.`);
+      return;
+    }
+    await saveLabels(group, group.labels.map((l, i) => (i === index ? label : l)));
   };
 
   const addGroup = async () => {
@@ -194,9 +231,37 @@ const PaymentStageEditor: React.FC = () => {
                 paddingBottom: 8, marginBottom: 10,
                 borderBottom: `1px solid ${C.border}`,
               }}>
-                <span style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 14, color: C.textPrimary, flex: 1, minWidth: 0 }}>
-                  {group.name}
-                </span>
+                {editingGroupId === group.id ? (
+                  <input
+                    autoFocus
+                    value={editingGroupName}
+                    onChange={(e) => setEditingGroupName(e.target.value)}
+                    onBlur={() => void commitGroupName(group)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); void commitGroupName(group); }
+                      if (e.key === "Escape") setEditingGroupId(null);
+                    }}
+                    aria-label={`Rename ${group.name}`}
+                    maxLength={80}
+                    style={{ ...input, flex: 1, fontWeight: 700, padding: "5px 8px" }}
+                  />
+                ) : (
+                  <Tooltip title="Click to rename">
+                    <button
+                      type="button"
+                      onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }}
+                      aria-label={`Rename ${group.name}`}
+                      style={{
+                        flex: 1, minWidth: 0, textAlign: "left",
+                        background: "none", border: "none", padding: 0, cursor: "text",
+                        fontFamily: FONT.heading, fontWeight: 700, fontSize: 14, color: C.textPrimary,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}
+                    >
+                      {group.name}
+                    </button>
+                  </Tooltip>
+                )}
                 {/* Reads as "what a plan gets", not a row count. */}
                 <span style={{ fontFamily: FONT.body, fontSize: 11, fontWeight: 600, color: C.textMuted, letterSpacing: 0.2 }}>
                   {group.labels.length === 0
@@ -217,11 +282,12 @@ const PaymentStageEditor: React.FC = () => {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                 {group.labels.map((label, index) => {
                   const key = `${group.id}:${index}`;
-                  const hot = hoverKey === key;
+                  // Controls stay out of the way while renaming — clicking one would blur the
+                  // field and act on the row in the same gesture.
+                  const hot = hoverKey === key && editingLabelKey !== key;
                   return (
                     <span
                       key={key}
-                      title={`Numbers stage ${index + 1}`}
                       onMouseEnter={() => setHoverKey(key)}
                       onMouseLeave={() => setHoverKey((k) => (k === key ? null : k))}
                       style={{
@@ -233,12 +299,43 @@ const PaymentStageEditor: React.FC = () => {
                         transition: "border-color .12s ease, box-shadow .12s ease",
                       }}
                     >
-                      <span style={{
-                        fontFamily: FONT.body, fontSize: 12.5, fontWeight: 700,
-                        color: C.textPrimary, padding: "5px 10px", whiteSpace: "nowrap",
-                      }}>
-                        {label}
-                      </span>
+                      {editingLabelKey === key ? (
+                        <input
+                          autoFocus
+                          value={editingLabelValue}
+                          onChange={(e) => setEditingLabelValue(e.target.value)}
+                          onBlur={() => void commitLabel(group, index)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") { e.preventDefault(); void commitLabel(group, index); }
+                            if (e.key === "Escape") setEditingLabelKey(null);
+                          }}
+                          aria-label={`Rename ${label}`}
+                          maxLength={50}
+                          // Sized to the text so the chip does not jump to a wide field.
+                          size={Math.max(3, editingLabelValue.length)}
+                          style={{
+                            fontFamily: FONT.body, fontSize: 12.5, fontWeight: 700,
+                            color: C.textPrimary, padding: "5px 8px",
+                            border: "none", outline: "none", background: "transparent",
+                            minWidth: 0,
+                          }}
+                        />
+                      ) : (
+                        <Tooltip title={`Numbers stage ${index + 1} — click to rename`}>
+                          <button
+                            type="button"
+                            onClick={() => { setEditingLabelKey(key); setEditingLabelValue(label); }}
+                            aria-label={`Rename ${label}, numbering stage ${index + 1}`}
+                            style={{
+                              fontFamily: FONT.body, fontSize: 12.5, fontWeight: 700,
+                              color: C.textPrimary, padding: "5px 10px", whiteSpace: "nowrap",
+                              background: "none", border: "none", cursor: "text",
+                            }}
+                          >
+                            {label}
+                          </button>
+                        </Tooltip>
+                      )}
 
                       {/* Controls only under the cursor. Always-on, four labels meant twelve
                           micro-buttons competing with the labels themselves. */}
