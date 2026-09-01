@@ -34,7 +34,6 @@ const OnBoardingDocs = lazy(() => import('@pages/company/OnboardingDocs'))
 const PersonalAttendanceView = lazy(() => import('@pages/employee/PersonalAttendanceView'))
 const EmployeesAttendanceView = lazy(() => import('@pages/employee/EmployeesAttendanceView'))
 const AdminAndEmployeeReimbursementViewer = lazy(() => import('@pages/employee/reimbursement/AdminAndEmployeeReimbursementViewer'))
-const BillingRoutes = lazy(() => import('@pages/billing/routes/BillingRoutes'))
 const Salary = lazy(() => import('@pages/employee/salary/Salary'))
 const Increment = lazy(() => import('@pages/employee/increment/Increment'))
 const Media = lazy(() => import('@pages/company/Media'))
@@ -63,7 +62,6 @@ const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/O
 const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
 const TasksMain = lazy(() => import('@pages/employee/tasks/TasksMain'))
 // Phase 4 — the rebuilt Task UI (Kanban-first workspace + task detail workspace)
-const TasksWorkspace = lazy(() => import('@pages/employee/tasks/TasksWorkspace'))
 // Task configuration — statuses, priorities and the preset task tree.
 const TasksConfigure = lazy(() => import('@pages/employee/tasks/configure/TasksConfigure'))
 const TaskDetailPage = lazy(() => import('@pages/employee/tasks/TaskDetailPage'))
@@ -244,19 +242,6 @@ const PrivateRoutes = () => {
           }
         />
 
-        {/* Billing is its own top-level ERP module: one nested route tree that owns its
-            header tabs, so every Billing page is a real URL under /billing/*. Access per
-            tab is handled inside via the `billing.*` access areas. */}
-        <Route
-          path='/billing/*'
-          element={
-            <SuspensedView>
-              <BillingRoutes />
-            </SuspensedView>
-          }
-        />
-        {/* The Accounts queue used to live under Finance; keep the old link working. */}
-        <Route path='/finance/billing-queue' element={<Navigate to='/billing/accounts' replace />} />
         {hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
           path='/finance/reimbursements'
           element={
@@ -588,11 +573,13 @@ const PrivateRoutes = () => {
           }
         />
         <Route
+          // The section's tab bar (Overview · Tasks · Configure). The Tasks tab renders the
+          // board that used to be mounted here directly, so this URL still lands on it.
           path='/tasks'
           element={
             <SectionGuard module='tasks'>
               <SuspensedView>
-                <TasksWorkspace />
+                <TasksMain />
               </SuspensedView>
             </SectionGuard>
           }

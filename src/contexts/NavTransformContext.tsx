@@ -173,7 +173,9 @@ export function NavTransformToggle(props: IconButtonProps) {
         sx={{ color: enabled ? 'primary.main' : 'text.secondary' }}
         {...props}
       >
-        <KTIcon iconName={enabled ? 'burger-menu-2' : 'element-11'} className="fs-3" />
+        {/* Each icon names the DESTINATION, not the current state: a sidebar panel to go
+            back to the sidebar, the app grid to go to the launcher. */}
+        <KTIcon iconName={enabled ? 'panel-left' : 'element-11'} className="fs-3" />
       </IconButton>
     </Tooltip>
   );

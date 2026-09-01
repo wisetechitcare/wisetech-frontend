@@ -64,7 +64,9 @@ function AppDockBase({
       className={`${home ? DOCK_HOME : DOCK_DOCKED} ${home ? ORDER_DOCK_HOME : ORDER_DOCK_DOCKED}`}
     >
       {leading}
-      {!home && <span className={DOCK_EYEBROW}>Applications</span>}
+      {/* `data-dock-text` marks every label the collapsed rail drops — see
+          premium-layout.css. The glyphs stay; the words go. */}
+      {!home && <span data-dock-text className={DOCK_EYEBROW}>Applications</span>}
       {apps.map((app, index) => (
         <AppTile
           key={app.id}

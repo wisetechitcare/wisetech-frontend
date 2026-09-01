@@ -94,11 +94,15 @@ export const SHELL_HOME =
  *
  * `minmax(0, 1fr)` rather than `1fr`: a bare `1fr` has an implicit `min-width: auto`, so one
  * wide table inside a page would push the whole column and drag the boundary with it.
+ *
+ * The dock track reads `--wt-dock-eff` rather than stating its width here, because the width
+ * is no longer a constant: the collapse toggle switches it, and the header's brand cell has to
+ * land on the same seam. premium-layout.css owns that variable — one number, three consumers.
  */
 export const SHELL_DOCKED =
   'relative min-h-[78vh] w-full px-[16px] py-[20px] sm:px-[24px] ' +
-  'lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:items-start lg:gap-0 lg:px-0 lg:py-0 ' +
-  'xl:grid-cols-[268px_minmax(0,1fr)]';
+  'lg:grid lg:grid-cols-[var(--wt-dock-eff,268px)_minmax(0,1fr)] lg:items-start lg:gap-0 ' +
+  'lg:px-0 lg:py-0';
 
 /**
  * Visual order is flipped with flex `order`, NOT by reordering the JSX.
@@ -299,10 +303,12 @@ export const WORKSPACE_HOME = 'relative z-10 w-full';
  * navigation and workspace is therefore identical for every application.
  */
 export const WORKSPACE_DOCKED =
-  'w-full min-w-0 pt-[4px] lg:px-[32px] lg:py-[24px] xl:px-[40px]';
+  'w-full min-w-0 pt-[4px] lg:px-[24px] lg:py-[24px]';
 
-/** Caps the working area on ultrawide so text lines never run to 2000px. */
-export const WORKSPACE_INNER = 'mx-auto w-full max-w-[1400px]';
+/** No cap and no auto margins: the working area runs the full width of its track. A
+ *  max-width here centred the content and left a dead gutter on both sides — ~80px per
+ *  side at 1920, on top of the padding above. */
+export const WORKSPACE_INNER = 'w-full min-w-0';
 
 export const WORKSPACE_TITLE =
   'text-[22px] font-bold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[26px] ' +
