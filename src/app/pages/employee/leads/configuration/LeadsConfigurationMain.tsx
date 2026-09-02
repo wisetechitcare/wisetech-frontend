@@ -1,4 +1,4 @@
-import { getAllLeadStatus, deleteLeadStatus, getAllLeadReferralType, deleteLeadReferralType, getAllLeadDirectSource, deleteLeadDirectSource, getAllLeadCancellationReasons, deleteLeadCancellationReason } from "@services/lead";
+import { getAllLeadStatus, deleteLeadStatus, getAllLeadReferralType, deleteLeadReferralType, getAllLeadDirectSource, deleteLeadDirectSource, getAllLeadCancellationReasons, deleteLeadCancellationReason, getAllLeadPoStatuses, deleteLeadPoStatus } from "@services/lead";
 import { getAllMeetingSchedules, deleteMeetingSchedule } from "@services/meetingSchedule";
 import MeetingScheduleModal from "./components/MeetingScheduleModal";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
@@ -10,12 +10,11 @@ import { getAllProjectServices, deleteProjectService } from "@services/projects"
 import React, { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { deleteConfirmation } from "@utils/modal";
-import Swal from "sweetalert2";
+import eventBus from "@utils/EventBus";
 import { Link } from "react-router-dom";
 import LeadsConfigForm from "./components/LeadsConfigForm";
 import CategoryTreeExplorer from "./components/CategoryTreeExplorer";
-import { LeadDirectSource, LeadReferralType, LeadStatus, LeadCancellationReason, MeetingScheduleType } from "@models/leads";
+import { LeadDirectSource, LeadReferralType, LeadStatus, LeadCancellationReason, LeadPoStatus, MeetingScheduleType } from "@models/leads";
 import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "../../../../../hooks/useDeleteConfirmation";
 import { DropdownOption } from "../../../../../types/deleteConfirmation";
@@ -29,6 +28,8 @@ import {
 import {
   ConfigPageLayout,
   ConfigSectionCard,
+  ConfigColorChip,
+  ConfigChipGrid,
   C,
   FONT,
   SP,
@@ -39,142 +40,71 @@ import type { ConfigTab } from '@app/modules/configuration';
 import { ProjectPointsConfigSection } from '@app/modules/projectPoints';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
+/**
+ * One delete flow for every list on this screen: confirm, optionally transfer, then
+ * delete — the dialog Direct Source and Service already used, now used by all of them.
+ *
+ * Why every list needs the transfer option, not just a refusal: the server now stops
+ * you deleting an option that records still point at, which on its own is a dead end
+ * ("used by 12 leads" — and then what?). Offering the replacement in the same dialog
+ * turns that into one action. The reassignment happens server-side before the guard
+ * runs, so the delete either moves everything and succeeds, or moves nothing and is
+ * refused; it cannot half-happen.
+ *
+ * Named `use…` because it calls a hook — invoked unconditionally, once per list, in a
+ * fixed order, which is what keeps the hook order stable across renders.
+ */
+const useConfigDelete = (
+  entityName: string,
+  transferDescription: string,
+  remove: (id: string, targetId?: string) => Promise<unknown>,
+  refresh: () => void,
+) => useDeleteConfirmation({
+  deleteFunction: async (id: string, targetId?: string) => { await remove(id, targetId); },
+  defaultConfig: {
+    entityName,
+    entityDisplayName: '',
+    showTransferOption: true,
+    transferDescription,
+  },
+  onSuccess: refresh,
+  // No onError: the hook's default surfaces the server's own sentence, which names
+  // the records still using this option. Anything bespoke here would say less.
+});
+
+/** The OTHER entries in the same list — what a transfer can move to. */
+const alternatives = <T extends { id?: string }>(
+  items: T[], excludeId: string, label: (item: T) => string,
+): DropdownOption[] =>
+  items.filter((i) => i.id && i.id !== excludeId).map((i) => ({ key: i.id!, value: label(i) }));
+
 // ─── ColorChip ────────────────────────────────────────────────────────────────
 
 interface ColorChipProps {
   name: string;
   color: string;
-  badge?: string;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-const ColorChip: React.FC<ColorChipProps> = ({ name, color, badge, onEdit, onDelete }) => {
-  const [hov, setHov] = useState(false);
-  return (
-    <div
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: hov ? '#ffffff' : '#f7f8fa',
-        border: `1px solid ${hov ? '#d1d5e0' : '#eaecf0'}`,
-        borderRadius: RADIUS.lg,
-        padding: '9px 12px 9px 16px',
-        transition: 'all 0.15s ease',
-        boxShadow: hov ? '0 4px 14px rgba(24,28,50,0.09)' : '0 1px 3px rgba(24,28,50,0.04)',
-        position: 'relative',
-        overflow: 'hidden',
-        cursor: 'default',
-      }}
-    >
-      {/* Left color accent */}
-      <div style={{
-        position: 'absolute',
-        top: 0, bottom: 0, left: 0,
-        width: '3px',
-        backgroundColor: color || '#ccc',
-        borderRadius: '3px 0 0 3px',
-        opacity: 0.8,
-      }} />
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-        <div style={{
-          width: '10px', height: '10px',
-          borderRadius: '50%',
-          backgroundColor: color || '#ccc',
-          flexShrink: 0,
-          boxShadow: `0 0 0 2px ${color ? color + '30' : '#ccc'}`,
-        }} />
-        <span style={{
-          fontFamily: FONT.body,
-          fontWeight: 500,
-          fontSize: '13px',
-          color: C.textPrimary,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {name}
-        </span>
-        {badge && (
-          <span style={{
-            fontFamily: FONT.body,
-            fontSize: '9px',
-            fontWeight: 700,
-            color: '#0A5C2A',
-            background: '#EDFDF3',
-            border: '1px solid #17C96433',
-            borderRadius: '999px',
-            padding: '2px 7px',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-            textTransform: 'uppercase',
-            letterSpacing: '0.4px',
-          }}>
-            {badge}
-          </span>
-        )}
-      </div>
-
-      <div style={{
-        display: 'flex',
-        gap: '4px',
-        flexShrink: 0,
-        opacity: hov ? 1 : 0.35,
-        transition: 'opacity 0.15s ease',
-      }}>
-        <button
-          onClick={onEdit}
-          style={{
-            background: hov ? '#eff6ff' : 'transparent',
-            border: 'none',
-            borderRadius: RADIUS.sm,
-            padding: '4px 7px',
-            cursor: 'pointer',
-            color: '#4f82c4',
-            display: 'flex',
-            alignItems: 'center',
-            transition: 'background 0.15s ease',
-          }}
-        >
-          <AppIcon name="bi-pencil" className="fs-8" />
-        </button>
-        <button
-          onClick={onDelete}
-          style={{
-            background: hov ? '#fff5f8' : 'transparent',
-            border: 'none',
-            borderRadius: RADIUS.sm,
-            padding: '4px 7px',
-            cursor: 'pointer',
-            color: C.danger,
-            display: 'flex',
-            alignItems: 'center',
-            transition: 'background 0.15s ease',
-          }}
-        >
-          <AppIcon name="bi-trash" className="fs-8" />
-        </button>
-      </div>
-    </div>
-  );
-};
+/**
+ * Adapter over the shared `ConfigColorChip`, which is this chip — the hand-rolled
+ * copy that used to live here was lifted into the configuration module so Billing
+ * Configure renders the identical row from the identical code. Kept as a named
+ * wrapper only so the six call sites below keep their `onDelete` shape.
+ */
+const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) => (
+  <ConfigColorChip
+    name={name}
+    color={color}
+    onEdit={onEdit}
+    action={{ icon: 'bi-trash', title: `Delete ${name}`, danger: true, onClick: onDelete }}
+  />
+);
 
 // ─── ChipGrid ─────────────────────────────────────────────────────────────────
 
-const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div style={{
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: SP.sm,
-    marginTop: SP.md,
-  }}>
-    {children}
-  </div>
-);
+const ChipGrid = ConfigChipGrid;
 
 // ─── EmptyState ───────────────────────────────────────────────────────────────
 
@@ -303,6 +233,10 @@ const LeadsConfigurationMain = () => {
   const [showCancellationReasonModal, setShowCancellationReasonModal] = useState(false);
   const [editingCancellationReason, setEditingCancellationReason] = useState<LeadCancellationReason | null>(null);
 
+  const [leadPoStatuses, setLeadPoStatuses] = useState<LeadPoStatus[]>([]);
+  const [showPoStatusModal, setShowPoStatusModal] = useState(false);
+  const [editingPoStatus, setEditingPoStatus] = useState<LeadPoStatus | null>(null);
+
   const [meetingSchedules, setMeetingSchedules] = useState<MeetingScheduleType[]>([]);
   const [showMeetingScheduleModal, setShowMeetingScheduleModal] = useState(false);
   const [editingMeetingSchedule, setEditingMeetingSchedule] = useState<MeetingScheduleType | null>(null);
@@ -337,6 +271,10 @@ const LeadsConfigurationMain = () => {
   const handleCancellationReasonModalOpen = () => setShowCancellationReasonModal(true);
   const handleCancellationReasonModalClose = () => { setShowCancellationReasonModal(false); setEditingCancellationReason(null); };
   const handleCancellationReasonEdit = (r: LeadCancellationReason) => { setEditingCancellationReason(r); setShowCancellationReasonModal(true); };
+
+  const handlePoStatusModalOpen = () => setShowPoStatusModal(true);
+  const handlePoStatusModalClose = () => { setShowPoStatusModal(false); setEditingPoStatus(null); };
+  const handlePoStatusEdit = (s: LeadPoStatus) => { setEditingPoStatus(s); setShowPoStatusModal(true); };
 
   const handleMeetingScheduleModalOpen = () => { setEditingMeetingSchedule(null); setShowMeetingScheduleModal(true); };
   const handleMeetingScheduleModalClose = () => { setShowMeetingScheduleModal(false); setEditingMeetingSchedule(null); };
@@ -412,6 +350,22 @@ const LeadsConfigurationMain = () => {
     }
   };
 
+  // Not sorted alphabetically, unlike the lists above: PO Status is a lifecycle
+  // (Pending → Approved / Rejected), so the order the admin created them in is the order
+  // that reads correctly in the dropdown. The API returns them oldest-first.
+  const fetchLeadPoStatuses = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllLeadPoStatuses();
+      const rows = response?.data?.leadPoStatuses ?? response?.leadPoStatuses;
+      if (rows) setLeadPoStatuses(rows);
+    } catch (error) {
+      console.error('Error fetching lead PO statuses:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchMeetingSchedules = async () => {
     try {
       setLoading(true);
@@ -462,79 +416,70 @@ const LeadsConfigurationMain = () => {
 
   // ── Delete handlers ─────────────────────────────────────────────────────────
 
-  const handleDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation('Lead status deleted successfully');
-      if (confirmed) { await deleteLeadStatus(id); fetchLeadStatuses(); }
-    } catch (error) {
-      console.error('Error deleting lead status:', error);
-    }
-  };
-
-  const handleReferralTypeDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation('Lead referral type deleted successfully');
-      if (confirmed) { await deleteLeadReferralType(id); fetchLeadReferralTypes(); }
-    } catch (error) {
-      console.error('Error deleting lead referral type:', error);
-    }
-  };
-
-  const handleCancellationReasonDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation('Cancellation reason deleted successfully');
-      if (!confirmed) return;
-      await deleteLeadCancellationReason(id);
-      fetchLeadCancellationReasons();
-    } catch (error) {
-      console.error('Error deleting cancellation reason:', error);
-    }
-  };
-
-  const handleMeetingScheduleDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation('Meeting schedule deleted successfully');
-      if (!confirmed) return;
-      await deleteMeetingSchedule(id);
-      fetchMeetingSchedules();
-    } catch (error) {
-      console.error('Error deleting meeting schedule:', error);
-    }
-  };
-
-  const handleCategoryDelete = async (id: string) => {
-    try {
-      const category = projectCategories.find((c) => c.id === id);
-      if (category && category.subCategories && category.subCategories > 0) {
-        await Swal.fire({
-          icon: 'warning',
-          title: 'Cannot Delete',
-          text: `This category has ${category.subCategories} subcategory(s) and cannot be deleted. Please remove all subcategories first.`,
-          confirmButtonColor: '#1E3A8A',
-        });
-        return;
-      }
-      const confirmed = await deleteConfirmation('Category deleted successfully');
-      if (!confirmed) return;
-      await deleteProjectCategory(id);
-      fetchProjectCategories();
-    } catch (error) {
-      console.error('Error deleting category:', error);
-    }
-  };
-
-  const handleSubcategoryDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation('Subcategory deleted successfully');
-      if (!confirmed) return;
-      await deleteProjectSubcategory(id);
-      await Promise.all([fetchProjectSubcategories(), fetchProjectCategories()]);
-    } catch (error) {
-      console.error('Error deleting subcategory:', error);
-    }
-  };
-
   // ── Delete confirmation hooks ────────────────────────────────────────────────
+
+  const statusDelete = useConfigDelete(
+    'Lead Status', 'All leads in this status will be moved to the selected status.',
+    deleteLeadStatus, fetchLeadStatuses);
+
+  const referralTypeDelete = useConfigDelete(
+    'Referral Type', 'All referrals of this type will be moved to the selected type.',
+    deleteLeadReferralType, fetchLeadReferralTypes);
+
+  const cancellationReasonDelete = useConfigDelete(
+    'Cancellation Reason', 'All leads cancelled for this reason will be moved to the selected reason.',
+    deleteLeadCancellationReason, fetchLeadCancellationReasons);
+
+  const poStatusDelete = useConfigDelete(
+    'PO Status', 'All leads carrying this PO status will be moved to the selected status.',
+    deleteLeadPoStatus, () => {
+      eventBus.emit(EVENT_KEYS.leadPoStatusDeleted, {});
+      fetchLeadPoStatuses();
+    });
+
+  const meetingScheduleDelete = useConfigDelete(
+    'Meeting Schedule', 'All leads on this schedule will be moved to the selected schedule.',
+    deleteMeetingSchedule, fetchMeetingSchedules);
+
+  const categoryDelete = useConfigDelete(
+    'Category', 'All leads, subcategories and payment plans under this category will be moved to the selected category.',
+    deleteProjectCategory, fetchProjectCategories);
+
+  const subcategoryDelete = useConfigDelete(
+    'Subcategory', 'All leads under this subcategory will be moved to the selected subcategory.',
+    deleteProjectSubcategory, () => {
+      void Promise.all([fetchProjectSubcategories(), fetchProjectCategories()]);
+    });
+
+  // ── Delete handlers — open the dialog with this list's other entries ─────────
+
+  const handleDelete = (id: string) => statusDelete.showDeleteModal(
+    id, leadStatus.find((s) => s.id === id)?.name ?? 'this status',
+    { dropdownOptions: alternatives(leadStatus, id, (s) => s.name) });
+
+  const handleReferralTypeDelete = (id: string) => referralTypeDelete.showDeleteModal(
+    id, leadReferralType.find((r) => r.id === id)?.name ?? 'this referral type',
+    { dropdownOptions: alternatives(leadReferralType, id, (r) => r.name) });
+
+  const handleCancellationReasonDelete = (id: string) => cancellationReasonDelete.showDeleteModal(
+    id, leadCancellationReasons.find((r) => r.id === id)?.reason ?? 'this reason',
+    { dropdownOptions: alternatives(leadCancellationReasons, id, (r) => r.reason) });
+
+  const handlePoStatusDelete = (id: string) => poStatusDelete.showDeleteModal(
+    id, leadPoStatuses.find((s) => s.id === id)?.name ?? 'this PO status',
+    { dropdownOptions: alternatives(leadPoStatuses, id, (s) => s.name) });
+
+  const handleMeetingScheduleDelete = (id: string) => meetingScheduleDelete.showDeleteModal(
+    id, meetingSchedules.find((m) => m.id === id)?.name ?? 'this schedule',
+    { dropdownOptions: alternatives(meetingSchedules, id, (m) => m.name) });
+
+  const handleCategoryDelete = (id: string) => categoryDelete.showDeleteModal(
+    id, projectCategories.find((c) => c.id === id)?.name ?? 'this category',
+    { dropdownOptions: alternatives(projectCategories, id, (c) => c.name) });
+
+  const handleSubcategoryDelete = (id: string) => subcategoryDelete.showDeleteModal(
+    id, projectSubcategories.find((s) => s.id === id)?.name ?? 'this subcategory',
+    { dropdownOptions: alternatives(projectSubcategories, id, (s) => s.name) });
 
   const directSourceDeleteConfirmation = useDeleteConfirmation({
     deleteFunction: async (itemId: string, targetId?: string) => {
@@ -547,10 +492,6 @@ const LeadsConfigurationMain = () => {
       transferDescription: 'All leads using this direct source will be transferred to the selected source.',
     },
     onSuccess: () => { fetchLeadDirectSources(); },
-    onError: (error) => {
-      console.error('Failed to delete lead direct source:', error);
-      alert('Failed to delete lead direct source');
-    },
   });
 
   const serviceDeleteConfirmation = useDeleteConfirmation({
@@ -564,10 +505,6 @@ const LeadsConfigurationMain = () => {
       transferDescription: 'All projects and leads using this service will be transferred to the selected service.',
     },
     onSuccess: () => { fetchProjectServices(); },
-    onError: (error: any) => {
-      console.error('Failed to delete project service:', error);
-      alert('Failed to delete project service');
-    },
   });
 
   const handleDirectSourceDelete = (id: string) => {
@@ -604,6 +541,7 @@ const LeadsConfigurationMain = () => {
   useEffect(() => { fetchLeadReferralTypes(); }, []);
   useEffect(() => { fetchLeadDirectSources(); }, []);
   useEffect(() => { fetchLeadCancellationReasons(); }, []);
+  useEffect(() => { fetchLeadPoStatuses(); }, []);
   useEffect(() => { fetchMeetingSchedules(); }, []);
   useEffect(() => { fetchProjectServices(); }, []);
   useEffect(() => { fetchProjectCategories(); fetchProjectSubcategories(); }, []);
@@ -613,6 +551,8 @@ const LeadsConfigurationMain = () => {
   useEventBus(EVENT_KEYS.leadDirectSourceCreated, fetchLeadDirectSources);
   useEventBus(EVENT_KEYS.leadCancellationReasonCreated, fetchLeadCancellationReasons);
   useEventBus(EVENT_KEYS.leadCancellationReasonUpdated, fetchLeadCancellationReasons);
+  useEventBus(EVENT_KEYS.leadPoStatusCreated, fetchLeadPoStatuses);
+  useEventBus(EVENT_KEYS.leadPoStatusUpdated, fetchLeadPoStatuses);
   useEventBus(EVENT_KEYS.meetingScheduleCreated, fetchMeetingSchedules);
   useEventBus(EVENT_KEYS.meetingScheduleUpdated, fetchMeetingSchedules);
   useEventBus(EVENT_KEYS.meetingScheduleDeleted, fetchMeetingSchedules);
@@ -771,6 +711,38 @@ const LeadsConfigurationMain = () => {
                         color={r.color}
                         onEdit={() => handleCancellationReasonEdit(r)}
                         onDelete={() => handleCancellationReasonDelete(r.id!)}
+                      />
+                    ))}
+                  </ChipGrid>
+                )
+              }
+            </ConfigSectionCard>
+
+            {/* 5. PO Status — Lead Form Fields */}
+            <ConfigSectionCard
+              title="PO Status"
+              description="Options offered in the lead form's PO Status field, on the Purchase Order block of a received lead."
+              icon="bi-receipt"
+              iconColor="amber"
+              primaryAction={{
+                label: 'New PO Status',
+                icon: 'bi-plus-lg',
+                onClick: handlePoStatusModalOpen,
+                variant: 'primary',
+              }}
+              loading={loading}
+            >
+              {leadPoStatuses.length === 0
+                ? <EmptyState label="PO statuses" />
+                : (
+                  <ChipGrid>
+                    {leadPoStatuses.map((s) => (
+                      <ColorChip
+                        key={s.id}
+                        name={s.name}
+                        color={s.color}
+                        onEdit={() => handlePoStatusEdit(s)}
+                        onDelete={() => handlePoStatusDelete(s.id!)}
                       />
                     ))}
                   </ChipGrid>
@@ -1029,6 +1001,15 @@ const LeadsConfigurationMain = () => {
         type="cancellation-reason"
         title="Cancellation Reason"
       />
+      <LeadsConfigForm
+        show={showPoStatusModal}
+        onClose={handlePoStatusModalClose}
+        onSuccess={fetchLeadPoStatuses}
+        initialData={editingPoStatus}
+        isEditing={!!editingPoStatus}
+        type="po-status"
+        title="PO Status"
+      />
       <ProjectConfigForm
         show={showServiceModal}
         onClose={handleServiceModalClose}
@@ -1067,6 +1048,13 @@ const LeadsConfigurationMain = () => {
 
       {directSourceDeleteConfirmation.DeleteModal}
       {serviceDeleteConfirmation.DeleteModal}
+      {statusDelete.DeleteModal}
+      {referralTypeDelete.DeleteModal}
+      {cancellationReasonDelete.DeleteModal}
+      {poStatusDelete.DeleteModal}
+      {meetingScheduleDelete.DeleteModal}
+      {categoryDelete.DeleteModal}
+      {subcategoryDelete.DeleteModal}
     </>
   );
 };

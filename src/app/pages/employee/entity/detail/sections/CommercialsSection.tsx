@@ -4,15 +4,11 @@ import { EditableDetailCard, FieldRow, SelectEditor, DateEditor, NumberEditor, T
 import { updateLeadSection, type LeadSectionKey } from '@services/leadService';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { usePoStatusOptions } from '@hooks/usePoStatusOptions';
 import { EmptyState } from '../widgets';
 import { fmtMoney, fmtDate, DASH, type CommercialTotals } from '../entityViewModel';
 import type { CommercialLineVM, EntityVM } from '../facets';
 
-const poStatusOptions = [
-  { value: 'Pending', label: 'Pending' },
-  { value: 'Approved', label: 'Approved' },
-  { value: 'Rejected', label: 'Rejected' },
-];
 
 const Td: React.FC<{ children?: React.ReactNode; strong?: boolean }> = ({ children, strong }) => (
   <td style={{ padding: '11px 12px', borderBottom: '1px solid #F4F6F9', fontSize: 13, color: strong ? '#1E293B' : '#475569', fontWeight: strong ? 700 : 500, whiteSpace: 'nowrap' }}>
@@ -75,6 +71,7 @@ const Breakdown: React.FC<{ title: string; subtitle: string; icon: string; accen
  * breakdown) both live here. No separate Financials tab; no duplicate cards.
  */
 const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawLead }) => {
+  const poStatusOptions = usePoStatusOptions();
   const lead = vm.commercials.lead;
   const project = vm.commercials.project;
   const contractValue = project?.totals.totalCost || lead.totals.totalCost;

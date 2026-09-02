@@ -5,7 +5,7 @@
  * warnings so the build stays green — while ANY file NOT listed here fails hard on the same
  * violation. New code therefore cannot regress, and this list can only shrink.
  *
- * Burn-down: 415 files at baseline. Delete a path once its violations are fixed.
+ * Burn-down: 407 files at baseline. Delete a path once its violations are fixed.
  */
 module.exports = [
   "src/app/components/ErrorBoundary.tsx",
@@ -117,7 +117,6 @@ module.exports = [
   "src/app/pages/company/settings/RolesAndPermissions.tsx",
   "src/app/pages/company/settings/SandwhichLeave.tsx",
   "src/app/pages/dashboard/CustomizeDashboard.tsx",
-  "src/app/pages/dashboard/DashboardAnnouncements.tsx",
   "src/app/pages/dashboard/DashboardDailyAttendanceOverview.tsx",
   "src/app/pages/dashboard/DashboardKpi.tsx",
   "src/app/pages/dashboard/DashboardLeaderboard.tsx",
@@ -139,7 +138,6 @@ module.exports = [
   "src/app/pages/dashboard/leadAnalytics/YearlyInsightsPanel.tsx",
   "src/app/pages/dashboard/projectAnalytics/ProjectHealthMatrix.tsx",
   "src/app/pages/dashboard/projectAnalytics/ProjectPipelineBoard.tsx",
-  "src/app/pages/dashboard/views/CreateAnnouncementButton.tsx",
   "src/app/pages/employee/CustomCalendar.tsx",
   "src/app/pages/employee/EditMeetingModal.tsx",
   "src/app/pages/employee/EmployeeAccessTab.tsx",
@@ -175,7 +173,6 @@ module.exports = [
   "src/app/pages/employee/attendance/personal/views/overview/WorkingMethodOptions.tsx",
   "src/app/pages/employee/calendar/admin/Holidays.tsx",
   "src/app/pages/employee/calendar/views/CalendarConfigForm.tsx",
-  "src/app/pages/employee/calendar/views/CalendarConfigure.tsx",
   "src/app/pages/employee/calendar/views/Meetings.tsx",
   "src/app/pages/employee/calendar/views/PublicHolidayListTwo.tsx",
   "src/app/pages/employee/calendar/views/RenameHoliday.tsx",
@@ -234,7 +231,6 @@ module.exports = [
   "src/app/pages/employee/entity/detail/density.tsx",
   "src/app/pages/employee/entity/detail/sections/ActivitiesSection.tsx",
   "src/app/pages/employee/entity/detail/sections/AuditSection.tsx",
-  "src/app/pages/employee/entity/detail/sections/BillingSection.tsx",
   "src/app/pages/employee/entity/detail/sections/ClientSection.tsx",
   "src/app/pages/employee/entity/detail/sections/DocumentsSection.tsx",
   "src/app/pages/employee/entity/detail/sections/SummarySection.tsx",
@@ -363,7 +359,6 @@ module.exports = [
   "src/app/pages/employee/search/SearchResultsPage.tsx",
   "src/app/pages/employee/tasks/calender/TasksMainCalenderPage.tsx",
   "src/app/pages/employee/tasks/calender/component/TeamForm.tsx",
-  "src/app/pages/employee/tasks/components/HierarchicalTaskSelect.tsx",
   "src/app/pages/employee/tasks/configure/TasksConfigure.tsx",
   "src/app/pages/employee/tasks/configure/components/TaskConfigForm.tsx",
   "src/app/pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain.simplified.tsx",
@@ -381,10 +376,8 @@ module.exports = [
   "src/app/pages/employee/tasks/tasks/components/TaskTimesheet.tsx",
   "src/app/pages/employee/timesheet/employeetimesheet/component/MyEmployeeTimeSheetPage.tsx",
   "src/app/pages/employee/timesheet/employeetimesheet/component/MyEmployeesTimeSheetPorject.tsx",
-  "src/app/pages/employee/timesheet/employeetimesheet/component/NewTimeLogForm.tsx",
   "src/app/pages/employee/timesheet/mytimesheet/component/MyTimeSheetPage.tsx",
   "src/app/pages/employee/timesheet/mytimesheet/component/MyTimeSheetPorject.tsx",
-  "src/app/pages/employee/timesheet/mytimesheet/component/TimeSheetByIdOverview.tsx",
   "src/app/pages/employee/wizard/attendance/Attendance.tsx",
   "src/app/pages/employee/wizard/components/ObFileUpload.tsx",
   "src/app/pages/employee/wizard/forms/EducationInfo.tsx",

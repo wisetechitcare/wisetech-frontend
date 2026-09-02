@@ -137,8 +137,10 @@ export interface GlassHeaderProps {
   /** Custom back glyph; defaults to `‹`. */
   backIcon?: React.ReactNode;
   /** 'gradient' = the brand navy header band (default, needs nothing behind it);
-   *  'frost' = a regular glass surface header for lighter contexts. */
-  variant?: 'gradient' | 'frost';
+   *  'frost' = a regular glass surface header for lighter contexts;
+   *  'plain' = title + bare close on the Paper itself — no band, no accent rule,
+   *  no icon tile. For quiet single-purpose editors (Leads / Billing Configure). */
+  variant?: 'gradient' | 'frost' | 'plain';
 }
 
 export function GlassHeader({
@@ -146,16 +148,21 @@ export function GlassHeader({
   onBack, backLabel = 'Back', backIcon, variant = 'gradient',
 }: GlassHeaderProps) {
   const gradient = variant === 'gradient';
+  const plain = variant === 'plain';
   const mode = useMode();
-  const frostSx = gradient ? {} : glassSx('regular', { mode });
+  const frostSx = gradient || plain ? {} : glassSx('regular', { mode });
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5,
-      px: { xs: 2, sm: 2.75 }, py: { xs: 1.5, sm: 1.75 },
+      px: { xs: 2, sm: 3 }, py: plain ? { xs: 2, sm: 2.25 } : { xs: 1.5, sm: 1.75 },
       ...(gradient
         ? { background: `linear-gradient(135deg, ${T.color.brandHover} 0%, ${T.color.brand} 100%)`, color: '#fff' }
-        : { ...frostSx, borderRadius: 0, color: label(mode, 'primary') }),
-      borderBottom: `3px solid ${T.color.accent}`, flexShrink: 0,
+        : plain
+          ? { color: label(mode, 'primary') }
+          : { ...frostSx, borderRadius: 0, color: label(mode, 'primary') }),
+      // The accent rule separates a coloured band from the body. A plain header
+      // sits ON the body, so a rule there would be drawing a line for nothing.
+      borderBottom: plain ? 'none' : `3px solid ${T.color.accent}`, flexShrink: 0,
     }}>
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
         {/* Back replaces the icon tile rather than sitting next to it: on a 360px header
@@ -171,7 +178,7 @@ export function GlassHeader({
           }}>
             {backIcon ?? <Box component="span" sx={{ fontSize: 26, lineHeight: 1, fontWeight: 400, mt: '-2px' }}>&lsaquo;</Box>}
           </IconButton>
-        ) : icon && (
+        ) : icon && !plain && (
           <Box sx={{
             width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5,
             display: 'grid', placeItems: 'center', flexShrink: 0,
@@ -183,7 +190,11 @@ export function GlassHeader({
           </Box>
         )}
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: { xs: 15.5, sm: 17 }, lineHeight: 1.25, color: gradient ? '#fff' : label(mode, 'primary') }}>
+          <Typography sx={{
+            fontWeight: plain ? 600 : 700,
+            fontSize: plain ? 18 : { xs: 15.5, sm: 17 },
+            lineHeight: 1.25, color: gradient ? '#fff' : label(mode, 'primary'),
+          }}>
             {toTitleCase(title)}
           </Typography>
           {subtitle && (
@@ -204,7 +215,7 @@ export function GlassHeader({
           // the rare header that needs a different glyph.
           closeIcon
             ? <IconButton onClick={onClose} aria-label="Close" sx={{ width: 38, height: 38 }}>{closeIcon}</IconButton>
-            : <WtCloseButton variant={gradient ? 'dark' : 'light'} onClick={onClose} size={38} />
+            : <WtCloseButton variant={gradient ? 'dark' : plain ? 'plain' : 'light'} onClick={onClose} size={plain ? 34 : 38} />
         )}
       </Stack>
     </Box>

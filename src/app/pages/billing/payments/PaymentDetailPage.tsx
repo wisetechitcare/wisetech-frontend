@@ -293,7 +293,7 @@ const PaymentDetailPage: React.FC = () => {
               {tab === 3 && (
                 <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
                   Notes and status changes are recorded on the Billing Operation's own activity
-                  log — open it from Billing Operations for the full trail.
+                  log — open it from the Billing Tracker for the full trail.
                 </Typography>
               )}
             </Box>

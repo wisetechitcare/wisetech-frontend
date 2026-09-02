@@ -78,10 +78,18 @@ export interface WtColorPickerProps {
     allowCustom?: boolean;
     size?: number;
     disabled?: boolean;
+    /**
+     * 'grid' (default) — the palette laid out as swatches, for a form with room.
+     * 'row' — one full-width control: dot, prompt, current hex, opening straight
+     * into the browser picker. Use where the colour is a single line in a compact
+     * dialog and the palette would dominate it.
+     */
+    variant?: 'grid' | 'row';
 }
 
 export function WtColorPicker({
     value, onChange, palette = KIT_SWATCHES, label, allowCustom = true, size = 36, disabled,
+    variant = 'grid',
 }: WtColorPickerProps) {
     const inputId = useId();
     const currentHex = useMemo(() => resolveSwatchHex(value, palette), [value, palette]);
@@ -89,6 +97,54 @@ export function WtColorPicker({
         () => isHexColor(value) && !palette.some((swatch) => swatch.hex.toLowerCase() === value.toLowerCase()),
         [value, palette],
     );
+
+    // The hidden `<input type="color">` both layouts drive. A label wrapping it is
+    // what opens the picker — no click handler, so keyboard reaches it for free.
+    const nativeInput = (
+        <Box
+            component="input"
+            id={inputId}
+            type="color"
+            aria-label={`${label} — custom colour`}
+            disabled={disabled}
+            value={currentHex}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
+            sx={{ width: 0, height: 0, opacity: 0, position: 'absolute', pointerEvents: 'none' }}
+        />
+    );
+
+    if (variant === 'row') {
+        return (
+            <Box
+                component="label"
+                htmlFor={inputId}
+                sx={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2,
+                    px: 2, py: 1.5, borderRadius: '8px',
+                    bgcolor: 'action.hover',
+                    border: '1px solid', borderColor: 'divider',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    opacity: disabled ? 0.5 : 1,
+                    transition: 'border-color .15s',
+                    '&:hover': { borderColor: disabled ? 'divider' : 'text.disabled' },
+                    '&:focus-within': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
+                }}
+            >
+                <Stack direction="row" alignItems="center" spacing={1.5}>
+                    <Box sx={{
+                        width: 20, height: 20, borderRadius: '50%', bgcolor: currentHex,
+                        border: '2px solid', borderColor: 'background.paper',
+                        boxShadow: '0 0 0 1px rgba(0,0,0,0.12)', flexShrink: 0,
+                    }} />
+                    <Box component="span" sx={{ fontSize: 14, color: 'text.secondary' }}>Choose Color</Box>
+                </Stack>
+                <Box component="span" sx={{ fontSize: 12, fontWeight: 500, color: 'text.secondary' }}>
+                    {currentHex.toUpperCase()}
+                </Box>
+                {nativeInput}
+            </Box>
+        );
+    }
 
     return (
         <Stack spacing={1.25}>
@@ -157,16 +213,7 @@ export function WtColorPicker({
                             {isCustom && <KTIcon iconName="check" className="fs-7" />}
                             {/* Visually hidden, but still a real focusable input so
                                 the swatch is reachable by keyboard. */}
-                            <Box
-                                component="input"
-                                id={inputId}
-                                type="color"
-                                aria-label={`${label} — custom colour`}
-                                disabled={disabled}
-                                value={currentHex}
-                                onChange={(event: React.ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
-                                sx={{ width: 0, height: 0, opacity: 0, position: 'absolute', pointerEvents: 'none' }}
-                            />
+                            {nativeInput}
                         </Box>
                     </Tooltip>
                 )}

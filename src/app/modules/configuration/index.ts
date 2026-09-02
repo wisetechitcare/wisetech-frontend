@@ -14,6 +14,9 @@ export type { ConfigSectionRailProps, ConfigRailGroup, ConfigRailItem } from './
 export { default as ConfigSectionCard } from './ConfigSectionCard';
 export type { ConfigSectionCardProps, ConfigSectionCardAction } from './ConfigSectionCard';
 
+export { ConfigColorChip, ConfigChipGrid } from './ConfigColorChip';
+export type { ConfigColorChipProps, ConfigChipAction } from './ConfigColorChip';
+
 export { default as ConfigSettingsRow } from './ConfigSettingsRow';
 export type { ConfigSettingsRowProps } from './ConfigSettingsRow';
 

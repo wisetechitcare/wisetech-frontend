@@ -226,19 +226,23 @@ export function useNavigation() {
         title: 'Project Team',
         fontIcon: 'bi-diagram-3',
         visible: NEW_MY_TEAM_IA && (can('approvals.view.team') || can('approvals.approve.team') || can('approvals.manage.all')),
+        // Each child names its own glyph. Without one they inherit the group's
+        // `bi-diagram-3`, so the whole cluster renders as eleven identical org-chart
+        // tiles in the workspace grid. Icons match the top-level module for the same
+        // concept (Salary, Tasks, Projects…) so a row reads the same wherever it appears.
         children: [
-          { type: 'item', id: 'tm-overview', to: '/my-team/overview', title: 'Overview', visible: true },
-          { type: 'item', id: 'tm-members', to: '/my-team/members', title: 'Members', visible: true },
-          { type: 'item', id: 'tm-attendance', to: '/my-team/attendance', title: 'Attendance', visible: true },
-          { type: 'item', id: 'tm-leaves', to: '/my-team/leaves', title: 'Leaves', visible: true },
+          { type: 'item', id: 'tm-overview', to: '/my-team/overview', title: 'Overview', fontIcon: 'bi-grid-1x2', visible: true },
+          { type: 'item', id: 'tm-members', to: '/my-team/members', title: 'Members', fontIcon: 'bi-people', visible: true },
+          { type: 'item', id: 'tm-attendance', to: '/my-team/attendance', title: 'Attendance', fontIcon: 'bi-calendar2-week', visible: true },
+          { type: 'item', id: 'tm-leaves', to: '/my-team/leaves', title: 'Leaves', fontIcon: 'bi-calendar-check', visible: true },
           // Shortcut into Finance's route — Finance owns /finance/reimbursements. See `alias`.
-          { type: 'item', id: 'tm-reimbursements', to: '/finance/reimbursements', title: 'Reimbursements', visible: true, alias: true },
-          { type: 'item', id: 'tm-salary', to: '/my-team/salary', title: 'Salary', visible: true },
-          { type: 'item', id: 'tm-tasks', to: '/my-team/tasks', title: 'Tasks', visible: true },
-          { type: 'item', id: 'tm-projects', to: '/my-team/projects', title: 'Projects', visible: true },
-          { type: 'item', id: 'tm-leads', to: '/my-team/leads', title: 'Leads', visible: true },
-          { type: 'item', id: 'tm-approvals', to: '/my-team/approvals', title: 'Approvals', badgeCount: pendingApprovalsCount, visible: can('approvals.approve.team') },
-          { type: 'item', id: 'tm-delegations', to: '/my-team/delegations', title: 'Delegations', visible: can('approvals.manage.all') },
+          { type: 'item', id: 'tm-reimbursements', to: '/finance/reimbursements', title: 'Reimbursements', fontIcon: 'bi-receipt', visible: true, alias: true },
+          { type: 'item', id: 'tm-salary', to: '/my-team/salary', title: 'Salary', fontIcon: 'bi-cash-coin', visible: true },
+          { type: 'item', id: 'tm-tasks', to: '/my-team/tasks', title: 'Tasks', fontIcon: 'bi-check2-square', visible: true },
+          { type: 'item', id: 'tm-projects', to: '/my-team/projects', title: 'Projects', fontIcon: 'bi-briefcase', visible: true },
+          { type: 'item', id: 'tm-leads', to: '/my-team/leads', title: 'Leads', fontIcon: 'bi-megaphone', visible: true },
+          { type: 'item', id: 'tm-approvals', to: '/my-team/approvals', title: 'Approvals', fontIcon: 'bi-check2-circle', badgeCount: pendingApprovalsCount, visible: can('approvals.approve.team') },
+          { type: 'item', id: 'tm-delegations', to: '/my-team/delegations', title: 'Delegations', fontIcon: 'bi-arrow-left-right', visible: can('approvals.manage.all') },
         ]
       },
       // Pre-"My Team IA" routes. NAV_CONFIG has no equivalent (that branch shipped
@@ -278,19 +282,8 @@ export function useNavigation() {
       },
       // Finance used to sit here as a collapsible `sub`, which made it a labelled
       // cluster inside the HR & People workspace. It is its own application now —
-      // see the Finance section between Projects and Organization below.
-
-      // Billing — a top-level ERP module in its own right, NOT a project sub-page.
-      // A single flat entry by design: the module's own header tabs handle everything
-      // below it, so the sidebar stays one level deep.
-      {
-        type: 'item',
-        id: 'billing',
-        to: '/billing',
-        title: 'Billing',
-        fontIcon: 'bi-receipt',
-        visible: !isSectionBlocked('billing'),
-      },
+      // see the Finance section between Projects and Organization below — Billing
+      // moved there too, it is money rather than people administration.
 
       // ── CRM ───────────────────────────────────────────────────────────────
       {
@@ -406,20 +399,27 @@ export function useNavigation() {
         type: 'section',
         id: 'finance-section',
         title: 'Finance/Account Department',
-        visible: !isSectionBlocked('finance'),
+        // Billing has its own permission section, so the header must survive a user
+        // who has Billing but not the rest of Finance.
+        visible: !isSectionBlocked('finance') || !isSectionBlocked('billing'),
+      },
+      // Billing — a top-level ERP module in its own right, NOT a project sub-page.
+      // A single flat entry by design: the module's own header tabs handle everything
+      // below it, so the sidebar stays one level deep.
+      {
+        type: 'item',
+        id: 'billing',
+        to: '/billing',
+        title: 'Billing',
+        // Not `bi-receipt` — Reimbursements owns that; the long-receipt variant keeps
+        // the two Finance rows distinguishable at a glance.
+        fontIcon: 'bi-receipt-cutoff',
+        visible: !isSectionBlocked('billing'),
       },
       // As `sub` children these rows carried no icon of their own and inherited the
       // group's glyph, which ModuleGrid does for cluster children only. Top-level
       // modules get no such fallback, so each names its own — otherwise all four
       // would render the generic folder placeholder.
-      {
-        type: 'item',
-        id: 'fin-loans',
-        to: '/finance/loans',
-        title: 'Loans',
-        fontIcon: 'bi-cash-stack',
-        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.loans', hasPermission(uiControlResourceNameMapWithCamelCase.loanUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-      },
       {
         type: 'item',
         id: 'fin-reimbursements',
@@ -443,6 +443,14 @@ export function useNavigation() {
         title: 'Increment',
         fontIcon: 'bi-graph-up-arrow',
         visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.increment', hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+      },
+            {
+        type: 'item',
+        id: 'fin-loans',
+        to: '/finance/loans',
+        title: 'Loans',
+        fontIcon: 'bi-cash-stack',
+        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.loans', hasPermission(uiControlResourceNameMapWithCamelCase.loanUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
       },
 
       // ── Organization ──────────────────────────────────────────────────────

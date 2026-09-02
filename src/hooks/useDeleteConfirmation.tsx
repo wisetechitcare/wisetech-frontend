@@ -2,6 +2,8 @@ import React, { useState, useCallback } from 'react';
 import DeleteConfirmationModal from '../components/common/DeleteConfirmationModal';
 import { DeleteFunction, DeleteConfirmationConfig, DropdownOption } from '../types/deleteConfirmation';
 import Swal from 'sweetalert2';
+import { errorConfirmation } from '@utils/modal';
+import { apiErrorMessage } from '@utils/apiError';
 
 interface UseDeleteConfirmationReturn {
     showDeleteModal: (itemId: string, itemDisplayName: string, config?: Partial<DeleteConfirmationConfig>) => void;
@@ -76,8 +78,17 @@ export const useDeleteConfirmation = ({
             onSuccess?.();
             closeModal();
         } catch (error) {
-            onError?.(error);
-            console.error('Delete operation failed:', error);
+            // The server refuses a delete whose option is still in use, and that
+            // refusal is the most useful thing this dialog can say — it names the
+            // records to reassign. It used to reach `console.error` only, so the
+            // modal just sat there and the user learned nothing.
+            // Same treatment `utils/configDelete` gives the non-transfer lists: the
+            // sentence lives in `detail`, and `.message` is only the HTTP status name.
+            if (onError) onError(error);
+            else await errorConfirmation(
+                apiErrorMessage(error, 'Could not delete this. Please try again.'),
+                'Could not delete',
+            );
         } finally {
             setLoading(false);
         }

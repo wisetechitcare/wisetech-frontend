@@ -175,7 +175,7 @@ const url = (path: string, id?: string) =>
   `${API_BASE_URL}/${id ? path.replace(":id", id) : path}`;
 
 /** Blank filter values are dropped so an empty select doesn't become `status=`. */
-const clean = (params: OperationListParams) =>
+const clean = <T extends object>(params: T) =>
   Object.fromEntries(
     Object.entries(params).filter(([, value]) => value !== "" && value !== undefined && value !== null),
   );
@@ -188,6 +188,79 @@ export const listBillingOperations = async (
     withCredentials: true,
   });
   return { operations: data.operations ?? [], pagination: data.pagination };
+};
+
+// ─── project overview ────────────────────────────────────────────────────────
+
+/**
+ * The project-grain view of the same money.
+ *
+ * `listBillingOperations` is one row per approved billing request; this is one
+ * row per PROJECT, so a project with a signed PO and nothing billed against it
+ * appears — carrying its full PO value as pending. Those rows do not exist on the
+ * operation-grain list at all, which is the reason this endpoint is separate
+ * rather than a flag on the other one.
+ */
+
+export type PaymentStatus = "PENDING" | "PARTIALLY_PAID" | "FULLY_PAID" | "OVERPAID" | "CANCELLED";
+
+export interface ProjectOverviewBill {
+  documentId: string;
+  documentNumber: string;
+  kind: "PROFORMA" | "TAX_INVOICE";
+  issueDate: string | null;
+  amount: number;
+  paymentStatus: PaymentStatus | null;
+}
+
+export interface ProjectOverviewRow {
+  leadId: string;
+  projectNumber: string | null;
+  projectName: string | null;
+  handledByName: string | null;
+  poStatus: string | null;
+  poApproved: boolean;
+  /** Null until the PO is approved — the contract is not agreed, so there is no value. */
+  poValue: number | null;
+  receivedAmount: number;
+  /** poValue − received. Null whenever poValue is. */
+  pendingAmount: number | null;
+  /** 0–100 of the PO still to come in. Null when there is no PO value to divide by. */
+  pendingPercentage: number | null;
+  stage: BillingOperationStage | null;
+  status: BillingOperationStatus | null;
+  statusLabel: string | null;
+  lastPaymentAt: string | null;
+  nextFollowUpDate: string | null;
+  /** Always null today — no follow-up owner exists in the schema yet. */
+  followUpManagerName: string | null;
+  bill: ProjectOverviewBill | null;
+}
+
+export type ProjectOverviewSort =
+  | "projectNumber" | "projectName" | "poValue" | "receivedAmount"
+  | "pendingAmount" | "lastPaymentAt" | "nextFollowUpDate";
+
+export interface ProjectOverviewParams {
+  search?: string;
+  status?: BillingOperationStatus | "";
+  stage?: BillingOperationStage | "";
+  projectManagerId?: string;
+  poApprovedOnly?: boolean;
+  sortBy?: ProjectOverviewSort;
+  sortDir?: "asc" | "desc";
+  page?: number;
+  pageSize?: number;
+}
+
+export const listProjectOverview = async (
+  params: ProjectOverviewParams = {},
+): Promise<{ projects: ProjectOverviewRow[]; pagination: Pagination }> => {
+  const { data } = await axios.get(url(BILLING_OPERATION.PROJECTS), {
+    params: clean(params),
+    withCredentials: true,
+  });
+  return { projects: data.projects ?? [], pagination: data.pagination };
 };
 
 export const getBillingOperationStatistics = async (): Promise<OperationStatistics> => {

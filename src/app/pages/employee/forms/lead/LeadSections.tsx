@@ -21,6 +21,7 @@ import { MeetingScheduleSelector } from "./MeetingScheduleSelector";
 import { SectionWrapper } from "./SectionWrapper";
 import { WtSwitch, TRIO, AppIcon } from "@app/modules/common/components/ui";
 import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
+import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
 
 interface LeadSectionsProps {
   // ── Organization (drives the lead's prefix and inquiry-number series) ──────
@@ -1227,6 +1228,7 @@ const isClosureStatus = (status?: any): boolean =>
 export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
   const isReceived = props.isReceivedStatus ?? false;
+  const poStatusOptions = usePoStatusOptions();
 
   const leadStatuses = props.leadStatuses || [];
   const cancellationReasons = props.cancellationReasons || [];
@@ -1416,11 +1418,7 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
                     formikField="poStatus"
                     inputLabel="PO Status"
                     isRequired={false}
-                    options={[
-                      { value: "Pending", label: "Pending" },
-                      { value: "Approved", label: "Approved" },
-                      { value: "Rejected", label: "Rejected" },
-                    ]}
+                    options={poStatusOptions}
                   />
                 </Grid>
                 <Grid item xs={12} md={4}>
@@ -1466,6 +1464,9 @@ export const CancellationReasonSection: React.FC<LeadSectionsProps> = (props) =>
 // 11. PO Details Section
 export const PODetailsSection: React.FC<LeadSectionsProps> = (props) => {
   const { values } = useFormikContext<any>();
+  // Called before the early return below — this component bails out for non-Received
+  // leads, and a hook behind that branch would be a conditional hook call.
+  const poStatusOptions = usePoStatusOptions();
   const statusLabel = (props.leadStatuses || []).find(x => x.id === values.statusId)?.name;
   const showPO = statusLabel === "Received";
 
@@ -1480,11 +1481,7 @@ export const PODetailsSection: React.FC<LeadSectionsProps> = (props) => {
             isRequired={false}
             formikField="poStatus"
             inputLabel="PO Status"
-            options={[
-              { value: "Pending", label: "Pending" },
-              { value: "Approved", label: "Approved" },
-              { value: "Rejected", label: "Rejected" },
-            ]}
+            options={poStatusOptions}
           />
         </Grid>
         <Grid item xs={12} md={4}>

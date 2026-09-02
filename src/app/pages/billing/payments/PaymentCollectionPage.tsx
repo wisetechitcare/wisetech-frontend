@@ -206,7 +206,7 @@ const PaymentCollectionPage: React.FC = () => {
             startIcon={<KTIcon iconName="chart-simple" className="fs-6" />}
             sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
           >
-            Billing Operations
+            Billing Tracker
           </WtButton>
         }
       />

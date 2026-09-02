@@ -65,10 +65,10 @@ export const updateProjectCategory = async (id: string, payload: any) => {
 }
 
 // Delete Project Category
-export const deleteProjectCategory = async (id: string) => {
+export const deleteProjectCategory = async (id: string, targetId?: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.DELETE_PROJECT_CATEGORY.replace(":id", id)}`;
-        const { data } = await axios.delete(endpoint);
+        const { data } = await axios.delete(endpoint, { data: targetId ? { targetId } : {} });
         // Deleting a category can cascade to its subcategories, so refresh both lists.
         invalidateRequestCache('projectCategories');
         invalidateRequestCache('projectSubcategories');
@@ -127,10 +127,10 @@ export const updateProjectSubcategory = async (id: string, payload: any) => {
 }
 
 // Delete Project Subcategory
-export const deleteProjectSubcategory = async (id: string) => {
+export const deleteProjectSubcategory = async (id: string, targetId?: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.DELETE_PROJECT_SUBCATEGORY.replace(":id", id)}`;
-        const { data } = await axios.delete(endpoint);
+        const { data } = await axios.delete(endpoint, { data: targetId ? { targetId } : {} });
         invalidateRequestCache('projectSubcategories');
         return data;
     } catch (err) {

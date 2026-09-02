@@ -53,10 +53,60 @@ export const updateLeadStatus = async (id: string, payload: any) => {
 }
 
 // Delete Lead Status
-export const deleteLeadStatus = async (id: string) => {
+export const deleteLeadStatus = async (id: string, targetId?: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.DELETE_LEAD_STATUS.replace(':id', id)}`;
-        const { data } = await axios.delete(endpoint);
+        const { data } = await axios.delete(endpoint, { data: targetId ? { targetId } : {} });
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+// ─── Lead PO Status master ──────────────────────────────────────────────────
+// Backs the lead form's "PO Status" dropdown (see hooks/usePoStatusOptions.ts).
+// Cached like the other reference lists; every write invalidates it so a change made in
+// Leads → Configure shows up in the form without a reload.
+
+export const getAllLeadPoStatuses = async () => {
+    try {
+        return await cachedRequest('leadPoStatuses', async () => {
+            const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_LEAD_PO_STATUSES}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        }, LOOKUP_TTL);
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const createLeadPoStatus = async (payload: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.CREATE_LEAD_PO_STATUS}`;
+        const { data } = await axios.post(endpoint, payload);
+        invalidateRequestCache('leadPoStatuses');
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const updateLeadPoStatus = async (id: string, payload: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.UPDATE_LEAD_PO_STATUS.replace(':id', id)}`;
+        const { data } = await axios.put(endpoint, payload);
+        invalidateRequestCache('leadPoStatuses');
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const deleteLeadPoStatus = async (id: string, targetId?: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.DELETE_LEAD_PO_STATUS.replace(':id', id)}`;
+        const { data } = await axios.delete(endpoint, { data: targetId ? { targetId } : {} });
+        invalidateRequestCache('leadPoStatuses');
         return data;
     } catch (err) {
         throw err;
@@ -108,10 +158,10 @@ export const updateLeadReferralType = async (id: string, payload: any) => {
 }
 
 // Delete Lead Referral Type
-export const deleteLeadReferralType = async (id: string) => {
+export const deleteLeadReferralType = async (id: string, targetId?: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.DELETE_LEAD_REFERRAL_TYPE.replace(':id', id)}`;
-        const { data } = await axios.delete(endpoint);
+        const { data } = await axios.delete(endpoint, { data: targetId ? { targetId } : {} });
         return data;
     } catch (err) {
         throw err;
@@ -539,10 +589,10 @@ export const updateLeadCancellationReason = async (id: string, payload: any) => 
     }
 }
 
-export const deleteLeadCancellationReason = async (id: string) => {
+export const deleteLeadCancellationReason = async (id: string, targetId?: string) => {
   try {
     const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.DELETE_LEAD_CANCELLATION_REASON.replace(':id', id)}`;
-    const { data } = await axios.delete(endpoint);
+    const { data } = await axios.delete(endpoint, { data: targetId ? { targetId } : {} });
     return data;
   } catch (err) {
     throw err;

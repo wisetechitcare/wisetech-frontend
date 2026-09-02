@@ -20,18 +20,25 @@ export interface BillingTabDef {
 
 export const BILLING_BASE = "/billing";
 
+// Temporarily reduced to Billing Tracker + Configure. The commented entries are the
+// full set — uncomment to restore a tab. Their pages, routes and detail sub-routes
+// are untouched and still resolve by URL; only the header links are hidden, so deep
+// links out of the Tracker (proforma editor, payment detail) keep working.
 export const BILLING_TABS: BillingTabDef[] = [
-    { path: "dashboard", title: "Dashboard", icon: "bi-speedometer2", accessKey: "billing.dashboard" },
-    { path: "requests", title: "Billing Requests", icon: "bi-file-earmark-text", accessKey: "billing.requests" },
+    // { path: "dashboard", title: "Dashboard", icon: "bi-speedometer2", accessKey: "billing.dashboard" },
+    // { path: "requests", title: "Billing Requests", icon: "bi-file-earmark-text", accessKey: "billing.requests" },
     // The Accounts workspace: one row per approved request, carrying its whole
     // financial journey. Pre-filter with ?status=READY_FOR_PROFORMA to see the queue.
-    { path: "operations", title: "Billing Operations", icon: "bi-diagram-3", accessKey: "billing.operations" },
-    { path: "proformas", title: "Proformas", icon: "bi-receipt", accessKey: "billing.proformas" },
+    // Renamed from "Billing Operations" — it is the sheet you watch, not a thing you
+    // operate. Path and access key stay: bookmarks and grants outlive a label.
+    { path: "operations", title: "Billing Tracker", icon: "bi-diagram-3", accessKey: "billing.operations" },
+    // { path: "proformas", title: "Proformas", icon: "bi-receipt", accessKey: "billing.proformas" },
     // Record, verify and track client payments against issued proformas.
-    { path: "payments", title: "Payment Collection", icon: "bi-cash-coin", accessKey: "billing.payments" },
-    { path: "invoices", title: "Tax Invoices", icon: "bi-receipt-cutoff", accessKey: "billing.invoices" },
-    { path: "reports", title: "Reports", icon: "bi-graph-up", accessKey: "billing.reports" },
-    { path: "settings", title: "Settings", icon: "bi-gear", accessKey: "billing.settings" },
+    // { path: "payments", title: "Payment Collection", icon: "bi-cash-coin", accessKey: "billing.payments" },
+    // { path: "invoices", title: "Tax Invoices", icon: "bi-receipt-cutoff", accessKey: "billing.invoices" },
+    // { path: "reports", title: "Reports", icon: "bi-graph-up", accessKey: "billing.reports" },
+    // Display configuration for the module's statuses, stages and payment states.
+    { path: "configure", title: "Configure", icon: "bi-gear", accessKey: "billing.configure" },
 ];
 
 /** Landing route for the module — the first tab the user is allowed to see. */

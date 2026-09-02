@@ -17,6 +17,9 @@ export type AppEventMap = {
     leadDirectSourceDeleted: { id: string };
     leadCancellationReasonCreated: { id: string };
     leadCancellationReasonUpdated: { id: string };
+    leadPoStatusCreated: { id: string };
+    leadPoStatusUpdated: { id: string };
+    leadPoStatusDeleted: { id: string };
 
     paymentPlanCreated: { id: string };
     paymentPlanUpdated: { id: string };
@@ -132,6 +135,9 @@ export type AppEventMap = {
     leadDirectSourceDeleted: 'leadDirectSourceDeleted',
     leadCancellationReasonCreated: 'leadCancellationReasonCreated',
     leadCancellationReasonUpdated: 'leadCancellationReasonUpdated',
+    leadPoStatusCreated: 'leadPoStatusCreated',
+    leadPoStatusUpdated: 'leadPoStatusUpdated',
+    leadPoStatusDeleted: 'leadPoStatusDeleted',
 
     paymentPlanCreated: 'paymentPlanCreated',
     paymentPlanUpdated: 'paymentPlanUpdated',

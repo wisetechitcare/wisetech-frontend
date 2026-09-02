@@ -25,7 +25,7 @@ const BillingOperationDetailPage = lazy(() => import("../operations/BillingOpera
 const ProformasPage = lazy(() => import("../proformas/ProformasPage"));
 const InvoicesPage = lazy(() => import("../invoices/InvoicesPage"));
 const BillingReportsPage = lazy(() => import("../reports/BillingReportsPage"));
-const BillingSettingsPage = lazy(() => import("../settings/BillingSettingsPage"));
+const BillingConfigurePage = lazy(() => import("../configure/BillingConfigurePage"));
 const BillingRequestDetailPage = lazy(() => import("../billing-requests/BillingRequestDetailPage"));
 const BillingRequestFormPage = lazy(() => import("../billing-requests/BillingRequestFormPage"));
 // The template-driven document editor. Lazy on its own chunk — it carries the A4
@@ -50,7 +50,7 @@ const PAGES: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
     payments: PaymentCollectionPage,
     invoices: InvoicesPage,
     reports: BillingReportsPage,
-    settings: BillingSettingsPage,
+    configure: BillingConfigurePage,
 };
 
 const Suspensed: React.FC<{ children: React.ReactNode }> = ({ children }) => (

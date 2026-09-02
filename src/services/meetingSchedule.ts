@@ -37,9 +37,9 @@ export const updateMeetingSchedule = async (id: string, payload: MeetingSchedule
     return data;
 };
 
-export const deleteMeetingSchedule = async (id: string) => {
+export const deleteMeetingSchedule = async (id: string, targetId?: string) => {
     const endpoint = `${API_BASE_URL}/${MEETING_SCHEDULE.DELETE_MEETING_SCHEDULE.replace(":id", id)}`;
-    const { data } = await axios.delete(endpoint);
+    const { data } = await axios.delete(endpoint, { data: targetId ? { targetId } : {} });
     invalidateRequestCache(CACHE_KEY);
     return data;
 };

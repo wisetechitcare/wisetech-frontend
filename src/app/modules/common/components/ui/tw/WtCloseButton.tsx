@@ -9,11 +9,13 @@ import { cn } from './cn';
  * icon-font glyph), circular hit target, kit press physics, and two surfaces:
  *   • `light` (default) — slate glyph on a soft chip, for white/light surfaces
  *   • `dark` — white glyph on translucent white, for colored/gradient headers
+ *   • `plain` — the bare glyph, no chip, for quiet headers that want no second
+ *     shape competing with the title
  */
 
 export interface WtCloseButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     /** Surface the button sits on. Default 'light'. */
-    variant?: 'light' | 'dark';
+    variant?: 'light' | 'dark' | 'plain';
     /** Square px size of the hit target. Default 36. */
     size?: number;
 }
@@ -40,7 +42,9 @@ export const WtCloseButton = forwardRef<HTMLButtonElement, WtCloseButtonProps>(f
                 'disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0',
                 variant === 'dark'
                     ? 'text-white/85 bg-white/10 hover:bg-white/25 hover:text-white focus-visible:ring-2 focus-visible:ring-white/50'
-                    : 'text-slate-400 bg-slate-100/80 hover:bg-slate-200 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-slate-300',
+                    : variant === 'plain'
+                        ? 'text-slate-600 bg-transparent hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-300'
+                        : 'text-slate-400 bg-slate-100/80 hover:bg-slate-200 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-slate-300',
                 className,
             )}
             style={{ width: size, height: size }}

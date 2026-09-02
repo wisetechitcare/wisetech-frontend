@@ -2,8 +2,9 @@ import React from "react";
 import { Box, CircularProgress, Skeleton, Stack, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
-  GlassCard, IconBox, ToneChip, WtButton, TRIO, type Trio, type SemanticTone,
+  GlassCard, IconBox, ToneChip, WtButton, TRIO, isHexColor, type Trio, type SemanticTone,
 } from "@app/modules/common/components/ui";
+import { useBillingLabels } from "./useBillingLabels";
 
 /**
  * Billing module primitives.
@@ -125,15 +126,26 @@ export const BILLING_STATUS_TONES: Record<string, SemanticTone> = {
   ON_HOLD: "warning",
 };
 
-const humanise = (status: string) =>
-  status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-
+/**
+ * The one place a Billing status becomes a chip.
+ *
+ * Wording and colour come from Billing → Configure via `useBillingLabels`, which
+ * falls back to `BILLING_STATUS_TONES` above and a title-cased code whenever the
+ * config has not loaded. Because every screen renders its statuses through this
+ * component, configuring a label changes all of them at once.
+ */
 export const BillingStatusBadge: React.FC<{ status?: string | null; dense?: boolean }> = ({
   status, dense = true,
 }) => {
+  const labels = useBillingLabels();
   if (!status) return null;
-  const tone = BILLING_STATUS_TONES[status] ?? "neutral";
-  return <ToneChip tone={tone} label={humanise(status)} dense={dense} />;
+  // Configured colour wins; the map above is the fallback while the config loads
+  // (or if it fails), so a chip is never colourless waiting on a request.
+  // Configure stores either a tone name or a hex — `color` overrides `tone` on
+  // ToneChip, so a hand-picked colour renders exactly as picked.
+  const colour = labels.tone(status) ?? BILLING_STATUS_TONES[status] ?? "neutral";
+  const props = isHexColor(colour) ? { color: colour } : { tone: colour as SemanticTone };
+  return <ToneChip {...props} label={labels.label(status)} dense={dense} />;
 };
 
 // ─── BillingEmptyState ───────────────────────────────────────────────────────

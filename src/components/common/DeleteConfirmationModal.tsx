@@ -79,7 +79,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                             <Form.Check
                                 type="checkbox"
                                 id="transfer-checkbox"
-                                label={`🔄 Transfer existing data to another ${entityName.toLowerCase()}`}
+                                label={`Transfer existing data to another ${entityName.toLowerCase()}`}
                                 checked={showTransfer}
                                 onChange={(e) => handleTransferChange(e.target.checked)}
                             />

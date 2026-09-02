@@ -29,6 +29,21 @@ export interface LeadDirectSource {
   updatedAt?: string;
 }
 
+/**
+ * An option in the lead form's "PO Status" dropdown.
+ *
+ * The lead stores the NAME, not the id — `Lead.poStatus` is plain text with no FK — so
+ * renaming an option here does not rewrite the leads already carrying the old name.
+ */
+export interface LeadPoStatus {
+  id?: string;
+  name: string;
+  color: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface LeadCancellationReason {
   id?: string;
   reason: string;

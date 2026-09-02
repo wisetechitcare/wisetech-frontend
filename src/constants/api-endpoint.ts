@@ -509,6 +509,12 @@ export const LEAD_PROJECT_COMPANY = {
     UPDATE_LEAD_STATUS: "api/lead-project-companies/lead-statuses/:id",
     DELETE_LEAD_STATUS: "api/lead-project-companies/lead-statuses/:id",
 
+    GET_ALL_LEAD_PO_STATUSES: "api/lead-project-companies/lead-po-statuses",
+    GET_LEAD_PO_STATUS_BY_ID: "api/lead-project-companies/lead-po-statuses/:id",
+    CREATE_LEAD_PO_STATUS: "api/lead-project-companies/lead-po-statuses",
+    UPDATE_LEAD_PO_STATUS: "api/lead-project-companies/lead-po-statuses/:id",
+    DELETE_LEAD_PO_STATUS: "api/lead-project-companies/lead-po-statuses/:id",
+
     GET_ALL_LEAD_REFERRAL_TYPES: "api/lead-project-companies/lead-referral-types",
     GET_LEAD_REFERRAL_TYPE_BY_ID: "api/lead-project-companies/lead-referral-types/:id",
     CREATE_LEAD_REFERRAL_TYPE: "api/lead-project-companies/lead-referral-types",
@@ -685,12 +691,22 @@ export const BILLING_OPERATION = {
     LIST: "api/billing/operations",
     STATISTICS: "api/billing/operations/statistics",
     WORKFLOW: "api/billing/operations/workflow",
+    // One row per PROJECT rather than per billing request — unbilled projects included.
+    PROJECTS: "api/billing/operations/projects",
     GET_BY_ID: "api/billing/operations/:id",
     UPDATE_STATUS: "api/billing/operations/:id/status",
     TIMELINE: "api/billing/operations/:id/timeline",
     ACTIVITY: "api/billing/operations/:id/activity",
     DOCUMENTS: "api/billing/operations/:id/documents",
     ADD_NOTE: "api/billing/operations/:id/notes",
+}
+
+// Billing → Configure. Display only: the wording and colour of the module's
+// statuses, stages and bill payment statuses. The codes themselves are fixed —
+// the status list is a state machine and payment status is derived from amounts.
+export const BILLING_CONFIG = {
+    STATUS_LABELS: "api/billing/config/status-labels",
+    RESET_STATUS_LABEL: "api/billing/config/status-labels/:code",
 }
 
 // Financial Reporting Center — every route is read-only.

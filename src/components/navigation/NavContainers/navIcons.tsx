@@ -8,6 +8,7 @@ import BarChartRounded from '@mui/icons-material/BarChartRounded';
 import BusinessRounded from '@mui/icons-material/BusinessRounded';
 import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded';
 import CampaignRounded from '@mui/icons-material/CampaignRounded';
+import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import CircleRounded from '@mui/icons-material/CircleRounded';
 import ContactPageRounded from '@mui/icons-material/ContactPageRounded';
 import ContactsRounded from '@mui/icons-material/ContactsRounded';
@@ -16,12 +17,14 @@ import DashboardRounded from '@mui/icons-material/DashboardRounded';
 import DescriptionRounded from '@mui/icons-material/DescriptionRounded';
 import EventAvailableRounded from '@mui/icons-material/EventAvailableRounded';
 import EventRounded from '@mui/icons-material/EventRounded';
+import FolderOpenRounded from '@mui/icons-material/FolderOpenRounded';
 import FolderRounded from '@mui/icons-material/FolderRounded';
 import GroupsRounded from '@mui/icons-material/GroupsRounded';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import InboxRounded from '@mui/icons-material/InboxRounded';
 import PaymentsRounded from '@mui/icons-material/PaymentsRounded';
 import PermMediaRounded from '@mui/icons-material/PermMediaRounded';
+import ReceiptLongRounded from '@mui/icons-material/ReceiptLongRounded';
 import ReceiptRounded from '@mui/icons-material/ReceiptRounded';
 import SavingsRounded from '@mui/icons-material/SavingsRounded';
 import TrendingUpRounded from '@mui/icons-material/TrendingUpRounded';
@@ -52,6 +55,9 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-calendar2-week': CalendarMonthRounded,
   'bi-people': GroupsRounded,
   'bi-file-earmark-text': DescriptionRounded,
+  'bi-folder2-open': FolderOpenRounded,
+  'bi-check2-circle': CheckCircleRounded,
+  'bi-receipt-cutoff': ReceiptLongRounded,
   'bi-megaphone': CampaignRounded,
   'bi-diagram-3': AccountTreeRounded,
   'bi-arrow-left-right': SwapHorizRounded,
