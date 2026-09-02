@@ -11,9 +11,103 @@
  */
 import { Box, Chip, LinearProgress, Stack, Tooltip, Typography, Avatar, AvatarGroup, alpha, useTheme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
+import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
+import { EASE_200, IconBox, SHADOW_HOVER, SHADOW_REST, TRIO, toneSurface, type Trio } from '@app/modules/common/components/ui/patterns';
 import {
     TaskScope, TaskStatusRef, employeeName, initialsOf, clampProgress, dueLabel, isTaskOverdue, isTaskFinal,
 } from '../taskDomain';
+
+/**
+ * A labelled TimeWheelField. The wheel is a bare control by design — every other field in this
+ * column carries a floating label, so one is put above it here rather than teaching the kit
+ * component about labels it does not need anywhere else.
+ *
+ * Each of the three times gets its OWN tone, carried by the label and by the wheel's selection.
+ * Three identical controls in a row, all reading `12:00`, are three chances to set the wrong
+ * one; the colour is what tells them apart before the label is read. `tone` is a prop the kit
+ * component already had — every caller was just taking its blue default.
+ *
+ * The clock ahead of the label is the same shape the meeting form and the leave policy modal
+ * already put in front of theirs — this was the one time field in the app whose label was bare
+ * text, so a row of them read as three unmarked boxes rather than three clocks.
+ */
+export const LabelledTimeField = ({ label, value, onChange, disabled, trio }: {
+    label: string; value: string; onChange: (v: string) => void; disabled?: boolean; trio: Trio;
+}) => (
+    <>
+        <Stack direction="row" spacing={0.6} alignItems="center" sx={{ mb: 0.5 }}>
+            <Box sx={{ color: trio.c, lineHeight: 0 }}>
+                <KTIcon iconName="time" className="fs-7" />
+            </Box>
+            <Typography variant="caption" sx={{ color: trio.c, fontWeight: 700 }}>
+                {label}
+            </Typography>
+        </Stack>
+        <TimeWheelField value={value} onChange={onChange} disabled={disabled} tone={trio} />
+    </>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Form section heading
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Reuses the kit's shared accent palette rather than restating hex — the same trios the
+ *  leave cards, the shift tiles and the addon modal are coloured from. */
+export type SectionTone = keyof typeof TRIO;
+
+/**
+ * A form section's heading: a tinted icon plate, a real title, and an optional line under it.
+ *
+ * Replaces a bare 10px uppercase caption. On a long dialog those captions gave the eye nothing
+ * to catch — every section carried the same visual weight as the field labels beneath it, so
+ * the form read as one undifferentiated column of inputs.
+ *
+ * A HEADING, not a card. The section keeps its plain background: boxing each one turned a form
+ * into a stack of panels, which reads as three separate things to fill in rather than one form
+ * with three parts. The card treatment belongs to the choice tiles, which ARE separate things.
+ */
+export const FormSectionHead = ({
+    icon, title, hint, tone = 'blue',
+}: { icon: string; title: string; hint?: string; tone?: SectionTone }) => {
+    const trio = TRIO[tone];
+    return (
+        <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 1.25 }}>
+            <IconBox icon={icon} trio={trio} size={34} fs="fs-4" />
+            <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2, color: 'text.primary' }}>
+                    {title}
+                </Typography>
+                {hint && (
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.125 }}>
+                        {hint}
+                    </Typography>
+                )}
+            </Box>
+        </Stack>
+    );
+};
+
+/**
+ * The card physics the configuration screens use, for a tile that is a CHOICE.
+ *
+ * A coloured top edge at rest with the rest of the border a tint of it, and the whole border
+ * taking that colour as the pointer enters — the leave card's own behaviour (AddonLeavesModal,
+ * DailyShiftTime), so a choice in a dialog and a card on a config screen feel like the same
+ * control. `selected` keeps the accent border regardless of the pointer.
+ */
+export const choiceCardSx = (tone: SectionTone, dark: boolean, selected: boolean, disabled = false) => {
+    const trio = TRIO[tone];
+    const t = toneSurface(trio, dark);
+    return {
+        border: `1px solid ${selected ? trio.c : t.bd}`,
+        borderTop: `3.5px solid ${trio.c}`,
+        borderRadius: 2.5,
+        bgcolor: selected ? t.bg : 'background.paper',
+        boxShadow: selected ? SHADOW_HOVER : SHADOW_REST,
+        transition: EASE_200,
+        ...(disabled ? {} : { '&:hover': { borderColor: trio.c, boxShadow: SHADOW_HOVER } }),
+    };
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Scope

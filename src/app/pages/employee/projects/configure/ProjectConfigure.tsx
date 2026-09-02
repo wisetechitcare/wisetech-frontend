@@ -11,22 +11,22 @@ import {
   getAllStakeholders,
   deleteStakeholderService,
 } from "@services/projects";
-import { getAllPaymentPlans, deletePaymentPlan } from "@services/paymentPlan";
 import React, { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
 import ProjectConfigForm from "./components/ProjectConfigForm";
-import PaymentPlanModal from "../../leads/configuration/components/PaymentPlanModal";
+import PaymentPlansSection from "../../leads/configuration/components/PaymentPlansSection";
 import { ProjectItem } from "@models/clientProject";
-import { PaymentPlan } from "@models/leads";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "./../../../../../types/deleteConfirmation";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
 import {
+  ChipGrid,
   ConfigPageLayout,
   ConfigSectionCard,
+  EmptyState,
   C,
   FONT,
   SP,
@@ -216,110 +216,6 @@ const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
   );
 };
 
-// ─── PaymentPlanChip ────────────────────────────────────────────────────────
-
-const PaymentPlanChip: React.FC<{
-  plan: PaymentPlan;
-  onEdit: () => void;
-  onDelete: () => void;
-}> = ({ plan, onEdit, onDelete }) => {
-  const [hov, setHov] = useState(false);
-  const stageCount = plan.stages?.length || 0;
-  const total = (plan.stages || []).reduce(
-    (sum, s) => sum + (parseFloat(String(s.percentage)) || 0),
-    0,
-  );
-  const roundedTotal = Math.round(total * 1000) / 1000;
-  const balanced = roundedTotal === 100;
-  // `plan.name` is the server-derived project-type label — a plan has no name of its own.
-  const scopeLabel = plan.name || '';
-
-  return (
-    <div
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        backgroundColor: hov ? '#ffffff' : '#f7f8fa',
-        border: `1px solid ${hov ? '#d1d5e0' : '#eaecf0'}`,
-        borderRadius: RADIUS.lg,
-        padding: '12px 14px',
-        transition: 'all 0.15s ease',
-        boxShadow: hov ? '0 4px 14px rgba(24,28,50,0.09)' : '0 1px 3px rgba(24,28,50,0.04)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{
-              fontFamily: FONT.body, fontWeight: 600, fontSize: '13px', color: C.textPrimary,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {scopeLabel || 'No project category'}
-            </span>
-            {plan.isDefault && (
-              <span style={{
-                fontFamily: FONT.body, fontSize: '9px', fontWeight: 700, color: '#0A5C2A',
-                background: '#EDFDF3', border: '1px solid #17C96433', borderRadius: '999px',
-                padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0,
-                textTransform: 'uppercase', letterSpacing: '0.4px',
-              }}>
-                Default
-              </span>
-            )}
-          </div>
-          <div style={{ marginTop: 4, fontFamily: FONT.body, fontSize: '11.5px', color: C.textMuted }}>
-            {stageCount} stage{stageCount === 1 ? '' : 's'}
-            {' · '}
-            <span style={{ color: balanced ? '#0A5C2A' : C.danger, fontWeight: 600 }}>
-              {roundedTotal}%
-            </span>
-          </div>
-          {/* Plans written before they carried a project type fall back to a placeholder
-              title, so say what to do about it rather than leaving it unexplained. */}
-          {!plan.categoryId && (
-            <div style={{ marginTop: 2, fontFamily: FONT.body, fontSize: '11px', color: C.danger }}>
-              Edit to set its project category
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', gap: 4, flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
-          <button
-            onClick={onEdit}
-            style={{
-              background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
-              padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center',
-            }}
-          >
-            <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
-          </button>
-          <button
-            onClick={onDelete}
-            style={{
-              background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
-              padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center',
-            }}
-          >
-            <i className="bi bi-trash" style={{ fontSize: '11px' }} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: SP.sm, marginTop: SP.md }}>
-    {children}
-  </div>
-);
-
-const EmptyState: React.FC<{ label: string }> = ({ label }) => (
-  <div style={{ textAlign: 'center', padding: '28px 16px', color: C.textMuted, fontFamily: FONT.body, fontSize: '13px' }}>
-    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: 'block', marginBottom: '8px', opacity: 0.4 }} />
-    No {label} configured yet
-  </div>
-);
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -363,9 +259,6 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
   const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
   const [editingSubcategory, setEditingSubcategory] = useState<ProjectItem | null>(null);
 
-  const [paymentPlans, setPaymentPlans] = useState<PaymentPlan[]>([]);
-  const [showPaymentPlanModal, setShowPaymentPlanModal] = useState(false);
-  const [editingPaymentPlan, setEditingPaymentPlan] = useState<PaymentPlan | null>(null);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -416,9 +309,6 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
   const handleSubcategoryModalClose = () => { setShowSubcategoryModal(false); setEditingSubcategory(null); };
   const handleSubcategoryEdit = (s: ProjectItem) => { setEditingSubcategory(s); setShowSubcategoryModal(true); };
 
-  const handlePaymentPlanModalOpen = () => { setEditingPaymentPlan(null); setShowPaymentPlanModal(true); };
-  const handlePaymentPlanModalClose = () => { setShowPaymentPlanModal(false); setEditingPaymentPlan(null); };
-  const handlePaymentPlanEdit = (p: PaymentPlan) => { setEditingPaymentPlan(p); setShowPaymentPlanModal(true); };
 
   // ── Fetch functions ─────────────────────────────────────────────────────────
 
@@ -481,17 +371,6 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
     finally { setLoading(false); }
   };
 
-  const fetchPaymentPlans = async () => {
-    try {
-      setLoading(true);
-      const response = await getAllPaymentPlans();
-      if (response?.paymentPlans) setPaymentPlans(response.paymentPlans);
-    } catch (error) {
-      console.error('Error fetching payment plans:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // ── Delete handlers ─────────────────────────────────────────────────────────
 
@@ -530,16 +409,6 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
     });
   };
 
-  const handlePaymentPlanDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation('Payment plan deleted successfully');
-      if (!confirmed) return;
-      await deletePaymentPlan(id);
-      fetchPaymentPlans();
-    } catch (error) {
-      console.error('Error deleting payment plan:', error);
-    }
-  };
 
   // ── Effects ─────────────────────────────────────────────────────────────────
 
@@ -549,7 +418,6 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
     fetchProjectServices();
     fetchProjectCategories();
     fetchProjectSubcategories();
-    fetchPaymentPlans();
   }, []);
 
   useEventBus(EVENT_KEYS.projectCategoryCreated, fetchProjectCategories);
@@ -562,9 +430,6 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
   useEventBus(EVENT_KEYS.projectStatusUpdated, fetchProjectStatuses);
   useEventBus(EVENT_KEYS.stakeholderCreated, fetchStakeholders);
   useEventBus(EVENT_KEYS.stakeholderUpdated, fetchStakeholders);
-  useEventBus(EVENT_KEYS.paymentPlanCreated, fetchPaymentPlans);
-  useEventBus(EVENT_KEYS.paymentPlanUpdated, fetchPaymentPlans);
-  useEventBus(EVENT_KEYS.paymentPlanDeleted, fetchPaymentPlans);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -616,36 +481,10 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
               }
             </ConfigSectionCard>
 
-            {/* 3. Payment Plans — Financial Configuration */}
-            <ConfigSectionCard
-              title="Payment Plans"
-              description="Define stage-wise fee break-up plans. On a project, selecting a plan auto-splits the total commercial cost across its stages by percentage."
-              icon="bi-cash-stack"
-              iconColor="green"
-              primaryAction={{
-                label: 'New Plan',
-                icon: 'bi-plus-lg',
-                onClick: handlePaymentPlanModalOpen,
-                variant: 'primary',
-              }}
-              loading={loading}
-            >
-              {paymentPlans.length === 0
-                ? <EmptyState label="payment plans" />
-                : (
-                  <ChipGrid>
-                    {paymentPlans.map((plan) => (
-                      <PaymentPlanChip
-                        key={plan.id}
-                        plan={plan}
-                        onEdit={() => handlePaymentPlanEdit(plan)}
-                        onDelete={() => handlePaymentPlanDelete(plan.id!)}
-                      />
-                    ))}
-                  </ChipGrid>
-                )
-              }
-            </ConfigSectionCard>
+            {/* 3. Payment Plans — the SAME component the Tasks configuration mounts on its
+                Deliverables tab, so a plan added on either page shows up on the other. It owns
+                its fetch, its modal and its delete; there is nothing for this page to hold. */}
+            <PaymentPlansSection />
 
             {/* 4. Stakeholders Services — Team Management */}
             <ConfigSectionCard
@@ -739,19 +578,6 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
         title="Subcategory"
       />
 
-      <PaymentPlanModal
-        show={showPaymentPlanModal}
-        onClose={handlePaymentPlanModalClose}
-        onSuccess={fetchPaymentPlans}
-        initialData={editingPaymentPlan}
-        isEditing={!!editingPaymentPlan}
-        // Already loaded for the Categories section on this page — passing them down means the
-        // plan's project-type picker opens populated rather than fetching the same lists again.
-        categories={projectCategories}
-        subCategories={projectSubcategories.filter(
-          (sub): sub is typeof sub & { categoryId: string } => !!sub.categoryId,
-        )}
-      />
 
       {serviceDeleteConfirmation.DeleteModal}
     </>

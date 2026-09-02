@@ -77,7 +77,18 @@ const ACCENT_BY_SECTION: Record<string, AccentName> = {
 };
 
 export const sectionAccent = (sectionId: string): SectionAccent =>
-  ACCENTS[ACCENT_BY_SECTION[sectionId] ?? 'blue'];
+  ACCENTS[accentNameForSection(sectionId)];
+
+/**
+ * The accent NAME, for consumers that cannot use Tailwind classes.
+ *
+ * The Metronic sidebar's menu CSS is unlayered and `!important`, so a Tailwind
+ * `text-*` utility on a menu icon is dead on arrival (see shellTokens.ts). It takes
+ * the accent as a `wt-sec-<name>` class instead, which premium-layout.css turns into
+ * the same two colours — one accent map, two rendering systems.
+ */
+export const accentNameForSection = (sectionId: string): AccentName =>
+  ACCENT_BY_SECTION[sectionId] ?? 'blue';
 
 /**
  * Centred, wrapping row of launcher tiles.

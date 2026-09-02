@@ -116,6 +116,19 @@ export function useNavigation() {
       // employee half of every workflow with nowhere the product told them to look, which is the
       // whole reason the action layer exists. Always visible; the page is scoped to the caller
       // server-side and simply says "you are all caught up" when there is nothing.
+      // The three rows above every department. They were already the workspace shell's
+      // "Overview" application — useNavContainers buckets everything before the first
+      // header into `general-section` — but the sidebar had no header for them, so the
+      // one grouping the shell shows had no counterpart in the rail. Declaring it here
+      // rather than hard-coding a heading in AsideMenuMain keeps the tree the single
+      // source of truth: the id is what the accent, icon and /workspace/overview slug
+      // are all keyed off.
+      {
+        type: 'section',
+        id: 'general-section',
+        title: 'Overview',
+        visible: true,
+      },
       {
         type: 'item',
         id: 'inbox',

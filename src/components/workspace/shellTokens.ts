@@ -246,6 +246,9 @@ export const TILE_ICON_SIZE_DOCKED = GLYPH_SIZE.docked * ICON_TO_GLYPH;
 // DOCK — HOME AFFORDANCE
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** The Home row: the link takes the space, the slot sits at the far edge. */
+export const DOCK_HOME_ROW = 'flex w-full flex-row items-center gap-[6px]';
+
 export const DOCK_HOME_LINK =
   'group flex w-full flex-row items-center gap-[12px] rounded-xl px-[10px] py-[8px] text-left ' +
   'hover:bg-slate-100 dark:hover:bg-slate-800/70 ' + FOCUS_RING;
@@ -377,6 +380,48 @@ export const STRIP_TAB_TEXT_ACTIVE = 'font-semibold text-slate-900 dark:text-sla
 export const STRIP_BADGE =
   'ml-[6px] inline-flex min-w-[16px] items-center justify-center rounded-full bg-rose-600 ' +
   'px-[4px] text-[10px] font-bold leading-4 text-white';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SORT CONTROL
+// ─────────────────────────────────────────────────────────────────────────────
+// A funnel chip at the end of the rail's Home row, opening a menu. It sits in the CHROME
+// while the grid it orders sits under the <Outlet>, which is why the choice lives in an
+// external store (moduleSort.ts) instead of being passed down.
+
+/** The trigger. A 34px CIRCLE, deliberately the one round shape in a rail of squared chips:
+ *  every other glyph here is a destination, this one is a control, and the shape says so
+ *  before the icon does.
+ *
+ *  `rounded-full!` because Bootstrap's reboot carries a bare `button { border-radius: 0 }`
+ *  (it strips a macOS Chrome default) and Metronic's SCSS loads unlayered AFTER Tailwind,
+ *  so the plain utility lost and the circle rendered as a hard square. Same reason and same
+ *  fix as WtCloseButton. */
+export const SORT_TRIGGER =
+  'inline-flex h-[34px] w-[34px] shrink-0 cursor-pointer items-center justify-center ' +
+  'rounded-full! border-0 bg-slate-100 text-slate-500 transition-colors ' +
+  'hover:bg-slate-200 hover:text-slate-800 ' +
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ' +
+  'dark:bg-slate-500/15 dark:text-slate-400 dark:hover:bg-slate-500/25 dark:hover:text-slate-100';
+
+/** Applied WITH `sectionAccent().iconWrap` when the order is not the default: the chip
+ *  takes the application's own colour, so "this grid is re-ordered" is visible at a glance
+ *  and in the application's own vocabulary. Clears the neutral hover tints above. */
+export const SORT_TRIGGER_ON = 'hover:bg-transparent dark:hover:bg-transparent';
+
+export const SORT_MENU_PAPER =
+  'mt-[6px] min-w-[208px] rounded-[12px] border-[1px] border-slate-200 ' +
+  'bg-white/100 shadow-[0_12px_32px_rgba(15,23,42,0.14)] ' +
+  'dark:border-slate-700 dark:bg-[var(--gh-elevated,#1c2128)]';
+
+/** Scope line. A funnel glyph does not say what it filters; this does, once. */
+export const SORT_MENU_HEADING =
+  'px-[14px] pb-[6px] pt-[10px] text-[10.5px] font-bold uppercase tracking-[0.08em] ' +
+  'text-slate-400 dark:text-slate-500';
+
+export const SORT_MENU_ITEM = 'gap-[12px] text-slate-700 dark:text-slate-200';
+
+/** `flex-1` pushes the tick to the right edge and keeps every label on one baseline. */
+export const SORT_MENU_LABEL = 'flex-1 text-[13px] font-medium';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODULE CARDS

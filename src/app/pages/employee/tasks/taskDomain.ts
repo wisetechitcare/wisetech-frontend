@@ -241,9 +241,36 @@ export interface TaskFormValues {
     presetTaskId?: string;
     startDate?: string | null;
     dueDate?: string | null;
+    /**
+     * Clock times for the two dates, and the effort already logged — all `HH:mm`, all optional.
+     *
+     * They came back with the legacy form, which the project tab and the dashboard still used:
+     * the rebuilt dialog had dropped them, so retiring the old form would have silently taken
+     * three fields with real data in them. The columns (`start_time`, `due_time`,
+     * `log_time_hours/minutes/seconds`) and the create/update schema already accept them, so
+     * nothing on the server changes.
+     *
+     * A MEETING carries its own start and end datetime instead — these are task-only.
+     */
+    startTime?: string | null;
+    dueTime?: string | null;
+    logTime?: string | null;
     progress?: number | string;
     billingType?: 'BILLABLE' | 'NON_BILLABLE';
 }
+
+/** `HH:mm` on a date → the ISO datetime the API stores. Either half missing means no value. */
+const combineDateTime = (date?: string | null, time?: string | null): string | null => {
+    if (!date || !time || !/^\d{2}:\d{2}$/.test(time)) return null;
+    return new Date(`${date}T${time}:00`).toISOString();
+};
+
+/** `HH:mm` → the hours/minutes/seconds triple the task row stores effort in. */
+const splitLogTime = (time?: string | null): { logTimeHours: number; logTimeMinutes: number; logTimeSeconds: number } | null => {
+    if (!time || !/^\d{2}:\d{2}$/.test(time)) return null;
+    const [h, m] = time.split(':');
+    return { logTimeHours: Number(h), logTimeMinutes: Number(m), logTimeSeconds: 0 };
+};
 
 /**
  * Build the API payload from form values.
@@ -269,6 +296,10 @@ export const buildTaskPayload = (values: TaskFormValues): Record<string, unknown
         assignedToId: values.assignedToId || null,
         startDate: values.startDate || null,
         dueDate: values.dueDate || null,
+        // Sent as full datetimes: the columns are DateTime, and a bare `HH:mm` has no day to
+        // belong to. No date means no time — the pair travels together or not at all.
+        startTime: combineDateTime(values.startDate, values.startTime),
+        dueTime: combineDateTime(values.dueDate, values.dueTime),
         billingType: values.billingType || 'BILLABLE',
         // Explicit null on CUSTOM, so switching a task off presets CLEARS the link rather than
         // leaving it pointing at a node whose name the task no longer carries.
@@ -282,6 +313,10 @@ export const buildTaskPayload = (values: TaskFormValues): Record<string, unknown
     if (values.progress !== undefined && values.progress !== '') {
         payload.progress = clampProgress(Number(values.progress));
     }
+    // Absent rather than zeroed when the field was left empty: sending 0/0/0 would overwrite
+    // effort somebody already logged against the task.
+    const logged = splitLogTime(values.logTime);
+    if (logged) Object.assign(payload, logged);
     return payload;
 };
 

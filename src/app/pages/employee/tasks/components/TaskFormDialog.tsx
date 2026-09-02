@@ -15,7 +15,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert, Autocomplete, Avatar, Box, Button, Chip, CircularProgress, Divider, Grid, MenuItem,
+    Alert, Autocomplete, Avatar, Box, Button, Chip, CircularProgress, Grid, MenuItem,
     Slider, Stack, TextField, Typography, alpha, useTheme,
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
@@ -30,8 +30,11 @@ import {
     useAvailableProjects, useProjectAssignees, useGeneralAssignees,
     useTaskStatuses, useTaskPriorities, usePresetTasks, useCreateTask, useUpdateTask,
 } from '../useTaskQueries';
-import { TaskScopeBadge } from './primitives';
-import { GlassDialog, GlassHeader, WtButton, WtDateField, toast } from '@app/modules/common/components/ui';
+import { FormSectionHead, LabelledTimeField, choiceCardSx, type SectionTone } from './primitives';
+import { IconBox, TRIO, menuOptionSx, type Trio } from '@app/modules/common/components/ui/patterns';
+import { GlassDialog, PlainDialogHeader, WtButton, WtDateField, toast } from '@app/modules/common/components/ui';
+import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
+import MeetingFormBody, { type MeetingFormBodyHandle } from '@pages/employee/MeetingFormBody';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { NotifyOnWhatsAppDialog, NotifiablePerson, notifiableFromTask } from './NotifyOnWhatsAppDialog';
@@ -58,6 +61,9 @@ export interface TaskFormDialogProps {
         assignedTo?: { id: string; avatar?: string | null; users?: { firstName?: string | null; lastName?: string | null } | null } | null;
         statusId?: string | null; priorityId?: string | null; startDate?: string | null;
         dueDate?: string | null; progress?: number | null; billingType?: 'BILLABLE' | 'NON_BILLABLE';
+        /** Clock times and logged effort — see TaskFormValues for why these came back. */
+        startTime?: string | null; dueTime?: string | null;
+        logTimeHours?: number | null; logTimeMinutes?: number | null;
     } | null;
     /** Creating a subtask: locks scope + project to the parent's, which the server also enforces. */
     parentTask?: {
@@ -84,7 +90,60 @@ export interface TaskFormDialogProps {
     defaultScope?: TaskScope;
 }
 
+/**
+ * A task row from the older list endpoints → the shape this dialog takes.
+ *
+ * The legacy form took twenty flat props; this dialog takes one object, and three screens
+ * (the project tab, the task detail, the dashboard) hold rows in the older shape: nested
+ * `project`/`status`/`priority`/`assignedTo` objects rather than the flat `*Id` fields. One
+ * adapter rather than the same twenty-line prop list pasted at each call site.
+ *
+ * `taskScope` is inferred when the row does not state it — a row with a project is a project
+ * task. Guessing here is safe because scope is immutable server-side on an existing task
+ * (DEC-019); it decides which fields render, not what gets written.
+ */
+export const taskRowToDialogTask = (row: any): TaskFormDialogProps['task'] => {
+    if (!row) return null;
+    return {
+        id: row.id,
+        taskName: row.taskName ?? '',
+        taskScope: (row.taskScope as TaskScope) ?? (row.project?.id || row.leadId ? 'PROJECT' : 'GENERAL'),
+        taskType: row.taskType === 'CUSTOM' ? 'CUSTOM' : 'PRESETS',
+        presetTaskId: row.presetTaskId ?? null,
+        taskDescription: row.taskDescription ?? null,
+        leadId: row.leadId ?? row.project?.id ?? null,
+        assignedToId: row.assignedToId ?? row.assignedTo?.id ?? null,
+        // Only when the row actually carries one — see the note where this is read.
+        assignees: row.assignees,
+        lead: row.lead ?? row.project ?? null,
+        assignedTo: row.assignedTo ?? null,
+        statusId: row.statusId ?? row.status?.id ?? null,
+        priorityId: row.priorityId ?? row.priority?.id ?? null,
+        startDate: row.startDate ?? null,
+        dueDate: row.dueDate ?? null,
+        startTime: row.startTime ?? null,
+        dueTime: row.dueTime ?? null,
+        logTimeHours: row.logTimeHours ?? null,
+        logTimeMinutes: row.logTimeMinutes ?? null,
+        progress: row.progress ?? null,
+        billingType: row.billingType ?? 'BILLABLE',
+    };
+};
+
+
 const toDateInput = (v?: string | null) => (v ? String(v).slice(0, 10) : '');
+
+/** A stored datetime → the `HH:mm` the wheel speaks. Local, so it reads back as it was set. */
+const toTimeInput = (v?: string | null) => {
+    if (!v) return '';
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+/** The stored hours/minutes pair → `HH:mm`. Zero effort is no value, not "00:00". */
+const toLogTimeInput = (h?: number | null, m?: number | null) =>
+    (h || m) ? `${String(h ?? 0).padStart(2, '0')}:${String(m ?? 0).padStart(2, '0')}` : '';
 
 interface ProjectOption { id: string; title?: string; projectNumber?: string }
 interface AssigneeOption {
@@ -101,18 +160,6 @@ interface AssigneeOption {
  * A group heading. One component so every section is set the same way — the form previously had
  * exactly one hand-styled caption and then twelve fields in an undifferentiated column.
  */
-const SectionLabel = ({ text }: { text: string }) => (
-    <Typography
-        variant="caption"
-        sx={{
-            display: 'block', mb: 0.75,
-            fontWeight: 700, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase',
-            color: 'text.secondary',
-        }}
-    >
-        {text}
-    </Typography>
-);
 
 const projectLabel = (p: ProjectOption) =>
     `${p.projectNumber ? `${p.projectNumber} — ` : ''}${p.title || 'Untitled project'}`;
@@ -129,6 +176,32 @@ export const TaskFormDialog = ({
     });
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [touched, setTouched] = useState(false);
+    /**
+     * The third choice beside Project task and General task.
+     *
+     * It is a MODE, not a `TaskScope`. That union is `'PROJECT' | 'GENERAL'` and the server
+     * mirrors it in `checkTaskScopeConsistency`, so a third member would push a value the API
+     * rejects through every task payload. A meeting is its own entity with its own endpoint —
+     * what it shares with a task is this dialog, which is exactly what was asked for.
+     *
+     * Create only: an existing task cannot become a meeting, and the picker is already hidden
+     * when editing.
+     */
+    const [isMeeting, setIsMeeting] = useState(false);
+    /**
+     * The dialog opens on a QUESTION, then becomes the form that answers it.
+     *
+     * Three cards and then twelve fields underneath them meant the first ~120px of every create
+     * was a decision the rest of the form had already scrolled past. Asking first, and showing
+     * only the fields that choice implies, is both shorter and unambiguous.
+     *
+     * Skipped whenever the answer is already known — editing, a subtask (it inherits its
+     * parent's scope), progress-only, or a caller that passed `defaultScope`. There is no
+     * question to ask in any of those, so the dialog opens straight on the form.
+     */
+    const [step, setStep] = useState<'choose' | 'form'>('form');
+    const meetingRef = useRef<MeetingFormBodyHandle>(null);
+    const [savingMeeting, setSavingMeeting] = useState(false);
 
     const currentEmployee = useSelector((state: RootState) => state.employee?.currentEmployee);
     const currentEmployeeId = currentEmployee?.id;
@@ -147,6 +220,8 @@ export const TaskFormDialog = ({
         if (!open) return;
         setSubmitError(null);
         setTouched(false);
+        setIsMeeting(false);
+        setStep(task || parentTask || defaultScope || progressOnly ? 'form' : 'choose');
         if (task) {
             setValues({
                 taskScope: task.taskScope,
@@ -154,10 +229,16 @@ export const TaskFormDialog = ({
                 taskName: task.taskName ?? '',
                 // Owner first, then the rest — the order the picker shows and the order the
                 // server returns, so reopening an edit never reshuffles the chips.
-                assigneeIds: (task.assignees ?? [])
-                    .slice()
-                    .sort((a, b) => Number(b.isOwner) - Number(a.isOwner))
-                    .map((a) => a.employeeId),
+                // `undefined`, NOT `[]`, when the row carries no roster. buildTaskPayload sends
+                // the key whenever it is set, and an empty array means "nobody but the owner" —
+                // so defaulting to [] would silently clear the roster of every task opened from
+                // a screen whose list endpoint does not return assignees.
+                assigneeIds: task.assignees
+                    ? task.assignees
+                        .slice()
+                        .sort((a, b) => Number(b.isOwner) - Number(a.isOwner))
+                        .map((a) => a.employeeId)
+                    : undefined,
                 presetTaskId: task.presetTaskId ?? '',
                 taskDescription: task.taskDescription ?? '',
                 projectId: task.leadId ?? '',
@@ -166,6 +247,9 @@ export const TaskFormDialog = ({
                 priorityId: task.priorityId ?? '',
                 startDate: toDateInput(task.startDate),
                 dueDate: toDateInput(task.dueDate),
+                startTime: toTimeInput(task.startTime),
+                dueTime: toTimeInput(task.dueTime),
+                logTime: toLogTimeInput(task.logTimeHours, task.logTimeMinutes),
                 progress: task.progress ?? 0,
                 billingType: task.billingType ?? 'BILLABLE',
             });
@@ -260,6 +344,9 @@ export const TaskFormDialog = ({
             ],
         },
     };
+
+    /** The three `select` fields get the same menu as the two Autocompletes. */
+    const selectMenuProps = { MenuProps: { PaperProps: { sx: menuOptionSx } } };
 
     /**
      * The options a picker offers, PLUS whatever the task already holds.
@@ -430,41 +517,83 @@ export const TaskFormDialog = ({
         }
     };
 
-    const ScopeChoice = ({ scope, label, hint, icon }: { scope: TaskScope; label: string; hint: string; icon: string }) => {
-        const selected = values.taskScope === scope;
+    const ScopeChoice = ({ scope, label, hint, icon, tone }: {
+        scope: TaskScope; label: string; hint: string; icon: string; tone: SectionTone;
+    }) => {
+        // Nothing is selected on this step. `taskScope` defaults to PROJECT, so keying the
+        // selected look off it lit up the first card — and its tick claimed a choice the person
+        // had not made yet. The row only ever renders as an open question.
+        const selected = false;
         const locked = isEdit || !!parentTask || progressLock;
         return (
             <Box
                 component="button"
                 type="button"
                 disabled={locked}
-                onClick={() => set({
+                onClick={() => { setIsMeeting(false); setStep('form'); set({
                     taskScope: scope,
-                    projectId: scope === 'GENERAL' ? '' : values.projectId,
+                    // Falls back to the workspace's project, not just whatever is in state:
+                    // picking General clears projectId, so switching back read a blank and the
+                    // project came up empty on a form opened from inside a project.
+                    projectId: scope === 'GENERAL' ? '' : (values.projectId || defaultProjectId || ''),
                     assignedToId: '',
                     presetTaskId: '',
                     taskName: values.taskTypeMode === 'PRESETS' ? '' : values.taskName,
-                })}
+                }); }}
                 sx={{
-                    flex: 1, textAlign: 'left', p: 1.5, borderRadius: 2, cursor: locked ? 'not-allowed' : 'pointer',
-                    border: '2px solid',
-                    borderColor: selected ? 'primary.main' : 'divider',
-                    bgcolor: selected ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.14 : 0.07) : 'background.paper',
+                    // SQUARE tiles, not wide strips: three alternatives get compared, and a
+                    // portrait card puts the glyph, the name and the sentence in one vertical
+                    // read instead of three horizontal ones the eye has to track across.
+                    flex: 1, minWidth: 0, position: 'relative',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    textAlign: 'center', gap: 1, p: 2, minHeight: 172,
+                    cursor: locked ? 'not-allowed' : 'pointer',
                     opacity: locked && !selected ? 0.45 : 1,
-                    transition: 'border-color .15s, background-color .15s',
+                    ...choiceCardSx(tone, theme.palette.mode === 'dark', selected, locked),
                 }}
             >
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.25 }}>
-                    <Box sx={{ color: selected ? 'primary.main' : 'text.disabled', lineHeight: 0 }}>
-                        <KTIcon iconName={icon} className="fs-4" />
-                    </Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: selected ? 'primary.main' : 'text.primary' }}>
-                        {label}
-                    </Typography>
-                </Stack>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>{hint}</Typography>
+                {/* A tinted plate rather than a grey glyph: three choices need telling apart at a
+                    glance, and colour does that before the label is read. */}
+                <IconBox icon={icon} trio={TRIO[tone]} size={44} fs="fs-2" />
+                <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: selected ? 'primary.main' : 'text.primary' }}>
+                    {label}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.4 }}>{hint}</Typography>
             </Box>
         );
+    };
+
+    /** Same tile as the two above — one look for one row of choices. */
+    const MeetingChoice = () => (
+        <Box
+            component="button"
+            type="button"
+            onClick={() => { setIsMeeting(true); setStep('form'); }}
+            sx={{
+                flex: 1, minWidth: 0, position: 'relative',
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                textAlign: 'center', gap: 1, p: 2, minHeight: 172, cursor: 'pointer',
+                ...choiceCardSx('purple', theme.palette.mode === 'dark', isMeeting),
+            }}
+        >
+            <IconBox icon="calendar" trio={TRIO.purple} size={44} fs="fs-2" />
+            <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: isMeeting ? 'primary.main' : 'text.primary' }}>
+                Meeting
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.4 }}>
+                Scheduled on a project. Shows on its Meetings tab and in the calendar.
+            </Typography>
+        </Box>
+    );
+
+    /** Meeting mode posts through the body's own handle — a meeting is not a task payload. */
+    const handleMeetingSubmit = async () => {
+        setSavingMeeting(true);
+        try {
+            if (await meetingRef.current?.submit()) { onSaved?.(); onClose(); }
+        } finally {
+            setSavingMeeting(false);
+        }
     };
 
     return (
@@ -475,21 +604,33 @@ export const TaskFormDialog = ({
         <GlassDialog
             open={open}
             onClose={saving ? undefined : onClose}
-            maxWidth="md"
             fullWidth
+            plain
+            // Narrower for the question: three SQUARE tiles side by side, not three wide
+            // strips. At `md` the cards stretched into letterbox rows and the dialog was 900px
+            // of width for one decision.
+            maxWidth={step === 'choose' ? 'sm' : 'md'}
             header={
-                <GlassHeader
-                    title={progressLock ? 'Update progress' : isEdit ? 'Edit task' : parentTask ? 'New subtask' : 'New task'}
-                    subtitle={progressLock
-                        ? 'You can report how far this has got — the rest is set by whoever manages the project'
+                <PlainDialogHeader
+                    icon={<KTIcon iconName={isMeeting ? 'calendar-add' : parentTask ? 'abstract-26' : 'element-plus'} className="fs-1" />}
+                    title={step === 'choose' ? 'New task'
+                        : isMeeting ? 'New meeting'
+                        : progressLock ? 'Update progress'
+                        : isEdit ? 'Edit task'
+                        : parentTask ? 'New subtask'
+                        : values.taskScope === 'GENERAL' ? 'New general task' : 'New project task'}
+                    subtitle={step === 'choose'
+                        ? 'What are you creating?'
+                        : isMeeting
+                        ? 'Scheduled on a project — it lands on the project and in the calendar'
+                        : progressLock
+                        ? 'Report how far this has got — the rest is set by whoever manages the project'
                         : parentTask
                         ? `Under “${parentTask.taskName}”`
                         : isEdit ? 'Scope and project are fixed once a task exists'
-                        : 'Name it, place it, and give it an owner'}
-                    icon={<KTIcon iconName={parentTask ? 'abstract-26' : 'element-plus'} className="fs-1" />}
+                        : undefined}
                     onClose={saving ? undefined : onClose}
                     closeIcon={<KTIcon iconName="cross" className="fs-3" />}
-                    action={isEdit ? <TaskScopeBadge scope={values.taskScope} size="medium" /> : undefined}
                 />
             }
         >
@@ -507,19 +648,34 @@ export const TaskFormDialog = ({
             >
                 <Stack spacing={2.5}>
                     {/* ── scope first: everything below depends on it ── */}
-                    {!isEdit && !parentTask && (
+                    {step === 'choose' && (
                         <Box>
-                            <SectionLabel text="What kind of task is this?" />
-                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                                <ScopeChoice scope="PROJECT" label="Project task" icon="briefcase"
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
+                                <ScopeChoice scope="PROJECT" label="Project task" icon="briefcase" tone="blue"
                                     hint="Belongs to a project you manage. Can carry a deliverable and reach billing." />
-                                <ScopeChoice scope="GENERAL" label="General task" icon="home-2"
+                                <ScopeChoice scope="GENERAL" label="General task" icon="home-2" tone="green"
                                     hint="Internal work with no project. Never billable to a client." />
+                                <MeetingChoice />
                             </Stack>
                         </Box>
                     )}
 
-                    {progressLock && (
+                    {/* One row of choices, then ONE body. The task fields and the meeting
+                        fields are alternatives, so the dialog shows whichever was chosen rather
+                        than stacking both and disabling one. */}
+                    {step === 'form' && isMeeting && (
+                        <MeetingFormBody
+                            ref={meetingRef}
+                            // Whatever project this form is already on: the one picked in the
+                            // task fields above, else the one the screen was opened from. A
+                            // meeting scheduled from a project should not ask which project.
+                            defaultProjectId={values.projectId || defaultProjectId}
+                            lockProject={!!(values.projectId || defaultProjectId)}
+                            onSaved={onSaved}
+                        />
+                    )}
+
+                    {step === 'form' && !isMeeting && progressLock && (
                         // Said once, plainly. Fields that are grey with no explanation read as a
                         // bug; fields that are grey with a reason read as a rule.
                         <Alert severity="info" icon={<KTIcon iconName="information-5" className="fs-4" />}>
@@ -530,10 +686,23 @@ export const TaskFormDialog = ({
 
                     {submitError && <Alert severity="error" onClose={() => setSubmitError(null)}>{submitError}</Alert>}
 
+                    {/* The whole task body. Hidden rather than disabled in meeting mode:
+                        a greyed-out task form beneath a meeting form is two forms on screen. */}
+                    {step === 'form' && !isMeeting && (
+                    <>
+                    <Box>
+                    {/* "Project" once there is one to name — the section leads with that field
+                        and the heading should say so. A GENERAL task has no project by
+                        definition, so it keeps a heading that is true for it. */}
+                    <FormSectionHead
+                        icon="notepad-edit"
+                        tone="purple"
+                        title={values.taskScope === 'GENERAL' ? 'The work' : 'Project'}
+                        hint={values.taskScope === 'GENERAL'
+                            ? 'What the work is'
+                            : 'Which project it belongs to, and what the work is'}
+                    />
                     <Grid container spacing={2}>
-                        <Grid item xs={12} sx={{ pb: 0.5 }}>
-                            <SectionLabel text="The work" />
-                        </Grid>
 
                         {/* ── project (PROJECT only) ── */}
                         {scopeFields.project && (
@@ -561,7 +730,10 @@ export const TaskFormDialog = ({
                                     fullWidth
                                     autoHighlight
                                     // Capped, and kept inside the dialog — see dropdownSlotProps.
-                                    ListboxProps={{ style: { maxHeight: 240 } }}
+                                    // Accent-tinted rows, the same colours the nested preset picker and the select
+                                // menus use. `ListboxProps`, not `slotProps.listbox` — this MUI
+                                // version has no such slot and ignores it silently.
+                                ListboxProps={{ style: { maxHeight: 240 }, sx: menuOptionSx }}
                                     slotProps={dropdownSlotProps}
                                     noOptionsText="No matching project"
                                     renderOption={(props, option) => (
@@ -671,13 +843,15 @@ export const TaskFormDialog = ({
                             />
                         </Grid>
 
-                        {/* Everything below is about who carries the work and when — a
-                            different question from what the work IS, so it is separated rather
-                            than continuing one twelve-field column. */}
-                        <Grid item xs={12} sx={{ pt: 1.5, pb: 0.5 }}>
-                            <Divider sx={{ mb: 1.5 }} />
-                            <SectionLabel text="Ownership & schedule" />
-                        </Grid>
+                    </Grid>
+                    </Box>
+
+                    {/* Who carries the work and when — a different question from what the work
+                        IS, so it gets its own heading rather than continuing one long column. */}
+                    <Box>
+                    <FormSectionHead icon="profile-user" tone="green" title="Ownership & schedule"
+                        hint="Who does it, and by when" />
+                    <Grid container spacing={2}>
 
                         {/* ── assignee ── */}
                         <Grid item xs={12} md={6}>
@@ -710,7 +884,10 @@ export const TaskFormDialog = ({
                                 size="small"
                                 fullWidth
                                 autoHighlight
-                                ListboxProps={{ style: { maxHeight: 240 } }}
+                                // Accent-tinted rows, the same colours the nested preset picker and the select
+                                // menus use. `ListboxProps`, not `slotProps.listbox` — this MUI
+                                // version has no such slot and ignores it silently.
+                                ListboxProps={{ style: { maxHeight: 240 }, sx: menuOptionSx }}
                                 slotProps={dropdownSlotProps}
                                 // Clearing IS "Unassigned": a task with no owner is the absence of
                                 // a choice, not a person called Unassigned sitting in the list.
@@ -790,6 +967,7 @@ export const TaskFormDialog = ({
                         <Grid item xs={12} md={6}>
                             <TextField
                                 select fullWidth size="small" label="Stage" disabled={progressLock}
+                                SelectProps={selectMenuProps}
                                 value={values.statusId ?? ''}
                                 onChange={(e) => set({ statusId: e.target.value })}
                             >
@@ -805,6 +983,7 @@ export const TaskFormDialog = ({
                         <Grid item xs={12} md={6}>
                             <TextField
                                 select fullWidth size="small" label="Priority" disabled={progressLock}
+                                SelectProps={selectMenuProps}
                                 value={values.priorityId ?? ''}
                                 onChange={(e) => set({ priorityId: e.target.value })}
                             >
@@ -818,6 +997,7 @@ export const TaskFormDialog = ({
                         <Grid item xs={12} md={6}>
                             <TextField
                                 select fullWidth size="small" label="Billing" disabled={progressLock}
+                                SelectProps={selectMenuProps}
                                 value={values.billingType ?? 'BILLABLE'}
                                 onChange={(e) => set({ billingType: e.target.value as 'BILLABLE' | 'NON_BILLABLE' })}
                                 helperText={values.taskScope === 'GENERAL' ? 'General task time is internal overhead, never client billing' : ' '}
@@ -837,6 +1017,9 @@ export const TaskFormDialog = ({
                             wire ISO — so the form still submits exactly what it did before. It is
                             NOT Formik-bound, despite what the note here used to claim; it is a
                             plain value/onChange field, which is why it drops straight in. */}
+                        {/* The kit's wheel, not `<input type="time">` — the native control is
+                            browser chrome: unstyleable, OS-locale formatted, and light-on-white
+                            in dark mode. Labelled here because the wheel is a bare field. */}
                         <Grid item xs={12} md={6}>
                             <WtDateField
                                 label="Start date"
@@ -861,6 +1044,23 @@ export const TaskFormDialog = ({
                             />
                         </Grid>
 
+                        {/* Task-only. A meeting carries its own start and end datetime instead,
+                            so these are not rendered in meeting mode. */}
+                        <Grid item xs={12} md={4}>
+                            <LabelledTimeField label="Start time" trio={TRIO.blue} disabled={progressLock}
+                                value={values.startTime ?? ''} onChange={(v) => set({ startTime: v })} />
+                        </Grid>
+
+                        <Grid item xs={12} md={4}>
+                            <LabelledTimeField label="Due time" trio={TRIO.amber} disabled={progressLock}
+                                value={values.dueTime ?? ''} onChange={(v) => set({ dueTime: v })} />
+                        </Grid>
+
+                        <Grid item xs={12} md={4}>
+                            <LabelledTimeField label="Log time" trio={TRIO.green} disabled={progressLock}
+                                value={values.logTime ?? ''} onChange={(v) => set({ logTime: v })} />
+                        </Grid>
+
                         {/* Progress is reported BY the person doing the work, not set by whoever
                             hands it out — and a task being created has not been started, so the
                             slider could only ever say 0%. It belongs to editing, where the owner
@@ -881,6 +1081,9 @@ export const TaskFormDialog = ({
                             </Grid>
                         )}
                     </Grid>
+                    </Box>
+                    </>
+                    )}
                 </Stack>
             </Box>
 
@@ -891,19 +1094,39 @@ export const TaskFormDialog = ({
                 className="shrink-0"
                 sx={{ px: { xs: 2, sm: 2.75 }, py: 1.75, borderTop: '1px solid', borderColor: 'divider' }}
             >
-                <WtButton ghost onClick={onClose} disabled={saving} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-                    cancel
-                </WtButton>
                 <WtButton
-                    onClick={handleSubmit}
-                    disabled={saving}
-                    startIcon={saving
+                    ghost
+                    // Back to the question rather than out of the dialog, once one has been
+                    // answered — changing your mind should not cost you the form.
+                    onClick={step === 'form' && !isEdit && !parentTask && !progressLock && !defaultScope
+                        ? () => setStep('choose')
+                        : onClose}
+                    disabled={saving || savingMeeting}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                >
+                    {step === 'form' && !isEdit && !parentTask && !progressLock && !defaultScope ? 'back' : 'cancel'}
+                </WtButton>
+                {/* One footer, two destinations. The label names what is actually about to be
+                    created, because "create task" on a meeting form is a lie the user only
+                    finds out about afterwards. Absent on the question step: there is nothing to
+                    create until something has been chosen. */}
+                {step === 'form' && (
+                <WtButton
+                    onClick={isMeeting ? handleMeetingSubmit : handleSubmit}
+                    disabled={saving || savingMeeting}
+                    startIcon={(saving || savingMeeting)
                         ? <CircularProgress size={14} color="inherit" />
                         : <KTIcon iconName={isEdit ? 'check' : 'plus'} className="fs-6" />}
                     sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: 150 }}
                 >
-                    {saving ? 'saving…' : progressLock ? 'save progress' : isEdit ? 'save changes' : 'create task'}
+                    {savingMeeting ? 'saving…'
+                        : isMeeting ? 'create meeting'
+                        : saving ? 'saving…'
+                        : progressLock ? 'save progress'
+                        : isEdit ? 'save changes'
+                        : 'create task'}
                 </WtButton>
+                )}
             </Stack>
         </GlassDialog>
 

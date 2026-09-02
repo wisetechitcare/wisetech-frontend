@@ -10,7 +10,7 @@ import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import dayjs from 'dayjs';
 import Swal from 'sweetalert2';
-import MeetingsForm from '../../attendance/personal/views/my-leaves/MeetingsForm';
+import MeetingDialog from '../../MeetingDialog';
 import PremiumButton from '@app/modules/common/components/PremiumButton';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -162,20 +162,14 @@ const Meetings = () => {
         </div>
       </div>
 
-      <Modal show={showMeetingForm} onHide={() => setShowMeetingForm(false)} centered size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>Create New Meeting</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <MeetingsForm 
-            onClose={() => {
-              setShowMeetingForm(false);
-              fetchMeetings();
-            }} 
-            selectedDateTimeInfo={{ startStr: dayjs().toISOString() }} 
-          />
-        </Modal.Body>
-      </Modal>
+      {/* The same dialog the calendar and the task form open — the third and last copy of
+          this modal. */}
+      <MeetingDialog
+        open={showMeetingForm}
+        onClose={() => setShowMeetingForm(false)}
+        onSaved={fetchMeetings}
+        selectedDateTimeInfo={{ startStr: dayjs().toISOString() }}
+      />
     </div>
   );
 };

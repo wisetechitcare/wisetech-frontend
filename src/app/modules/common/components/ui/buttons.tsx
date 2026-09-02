@@ -79,15 +79,22 @@ export const ctaSx = (tone: WtCtaTone = 'primary', flat = false): SxProps<Theme>
 /** Quiet button (mrd-ghost): the standard "Cancel" — now larger + a faint bordered surface so it
  * reads as a real, tappable secondary action (not just text). */
 export const ghostSx: SxProps<Theme> = {
-  textTransform: 'none', fontWeight: 650, letterSpacing: '-0.01em', borderRadius: '12px', color: '#475569',
+  textTransform: 'none', fontWeight: 650, letterSpacing: '-0.01em', borderRadius: '12px', color: '#334155',
   fontSize: 14.5, lineHeight: 1.2, minHeight: 46, px: 2.5, py: 1.1,
-  bgcolor: '#F8FAFC', border: '1px solid #E2E8F0',
+  // White on a visible border, and a hover that goes DARKER.
+  //
+  // It used to sit at #F8FAFC behind a #E2E8F0 border and hover to #EEF2F7 — all three within a
+  // few percent of the surfaces it sits on. On a dialog footer (a light grey band) the button
+  // was barely there at rest, and hovering moved it TOWARDS the footer colour, so it read as
+  // disappearing under the cursor. Contrast now increases on hover, which is the direction a
+  // hover is supposed to go.
+  bgcolor: '#FFFFFF', border: '1px solid #CBD5E1',
   transition: `background-color .15s, border-color .15s, transform .16s ${MRD_EASE}, box-shadow .15s`,
   '& .MuiButton-startIcon': { mr: 0.9 },
-  '&:hover': { bgcolor: '#EEF2F7', borderColor: '#CBD5E1', color: '#1B2230', transform: 'translateY(-1px)', boxShadow: '0 4px 10px rgba(16,24,40,0.06)' },
+  '&:hover': { bgcolor: '#E2E8F0', borderColor: '#94A3B8', color: '#0F172A', transform: 'translateY(-1px)', boxShadow: '0 4px 10px rgba(16,24,40,0.10)' },
   '&:active': { transform: 'translateY(0) scale(.975)' },
   '&:focus-visible': { outline: '2px solid #94A3B8', outlineOffset: 2 },
-  '&.Mui-disabled': { bgcolor: '#F8FAFC', color: '#CBD5E1', borderColor: '#EEF2F7' },
+  '&.Mui-disabled': { bgcolor: '#F8FAFC', color: '#CBD5E1', borderColor: '#E2E8F0' },
 };
 
 /** Inverted pill — white background, navy text: the gradient-header "Add" pill generalized so it
