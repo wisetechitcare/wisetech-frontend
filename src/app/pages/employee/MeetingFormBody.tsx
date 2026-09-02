@@ -667,10 +667,10 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 </Stack>
                 <Grid container spacing={1.5} sx={{ mb: 2 }}>
                     <Grid item xs={12} sm={6}>
-                        {peoplePicker('Team members', internalOptions, internal, setInternal, '', true)}
+                        {peoplePicker('Internal Team', internalOptions, internal, setInternal, '', true)}
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                        {peoplePicker('Client stakeholders', externalOptions, external, setExternal, '', false)}
+                        {peoplePicker('External Team', externalOptions, external, setExternal, '', false)}
                     </Grid>
                 </Grid>
 
