@@ -17,6 +17,7 @@ import SavingsOutlinedIcon from '@mui/icons-material/SavingsOutlined';
 // Whole rupees only on screen — this view never shows paise.
 import { formatCurrencyRounded } from '@utils/currency';
 import YearlyKpiCard from './components/salary/YearlyKpiCard';
+import KpiCompactList from './components/salary/KpiCompactList';
 import YearlyOverViewCard from './YearlyOverViewCard';
 import SalaryBreakdownTable, { PayState, YearlyBreakdownRow } from './components/salary/SalaryBreakdownTable';
 import MonthlySalaryComparison from './MonthlySalaryComparison';
@@ -578,11 +579,27 @@ const Yearly = ({
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {/* Phone: the same three figures as one summed column — see KpiCompactList.
+                Skipped while loading; the skeleton grid below already stands in. */}
+            {!isLoadingOverview && (
+                <KpiCompactList
+                    cards={kpis}
+                    shortLabels={{
+                        'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS': 'Total salary',
+                        'DEDUCTIONS (PTAX)': 'Deductions (PTax)',
+                        'DEDUCTIONS': 'Deductions',
+                        'COMPANY DEDUCTION (RETENTION)': 'Retention held',
+                        'PAYABLE SALARY': 'Payable salary',
+                    }}
+                    resultIsNegative={yearOverview.totalNetAmount < 0}
+                    sx={{ display: { xs: 'block', sm: 'none' } }}
+                />
+            )}
+
             <Box
                 sx={{
-                    display: 'grid',
+                    display: { xs: 'none', sm: 'grid' },
                     gridTemplateColumns: {
-                        xs: '1fr',
                         sm: 'repeat(2, minmax(0, 1fr))',
                         lg: `repeat(${kpis.length}, minmax(0, 1fr))`,
                     },
@@ -611,7 +628,7 @@ const Yearly = ({
                 {isLoadingOverview ? (
                     <>
                         <Skeleton variant="rounded" height={276} sx={{ borderRadius: '16px' }} />
-                        <Skeleton variant="rounded" height={276} sx={{ borderRadius: '16px' }} />
+                        <Skeleton className="d-none d-md-block" variant="rounded" height={276} sx={{ borderRadius: '16px', display: { xs: 'none', md: 'block' } }} />
                     </>
                 ) : (
                     <>
@@ -624,7 +641,7 @@ const Yearly = ({
                             attendance={`${yearOverview.attendancePercent}%`}
                             paymentProgress={`${paidPercent}%`}
                         />
-                        <Box sx={{ minWidth: 0, '& > .card': { height: '100%', mb: '0 !important' } }}>
+                        <Box className="d-none d-md-block" sx={{ minWidth: 0, display: { xs: 'none', md: 'block' }, '& > .card': { height: '100%', mb: '0 !important' } }}>
                             <MonthlySalaryComparison ComparisonData={yearlySalaryRows} loading={isLoadingSalaryData} compact showSensitiveData={showSensitiveData} />
                         </Box>
                     </>

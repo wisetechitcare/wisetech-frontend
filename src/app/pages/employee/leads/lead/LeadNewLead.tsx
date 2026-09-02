@@ -15,7 +15,7 @@ import {
   TextField,
   InputAdornment,
 } from "@mui/material";
-import { deleteLead, getAllLeadsComplete } from "@services/leads";
+import { getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference, getUserTablePreferences } from "@services/users";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SelectLeadOrganizationDialog from "./SelectLeadOrganizationDialog";
@@ -48,7 +48,6 @@ import { useDispatch, useSelector } from "react-redux";
 import eventBus from "@utils/EventBus";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { mapLeadToFormInitialValues } from "./utils";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
 import ChartVisibilitySettings from "@pages/company/settings/ChartVisibilitySettings";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
@@ -198,9 +197,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // New leads pick their organization before the wizard opens — it decides the
   // lead's prefix and number series.
   const [showOrgPicker, setShowOrgPicker] = useState(false);
-  const [selectedLead, setSelectedLead] = useState<any>(null);
   const [tableData, setTableData] = useState<any[]>([]);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [formValues, setFormValues] = useState<any>(null);
@@ -1004,80 +1001,17 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         return "N/A";
       },
     },
-    ...(hideNewLeadButton
-      ? []
-      : [
-        {
-          accessorKey: "actions",
-          header: "Actions",
-          size: 100,
-          enableEditing: false,
-          Cell: ({ row }: { row: any }) => (
-            <Box sx={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const currLead = rawLeadsData.find(
-                    (l: any) => l.id === row.original.id,
-                  );
-                  setFormValues(mapLeadToFormInitialValues(currLead));
-                  setSelectedLead(row.original);
-                }}
-              >
-                <KTIcon iconName="pencil" className="fs-2" />
-              </button>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteLead(row.original.id);
-                }}
-              >
-                <KTIcon iconName="trash" className="fs-2" />
-              </button>
-            </Box>
-          ),
-        },
-      ]),
   ], [
     projectServices,
     projectCategories,
     projectSubcategories,
     allemployees,
     rawLeadsData,
-    hideNewLeadButton,
     fileLocCompanyMap,
     fileLocTypeMap,
   ]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
-
-  // Improved delete from file 2: optimistic update + success confirmation + eventBus emit
-  const handleDeleteLead = async (id: string) => {
-    try {
-      const confirmed = await rejectConfirmation("Yes, delete it!");
-      if (confirmed) {
-        setDeletingId(id);
-
-        // Optimistic UI update
-        setTableData((prev) => prev.filter((l: any) => l.id !== id));
-        setRawLeadsDatas((prev) => prev.filter((l: any) => l.id !== id));
-
-        await deleteLead(id);
-
-        successConfirmation("Lead deleted successfully!");
-        eventBus.emit(EVENT_KEYS.leadDeleted, { id });
-      }
-    } catch (error) {
-      console.error("Error deleting lead:", error);
-      errorConfirmation("Failed to delete lead. Please try again.");
-      // Revert optimistic update
-      fetchAllData();
-    } finally {
-      setDeletingId(null);
-    }
-  };
 
   function handleCloseChartSettingsModal() {
     setShowChartSettingsModal(false);
@@ -1632,6 +1566,50 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 </div>
               )}
 
+            </div>
+
+            {/* Right side: KPI summary */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              border: '1px solid #E2E8F0',
+              borderRadius: '6px',
+              padding: '0 12px',
+              background: '#F8FAFC',
+              height: '32px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              width: isMobile ? '100%' : 'auto'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
+                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCost(totalFilteredCost)}</span>
+              </div>
+              <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
+                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
+                  {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
+                </span>
+              </div>
+            </div>
+
+
+          </div>
+        )}
+      </Box>
+
+      <MaterialTable
+        columns={columns}
+        data={quickFilteredData}
+        tableName="LeadsTablesMainV2"
+        defaultSorting={[{ id: "inquiryDate", desc: true }]}
+        // Returns elements, not a <FilterToolbar/> component declared in render —
+        // a fresh component type each render remounts the controls mid-interaction
+        // (the Assigned To autocomplete would lose focus on every keystroke).
+        renderTopToolbarRightActions={() => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               {/* Status Filter */}
               <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 140 }}>
                 <Select
@@ -1885,45 +1863,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   ✕ Clear Filters
                 </button>
               )}
-            </div>
-
-            {/* Right side: KPI summary */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              border: '1px solid #E2E8F0',
-              borderRadius: '6px',
-              padding: '0 12px',
-              background: '#F8FAFC',
-              height: '32px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-              width: isMobile ? '100%' : 'auto'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
-                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCost(totalFilteredCost)}</span>
-              </div>
-              <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
-                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
-                  {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
-                </span>
-              </div>
-            </div>
-
-
-          </div>
+          </Box>
         )}
-      </Box>
-
-      <MaterialTable
-        columns={columns}
-        data={quickFilteredData}
-        tableName="LeadsTablesMainV2"
-        defaultSorting={[{ id: "inquiryDate", desc: true }]}
         renderExportActions={() => (
           <ExportButton
             data={quickFilteredData}
