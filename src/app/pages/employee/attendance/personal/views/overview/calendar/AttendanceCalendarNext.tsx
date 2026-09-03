@@ -42,18 +42,27 @@ export default function AttendanceCalendarNext({
    * the tint, border and numeral colour are derived from it, so a pale pick
    * can't produce the white-on-pale tile the current implementation allows.
    */
-  const overrides = useSelector((s: RootState): DayToneOverrides => {
-    const c = s.customColors?.attendanceCalendar;
-    const h = s.customColors?.attendanceOverview;
-    return {
-      present: c?.presentColor,
-      absent: c?.absentColor,
-      leave: c?.onLeaveColor,
-      half_day: c?.onLeaveColor,
-      weekly_off: c?.weekendColor,
-      holiday: h?.holidayColor,
-    };
-  });
+  // Select the two slices by REFERENCE and assemble in useMemo.
+  //
+  // Building the object inside the selector returns a fresh literal on every
+  // call, so `useSelector`'s reference check never matches and every unrelated
+  // store change re-renders all 42 cells plus the legend. (React-Redux warns
+  // about exactly this in dev — see the same warning already firing from
+  // StatisticsOverview.tsx.)
+  const calendarColors = useSelector((s: RootState) => s.customColors?.attendanceCalendar);
+  const overviewColors = useSelector((s: RootState) => s.customColors?.attendanceOverview);
+
+  const overrides = useMemo<DayToneOverrides>(
+    () => ({
+      present: calendarColors?.presentColor,
+      absent: calendarColors?.absentColor,
+      leave: calendarColors?.onLeaveColor,
+      half_day: calendarColors?.onLeaveColor,
+      weekly_off: calendarColors?.weekendColor,
+      holiday: overviewColors?.holidayColor,
+    }),
+    [calendarColors, overviewColors],
+  );
 
   const { data, isLoading, isError, refetch } = useAttendanceCalendar(employeeId, month);
 
