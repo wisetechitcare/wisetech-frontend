@@ -11,8 +11,11 @@
  */
 import { memo, useId, useRef, useState, type CSSProperties } from 'react';
 import dayjs from 'dayjs';
-import Popper from '@mui/material/Popper';
-import Fade from '@mui/material/Fade';
+// Barrel import, matching the 173 files that already use it. Mixing deep
+// (@mui/material/Popper) and barrel entry points makes Vite pre-bundle two
+// copies of the emotion styled engine, which surfaces at runtime as
+// "styled_default is not a function".
+import { Popper, Fade } from '@mui/material';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
 import { MODIFIER_LABEL, STATUS_LABEL, readableOn, resolveDayVisual, type DayToneOverrides } from './dayTokens';
