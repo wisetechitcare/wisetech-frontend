@@ -3164,3 +3164,22 @@ export const fetchUnsettledLeavers = async (params?: { branchId?: string; lookba
         };
     };
 };
+
+/**
+ * The employee attendance calendar for one month — days already resolved by
+ * the server (status + modifiers, late verdicts, leave fractions, holidays).
+ *
+ * Replaces the five-call fan-out the Overview used to run per month
+ * (attendance + leaves + holidays + company overview + requests) and the
+ * client-side rule engine that combined them.
+ */
+export const fetchAttendanceCalendar = async (employeeId: string, month: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_CALENDAR}?employeeId=${employeeId}&month=${month}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}

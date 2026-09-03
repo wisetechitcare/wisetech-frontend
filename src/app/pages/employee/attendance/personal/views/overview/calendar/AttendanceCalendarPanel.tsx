@@ -18,7 +18,7 @@ import { TRIO } from '@app/modules/common/components/ui/tw/tokens';
 import { MonthGrid } from './MonthGrid';
 import { CalendarLegend } from './CalendarLegend';
 import type { DayToneOverrides } from './dayTokens';
-import { legendLabel } from './dayTokens';
+
 import type { AttendanceCalendarResponse, CalendarDay, LegendKey } from './types';
 
 export interface AttendanceCalendarPanelProps {
@@ -116,45 +116,3 @@ export function AttendanceCalendarPanel({
     </GlassCard>
   );
 }
-
-/**
- * Client-side legend derivation — a bridge, not the destination.
- *
- * Once `GET /attendance/calendar` returns `legend`, delete this: counts
- * computed in two places are counts that will eventually disagree. It exists so
- * the UI can migrate ahead of the endpoint.
- */
-export function deriveLegend(days: CalendarDay[]): AttendanceCalendarResponse['legend'] {
-  const inMonth = days.filter((d) => d.inMonth);
-  const counts = new Map<LegendKey, number>();
-  const bump = (k: LegendKey) => counts.set(k, (counts.get(k) ?? 0) + 1);
-
-  inMonth.forEach((d) => {
-    bump(d.status);
-    d.modifiers.forEach(bump);
-  });
-
-  // A fixed order so the row never reshuffles between months.
-  const ORDER: LegendKey[] = [
-    'present',
-    'half_day',
-    'leave',
-    'absent',
-    'holiday',
-    'weekly_off',
-    'worked_on_off_day',
-    'late_in',
-    'missing_check_out',
-    'request_pending',
-    'regularized',
-  ];
-
-  return ORDER.filter((k) => counts.has(k) || isAlwaysShown(k)).map((key) => ({
-    key,
-    label: legendLabel(key),
-    count: counts.get(key) ?? 0,
-  }));
-}
-
-const ALWAYS: LegendKey[] = ['present', 'leave', 'absent', 'holiday', 'weekly_off'];
-const isAlwaysShown = (k: LegendKey) => ALWAYS.includes(k);

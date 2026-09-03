@@ -225,6 +225,7 @@ export const EMPLOYEE = {
     CREATE_LEAVE_OPTION: "api/company/leave-option",
     UPDATE_LEAVE_OPTION_BY_ID: "api/company/leave-option",
     EMPLOYEE_ATTENDANCE_STATISTICS: "api/employee/attendance/stats",
+    EMPLOYEE_ATTENDANCE_CALENDAR: "api/employee/attendance/calendar",
     EMPLOYEE_ATTENDANCE_CLASSIFICATION: "api/employee/attendance/classification",
     EMPLOYEE_ATTENDANCE_CLASSIFICATION_BATCH: "api/employee/attendance/classification/batch",
     GET_REIMBURSEMENT: "api/employee/reimbursement",
