@@ -2,11 +2,13 @@
  * Flagged entry point — the new calendar, wired to real data.
  *
  * This is what `?calendar=next` renders in place of the 979-line
- * `AttendanceCalendar`. It is READ-ONLY on purpose: the correction flow still
- * lives inside the legacy component, and extracting it is Phase 2 work
- * (`DayDetailPanel`). Previewing the grid, the tooltip, the legend and the
- * summary against production data does not require that extraction, and
- * pretending a click will work when it won't is worse than saying so.
+ * `AttendanceCalendar`. It owns exactly two pieces of state — the month cursor
+ * and the selected day — because everything else arrives already resolved from
+ * `GET /attendance/calendar`.
+ *
+ * The click now opens `DayDetailPanel`, which reads first and offers the
+ * correction inside, gated on the server's own `canRaiseCorrection`. The legacy
+ * component sent every click straight to a form that then refused most of them.
  */
 import { useCallback, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
@@ -15,7 +17,9 @@ import type { RootState } from '@redux/store';
 import { AttendanceCalendarPanel } from './AttendanceCalendarPanel';
 import { useAttendanceCalendar } from './useAttendanceCalendar';
 import { clearCalendarVariant } from './previewFlag';
+import { DayDetailPanel } from './DayDetailPanel';
 import type { DayToneOverrides } from './dayTokens';
+import type { CalendarDay } from './types';
 
 export interface AttendanceCalendarNextProps {
   /** Kept in sync with the legacy component's month cursor so the flag can be flipped mid-session. */
@@ -29,6 +33,7 @@ export default function AttendanceCalendarNext({
 }: AttendanceCalendarNextProps) {
   const employeeId = useSelector((s: RootState) => s.employee?.currentEmployee?.id) ?? '';
   const [dismissed, setDismissed] = useState(false);
+  const [selected, setSelected] = useState<CalendarDay | null>(null);
 
   const month = useMemo(() => dayjs(activeStartDate).format('YYYY-MM'), [activeStartDate]);
 
@@ -57,17 +62,6 @@ export default function AttendanceCalendarNext({
     [setActiveStartDate],
   );
 
-  // Read-only preview: strip the affordance rather than letting the tooltip
-  // advertise a correction the flagged build cannot open.
-  const readOnly = useMemo(
-    () =>
-      data && {
-        ...data,
-        days: data.days.map((d) => ({ ...d, canRaiseCorrection: false })),
-      },
-    [data],
-  );
-
   return (
     <div className="flex flex-col gap-3">
       {!dismissed && (
@@ -77,8 +71,8 @@ export default function AttendanceCalendarNext({
               Preview · re-platformed calendar
             </p>
             <p className="m-0 text-[11px] leading-snug text-slate-600 dark:text-slate-400">
-              Read-only. Hover or focus a day for detail. Corrections still open from the current calendar —
-              switch back with <code className="font-mono">?calendar=legacy</code>.
+              Hover or focus a day for detail; click to open it. Switch back with{' '}
+              <code className="font-mono">?calendar=legacy</code>.
             </p>
           </div>
           <button
@@ -97,15 +91,23 @@ export default function AttendanceCalendarNext({
 
       <AttendanceCalendarPanel
         month={month}
-        data={readOnly}
+        data={data}
         loading={isLoading}
         error={isError}
         overrides={overrides}
         onMonthChange={onMonthChange}
-        onOpenDay={() => {
-          /* Phase 2: opens DayDetailPanel. Read-only while flagged. */
-        }}
+        onOpenDay={setSelected}
         onRetry={refetch}
+      />
+
+      <DayDetailPanel
+        day={selected}
+        open={Boolean(selected)}
+        overrides={overrides}
+        onClose={() => setSelected(null)}
+        // A submitted correction changes what the month means, so the resolved
+        // month is refetched rather than patched locally.
+        onSubmitted={refetch}
       />
     </div>
   );
