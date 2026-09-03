@@ -1,7 +1,7 @@
 /**
  * Flagged entry point — the new calendar, wired to real data.
  *
- * This is what `?calendar=next` renders in place of the 979-line
+ * The DEFAULT calendar on this branch, rendered in place of the 979-line
  * `AttendanceCalendar`. It owns exactly two pieces of state — the month cursor
  * and the selected day — because everything else arrives already resolved from
  * `GET /attendance/calendar`.
@@ -16,7 +16,6 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import { AttendanceCalendarPanel } from './AttendanceCalendarPanel';
 import { useAttendanceCalendar } from './useAttendanceCalendar';
-import { clearCalendarVariant } from './previewFlag';
 import { DayDetailPanel } from './DayDetailPanel';
 import type { DayToneOverrides } from './dayTokens';
 import type { CalendarDay } from './types';
@@ -80,20 +79,21 @@ export default function AttendanceCalendarNext({
               Preview · re-platformed calendar
             </p>
             <p className="m-0 text-[11px] leading-snug text-slate-600 dark:text-slate-400">
-              Hover or focus a day for detail; click to open it. Switch back with{' '}
-              <code className="font-mono">?calendar=legacy</code>.
+              Hover or focus a day for detail; click to open it. The old calendar is one
+              click away and stays remembered.
             </p>
           </div>
           <button
             type="button"
+            // Opting OUT is now the explicit act, so this navigates to the
+            // legacy variant rather than clearing to the (new) default.
             onClick={() => {
-              clearCalendarVariant();
               setDismissed(true);
-              window.location.search = '';
+              window.location.search = '?calendar=legacy';
             }}
             className="shrink-0 rounded-md px-2 py-1 text-[11px] font-bold text-[#1E3A8A] hover:bg-white/60 dark:text-[#8AA3EC] dark:hover:bg-white/[0.06]"
           >
-            Exit preview
+            Use old calendar
           </button>
         </div>
       )}
