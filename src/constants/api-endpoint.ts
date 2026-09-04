@@ -375,6 +375,7 @@ export const OPTIONS = {
     GET_ALL_PREFIX_SETTINGS: 'api/options/prefix-settings',
     CREATE_PREFIX_SETTING: 'api/options/prefix-settings',
     UPDATE_PREFIX_SETTING: 'api/options/prefix-settings/:id',
+    SET_PREFIX_SEQUENCE_LINK: 'api/options/prefix-settings/:id/sequence-link',
     DELETE_PREFIX_SETTING: 'api/options/prefix-settings/:id',
     GET_LEAD_NUMBER_PREVIEW: 'api/options/lead-number-preview',
     COUNTRIES: 'api/options/countries',

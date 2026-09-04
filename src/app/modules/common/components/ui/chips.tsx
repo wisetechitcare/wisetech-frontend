@@ -49,7 +49,7 @@ export interface ToneChipProps extends Omit<ChipProps, 'color' | 'variant'> {
 }
 
 export function ToneChip({ tone = 'neutral', color, solid = false, dense = false, sx, ...rest }: ToneChipProps) {
-    const fg = color ?? tonePair(tone).fg;
+    const fg = color ?? tonePair(tone)?.fg ?? '#2563eb';
     return (
         <Chip
             size='small'

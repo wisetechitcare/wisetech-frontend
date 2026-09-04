@@ -83,3 +83,68 @@ describe("comparator wiring, end to end", () => {
         assert.equal(t("30/07/2024"), t("30/07/2024"), "cache hit must match cold parse");
     });
 });
+
+describe("same-date rows break the tie deterministically", () => {
+    const row = (date: string, original: any = {}) => ({
+        getValue: () => date,
+        original,
+    });
+    const order = (rows: any[]) =>
+        [...rows].sort((a, b) => dateSortingFn(a, b, "d")).map((r) => r.original.projectPrefix ?? r.original.createdAt);
+
+    test("project number orders rows sharing one date", () => {
+        // The reported bug: three projects received on the same day rendered with
+        // their numbers shuffled, because the comparator returned 0 for all pairs.
+        const rows = [
+            row("04/09/2026", { projectPrefix: "WT/PROJECT/26-27/738" }),
+            row("04/09/2026", { projectPrefix: "WT/PROJECT/26-27/736" }),
+            row("04/09/2026", { projectPrefix: "WT/PROJECT/26-27/737" }),
+        ];
+        assert.deepEqual(order(rows), [
+            "WT/PROJECT/26-27/736",
+            "WT/PROJECT/26-27/737",
+            "WT/PROJECT/26-27/738",
+        ]);
+    });
+
+    test("date still outranks the number", () => {
+        const rows = [
+            row("05/09/2026", { projectPrefix: "WT/PROJECT/26-27/1" }),
+            row("04/09/2026", { projectPrefix: "WT/PROJECT/26-27/999" }),
+        ];
+        assert.deepEqual(order(rows), ["WT/PROJECT/26-27/999", "WT/PROJECT/26-27/1"]);
+    });
+
+    test("year junk is not a project number", () => {
+        // "WT/PROJECT/Lead/2017" parses to 2017 naively, which would beat every real
+        // number. Backend `parseNum` discards 1990-2099 for the same reason.
+        const rows = [
+            row("04/09/2026", { projectPrefix: "WT/PROJECT/Lead/2017", createdAt: "2026-09-04T09:00:00Z" }),
+            row("04/09/2026", { projectPrefix: "WT/PROJECT/26-27/500", createdAt: "2026-09-04T08:00:00Z" }),
+        ];
+        assert.deepEqual(order(rows), ["WT/PROJECT/Lead/2017", "WT/PROJECT/26-27/500"],
+            "junk scores 0 and sorts first; it never outranks a real number");
+    });
+
+    test("rows with no project number fall through to createdAt", () => {
+        const rows = [
+            row("04/09/2026", { createdAt: "2026-08-30T10:00:00Z" }),
+            row("04/09/2026", { createdAt: "2026-08-12T10:00:00Z" }),
+        ];
+        assert.deepEqual(order(rows), ["2026-08-12T10:00:00Z", "2026-08-30T10:00:00Z"]);
+    });
+
+    test("a real receipt time orders same-day rows on its own", () => {
+        // What storing the instant (not the day) buys: no prefix, no createdAt needed.
+        const rows = [
+            { getValue: () => "2026-09-04T11:33:00.000Z", original: { createdAt: "" } },
+            { getValue: () => "2026-09-04T06:03:00.000Z", original: { createdAt: "" } },
+        ];
+        const sorted = [...rows].sort((a, b) => dateSortingFn(a, b, "d")).map((r) => r.getValue());
+        assert.deepEqual(sorted, ["2026-09-04T06:03:00.000Z", "2026-09-04T11:33:00.000Z"]);
+    });
+
+    test("rows carrying no original at all must not throw", () => {
+        assert.equal(dateSortingFn({ getValue: () => "04/09/2026" }, { getValue: () => "04/09/2026" }, "d"), 0);
+    });
+});
