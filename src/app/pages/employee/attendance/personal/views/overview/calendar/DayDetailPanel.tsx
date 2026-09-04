@@ -40,6 +40,9 @@ import { RESTRICT_ATTENDANCE_TO_7_DAYS_KEY } from '@constants/configurations-key
 import { safeJsonParse } from '@utils/safeJson';
 import { parseWorkingDays } from '@utils/workingDays';
 import { validatePreviousDaysAttendance } from '@utils/attendanceValidation';
+import { hasPermission } from '@utils/authAbac';
+import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
+import RaiseRequestForEmployee from '../RaiseRequestForEmployee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { MUMBAI_TZ } from '@utils/date';
 import { STATUS_LABEL, MODIFIER_LABEL, resolveDayVisual, type DayToneOverrides } from './dayTokens';
@@ -70,6 +73,7 @@ export function DayDetailPanel({ day, open, overrides, onClose, onSubmitted }: D
         checking: false, blocked: false, blockingDate: '',
     });
     const [saving, setSaving] = useState(false);
+    const [adminOpen, setAdminOpen] = useState(false);
 
     const employee = useSelector((s: RootState) => s.employee?.currentEmployee);
     const employeeId = employee?.id ?? '';
@@ -116,6 +120,13 @@ export function DayDetailPanel({ day, open, overrides, onClose, onSubmitted }: D
     }, [day, restrictionDays]);
 
     const hasCheckIn = Boolean(day?.actual.checkIn);
+
+    // The same gate the legacy calendar used for its "Raise Request for Another
+    // Employee" button, carried over so the admin path survives its deletion.
+    const canRaiseForOthers = hasPermission(
+        resourceNameMapWithCamelCase.attendanceRequest,
+        permissionConstToUseWithHasPermission.editOthers,
+    );
 
     /** The "earlier gaps first" rule — three requests, so only on entering the flow. */
     const runGate = useCallback(async () => {
@@ -198,6 +209,7 @@ export function DayDetailPanel({ day, open, overrides, onClose, onSubmitted }: D
     if (!day || !visual || !tone) return null;
 
     return (
+        <>
         <GlassDialog
             open={open}
             onClose={onClose}
@@ -260,7 +272,17 @@ export function DayDetailPanel({ day, open, overrides, onClose, onSubmitted }: D
                 {day.canRaiseCorrection && (
                     <section className="border-t border-slate-200 pt-3 dark:border-[#30363d]">
                         {mode === 'read' && (
-                            <WtButton onClick={startCorrection}>Raise a correction</WtButton>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <WtButton onClick={startCorrection}>Raise a correction</WtButton>
+                                {/* Carried over from the legacy calendar rather than lost with it:
+                                    admins could raise a request on someone else's behalf from the
+                                    day they clicked. Same permission gate, same modal. */}
+                                {canRaiseForOthers && (
+                                    <WtButton inverted onClick={() => setAdminOpen(true)}>
+                                        Raise for another employee
+                                    </WtButton>
+                                )}
+                            </div>
                         )}
 
                         {gate.checking && (
@@ -348,6 +370,16 @@ export function DayDetailPanel({ day, open, overrides, onClose, onSubmitted }: D
                 )}
             </div>
         </GlassDialog>
+
+            {/* Admin path, preserved from the legacy calendar. A sibling of the
+                dialog rather than a child, so closing the day panel does not
+                unmount it mid-flow. */}
+            <RaiseRequestForEmployee
+                show={adminOpen}
+                onHide={() => setAdminOpen(false)}
+                selectedDate={day.date}
+            />
+        </>
     );
 }
 

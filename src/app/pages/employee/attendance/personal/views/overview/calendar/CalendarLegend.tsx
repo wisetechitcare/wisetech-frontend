@@ -110,7 +110,10 @@ function LegendChip({
       // render the browser's own tooltip instead of the app's (lint-enforced).
       aria-label={`${legendLabel(entry.key)}: ${entry.count} ${entry.count === 1 ? 'day' : 'days'}${empty ? '' : pressed ? ' — filter on' : ' — filter off'}`}
       className={cn(
-        'group inline-flex shrink-0 snap-start items-center gap-1.5 rounded-2xl border px-2 py-[4px]',
+        // rounded-full, not rounded-2xl: at 16px radius on a ~26px chip the corners
+        // read as a squared-off rectangle rather than a pill. StatusBadge keeps
+        // rounded-2xl because it wraps to two lines; these never do.
+        'group inline-flex shrink-0 snap-start items-center gap-1.5 rounded-full border px-2.5 py-[4px]',
         'transition-[opacity,transform,box-shadow] duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A8A] dark:focus-visible:ring-[#8AA3EC]',
         !empty && 'hover:-translate-y-px cursor-pointer',
@@ -129,7 +132,7 @@ function LegendChip({
         ring={v.ring}
         accent={v.trio.c}
         splitWith={v.splitWith?.c}
-        dot={v.dots[0]?.c}
+        dot={v.dots[0]?.trio.c}
         // Only while the entry is actually present this month — pulsing a
         // zero-count chip advertises attention nothing needs.
         pulse={shouldPulse(entry.key) && !empty}

@@ -12,11 +12,9 @@ import { fetchAttendanceDetails, fetchEmployeeLeaves, getAttendanceRequest } fro
 import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, getWeekDay, isDateAfterOrSameAsEmployeeOnboardingDate, isDateBeforeOrSameAsCurrDate, MUMBAI_TZ as mumbaiTz } from "@utils/date";
 import { saveCoordinates, savePersonalAttendance, toggleLocationPermission } from "@redux/slices/attendance";
 import { savePersonalLeaves } from "@redux/slices/leaves";
-import AttendanceCalendar from "./views/overview/AttendanceCalendar";
-// Flagged preview of the re-platformed calendar (`?calendar=next`). Lazy so the
-// default path pays nothing for it. Remove both when the migration lands.
-const AttendanceCalendarNext = lazy(() => import("./views/overview/calendar/AttendanceCalendarNext"));
-import { resolveCalendarVariant } from "./views/overview/calendar/previewFlag";
+// The attendance calendar. Lazy so the Overview tab does not pull the grid,
+// tooltip and correction dialog until it actually renders.
+const AttendanceCalendar = lazy(() => import("./views/overview/calendar/AttendanceCalendarNext"));
 import MarkAttendance from "./views/overview/MarkAttendance";
 const AttendanceGraphicalOverview = lazy(() => import("./views/overview/AttendanceGraphicalOverview"));
 import { customLeaves, filterLeavesPublicHolidays } from "@utils/statistics";
@@ -30,10 +28,6 @@ export interface FormattedDate {
     dbDate: string;
 }
 
-interface Cell {
-    date: string;
-    status: string;
-}
 
 interface LeaveResponse {
     id: string;
@@ -241,11 +235,7 @@ function OverviewView() {
         }
     });
     const [activeStartDate, setActiveStartDate] = useState(new Date());
-    // Read once per mount — the flag can't change without a navigation, and
-    // reading localStorage on every render would be pure waste.
-    const [calendarVariant] = useState(resolveCalendarVariant);
     const dispatch = useDispatch();
-    const [calendarCells, setCalendarCells] = useState<Cell[]>([]);
     const [errored, setErrored] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     useEffect(() => {
@@ -380,15 +370,6 @@ function OverviewView() {
         fetchLeavesPublicHolidays();
     }, [employeeId, checkInCheckOut])
 
-    useEffect(() => {
-        if(!attendance) return;
-        
-        setCalendarCells(attendance.map((el: IAttendance) => ({ 
-            date: el.formattedDate || "", 
-            status: el.status 
-        })));
-    }, [attendance]);
-
     if (errored) {
         return (
             <div className="mt-10">
@@ -404,21 +385,13 @@ function OverviewView() {
         <>
             <h3 className="fw-bold fs-1 mb-4 font-barlow">Overview</h3>
             <div className="row mt-7 align-items-start">
-                <div className={calendarVariant === 'next' ? 'col-lg-7' : 'col-lg-7 react_calendar__wrapper'}>
-                    {calendarVariant === 'next' ? (
-                        <Suspense fallback={<div className="d-flex justify-content-center py-10"><Spinner size={32} /></div>}>
-                            <AttendanceCalendarNext
-                                activeStartDate={activeStartDate}
-                                setActiveStartDate={setActiveStartDate}
-                            />
-                        </Suspense>
-                    ) : (
+                <div className="col-lg-7">
+                    <Suspense fallback={<div className="d-flex justify-content-center py-10"><Spinner size={32} /></div>}>
                         <AttendanceCalendar
-                            calendarCells={calendarCells}
                             activeStartDate={activeStartDate}
                             setActiveStartDate={setActiveStartDate}
                         />
-                    )}
+                    </Suspense>
                 </div>
                 
                 <div className="col-lg-5">

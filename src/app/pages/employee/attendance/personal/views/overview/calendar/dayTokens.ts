@@ -28,14 +28,22 @@ export type FillMode = 'solid' | 'split' | 'tint' | 'none';
 /** An outline drawn instead of / around the fill, carrying a modifier. */
 export type RingMode = 'none' | 'solid' | 'dashed';
 
+/** A marker dot beneath the numeral. Carries its key so the tile knows whether to pulse it. */
+export interface DayDot {
+  key: DayModifier;
+  trio: Trio;
+  /** Live state — animates, on the tile and in the legend alike. */
+  pulse: boolean;
+}
+
 export interface DayVisual {
   trio: Trio;
   fill: FillMode;
   /** Second tone for `split` (half-day) — the leave half of the gradient. */
   splitWith?: Trio;
   ring: RingMode;
-  /** Tones for the marker dots under the numeral. */
-  dots: Trio[];
+  /** Marker dots, floated inside the numeral's disc. */
+  dots: DayDot[];
   /** True when the disc carries a saturated fill and needs light numerals. */
   onFill: boolean;
 }
@@ -139,8 +147,8 @@ export function resolveDayVisual(
     splitWith: status === 'half_day' ? (overrides?.present ? withAccent(TRIO.green, overrides.present) : TRIO.green) : undefined,
     ring,
     dots: DOT_MODIFIERS.filter((m) => modifiers.includes(m))
-      .map((m) => MODIFIER_TRIO[m])
-      .filter((t): t is Trio => Boolean(t)),
+      .map((m) => ({ key: m, trio: MODIFIER_TRIO[m], pulse: shouldPulse(m) }))
+      .filter((d): d is DayDot => Boolean(d.trio)),
     onFill: fill === 'solid' || fill === 'split',
   };
 }
