@@ -15,7 +15,8 @@ import { StatTile } from '@app/modules/common/components/ui/tw/Patterns';
 import { Spinner } from '@app/modules/common/components/ui/tw/Spinner';
 import { ErrorState } from '@app/modules/common/components/ui/tw/ErrorState';
 import { TRIO } from '@app/modules/common/components/ui/tw/tokens';
-import { MonthGrid } from './MonthGrid';
+import { MonthGrid } from '@app/modules/common/components/ui/tw/MonthGrid';
+import { DayCell } from './DayCell';
 import { CalendarLegend } from './CalendarLegend';
 import type { DayToneOverrides } from './dayTokens';
 
@@ -54,6 +55,13 @@ export function AttendanceCalendarPanel({
 
   const clear = useCallback(() => setFilters(new Set()), []);
 
+  // One lookup for the whole month instead of a linear scan per cell — the
+  // engine calls renderDay 42 times.
+  const byDate = useMemo(
+    () => new Map((data?.days ?? []).map((d) => [d.date, d])),
+    [data?.days],
+  );
+
   const tiles = useMemo(() => {
     const s = data?.summary;
     if (!s) return [];
@@ -85,14 +93,42 @@ export function AttendanceCalendarPanel({
       )}
 
       <div className="relative">
+        {/* The shared engine owns the grid, the keyboard model and the ARIA;
+            this supplies only what an attendance day looks like. */}
         <MonthGrid
           month={month}
-          days={data?.days ?? []}
-          activeFilters={filters}
-          overrides={overrides}
           onMonthChange={onMonthChange}
-          onOpenDay={onOpenDay}
           loading={loading}
+          ariaLabel={`Attendance for ${month}`}
+          onDayActivate={(date) => {
+            const day = byDate.get(date);
+            if (day) onOpenDay(day);
+          }}
+          renderDay={(ctx) => {
+            const day = byDate.get(ctx.date);
+            // A day the server did not send (a padding day outside the fetched
+            // window) still renders its numeral, so the grid never gaps.
+            if (!day) {
+              return (
+                <span className="text-[13.5px] font-semibold tabular-nums text-slate-400 dark:text-slate-600">
+                  {Number(ctx.date.slice(8, 10))}
+                </span>
+              );
+            }
+            return (
+              <DayCell
+                day={day}
+                ctx={ctx}
+                overrides={overrides}
+                dimmed={
+                  filters.size > 0 &&
+                  ctx.inMonth &&
+                  !filters.has(day.status) &&
+                  !day.modifiers.some((m) => filters.has(m))
+                }
+              />
+            );
+          }}
         />
 
         {/* Overlaid, not swapped in — `placeholderData: keepPreviousData` keeps the

@@ -1,21 +1,23 @@
 /**
- * One day tile. Memoised, and deliberately logic-free: it receives a resolved
- * `CalendarDay` and renders it. It cannot disagree with the server because it
- * never decides anything.
+ * The attendance day's PAINT.
  *
- * Replaces the `tileClassName` / `_react-calendar.scss` pair, which could only
- * be styled by reaching into react-calendar's generated DOM (`.react-calendar__tile abbr`)
- * from a global stylesheet with `!important`. Owning the markup is what makes
- * zero-CSS possible here — and it is also what makes the tooltip, the keyboard
- * grid and uniform out-of-month dimming possible at all.
+ * The kit's `MonthGrid` owns the cell button, the roving-tabindex keyboard
+ * model and the `role="grid"` semantics; this renders what goes inside one.
+ * That split is what lets the wizard, apply-leave and the heatmap share the
+ * hard parts while keeping their own appearance.
+ *
+ * Deliberately logic-free: it receives a resolved `CalendarDay` from the
+ * server and renders it. It cannot disagree with the server because it never
+ * decides anything.
  */
-import { memo, useId, useRef, useState, type CSSProperties } from 'react';
+import { memo, useRef, useState, type CSSProperties } from 'react';
 import dayjs from 'dayjs';
 // Barrel import, matching the 173 files that already use it. Mixing deep
 // (@mui/material/Popper) and barrel entry points makes Vite pre-bundle two
 // copies of the emotion styled engine, which surfaces at runtime as
 // "styled_default is not a function".
 import { Popper, Fade } from '@mui/material';
+import type { MonthDayContext } from '@app/modules/common/components/ui/tw/MonthGrid';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
 import { MODIFIER_LABEL, STATUS_LABEL, readableOn, resolveDayVisual, type DayToneOverrides } from './dayTokens';
@@ -24,42 +26,33 @@ import type { CalendarDay } from './types';
 
 export interface DayCellProps {
   day: CalendarDay;
-  isToday: boolean;
-  /** Roving tabindex — exactly one cell in the grid is tabbable. */
-  isTabStop: boolean;
+  /** Grid state for this cell, supplied by the engine. */
+  ctx: MonthDayContext;
   /** Dimmed because a legend filter excludes it. */
   dimmed: boolean;
   overrides?: DayToneOverrides;
-  onOpen: (day: CalendarDay) => void;
-  onFocus: (date: string) => void;
-  registerRef: (date: string, el: HTMLButtonElement | null) => void;
 }
 
 const POPPER_MODS = [
-  { name: 'offset', options: { offset: [0, 8] } },
+  { name: 'offset', options: { offset: [0, 10] } },
   { name: 'preventOverflow', options: { padding: 12 } },
 ];
 
-export const DayCell = memo(function DayCell({
-  day,
-  isToday,
-  isTabStop,
-  dimmed,
-  overrides,
-  onOpen,
-  onFocus,
-  registerRef,
-}: DayCellProps) {
+export const DayCell = memo(function DayCell({ day, ctx, dimmed, overrides }: DayCellProps) {
   const dark = useIsDark();
-  const [open, setOpen] = useState(false);
-  const anchorRef = useRef<HTMLButtonElement | null>(null);
-  const tipId = useId();
+  const [hovered, setHovered] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement | null>(null);
 
   // `lateMinutes` grades the late dot — the server's own verdict, never
   // recomputed here.
   const v = resolveDayVisual(day.status, day.modifiers, overrides, day.lateMark?.lateMinutes);
   const tone = toneSurface(v.trio, dark);
   const num = dayjs(day.date).date();
+
+  // Hover OR keyboard focus. The engine owns focus, so `ctx.isFocused` is the
+  // only way a keyboard user reaches the tooltip — hover alone would strand
+  // them, which is the WCAG 1.4.13 failure this avoids.
+  const open = hovered || ctx.isFocused;
 
   // Runtime hex cannot be a utility class, so the disc's paint is inline —
   // the same rule IconBox/StatusBadge already follow in this kit.
@@ -80,40 +73,16 @@ export const DayCell = memo(function DayCell({
 
   return (
     <>
-      <button
-        ref={(el) => {
-          anchorRef.current = el;
-          registerRef(day.date, el);
-        }}
-        type="button"
-        role="gridcell"
-        tabIndex={isTabStop ? 0 : -1}
-        aria-current={isToday ? 'date' : undefined}
-        aria-describedby={open ? tipId : undefined}
-        disabled={day.status === 'not_employed'}
-        className={cn(
-          'relative grid place-items-center rounded-xl outline-none',
-          'aspect-square w-full sm:aspect-auto sm:h-[46px]',
-          'transition-[background-color,opacity,transform] duration-150',
-          'hover:bg-slate-100/70 dark:hover:bg-white/[0.06]',
-          'focus-visible:ring-2 focus-visible:ring-[#1E3A8A] dark:focus-visible:ring-[#8AA3EC] focus-visible:ring-offset-1 focus-visible:ring-offset-transparent',
-          'disabled:cursor-not-allowed',
-          !day.inMonth && 'opacity-35', // uniform — the current grid paints only the Sundays
-          dimmed && 'opacity-20',
-        )}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onFocus={() => {
-          setOpen(true);
-          onFocus(day.date);
-        }}
-        onBlur={() => setOpen(false)}
-        onClick={() => onOpen(day)}
+      <span
+        ref={anchorRef}
+        className={cn('grid size-full place-items-center transition-opacity', dimmed && 'opacity-20')}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
       >
         <span
           className={cn(
             'relative grid place-items-center rounded-full tabular-nums',
-            'size-[34px] sm:size-[32px] text-[13.5px]',
+            'size-[34px] text-[13.5px] sm:size-[32px]',
             v.fill === 'solid' || v.fill === 'split' ? 'font-bold' : 'font-semibold',
             v.fill === 'none' && v.ring === 'none' && 'text-slate-700 dark:text-slate-300',
           )}
@@ -128,7 +97,7 @@ export const DayCell = memo(function DayCell({
           {v.dots.length > 0 && (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-[3px] left-1/2 flex items-end -translate-x-1/2 gap-[3px]"
+              className="pointer-events-none absolute bottom-[3px] left-1/2 flex -translate-x-1/2 items-end gap-[3px]"
             >
               {v.dots.map((d) => (
                 <i
@@ -139,40 +108,30 @@ export const DayCell = memo(function DayCell({
                   // so inline — a utility class cannot express either.
                   // `color` too: wt-dot-pulse rings with currentColor, so a
                   // halo matches its dot instead of inheriting the numeral's.
-                  style={{
-                    width: d.size,
-                    height: d.size,
-                    backgroundColor: d.trio.c,
-                    color: d.trio.c,
-                  }}
+                  style={{ width: d.size, height: d.size, backgroundColor: d.trio.c, color: d.trio.c }}
                 />
               ))}
             </span>
           )}
         </span>
 
-        {/* Today: a soft halo that expands and fades from the disc edge.
-            This is the one genuinely live thing on the screen and the only
-            element that carries it, so the whole month animates exactly once —
-            which is what makes the effect read as emphasis rather than noise.
-            An overlay rather than a class on the disc, because it rings
-            with `currentColor` and the disc's own colour is the numeral's.
-            Under prefers-reduced-motion it falls back to a static outline, so
-            today never loses its marker. */}
-        {isToday && (
+        {/* Today: a soft halo that expands and fades from the disc edge. The one
+            live thing on the screen and the only element that animates, which is
+            what makes it read as emphasis rather than noise. Falls back to a
+            static ring under prefers-reduced-motion, so today never loses its
+            marker. */}
+        {ctx.isToday && (
           <span
             aria-hidden="true"
-            className="wt-now-ring pointer-events-none absolute rounded-full size-[34px] sm:size-[32px] text-[#1E3A8A] dark:text-[#8AA3EC]"
+            className="wt-now-ring pointer-events-none absolute rounded-full size-[34px] text-[#1E3A8A] dark:text-[#8AA3EC] sm:size-[32px]"
           />
         )}
 
-        {/* Keeps (and extends) the existing screen-reader work — colour is
-            never the only channel. */}
+        {/* Colour is never the only channel. */}
         <span className="sr-only">{describeDay(day)}</span>
-      </button>
+      </span>
 
       <Popper
-        id={tipId}
         open={open}
         anchorEl={anchorRef.current}
         placement="bottom"
@@ -183,7 +142,7 @@ export const DayCell = memo(function DayCell({
         {({ TransitionProps }) => (
           <Fade {...TransitionProps} timeout={120}>
             <div>
-              <DayTooltip day={day} overrides={overrides} id={tipId} />
+              <DayTooltip day={day} overrides={overrides} />
             </div>
           </Fade>
         )}
