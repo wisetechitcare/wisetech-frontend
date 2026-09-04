@@ -28,12 +28,52 @@ export type FillMode = 'solid' | 'split' | 'tint' | 'none';
 /** An outline drawn instead of / around the fill, carrying a modifier. */
 export type RingMode = 'none' | 'solid' | 'dashed';
 
-/** A marker dot beneath the numeral. Carries its key so the tile knows whether to pulse it. */
+/** A marker dot beneath the numeral. Carries its key so the tile knows how to draw it. */
 export interface DayDot {
   key: DayModifier;
   trio: Trio;
   /** Live state — animates, on the tile and in the legend alike. */
   pulse: boolean;
+  /** Diameter in px. Severity is encoded here as well as in the tone. */
+  size: number;
+}
+
+/**
+ * Lateness severity.
+ *
+ * `lateMinutes` is already measured PAST the policy threshold — the grace
+ * window and any per-employee override are applied server-side by
+ * `evaluateLateMark` — so every band here is genuinely late; they differ only
+ * in degree.
+ *
+ * Why this exists: five minutes late and ninety minutes late were rendering as
+ * the identical amber dot, and the number was buried in a hover. Grading it is
+ * worth more than animating it, because it answers a question the tile could
+ * not previously answer at all.
+ *
+ * Two channels, so this survives greyscale and colour-blindness: the dot grows
+ * AND its amber deepens.
+ */
+export interface LateBand {
+  id: 'slight' | 'moderate' | 'severe';
+  label: string;
+  /** Lower bound in minutes past the threshold, inclusive. */
+  from: number;
+  trio: Trio;
+  size: number;
+}
+
+/** Ordered widest-first so a `.find` picks the most severe match. */
+export const LATE_BANDS: readonly LateBand[] = [
+  { id: 'severe', label: 'Severely late', from: 46, trio: { c: '#B45309', bg: '#FFFBEB', bd: '#FCD34D' }, size: 7 },
+  { id: 'moderate', label: 'Moderately late', from: 16, trio: { c: '#D97706', bg: '#FFFBEB', bd: '#FDE68A' }, size: 5.5 },
+  { id: 'slight', label: 'Slightly late', from: 0, trio: { c: '#F59E0B', bg: '#FFFBEB', bd: '#FDE68A' }, size: 4 },
+] as const;
+
+export function lateBandOf(lateMinutes?: number | null): LateBand {
+  const m = Math.max(0, lateMinutes ?? 0);
+  // The last entry has `from: 0`, so this can never be undefined.
+  return LATE_BANDS.find((b) => m >= b.from) ?? LATE_BANDS[LATE_BANDS.length - 1];
 }
 
 export interface DayVisual {
@@ -130,6 +170,8 @@ export function resolveDayVisual(
   status: DayStatus,
   modifiers: readonly DayModifier[],
   overrides?: DayToneOverrides,
+  /** Minutes past the threshold, from the server's own verdict. Grades the late dot. */
+  lateMinutes?: number | null,
 ): DayVisual {
   const base = STATUS_TRIO[status];
   const trio = overrides?.[status] ? withAccent(base, overrides[status]!) : base;
@@ -147,7 +189,17 @@ export function resolveDayVisual(
     splitWith: status === 'half_day' ? (overrides?.present ? withAccent(TRIO.green, overrides.present) : TRIO.green) : undefined,
     ring,
     dots: DOT_MODIFIERS.filter((m) => modifiers.includes(m))
-      .map((m) => ({ key: m, trio: MODIFIER_TRIO[m], pulse: shouldPulse(m) }))
+      .map((m) => {
+        // Lateness is the one modifier with a magnitude, so it is the one that
+        // gets graded. The rest are binary and keep a single neutral size.
+        const band = m === 'late_in' ? lateBandOf(lateMinutes) : null;
+        return {
+          key: m,
+          trio: band?.trio ?? MODIFIER_TRIO[m],
+          pulse: shouldPulse(m),
+          size: band?.size ?? 4.5,
+        };
+      })
       .filter((d): d is DayDot => Boolean(d.trio)),
     onFill: fill === 'solid' || fill === 'split',
   };
@@ -169,12 +221,19 @@ export function legendLabel(key: LegendKey): string {
  * Reuses the kit's `wt-dot-pulse` — the same animation `StatusBadge` uses for
  * "Approval Pending" — so a live state reads identically wherever it appears.
  *
- * The rule for adding one: a pulse means *this is unresolved and wants your
- * attention*, not merely *this is important*. `late_in` and `request_pending`
- * qualify; `absent` does not, because a past absence is settled fact, and
- * `present` certainly does not. Motion that marks everything marks nothing.
+ * ── The motion rule for this screen ──────────────────────────────────────
+ * Motion marks what is IN FLIGHT, never what is merely important:
+ *
+ *   in flight  →  animated   (today = orbiting beam, pending = pulse)
+ *   settled    →  static, graded by severity  (lateness, absence)
+ *
+ * `late_in` was in this set and has been removed deliberately. A late mark is
+ * a settled historical fact — nothing about it is still happening — and it now
+ * carries something better than a pulse: a magnitude, via `LATE_BANDS`. That
+ * says five-minutes-late and ninety-minutes-late are different, which no
+ * amount of animation ever could.
  */
-const PULSING: ReadonlySet<LegendKey> = new Set<LegendKey>(['late_in', 'request_pending']);
+const PULSING: ReadonlySet<LegendKey> = new Set<LegendKey>(['request_pending']);
 
 export function shouldPulse(key: LegendKey): boolean {
   return PULSING.has(key);

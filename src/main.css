@@ -53,19 +53,11 @@ button[class*="rounded-"] {
 }
 .wt-dot-pulse { animation: wt-dot-pulse 1.8s ease-in-out infinite; }
 
-/* A halo that ripples outward from an element's edge, for marking the one
-   thing that is "now" — today's date cell, a live row. Rings with
-   `currentColor`, so the caller sets `color` (or a text-* utility) to choose
-   the hue.
-   Slower and wider than wt-dot-pulse because it surrounds a ~32px disc rather
-   than a 5px dot. Falls back to a STATIC ring under reduced motion, so the
-   marker never disappears entirely — see the media query below. */
-@keyframes wt-pulse-ring {
-  0%   { box-shadow: 0 0 0 0 currentColor; }
-  70%  { box-shadow: 0 0 0 7px transparent; }
-  100% { box-shadow: 0 0 0 0 transparent; }
-}
-.wt-pulse-ring { animation: wt-pulse-ring 2.4s ease-in-out infinite; }
+/* NOTE: `wt-pulse-ring` is deliberately NOT defined here. main.tsx injects a
+   keyframe of that name for the session-failure splash (`.wt-err-ring::before`),
+   and a second `@keyframes` with the same name does not scope — the last one
+   parsed wins for every consumer, so defining it here silently replaces that
+   screen's animation. Today's marker uses `wt-beam` below instead. */
 
 /* ── Border beam ───────────────────────────────────────────────────────────
    A comet that orbits a CIRCULAR element's edge (MagicUI's border-beam, sized
@@ -866,18 +858,13 @@ thead.MuiTableHead-root th {
     animation: none;
   }
 
-  /* The ring, unlike the dot, carries the ONLY marker for its element (today's
-     date). Stopping the animation dead would leave nothing, so it degrades to
-     the static ring the animation used to draw at its peak. */
-  .wt-pulse-ring {
-    animation: none;
-    box-shadow: 0 0 0 2px currentColor;
-  }
-
-  /* A frozen comet is a lopsided arc that reads as a rendering artefact, and
-     the marker dot already carries the meaning — so the beam is removed
-     outright rather than merely stopped. */
+  /* The beam is today's ONLY marker, so it cannot simply stop — a frozen comet
+     is a lopsided arc that reads as a rendering artefact. Drop the comet and
+     draw the plain ring it was orbiting, so the day stays marked. */
   .wt-beam::after {
     display: none;
+  }
+  .wt-beam {
+    box-shadow: 0 0 0 2px currentColor;
   }
 }

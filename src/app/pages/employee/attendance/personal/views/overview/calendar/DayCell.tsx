@@ -55,13 +55,11 @@ export const DayCell = memo(function DayCell({
   const anchorRef = useRef<HTMLButtonElement | null>(null);
   const tipId = useId();
 
-  const v = resolveDayVisual(day.status, day.modifiers, overrides);
+  // `lateMinutes` grades the late dot — the server's own verdict, never
+  // recomputed here.
+  const v = resolveDayVisual(day.status, day.modifiers, overrides, day.lateMark?.lateMinutes);
   const tone = toneSurface(v.trio, dark);
   const num = dayjs(day.date).date();
-
-  // The beam replaces the DOT for whichever live modifier owns it, so a day
-  // never shows both cues for the same thing.
-  const beam = v.dots.find((d) => d.pulse) ?? null;
 
   // Runtime hex cannot be a utility class, so the disc's paint is inline —
   // the same rule IconBox/StatusBadge already follow in this kit.
@@ -127,45 +125,44 @@ export const DayCell = memo(function DayCell({
               day reads as one object instead of a circle with something stuck
               underneath it. They never consume the fill, so `present` and
               `late_in` still coexist rather than competing for one enum slot. */}
-          {v.dots.some((d) => d !== beam) && (
+          {v.dots.length > 0 && (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-[3px] left-1/2 flex -translate-x-1/2 gap-[3px]"
+              className="pointer-events-none absolute bottom-[3px] left-1/2 flex items-end -translate-x-1/2 gap-[3px]"
             >
-              {v.dots.filter((d) => d !== beam).map((d) => (
+              {v.dots.map((d) => (
                 <i
                   key={d.key}
-                  className={cn('block size-[4.5px] rounded-full', d.pulse && 'wt-dot-pulse')}
-                  // `color` too: wt-dot-pulse rings with currentColor, so the
-                  // halo matches the dot instead of inheriting the numeral's.
-                  style={{ backgroundColor: d.trio.c, color: d.trio.c }}
+                  className={cn('block shrink-0 rounded-full', d.pulse && 'wt-dot-pulse')}
+                  // Size carries severity alongside tone, so the grading
+                  // survives greyscale and colour-blindness. Runtime values,
+                  // so inline — a utility class cannot express either.
+                  // `color` too: wt-dot-pulse rings with currentColor, so a
+                  // halo matches its dot instead of inheriting the numeral's.
+                  style={{
+                    width: d.size,
+                    height: d.size,
+                    backgroundColor: d.trio.c,
+                    color: d.trio.c,
+                  }}
                 />
               ))}
             </span>
           )}
         </span>
 
-        {/* Today: a pulsing halo, not a second static ring.
-            The ring version collided with the modifier rings — a day that is
-            both today and missing a check-out drew two concentric circles and
-            read as neither. `wt-pulse-ring` degrades to a plain ring under
-            prefers-reduced-motion, so today never loses its marker. */}
+        {/* Today: the orbiting beam.
+            This is the one genuinely live thing on the screen and the only
+            element that carries it, so the whole month animates exactly once —
+            which is what makes the effect read as emphasis rather than noise.
+            An overlay rather than a class on the disc, because `wt-beam` rings
+            with `currentColor` and the disc's own colour is the numeral's.
+            Under prefers-reduced-motion the comet is removed and `wt-beam`
+            falls back to a static outline, so today never loses its marker. */}
         {isToday && (
           <span
             aria-hidden="true"
-            className="wt-pulse-ring pointer-events-none absolute rounded-full size-[34px] sm:size-[32px] text-[#1E3A8A] dark:text-[#8AA3EC]"
-          />
-        )}
-
-        {/* Border beam — an overlay rather than a class on the disc, because
-            `wt-beam` rings with `currentColor` and the disc's own colour is the
-            numeral's (white on a filled tile). Its own span carries its own
-            colour, so the comet takes the modifier's tone. */}
-        {beam && (
-          <span
-            aria-hidden="true"
-            className="wt-beam pointer-events-none absolute rounded-full size-[34px] sm:size-[32px]"
-            style={{ color: beam.trio.c }}
+            className="wt-beam pointer-events-none absolute rounded-full size-[34px] sm:size-[32px] text-[#1E3A8A] dark:text-[#8AA3EC]"
           />
         )}
 
