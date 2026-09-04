@@ -18,6 +18,10 @@ import { AttendanceCalendarPanel } from './AttendanceCalendarPanel';
 import { useAttendanceCalendar } from './useAttendanceCalendar';
 import { DayDetailPanel } from './DayDetailPanel';
 import type { DayToneOverrides } from './dayTokens';
+import {
+  STRUCTURAL_DEFAULTS,
+  type StructuralColors,
+} from '@app/modules/common/components/ui/tw/calendarDayTones';
 import type { CalendarDay } from './types';
 
 export interface AttendanceCalendarNextProps {
@@ -63,6 +67,21 @@ export default function AttendanceCalendarNext({
     [calendarColors, overviewColors],
   );
 
+  /**
+   * Structural colours, read from the SAME config keys and with the SAME
+   * fallbacks ApplyLeave uses — so a holiday and a Saturday look identical on
+   * both calendars whether or not an admin has configured them.
+   */
+  const structuralCols = useMemo<StructuralColors>(
+    () => ({
+      holiday: overviewColors?.holidayColor || STRUCTURAL_DEFAULTS.holiday,
+      weekend: calendarColors?.weekendColor || STRUCTURAL_DEFAULTS.weekend,
+      teamOff: calendarColors?.teamOffColor || STRUCTURAL_DEFAULTS.teamOff,
+      sunday: STRUCTURAL_DEFAULTS.sunday,
+    }),
+    [calendarColors, overviewColors],
+  );
+
   const { data, isLoading, isError, refetch } = useAttendanceCalendar(employeeId, month);
 
   const onMonthChange = useCallback(
@@ -104,6 +123,7 @@ export default function AttendanceCalendarNext({
         loading={isLoading}
         error={isError}
         overrides={overrides}
+        structuralCols={structuralCols}
         onMonthChange={onMonthChange}
         onOpenDay={setSelected}
         onRetry={refetch}

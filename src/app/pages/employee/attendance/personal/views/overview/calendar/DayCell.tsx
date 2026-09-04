@@ -18,6 +18,12 @@ import dayjs from 'dayjs';
 // "styled_default is not a function".
 import { Popper, Fade } from '@mui/material';
 import type { MonthDayContext } from '@app/modules/common/components/ui/tw/MonthGrid';
+import {
+  structuralDayKind,
+  structuralDayTone,
+  STRUCTURAL_DEFAULTS,
+  type StructuralColors,
+} from '@app/modules/common/components/ui/tw/calendarDayTones';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
 import { MODIFIER_LABEL, STATUS_LABEL, readableOn, resolveDayVisual, type DayToneOverrides } from './dayTokens';
@@ -25,6 +31,8 @@ import { DayTooltip } from './DayTooltip';
 import type { CalendarDay } from './types';
 
 export interface DayCellProps {
+  /** Admin-configured structural colours, shared with the apply-leave grid. */
+  structuralCols?: StructuralColors;
   day: CalendarDay;
   /** Grid state for this cell, supplied by the engine. */
   ctx: MonthDayContext;
@@ -38,7 +46,13 @@ const POPPER_MODS = [
   { name: 'preventOverflow', options: { padding: 12 } },
 ];
 
-export const DayCell = memo(function DayCell({ day, ctx, dimmed, overrides }: DayCellProps) {
+export const DayCell = memo(function DayCell({
+  day,
+  ctx,
+  dimmed,
+  overrides,
+  structuralCols = STRUCTURAL_DEFAULTS,
+}: DayCellProps) {
   const dark = useIsDark();
   const [hovered, setHovered] = useState(false);
   const anchorRef = useRef<HTMLSpanElement | null>(null);
@@ -54,10 +68,45 @@ export const DayCell = memo(function DayCell({ day, ctx, dimmed, overrides }: Da
   // them, which is the WCAG 1.4.13 failure this avoids.
   const open = hovered || ctx.isFocused;
 
+  /**
+   * Structural days — holiday, team off, Sunday, Saturday — are painted by the
+   * SHARED resolver, so the same Saturday looks identical here and on the
+   * apply-leave grid. Only days with no employee state of their own qualify: a
+   * day you worked is a worked day first, and the holiday survives as context.
+   *
+   * This also corrects this grid's own inconsistency. It painted holidays as a
+   * saturated purple fill, which broke the rule stated in `dayTokens`: a
+   * structural day gets a TINT, and only employee state earns a fill.
+   */
+  const structural =
+    day.status === 'holiday' || day.status === 'weekly_off'
+      ? structuralDayKind(day.date, {
+          isHoliday: day.status === 'holiday',
+          isOffDay: day.status === 'weekly_off',
+        })
+      : null;
+
   // Runtime hex cannot be a utility class, so the disc's paint is inline —
   // the same rule IconBox/StatusBadge already follow in this kit.
-  const disc: CSSProperties =
-    v.fill === 'solid'
+  const disc: CSSProperties = structural
+    ? (() => {
+        const t = structuralDayTone(structural, structuralCols);
+        return t.ring.style === 'dashed'
+          ? {
+              backgroundColor: t.background,
+              color: t.color,
+              // `outline` rather than a border, so the dashed Team Off cue
+              // costs no layout shift — same technique apply-leave uses.
+              outline: `${t.ring.width}px dashed ${t.ring.color}`,
+              outlineOffset: '-3px',
+            }
+          : {
+              backgroundColor: t.background,
+              color: t.color,
+              boxShadow: `inset 0 0 0 ${t.ring.width}px ${t.ring.color}`,
+            };
+      })()
+    : v.fill === 'solid'
       ? { backgroundColor: v.trio.c, color: readableOn(v.trio.c) }
       : v.fill === 'split'
         ? {

@@ -9,6 +9,14 @@ export interface IAttendanceCalendarColor {
     workingWeekendColor: string,
     markedPresentViaRequestRaisedColor: string,
     adminRaisedRequestColor?: string,
+    /**
+     * Branch-configured weekday off (e.g. an office closed on Wednesdays).
+     *
+     * Already read by ApplyLeave and now by the attendance grid, but it was
+     * missing from this interface, so both had to reach it through an `any`
+     * cast. Declared here so the config key has one typed home.
+     */
+    teamOffColor?: string,
 }
 
 export interface IAttendanceOverviewColor {

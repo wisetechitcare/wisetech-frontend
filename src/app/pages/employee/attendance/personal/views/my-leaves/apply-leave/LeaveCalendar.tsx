@@ -23,6 +23,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { rgba, tintOf, borderOf } from '@utils/leaveTypeColors';
 import { ACCENT, RED, PJK, DAY_NAMES, pad, navBtnSt } from './tokens';
+import { structuralDayKind, structuralDayTone, type StructuralColors } from '@app/modules/common/components/ui/tw/calendarDayTones';
 import { useLeavePalette } from './theme';
 
 export interface LeaveCalendarProps {
@@ -116,6 +117,12 @@ function LeaveCalendarBase({
     const end = previewEnd ?? s.to ?? s.from;
     const sz = small ? 40 : 44, rad = small ? 9 : 10;
     const hasWod = Object.keys(workingAndOffDays).length > 0;
+    // The four structural colours, in the shape the shared tone resolver wants.
+    // Sunday keeps RED so it matches this grid's own red column header.
+    const structuralCols: StructuralColors = React.useMemo(
+        () => ({ holiday: holidayCol, weekend: weekendCol, teamOff: teamOffCol, sunday: RED }),
+        [holidayCol, weekendCol, teamOffCol],
+    );
     const cells: React.ReactNode[] = [];
     for (let i = 0; i < lead; i++) cells.push(<div key={'l' + i} />);
     for (let d = 1; d <= dim; d++) {
@@ -143,6 +150,9 @@ function LeaveCalendarBase({
         const seg      = segByDate.get(iso), charged = !!seg;
         // sandwichCharged: interior off-day excluded from salary (Model B — not booked as leave)
         const sandwichCharged = sandwichDateSet.has(iso);
+        // Structural kind, shared with the attendance grid. A holiday wins over
+        // an off-day, matching the precedence the old inline branches had.
+        const structuralKind = structuralDayKind(iso, { isHoliday: holiday, isOffDay: offDay });
         const dtColor  = charged ? colorOf(seg!.leaveType) : ACCENT;
 
         const st: React.CSSProperties = {
@@ -152,31 +162,27 @@ function LeaveCalendarBase({
         };
         if (past || workedToday)  { st.opacity = 0.4; st.color = P.inkDisabled; }
         if (blocked && !past) { st.background = rgba(RED, P.dark ? 0.22 : 0.09); st.color = RED; st.textDecoration = 'line-through'; }
-        // Holiday — colour from customColors.attendanceOverview.holidayColor
-        if (holiday && !charged && !blocked) {
-            st.background = rgba(holidayCol, 0.12); st.color = holidayCol; st.boxShadow = `inset 0 0 0 1px ${rgba(holidayCol, 0.30)}`;
-        }
-        // Off-days — three distinct identities so they never read as the same swatch:
-        //  • Team Off (branch-configured weekday off) → teal tint + dashed ring (its own colour,
-        //    plus a non-colour cue for accessibility)
-        //  • Sunday → RED (matches the column header)
-        //  • Saturday / other weekend → weekendCol from config
-        if (offDay && !charged && !blocked && !holiday) {
-            if (teamOff) {
-                st.background     = rgba(teamOffCol, 0.12);
-                st.color          = teamOffCol;
-                // Dashed ring (via outline → no layout shift) is the non-colour cue that sets
-                // Team Off apart from the SOLID rings on weekend/holiday cells.
-                st.outline        = `1.5px dashed ${rgba(teamOffCol, 0.55)}`;
-                st.outlineOffset  = '-3px';
-                st.borderRadius   = rad;
+        // Structural days — holiday, team off, Sunday, Saturday.
+        //
+        // These four are facts about the CALENDAR rather than about this person,
+        // so their appearance now comes from `calendarDayTones` in the kit and is
+        // shared with the attendance grid: the same Saturday looks the same on
+        // both screens. The values there were lifted from this file verbatim,
+        // so nothing about how these cells render has changed.
+        //
+        // Team Off keeps its DASHED ring, applied via `outline` rather than
+        // `boxShadow` so it causes no layout shift — the non-colour cue that
+        // separates it from the solid rings on weekend and holiday cells.
+        if (structuralKind && !charged && !blocked) {
+            const t = structuralDayTone(structuralKind, structuralCols);
+            st.background = t.background;
+            st.color = t.color;
+            if (t.ring.style === 'dashed') {
+                st.outline = `${t.ring.width}px dashed ${t.ring.color}`;
+                st.outlineOffset = '-3px';
+                st.borderRadius = rad;
             } else {
-                const isSun   = wd === 0;
-                const offCol  = isSun ? RED : weekendCol;
-                const offAlpha = isSun ? 0.07 : 0.10;
-                st.background = rgba(offCol, offAlpha);
-                st.color      = offCol;
-                st.boxShadow  = `inset 0 0 0 1px ${rgba(offCol, isSun ? 0.20 : 0.25)}`;
+                st.boxShadow = `inset 0 0 0 ${t.ring.width}px ${t.ring.color}`;
             }
         }
         // In-range uncharged — light accent band so the selection reads cohesively.

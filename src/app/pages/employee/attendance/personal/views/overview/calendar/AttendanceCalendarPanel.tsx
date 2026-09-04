@@ -19,6 +19,7 @@ import { MonthGrid } from '@app/modules/common/components/ui/tw/MonthGrid';
 import { DayCell } from './DayCell';
 import { CalendarLegend } from './CalendarLegend';
 import type { DayToneOverrides } from './dayTokens';
+import type { StructuralColors } from '@app/modules/common/components/ui/tw/calendarDayTones';
 
 import type { AttendanceCalendarResponse, CalendarDay, LegendKey } from './types';
 
@@ -28,6 +29,8 @@ export interface AttendanceCalendarPanelProps {
   loading?: boolean;
   error?: boolean;
   overrides?: DayToneOverrides;
+  /** Shared structural colours (holiday / weekend / team off), same source as apply-leave. */
+  structuralCols?: StructuralColors;
   onMonthChange: (month: string) => void;
   onOpenDay: (day: CalendarDay) => void;
   onRetry?: () => void;
@@ -39,6 +42,7 @@ export function AttendanceCalendarPanel({
   loading,
   error,
   overrides,
+  structuralCols,
   onMonthChange,
   onOpenDay,
   onRetry,
@@ -120,6 +124,7 @@ export function AttendanceCalendarPanel({
                 day={day}
                 ctx={ctx}
                 overrides={overrides}
+                structuralCols={structuralCols}
                 dimmed={
                   filters.size > 0 &&
                   ctx.inMonth &&
