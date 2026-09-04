@@ -156,6 +156,23 @@ export function legendLabel(key: LegendKey): string {
 }
 
 /**
+ * Legend keys whose swatch pulses.
+ *
+ * Reuses the kit's `wt-dot-pulse` — the same animation `StatusBadge` uses for
+ * "Approval Pending" — so a live state reads identically wherever it appears.
+ *
+ * The rule for adding one: a pulse means *this is unresolved and wants your
+ * attention*, not merely *this is important*. `late_in` and `request_pending`
+ * qualify; `absent` does not, because a past absence is settled fact, and
+ * `present` certainly does not. Motion that marks everything marks nothing.
+ */
+const PULSING: ReadonlySet<LegendKey> = new Set<LegendKey>(['late_in', 'request_pending']);
+
+export function shouldPulse(key: LegendKey): boolean {
+  return PULSING.has(key);
+}
+
+/**
  * Swap a Trio's accent while keeping a usable tint/border pair.
  *
  * The existing implementation writes the picked colour straight to the tile and

@@ -792,4 +792,12 @@ thead.MuiTableHead-root th {
   .sensitive-data-visible {
     transition: none;
   }
+
+  /* An infinite attention-pulse is exactly what this preference is for. The dot
+     keeps its colour and position — only the motion stops — so the state stays
+     legible without animating forever in someone's peripheral vision.
+     Applies wherever the kit uses it: StatusBadge, the attendance legend. */
+  .wt-dot-pulse {
+    animation: none;
+  }
 }

@@ -19,7 +19,7 @@
 import { memo } from 'react';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
-import { legendLabel, resolveLegendVisual, type DayToneOverrides } from './dayTokens';
+import { legendLabel, resolveLegendVisual, shouldPulse, type DayToneOverrides } from './dayTokens';
 import type { LegendEntry, LegendKey } from './types';
 
 export interface CalendarLegendProps {
@@ -124,7 +124,16 @@ function LegendChip({
         color: t.fg,
       }}
     >
-      <Swatch fill={v.fill} ring={v.ring} accent={v.trio.c} splitWith={v.splitWith?.c} dot={v.dots[0]?.c} />
+      <Swatch
+        fill={v.fill}
+        ring={v.ring}
+        accent={v.trio.c}
+        splitWith={v.splitWith?.c}
+        dot={v.dots[0]?.c}
+        // Only while the entry is actually present this month — pulsing a
+        // zero-count chip advertises attention nothing needs.
+        pulse={shouldPulse(entry.key) && !empty}
+      />
       <span className="text-[11.5px] font-bold leading-[1.3] text-slate-700 dark:text-slate-300 whitespace-nowrap">
         {entry.label || legendLabel(entry.key)}
       </span>
@@ -135,27 +144,42 @@ function LegendChip({
   );
 }
 
-/** The swatch mirrors the tile's own shape language, not just its colour. */
+/**
+ * The swatch mirrors the tile's own shape language, not just its colour.
+ *
+ * `pulse` applies the kit's `wt-dot-pulse`, the animation `StatusBadge` uses
+ * for "Approval Pending". The keyframes ring with `currentColor`, so each
+ * branch sets `color` to its own accent — otherwise the halo inherits whatever
+ * text colour happens to be in scope and the ring reads as a different hue
+ * from the dot it surrounds.
+ */
 function Swatch({
   fill,
   ring,
   accent,
   splitWith,
   dot,
+  pulse,
 }: {
   fill: string;
   ring: string;
   accent: string;
   splitWith?: string;
   dot?: string;
+  pulse?: boolean;
 }) {
   const base = 'block size-[9px] shrink-0 rounded-full';
   if (ring !== 'none') {
     return (
       <i
         aria-hidden="true"
-        className={base}
-        style={{ borderWidth: 2, borderStyle: ring === 'dashed' ? 'dashed' : 'solid', borderColor: accent }}
+        className={cn(base, pulse && 'wt-dot-pulse')}
+        style={{
+          borderWidth: 2,
+          borderStyle: ring === 'dashed' ? 'dashed' : 'solid',
+          borderColor: accent,
+          color: accent,
+        }}
       />
     );
   }
@@ -172,7 +196,10 @@ function Swatch({
     // A modifier: a small dot, matching how it appears beneath the numeral.
     return (
       <span aria-hidden="true" className="grid size-[9px] shrink-0 place-items-end justify-center">
-        <i className="block size-[5px] rounded-full" style={{ backgroundColor: dot }} />
+        <i
+          className={cn('block size-[5px] rounded-full', pulse && 'wt-dot-pulse')}
+          style={{ backgroundColor: dot, color: dot }}
+        />
       </span>
     );
   }
