@@ -41,6 +41,12 @@ export interface PrefixSetting {
   identifier: string;
   /** null on the global/default row; set on an organization's own row. */
   organizationId?: string | null;
+  /**
+   * Sequence sharing. null = this organization runs its own counter. When set,
+   * its numbers come out of THAT organization's counter, so the two run one
+   * continuous series — each still keeps its own prefix string.
+   */
+  sequenceSourceOrganizationId?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }

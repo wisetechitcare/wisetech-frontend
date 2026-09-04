@@ -19,6 +19,7 @@ import { useTableFilters } from "@app/hooks/useTableFilters";
 import { projectManagerIds } from "@app/pages/employee/entity/detail/entityViewModel";
 import { flexibleTextMatch, searchAcrossFields } from "@app/utils/robustSearch";
 import Loader from "@app/modules/common/utils/Loader";
+import { dateSortingFn } from "@app/modules/common/components/table/dateSort";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
@@ -467,11 +468,10 @@ const ProjectTablePage = () => {
         meta: { defaultVisible: true },
         size: 140,
         enableSorting: true,
-        // "N/A" sorts as oldest so dated rows lead the default (desc) view.
-        sortingFn: (rowA: any, rowB: any) => {
-          const toTime = (v: any) => (v && v !== "N/A" ? new Date(v).getTime() : 0);
-          return toTime(rowA.original.projectStartDate) - toTime(rowB.original.projectStartDate);
-        },
+        // "N/A" sorts as oldest so dated rows lead the default (desc) view, and
+        // same-date rows break the tie on project number instead of arriving in
+        // whatever order the DB returned. See dateSort.ts.
+        sortingFn: dateSortingFn,
         Cell: ({ cell }: { cell: any }) => {
           try {
             const v = cell.getValue();
@@ -585,6 +585,7 @@ const ProjectTablePage = () => {
         meta: { defaultVisible: false },
         size: 150,
         enableSorting: true,
+        sortingFn: dateSortingFn,
         Cell: ({ row }: { row: any }) => {
           try {
             const v = row.original.projectEndDate;

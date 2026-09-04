@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { projectManagerIds } from "@app/pages/employee/entity/detail/entityViewModel";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
+import { dateSortingFn } from "@app/modules/common/components/table/dateSort";
 import Loader from "@app/modules/common/utils/Loader";
 import LeadWizardModal from "@pages/employee/leads/lead/LeadWizardModal";
 import dayjs, { Dayjs } from "dayjs";
@@ -835,6 +836,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         accessorKey: "inquiryDate",
         header: "Inquiry Date",
         size: 150,
+        sortingFn: dateSortingFn,
         Cell: ({ cell }: { cell: any }) => {
           const v = cell.getValue();
           return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
@@ -966,6 +968,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           accessorKey: "receivedDate",
           header: "Received Date",
           size: 150,
+          sortingFn: dateSortingFn,
           Cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
@@ -1034,6 +1037,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           accessorKey: "projectStartDate",
           header: "Start Date",
           size: 140,
+          sortingFn: dateSortingFn,
           Cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
@@ -1043,6 +1047,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           accessorKey: "projectEndDate",
           header: "Expected Closure",
           size: 150,
+          sortingFn: dateSortingFn,
           Cell: ({ row }: { row: any }) => {
             const v = row.original.projectEndDate;
             if (!v) return "N/A";
