@@ -59,6 +59,10 @@ export const DayCell = memo(function DayCell({
   const tone = toneSurface(v.trio, dark);
   const num = dayjs(day.date).date();
 
+  // The beam replaces the DOT for whichever live modifier owns it, so a day
+  // never shows both cues for the same thing.
+  const beam = v.dots.find((d) => d.pulse) ?? null;
+
   // Runtime hex cannot be a utility class, so the disc's paint is inline —
   // the same rule IconBox/StatusBadge already follow in this kit.
   const disc: CSSProperties =
@@ -123,12 +127,12 @@ export const DayCell = memo(function DayCell({
               day reads as one object instead of a circle with something stuck
               underneath it. They never consume the fill, so `present` and
               `late_in` still coexist rather than competing for one enum slot. */}
-          {v.dots.length > 0 && (
+          {v.dots.some((d) => d !== beam) && (
             <span
               aria-hidden="true"
               className="pointer-events-none absolute bottom-[3px] left-1/2 flex -translate-x-1/2 gap-[3px]"
             >
-              {v.dots.map((d) => (
+              {v.dots.filter((d) => d !== beam).map((d) => (
                 <i
                   key={d.key}
                   className={cn('block size-[4.5px] rounded-full', d.pulse && 'wt-dot-pulse')}
@@ -150,6 +154,18 @@ export const DayCell = memo(function DayCell({
           <span
             aria-hidden="true"
             className="wt-pulse-ring pointer-events-none absolute rounded-full size-[34px] sm:size-[32px] text-[#1E3A8A] dark:text-[#8AA3EC]"
+          />
+        )}
+
+        {/* Border beam — an overlay rather than a class on the disc, because
+            `wt-beam` rings with `currentColor` and the disc's own colour is the
+            numeral's (white on a filled tile). Its own span carries its own
+            colour, so the comet takes the modifier's tone. */}
+        {beam && (
+          <span
+            aria-hidden="true"
+            className="wt-beam pointer-events-none absolute rounded-full size-[34px] sm:size-[32px]"
+            style={{ color: beam.trio.c }}
           />
         )}
 

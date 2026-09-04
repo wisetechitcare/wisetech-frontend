@@ -17,6 +17,23 @@
   visibility: visible;
 }
 
+/* Bootstrap Reboot's `button { border-radius: 0 }` (its fix for a macOS Chrome
+   default) silently squares EVERY Tailwind-rounded button in the app.
+   `style.scss` is imported after this file and is unlayered, and unlayered CSS
+   beats layered CSS outright — specificity never enters into it, so a
+   `rounded-full` utility loses to a bare element selector.
+
+   `revert-layer` rolls the declaration back to the previous layer, which is
+   Tailwind's, so each button gets whatever radius its own utility asked for.
+   Scoped to buttons that already carry a `rounded-*` class, so nothing that
+   didn't opt in changes. Unlayered, like the `.collapse.show` shim above.
+
+   Symptom this fixes: the attendance legend chips rendering as sharp
+   rectangles despite `rounded-full`. */
+button[class*="rounded-"] {
+  border-radius: revert-layer;
+}
+
 /* ============================================================
    TAILWIND UI KIT (tw/) — dynamic bits Tailwind utilities can't express
    ============================================================ */
@@ -49,6 +66,40 @@
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 .wt-pulse-ring { animation: wt-pulse-ring 2.4s ease-in-out infinite; }
+
+/* ── Border beam ───────────────────────────────────────────────────────────
+   A comet that orbits a CIRCULAR element's edge (MagicUI's border-beam, sized
+   for a 32px day disc rather than a hero card).
+
+   Rotates the pseudo-element with `transform` instead of animating a conic
+   gradient's angle. `@property <angle>` is the usual technique and is what
+   MagicUI uses, but this codebase already ruled it out once — see
+   `kpis/common/leaderboard/goldenBorder.ts`: "not conic + @property, which has
+   Safari gaps". Rotation needs no registered custom property, runs on the
+   compositor, and is exact on a circle because a circle is rotationally
+   symmetric — the mask rotates with it and nothing shifts.
+
+   CIRCLES ONLY. On a pill the rotating radial mask would sweep outside the
+   shape; use the gradient-sheen technique in `goldenBorder.ts` for those.
+
+   `currentColor` drives the beam, so the caller picks the hue with `color`. */
+@keyframes wt-beam-orbit {
+  to { transform: rotate(1turn); }
+}
+.wt-beam { position: relative; }
+.wt-beam::after {
+  content: '';
+  position: absolute;
+  inset: -2.5px;
+  border-radius: 50%;
+  /* Short bright head, long transparent tail. */
+  background: conic-gradient(from 0deg, transparent 0 72%, currentColor 96%, transparent 100%);
+  /* Punch the middle out so only a ring survives. */
+  -webkit-mask: radial-gradient(farthest-side, #0000 calc(100% - 2.5px), #000 calc(100% - 2.5px));
+          mask: radial-gradient(farthest-side, #0000 calc(100% - 2.5px), #000 calc(100% - 2.5px));
+  animation: wt-beam-orbit 2.8s linear infinite;
+  pointer-events: none;
+}
 
  .no-scrollbar::-webkit-scrollbar {
      display: none;
@@ -821,5 +872,12 @@ thead.MuiTableHead-root th {
   .wt-pulse-ring {
     animation: none;
     box-shadow: 0 0 0 2px currentColor;
+  }
+
+  /* A frozen comet is a lopsided arc that reads as a rendering artefact, and
+     the marker dot already carries the meaning — so the beam is removed
+     outright rather than merely stopped. */
+  .wt-beam::after {
+    display: none;
   }
 }
