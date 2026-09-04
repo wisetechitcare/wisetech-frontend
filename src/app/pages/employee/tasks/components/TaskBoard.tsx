@@ -46,7 +46,8 @@ export interface BoardColumn {
 export interface TaskBoardProps {
     columns: BoardColumn[];
     now: Date;
-    onOpenTask: (taskId: string) => void;
+    /** The row comes with the id: a meeting card opens somewhere else entirely. */
+    onOpenTask: (taskId: string, task: TaskRow) => void;
     onMoveTask: (taskId: string, statusId: string) => Promise<unknown>;
     /** "+" on a column header — creates a task already in that stage. */
     onAddInStage?: (statusId: string) => void;
@@ -118,6 +119,8 @@ const SCOPE_CHOICES = [
 
 /** Tasks with no stage live in a synthetic column the server emits; it cannot receive drops. */
 const UNASSIGNED = '__unassigned__';
+/** The server's synthetic meetings lane. A meeting has no stage, so it cannot be dragged. */
+const MEETINGS = '__meetings__';
 
 /** The single container the LANES live in — a board has one row of them. */
 const LANE_ROW = 'board-lane-row';
@@ -464,7 +467,7 @@ export const TaskBoard = ({
                 }}
             >
                 {orderedView.map((column) => {
-                    const droppable = column.status.id !== UNASSIGNED;
+                    const droppable = column.status.id !== UNASSIGNED && column.status.id !== MEETINGS;
                     return (
                         // TWO roles on one lane: a sortable ITEM on the lane surface (so the
                         // whole column can be carried), and a sortable CONTAINER on the card
@@ -640,8 +643,12 @@ export const TaskBoard = ({
                                         <TaskCard
                                             task={task}
                                             now={now}
-                                            onOpen={onOpenTask}
-                                            onRequestMove={(t, anchor) => setMenu({ task: t, anchor })}
+                                            onOpen={(id) => onOpenTask(id, task)}
+                                            // No stage menu in a lane nothing can be moved out
+                                            // of — it offered a move the API has no row for.
+                                            onRequestMove={droppable
+                                                ? (t, anchor) => setMenu({ task: t, anchor })
+                                                : undefined}
                                         />
                                     </SortableItem>
                                 ))}

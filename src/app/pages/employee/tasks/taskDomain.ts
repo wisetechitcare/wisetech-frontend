@@ -29,6 +29,13 @@ export interface TaskStatusRef {
 
 export interface TaskRow {
     id: string;
+    /**
+     * This row is a MEETING, not a task — the board's synthetic Meeting lane reads the meetings
+     * table directly rather than copying it into tasks. It has no stage to be moved to and no
+     * page under /tasks/:id, so the board keeps it out of drag-and-drop and opens the project's
+     * Meetings tab instead.
+     */
+    isMeeting?: boolean;
     taskName: string;
     taskDescription?: string | null;
     taskScope: TaskScope;

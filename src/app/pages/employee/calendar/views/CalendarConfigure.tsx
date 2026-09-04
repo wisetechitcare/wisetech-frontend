@@ -16,9 +16,12 @@ import {
   SHOW_SATURDAY_ON_CALENDAR,
   SHOW_SUNDAY_ON_CALENDAR,
   SHOW_MEETINGS_ON_CALENDAR,
-  SHOW_HOLIDAYS_ON_CALENDAR
+  SHOW_HOLIDAYS_ON_CALENDAR,
+  MEETING_HALF_FREE_COLOR,
+  MEETING_HALF_ONE_COLOR,
+  MEETING_HALF_BUSY_COLOR
 } from '@constants/configurations-key'
-import { fetchConfiguration } from '@services/company'
+import { fetchConfiguration, createNewConfiguration, updateConfigurationById } from '@services/company'
 import { safeJsonParse } from '@utils/safeJson'
 import Loader from '@app/modules/common/utils/Loader'
 import CalendarConfigForm, { CalendarConfigItem } from './CalendarConfigForm'
@@ -26,11 +29,14 @@ import { KTIcon } from '@metronic/helpers'
 import { ConfigPageLayout, C } from '@app/modules/configuration'
 import type { ConfigTab } from '@app/modules/configuration'
 import {
-  AutoGrid, GlassCard, SettingsSection, StatusBadge, TRIO, type Trio,
+  AutoGrid, GlassCard, SettingsSection, StatusBadge, TRIO, WtButton, type Trio,
 } from '@app/modules/common/components/ui'
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon'
+import { errorConfirmation, successConfirmation } from '@utils/modal'
 
 const TABS: ConfigTab[] = [
   { id: 'display', label: 'Event Display', icon: 'bi-palette' },
+  { id: 'meetings', label: 'Meetings', icon: 'bi-camera-video' },
   { id: 'holidays', label: 'Public Holidays', icon: 'bi-calendar-heart' },
   { id: 'weekends', label: 'Weekends & Working Days', icon: 'bi-calendar-week' },
 ]
@@ -55,6 +61,12 @@ interface EventItem {
 
 interface EventSection {
   id: string
+  /**
+   * "N of 3 on calendar" answers a visibility question. A section of COLOURS has no such
+   * question — all three steps are always painted, so the badge only ever read "3 of 3" and
+   * said nothing. Sections like that ask for the reset instead.
+   */
+  showCount?: boolean
   tone: Trio
   icon: string
   title: string
@@ -99,13 +111,6 @@ const SECTIONS: EventSection[] = [
     ],
   },
   {
-    id: 'meetings', tone: TRIO.blue, icon: 'people',
-    title: 'Meetings', desc: 'Whether scheduled meetings show as calendar events.',
-    items: [
-      { key: SHOW_MEETINGS_ON_CALENDAR, label: 'Team meetings', desc: 'Meetings you organise or are invited to.', sample: '[Meeting title]', defaultColor: '#2196F3' },
-    ],
-  },
-  {
     id: 'holidays', tone: TRIO.green, icon: 'flag',
     title: 'Public Holidays', desc: 'How public holidays appear on the workspace calendar.',
     items: [
@@ -114,7 +119,37 @@ const SECTIONS: EventSection[] = [
   },
 ]
 
-const ALL_ITEMS = SECTIONS.flatMap((s) => s.items)
+/**
+ * The Meetings tab — every meeting setting in one place, instead of one card stranded among
+ * the birthdays.
+ *
+ * The second section is the AVAILABILITY SCALE the meetings calendar paints its half-days
+ * with. It reads as a scale, so it is configured as one: three steps in the order they
+ * appear, each using the same colour editor as every other calendar setting. `enabled` means
+ * "use my colour" here — switching a step off falls back to the built-in default, which is
+ * the honest way to undo a colour choice without inventing a reset button for it.
+ */
+const MEETING_SECTIONS: EventSection[] = [
+  {
+    id: 'meetings', tone: TRIO.blue, icon: 'people',
+    title: 'Meetings on the calendar', desc: 'Whether scheduled meetings show as calendar events.',
+    items: [
+      { key: SHOW_MEETINGS_ON_CALENDAR, label: 'Team meetings', desc: 'Meetings you organise or are invited to.', sample: '[Meeting title]', defaultColor: '#2196F3' },
+    ],
+  },
+  {
+    id: 'availability', tone: TRIO.purple, icon: 'time', showCount: false,
+    title: 'Availability colours',
+    desc: 'How a free or booked half-day is coloured on the meetings calendar.',
+    items: [
+      { key: MEETING_HALF_FREE_COLOR, label: 'Free half-day', desc: 'A morning or afternoon with nothing booked.', sample: 'AM', defaultColor: '#F8FAFC', defaultEnabled: true },
+      { key: MEETING_HALF_ONE_COLOR, label: 'One meeting', desc: 'A half-day with a single meeting in it.', sample: 'AM 1', defaultColor: '#DBEAFE', defaultEnabled: true },
+      { key: MEETING_HALF_BUSY_COLOR, label: 'Two or more', desc: 'A half-day that is effectively full.', sample: 'PM 3', defaultColor: '#1E3A8A', defaultEnabled: true },
+    ],
+  },
+]
+
+const ALL_ITEMS = [...SECTIONS, ...MEETING_SECTIONS].flatMap((s) => s.items)
 
 const defaultSettings = (): Record<string, CalendarConfigItem> =>
   Object.fromEntries(ALL_ITEMS.map((i) => [i.key, {
@@ -275,6 +310,84 @@ function CalendarConfigure() {
     setShowModal(false);
   };
 
+  const [resetting, setResetting] = useState<string | null>(null);
+
+  /**
+   * Put a section's colours back to the ones the calendar shipped with.
+   *
+   * Writes the defaults rather than deleting the saved rows: a colour picker with no way back
+   * is a one-way door, and "delete your configuration" is a scarier thing to offer than "put
+   * it back how it was". Disabled while already at defaults, so the button states the fact.
+   */
+  const resetSection = async (section: EventSection) => {
+    setResetting(section.id);
+    try {
+      const restored = await Promise.all(section.items.map(async (item) => {
+        const current = settings[item.key];
+        const configuration = { enabled: true, color: item.defaultColor, icon: '' };
+        const id = current?.id
+          ? (await updateConfigurationById(current.id, { module: item.key, configuration }), current.id)
+          : (await createNewConfiguration({ module: item.key, configuration }))?.data?.configuration?.id || null;
+        return [item.key, { id, ...configuration }] as const;
+      }));
+      setSettings((prev) => ({ ...prev, ...Object.fromEntries(restored) }));
+      successConfirmation(`${section.title} restored to defaults`);
+    } catch (error) {
+      console.error('Error restoring defaults:', error);
+      errorConfirmation('Could not restore the defaults. Please try again.');
+    } finally {
+      setResetting(null);
+    }
+  };
+
+  /** One tab's worth of setting cards. Two tabs render the same shape, so they share it. */
+  const renderSections = (key: string, list: EventSection[]) => (
+    <Box key={key} className="cfg-fade-in" sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+      {list.map((section) => {
+                const shown = section.items.filter((i) => settings[i.key]?.enabled).length;
+                // The count is the section's own state, so it is worth the header slot:
+                // "1 of 3 on calendar" answers the question the cards below are there to answer.
+                const summary = section.items.length === 1
+                  ? (shown ? 'On calendar' : 'Hidden')
+                  : `${shown} of ${section.items.length} on calendar`;
+                const atDefaults = section.items.every((i) => settings[i.key]?.color === i.defaultColor);
+                return (
+                  <SettingsSection
+                    key={section.id}
+                    tone={section.tone}
+                    icon={section.icon}
+                    title={section.title}
+                    description={section.desc}
+                    action={section.showCount === false
+                      ? (
+                        <WtButton
+                          ghost
+                          disabled={atDefaults || resetting === section.id}
+                          onClick={() => resetSection(section)}
+                          startIcon={<AppIcon name="bi-arrow-counterclockwise" />}
+                        >
+                          {resetting === section.id ? 'restoring…' : atDefaults ? 'at defaults' : 'reset to defaults'}
+                        </WtButton>
+                      )
+                      : <StatusBadge trio={shown ? TRIO.green : TRIO.slate} label={summary} />}
+                  >
+                    <AutoGrid min={264} gap={12}>
+                      {section.items.map((item) => (
+                        <EventSettingCard
+                          key={item.key}
+                          item={item}
+                          tone={section.tone}
+                          setting={settings[item.key]}
+                          onOpen={() => openEditModal(section, item)}
+                        />
+                      ))}
+                    </AutoGrid>
+                  </SettingsSection>
+                );
+      })}
+    </Box>
+  );
+
   if (isLoading) {
     return <Loader />;
   }
@@ -293,40 +406,12 @@ function CalendarConfigure() {
           {/* ══════════════════════════════════════════════════════ */}
           {/* TAB: Event Display */}
           {/* ══════════════════════════════════════════════════════ */}
-          {activeTab === 'display' && (
-            <Box key="display" className="cfg-fade-in" sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              {SECTIONS.map((section) => {
-                const shown = section.items.filter((i) => settings[i.key]?.enabled).length;
-                // The count is the section's own state, so it is worth the header slot:
-                // "1 of 3 on calendar" answers the question the cards below are there to answer.
-                const summary = section.items.length === 1
-                  ? (shown ? 'On calendar' : 'Hidden')
-                  : `${shown} of ${section.items.length} on calendar`;
-                return (
-                  <SettingsSection
-                    key={section.id}
-                    tone={section.tone}
-                    icon={section.icon}
-                    title={section.title}
-                    description={section.desc}
-                    action={<StatusBadge trio={shown ? TRIO.green : TRIO.slate} label={summary} />}
-                  >
-                    <AutoGrid min={264} gap={12}>
-                      {section.items.map((item) => (
-                        <EventSettingCard
-                          key={item.key}
-                          item={item}
-                          tone={section.tone}
-                          setting={settings[item.key]}
-                          onOpen={() => openEditModal(section, item)}
-                        />
-                      ))}
-                    </AutoGrid>
-                  </SettingsSection>
-                );
-              })}
-            </Box>
-          )}
+          {activeTab === 'display' && renderSections('display', SECTIONS)}
+
+          {/* ══════════════════════════════════════════════════════ */}
+          {/* TAB: Meetings */}
+          {/* ══════════════════════════════════════════════════════ */}
+          {activeTab === 'meetings' && renderSections('meetings', MEETING_SECTIONS)}
 
           {/* ══════════════════════════════════════════════════════ */}
           {/* TAB: Public Holidays */}

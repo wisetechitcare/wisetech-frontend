@@ -8,6 +8,10 @@ import { RootState } from '@redux/store';
 import { createMeetings, fetchAllEmployees } from '@services/employee';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
 import { getAllProjects } from '@services/projects';
+// The task board's own project list: the projects the caller is ON, not every project in
+// the company. Reused rather than re-derived — it is the same question, already answered
+// server-side where project membership can actually be checked.
+import { getBoardProjects } from '@services/tasks';
 import { getLeadById } from '@services/leadService';
 import { WtDateField } from '@app/modules/common/components/ui';
 import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
@@ -128,6 +132,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const [companyTypes, setCompanyTypes] = useState<any[]>([]);
         const [companies, setCompanies] = useState<any[]>([]);
         const [projects, setProjects] = useState<any[]>([]);
+        const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
         const [employeeById, setEmployeeById] = useState<Record<string, { name: string; avatar: string | null }>>({});
         const [projectDetail, setProjectDetail] = useState<any>(null);
         const [teamLoading, setTeamLoading] = useState(false);
@@ -139,11 +144,20 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         useEffect(() => {
             (async () => {
                 try {
-                    const [types, comps, projs, emps] = await Promise.all([
-                        getAllCompanyTypes(), getAllClientCompanies(), getAllProjects(), fetchAllEmployees(),
+                    const [types, comps, projs, mine, emps] = await Promise.all([
+                        getAllCompanyTypes(), getAllClientCompanies(), getAllProjects(),
+                        getBoardProjects(), fetchAllEmployees(),
                     ]);
                     setCompanyTypes(types?.companyTypes || []);
                     setCompanies(comps?.data?.companies || []);
+                    // Intersected, not swapped: the full row carries fileLocationCompany /
+                    // fileLocationCompanyType, which the company filters below read and the
+                    // board's lighter list does not have. So the shape comes from one and the
+                    // MEMBERSHIP from the other.
+                    const myIds = new Set<string>(
+                        ((mine?.projects || mine?.data?.projects || []) as any[]).map((p) => String(p.id)),
+                    );
+                    setMyProjectIds(myIds);
                     setProjects(projs?.data?.projects || projs?.projects || []);
                     const map: Record<string, { name: string; avatar: string | null }> = {};
                     (emps?.data?.employees || []).forEach((e: any) => {
@@ -187,7 +201,12 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
             let cancelled = false;
             setTeamLoading(true);
             getLeadById(projectId)
-                .then((res: any) => { if (!cancelled) setProjectDetail(res?.data?.lead || res?.lead || res?.data || null); })
+                // `res.data.data.lead`. apiClient does NOT unwrap (its response interceptor is
+                // the identity), so `res.data` is the API ENVELOPE — which the old fallback
+                // chain reached and accepted as the project. Every read off projectDetail was
+                // therefore undefined: no internal roster, no addresses, and an External Team
+                // picker that said "Nobody on this project" for a project that had one.
+                .then((res: any) => { if (!cancelled) setProjectDetail(res?.data?.data?.lead ?? res?.data?.lead ?? null); })
                 .catch((e: any) => console.error('Failed to load project team', e))
                 .finally(() => { if (!cancelled) setTeamLoading(false); });
             return () => { cancelled = true; };
@@ -254,7 +273,11 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     [projectDetail.contact.address, projectDetail.contact.city, projectDetail.contact.state]);
             }
 
-            for (const t of projectDetail.leadTeams || []) {
+            // Both rosters: the lead form's Address To (leadTeams) AND the project's own
+            // External Team (projectExternalTeams), which the Teams tab writes and which is
+            // deliberately decoupled from the lead. Reading only the first meant a meeting at
+            // a stakeholder added on the Teams tab could not offer their address.
+            for (const t of [...(projectDetail.leadTeams || []), ...(projectDetail.projectExternalTeams || [])]) {
                 if (t.contact) push(`${t.contact.fullName || 'Stakeholder'} address`, [t.contact.address, t.contact.city, t.contact.state]);
                 if (t.company) push(`${t.company.companyName || 'Company'} address`, [t.company.address, t.company.area, t.company.city, t.company.state]);
             }
@@ -276,21 +299,35 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
             setLocation(addressOptions[0].value);
         }, [isOnline, location, addressOptions]);
 
-        /** External roster: the project's client stakeholders. */
+        /**
+         * External roster: the project's client stakeholders.
+         *
+         * THREE sources, not two. `projectExternalTeams` is the roster the entity's Teams tab
+         * writes, and it is deliberately decoupled from the lead form's Address To
+         * (`leadTeams`) — so a stakeholder added there appeared nowhere in this picker and
+         * the field read "Nobody on this project" for a project that plainly had one.
+         *
+         * Inactive rows are dropped: somebody whose engagement has ended is not a person to
+         * invite to next week's meeting.
+         */
         const externalOptions: Option[] = useMemo(() => {
             if (!projectDetail) return [];
+            const contactOption = (t: any) => ({
+                value: t.contact.id,
+                label: t.contact.fullName || t.company?.companyName || 'Unknown',
+                avatar: t.contact.profilePhoto || t.contact.avatar || null,
+            });
             const fromTeams = (projectDetail.leadTeams || [])
                 .filter((t: any) => t.contact?.id)
-                .map((t: any) => ({
-                    value: t.contact.id,
-                    label: t.contact.fullName || t.company?.companyName || 'Unknown',
-                    avatar: t.contact.profilePhoto || t.contact.avatar || null,
-                }));
+                .map(contactOption);
+            const fromProjectTeams = (projectDetail.projectExternalTeams || [])
+                .filter((t: any) => t.contact?.id && t.isActive !== false)
+                .map(contactOption);
             const fromMembers = (projectDetail.externalMembers || [])
                 .filter((m: any) => m.contactId)
                 .map((m: any) => ({ value: m.contactId, label: m.name || 'Unknown', avatar: null }));
             const seen = new Set<string>();
-            return [...fromTeams, ...fromMembers]
+            return [...fromTeams, ...fromProjectTeams, ...fromMembers]
                 .filter((o: Option) => !seen.has(o.value) && seen.add(o.value))
                 .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
         }, [projectDetail]);
@@ -299,6 +336,11 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const projectOptions: Option[] = projects
             .filter((p: any) => {
                 if (lockProject) return true;
+                // You can only schedule on a project you are on. The picker used to list every
+                // project in the company, so most of what it offered was somebody else's work.
+                // Empty set = the list has not arrived yet; filtering on it would blank the
+                // picker for a moment and look like "you are on nothing".
+                if (myProjectIds.size && !myProjectIds.has(String(p.id))) return false;
                 if (!p.fileLocationCompanyType && !p.fileLocationCompany) return false;
                 if (companyTypeId && p.fileLocationCompanyType !== companyTypeId) return false;
                 if (companyId && p.fileLocationCompany !== companyId) return false;

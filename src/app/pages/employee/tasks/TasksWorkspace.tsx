@@ -40,7 +40,7 @@ import {
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { useFillViewport } from '@app/hooks/useFillViewport';
-import { TaskFilterState, filtersToQuery, apiErrorMessage, activeFilterCount } from './taskDomain';
+import { TaskFilterState, TaskRow, filtersToQuery, apiErrorMessage, activeFilterCount } from './taskDomain';
 import {
     useTaskBoard, useTaskList, useTaskStatuses, useTaskPriorities,
     useAvailableProjects, useBoardProjects, useMoveTaskStage, useCreateBoardList, useDeleteBoardList,
@@ -325,7 +325,36 @@ export const TasksWorkspace = () => {
         localStorage.setItem(VIEW_KEY, next);
     };
     const updateFilters = (next: TaskFilterState) => { setFilters(next); setPage(0); };
-    const selectScope = (id: string) => { setScopeSel(id); setPage(0); };
+    /**
+     * A meeting card is not a task: there is no /tasks/:id for it. It opens the project it was
+     * scheduled on, at that project's Meetings tab — which is where meetings are actually read
+     * and edited. `isProject` in the nav state is what keeps the project-only tabs (Meetings
+     * among them) on screen; without it the page falls back to the lead view and the tab it
+     * was asked for does not exist.
+     */
+    const openTaskOrMeeting = (id: string, task: TaskRow) => {
+        if (task?.isMeeting) {
+            const projectId = task.leadId;
+            if (!projectId) return;
+            navigate(`/leads/${projectId}?tab=meetings`, { state: { leadData: projectId, isProject: true } });
+            return;
+        }
+        navigate(`/tasks/${id}`);
+    };
+
+    /**
+     * First click scopes the board to a project; clicking the one already in view OPENS it.
+     * The rail is the only place a project is named on this screen, so it is where somebody
+     * reaches for the project itself — and a second click on an already-selected row was doing
+     * nothing at all.
+     */
+    const selectScope = (id: string) => {
+        if (id === scopeSel && projects.some((p) => p.id === id)) {
+            navigate(`/leads/${id}?tab=projects`, { state: { leadData: id, isProject: true } });
+            return;
+        }
+        setScopeSel(id); setPage(0);
+    };
 
     const togglePanel = (panel: WorkspacePanel) => {
         setPanels((current) => {
@@ -603,7 +632,7 @@ export const TasksWorkspace = () => {
                                         now={now}
                                         ink={ink}
                                         isLoading={boardQuery.isLoading}
-                                        onOpenTask={(id) => navigate(`/tasks/${id}`)}
+                                        onOpenTask={openTaskOrMeeting}
                                         onMoveTask={(taskId, statusId) => moveStage.mutateAsync({ taskId, statusId })}
                                         onReorder={(statusId, taskIds) => reorderTasks.mutateAsync({ statusId, taskIds })}
                                         // The per-lane "+" files a task too, so it answers to the

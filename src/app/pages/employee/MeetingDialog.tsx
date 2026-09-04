@@ -1,12 +1,11 @@
 import { useRef, useState } from 'react';
-import { Box, CircularProgress, Stack, alpha, useTheme } from '@mui/material';
+import { Box, CircularProgress, Stack } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { GlassDialog, PlainDialogHeader, WtButton } from '@app/modules/common/components/ui';
 import MeetingFormBody, { type MeetingFormBodyHandle, type MeetingFormBodyProps } from './MeetingFormBody';
-import MeetingAvailability from './MeetingAvailability';
 
 /**
- * The meeting dialog — a PLAIN white sheet, two columns.
+ * The meeting dialog — a PLAIN white sheet.
  *
  * ─── NO GLASS HERE, ON PURPOSE ───────────────────────────────────────────────
  * `GlassDialog` is still the shell, for its scroll region, its phone full-screen and its
@@ -15,10 +14,11 @@ import MeetingAvailability from './MeetingAvailability';
  * beside it, a translucent panel puts whatever is behind the modal underneath the very grid a
  * person is trying to read a clash off.
  *
- * ─── FORM LEFT, DAY RIGHT ────────────────────────────────────────────────────
- * The right column is not a summary of the left one — it is the answer to the question the left
- * one is asking. Times and participants change on the left, and the clash appears on the right
- * as they do.
+ * The day-timeline column that used to sit beside the form is gone. It answered a question
+ * ("does this clash?") that the form was not asking often enough to earn a permanent third of
+ * the dialog, and it pushed the form itself into a narrow strip. `MeetingAvailability` is left
+ * in the tree — it is a self-contained reader of a start/end and a participant list, so it can
+ * be dropped back in wherever that question does get asked.
  */
 export interface MeetingDialogProps extends Pick<MeetingFormBodyProps, 'selectedDateTimeInfo' | 'defaultProjectId' | 'lockProject'> {
     open: boolean;
@@ -27,14 +27,8 @@ export interface MeetingDialogProps extends Pick<MeetingFormBodyProps, 'selected
 }
 
 export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: MeetingDialogProps) {
-    const theme = useTheme();
     const bodyRef = useRef<MeetingFormBodyHandle>(null);
     const [saving, setSaving] = useState(false);
-    // Lifted so the day beside the form can be drawn from it — the panel is a reader of the
-    // form's state, never a second copy of it.
-    const [schedule, setSchedule] = useState<{ startIso: string; endIso: string; participantIds: string[]; nameById: Record<string, { name: string; avatar: string | null }> }>({
-        startIso: '', endIso: '', participantIds: [], nameById: {},
-    });
 
     const submit = async () => {
         setSaving(true);
@@ -63,42 +57,9 @@ export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: 
 
             <Box
                 className="min-h-0 flex-1"
-                sx={{
-                    display: 'grid',
-                    // One column on a phone: a 200px-wide timeline is not a timeline.
-                    gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 320px' },
-                    minHeight: 0,
-                }}
+                sx={{ minWidth: 0, overflowY: 'auto', px: 2.5, py: 2, maxHeight: { xs: 'none', sm: '68vh' } }}
             >
-                <Box sx={{ minWidth: 0, overflowY: 'auto', px: 2.5, py: 2, maxHeight: { xs: 'none', sm: '68vh' } }}>
-                    <MeetingFormBody
-                        ref={bodyRef}
-                        onSaved={onSaved}
-                        onScheduleChange={setSchedule}
-                        {...bodyProps}
-                    />
-                </Box>
-
-                <Box
-                    sx={{
-                        display: { xs: 'none', md: 'flex' },
-                        flexDirection: 'column',
-                        minWidth: 0,
-                        px: 2, py: 2,
-                        borderLeft: '1px solid',
-                        borderColor: 'divider',
-                        bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.04 : 0.015),
-                    }}
-                >
-                    {schedule.startIso && (
-                        <MeetingAvailability
-                            participantIds={schedule.participantIds}
-                            nameById={schedule.nameById}
-                            startIso={schedule.startIso}
-                            endIso={schedule.endIso}
-                        />
-                    )}
-                </Box>
+                <MeetingFormBody ref={bodyRef} onSaved={onSaved} {...bodyProps} />
             </Box>
 
             <Stack

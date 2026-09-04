@@ -204,6 +204,18 @@ export const getMeetings = async (employeeId: string) => {
     }
 };
 
+/** Cost + attendance analysis of a project's meetings. Cost fields come back null when the
+ *  caller lacks finance.view at an aggregate scope — the counts still arrive. */
+export const getProjectMeetingAnalytics = async (projectId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/project-analytics?projectId=${projectId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 // Meetings linked to a project (lead) — names come pre-resolved from the backend
 export const getMeetingsByProject = async (projectId: string) => {
     try {
