@@ -74,7 +74,33 @@ button[class*="rounded-"] {
    CIRCLES ONLY. On a pill the rotating radial mask would sweep outside the
    shape; use the gradient-sheen technique in `goldenBorder.ts` for those.
 
+   ⚠️ NEEDS SIZE — roughly 64px diameter and up. It was tried on the 32px day
+   cell and pulled: the comet's head is only ~7px of arc there, which reads as
+   a smudge or a rendering glitch rather than motion. This is a card-scale
+   effect. Use `wt-now-ring` above for anything small.
+
    `currentColor` drives the beam, so the caller picks the hue with `color`. */
+/* ── "Now" halo ────────────────────────────────────────────────────────────
+   A soft ring that expands and fades from an element's edge, marking the one
+   thing that is current — today's date cell.
+
+   Rings with `currentColor`; the caller picks the hue with `color`.
+
+   Named `wt-now-ring`, NOT `wt-pulse-ring`: main.tsx injects a keyframe of
+   that name for the session-failure splash, and `@keyframes` does not scope —
+   a second definition silently replaces the first for every consumer.
+
+   Chosen over the border beam below after seeing both at this size. A comet's
+   head is ~7px of arc on a 32px disc, which reads as a smudge rather than
+   motion; an expanding halo is legible at any diameter. Falls back to a static
+   ring under reduced motion — see the media query. */
+@keyframes wt-now-ring {
+  0%   { box-shadow: 0 0 0 0 currentColor; opacity: 0.9; }
+  70%  { box-shadow: 0 0 0 6px transparent; opacity: 0.35; }
+  100% { box-shadow: 0 0 0 0 transparent; opacity: 0.9; }
+}
+.wt-now-ring { animation: wt-now-ring 2.4s ease-in-out infinite; }
+
 @keyframes wt-beam-orbit {
   to { transform: rotate(1turn); }
 }
@@ -858,13 +884,19 @@ thead.MuiTableHead-root th {
     animation: none;
   }
 
-  /* The beam is today's ONLY marker, so it cannot simply stop — a frozen comet
-     is a lopsided arc that reads as a rendering artefact. Drop the comet and
-     draw the plain ring it was orbiting, so the day stays marked. */
+  /* This is today's ONLY marker, so it cannot simply stop — a halo frozen
+     mid-fade is invisible. Degrade to the static ring the animation draws at
+     its peak, so the day stays marked. */
+  .wt-now-ring {
+    animation: none;
+    box-shadow: 0 0 0 2px currentColor;
+    opacity: 1;
+  }
+
+  /* A frozen comet is a lopsided arc that reads as an artefact. Nothing
+     currently uses the beam, but if something does it will be decorative on a
+     large surface, so removing it outright is right. */
   .wt-beam::after {
     display: none;
-  }
-  .wt-beam {
-    box-shadow: 0 0 0 2px currentColor;
   }
 }

@@ -151,18 +151,18 @@ export const DayCell = memo(function DayCell({
           )}
         </span>
 
-        {/* Today: the orbiting beam.
+        {/* Today: a soft halo that expands and fades from the disc edge.
             This is the one genuinely live thing on the screen and the only
             element that carries it, so the whole month animates exactly once —
             which is what makes the effect read as emphasis rather than noise.
-            An overlay rather than a class on the disc, because `wt-beam` rings
+            An overlay rather than a class on the disc, because it rings
             with `currentColor` and the disc's own colour is the numeral's.
-            Under prefers-reduced-motion the comet is removed and `wt-beam`
-            falls back to a static outline, so today never loses its marker. */}
+            Under prefers-reduced-motion it falls back to a static outline, so
+            today never loses its marker. */}
         {isToday && (
           <span
             aria-hidden="true"
-            className="wt-beam pointer-events-none absolute rounded-full size-[34px] sm:size-[32px] text-[#1E3A8A] dark:text-[#8AA3EC]"
+            className="wt-now-ring pointer-events-none absolute rounded-full size-[34px] sm:size-[32px] text-[#1E3A8A] dark:text-[#8AA3EC]"
           />
         )}
 
