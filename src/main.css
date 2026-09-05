@@ -17,6 +17,17 @@
   visibility: visible;
 }
 
+/* NOTE for anyone hitting square Tailwind buttons:
+   Bootstrap Reboot sets `button { border-radius: 0 }`, and `style.scss` is
+   imported after this file UNLAYERED — so it beats every layered Tailwind
+   `rounded-*` utility outright, specificity never entering into it.
+
+   A global `button[class*="rounded-"] { border-radius: revert-layer }` fixes it
+   in one line, and was deliberately NOT taken: it silently restyles every
+   button in an app whose screens have not been reviewed for it. Components that
+   need a radius set it inline instead, which beats the Reboot rule and changes
+   nothing they do not own. */
+
 /* ============================================================
    TAILWIND UI KIT (tw/) — dynamic bits Tailwind utilities can't express
    ============================================================ */
@@ -35,6 +46,72 @@
   100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
 }
 .wt-dot-pulse { animation: wt-dot-pulse 1.8s ease-in-out infinite; }
+
+/* NOTE: `wt-pulse-ring` is deliberately NOT defined here. main.tsx injects a
+   keyframe of that name for the session-failure splash (`.wt-err-ring::before`),
+   and a second `@keyframes` with the same name does not scope — the last one
+   parsed wins for every consumer, so defining it here silently replaces that
+   screen's animation. Today's marker uses `wt-beam` below instead. */
+
+/* ── Border beam ───────────────────────────────────────────────────────────
+   A comet that orbits a CIRCULAR element's edge (MagicUI's border-beam, sized
+   for a 32px day disc rather than a hero card).
+
+   Rotates the pseudo-element with `transform` instead of animating a conic
+   gradient's angle. `@property <angle>` is the usual technique and is what
+   MagicUI uses, but this codebase already ruled it out once — see
+   `kpis/common/leaderboard/goldenBorder.ts`: "not conic + @property, which has
+   Safari gaps". Rotation needs no registered custom property, runs on the
+   compositor, and is exact on a circle because a circle is rotationally
+   symmetric — the mask rotates with it and nothing shifts.
+
+   CIRCLES ONLY. On a pill the rotating radial mask would sweep outside the
+   shape; use the gradient-sheen technique in `goldenBorder.ts` for those.
+
+   ⚠️ NEEDS SIZE — roughly 64px diameter and up. It was tried on the 32px day
+   cell and pulled: the comet's head is only ~7px of arc there, which reads as
+   a smudge or a rendering glitch rather than motion. This is a card-scale
+   effect. Use `wt-now-ring` above for anything small.
+
+   `currentColor` drives the beam, so the caller picks the hue with `color`. */
+/* ── "Now" halo ────────────────────────────────────────────────────────────
+   A soft ring that expands and fades from an element's edge, marking the one
+   thing that is current — today's date cell.
+
+   Rings with `currentColor`; the caller picks the hue with `color`.
+
+   Named `wt-now-ring`, NOT `wt-pulse-ring`: main.tsx injects a keyframe of
+   that name for the session-failure splash, and `@keyframes` does not scope —
+   a second definition silently replaces the first for every consumer.
+
+   Chosen over the border beam below after seeing both at this size. A comet's
+   head is ~7px of arc on a 32px disc, which reads as a smudge rather than
+   motion; an expanding halo is legible at any diameter. Falls back to a static
+   ring under reduced motion — see the media query. */
+@keyframes wt-now-ring {
+  0%   { box-shadow: 0 0 0 0 currentColor; opacity: 0.9; }
+  70%  { box-shadow: 0 0 0 6px transparent; opacity: 0.35; }
+  100% { box-shadow: 0 0 0 0 transparent; opacity: 0.9; }
+}
+.wt-now-ring { animation: wt-now-ring 2.4s ease-in-out infinite; }
+
+@keyframes wt-beam-orbit {
+  to { transform: rotate(1turn); }
+}
+.wt-beam { position: relative; }
+.wt-beam::after {
+  content: '';
+  position: absolute;
+  inset: -2.5px;
+  border-radius: 50%;
+  /* Short bright head, long transparent tail. */
+  background: conic-gradient(from 0deg, transparent 0 72%, currentColor 96%, transparent 100%);
+  /* Punch the middle out so only a ring survives. */
+  -webkit-mask: radial-gradient(farthest-side, #0000 calc(100% - 2.5px), #000 calc(100% - 2.5px));
+          mask: radial-gradient(farthest-side, #0000 calc(100% - 2.5px), #000 calc(100% - 2.5px));
+  animation: wt-beam-orbit 2.8s linear infinite;
+  pointer-events: none;
+}
 
  .no-scrollbar::-webkit-scrollbar {
      display: none;
@@ -791,5 +868,29 @@ thead.MuiTableHead-root th {
   .sensitive-data-hidden,
   .sensitive-data-visible {
     transition: none;
+  }
+
+  /* An infinite attention-pulse is exactly what this preference is for. The dot
+     keeps its colour and position — only the motion stops — so the state stays
+     legible without animating forever in someone's peripheral vision.
+     Applies wherever the kit uses it: StatusBadge, the attendance legend. */
+  .wt-dot-pulse {
+    animation: none;
+  }
+
+  /* This is today's ONLY marker, so it cannot simply stop — a halo frozen
+     mid-fade is invisible. Degrade to the static ring the animation draws at
+     its peak, so the day stays marked. */
+  .wt-now-ring {
+    animation: none;
+    box-shadow: 0 0 0 2px currentColor;
+    opacity: 1;
+  }
+
+  /* A frozen comet is a lopsided arc that reads as an artefact. Nothing
+     currently uses the beam, but if something does it will be decorative on a
+     large surface, so removing it outright is right. */
+  .wt-beam::after {
+    display: none;
   }
 }

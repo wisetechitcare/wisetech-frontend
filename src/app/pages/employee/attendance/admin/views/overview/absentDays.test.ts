@@ -27,6 +27,9 @@ const run = (
     present: Record<string, string[]> = {},
     leave: Record<string, string[]> = {},
     today = TODAY,
+    // Last employed day per employee id. Default: employed throughout, which is
+    // what every pre-existing case assumes.
+    employedUntil: Record<string, string> = {},
 ) =>
     computeAbsentEntries({
         start: dayjs(start),
@@ -38,6 +41,10 @@ const run = (
             Object.entries(leave).map(([k, v]) => [k, new Map(v.map((id) => [id, {}]))]),
         ),
         roster: ROSTER,
+        isEmployedOn: (e, d) => {
+            const last = employedUntil[e._id];
+            return !last || !d.isAfter(dayjs(last), 'day');
+        },
     });
 
 const datesFor = (id: string, entries: ReturnType<typeof run>) =>
@@ -107,12 +114,14 @@ describe('computeAbsentEntries — edges', () => {
             presentByDay: new Map(),
             leaveByDay: new Map(),
             roster: [{ _id: undefined }, { _id: 'e1' }],
+            isEmployedOn: () => true,
         });
         expect(entries).toHaveLength(1);
     });
 
     test('the roster is taken as given — it does not re-filter who counts', () => {
-        // Employment scoping happens at the fetch. If this function also filtered, the two
+        // MEMBERSHIP scoping happens at the fetch, and the per-DAY question is answered by
+        // the injected predicate. If this function also filtered membership, the two
         // rules could disagree and the card would stop matching its own modal.
         const entries = computeAbsentEntries({
             start: dayjs('2026-08-17'),
@@ -122,6 +131,7 @@ describe('computeAbsentEntries — edges', () => {
             presentByDay: new Map(),
             leaveByDay: new Map(),
             roster: [{ _id: 'gone', isActive: false }],
+            isEmployedOn: () => true,
         });
         expect(entries).toHaveLength(1);
     });
@@ -179,5 +189,33 @@ describe('computeLeaveDaysByDate', () => {
             ],
         });
         expect(m.size).toBe(0);
+    });
+});
+
+/**
+ * The fourth defect, found when the roster started being scoped to a PERIOD rather than
+ * to today.
+ *
+ * Scoping the roster answers "does this person belong in August?" — a SET. Absence is a
+ * per-DAY fact, and the two are not the same question. Someone who left on the 14th
+ * belongs in August and is absent on none of the days after it; without the per-day
+ * check they collected an absence for every remaining working day of the month.
+ */
+describe('computeAbsentEntries — employment window', () => {
+    test('a leaver is not absent after their last day', () => {
+        // e1 left on 12 Aug. 13 and 14 are working days; 15 is a holiday.
+        const dates = datesFor('e1', run('2026-08-10', '2026-08-17', {}, {}, TODAY, { e1: '2026-08-12' }));
+        expect(dates).toEqual(['2026-08-10', '2026-08-11', '2026-08-12']);
+    });
+
+    test('their colleague is unaffected', () => {
+        const dates = datesFor('e2', run('2026-08-10', '2026-08-17', {}, {}, TODAY, { e1: '2026-08-12' }));
+        expect(dates).toEqual(['2026-08-10', '2026-08-11', '2026-08-12', '2026-08-13', '2026-08-14', '2026-08-17']);
+    });
+
+    test('an exit on a non-working day still ends the run at the last working day', () => {
+        // 15 Aug is a holiday, so leaving that day means the 14th is the last one counted.
+        const dates = datesFor('e1', run('2026-08-13', '2026-08-17', {}, {}, TODAY, { e1: '2026-08-15' }));
+        expect(dates).toEqual(['2026-08-13', '2026-08-14']);
     });
 });

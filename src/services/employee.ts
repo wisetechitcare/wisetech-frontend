@@ -105,7 +105,15 @@ export const fetchAllEmployees = async (isActive?: boolean, from?: string, to?: 
 
         const params = new URLSearchParams();
         if (isActive !== undefined) params.set('isActive', String(isActive));
-        if (from && to) { params.set('from', from); params.set('to', to); }
+        // `startDate`/`endDate`, NOT `from`/`to`.
+        //
+        // The server parses this window with the shared `parseOptionalDateRange`,
+        // which reads those two names — every other ranged endpoint uses them.
+        // Sent as from/to it matched nothing, so the period was silently dropped
+        // and "active" fell back to meaning active TODAY. That is why a
+        // historical month still hid people who had since left, and why the
+        // caller in admin Overview that already passed a range had no effect.
+        if (from && to) { params.set('startDate', from); params.set('endDate', to); }
         if ([...params].length) endpoint += `?${params.toString()}`;
 
         const { data } = await axios.get(endpoint);
@@ -3164,3 +3172,22 @@ export const fetchUnsettledLeavers = async (params?: { branchId?: string; lookba
         };
     };
 };
+
+/**
+ * The employee attendance calendar for one month — days already resolved by
+ * the server (status + modifiers, late verdicts, leave fractions, holidays).
+ *
+ * Replaces the five-call fan-out the Overview used to run per month
+ * (attendance + leaves + holidays + company overview + requests) and the
+ * client-side rule engine that combined them.
+ */
+export const fetchAttendanceCalendar = async (employeeId: string, month: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_CALENDAR}?employeeId=${employeeId}&month=${month}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}

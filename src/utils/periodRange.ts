@@ -1,3 +1,4 @@
+import type { Dayjs } from "dayjs";
 import type { PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import { toWireDate } from "@utils/dateFormats";
 
@@ -71,6 +72,16 @@ export function isMultiDay(range: PeriodRange | null | undefined): boolean {
 export function countWorkingDays(
     range: PeriodRange | null | undefined,
     weekends: Record<string, string> | null | undefined,
+    /**
+     * Optional clip to ONE employee's employment inside the range.
+     *
+     * Without it this is the period's own working-day count, which is what a
+     * heading like "22 working days in August" wants. As a per-employee
+     * DENOMINATOR it is wrong for anyone who joined or left mid-period: August
+     * has 22 working days, but someone who left on the 14th had 10, and
+     * charging them the difference invents twelve absences.
+     */
+    isEmployedOn?: (day: Dayjs) => boolean,
 ): number {
     if (!range?.start || !range?.end) return 0;
     let count = 0;
@@ -78,7 +89,7 @@ export function countWorkingDays(
     const last = range.end.startOf("day");
     // Inclusive of both ends — a Mon–Sun week is 5 working days, not 4.
     while (cursor.isBefore(last) || cursor.isSame(last, "day")) {
-        if (weekends?.[cursor.format("dddd").toLowerCase()] !== "0") count += 1;
+        if (weekends?.[cursor.format("dddd").toLowerCase()] !== "0" && (!isEmployedOn || isEmployedOn(cursor))) count += 1;
         cursor = cursor.add(1, "day");
     }
     return count;
