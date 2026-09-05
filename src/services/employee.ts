@@ -204,6 +204,19 @@ export const getMeetings = async (employeeId: string) => {
     }
 };
 
+/** Cancel a meeting, or restore one. A status write — the row stays in the project record. */
+export const setMeetingCancelled = async (
+    meetingId: string, employeeId: string, cancelled: boolean, reason?: string,
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/cancel`;
+        const response = await axios.patch(endpoint, { meetingId, employeeId, cancelled, reason });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 /** Cost + attendance analysis of a project's meetings. Cost fields come back null when the
  *  caller lacks finance.view at an aggregate scope — the counts still arrive. */
 export const getProjectMeetingAnalytics = async (projectId: string) => {

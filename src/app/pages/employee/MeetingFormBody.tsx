@@ -5,7 +5,7 @@ import {
     Alert, Autocomplete, Avatar, Box, Button, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, useTheme,
 } from '@mui/material';
 import { RootState } from '@redux/store';
-import { createMeetings, fetchAllEmployees } from '@services/employee';
+import { createMeetings, updateMeeting, fetchAllEmployees } from '@services/employee';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
 import { getAllProjects } from '@services/projects';
 // The task board's own project list: the projects the caller is ON, not every project in
@@ -51,7 +51,21 @@ export interface MeetingFormBodyHandle {
 
 export interface MeetingFormBodyProps {
     /** Preselects the project. Passed by the task dialog, which already knows the context. */
-    defaultProjectId?: string;
+    /**
+      * The meeting to edit. Absent → this is a new meeting.
+      *
+      * Passed as the ROW the list already holds rather than an id to fetch: the caller opened
+      * this dialog from a meeting it was already displaying, so a round trip would only fetch
+      * what is on screen. `updateMeeting` is organizer-only server-side, which is why the
+      * caller decides whether to offer editing at all.
+      */
+     editing?: {
+         id: string; title: string; description?: string; isOnline: boolean;
+         meetingLink?: string | null; location?: string | null;
+         startDate: string; endDate: string; projectId?: string | null;
+         participantIds?: string[]; externalParticipantIds?: string[];
+     } | null;
+     defaultProjectId?: string;
     /** Hides the project cascade entirely — the caller has already decided the project. */
     lockProject?: boolean;
     /**
@@ -110,7 +124,7 @@ const openingRange = (info?: MeetingFormBodyProps['selectedDateTimeInfo']) => {
 };
 
 export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBodyProps>(
-    ({ defaultProjectId, lockProject = false, selectedDateTimeInfo, onSaved, onScheduleChange }, ref) => {
+    ({ editing, defaultProjectId, lockProject = false, selectedDateTimeInfo, onSaved, onScheduleChange }, ref) => {
         const theme = useTheme();
         const employeeId = useSelector((s: RootState) => s.employee?.currentEmployee?.id);
 
@@ -137,6 +151,27 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const [projectDetail, setProjectDetail] = useState<any>(null);
         const [teamLoading, setTeamLoading] = useState(false);
         const [error, setError] = useState<string | null>(null);
+
+        /**
+         * Load the meeting being edited into the form.
+         *
+         * Keyed on its id, so opening the dialog on a DIFFERENT meeting refills rather than
+         * showing the previous one's values — the dialog is mounted once and reused.
+         */
+        useEffect(() => {
+            if (!editing) return;
+            setTitle(editing.title || '');
+            setDescription(editing.description || '');
+            setIsOnline(!!editing.isOnline);
+            setMeetingLink(editing.meetingLink || '');
+            setLocation(editing.location || '');
+            setStartDate(dayjs(editing.startDate).format('YYYY-MM-DDTHH:mm'));
+            setEndDate(dayjs(editing.endDate).format('YYYY-MM-DDTHH:mm'));
+            setProjectId(editing.projectId || '');
+            setInternal(editing.participantIds || []);
+            setExternal(editing.externalParticipantIds || []);
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [editing?.id]);
         const [touched, setTouched] = useState(false);
 
         useEffect(() => { setProjectId(defaultProjectId ?? ''); }, [defaultProjectId]);
@@ -408,10 +443,9 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 const problem = validate();
                 if (problem) { setError(problem); return false; }
                 setError(null);
-                try {
-                    const response = await createMeetings({
-                        employeeId,
-                        title: title.trim(),
+                const payload = {
+                    employeeId,
+                    title: title.trim(),
                         description: description.trim(),
                         startDate: dayjs(startDate).toISOString(),
                         endDate: dayjs(endDate).toISOString(),
@@ -420,8 +454,15 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                         location: isOnline ? undefined : location.trim(),
                         participants: internal.length ? internal.join(',') : undefined,
                         externalParticipants: external.length ? external.join(',') : undefined,
-                        projectId: projectId || undefined,
-                    });
+                    projectId: projectId || undefined,
+                };
+                try {
+                    if (editing) {
+                        await updateMeeting(editing.id, employeeId, payload);
+                        onSaved?.();
+                        return true;
+                    }
+                    const response = await createMeetings(payload);
                     if (response?.statusCode !== 201) { setError('Failed to create meeting'); return false; }
                     // The calendar listens for this to drop the new meeting onto the grid without
                     // a refetch — kept from the old form, since its listener is still there.
@@ -429,8 +470,12 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     onSaved?.();
                     return true;
                 } catch (e) {
-                    console.error('Error creating meeting', e);
-                    setError('Failed to create meeting');
+                    console.error(editing ? 'Error updating meeting' : 'Error creating meeting', e);
+                    // The API refuses anyone but the organizer, and that is the failure a person
+                    // is most likely to hit here — so say which it was.
+                    setError(editing
+                        ? 'Could not save. Only the meeting organizer can change it.'
+                        : 'Failed to create meeting');
                     return false;
                 }
             },

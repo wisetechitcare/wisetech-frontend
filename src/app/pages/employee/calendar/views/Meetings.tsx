@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { deleteMeeting } from '@services/employee';
+import { deleteMeeting, setMeetingCancelled } from '@services/employee';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { hasPermission } from '@utils/authAbac';
@@ -7,7 +7,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import dayjs from 'dayjs';
 import Swal from 'sweetalert2';
 import MeetingDialog from '../../MeetingDialog';
-import MeetingsList from '@app/modules/common/components/MeetingsList';
+import MeetingsList, { toEditableMeeting } from '@app/modules/common/components/MeetingsList';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 
 /**
@@ -28,11 +28,50 @@ const Meetings = () => {
   // Bumped after a create or a delete: the list owns its own fetch, and this is how a parent
   // that changed the data tells it to read again.
   const [reloadToken, setReloadToken] = useState(0);
+  // The meeting being edited. null → the dialog opens on a blank new meeting.
+  const [editing, setEditing] = useState<ReturnType<typeof toEditableMeeting> | null>(null);
 
   const canCreate = hasPermission(resourceNameMapWithCamelCase.meeting, permissionConstToUseWithHasPermission.create);
   const canDelete = hasPermission(resourceNameMapWithCamelCase.meeting, permissionConstToUseWithHasPermission.deleteOwn);
 
   const reload = () => setReloadToken((n) => n + 1);
+
+  /**
+   * Cancel is the normal thing; delete is the rare one.
+   *
+   * Cancelling keeps the row, so the project it was booked on still shows it was booked — the
+   * reason is optional because making it mandatory just produces a field full of ".". Only the
+   * organizer may do either, and the API refuses anyone else.
+   */
+  const handleCancel = async ({ id, cancelled }: { id: string; cancelled: boolean }) => {
+    if (!cancelled) {
+      await setMeetingCancelled(id, currentEmployeeId, false)
+        .then(() => { successConfirmation('Meeting restored'); reload(); })
+        .catch(() => errorConfirmation('Could not restore the meeting.'));
+      return;
+    }
+    const result = await Swal.fire({
+      title: 'Cancel this meeting?',
+      text: 'It leaves your calendar, and stays on the project record as a cancelled meeting.',
+      icon: 'question',
+      input: 'text',
+      inputPlaceholder: 'Reason (optional)',
+      showCancelButton: true,
+      confirmButtonColor: '#B45309',
+      cancelButtonColor: '#64748B',
+      confirmButtonText: 'Cancel meeting',
+      cancelButtonText: 'Keep it',
+    });
+    if (!result.isConfirmed) return;
+    try {
+      await setMeetingCancelled(id, currentEmployeeId, true, result.value || undefined);
+      successConfirmation('Meeting cancelled');
+      reload();
+    } catch (error) {
+      console.error('Error cancelling meeting', error);
+      errorConfirmation('Could not cancel the meeting. Only the organizer can.');
+    }
+  };
 
   const handleDelete = async (meetingId: string) => {
     const result = await Swal.fire({
@@ -63,14 +102,20 @@ const Meetings = () => {
         mode="employee"
         targetId={currentEmployeeId}
         reloadToken={reloadToken}
-        onCreate={canCreate ? () => setShowMeetingForm(true) : undefined}
+        onCreate={canCreate ? () => { setEditing(null); setShowMeetingForm(true); } : undefined}
+        onEdit={canCreate ? (m) => { setEditing(toEditableMeeting(m)); setShowMeetingForm(true); } : undefined}
+        onCancel={canCreate ? handleCancel : undefined}
         onDelete={canDelete ? handleDelete : undefined}
       />
 
       {/* The same dialog the calendar and the task form open — the third and last copy of
           this modal. */}
       <MeetingDialog
+        // Remounted per meeting: the form prefills from `editing` on mount, and reusing one
+        // instance across two different meetings would show the first one's values.
+        key={editing?.id ?? 'new'}
         open={showMeetingForm}
+        editing={editing}
         onClose={() => setShowMeetingForm(false)}
         onSaved={reload}
         selectedDateTimeInfo={{ startStr: dayjs().toISOString() }}

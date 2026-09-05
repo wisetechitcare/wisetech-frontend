@@ -20,7 +20,7 @@ import MeetingFormBody, { type MeetingFormBodyHandle, type MeetingFormBodyProps 
  * in the tree — it is a self-contained reader of a start/end and a participant list, so it can
  * be dropped back in wherever that question does get asked.
  */
-export interface MeetingDialogProps extends Pick<MeetingFormBodyProps, 'selectedDateTimeInfo' | 'defaultProjectId' | 'lockProject'> {
+export interface MeetingDialogProps extends Pick<MeetingFormBodyProps, 'selectedDateTimeInfo' | 'defaultProjectId' | 'lockProject' | 'editing'> {
     open: boolean;
     onClose: () => void;
     onSaved?: () => void;
@@ -48,7 +48,10 @@ export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: 
             header={
                 <PlainDialogHeader
                     icon={<KTIcon iconName="calendar-add" className="fs-1" />}
-                    title="New meeting"
+                    // The header says which of the two things this is. A form pre-filled with
+                    // somebody's meeting under a heading that says "New meeting" is the kind of
+                    // detail that makes people close a dialog to check.
+                    title={bodyProps.editing ? 'Edit meeting' : 'New meeting'}
                     onClose={saving ? undefined : onClose}
                     closeIcon={<KTIcon iconName="cross" className="fs-3" />}
                 />
@@ -78,7 +81,7 @@ export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: 
                     startIcon={saving ? <CircularProgress size={14} color="inherit" /> : undefined}
                     sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: 150 }}
                 >
-                    {saving ? 'saving…' : 'create meeting'}
+                    {saving ? 'saving…' : bodyProps.editing ? 'save changes' : 'create meeting'}
                 </WtButton>
             </Stack>
         </GlassDialog>

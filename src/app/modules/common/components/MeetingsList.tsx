@@ -50,6 +50,14 @@ interface MeetingRow {
     location?: string | null;
     startDate: string;
     endDate: string;
+    /** SCHEDULED | COMPLETED | CANCELLED — derived server-side, never stored as COMPLETED. */
+    lifecycle?: string;
+    cancelReason?: string | null;
+    /** The organizer. Who may edit or cancel is decided against this. */
+    employeeId?: string;
+    /** Raw rosters as stored — ids, not names — which is what the edit form needs back. */
+    participants?: string;
+    externalParticipants?: string | null;
     projectId?: string | null;
     projectName?: string | null;
     projectNumber?: string | null;
@@ -128,6 +136,59 @@ const splitHalves = (list: MeetingRow[], day: Dayjs) => {
 export interface HalfColors { free: string; one: string; busy: string }
 
 const DEFAULT_HALF_COLORS: HalfColors = { free: '#F8FAFC', one: '#DBEAFE', busy: '#1E3A8A' };
+
+const isCancelled = (m: MeetingRow) => m.lifecycle === 'CANCELLED';
+
+/**
+ * Participant ids as stored: a JSON array on newer rows, a comma-separated string on older
+ * ones. The backend's own parser accepts both for the same reason, and the edit form needs
+ * the ids back to re-select the people already invited.
+ */
+const parseIds = (raw?: string | null): string[] => {
+    if (!raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch {
+        return raw.split(',').map((p) => p.trim()).filter(Boolean);
+    }
+};
+
+/** The shape the meeting dialog wants back when it opens on an existing meeting. */
+export const toEditableMeeting = (m: MeetingRow) => ({
+    id: m.id,
+    title: m.title,
+    description: m.description,
+    isOnline: m.isOnline,
+    meetingLink: m.meetingLink,
+    location: m.location,
+    startDate: m.startDate,
+    endDate: m.endDate,
+    projectId: m.projectId,
+    participantIds: parseIds(m.participants),
+    externalParticipantIds: parseIds(m.externalParticipants),
+});
+
+/**
+ * The cancelled marker.
+ *
+ * Only the project's record shows these at all — the calendar and the personal lists filter
+ * them out server-side — so this appears exactly where the question is "what did we book",
+ * and it has to be unmissable there: a cancelled meeting sitting unmarked among live ones is
+ * worse than not showing it. Struck-through title, muted row, and the reason if one was given.
+ */
+const CancelledTag = ({ reason }: { reason?: string | null }) => (
+    <span
+        title={reason || 'Cancelled'}
+        style={{
+            display: 'inline-block', marginLeft: 6, padding: '1px 7px', borderRadius: 20,
+            background: '#FEE2E2', color: '#B91C1C', fontSize: 9.5, fontWeight: 800, letterSpacing: 0.4,
+            verticalAlign: 'middle',
+        }}
+    >
+        CANCELLED
+    </span>
+);
 
 /**
  * Readable text on ANY configured colour.
@@ -504,7 +565,8 @@ const DayDetail: React.FC<{
     timeRange: (m: MeetingRow) => string;
     modeCell: (m: MeetingRow) => React.ReactNode;
     onDelete?: (id: string) => void;
-}> = ({ dayKeyValue, halves, open, onClose, timeRange, modeCell, onDelete }) => {
+    onEdit?: (meeting: MeetingRow) => void;
+}> = ({ dayKeyValue, halves, open, onClose, timeRange, modeCell, onDelete, onEdit }) => {
     const openProject = useOpenProject();
     const total = halves.am.length + halves.pm.length;
     const summary = !total
@@ -557,9 +619,17 @@ const DayDetail: React.FC<{
                     {half.list.map((m) => (
                         <div
                             key={m.id}
+                            onClick={onEdit ? () => onEdit(m) : undefined}
+                            role={onEdit ? 'button' : undefined}
+                            tabIndex={onEdit ? 0 : undefined}
+                            onKeyDown={onEdit ? (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEdit(m); }
+                            } : undefined}
+                            title={onEdit ? 'Open this meeting' : undefined}
                             style={{
                                 display: 'flex', alignItems: 'flex-start', gap: 12,
                                 background: '#F8FAFF', border: '1px solid #E2E8F0', borderRadius: 9, padding: '10px 12px',
+                                cursor: onEdit ? 'pointer' : 'default',
                             }}
                         >
                             <div style={{ minWidth: 118, fontSize: 12, fontWeight: 700, color: '#1E3A8A', whiteSpace: 'nowrap' }}>
@@ -606,11 +676,19 @@ export interface MeetingsListProps {
     onCreate?: () => void;
     /** Shows a row action in the table. Omitted → no delete column. */
     onDelete?: (meetingId: string) => void;
+    /**
+     * Offers cancel / restore. Omitted → the list is read-only about it, which is what the
+     * project, contact and employee detail pages want: they REPORT meetings, they do not run
+     * them. Only the organizer may actually do it, and the API enforces that.
+     */
+    onCancel?: (meeting: { id: string; cancelled: boolean }) => void;
+    /** Offers editing. Omitted → rows are not clickable, which is right for a report. */
+    onEdit?: (meeting: MeetingRow) => void;
     /** Bump to refetch after the parent creates or deletes a meeting. */
     reloadToken?: number;
 }
 
-const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, onDelete, reloadToken }) => {
+const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, onDelete, onCancel, onEdit, reloadToken }) => {
     const [meetings, setMeetings] = useState<MeetingRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [layout, setLayout] = useState<'month' | 'table'>('month');
@@ -776,7 +854,14 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                 const m = row.original as MeetingRow;
                 return (
                     <div>
-                        <div style={{ fontWeight: 700, color: '#1E293B' }}>{m.title}</div>
+                        <div style={{
+                            fontWeight: 700,
+                            color: isCancelled(m) ? '#94A3B8' : '#1E293B',
+                            textDecoration: isCancelled(m) ? 'line-through' : 'none',
+                        }}>
+                            {m.title}
+                            {isCancelled(m) && <CancelledTag reason={m.cancelReason} />}
+                        </div>
                         {m.description && (
                             <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 3, maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={m.description}>
                                 {m.description}
@@ -805,23 +890,50 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             header: 'External Participants',
             Cell: ({ row }: any) => namesCell((row.original as MeetingRow).externalParticipantNames),
         },
-        ...(onDelete ? [{
+        ...(onDelete || onCancel || onEdit ? [{
             id: 'actions',
             header: 'Actions',
             enableSorting: false,
-            Cell: ({ row }: any) => (
-                <button
-                    type="button"
-                    onClick={() => onDelete((row.original as MeetingRow).id)}
-                    title="Delete meeting"
-                    style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#DC2626' }}
-                >
-                    <AppIcon name="bi-trash" className="fs-5" />
-                </button>
-            ),
-        }] : []),
+            Cell: ({ row }: any) => {
+                const m = row.original as MeetingRow;
+                return (
+                    <div style={{ display: 'flex', gap: 4 }}>
+                        {onEdit && !isCancelled(m) && (
+                            <button
+                                type="button"
+                                onClick={() => onEdit(m)}
+                                title="Edit meeting"
+                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#1E3A8A' }}
+                            >
+                                <AppIcon name="bi-pencil" className="fs-5" />
+                            </button>
+                        )}
+                        {onCancel && (
+                            <button
+                                type="button"
+                                onClick={() => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
+                                title={isCancelled(m) ? 'Restore meeting' : 'Cancel meeting'}
+                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: isCancelled(m) ? '#16A34A' : '#B45309' }}
+                            >
+                                <AppIcon name={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'} className="fs-5" />
+                            </button>
+                        )}
+                        {onDelete && (
+                            <button
+                                type="button"
+                                onClick={() => onDelete(m.id)}
+                                title="Delete meeting"
+                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#DC2626' }}
+                            >
+                                <AppIcon name="bi-trash" className="fs-5" />
+                            </button>
+                        )}
+                    </div>
+                );
+            },
+        } as MRT_ColumnDef<MeetingRow>] : []),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [onDelete, mode, openProject]);
+    ], [onDelete, onCancel, onEdit, mode, openProject]);
 
     const pickedList = byDay.get(picked) ?? [];
     const pickedHalves = splitHalves(pickedList, dayjs(picked));
@@ -1055,6 +1167,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                         timeRange={timeRange}
                         modeCell={modeCell}
                         onDelete={onDelete}
+                        onEdit={onEdit ? (m) => { setDayOpen(false); onEdit(m); } : undefined}
                     />
 
                     {/* ── legend ── */}
