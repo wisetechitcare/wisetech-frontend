@@ -12,6 +12,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  alpha,
 } from '@mui/material';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import LinkOffRoundedIcon from '@mui/icons-material/LinkOffRounded';
@@ -22,6 +23,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import HubRoundedIcon from '@mui/icons-material/HubRounded';
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import Flatpickr from 'react-flatpickr';
 import {
   fetchAllPrefixSettings,
@@ -303,114 +305,126 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
 
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      {/* ── Compact Top Control Toolbar ── */}
+      {/* ── Sleek Compact Toolbar ── */}
       <Box
         sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 1.5,
-          py: 1,
-          px: 1.75,
+          p: { xs: 1.25, sm: 1.5 },
           backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc'),
           border: '1px solid',
           borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0'),
           borderRadius: 2,
         }}
       >
-        {/* Left: Fiscal Year */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
-            Fiscal Year:
-          </Typography>
+        {/* Desktop single row / Mobile 2 clean rows */}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 1.25,
+          }}
+        >
+          {/* Section 1: Label & Meta */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', whiteSpace: 'nowrap' }}>
+                Fiscal Year:
+              </Typography>
+              {shortYear && (
+                <ToneChip
+                  tone="brand"
+                  label={`/${shortYear}/...`}
+                  dense
+                />
+              )}
+              <Tooltip title="How numbering series work">
+                <IconButton
+                  size="small"
+                  onClick={() => setInfoOpen(true)}
+                  sx={{ color: 'primary.main', p: 0.25 }}
+                >
+                  <InfoOutlinedIcon sx={{ fontSize: 17 }} />
+                </IconButton>
+              </Tooltip>
+            </Box>
 
-          <Box
-            sx={{
-              width: 200,
-              '& input': {
-                width: '100%',
-                height: 32,
-                padding: '0 10px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: yearDirty ? 'warning.main' : '#cbd5e1',
-                backgroundColor: 'background.paper',
-                color: 'text.primary',
-                fontSize: 12.5,
-                fontWeight: 600,
-                fontFamily: 'inherit',
-                outline: 'none',
-                transition: 'all 0.15s ease',
-                '&:focus': { borderColor: 'primary.main' },
-              },
-            }}
-          >
-            <Flatpickr
-              value={fiscalYear ? convertFiscalYearToDates(fiscalYear) : []}
-              placeholder="Select Fiscal Year"
-              onChange={(dates: Date[]) => {
-                if (dates.length === 2) {
-                  setFiscalYear(`${toISODateString(dates[0])} to ${toISODateString(dates[1])}`);
-                }
-              }}
-              options={{ dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', mode: 'range' }}
-            />
+            {/* Status chip on mobile (hidden on desktop sm up) */}
+            <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+              {hasChanges ? (
+                <ToneChip tone="warning" label={`${dirtyCount} unsaved`} dense />
+              ) : (
+                <ToneChip tone="success" label="All saved" dense />
+              )}
+            </Box>
           </Box>
 
-          {shortYear && (
-            <ToneChip
-              tone="brand"
-              label={`/${shortYear}/...`}
-              dense
-            />
-          )}
-
-          <Tooltip title="How numbering series work">
-            <IconButton
-              size="small"
-              onClick={() => setInfoOpen(true)}
-              sx={{ color: 'primary.main', p: 0.5 }}
+          {/* Section 2: Input & Actions */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: { sm: 1 }, justifyContent: { sm: 'flex-end' } }}>
+            <Box
+              sx={{
+                flex: { xs: 1, sm: 'unset' },
+                width: { sm: 195 },
+                '& input': {
+                  width: '100%',
+                  height: 32,
+                  padding: '0 10px',
+                  borderRadius: '6px',
+                  border: '1px solid',
+                  borderColor: yearDirty ? 'warning.main' : '#cbd5e1',
+                  backgroundColor: 'background.paper',
+                  color: 'text.primary',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                  transition: 'all 0.15s ease',
+                  '&:focus': { borderColor: 'primary.main' },
+                },
+              }}
             >
-              <InfoOutlinedIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-          </Tooltip>
-        </Box>
+              <Flatpickr
+                value={fiscalYear ? convertFiscalYearToDates(fiscalYear) : []}
+                placeholder="Select Fiscal Year"
+                onChange={(dates: Date[]) => {
+                  if (dates.length === 2) {
+                    setFiscalYear(`${toISODateString(dates[0])} to ${toISODateString(dates[1])}`);
+                  }
+                }}
+                options={{ dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', mode: 'range' }}
+              />
+            </Box>
 
-        {/* Right: Status & Save Action */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-          {hasChanges ? (
-            <ToneChip
-              tone="warning"
-              label={`${dirtyCount} unsaved`}
-              dense
-            />
-          ) : (
-            <ToneChip
-              tone="success"
-              label="All saved"
-              dense
-            />
-          )}
+            {/* Status chip on desktop */}
+            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+              {hasChanges ? (
+                <ToneChip tone="warning" label={`${dirtyCount} unsaved`} dense />
+              ) : (
+                <ToneChip tone="success" label="All saved" dense />
+              )}
+            </Box>
 
-          <Button
-            variant="contained"
-            color="primary"
-            size="small"
-            onClick={handleSave}
-            disabled={saving || !hasChanges || !!duplicatePrefixes.size}
-            startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <SaveRoundedIcon sx={{ fontSize: 16 }} />}
-            sx={{
-              height: 32,
-              px: 2,
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: 12.5,
-              borderRadius: 1.5,
-            }}
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              onClick={handleSave}
+              disabled={saving || !hasChanges || !!duplicatePrefixes.size}
+              startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <SaveRoundedIcon sx={{ fontSize: 16 }} />}
+              sx={{
+                height: 32,
+                px: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: 12.5,
+                borderRadius: 1.5,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          </Box>
         </Box>
       </Box>
 
@@ -437,7 +451,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
         </Box>
       )}
 
-      {/* ── Organization Configuration Table ── */}
+      {/* ── Organization Configuration Container ── */}
       <Box
         sx={{
           border: '1px solid',
@@ -447,11 +461,11 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
           overflow: 'hidden',
         }}
       >
-        {/* Table Column Header */}
+        {/* Desktop Table Column Header (Hidden on Mobile) */}
         <Box
           sx={{
             display: { xs: 'none', md: 'grid' },
-            gridTemplateColumns: 'minmax(220px, 1fr) 140px 180px 160px',
+            gridTemplateColumns: 'minmax(220px, 1.3fr) 130px 180px 140px',
             alignItems: 'center',
             gap: 1.5,
             px: 2,
@@ -565,7 +579,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
           </IconButton>
         </DialogTitle>
 
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
           <Box sx={{ p: 1.5, borderRadius: 2, backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc'), border: '1px solid', borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0') }}>
             <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Box component="span" sx={{ color: 'primary.main', fontWeight: 700 }}>#</Box> Prefix Code
@@ -607,7 +621,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
   );
 };
 
-// ── Compact Single Organization Row ─────────────────────────────────────────
+// ── Responsive Organization Row (Table Row on Desktop, Native Card on Mobile) ──
 interface OrgRowItemProps {
   row: RowState;
   role: 'leader' | 'follower';
@@ -645,13 +659,8 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
   return (
     <Box
       sx={{
-        display: { xs: 'flex', md: 'grid' },
-        flexDirection: { xs: 'column', md: 'unset' },
-        gridTemplateColumns: 'minmax(220px, 1fr) 140px 180px 160px',
-        alignItems: { xs: 'flex-start', md: 'center' },
-        gap: { xs: 1, md: 1.5 },
-        px: 2,
-        py: 1.25,
+        px: { xs: 1.5, md: 2 },
+        py: { xs: 1.25, md: 1.25 },
         transition: 'background-color 0.12s ease',
         '&:hover': {
           backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc'),
@@ -660,222 +669,451 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
         borderLeftColor: isSharedSeries ? 'primary.main' : 'transparent',
       }}
     >
-      {/* 1. Organization Column */}
+      {/* ── DESKTOP VIEW (md and up, >= 900px): Clean 4-Column Table Grid ── */}
       <Box
         sx={{
-          display: 'flex',
+          display: { xs: 'none', md: 'grid' },
+          gridTemplateColumns: 'minmax(220px, 1.3fr) 130px 180px 140px',
           alignItems: 'center',
-          gap: 1,
-          pl: role === 'follower' ? { xs: 1.5, md: 2 } : 0,
-          minWidth: 0,
-        }}
-      >
-        {role === 'follower' ? (
-          <SubdirectoryArrowRightRoundedIcon
-            sx={{ fontSize: 16, color: 'primary.main', flexShrink: 0 }}
-          />
-        ) : (
-          <Box
-            sx={{
-              width: 26,
-              height: 26,
-              borderRadius: 1.25,
-              backgroundColor: isSharedSeries
-                ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#eff6ff')
-                : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9'),
-              color: isSharedSeries ? 'primary.main' : 'text.secondary',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: 10.5,
-              flexShrink: 0,
-            }}
-          >
-            {row.organizationName.substring(0, 2).toUpperCase()}
-          </Box>
-        )}
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flexWrap: 'wrap' }}>
-          <Typography
-            sx={{
-              fontSize: 13,
-              fontWeight: role === 'leader' ? 600 : 500,
-              color: 'text.primary',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-            title={role === 'follower' ? `${row.organizationName} (shares with ${leaderName})` : row.organizationName}
-          >
-            {row.organizationName}
-          </Typography>
-
-          {role === 'leader' && isSharedSeries && (
-            <ToneChip
-              tone="brand"
-              label={`Series Owner (${followerCount + 1})`}
-              dense
-            />
-          )}
-
-          {role === 'follower' && (
-            <ToneChip
-              tone="cyan"
-              label="Linked"
-              dense
-            />
-          )}
-        </Box>
-      </Box>
-
-      {/* 2. Prefix Input Column */}
-      <Box sx={{ width: '100%', maxWidth: 125, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <Tooltip title={isDuplicate ? 'Duplicate prefix in separate series.' : ''}>
-          <TextField
-            size="small"
-            value={row.prefix}
-            onChange={(e) => onPrefixChange(e.target.value)}
-            placeholder="WT/OFFER"
-            inputProps={{ maxLength: 20, 'aria-label': `${row.organizationName} prefix` }}
-            error={isDuplicate}
-            fullWidth
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                height: 30,
-                fontSize: 12,
-                fontWeight: 600,
-                backgroundColor: 'background.paper',
-                borderRadius: 1.5,
-                borderColor: isDirty ? 'warning.main' : '#cbd5e1',
-                '& fieldset': {
-                  borderColor: isDirty ? 'warning.main' : '#cbd5e1',
-                },
-              },
-              '& .MuiOutlinedInput-input': {
-                fontFamily: 'monospace',
-                fontSize: 12,
-                fontWeight: 600,
-                py: 0,
-                px: 1,
-              },
-            }}
-          />
-        </Tooltip>
-        {isDirty && (
-          <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'warning.main', flexShrink: 0 }} />
-        )}
-      </Box>
-
-      {/* 3. Next Lead ID Sample Column */}
-      <Box sx={{ width: '100%', display: 'flex', alignItems: 'center' }}>
-        <Box
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            px: 1,
-            py: 0.35,
-            borderRadius: 1.25,
-            backgroundColor: displayData.hasCustomPrefix
-              ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#f1f5f9')
-              : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc'),
-            border: '1px solid',
-            borderColor: displayData.hasCustomPrefix
-              ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.3)' : '#e2e8f0')
-              : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9'),
-            maxWidth: '100%',
-          }}
-        >
-          <Typography
-            sx={{
-              fontFamily: 'monospace',
-              fontSize: 12,
-              fontWeight: 700,
-              color: displayData.hasCustomPrefix ? 'text.primary' : 'text.disabled',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {displayData.fullText}
-          </Typography>
-        </Box>
-      </Box>
-
-      {/* 4. Numbering Series & Linking Actions Column */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: { xs: 'flex-start', md: 'flex-end' },
-          gap: 1,
+          gap: 1.5,
           width: '100%',
         }}
       >
-        {busy ? (
-          <CircularProgress size={16} />
-        ) : role === 'follower' ? (
-          <Tooltip title={`Give ${row.organizationName} its own independent number series.`}>
-            <Button
-              size="small"
-              variant="outlined"
-              color="error"
-              startIcon={<LinkOffRoundedIcon sx={{ fontSize: 14 }} />}
-              onClick={() => onChangeLink(null)}
+        {/* 1. Organization Column */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            pl: role === 'follower' ? 2 : 0,
+            minWidth: 0,
+          }}
+        >
+          {role === 'follower' ? (
+            <SubdirectoryArrowRightRoundedIcon
+              sx={{ fontSize: 16, color: 'primary.main', flexShrink: 0 }}
+            />
+          ) : (
+            <Box
               sx={{
-                fontSize: 11.5,
-                fontWeight: 600,
-                textTransform: 'none',
-                height: 28,
+                width: 26,
+                height: 26,
                 borderRadius: 1.25,
-                px: 1,
-                py: 0,
-                backgroundColor: 'background.paper',
-                borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(239, 68, 68, 0.4)' : '#fecaca'),
-                '&:hover': {
-                  borderColor: 'error.main',
-                  backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2'),
-                },
+                backgroundColor: isSharedSeries
+                  ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#eff6ff')
+                  : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9'),
+                color: isSharedSeries ? 'primary.main' : 'text.secondary',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: 10.5,
+                flexShrink: 0,
               }}
             >
-              Stop sharing
-            </Button>
-          </Tooltip>
-        ) : !isSharedSeries && canLink && linkTargets.length > 0 ? (
-          <Select
-            size="small"
-            displayEmpty
-            value=""
-            disabled={!row.settingId}
-            onChange={(e) => onChangeLink(String(e.target.value) || null)}
-            renderValue={() => (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: 11.5, fontWeight: 600, color: 'primary.main' }}>
-                <LinkRoundedIcon sx={{ fontSize: 14 }} />
-                Share with...
-              </Box>
+              {row.organizationName.substring(0, 2).toUpperCase()}
+            </Box>
+          )}
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flexWrap: 'wrap' }}>
+            <Typography
+              sx={{
+                fontSize: 13,
+                fontWeight: role === 'leader' ? 600 : 500,
+                color: 'text.primary',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+              title={role === 'follower' ? `${row.organizationName} (shares with ${leaderName})` : row.organizationName}
+            >
+              {row.organizationName}
+            </Typography>
+
+            {role === 'leader' && isSharedSeries && (
+              <ToneChip
+                tone="brand"
+                label={`Series Owner (${followerCount + 1})`}
+                dense
+              />
             )}
+
+            {role === 'follower' && (
+              <ToneChip
+                tone="cyan"
+                label="Linked"
+                dense
+              />
+            )}
+          </Box>
+        </Box>
+
+        {/* 2. Prefix Input Column */}
+        <Box sx={{ width: '100%', maxWidth: 120, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Tooltip title={isDuplicate ? 'Duplicate prefix in separate series.' : ''}>
+            <TextField
+              size="small"
+              value={row.prefix}
+              onChange={(e) => onPrefixChange(e.target.value)}
+              placeholder="WT/OFFER"
+              inputProps={{ maxLength: 20, 'aria-label': `${row.organizationName} prefix` }}
+              error={isDuplicate}
+              fullWidth
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  height: 30,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  backgroundColor: 'background.paper',
+                  borderRadius: 1.5,
+                  borderColor: isDirty ? 'warning.main' : '#cbd5e1',
+                  '& fieldset': {
+                    borderColor: isDirty ? 'warning.main' : '#cbd5e1',
+                  },
+                },
+                '& .MuiOutlinedInput-input': {
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  py: 0,
+                  px: 1,
+                },
+              }}
+            />
+          </Tooltip>
+          {isDirty && (
+            <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'warning.main', flexShrink: 0 }} />
+          )}
+        </Box>
+
+        {/* 3. Next Lead ID Sample Column */}
+        <Box sx={{ width: '100%', display: 'flex', alignItems: 'center' }}>
+          <Box
             sx={{
-              height: 28,
+              display: 'inline-flex',
+              alignItems: 'center',
+              px: 1,
+              py: 0.35,
               borderRadius: 1.25,
-              backgroundColor: 'background.paper',
-              fontSize: 11.5,
-              fontWeight: 600,
-              color: 'primary.main',
-              borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.4)' : '#bfdbfe'),
-              '& .MuiSelect-select': { py: '4px', px: '8px' },
+              backgroundColor: displayData.hasCustomPrefix
+                ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#f1f5f9')
+                : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc'),
+              border: '1px solid',
+              borderColor: displayData.hasCustomPrefix
+                ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.3)' : '#e2e8f0')
+                : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9'),
+              maxWidth: '100%',
             }}
           >
-            {linkTargets.map((target) => (
-              <MenuItem key={target.organizationId} value={target.organizationId} sx={{ fontSize: 12 }}>
-                Link to {target.organizationName}
-              </MenuItem>
-            ))}
-          </Select>
-        ) : (
-          <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontStyle: 'italic' }}>
-            {isSharedSeries ? 'Master counter' : 'Independent'}
+            <Typography
+              sx={{
+                fontFamily: 'monospace',
+                fontSize: 12,
+                fontWeight: 700,
+                color: displayData.hasCustomPrefix ? 'text.primary' : 'text.disabled',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {displayData.fullText}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* 4. Numbering Series & Linking Actions Column */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: 1,
+            width: '100%',
+          }}
+        >
+          {busy ? (
+            <CircularProgress size={16} />
+          ) : role === 'follower' ? (
+            <Tooltip title={`Give ${row.organizationName} its own independent number series.`}>
+              <Button
+                size="small"
+                variant="outlined"
+                color="error"
+                startIcon={<LinkOffRoundedIcon sx={{ fontSize: 14 }} />}
+                onClick={() => onChangeLink(null)}
+                sx={{
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  height: 28,
+                  borderRadius: 1.25,
+                  px: 1.25,
+                  py: 0,
+                  whiteSpace: 'nowrap',
+                  backgroundColor: 'background.paper',
+                  borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(239, 68, 68, 0.4)' : '#fecaca'),
+                  '&:hover': {
+                    borderColor: 'error.main',
+                    backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2'),
+                  },
+                }}
+              >
+                Stop sharing
+              </Button>
+            </Tooltip>
+          ) : !isSharedSeries && canLink && linkTargets.length > 0 ? (
+            <Select
+              size="small"
+              displayEmpty
+              value=""
+              disabled={!row.settingId}
+              onChange={(e) => onChangeLink(String(e.target.value) || null)}
+              renderValue={() => (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: 11.5, fontWeight: 600, color: 'primary.main' }}>
+                  <LinkRoundedIcon sx={{ fontSize: 14 }} />
+                  Share with...
+                </Box>
+              )}
+              sx={{
+                height: 28,
+                borderRadius: 1.25,
+                backgroundColor: 'background.paper',
+                fontSize: 11.5,
+                fontWeight: 600,
+                color: 'primary.main',
+                borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.4)' : '#bfdbfe'),
+                '& .MuiSelect-select': { py: '4px', px: '8px' },
+              }}
+            >
+              {linkTargets.map((target) => (
+                <MenuItem key={target.organizationId} value={target.organizationId} sx={{ fontSize: 12 }}>
+                  Link to {target.organizationName}
+                </MenuItem>
+              ))}
+            </Select>
+          ) : (
+            <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontStyle: 'italic' }}>
+              {isSharedSeries ? 'Master counter' : 'Independent'}
+            </Typography>
+          )}
+        </Box>
+      </Box>
+
+      {/* ── MOBILE VIEW (< md, < 900px): Clean, High-End Compact Card ── */}
+      <Box
+        sx={{
+          display: { xs: 'flex', md: 'none' },
+          flexDirection: 'column',
+          gap: 1.25,
+          width: '100%',
+          pl: role === 'follower' ? 1.5 : 0,
+        }}
+      >
+        {/* Mobile Header: Org Name + Role Badge */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
+            {role === 'follower' ? (
+              <SubdirectoryArrowRightRoundedIcon sx={{ fontSize: 16, color: 'primary.main', flexShrink: 0 }} />
+            ) : (
+              <Box
+                sx={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 1,
+                  backgroundColor: isSharedSeries ? '#eff6ff' : '#f1f5f9',
+                  color: isSharedSeries ? 'primary.main' : 'text.secondary',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: 10,
+                  flexShrink: 0,
+                }}
+              >
+                {row.organizationName.substring(0, 2).toUpperCase()}
+              </Box>
+            )}
+            <Typography
+              sx={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: 'text.primary',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+              title={row.organizationName}
+            >
+              {row.organizationName}
+            </Typography>
+          </Box>
+
+          <Box sx={{ flexShrink: 0 }}>
+            {role === 'leader' && isSharedSeries && (
+              <ToneChip tone="brand" label={`Series Owner (${followerCount + 1})`} dense />
+            )}
+            {role === 'follower' && (
+              <ToneChip tone="cyan" label="Linked" dense />
+            )}
+          </Box>
+        </Box>
+
+        {/* Mobile Middle: Unified Prefix & Live Preview Bar */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            p: 1,
+            borderRadius: 1.5,
+            backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : '#f8fafc'),
+            border: '1px solid',
+            borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : '#e2e8f0'),
+          }}
+        >
+          {/* Prefix Input */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: 'text.secondary', mb: 0.25, textTransform: 'uppercase' }}>
+              Prefix Code
+            </Typography>
+            <TextField
+              size="small"
+              value={row.prefix}
+              onChange={(e) => onPrefixChange(e.target.value)}
+              placeholder="e.g. WT/OFFER"
+              inputProps={{ maxLength: 20 }}
+              error={isDuplicate}
+              fullWidth
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  height: 30,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  backgroundColor: 'background.paper',
+                  borderRadius: 1.25,
+                  borderColor: isDirty ? 'warning.main' : '#cbd5e1',
+                },
+                '& .MuiOutlinedInput-input': {
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  py: 0,
+                  px: 1,
+                },
+              }}
+            />
+          </Box>
+
+          <ArrowForwardRoundedIcon sx={{ fontSize: 14, color: 'text.disabled', mt: 2, flexShrink: 0 }} />
+
+          {/* Live Preview Sample */}
+          <Box sx={{ flex: 1.3, minWidth: 0 }}>
+            <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: 'text.secondary', mb: 0.25, textTransform: 'uppercase' }}>
+              Next Lead ID
+            </Typography>
+            <Box
+              sx={{
+                height: 30,
+                px: 1,
+                borderRadius: 1.25,
+                backgroundColor: displayData.hasCustomPrefix ? '#f1f5f9' : '#ffffff',
+                border: '1px solid',
+                borderColor: displayData.hasCustomPrefix ? '#cbd5e1' : '#e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <Typography
+                sx={{
+                  fontFamily: 'monospace',
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: displayData.hasCustomPrefix ? 'text.primary' : 'text.disabled',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {displayData.fullText}
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Mobile Footer: Sequence Context & Action Button */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Typography sx={{ fontSize: 11, color: 'text.secondary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {role === 'follower'
+              ? `Draws from ${leaderName}`
+              : isSharedSeries
+                ? 'Master numbering counter'
+                : 'Independent sequence counter'}
           </Typography>
-        )}
+
+          <Box sx={{ flexShrink: 0 }}>
+            {busy ? (
+              <CircularProgress size={16} />
+            ) : role === 'follower' ? (
+              <Button
+                size="small"
+                variant="outlined"
+                color="error"
+                startIcon={<LinkOffRoundedIcon sx={{ fontSize: 13 }} />}
+                onClick={() => onChangeLink(null)}
+                sx={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  height: 26,
+                  borderRadius: 1.25,
+                  px: 1.25,
+                  py: 0,
+                  whiteSpace: 'nowrap',
+                  backgroundColor: 'background.paper',
+                  // Derived from the palette rather than the light-mode red these
+                  // were picked from (#fecaca / #fef2f2), which stayed pale on a
+                  // dark surface and washed the button out.
+                  borderColor: 'error.light',
+                  '&:hover': {
+                    backgroundColor: (t) => alpha(t.palette.error.main, t.palette.mode === 'dark' ? 0.18 : 0.07),
+                    borderColor: 'error.main',
+                  },
+                }}
+              >
+                Stop sharing
+              </Button>
+            ) : !isSharedSeries && canLink && linkTargets.length > 0 ? (
+              <Select
+                size="small"
+                displayEmpty
+                value=""
+                disabled={!row.settingId}
+                onChange={(e) => onChangeLink(String(e.target.value) || null)}
+                renderValue={() => (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: 11, fontWeight: 600, color: 'primary.main', whiteSpace: 'nowrap' }}>
+                    <LinkRoundedIcon sx={{ fontSize: 13 }} />
+                    Share with...
+                  </Box>
+                )}
+                sx={{
+                  height: 26,
+                  borderRadius: 1.25,
+                  backgroundColor: 'background.paper',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'primary.main',
+                  '& .MuiSelect-select': { py: '2px', px: '6px' },
+                }}
+              >
+                {linkTargets.map((target) => (
+                  <MenuItem key={target.organizationId} value={target.organizationId} sx={{ fontSize: 12 }}>
+                    Link to {target.organizationName}
+                  </MenuItem>
+                ))}
+              </Select>
+            ) : null}
+          </Box>
+        </Box>
       </Box>
     </Box>
   );
