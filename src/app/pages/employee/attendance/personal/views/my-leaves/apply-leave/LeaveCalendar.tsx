@@ -108,6 +108,76 @@ function LeaveCalendarBase({
         if (transient) tipTimer.current = setTimeout(() => setHoverTip(null), 2400);
     };
     const hideTip = () => { if (tipTimer.current) clearTimeout(tipTimer.current); setHoverTip(null); };
+
+    /**
+     * Keyboard navigation.
+     *
+     * `focusISO` is the roving tab stop: exactly one day is tabbable, so reaching
+     * the grid costs one Tab and leaving it costs one more, instead of tabbing
+     * through every day of the month. Arrows move within the month, PageUp/Down
+     * change month (Shift for year), Home/End jump to the ends of the week.
+     *
+     * Movement across a month boundary calls `nav` and then focuses the target
+     * after paint, because the destination cell does not exist until the new
+     * month renders.
+     */
+    const gridRef = useRef<HTMLDivElement | null>(null);
+    const [focusISO, setFocusISO] = useState<string | null>(null);
+    const pendingFocus = useRef<string | null>(null);
+
+    const focusDay = (iso: string) => {
+        const el = gridRef.current?.querySelector<HTMLButtonElement>(`[data-day="${iso}"]`);
+        if (el) { el.focus(); return true; }
+        return false;
+    };
+
+    // A month change queues the focus; this lands it once the new cells exist.
+    useEffect(() => {
+        if (!pendingFocus.current) return;
+        const iso = pendingFocus.current;
+        pendingFocus.current = null;
+        setFocusISO(iso);
+        requestAnimationFrame(() => focusDay(iso));
+    }, [cal.y, cal.m]);
+
+    const moveFocus = (fromISO: string, deltaDays: number) => {
+        const d = new Date(fromISO + 'T00:00:00');
+        d.setDate(d.getDate() + deltaDays);
+        const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        if (d.getFullYear() === cal.y && d.getMonth() === cal.m) {
+            setFocusISO(iso);
+            focusDay(iso);
+            return;
+        }
+        // Out of the displayed month — step the month, then focus after paint.
+        pendingFocus.current = iso;
+        nav(d.getFullYear() > cal.y || (d.getFullYear() === cal.y && d.getMonth() > cal.m) ? 1 : -1);
+    };
+
+    const onGridKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        const active = (e.target as HTMLElement)?.dataset?.day;
+        const from = active || focusISO;
+        if (!from) return;
+
+        const step: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+        if (e.key in step) { e.preventDefault(); moveFocus(from, step[e.key]); return; }
+
+        if (e.key === 'Home' || e.key === 'End') {
+            e.preventDefault();
+            // Monday-first, matching the grid's own column order.
+            const col = (new Date(from + 'T00:00:00').getDay() + 6) % 7;
+            moveFocus(from, e.key === 'Home' ? -col : 6 - col);
+            return;
+        }
+        if (e.key === 'PageUp' || e.key === 'PageDown') {
+            e.preventDefault();
+            const back = e.key === 'PageUp';
+            const d = new Date(from + 'T00:00:00');
+            d.setMonth(d.getMonth() + (back ? -1 : 1) * (e.shiftKey ? 12 : 1));
+            pendingFocus.current = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            nav((back ? -1 : 1) * (e.shiftKey ? 12 : 1));
+        }
+    };
     const { y, m } = cal;
     // Monday-first week: shift the JS Sun=0 lead so Monday occupies column 0.
     const lead = (new Date(y, m, 1).getDay() + 6) % 7, dim = new Date(y, m + 1, 0).getDate();
@@ -271,6 +341,13 @@ function LeaveCalendarBase({
             : null;
         cells.push(
             <button key={iso} type="button" style={st}
+                data-day={iso}
+                role="gridcell"
+                // Roving tabindex: the focused day, else today, else the 1st.
+                // Exactly one cell is tabbable, so the grid is one Tab stop
+                // rather than one per day.
+                tabIndex={(focusISO ?? (today.startsWith(`${y}-${pad(m + 1)}`) ? today : `${y}-${pad(m + 1)}-01`)) === iso ? 0 : -1}
+                aria-current={iso === today ? 'date' : undefined}
                 aria-pressed={isEp || undefined}
                 /* eslint-disable-next-line no-restricted-syntax -- calendar chrome, not data: this must read as a weekday + month name ("Mon, 24 Aug"); formatDate()'s YYYY.MM.DD would make the tooltip and the screen-reader label worse, not compliant. */
                 aria-label={`${new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} — ${tip}`}
@@ -289,7 +366,7 @@ function LeaveCalendarBase({
                 }}
                 onMouseLeave={() => { setHoverDate(null); hideTip(); }}
                 // Keyboard parity: tabbing through the grid surfaces the same label a mouse gets.
-                onFocus={(e) => { if (!small) showTip(e.currentTarget, tip, tipColor); }}
+                onFocus={(e) => { setFocusISO(iso); if (!small) showTip(e.currentTarget, tip, tipColor); }}
                 onBlur={hideTip}
             >
                 {sandwichCharged && (
@@ -356,7 +433,27 @@ function LeaveCalendarBase({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: small ? 2 : 4, marginBottom: small ? 2 : 4 }}>
                 {labels.map((w, i) => <div key={i} style={{ textAlign: 'center', fontSize: small ? 10 : 11, fontWeight: 600, color: i === 6 ? RED : P.inkMuted, textTransform: 'uppercase' }}>{w}</div>)}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', columnGap: 0, rowGap: small ? 2 : 4 }}>{cells}</div>
+            {/*
+              * `role="grid"` plus the roving tabindex on each day turns 31+ tab
+              * stops into one, and gives this calendar the arrow-key model every
+              * other date grid on the web has. It was the single thing this
+              * component lacked — everything else (per-cell aria-label with the
+              * reason, aria-pressed on endpoints, focus/blur tooltip parity) was
+              * already here.
+              *
+              * Handled on the container, not per cell: keydown bubbles, so one
+              * listener serves every day and no cell has to know about its
+              * neighbours.
+              */}
+            <div
+                ref={gridRef}
+                role="grid"
+                aria-label={`${monthLabel} — choose leave dates`}
+                onKeyDown={onGridKeyDown}
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', columnGap: 0, rowGap: small ? 2 : 4 }}
+            >
+                {cells}
+            </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 16px', marginTop: 13, paddingTop: 11, borderTop: `1px solid ${P.lineSoft}` }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: P.inkMuted, fontWeight: 500 }}><span style={{ width: 13, height: 13, borderRadius: 4, border: `1.5px solid ${ACCENT}`, flexShrink: 0 }} />Today</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: P.inkMuted, fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: tintOf('casual', colorOf), border: `1px solid ${borderOf('casual', colorOf)}`, flexShrink: 0 }} />Charged</span>
