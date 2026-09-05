@@ -69,11 +69,14 @@ export function AttendanceCalendarPanel({
   const tiles = useMemo(() => {
     const s = data?.summary;
     if (!s) return [];
+    // Day counts only. Hours were dropped — a month total in whole hours is not
+    // a number anyone acts on here, and the per-day duration is in the tooltip
+    // where it is actually useful. `summary.minutesWorked` still comes from the
+    // server for anything that does want it.
     return [
       { label: 'Present', value: s.present, trio: TRIO.green, icon: 'check-circle' },
       { label: 'Leave', value: s.leave, trio: TRIO.amber, icon: 'calendar-remove' },
       { label: 'Absent', value: s.absent, trio: TRIO.rose, icon: 'cross-circle' },
-      { label: 'Hours', value: `${Math.round(s.minutesWorked / 60)}h`, trio: TRIO.blue, icon: 'time' },
     ];
   }, [data?.summary]);
 
@@ -89,7 +92,7 @@ export function AttendanceCalendarPanel({
     <GlassCard preset="section" className="flex flex-col gap-4 p-3 sm:p-4">
       {/* Summary first: the month's answer, before the month's detail. */}
       {tiles.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {tiles.map((t) => (
             <StatTile key={t.label} label={t.label} value={t.value} trio={t.trio} icon={t.icon} />
           ))}
