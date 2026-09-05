@@ -142,7 +142,13 @@ const MODIFIER_TRIO: Partial<Record<DayModifier, Trio>> = {
   remote: TRIO.blue,
   on_site: TRIO.cyan,
   overtime: TRIO.purple,
-  regularized: TRIO.blue,
+  // Pink, built to the kit's own recipe (a 600 accent with its 50/200 surface
+  // pair) but declared HERE rather than added to TRIO: `TONE_NAMES` is derived
+  // from `TRIO` with Object.keys, so a new tone would silently appear as a
+  // choice in the FAQ section picker. Same reason LATE_BANDS carries its own
+  // amber triples. It belongs in the shared palette once the appearance
+  // registry lands — not as a side effect of this fix.
+  regularized: { c: '#db2777', bg: '#fdf2f8', bd: '#fbcfe8' },
   worked_on_off_day: TRIO.blue,
 };
 
@@ -166,14 +172,25 @@ export const MODIFIER_LABEL: Record<DayModifier, string> = {
 /** Modifiers that replace the fill with an outline. Order = precedence. */
 const RING_MODIFIERS: DayModifier[] = ['request_pending', 'missing_check_in', 'missing_check_out'];
 
+/** Modifiers that render as a dot beneath the numeral. Order = left-to-right. */
+const DOT_MODIFIERS: DayModifier[] = ['late_in', 'early_out', 'remote', 'on_site', 'overtime'];
+
 /**
- * Modifiers that render as a dot beneath the numeral. Order = left-to-right.
+ * Modifiers that REPAINT the disc rather than adding a marker to it. The third
+ * channel, alongside rings and dots. Order = precedence.
  *
- * `regularized` belongs here and was missing: in neither this list nor
- * RING_MODIFIERS, its legend swatch fell through to the plain `present` fill and
- * rendered identical green — two different things sharing one colour.
+ * `regularized` is the case that forced it. A regularised day IS a present day —
+ * the status is correct, and rule 2 above would normally keep it out of the fill.
+ * But how the day became present is the thing people scan the month for, and a
+ * dot under a green tile lost that argument: at a glance it still read as an
+ * ordinary present day, which is exactly the complaint.
+ *
+ * The rule survives intact, because the fill is only ever repainted, never
+ * competed for: the status still decides WHETHER there is a disc and what shape
+ * it takes (solid, or split for a half day), and the modifier only decides its
+ * colour. `present` + `late_in` still coexist — the dot is untouched.
  */
-const DOT_MODIFIERS: DayModifier[] = ['late_in', 'early_out', 'regularized', 'remote', 'on_site', 'overtime'];
+const FILL_MODIFIERS: DayModifier[] = ['regularized'];
 
 /* ── Resolution ───────────────────────────────────────────────────────── */
 
@@ -204,7 +221,6 @@ export function resolveDayVisual(
   modifierOverrides?: ModifierToneOverrides,
 ): DayVisual {
   const base = STATUS_TRIO[status];
-  const trio = overrides?.[status] ? withAccent(base, overrides[status]!) : base;
 
   const ringMod = RING_MODIFIERS.find((m) => modifiers.includes(m));
   const ring: RingMode = !ringMod ? 'none' : ringMod === 'request_pending' ? 'dashed' : 'solid';
@@ -213,21 +229,41 @@ export function resolveDayVisual(
   // stacking it on a solid fill would read as a border, not as a state.
   const fill: FillMode = ring !== 'none' ? 'none' : STATUS_FILL[status];
 
+  /**
+   * A fill modifier repaints the disc, but only while there IS a disc to
+   * repaint. Two guards, both deliberate:
+   *
+   *  - A ring outranks it. An unresolved day is unresolved first, whatever else
+   *    is true of it, so the outline keeps the status tone.
+   *  - A tint or an empty status is left alone — repainting a structural tint
+   *    would break rule 1 (structural tints, employee state fills).
+   */
+  const fillMod =
+    fill === 'solid' || fill === 'split'
+      ? FILL_MODIFIERS.find((m) => modifiers.includes(m))
+      : undefined;
+
+  // The admin's pick wins over the built-in tone in both channels, and
+  // `withAccent` derives the tint/border pair either way so a pale hex cannot
+  // produce an unreadable tile.
+  const trio = fillMod
+    ? tone(MODIFIER_TRIO[fillMod] ?? base, modifierOverrides?.[fillMod])
+    : tone(base, overrides?.[status]);
+
   return {
     trio,
     fill,
-    splitWith: status === 'half_day' ? (overrides?.present ? withAccent(TRIO.green, overrides.present) : TRIO.green) : undefined,
+    splitWith: status === 'half_day' ? tone(TRIO.green, overrides?.present) : undefined,
     ring,
     dots: DOT_MODIFIERS.filter((m) => modifiers.includes(m))
       .map((m) => {
         // Lateness is the one modifier with a magnitude, so it is the one that
         // gets graded. The rest are binary and keep a single neutral size.
         const band = m === 'late_in' ? lateBandOf(lateMinutes) : null;
+        const built = band?.trio ?? MODIFIER_TRIO[m];
         return {
           key: m,
-          trio: modifierOverrides?.[m]
-            ? withAccent(band?.trio ?? MODIFIER_TRIO[m] ?? TRIO.slate, modifierOverrides[m]!)
-            : band?.trio ?? MODIFIER_TRIO[m],
+          trio: built && tone(built, modifierOverrides?.[m]),
           pulse: shouldPulse(m),
           size: band?.size ?? 4.5,
         };
@@ -285,6 +321,11 @@ export function shouldPulse(key: LegendKey): boolean {
 function withAccent(base: Trio, accent: string): Trio {
   if (!/^#[0-9a-fA-F]{6}$/.test(accent)) return base;
   return { c: accent, bg: hexA(accent, 0.12), bd: hexA(accent, 0.28) };
+}
+
+/** `withAccent` when an override exists, the built-in tone when it doesn't. */
+function tone(base: Trio, accent?: string): Trio {
+  return accent ? withAccent(base, accent) : base;
 }
 
 function hexA(hex: string, alpha: number): string {

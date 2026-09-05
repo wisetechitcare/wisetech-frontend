@@ -15,18 +15,19 @@ import { KTIcon } from '@metronic/helpers';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { TRIO, type Trio } from '@app/modules/common/components/ui/tw/tokens';
-import { MODIFIER_LABEL, STATUS_LABEL, lateBandOf, resolveDayVisual, type DayToneOverrides } from './dayTokens';
+import { MODIFIER_LABEL, STATUS_LABEL, lateBandOf, resolveDayVisual, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import type { CalendarDay } from './types';
 
 export interface DayTooltipProps {
   day: CalendarDay;
   overrides?: DayToneOverrides;
+  modifierOverrides?: ModifierToneOverrides;
   id?: string;
 }
 
-export const DayTooltip = memo(function DayTooltip({ day, overrides, id }: DayTooltipProps) {
+export const DayTooltip = memo(function DayTooltip({ day, overrides, modifierOverrides, id }: DayTooltipProps) {
   const dark = useIsDark();
-  const visual = resolveDayVisual(day.status, day.modifiers, overrides);
+  const visual = resolveDayVisual(day.status, day.modifiers, overrides, day.lateMark?.lateMinutes, modifierOverrides);
   const head = toneSurface(visual.trio, dark);
   const { actual, expected, leave, holiday, request, lateMark } = day;
   const hasPunch = Boolean(actual.checkIn || actual.checkOut);

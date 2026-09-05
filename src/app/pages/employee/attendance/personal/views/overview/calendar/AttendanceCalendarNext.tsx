@@ -117,6 +117,7 @@ export default function AttendanceCalendarNext({
         day={selected}
         open={Boolean(selected)}
         overrides={overrides}
+        modifierOverrides={modifierOverrides}
         onClose={() => setSelected(null)}
         // A submitted correction changes what the month means, so the resolved
         // month is refetched rather than patched locally.

@@ -202,7 +202,7 @@ export const DayCell = memo(function DayCell({
         {({ TransitionProps }) => (
           <Fade {...TransitionProps} timeout={120}>
             <div>
-              <DayTooltip day={day} overrides={overrides} />
+              <DayTooltip day={day} overrides={overrides} modifierOverrides={modifierOverrides} />
             </div>
           </Fade>
         )}

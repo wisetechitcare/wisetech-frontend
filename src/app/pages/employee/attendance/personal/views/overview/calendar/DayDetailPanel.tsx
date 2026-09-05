@@ -45,13 +45,14 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import RaiseRequestForEmployee from '../RaiseRequestForEmployee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { MUMBAI_TZ } from '@utils/date';
-import { STATUS_LABEL, MODIFIER_LABEL, resolveDayVisual, type DayToneOverrides } from './dayTokens';
+import { STATUS_LABEL, MODIFIER_LABEL, resolveDayVisual, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import type { CalendarDay } from './types';
 
 export interface DayDetailPanelProps {
     day: CalendarDay | null;
     open: boolean;
     overrides?: DayToneOverrides;
+    modifierOverrides?: ModifierToneOverrides;
     onClose: () => void;
     /** Fired after a successful submit so the caller can invalidate its query. */
     onSubmitted?: () => void;
@@ -60,7 +61,7 @@ export interface DayDetailPanelProps {
 type Mode = 'read' | 'pick' | 'form';
 type RequestKind = 'checkin' | 'checkout';
 
-export function DayDetailPanel({ day, open, overrides, onClose, onSubmitted }: DayDetailPanelProps) {
+export function DayDetailPanel({ day, open, overrides, modifierOverrides, onClose, onSubmitted }: DayDetailPanelProps) {
     const dark = useIsDark();
     const [mode, setMode] = useState<Mode>('read');
     const [kind, setKind] = useState<RequestKind>('checkin');
@@ -79,7 +80,7 @@ export function DayDetailPanel({ day, open, overrides, onClose, onSubmitted }: D
     const employeeId = employee?.id ?? '';
     const tz = employee?.branches?.timezone || MUMBAI_TZ;
 
-    const visual = day ? resolveDayVisual(day.status, day.modifiers, overrides) : null;
+    const visual = day ? resolveDayVisual(day.status, day.modifiers, overrides, day.lateMark?.lateMinutes, modifierOverrides) : null;
     const tone = visual ? toneSurface(visual.trio, dark) : null;
 
     /* Reset to the read view whenever a different day opens. */
