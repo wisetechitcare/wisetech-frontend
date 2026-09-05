@@ -18,10 +18,13 @@ import {
   SHOW_MEETINGS_ON_CALENDAR,
   SHOW_HOLIDAYS_ON_CALENDAR,
   MEETING_HALF_FREE_COLOR,
-  MEETING_HALF_ONE_COLOR,
-  MEETING_HALF_BUSY_COLOR
+  MEETING_HALF_AM,
+  MEETING_HALF_PM
 } from '@constants/configurations-key'
 import { fetchConfiguration, createNewConfiguration, updateConfigurationById } from '@services/company'
+// The calendar's own tint helpers, not a second copy: a preview derived independently is a
+// preview that can disagree with the grid it is previewing.
+import { rowTone, readableOn } from '@app/modules/common/components/MeetingsList'
 import { safeJsonParse } from '@utils/safeJson'
 import Loader from '@app/modules/common/utils/Loader'
 import CalendarConfigForm, { CalendarConfigItem } from './CalendarConfigForm'
@@ -57,6 +60,17 @@ interface EventItem {
   defaultColor: string
   /** Public holidays always showed historically, so they start on. */
   defaultEnabled?: boolean
+  /**
+   * Half-day settings preview as the PILL they paint plus a meeting row beneath it, because
+   * that is the pair the calendar draws and the pair the choice affects — the pill takes the
+   * colour as picked, the row a light mix of it.
+   *
+   * `free` has no editable name (an empty half still wears its half's name), so a name field
+   * appears only for `am` and `pm`.
+   */
+  half?: 'free' | 'am' | 'pm'
+  /** The pill's text when nobody has renamed it. */
+  defaultLabel?: string
 }
 
 interface EventSection {
@@ -139,12 +153,12 @@ const MEETING_SECTIONS: EventSection[] = [
   },
   {
     id: 'availability', tone: TRIO.purple, icon: 'time', showCount: false,
-    title: 'Availability colours',
-    desc: 'How a free or booked half-day is coloured on the meetings calendar.',
+    title: 'Half-day colours',
+    desc: 'What each half of a day is called, and how it is coloured on the meetings calendar.',
     items: [
-      { key: MEETING_HALF_FREE_COLOR, label: 'Free half-day', desc: 'A morning or afternoon with nothing booked.', sample: 'AM', defaultColor: '#F8FAFC', defaultEnabled: true },
-      { key: MEETING_HALF_ONE_COLOR, label: 'One meeting', desc: 'A half-day with a single meeting in it.', sample: 'AM 1', defaultColor: '#DBEAFE', defaultEnabled: true },
-      { key: MEETING_HALF_BUSY_COLOR, label: 'Two or more', desc: 'A half-day that is effectively full.', sample: 'PM 3', defaultColor: '#1E3A8A', defaultEnabled: true },
+      { key: MEETING_HALF_FREE_COLOR, half: 'free', label: 'Nothing booked', desc: 'A half of the day with no meetings in it.', sample: 'No meetings', defaultColor: '#F8FAFC', defaultEnabled: true },
+      { key: MEETING_HALF_AM, half: 'am', defaultLabel: 'AM', label: 'First half', desc: 'Meetings that start before noon.', sample: '10:00 AM Design review', defaultColor: '#1E3A8A', defaultEnabled: true },
+      { key: MEETING_HALF_PM, half: 'pm', defaultLabel: 'PM', label: 'Second half', desc: 'Meetings that start from noon onwards.', sample: '4:30 PM Client call', defaultColor: '#B45309', defaultEnabled: true },
     ],
   },
 ]
@@ -153,7 +167,7 @@ const ALL_ITEMS = [...SECTIONS, ...MEETING_SECTIONS].flatMap((s) => s.items)
 
 const defaultSettings = (): Record<string, CalendarConfigItem> =>
   Object.fromEntries(ALL_ITEMS.map((i) => [i.key, {
-    id: null, enabled: i.defaultEnabled ?? false, color: i.defaultColor, icon: '',
+    id: null, enabled: i.defaultEnabled ?? false, color: i.defaultColor, icon: '', label: '',
   }]))
 
 /** Modal + toast title, e.g. "Birthdays — Former employees". */
@@ -183,6 +197,46 @@ function EventGlyph({ icon, color }: { icon?: string; color: string }) {
  * as a 20px swatch in a corner they were the least visible thing on the card —
  * here they ARE the card, rendered as the event chip they produce.
  */
+/**
+ * A half-day setting, previewed as the two things it actually paints.
+ *
+ * Colour alone in a swatch says nothing about whether the result is readable; the pill and the
+ * row shown together do, and they are lifted from the calendar's own helpers rather than
+ * re-derived here, so what is approved on this card is what appears on the grid.
+ */
+function HalfPreview({ setting, item }: { setting: CalendarConfigItem; item: EventItem }) {
+  const color = setting.enabled ? setting.color : item.defaultColor
+  const free = item.half === 'free'
+  const tone = rowTone(color)
+  // A free half is an outline, exactly as on the calendar — it is the one state that recedes.
+  const pillInk = free ? '#94A3B8' : readableOn(color)
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, minWidth: 0 }}>
+      <Box sx={{
+        alignSelf: 'flex-start', px: 1.25, py: 0.25, borderRadius: '6px',
+        bgcolor: color, color: pillInk,
+        border: free ? '1px dashed #CBD5E1' : `1px solid ${color}`,
+        fontSize: 10, fontWeight: 800, letterSpacing: 0.4,
+      }}>
+        {(setting.label || item.defaultLabel || 'AM')}{free ? '' : ' 2'}
+      </Box>
+      <Box sx={{
+        display: 'flex', alignItems: 'center', gap: 0.875, px: 1, py: 0.625, minWidth: 0,
+        borderRadius: '6px',
+        bgcolor: free ? 'transparent' : tone.bg,
+        color: free ? 'text.disabled' : tone.fg,
+        border: free ? '1px dashed' : '1px solid transparent',
+        borderColor: free ? 'divider' : 'transparent',
+        borderLeft: free ? undefined : `3px solid ${color}`,
+      }}>
+        <Typography component="span" noWrap sx={{ fontSize: 11.5, fontWeight: 600, color: 'inherit' }}>
+          {item.sample}
+        </Typography>
+      </Box>
+    </Box>
+  )
+}
+
 function EventPreview({ setting, sample }: { setting: CalendarConfigItem; sample: string }) {
   const dark = useTheme().palette.mode === 'dark'
   const base = {
@@ -241,7 +295,9 @@ function EventSettingCard({ item, setting, tone, onOpen }: {
         </Typography>
       </Box>
 
-      <EventPreview setting={setting} sample={item.sample} />
+      {item.half
+        ? <HalfPreview setting={setting} item={item} />
+        : <EventPreview setting={setting} sample={item.sample} />}
 
       {/* mt:auto pins the affordance so cards in a row end level regardless of copy length. */}
       <Box className="cfg-go" sx={{
@@ -298,10 +354,15 @@ function CalendarConfigure() {
     loadConfigs();
   }, []);
 
+  const [editingTextLabel, setEditingTextLabel] = useState<{ caption: string; fallback: string } | undefined>();
+
   const openEditModal = (section: EventSection, item: EventItem) => {
     setEditingModuleKey(item.key);
     setModalTitle(settingTitle(section, item));
     setEditingSetting(settings[item.key]);
+    setEditingTextLabel(item.defaultLabel
+      ? { caption: 'What this half is called', fallback: item.defaultLabel }
+      : undefined);
     setShowModal(true);
   };
 
@@ -324,7 +385,10 @@ function CalendarConfigure() {
     try {
       const restored = await Promise.all(section.items.map(async (item) => {
         const current = settings[item.key];
-        const configuration = { enabled: true, color: item.defaultColor, icon: '' };
+        // The name goes back with the colour. "Back to default" that restored the palette
+        // and left a rename in place would be a half-reset, and the pill would still be
+        // wearing somebody's word for it.
+        const configuration = { enabled: true, color: item.defaultColor, icon: '', label: '' };
         const id = current?.id
           ? (await updateConfigurationById(current.id, { module: item.key, configuration }), current.id)
           : (await createNewConfiguration({ module: item.key, configuration }))?.data?.configuration?.id || null;
@@ -444,6 +508,7 @@ function CalendarConfigure() {
         initialData={editingSetting}
         moduleKey={editingModuleKey}
         title={modalTitle}
+        textLabel={editingTextLabel}
         onSuccess={handleSaveSuccess}
       />
     </>

@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { fetchConfiguration } from '@services/company';
 import { safeJsonParse } from '@utils/safeJson';
 import {
-    MEETING_HALF_BUSY_COLOR, MEETING_HALF_FREE_COLOR, MEETING_HALF_ONE_COLOR,
+    MEETING_HALF_PM, MEETING_HALF_FREE_COLOR, MEETING_HALF_AM,
 } from '@constants/configurations-key';
 import { Dialog, DialogContent } from '@mui/material';
 import { MRT_ColumnDef } from 'material-react-table';
@@ -128,17 +128,26 @@ const splitHalves = (list: MeetingRow[], day: Dayjs) => {
 /**
  * How a half-day looks.
  *
- * Two hairlines were doing the work here and nobody could see them — the state of a half is
- * the single most important thing on this grid and it was the faintest mark in the cell. Each
- * half is now a filled block wearing its own name, so the answer arrives without a trip to the
- * legend: a grey dashed AM reads as an empty slot, a solid navy PM as a full afternoon.
+ * ─── COLOUR SAYS WHICH HALF, NOT HOW MANY ────────────────────────────────────
+ * It used to be a count ramp — pale for one meeting, navy for two or more — which spent the
+ * grid's only colour axis on a number already printed on the pill, and left a busy morning and
+ * a busy afternoon looking identical. That is the one comparison this grid exists to make:
+ * "am I free before lunch, or after". So a taken morning wears the morning colour, a taken
+ * afternoon the afternoon colour, and an untaken half the free colour. Three colours, three
+ * meanings, none of them a quantity.
  *
  * Free is deliberately the only OUTLINED state. Booked halves are solid, so a month's busy
  * days sit forward of the free ones instead of every day carrying equal visual weight.
+ *
+ * The defaults are the product's navy for the morning and its amber for the afternoon — cool
+ * then warm, which is the shape of a day and needs no key once seen.
  */
-export interface HalfColors { free: string; one: string; busy: string }
+export interface HalfColors { free: string; am: string; pm: string }
+/** What the two halves are CALLED. A setting, because not every office says AM and PM. */
+export interface HalfLabels { am: string; pm: string }
 
-const DEFAULT_HALF_COLORS: HalfColors = { free: '#F8FAFC', one: '#DBEAFE', busy: '#1E3A8A' };
+const DEFAULT_HALF_COLORS: HalfColors = { free: '#F8FAFC', am: '#1E3A8A', pm: '#B45309' };
+const DEFAULT_HALF_LABELS: HalfLabels = { am: 'AM', pm: 'PM' };
 
 const isCancelled = (m: MeetingRow) => m.lifecycle === 'CANCELLED';
 const isHeld = (m: MeetingRow) => m.lifecycle === 'COMPLETED';
@@ -217,22 +226,76 @@ const CancelledTag = ({ reason }: { reason?: string | null }) => (
     </span>
 );
 
+const INK_DARK = '#1E293B';
+const INK_LIGHT = '#FFFFFF';
+
+/** WCAG relative luminance. Gamma-corrected, which the eye is and a raw RGB average is not. */
+const luminance = (hex: string) => {
+    const h = hex.replace('#', '');
+    const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+    const [r, g, b] = [0, 2, 4]
+        .map((i) => (parseInt(full.slice(i, i + 2), 16) || 0) / 255)
+        .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
 /**
  * Readable text on ANY configured colour.
  *
- * The palette is a setting now, so the ink cannot be hard-coded against it — somebody picking
- * a dark free-colour would otherwise get grey-on-navy. Standard luminance: light backgrounds
- * take dark text, dark ones take white.
+ * The palette is a setting, so the ink cannot be hard-coded against it — somebody picking a
+ * dark free-colour would otherwise get grey-on-navy.
+ *
+ * MEASURED, not guessed. This used to threshold a weighted RGB sum at 150, which is a
+ * different curve from the one eyes use: a mid-tone sky blue (#0EA5E9) scored below the line
+ * and was given white text at 2.8:1, well under the 4.5:1 anyone needs to read it. Comparing
+ * the two candidates by actual contrast has no threshold to get wrong, and picks the better
+ * ink for every colour rather than for most of them.
  */
-const readableOn = (bg: string) => {
-    const hex = bg.replace('#', '');
-    const full = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
-    const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) || 0);
-    return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#1E293B' : '#FFFFFF';
+export const readableOn = (bg: string) => {
+    const l = luminance(bg);
+    const against = (ink: string) => {
+        const [hi, lo] = [l, luminance(ink)].sort((a, b) => b - a);
+        return (hi + 0.05) / (lo + 0.05);
+    };
+    return against(INK_DARK) >= against(INK_LIGHT) ? INK_DARK : INK_LIGHT;
 };
 
-const halfStyle = (count: number, colors: HalfColors = DEFAULT_HALF_COLORS) => {
-    const bg = count === 0 ? colors.free : count === 1 ? colors.one : colors.busy;
+/**
+ * The same hue, mixed toward white.
+ *
+ * The meeting rows carry the half's colour too, but a row is text where a pill is a label: a
+ * pill can be solid navy with white ink, a line of 9.5px type cannot. Mixing toward WHITE
+ * rather than lowering opacity keeps it honest on any surface — an alpha tint borrows whatever
+ * is behind it, and these rows sit on cells that are sometimes grey and sometimes white.
+ */
+export const lightOf = (hex: string, weight = 0.88) => {
+    const h = hex.replace('#', '');
+    const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+    const mix = [0, 2, 4]
+        .map((i) => parseInt(full.slice(i, i + 2), 16) || 0)
+        .map((v) => Math.round(v + (255 - v) * weight));
+    return `#${mix.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+};
+
+/**
+ * A meeting row, tinted by the half it belongs to.
+ *
+ * Tint PLUS a solid edge in the full colour, never tint alone: two configured colours can be
+ * picked close together, and at this strength they become the same wash. The edge stays at
+ * full strength, so the halves are still told apart when the fills are not.
+ *
+ * The ink is computed from the finished tint rather than set to the colour itself, because
+ * light-on-light is the failure a colour picker makes easy.
+ */
+export const rowTone = (color: string) => {
+    const bg = lightOf(color);
+    return { bg, fg: readableOn(bg), edge: color };
+};
+
+const halfStyle = (
+    half: 'am' | 'pm', count: number, colors: HalfColors = DEFAULT_HALF_COLORS,
+) => {
+    const bg = count === 0 ? colors.free : colors[half];
     return {
         bg,
         fg: count === 0 ? '#94A3B8' : readableOn(bg),
@@ -242,30 +305,63 @@ const halfStyle = (count: number, colors: HalfColors = DEFAULT_HALF_COLORS) => {
     };
 };
 
-/** The configured availability scale, falling back to the built-in one. */
-const useHalfColors = (): HalfColors => {
-    const [colors, setColors] = useState<HalfColors>(DEFAULT_HALF_COLORS);
+/** Which half colours a row: the one it STARTS in, which is the time the row prints. */
+const startHalf = (m: MeetingRow): 'am' | 'pm' =>
+    (dayjs(m.startDate).hour() < HALF_BOUNDARY_HOUR ? 'am' : 'pm');
+
+/**
+ * The configured half-day colours and names, falling back to the built-in ones.
+ *
+ * Colour and name live on the SAME configuration row per half, because they answer one
+ * question — what this half is called and what it looks like — and splitting them across two
+ * modules would let a rename and a recolour disagree about which half they belong to.
+ */
+const useHalfConfig = (): { colors: HalfColors; labels: HalfLabels } => {
+    const [config, setConfig] = useState({ colors: DEFAULT_HALF_COLORS, labels: DEFAULT_HALF_LABELS });
     useEffect(() => {
         let cancelled = false;
-        const read = async (key: string, fallback: string) => {
+        const read = async (key: string) => {
             // A module with no saved row answers 400 — that is "not configured", not an error.
             const res = await fetchConfiguration(key).catch(() => null);
-            const cfg = safeJsonParse(res?.data?.configuration?.configuration || '{}');
-            return cfg.enabled === false ? fallback : (cfg.color || fallback);
+            return safeJsonParse(res?.data?.configuration?.configuration || '{}');
         };
         Promise.all([
-            read(MEETING_HALF_FREE_COLOR, DEFAULT_HALF_COLORS.free),
-            read(MEETING_HALF_ONE_COLOR, DEFAULT_HALF_COLORS.one),
-            read(MEETING_HALF_BUSY_COLOR, DEFAULT_HALF_COLORS.busy),
-        ]).then(([free, one, busy]) => { if (!cancelled) setColors({ free, one, busy }); });
+            read(MEETING_HALF_FREE_COLOR),
+            read(MEETING_HALF_AM),
+            read(MEETING_HALF_PM),
+        ]).then(([free, am, pm]) => {
+            if (cancelled) return;
+            // `enabled: false` means "use the built-in one" — the honest way to undo a colour
+            // choice without inventing a second control that means the same thing.
+            const colorOf = (cfg: any, fallback: string) =>
+                (cfg?.enabled === false ? fallback : (cfg?.color || fallback));
+            // A blank name is not a rename: falling back stops an empty field wiping the only
+            // text the pill has.
+            const nameOf = (cfg: any, fallback: string) =>
+                (String(cfg?.label ?? '').trim() || fallback);
+            setConfig({
+                colors: {
+                    free: colorOf(free, DEFAULT_HALF_COLORS.free),
+                    am: colorOf(am, DEFAULT_HALF_COLORS.am),
+                    pm: colorOf(pm, DEFAULT_HALF_COLORS.pm),
+                },
+                labels: {
+                    am: nameOf(am, DEFAULT_HALF_LABELS.am),
+                    pm: nameOf(pm, DEFAULT_HALF_LABELS.pm),
+                },
+            });
+        });
         return () => { cancelled = true; };
     }, []);
-    return colors;
+    return config;
 };
 
 /** `AM` when free, `AM 2` when not — the count belongs on the block it describes. */
-const HalfPill = ({ label, count, colors }: { label: 'AM' | 'PM'; count: number; colors?: HalfColors }) => {
-    const st = halfStyle(count, colors);
+const HalfPill = ({ half, count, colors, labels = DEFAULT_HALF_LABELS }: {
+    half: 'am' | 'pm'; count: number; colors?: HalfColors; labels?: HalfLabels;
+}) => {
+    const st = halfStyle(half, count, colors);
+    const label = labels[half];
     return (
         <span
             style={{
@@ -615,7 +711,13 @@ const DayDetail: React.FC<{
     onCancel?: (meeting: { id: string; cancelled: boolean }) => void;
     onLogTime?: (meeting: MeetingRow) => void;
     onRemind?: (meeting: MeetingRow) => void;
-}> = ({ dayKeyValue, halves, open, onClose, timeRange, modeCell, onDelete, onEdit, onCancel, onLogTime, onRemind }) => {
+    /** The same palette the month grid painted, so the modal is not a second opinion. */
+    colors?: HalfColors;
+    labels?: HalfLabels;
+}> = ({
+    dayKeyValue, halves, open, onClose, timeRange, modeCell, onDelete, onEdit, onCancel,
+    onLogTime, onRemind, colors = DEFAULT_HALF_COLORS, labels = DEFAULT_HALF_LABELS,
+}) => {
     const openProject = useOpenProject();
     const total = halves.am.length + halves.pm.length;
     const summary = !total
@@ -654,7 +756,7 @@ const DayDetail: React.FC<{
             <div key={half.key}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <span style={{ display: 'inline-flex', width: 34 }}>
-                        <HalfPill label={half.key === 'am' ? 'AM' : 'PM'} count={half.list.length} />
+                        <HalfPill half={half.key} count={half.list.length} colors={colors} labels={labels} />
                     </span>
                     <span style={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B' }}>{half.label}</span>
                     <span style={{ fontSize: 11.5, color: '#94A3B8' }}>{half.hint}</span>
@@ -677,11 +779,17 @@ const DayDetail: React.FC<{
                             title={onEdit ? 'Open this meeting' : undefined}
                             style={{
                                 display: 'flex', alignItems: 'flex-start', gap: 12,
-                                background: '#F8FAFF', border: '1px solid #E2E8F0', borderRadius: 9, padding: '10px 12px',
+                                // The half's own colour, tinted. Under a heading that already
+                                // names the half, this is confirmation rather than the only
+                                // clue — which is why it can afford to be quiet.
+                                background: rowTone(colors[half.key]).bg,
+                                border: '1px solid #E2E8F0',
+                                borderLeft: `3px solid ${colors[half.key]}`,
+                                borderRadius: 9, padding: '10px 12px',
                                 cursor: onEdit ? 'pointer' : 'default',
                             }}
                         >
-                            <div style={{ minWidth: 118, fontSize: 12, fontWeight: 700, color: '#1E3A8A', whiteSpace: 'nowrap' }}>
+                            <div style={{ minWidth: 118, fontSize: 12, fontWeight: 700, color: rowTone(colors[half.key]).fg, whiteSpace: 'nowrap' }}>
                                 {timeRange(m)}
                             </div>
                             <div style={{ minWidth: 0, flex: 1 }}>
@@ -820,7 +928,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     const [analytics, setAnalytics] = useState<MeetingAnalytics | null>(null);
     const [breakdownOpen, setBreakdownOpen] = useState(false);
     const [dayOpen, setDayOpen] = useState(false);
-    const halfColors = useHalfColors();
+    const { colors: halfColors, labels: halfLabels } = useHalfConfig();
     // The day a dragged meeting is currently over, so the grid can show where it would land.
     const [dragOverDay, setDragOverDay] = useState<string | null>(null);
 
@@ -1309,8 +1417,8 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                             {d.format('D')}
                                         </span>
                                         <span style={{ display: 'flex', gap: 4, flex: 1, minWidth: 0 }} aria-hidden>
-                                            <HalfPill label="AM" count={am.length} colors={halfColors} />
-                                            <HalfPill label="PM" count={pm.length} colors={halfColors} />
+                                            <HalfPill half="am" count={am.length} colors={halfColors} labels={halfLabels} />
+                                            <HalfPill half="pm" count={pm.length} colors={halfColors} labels={halfLabels} />
                                         </span>
                                     </span>
 
@@ -1332,7 +1440,17 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                                 : `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}`}
                                             style={{
                                                 fontSize: 9.5, fontWeight: 600, lineHeight: 1.3,
-                                                color: '#1E3A8A', background: '#EFF4FF',
+                                                // Morning meetings and afternoon meetings are
+                                                // told apart in the LIST too, not only by the
+                                                // pills above it — the cell shows four rows in
+                                                // start order, and which side of lunch each one
+                                                // falls on was the thing you had to read the
+                                                // times to work out.
+                                                color: rowTone(halfColors[startHalf(m)]).fg,
+                                                background: rowTone(halfColors[startHalf(m)]).bg,
+                                                // 2px, not 3: a month cell is ~120px wide and
+                                                // every pixel of it is title.
+                                                borderLeft: `2px solid ${halfColors[startHalf(m)]}`,
                                                 borderRadius: 4, padding: '1px 4px',
                                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                                 cursor: onReschedule && !isCancelled(m) ? 'grab' : 'inherit',
@@ -1345,7 +1463,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                             <span style={{ fontWeight: 800 }}>{dayjs(m.startDate).format('h:mm A')}</span>
                                             {' '}{m.title}
                                             {mode !== 'project' && m.projectName && (
-                                                <span style={{ color: '#7C9BD6', fontWeight: 600 }}> {m.projectName}</span>
+                                                <span style={{ opacity: 0.62, fontWeight: 600 }}> {m.projectName}</span>
                                             )}
                                         </span>
                                     ))}
@@ -1371,23 +1489,24 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                         onLogTime={onLogTime ? (m) => { setDayOpen(false); onLogTime(m); } : undefined}
                         onRemind={onRemind ? (m) => { setDayOpen(false); onRemind(m); } : undefined}
                         onEdit={onEdit ? (m) => { setDayOpen(false); onEdit(m); } : undefined}
+                        colors={halfColors}
+                        labels={halfLabels}
                     />
 
                     {/* ── legend ── */}
-                    {/* Four samples spelled out every COMBINATION of two states, which is three
-                        more than anyone needs: morning-versus-afternoon is positional and reads
-                        itself. Only the states need naming, and there are three. */}
+                    {/* One sample per colour, and there are exactly three. It used to name
+                        counts, which is what the colours no longer mean. */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
-                        {[
-                            { count: 0, label: 'Free' },
-                            { count: 1, label: '1 meeting' },
-                            { count: 2, label: '2 or more' },
-                        ].map((s) => (
-                            <span key={s.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: '#64748B' }}>
+                        {([
+                            { half: 'am', count: 0, label: 'Nothing booked' },
+                            { half: 'am', count: 1, label: `${halfLabels.am} — before noon` },
+                            { half: 'pm', count: 1, label: `${halfLabels.pm} — from noon` },
+                        ] as const).map((sample) => (
+                            <span key={sample.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: '#64748B' }}>
                                 <span style={{ display: 'inline-flex', width: 30 }}>
-                                    <HalfPill label="AM" count={s.count} colors={halfColors} />
+                                    <HalfPill half={sample.half} count={sample.count} colors={halfColors} labels={halfLabels} />
                                 </span>
-                                {s.label}
+                                {sample.label}
                             </span>
                         ))}
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#64748B' }}>

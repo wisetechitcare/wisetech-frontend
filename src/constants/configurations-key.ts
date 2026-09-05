@@ -59,8 +59,12 @@ export const SHOW_MEETINGS_ON_CALENDAR='showMeetingsOnCalendar';
 // One key per step rather than one blob, so each reuses the same colour editor every
 // other calendar setting already uses.
 export const MEETING_HALF_FREE_COLOR='meetingHalfFreeColor';
-export const MEETING_HALF_ONE_COLOR='meetingHalfOneColor';
-export const MEETING_HALF_BUSY_COLOR='meetingHalfBusyColor';
+// Colour says WHICH HALF, not how many meetings. A count-based ramp (one / two-or-more) made
+// a busy morning and a busy afternoon indistinguishable, which is the one comparison this
+// grid exists to make. Each row also carries the half's NAME, so "AM"/"PM" can be renamed
+// without touching the code.
+export const MEETING_HALF_AM='meetingHalfAm';
+export const MEETING_HALF_PM='meetingHalfPm';
 // Public-holiday appearance on the workspace calendar ({enabled, color, icon}).
 // enabled defaults to TRUE when unset — holidays always showed historically.
 export const SHOW_HOLIDAYS_ON_CALENDAR='showHolidaysOnCalendar';
