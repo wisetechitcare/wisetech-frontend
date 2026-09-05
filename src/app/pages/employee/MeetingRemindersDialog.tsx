@@ -14,7 +14,7 @@ import { apiErrorMessage } from '@app/pages/employee/tasks/taskDomain';
  * before?" is a question with about five real answers, and typing one is slower than picking
  * it. A day ahead is included because that is when you prepare, not when you walk in.
  */
-const CHOICES = [
+export const REMINDER_CHOICES = [
     { minutes: 10, label: '10 minutes' },
     { minutes: 20, label: '20 minutes' },
     { minutes: 30, label: '30 minutes' },
@@ -22,6 +22,51 @@ const CHOICES = [
     { minutes: 120, label: '2 hours' },
     { minutes: 1440, label: '1 day' },
 ];
+
+/**
+ * The row of notice periods, shared by this dialog and the meeting form.
+ *
+ * Picked reads as filled, unpicked as an outline — the two states have to differ in more than
+ * a shade, or a row of chips becomes a puzzle about which are on. A `sent` offset is shown
+ * ticked and refuses to be unpicked: removing it would let it re-arm and buzz somebody a
+ * second time about a meeting they have already been told about.
+ */
+export const ReminderChips: React.FC<{
+    picked: number[];
+    onChange: (next: number[]) => void;
+    sent?: number[];
+    disabled?: boolean;
+}> = ({ picked, onChange, sent = [], disabled }) => (
+    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+        {REMINDER_CHOICES.map((c) => {
+            const on = picked.includes(c.minutes);
+            const done = sent.includes(c.minutes);
+            return (
+                <Box
+                    key={c.minutes}
+                    component="button"
+                    type="button"
+                    disabled={disabled || done}
+                    onClick={() => onChange(on ? picked.filter((m) => m !== c.minutes) : [...picked, c.minutes])}
+                    title={done ? 'Already sent' : undefined}
+                    sx={{
+                        px: 1.5, py: 0.75, borderRadius: 2, cursor: done ? 'default' : 'pointer',
+                        fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+                        border: '1px solid',
+                        borderColor: on ? 'primary.main' : 'divider',
+                        bgcolor: on ? 'primary.main' : 'background.paper',
+                        color: on ? 'primary.contrastText' : 'text.primary',
+                        opacity: done ? 0.55 : 1,
+                        display: 'inline-flex', alignItems: 'center', gap: 0.75,
+                    }}
+                >
+                    {c.label}
+                    {done && <KTIcon iconName="check" className="fs-8" />}
+                </Box>
+            );
+        })}
+    </Stack>
+);
 
 export interface MeetingRemindersDialogProps {
     open: boolean;
@@ -71,11 +116,6 @@ const MeetingRemindersDialog: React.FC<MeetingRemindersDialogProps> = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, meeting?.id, employeeId]);
 
-    const toggle = (minutes: number) => {
-        if (sent.includes(minutes)) return;
-        setPicked((cur) => (cur.includes(minutes) ? cur.filter((m) => m !== minutes) : [...cur, minutes]));
-    };
-
     const save = async () => {
         if (!meeting) return;
         setSaving(true);
@@ -118,38 +158,7 @@ const MeetingRemindersDialog: React.FC<MeetingRemindersDialogProps> = ({
                     </Typography>
                 )}
 
-                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                    {CHOICES.map((c) => {
-                        const on = picked.includes(c.minutes);
-                        const done = sent.includes(c.minutes);
-                        return (
-                            <Box
-                                key={c.minutes}
-                                component="button"
-                                type="button"
-                                disabled={loading || done}
-                                onClick={() => toggle(c.minutes)}
-                                title={done ? 'Already sent' : undefined}
-                                sx={{
-                                    px: 1.5, py: 0.75, borderRadius: 2, cursor: done ? 'default' : 'pointer',
-                                    fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
-                                    border: '1px solid',
-                                    borderColor: on ? 'primary.main' : 'divider',
-                                    // Picked reads as filled, unpicked as an outline — the two
-                                    // states have to differ in more than a shade, or a row of
-                                    // chips becomes a puzzle about which are on.
-                                    bgcolor: on ? 'primary.main' : 'background.paper',
-                                    color: on ? 'primary.contrastText' : 'text.primary',
-                                    opacity: done ? 0.55 : 1,
-                                    display: 'inline-flex', alignItems: 'center', gap: 0.75,
-                                }}
-                            >
-                                {c.label}
-                                {done && <KTIcon iconName="check" className="fs-8" />}
-                            </Box>
-                        );
-                    })}
-                </Stack>
+                <ReminderChips picked={picked} onChange={setPicked} sent={sent} disabled={loading} />
 
                 {sent.length > 0 && (
                     <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: 'text.secondary' }}>

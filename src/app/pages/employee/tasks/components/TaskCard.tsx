@@ -61,6 +61,16 @@ export interface TaskCardProps {
      */
     /** Touch fallback for stage moves — the board supplies the menu. */
     onRequestMove?: (task: TaskRow, anchor: HTMLElement) => void;
+    /**
+     * Log the time you spent in a MEETING, from the card.
+     *
+     * Offered here because the Meeting lane is where several meetings are listed side by side,
+     * and accounting for a week of them one at a time through each meeting's own form is the
+     * kind of chore people skip — which leaves the project's cost short by exactly the
+     * meetings nobody filed. Only on meetings that have finished: there is no time to log for
+     * one that has not happened.
+     */
+    onLogTime?: (task: TaskRow) => void;
 }
 
 /** A muted count — subtasks, logged time. Quiet by design: these are footnotes, not headlines. */
@@ -74,7 +84,7 @@ const MetaChip = ({ icon, label }: { icon: string; label: string }) => (
 );
 
 const TaskCardBase = ({
-    task, now, onOpen, onRequestMove,
+    task, now, onOpen, onRequestMove, onLogTime,
 }: TaskCardProps) => {
     const theme = useTheme();
     const dark = theme.palette.mode === 'dark';
@@ -271,6 +281,29 @@ const TaskCardBase = ({
                         />
                     )}
                     {logged > 0 && <MetaChip icon="timer" label={formatDuration(logged)} />}
+                    {/* A real <button>, which is also what keeps it from starting a drag —
+                        the sortable engine ignores presses that land on something operable. */}
+                    {meeting && onLogTime && (task as any).lifecycle === 'COMPLETED' && (
+                        <Tooltip title="Log my time">
+                            <Box
+                                component="button"
+                                type="button"
+                                aria-label="Log my time in this meeting"
+                                onClick={(e: React.MouseEvent) => { e.stopPropagation(); onLogTime(task); }}
+                                sx={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 0.3,
+                                    px: 0.6, py: 0.15, borderRadius: 1, cursor: 'pointer',
+                                    border: '1px solid', borderColor: alpha('#B45309', dark ? 0.45 : 0.3),
+                                    bgcolor: 'transparent', color: '#B45309',
+                                    fontFamily: 'inherit', fontSize: 10.5, fontWeight: 700,
+                                    '&:hover': { bgcolor: alpha('#B45309', dark ? 0.22 : 0.1) },
+                                }}
+                            >
+                                <KTIcon iconName="timer" className="fs-9" />
+                                Log time
+                            </Box>
+                        </Tooltip>
+                    )}
                 </Stack>
             </Stack>
         </Card>

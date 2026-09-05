@@ -54,7 +54,10 @@ import TaskBoard, { BoardColumn } from './components/TaskBoard';
 import TaskTable from './components/TaskTable';
 import TaskFilterDrawer from './components/TaskFilterDrawer';
 import TaskFormDialog from './components/TaskFormDialog';
+import { useSelector } from 'react-redux';
+import { RootState } from '@redux/store';
 import MeetingDialog from '../MeetingDialog';
+import LogMeetingTimeDialog from '../LogMeetingTimeDialog';
 import BoardBackgroundDialog from './components/BoardBackgroundDialog';
 import ProjectTeamDialog from './components/ProjectTeamDialog';
 import BoardBottomNav, { WorkspacePanel } from './components/BoardBottomNav';
@@ -186,7 +189,16 @@ export const TasksWorkspace = () => {
     const [backdropOpen, setBackdropOpen] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
     // The meeting a board card was clicked on. null → the dialog is closed.
+    const currentEmployeeId = useSelector((s: RootState) => s.employee?.currentEmployee?.id);
     const [editingMeeting, setEditingMeeting] = useState<any>(null);
+    /**
+     * The meeting whose time is being logged, if any.
+     *
+     * Separate from `editingMeeting` because they are different questions asked of the same
+     * card: one changes the meeting, the other records what it cost you. Sharing one slot
+     * would mean picking which dialog a click opens.
+     */
+    const [loggingMeeting, setLoggingMeeting] = useState<any>(null);
     /** The board header's avatar stack is a preview; this is where the rest of the team lives. */
     const [teamOpen, setTeamOpen] = useState(false);
     /**
@@ -658,6 +670,15 @@ export const TasksWorkspace = () => {
                                         ink={ink}
                                         isLoading={boardQuery.isLoading}
                                         onOpenTask={openTaskOrMeeting}
+                                        // The board row already carries the meeting's title
+                                        // and hours, so the dialog opens pre-filled with
+                                        // nothing left to fetch.
+                                        onLogMeetingTime={(t) => setLoggingMeeting({
+                                            id: t.id,
+                                            title: t.taskName,
+                                            startDate: (t as any).startDate,
+                                            endDate: (t as any).endDate ?? t.dueDate,
+                                        })}
                                         cardOrder={filters.cardOrder}
                                         onMoveTask={(taskId, statusId) => moveStage.mutateAsync({ taskId, statusId })}
                                         // Hand-arranging a lane only means something when the lane
@@ -750,6 +771,14 @@ export const TasksWorkspace = () => {
                 editing={editingMeeting}
                 onClose={() => setEditingMeeting(null)}
                 onSaved={() => { setEditingMeeting(null); invalidateTasks(); }}
+            />
+
+            <LogMeetingTimeDialog
+                open={!!loggingMeeting}
+                meeting={loggingMeeting}
+                employeeId={currentEmployeeId}
+                onClose={() => setLoggingMeeting(null)}
+                onSaved={() => { setLoggingMeeting(null); invalidateTasks(); }}
             />
 
             <TaskFormDialog

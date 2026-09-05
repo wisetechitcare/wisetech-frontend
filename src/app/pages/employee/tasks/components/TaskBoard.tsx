@@ -50,6 +50,8 @@ export interface TaskBoardProps {
     now: Date;
     /** The row comes with the id: a meeting card opens somewhere else entirely. */
     onOpenTask: (taskId: string, task: TaskRow) => void;
+    /** Log my time in a finished meeting, straight from its card in the Meeting lane. */
+    onLogMeetingTime?: (task: TaskRow) => void;
     onMoveTask: (taskId: string, statusId: string) => Promise<unknown>;
     /** "+" on a column header — creates a task already in that stage. */
     onAddInStage?: (statusId: string) => void;
@@ -133,7 +135,7 @@ const CARD_SURFACE = 'board-cards';
 const LANE_SURFACE = 'board-lanes';
 
 export const TaskBoard = ({
-    columns, now, onOpenTask, onMoveTask, onAddInStage, onCreateList, onDeleteList, onReorder,
+    columns, now, onOpenTask, onLogMeetingTime, onMoveTask, onAddInStage, onCreateList, onDeleteList, onReorder,
     onReorderLanes, cardOrder = DEFAULT_CARD_ORDER, canCreateGlobalList = false, isLoading, ink = 'light',
 }: TaskBoardProps) => {
     const theme = useTheme();
@@ -658,6 +660,7 @@ export const TaskBoard = ({
                                             task={task}
                                             now={now}
                                             onOpen={(id) => onOpenTask(id, task)}
+                                            onLogTime={onLogMeetingTime}
                                             // No stage menu in a lane nothing can be moved out
                                             // of — it offered a move the API has no row for.
                                             onRequestMove={droppable

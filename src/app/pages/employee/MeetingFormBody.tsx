@@ -5,7 +5,7 @@ import {
     Alert, Autocomplete, Avatar, Box, Button, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, useTheme,
 } from '@mui/material';
 import { RootState } from '@redux/store';
-import { createMeetings, updateMeeting, fetchAllEmployees } from '@services/employee';
+import { createMeetings, updateMeeting, fetchAllEmployees, getMyMeetingReminders, setMyMeetingReminders } from '@services/employee';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
 import { getAllProjects } from '@services/projects';
 // The projects this person is on the INTERNAL TEAM of (or manages). Its own endpoint, not
@@ -18,6 +18,7 @@ import { WtDateField, WtSwitch } from '@app/modules/common/components/ui';
 import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
 import { KTIcon } from '@metronic/helpers';
 import { TRIO, menuOptionSx, type Trio } from '@app/modules/common/components/ui/patterns';
+import { ReminderChips } from './MeetingRemindersDialog';
 
 /**
  * The meeting form's FIELDS, with no shell of its own.
@@ -184,8 +185,31 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
             setProjectId(editing.projectId || '');
             setInternal(editing.participantIds || []);
             setExternal(editing.externalParticipantIds || []);
+
+            // Mine only, and best-effort: a meeting that will not tell us its reminders is
+            // still a meeting somebody came here to edit, so a failure leaves the row empty
+            // rather than blocking the form.
+            getMyMeetingReminders(editing.id, employeeId)
+                .then((res: any) => {
+                    const rows = (res?.data ?? []) as Array<{ minutesBefore: number; sent: boolean }>;
+                    setReminders(rows.map((r) => r.minutesBefore));
+                    setRemindersSent(rows.filter((r) => r.sent).map((r) => r.minutesBefore));
+                })
+                .catch(() => { setReminders([]); setRemindersSent([]); });
             // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [editing?.id]);
+        /**
+         * MY reminders on this meeting. Everyone on a meeting sets their own, so what is
+         * ticked here is the caller's alone and saving it changes nobody else's.
+         *
+         * Asked HERE rather than only behind the bell on the list, because the moment a person
+         * decides a meeting matters is the moment they are booking it — an action parked on
+         * another screen is one most people never go and find. `sent` offsets are already out
+         * and cannot be un-ticked; re-arming one would buzz somebody twice.
+         */
+        const [reminders, setReminders] = useState<number[]>([]);
+        const [remindersSent, setRemindersSent] = useState<number[]>([]);
+
         const [touched, setTouched] = useState(false);
 
         /**
@@ -524,14 +548,31 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     // `undefined` = everyone (the server's own default), `[]` = nobody.
                     notifyIds: notify ? (notifyIds ?? undefined) : [],
                 };
+                /**
+                 * Reminders are saved AFTER the meeting, and a failure here does not fail the
+                 * save: the meeting is the thing that must not be lost, and a reminder that
+                 * did not stick is recoverable from the bell on the list. It is a separate
+                 * call because reminders are per person — they are not a property of the
+                 * meeting the organizer is writing.
+                 */
+                const saveReminders = async (meetingId: string) => {
+                    try {
+                        await setMyMeetingReminders(meetingId, employeeId, reminders);
+                    } catch (e) {
+                        console.error('Meeting saved, but your reminders were not', e);
+                    }
+                };
+
                 try {
                     if (editing) {
                         await updateMeeting(editing.id, employeeId, payload);
+                        await saveReminders(editing.id);
                         onSaved?.();
                         return true;
                     }
                     const response = await createMeetings(payload);
                     if (response?.statusCode !== 201) { setError('Failed to create meeting'); return false; }
+                    if (reminders.length && response?.data?.id) await saveReminders(response.data.id);
                     // The calendar listens for this to drop the new meeting onto the grid without
                     // a refetch — kept from the old form, since its listener is still there.
                     document.dispatchEvent(new CustomEvent('meetingAdded', { detail: response.data }));
@@ -807,44 +848,23 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     )}
                 </Grid>
 
-                {/* Participants as FACES, with the pickers underneath: the chip row says who is
-                    coming at a glance, the fields say how to change it. */}
-                <L text="Participants" icon="profile-user" trio={TRIO.green} />
-                <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1.25 }}>
-                    {/* Only people we can name. A chip reading "Someone" is no more use than one
-                        reading a uuid, and both are gone within a moment of the directory
-                        landing — so the row says it is still loading instead of guessing. */}
-                    {internal.map((id) => {
-                        const o = internalOptions.find((x) => x.value === id);
-                        if (!o) return null;
-                        return (
-                            <Chip
-                                key={id}
-                                size="small"
-                                avatar={<Avatar src={o.avatar || undefined}>{initialsOf(o.label)}</Avatar>}
-                                label={o.label}
-                                onDelete={() => setInternal(internal.filter((x) => x !== id))}
-                            />
-                        );
-                    })}
-                    {internal.length > 0 && !internal.some((id) => internalOptions.some((o) => o.value === id)) && (
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            Loading people…
-                        </Typography>
-                    )}
+                {/* The pickers ARE the chip row. There used to be a summary row of faces
+                    above them, which rendered the same people the Internal Team field was
+                    already rendering — so every participant appeared twice and the form read
+                    as if each of them had been added twice over. What the summary uniquely
+                    offered was the shortcut, so that is what is kept. */}
+                <Stack direction="row" alignItems="center" spacing={1}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <L text="Participants" icon="profile-user" trio={TRIO.green} />
+                    </Box>
                     {internalOptions.length > 0 && internal.length < internalOptions.length && (
                         <Button
                             size="small"
                             onClick={() => setInternal(internalOptions.map((o) => o.value))}
-                            sx={{ textTransform: 'none', fontWeight: 600, minWidth: 0 }}
+                            sx={{ textTransform: 'none', fontWeight: 600, minWidth: 0, mb: 0.75 }}
                         >
-                            + Team
+                            Add whole team
                         </Button>
-                    )}
-                    {internal.length === 0 && (
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            Nobody added yet
-                        </Typography>
                     )}
                 </Stack>
                 <Grid container spacing={1.5} sx={{ mb: 2 }}>
@@ -864,6 +884,20 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     onChange={(e) => setDescription(e.target.value)}
                     inputProps={{ 'aria-label': 'Agenda' }}
                 />
+
+                {/* ── the two things that happen after you save ──
+                    This one is about YOU, the next is about them. Paired on purpose: both are
+                    decisions you make once the meeting itself is right, and neither belongs
+                    among the fields that describe the meeting. */}
+                <Box sx={{ mt: 2 }}>
+                    <L text="Remind me" icon="notification-bing" trio={TRIO.amber} />
+                    <ReminderChips picked={reminders} onChange={setReminders} sent={remindersSent} />
+                    <Typography variant="caption" sx={{ display: 'block', mt: 0.75, color: 'text.secondary' }}>
+                        {remindersSent.length
+                            ? 'Only you get these. Ticked ones have already been sent.'
+                            : 'Only you get these. Everyone on the meeting sets their own.'}
+                    </Typography>
+                </Box>
 
                 {/* ── who hears about this ──
                     Placed last on purpose: it is the decision you make once the meeting itself
