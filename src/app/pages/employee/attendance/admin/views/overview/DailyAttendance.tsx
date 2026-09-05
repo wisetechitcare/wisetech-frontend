@@ -19,7 +19,7 @@ import { IEmployeesAttendance } from "@models/employee";
 import { saveEmployeesAttendance } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
 import { fetchAllEmployees, fetchAllEmployeesAttendance, fetchAllEmployeesAttendanceRange, fetchEmployeeLeaves, fetchEmployeesOnLeaveToday } from "@services/employee";
-import { activeEmployeeIdSet } from "@utils/activeEmployee";
+import { employeeIdSet } from "@utils/activeEmployee";
 import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDifference, convertTo12HourFormat, MUMBAI_TZ } from "@utils/date";
 import dayjs, { Dayjs } from "dayjs";
 import { MRT_ColumnDef } from "material-react-table";
@@ -326,7 +326,11 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 const iso = date.format('YYYY-MM-DD');
                 const employeesRes = await fetchAllEmployees(true, iso, iso);
                 if (cancelled) return;
-                setActiveEmployeeIds(activeEmployeeIdSet(employeesRes?.data?.employees || []));
+                // Ids as-is: the server already scoped this roster to the viewed
+                // day. Re-applying the isActive flag would drop anyone whose flag
+                // is stale-off, which is how two currently-employed people went
+                // missing from these boards.
+                setActiveEmployeeIds(employeeIdSet(employeesRes?.data?.employees || []));
             } catch (error) {
                 // Non-fatal: an empty set means "don't filter", so a roster failure shows
                 // everything rather than an empty table.

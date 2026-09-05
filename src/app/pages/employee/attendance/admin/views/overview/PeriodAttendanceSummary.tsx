@@ -15,7 +15,7 @@ import { useTeamFilter } from "@/contexts/TeamFilterContext";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import Loader from "@app/modules/common/utils/Loader";
 import { countWorkingDays } from "@utils/periodRange";
-import { filterActiveEmployees, activeEmployeeIdSet } from "@utils/activeEmployee";
+import { employeeIdSet } from "@utils/activeEmployee";
 import { saveEmployeesAttendance } from "@redux/slices/attendance";
 import type { PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import type { IEmployeesAttendance } from "@models/employee";
@@ -88,14 +88,29 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
             // them would make the section's time-to-content the sum rather than the max.
             const [attendance, employeesRes, leaveResp] = await Promise.all([
                 fetchEmpsAttendanceRange(startWire, endWire),
-                fetchAllEmployees(),
+                // Scoped to the SAME window as the attendance and leave calls.
+                // A summary for August must cover whoever was employed during
+                // August — including someone who left on the 14th, for the days
+                // they were there — which is how payroll already reads a period.
+                fetchAllEmployees(true, startWire, endWire),
                 fetchEmployeesOnLeaveRange(startWire, endWire),
             ]);
             if (!isMountedRef.current) return;
             setRows(attendance || []);
-            // Inactive staff are dropped at the source, so they cannot be seeded into a
-            // summary row and cannot be sent to the classification batch either.
-            setRoster(filterActiveEmployees(employeesRes?.data?.employees || []));
+            /**
+             * No `filterActiveEmployees` here any more.
+             *
+             * The server has already scoped this roster by the employment
+             * TIMELINE for the window. Re-filtering on `isActive` would undo
+             * that in both directions: it drops someone employed during the
+             * period who has since left (the whole point of a historical
+             * summary), and it drops anyone whose flag is stale-off — the
+             * backfill found two people employed today flagged inactive, who
+             * were therefore missing from boards entirely.
+             *
+             * The flag is a manual suspend switch. The dates are the authority.
+             */
+            setRoster(employeesRes?.data?.employees || []);
             setLeaveRecords(leaveResp?.data?.leaveRecords || []);
         } catch (error) {
             console.error('Error loading period attendance summary:', error);
@@ -197,7 +212,10 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
      */
     const transformedRows = useMemo(() => {
         const transformed = transformAttendance(rows as any, weekends);
-        const activeIds = activeEmployeeIdSet(roster as any);
+        // The roster is already server-scoped to this period, so take its ids as-is.
+        // Re-applying the isActive flag here would drop exactly the leavers a
+        // historical summary exists to include.
+        const activeIds = employeeIdSet(roster as any);
         // No roster yet (first paint) — don't blank the table, the filter applies once it lands.
         if (!activeIds.size) return transformed;
         return transformed.filter((row) => !row.employeeId || activeIds.has(row.employeeId));

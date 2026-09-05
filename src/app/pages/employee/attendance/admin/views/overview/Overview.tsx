@@ -45,7 +45,6 @@ import "./OverviewStatsGrid.css";
 import { ToneChip, AppIcon } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { DATE_FORMATS, formatDateLong } from '@utils/dateFormats';
-import { filterActiveEmployees } from '@utils/activeEmployee';
 import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
 import {
     EmployeeStatGrid,
@@ -1256,13 +1255,17 @@ function Overview({ date, range }: OverviewProps) {
                     //     attendance: allAttendance.length
                     // });
 
-                    // Filter only active employees for state. Same predicate, now shared —
-                    // every table and graph on this page derives from `isActiveEmployee`
-                    // so none of them can disagree with these cards about who counts.
-                    // Explicit type argument: `transformedEmployees` is `any[]`, and TS
-                    // falls back to the generic's constraint rather than inferring the
-                    // row shape, which would widen the state to MaybeActiveEmployee[].
-                    const activeEmployees = filterActiveEmployees<EmployeeWithAttendance>(transformedEmployees);
+                    // No flag filter. `fetchAllEmployees` above is already scoped
+                    // server-side to this period by the employment TIMELINE
+                    // (dates + rejoin history) — which is what the request just
+                    // above this was always meant to do, and finally does now
+                    // that the window is sent under the names the server reads.
+                    //
+                    // Re-applying `isActive` here would undo it twice over: it
+                    // drops leavers a historical period is supposed to include,
+                    // and it drops anyone whose flag is stale-off. Two people
+                    // employed today were in that state when this was measured.
+                    const activeEmployees = transformedEmployees as EmployeeWithAttendance[];
                     const visibleEmployees = filterIds
                         ? activeEmployees.filter((emp: any) => filterIds.includes(emp._id))
                         : activeEmployees;
