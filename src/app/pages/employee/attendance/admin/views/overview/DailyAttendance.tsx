@@ -313,7 +313,18 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         let cancelled = false;
         (async () => {
             try {
-                const employeesRes = await fetchAllEmployees();
+                // Ask the SERVER for the roster that was on the books on the
+                // viewed date, rather than pulling everyone and filtering the
+                // `isActive` flag here.
+                //
+                // The flag is only a manual suspend switch: it drifts whenever
+                // an exit date is recorded without someone also unticking
+                // Active, which left leavers in this table being counted absent
+                // every working day. The server scopes by the employment
+                // TIMELINE — dates, plus rejoin history — so a rehire is
+                // included and a leaver drops off the day after they left.
+                const iso = date.format('YYYY-MM-DD');
+                const employeesRes = await fetchAllEmployees(true, iso, iso);
                 if (cancelled) return;
                 setActiveEmployeeIds(activeEmployeeIdSet(employeesRes?.data?.employees || []));
             } catch (error) {
@@ -323,7 +334,9 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             }
         })();
         return () => { cancelled = true; };
-    }, []);
+        // `date` is a dependency now: the roster is scoped to the viewed day, so
+        // changing the date must re-ask the server who was employed then.
+    }, [date]);
 
 
     useEffect(() => {
