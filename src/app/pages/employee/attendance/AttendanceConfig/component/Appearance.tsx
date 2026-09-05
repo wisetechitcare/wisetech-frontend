@@ -546,6 +546,13 @@ function CalendarToneCard({
           {renamed && (
             <span className="ml-1.5 align-middle text-[10px] font-bold uppercase tracking-wide text-slate-400">renamed</span>
           )}
+          {/* Says so up front, rather than leaving someone to wonder why the
+              colour they just set has no chip under the calendar. */}
+          {spec.legend === false && (
+            <span className="ml-1.5 align-middle text-[10px] font-bold uppercase tracking-wide text-slate-300 dark:text-slate-600">
+              not in legend
+            </span>
+          )}
         </p>
         <p className="m-0 text-[12px] font-medium uppercase leading-snug tabular-nums text-slate-500 dark:text-slate-400">
           {color}
@@ -682,6 +689,21 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
     else delete next[key];
 
     formik.setFieldValue('attendanceCalendar.tones', next);
+
+    /**
+     * Write the colour back to the flat fields that mean the same thing.
+     *
+     * "Present" is stored twice — once for the calendar and once for the
+     * Attendance Overview group the dashboard charts read — and the two had
+     * drifted to different greens. Nothing in the product wants them to differ,
+     * so one edit now updates every field naming the same concept, and the
+     * legacy readers stay in step without anyone hunting for the twin.
+     */
+    if (color) {
+      [spec?.legacyColor, ...(spec?.mirrorTo ?? [])]
+        .filter(Boolean)
+        .forEach((path) => formik.setFieldValue(String(path), color));
+    }
   };
 
   return (
@@ -789,6 +811,23 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
                 subtitle="What is true ABOUT a day. These sit alongside the status rather than replacing it."
               >
                 {CALENDAR_TONES.filter((t) => t.group === 'mark').map((spec) => (
+                  <CalendarToneCard
+                    key={spec.key}
+                    spec={spec}
+                    color={toneColor(spec.key)}
+                    label={toneLabel(spec.key)}
+                    presentColor={toneColor('present')}
+                    renamed={toneLabel(spec.key) !== spec.label}
+                    onEdit={() => openToneEditor(spec)}
+                  />
+                ))}
+              </ColorSection>
+
+              <ColorSection
+                title="Attendance calendar · The grid itself"
+                subtitle="Not day categories, so these never appear in the legend — but the calendar paints them, so they are yours to set."
+              >
+                {CALENDAR_TONES.filter((t) => t.group === 'grid').map((spec) => (
                   <CalendarToneCard
                     key={spec.key}
                     spec={spec}

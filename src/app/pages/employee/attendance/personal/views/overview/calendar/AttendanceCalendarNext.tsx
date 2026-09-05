@@ -18,12 +18,12 @@ import { AttendanceCalendarPanel } from './AttendanceCalendarPanel';
 import { useAttendanceCalendar } from './useAttendanceCalendar';
 import { DayDetailPanel } from './DayDetailPanel';
 import type { DayToneOverrides, ModifierToneOverrides } from './dayTokens';
-import { resolveCalendarAppearance } from './appearance';
+import { CALENDAR_TONES, resolveCalendarAppearance } from './appearance';
 import {
   STRUCTURAL_DEFAULTS,
   type StructuralColors,
 } from '@app/modules/common/components/ui/tw/calendarDayTones';
-import type { CalendarDay } from './types';
+import type { CalendarDay, DayModifier, DayStatus } from './types';
 
 export interface AttendanceCalendarNextProps {
   /** Kept in sync with the legacy component's month cursor so the flag can be flipped mid-session. */
@@ -70,46 +70,48 @@ export default function AttendanceCalendarNext({
     [calendarColors, overviewColors],
   );
 
-  const overrides = useMemo<DayToneOverrides>(
-    () => ({
-      present: appearance.colors.present,
-      absent: appearance.colors.absent,
-      leave: appearance.colors.leave,
-      half_day: appearance.colors.half_day,
-      weekly_off: appearance.colors.weekly_off,
-      holiday: appearance.colors.holiday,
-    }),
-    [appearance],
-  );
+  /**
+   * Split by GROUP rather than by a hand-written key list.
+   *
+   * Listing the keys here is how this drifts: the list was already stale once,
+   * carrying `early_out` and `overtime` — modifiers the server has never
+   * emitted — while missing `late_night_waiver`, which it does. Deriving from
+   * the registry means adding a key there is the only edit required.
+   */
+  const overrides = useMemo<DayToneOverrides>(() => {
+    const out: DayToneOverrides = {};
+    CALENDAR_TONES.filter((t) => t.group === 'status').forEach((t) => {
+      out[t.key as DayStatus] = appearance.colors[t.key];
+    });
+    return out;
+  }, [appearance]);
 
-  const modifierOverrides = useMemo<ModifierToneOverrides>(
-    () => ({
-      regularized: appearance.colors.regularized,
-      worked_on_off_day: appearance.colors.worked_on_off_day,
-      late_in: appearance.colors.late_in,
-      early_out: appearance.colors.early_out,
-      remote: appearance.colors.remote,
-      on_site: appearance.colors.on_site,
-      overtime: appearance.colors.overtime,
-    }),
-    [appearance],
-  );
+  const modifierOverrides = useMemo<ModifierToneOverrides>(() => {
+    const out: ModifierToneOverrides = {};
+    CALENDAR_TONES.filter((t) => t.group === 'mark').forEach((t) => {
+      out[t.key as DayModifier] = appearance.colors[t.key];
+    });
+    return out;
+  }, [appearance]);
 
   /**
-   * Structural colours keep their own shape because they are SHARED with the
-   * apply-leave grid — the same Saturday has to look the same on both — and
-   * because `teamOff` and `sunday` are distinctions only that resolver draws.
-   * The two keys the calendar also paints come from the registry, so they can't
-   * disagree with the tiles.
+   * Structural colours keep their own SHAPE because they are shared with the
+   * apply-leave grid — the same Saturday has to look the same on both — but all
+   * four values now come from the registry.
+   *
+   * `sunday` and `team_off` were the last colours the grid painted that nothing
+   * could configure: Sundays render in a rose tint and a branch weekday off in
+   * teal, while the legend and the settings screen both said "Weekly off" and
+   * showed one khaki swatch.
    */
   const structuralCols = useMemo<StructuralColors>(
     () => ({
       holiday: appearance.colors.holiday,
       weekend: appearance.colors.weekly_off,
-      teamOff: calendarColors?.teamOffColor || STRUCTURAL_DEFAULTS.teamOff,
-      sunday: STRUCTURAL_DEFAULTS.sunday,
+      teamOff: appearance.colors.team_off,
+      sunday: appearance.colors.sunday,
     }),
-    [appearance, calendarColors],
+    [appearance],
   );
 
   const { data, isLoading, isError, refetch } = useAttendanceCalendar(employeeId, month);

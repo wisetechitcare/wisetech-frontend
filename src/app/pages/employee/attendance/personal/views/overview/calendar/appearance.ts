@@ -4,19 +4,27 @@
  *
  * Why this exists
  * ───────────────
- * Appearance Settings offered seven colours. The calendar paints fourteen
- * things. The seven were not a subset of the fourteen: some pointed at concepts
- * the grid had no idea about, and some of what the grid painted had no setting
- * at all. `markedPresentViaRequestRaisedColor` sat in the config for years
- * while the calendar ignored it — an admin could pick magenta and watch nothing
- * happen — and `workingWeekendColor` still does nothing, because
- * `worked_on_off_day` fell through to the plain `present` fill.
+ * There were FOUR lists of what a calendar day can be, maintained by hand in
+ * two repos, and none of them agreed:
  *
- * Two lists in two repos, edited by different people at different times, will
- * always drift. So there is now one list, and the settings screen is GENERATED
- * from it. Add a key here and it gets a settings row for free; delete one and
- * the row goes with it. They cannot disagree because there is nothing to
- * disagree with.
+ *   1. the server's `DayModifier` union — the only one that was complete
+ *   2. the server's `LEGEND_ORDER`, a hand-picked eleven
+ *   3. the client's `DayModifier` union, which had lost `late_night_waiver`
+ *   4. Appearance Settings' seven flat colour fields
+ *
+ * Everything that has gone wrong here follows from that.
+ * `markedPresentViaRequestRaisedColor` sat in the config for years while the
+ * calendar ignored it. `workingWeekendColor` configured nothing, because
+ * `worked_on_off_day` was in no render channel and fell through to the plain
+ * `present` fill. `remote` and `on_site` were emitted and painted but had no
+ * legend row, so a blue dot appeared with nothing to explain it. And a waived
+ * late night printed the raw string `late_night_waiver` in the tooltip.
+ *
+ * So there is now ONE list. The settings screen is generated from it, the
+ * legend is built from it, and the server only promises that a count exists for
+ * anything it can emit. Add a key here and it gets a settings row and a legend
+ * chip for free; they cannot disagree because there is nothing left to disagree
+ * with.
  *
  * What is editable, and what is not
  * ─────────────────────────────────
@@ -32,8 +40,8 @@
  * and it is read whenever the new per-key value is unset — so nobody's existing
  * choices are lost on the way across.
  *
- * It is deliberately NOT set for `late_in`, `early_out`, `remote`, `on_site` and
- * `overtime`. Fields with those names do exist (`workingPattern.lateCheckinColor`,
+ * It is deliberately NOT set for `late_in`, `remote` or `on_site`. Fields with
+ * those names do exist (`workingPattern.lateCheckinColor`,
  * `workingLocation.remoteColor`, …) but the calendar has never read them: they
  * were picked to colour bar charts, and adopting them here would silently
  * repaint a grid that is currently correct. They start from the built-in tone
@@ -45,11 +53,14 @@ import type { ICustomColorCode } from '@redux/slices/customColors';
 import type { LegendKey } from './types';
 
 /**
- * Everything the grid can paint. `today` is not a day STATE — it is a property
- * of the grid — but it is a colour on this screen that someone configures, so
- * it belongs in the same list as the rest.
+ * Everything the grid can paint.
+ *
+ * `today`, `sunday` and `team_off` are not day STATES — they are properties of
+ * the grid, drawn by the shared structural resolver — but they are colours
+ * someone configures, so they belong in the same list as the rest. They carry
+ * `legend: false` so they never become a legend chip.
  */
-export type CalendarToneKey = LegendKey | 'today';
+export type CalendarToneKey = LegendKey | 'today' | 'sunday' | 'team_off';
 
 /**
  * How the key is drawn, which is what makes the settings preview honest: a
@@ -74,10 +85,37 @@ export interface CalendarToneSpec {
   /** The built-in paint. `withAccent` derives the tint/border from `c` when overridden. */
   trio: Trio;
   channel: ToneChannel;
-  /** Settings grouping — the two questions a day answers. */
-  group: 'status' | 'mark';
+  /** Settings grouping — the two questions a day answers, plus the calendar's own furniture. */
+  group: 'status' | 'mark' | 'grid';
   /** Old flat field to inherit from. Omitted where inheriting would repaint a correct grid. */
   legacyColor?: LegacyPath;
+  /**
+   * Old flat fields to WRITE BACK to when this key is edited.
+   *
+   * The same concept is stored under different names in several groups —
+   * "Present" is `attendanceCalendar.presentColor` here and
+   * `attendanceOverview.presentColor` on the dashboard — and those groups are
+   * read by charts and boards this registry does not own. Mirroring on save
+   * keeps every consumer in step from one edit, instead of leaving an admin to
+   * find and match the twin by hand.
+   */
+  mirrorTo?: LegacyPath[];
+  /**
+   * Set false to keep an entry out of the LEGEND while still configuring it.
+   *
+   * The legend is a key for reading the grid, not an inventory of it. Two kinds
+   * of entry are excluded:
+   *
+   *  - the grid's own furniture (Today, Sunday, Team off), which are positions
+   *    and variants rather than day categories;
+   *  - marks that are either rare, self-evident from the tooltip, or only ever
+   *    true of a single day (Currently working), where a permanent chip costs
+   *    more attention than it returns.
+   *
+   * Excluded keys still paint on tiles, still appear in the tooltip, and are
+   * still editable in settings — they simply do not claim a row in the key.
+   */
+  legend?: false;
 }
 
 /**
@@ -89,10 +127,10 @@ export interface CalendarToneSpec {
  * them a swatch would invite someone to paint "nothing has happened yet", and
  * the grid would start reading as noise again.
  *
- * The three ring marks (`request_pending`, `missing_check_in`,
- * `missing_check_out`) are also absent. A ring deliberately borrows the status
- * tone: the SHAPE says "unresolved" and the COLOUR says what it would otherwise
- * be. Handing them a colour of their own would break that pairing.
+ * So are `early_in`, `early_out`, `late_out` and `overtime`. They exist in the
+ * `DayModifier` union at both ends, but `composeDay` never emits any of them —
+ * a settings row for a colour that can never appear is the same drift this file
+ * exists to end. They come back the day the server starts producing them.
  */
 export const CALENDAR_TONES: readonly CalendarToneSpec[] = [
   // ── What the day IS ──────────────────────────────────────────────────────
@@ -104,6 +142,7 @@ export const CALENDAR_TONES: readonly CalendarToneSpec[] = [
     channel: 'fill',
     group: 'status',
     legacyColor: 'attendanceCalendar.presentColor',
+    mirrorTo: ['attendanceOverview.presentColor'],
   },
   {
     key: 'absent',
@@ -113,6 +152,7 @@ export const CALENDAR_TONES: readonly CalendarToneSpec[] = [
     channel: 'fill',
     group: 'status',
     legacyColor: 'attendanceCalendar.absentColor',
+    mirrorTo: ['attendanceOverview.absentColor'],
   },
   {
     key: 'leave',
@@ -122,6 +162,7 @@ export const CALENDAR_TONES: readonly CalendarToneSpec[] = [
     channel: 'fill',
     group: 'status',
     legacyColor: 'attendanceCalendar.onLeaveColor',
+    mirrorTo: ['attendanceOverview.onLeaveColor'],
   },
   {
     key: 'half_day',
@@ -169,6 +210,7 @@ export const CALENDAR_TONES: readonly CalendarToneSpec[] = [
     channel: 'dot',
     group: 'mark',
     legacyColor: 'attendanceCalendar.workingWeekendColor',
+    mirrorTo: ['attendanceOverview.extraDayColor'],
   },
   {
     key: 'late_in',
@@ -179,12 +221,13 @@ export const CALENDAR_TONES: readonly CalendarToneSpec[] = [
     group: 'mark',
   },
   {
-    key: 'early_out',
-    label: 'Early check-out',
-    hint: 'Left before the shift ended.',
-    trio: TRIO.amber,
+    key: 'late_night_waiver',
+    label: 'Late-night waiver',
+    hint: 'The late mark was waived because the previous night ran long.',
+    trio: TRIO.cyan,
     channel: 'dot',
     group: 'mark',
+    legend: false,
   },
   {
     key: 'remote',
@@ -193,6 +236,7 @@ export const CALENDAR_TONES: readonly CalendarToneSpec[] = [
     trio: TRIO.blue,
     channel: 'dot',
     group: 'mark',
+    legend: false,
   },
   {
     key: 'on_site',
@@ -201,25 +245,100 @@ export const CALENDAR_TONES: readonly CalendarToneSpec[] = [
     trio: TRIO.cyan,
     channel: 'dot',
     group: 'mark',
+    legend: false,
   },
   {
-    key: 'overtime',
-    label: 'Overtime',
-    hint: 'Worked beyond the shift.',
-    trio: TRIO.purple,
+    key: 'in_progress',
+    label: 'Currently working',
+    hint: 'Checked in today and not yet out. Never a missing punch.',
+    trio: TRIO.green,
     channel: 'dot',
     group: 'mark',
+    legend: false,
   },
+
+  // ── Unresolved days ──────────────────────────────────────────────────────
+  // These draw an OUTLINE instead of a fill. The shape is the message — the day
+  // is incomplete — and the colour says how. They used to borrow the status
+  // tone, which made all three legend chips the same green as "Present".
+  {
+    key: 'request_pending',
+    label: 'Approval pending',
+    hint: 'A correction has been raised and is waiting on an approver.',
+    trio: TRIO.amber,
+    channel: 'ring',
+    group: 'mark',
+  },
+  {
+    key: 'request_rejected',
+    label: 'Approval rejected',
+    hint: 'A correction was raised and turned down.',
+    trio: TRIO.rose,
+    channel: 'ring',
+    group: 'mark',
+    legend: false,
+  },
+  {
+    key: 'missing_check_in',
+    label: 'Check-in missing',
+    hint: 'Checked out with no matching check-in.',
+    trio: TRIO.slate,
+    channel: 'ring',
+    group: 'mark',
+    legend: false,
+  },
+  {
+    key: 'missing_check_out',
+    label: 'Check-out missing',
+    hint: 'Checked in and never checked out.',
+    trio: TRIO.slate,
+    channel: 'ring',
+    group: 'mark',
+  },
+
+  // ── The grid's own furniture ─────────────────────────────────────────────
+  // Configurable, but not day categories, so they are never legend chips.
   {
     key: 'today',
     label: 'Today',
     hint: "The halo around the current date. The grid's only animation.",
     trio: { c: '#1E3A8A', bg: '#eff6ff', bd: '#dbeafe' },
     channel: 'ring',
-    group: 'mark',
+    group: 'grid',
     legacyColor: 'attendanceCalendar.todayColor',
+    legend: false,
+  },
+  {
+    key: 'sunday',
+    label: 'Sunday',
+    hint: 'Sundays are tinted apart from Saturdays, matching the red column header.',
+    trio: { c: STRUCTURAL_DEFAULTS.sunday, bg: '#fff1f2', bd: '#fecdd3' },
+    channel: 'tint',
+    group: 'grid',
+    legend: false,
+  },
+  {
+    key: 'team_off',
+    label: 'Team off',
+    hint: 'A branch weekday off (not Sat/Sun). Carries a dashed ring so it never reads as a weekend.',
+    trio: { c: STRUCTURAL_DEFAULTS.teamOff, bg: '#f0fdfa', bd: '#ccfbf1' },
+    channel: 'tint',
+    group: 'grid',
+    legacyColor: 'attendanceCalendar.teamOffColor',
+    legend: false,
   },
 ] as const;
+
+/**
+ * The legend's rows, in order — every day category, and nothing that isn't one.
+ *
+ * The server used to own this list too, which made it a third vocabulary and it
+ * drifted: `remote` and `on_site` were emitted and painted but had no legend
+ * row, so a blue dot appeared with nothing to explain it. The server now sends
+ * a count for everything it can emit and this decides what to show, which is
+ * also what the settings screen lists. They cannot disagree.
+ */
+export const LEGEND_TONES: readonly CalendarToneSpec[] = CALENDAR_TONES.filter((t) => t.legend !== false);
 
 export const TONE_BY_KEY: Readonly<Record<string, CalendarToneSpec>> = Object.fromEntries(
   CALENDAR_TONES.map((t) => [t.key, t]),

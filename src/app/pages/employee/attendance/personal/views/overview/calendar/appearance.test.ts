@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CALENDAR_TONES,
+  LEGEND_TONES,
   TONE_BY_KEY,
   resolveCalendarAppearance,
   resolveToneColor,
@@ -51,7 +52,7 @@ describe('colours already chosen survive the move', () => {
   });
 
   it('falls back to the built-in tone where nothing was ever saved', () => {
-    expect(resolveToneColor('overtime', saved)).toBe(TONE_BY_KEY.overtime.trio.c);
+    expect(resolveToneColor('remote', saved)).toBe(TONE_BY_KEY.remote.trio.c);
   });
 
   /**
@@ -97,6 +98,80 @@ describe('per-key overrides win, and bad values cannot paint', () => {
   it('resolves against an empty config without throwing', () => {
     expect(resolveToneColor('present', undefined)).toBe(TONE_BY_KEY.present.trio.c);
     expect(resolveToneLabel('absent', null)).toBe('Absent');
+  });
+});
+
+/**
+ * The alignment itself.
+ *
+ * Config and legend showed different things because they were built from
+ * different lists. These pin the property that made that impossible: both are
+ * projections of CALENDAR_TONES, and the only entries the legend drops are the
+ * ones explicitly marked as grid furniture rather than day categories.
+ */
+describe('the settings screen and the legend list the same things', () => {
+  it('drops exactly the entries marked legend:false, and nothing else', () => {
+    const excluded = CALENDAR_TONES.filter((t) => !LEGEND_TONES.includes(t));
+    expect(excluded.every((t) => t.legend === false)).toBe(true);
+  });
+
+  /**
+   * The legend is a reading key, not an inventory. This pins it to the eleven
+   * categories the product already shipped — an expansion to every paintable
+   * key made it a three-row wall that taught less, not more.
+   */
+  it('keeps the legend to the eleven day categories', () => {
+    expect(LEGEND_TONES.map((t) => t.key)).toEqual([
+      'present', 'absent', 'leave', 'half_day', 'holiday', 'weekly_off',
+      'regularized', 'worked_on_off_day', 'late_in', 'request_pending', 'missing_check_out',
+    ]);
+  });
+
+  it('never drops a day STATUS from the legend — only marks and furniture', () => {
+    CALENDAR_TONES.filter((t) => t.legend === false).forEach((t) => {
+      expect(t.group).not.toBe('status');
+    });
+  });
+
+  /** Every entry the legend omits stays configurable, and still paints. */
+  it('keeps omitted entries in the settings screen', () => {
+    const omitted = CALENDAR_TONES.filter((t) => t.legend === false);
+    expect(omitted.length).toBeGreaterThan(0);
+    omitted.forEach((t) => expect(CALENDAR_TONES).toContain(t));
+  });
+
+  /**
+   * The rule that keeps a settings row from configuring a colour that can never
+   * appear. `composeDay` emits none of these, so a row for them would be the
+   * same dead control the seven flat fields used to be.
+   */
+  it('lists nothing the server never emits', () => {
+    const neverEmitted = ['early_in', 'early_out', 'late_out', 'overtime'];
+    const keys = CALENDAR_TONES.map((t) => String(t.key));
+    neverEmitted.forEach((k) => expect(keys).not.toContain(k));
+  });
+
+  /**
+   * "Present" is stored twice — once for the calendar, once for the Attendance
+   * Overview group the dashboard reads — and the two had drifted apart. Editing
+   * one must now write both.
+   */
+  it('mirrors the duplicated concepts into the Attendance Overview group', () => {
+    const mirrors = Object.fromEntries(
+      CALENDAR_TONES.filter((t) => t.mirrorTo).map((t) => [t.key, t.mirrorTo]),
+    );
+    expect(mirrors.present).toContain('attendanceOverview.presentColor');
+    expect(mirrors.absent).toContain('attendanceOverview.absentColor');
+    expect(mirrors.leave).toContain('attendanceOverview.onLeaveColor');
+    expect(mirrors.worked_on_off_day).toContain('attendanceOverview.extraDayColor');
+  });
+
+  /** The three that used to resolve to the same green as Present. */
+  it('gives the unresolved-day marks tones of their own', () => {
+    const present = resolveToneColor('present', undefined);
+    (['request_pending', 'request_rejected', 'missing_check_in', 'missing_check_out'] as const).forEach((k) => {
+      expect(resolveToneColor(k, undefined)).not.toBe(present);
+    });
   });
 });
 

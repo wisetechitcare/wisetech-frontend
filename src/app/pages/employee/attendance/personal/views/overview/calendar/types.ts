@@ -46,6 +46,12 @@ export type DayModifier =
   | 'overtime'
   | 'remote'
   | 'on_site'
+  /**
+   * The late mark was WAIVED because the prior night ran long. Emitted by the
+   * server alongside `late_in`; it was missing here, so the tooltip printed the
+   * raw `late_night_waiver` key where the sentence should have been.
+   */
+  | 'late_night_waiver'
   /** Checked in TODAY and not yet out — a working day underway, not a missing punch. */
   | 'in_progress';
 

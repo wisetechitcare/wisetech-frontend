@@ -142,6 +142,17 @@ const MODIFIER_TRIO: Partial<Record<DayModifier, Trio>> = {
   remote: TRIO.blue,
   on_site: TRIO.cyan,
   overtime: TRIO.purple,
+  late_night_waiver: TRIO.cyan,
+  in_progress: TRIO.green,
+  // Rings used to borrow the STATUS tone, which made all three of these resolve
+  // to the same green as "Present" in the legend — the shape was the only thing
+  // telling them apart, and at 9px a chip swatch that is a green dashed circle
+  // beside a green filled one reads as noise. The shape still carries
+  // "unresolved"; the tone now says which kind.
+  request_pending: TRIO.amber,
+  request_rejected: TRIO.rose,
+  missing_check_in: TRIO.slate,
+  missing_check_out: TRIO.slate,
   // Pink, built to the kit's own recipe (a 600 accent with its 50/200 surface
   // pair) but declared HERE rather than added to TRIO: `TONE_NAMES` is derived
   // from `TRIO` with Object.keys, so a new tone would silently appear as a
@@ -153,6 +164,7 @@ const MODIFIER_TRIO: Partial<Record<DayModifier, Trio>> = {
 };
 
 export const MODIFIER_LABEL: Record<DayModifier, string> = {
+  late_night_waiver: 'Late-night waiver',
   late_in: 'Late check-in',
   early_in: 'Early check-in',
   early_out: 'Early check-out',
@@ -170,7 +182,7 @@ export const MODIFIER_LABEL: Record<DayModifier, string> = {
 };
 
 /** Modifiers that replace the fill with an outline. Order = precedence. */
-const RING_MODIFIERS: DayModifier[] = ['request_pending', 'missing_check_in', 'missing_check_out'];
+const RING_MODIFIERS: DayModifier[] = ['request_pending', 'request_rejected', 'missing_check_in', 'missing_check_out'];
 
 /**
  * Modifiers that render as a dot beneath the numeral. Order = left-to-right.
@@ -181,7 +193,16 @@ const RING_MODIFIERS: DayModifier[] = ['request_pending', 'missing_check_in', 'm
  * same green, and a Sunday you actually worked was indistinguishable from an
  * ordinary Monday. It also left `workingWeekendColor` configuring nothing.
  */
-const DOT_MODIFIERS: DayModifier[] = ['late_in', 'early_out', 'worked_on_off_day', 'remote', 'on_site', 'overtime'];
+const DOT_MODIFIERS: DayModifier[] = [
+  'late_in',
+  'late_night_waiver',
+  'early_out',
+  'worked_on_off_day',
+  'remote',
+  'on_site',
+  'overtime',
+  'in_progress',
+];
 
 /**
  * Modifiers that REPAINT the disc rather than adding a marker to it. The third
@@ -251,11 +272,21 @@ export function resolveDayVisual(
       ? FILL_MODIFIERS.find((m) => modifiers.includes(m))
       : undefined;
 
-  // The admin's pick wins over the built-in tone in both channels, and
-  // `withAccent` derives the tint/border pair either way so a pale hex cannot
-  // produce an unreadable tile.
-  const trio = fillMod
-    ? tone(MODIFIER_TRIO[fillMod] ?? base, modifierOverrides?.[fillMod])
+  /**
+   * Whichever modifier owns the paint, owns the tone.
+   *
+   * A ring outranks a fill modifier, and both outrank the status — otherwise
+   * the outline would be drawn in the status colour, which is what made
+   * "Approval pending", "Check-out missing" and "Present" three shades of the
+   * same green in the legend.
+   *
+   * The admin's pick wins over the built-in tone in every channel, and
+   * `withAccent` derives the tint/border pair either way, so a pale hex cannot
+   * produce an unreadable tile.
+   */
+  const paintMod = ringMod ?? fillMod;
+  const trio = paintMod
+    ? tone(MODIFIER_TRIO[paintMod] ?? base, modifierOverrides?.[paintMod])
     : tone(base, overrides?.[status]);
 
   return {
@@ -299,7 +330,7 @@ export function resolveLegendVisual(
  * that calls it "Manually approved" should see that everywhere the key appears —
  * the chip, the tooltip and the screen-reader sentence alike.
  */
-export type DayLabelOverrides = Partial<Record<LegendKey | 'today', string>>;
+export type DayLabelOverrides = Partial<Record<LegendKey | 'today' | 'sunday' | 'team_off', string>>;
 
 export function legendLabel(key: LegendKey, labels?: DayLabelOverrides): string {
   return (

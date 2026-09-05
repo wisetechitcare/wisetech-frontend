@@ -16,10 +16,11 @@
  * Each swatch is drawn by the SAME resolver the tiles use — a chip can never
  * drift from the thing it describes.
  */
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
 import { legendLabel, resolveLegendVisual, shouldPulse, type DayLabelOverrides, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
+import { LEGEND_TONES } from './appearance';
 import type { LegendEntry, LegendKey } from './types';
 
 export interface CalendarLegendProps {
@@ -44,6 +45,27 @@ export const CalendarLegend = memo(function CalendarLegend({
   onClear,
 }: CalendarLegendProps) {
   const filtering = active.size > 0;
+
+  /**
+   * The rows come from the REGISTRY; the server only supplies the numbers.
+   *
+   * It used to be the other way round, and that made the server's
+   * `LEGEND_ORDER` a separate hand-kept list from the one Appearance Settings
+   * renders — so the legend and the colour picker showed different things, and
+   * `remote` / `on_site` were painted on tiles with no chip to explain them.
+   *
+   * Anything the server counts but the registry does not name is dropped rather
+   * than rendered raw, and anything named but not counted shows a zero, which
+   * the chip already renders dimmed.
+   */
+  const rows = useMemo(() => {
+    const counts = new Map(legend.map((e) => [e.key, e.count]));
+    return LEGEND_TONES.map((spec) => ({
+      key: spec.key as LegendKey,
+      label: labels?.[spec.key] || spec.label,
+      count: counts.get(spec.key as LegendKey) ?? 0,
+    }));
+  }, [legend, labels]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -73,7 +95,7 @@ export const CalendarLegend = memo(function CalendarLegend({
           'sm:flex-wrap',
         )}
       >
-        {legend.map((entry) => (
+        {rows.map((entry) => (
           <LegendChip
             key={entry.key}
             entry={entry}
