@@ -63,10 +63,15 @@ export const DayCell = memo(function DayCell({
   const tone = toneSurface(v.trio, dark);
   const num = dayjs(day.date).date();
 
-  // Hover OR keyboard focus. The engine owns focus, so `ctx.isFocused` is the
-  // only way a keyboard user reaches the tooltip — hover alone would strand
-  // them, which is the WCAG 1.4.13 failure this avoids.
-  const open = hovered || ctx.isFocused;
+  // Hover OR REAL keyboard focus.
+  //
+  // `ctx.hasFocus`, never `ctx.isTabStop` — the tab stop is held by exactly one
+  // cell at all times (today, by default) whether or not the grid has focus, so
+  // keying off it left today's tooltip permanently open and a second one
+  // appeared as soon as you hovered anywhere else.
+  // Focus still matters: hover alone would strand keyboard users, which is the
+  // WCAG 1.4.13 failure this avoids.
+  const open = hovered || ctx.hasFocus;
 
   /**
    * Structural days — holiday, team off, Sunday, Saturday — are painted by the

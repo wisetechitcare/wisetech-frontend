@@ -62,8 +62,17 @@ export interface MonthDayContext {
   /** Strictly between the range ends. */
   isInRange: boolean;
   isDisabled: boolean;
-  /** Holds the grid's single tab stop and receives keyboard focus. */
-  isFocused: boolean;
+  /**
+   * Holds the grid's single tab stop.
+   *
+   * This is NOT "is focused" — exactly one cell always holds it, whether or not
+   * the grid has focus at all, so it defaults to today. Anything that should
+   * appear only on real keyboard focus (a tooltip, say) must use `hasFocus`;
+   * keying off this one leaves it permanently open on today.
+   */
+  isTabStop: boolean;
+  /** This cell genuinely has DOM focus right now. */
+  hasFocus: boolean;
 }
 
 export interface MonthGridProps {
@@ -110,7 +119,12 @@ export function MonthGrid({
   className,
 }: MonthGridProps) {
   const cursor = useMemo(() => dayjs(`${month}-01`), [month]);
+  // The roving tab stop. Persists after blur — the grid must stay reachable
+  // at the day you left it.
   const [focusedDate, setFocusedDate] = useState<string | null>(null);
+  // Actual DOM focus. Cleared on blur, so a focus-driven affordance shows only
+  // while the cell really is focused.
+  const [activeDate, setActiveDate] = useState<string | null>(null);
   const cellRefs = useRef(new Map<string, HTMLButtonElement>());
 
   const registerRef = useCallback((date: string, el: HTMLButtonElement | null) => {
@@ -273,7 +287,8 @@ export function MonthGrid({
             inMonth: d.month() === cursor.month(),
             isToday: iso === today,
             isDisabled: disabled,
-            isFocused: iso === tabStop,
+            isTabStop: iso === tabStop,
+            hasFocus: iso === activeDate,
             ...flagsFor(iso),
           };
 
@@ -285,11 +300,12 @@ export function MonthGrid({
               role="gridcell"
               // Roving tabindex — one tab stop for the whole grid, so a month
               // costs one Tab press rather than forty-two.
-              tabIndex={ctx.isFocused ? 0 : -1}
+              tabIndex={ctx.isTabStop ? 0 : -1}
               disabled={disabled}
               aria-current={ctx.isToday ? 'date' : undefined}
               aria-selected={selection ? ctx.isSelected : undefined}
-              onFocus={() => setFocusedDate(iso)}
+              onFocus={() => { setFocusedDate(iso); setActiveDate(iso); }}
+              onBlur={() => setActiveDate((cur) => (cur === iso ? null : cur))}
               onClick={() => !disabled && onDayActivate?.(iso)}
               className={cn(
                 'relative grid place-items-center rounded-xl outline-none',

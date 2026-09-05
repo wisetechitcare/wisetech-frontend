@@ -15,7 +15,7 @@ import { KTIcon } from '@metronic/helpers';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { TRIO, type Trio } from '@app/modules/common/components/ui/tw/tokens';
-import { MODIFIER_LABEL, STATUS_LABEL, resolveDayVisual, type DayToneOverrides } from './dayTokens';
+import { MODIFIER_LABEL, STATUS_LABEL, lateBandOf, resolveDayVisual, type DayToneOverrides } from './dayTokens';
 import type { CalendarDay } from './types';
 
 export interface DayTooltipProps {
@@ -89,9 +89,13 @@ export const DayTooltip = memo(function DayTooltip({ day, overrides, id }: DayTo
       {(lateMark?.isLate || request || day.modifiers.length > 0) && (
         <div className="mt-2.5 flex flex-col gap-1.5">
           {lateMark?.isLate && (
-            <Flag trio={TRIO.amber} icon="time">
+            // The server's `reason` already reads "Late by 4h 31m", so appending
+            // the raw minutes repeated the same number twice. The severity band
+            // adds something instead, and it names the grading the day's dot is
+            // already showing.
+            <Flag trio={lateBandOf(lateMark.lateMinutes).trio} icon="time">
               {lateMark.reason}
-              {lateMark.lateMinutes > 0 && ` · ${lateMark.lateMinutes} min`}
+              {` · ${lateBandOf(lateMark.lateMinutes).label.toLowerCase()}`}
             </Flag>
           )}
           {day.modifiers
