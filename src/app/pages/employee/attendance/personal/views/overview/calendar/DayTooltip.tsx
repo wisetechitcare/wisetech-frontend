@@ -107,12 +107,12 @@ export const DayTooltip = memo(function DayTooltip({ day, overrides, id }: DayTo
             ))}
           {request?.status === 'pending' && (
             <Flag trio={TRIO.blue} icon="arrow-circle-right">
-              Correction pending{request.stage ? ` · ${request.stage}` : ''}
+              Approval pending{request.stage ? ` · ${request.stage}` : ''}
             </Flag>
           )}
           {request?.status === 'rejected' && (
             <Flag trio={TRIO.rose} icon="cross-circle">
-              Correction rejected
+              Approval rejected
             </Flag>
           )}
           {day.modifiers.includes('worked_on_off_day') && (
