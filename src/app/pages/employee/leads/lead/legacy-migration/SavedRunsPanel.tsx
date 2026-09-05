@@ -94,6 +94,11 @@ export default function SavedRunsPanel({
 
       {runs.map((run) => {
         const progress = run.totalRows ? Math.round((run.decidedRows / run.totalRows) * 100) : 0;
+        // Confirming a few rows used to stamp the whole run COMPLETED. The server
+        // now derives `resumable` from the rows themselves, so such a run is
+        // reachable again — and the chip has to say so, or it reads "Completed"
+        // beside a Resume button and a row count that plainly isn't finished.
+        const status = run.resumable && run.status === 'COMPLETED' ? 'READY_FOR_REVIEW' : run.status;
         return (
           <GlassCard key={run.id} sx={{ p: 1.5 }}>
             <Stack
@@ -106,13 +111,14 @@ export default function SavedRunsPanel({
                   <Typography sx={{ fontWeight: 700 }} noWrap>
                     {run.migrationCode}
                   </Typography>
-                  <ToneChip tone={STATUS_TONE[run.status]} label={STATUS_LABEL[run.status]} />
+                  <ToneChip tone={STATUS_TONE[status]} label={STATUS_LABEL[status]} />
                 </Stack>
                 <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }} noWrap>
                   {run.fileName} · {formatDateTime(run.createdAt)}
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   {run.decidedRows} of {run.totalRows} rows reviewed ({progress}%)
+                  {run.openRows > 0 && ` · ${run.openRows} left`}
                 </Typography>
               </Box>
 
