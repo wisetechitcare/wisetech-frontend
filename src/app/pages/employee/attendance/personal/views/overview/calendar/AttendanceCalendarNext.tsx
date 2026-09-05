@@ -17,7 +17,7 @@ import type { RootState } from '@redux/store';
 import { AttendanceCalendarPanel } from './AttendanceCalendarPanel';
 import { useAttendanceCalendar } from './useAttendanceCalendar';
 import { DayDetailPanel } from './DayDetailPanel';
-import type { DayToneOverrides } from './dayTokens';
+import type { DayToneOverrides, ModifierToneOverrides } from './dayTokens';
 import {
   STRUCTURAL_DEFAULTS,
   type StructuralColors,
@@ -71,6 +71,16 @@ export default function AttendanceCalendarNext({
    * fallbacks ApplyLeave uses — so a holiday and a Saturday look identical on
    * both calendars whether or not an admin has configured them.
    */
+  /**
+   * Modifier colours the admin has already configured but the calendar never
+   * read — Appearance Settings has carried markedPresentViaRequestRaisedColor
+   * all along, so magenta could be set and nothing changed.
+   */
+  const modifierOverrides = useMemo<ModifierToneOverrides>(
+    () => ({ regularized: calendarColors?.markedPresentViaRequestRaisedColor }),
+    [calendarColors],
+  );
+
   const structuralCols = useMemo<StructuralColors>(
     () => ({
       holiday: overviewColors?.holidayColor || STRUCTURAL_DEFAULTS.holiday,
@@ -96,6 +106,7 @@ export default function AttendanceCalendarNext({
         loading={isLoading}
         error={isError}
         overrides={overrides}
+        modifierOverrides={modifierOverrides}
         structuralCols={structuralCols}
         onMonthChange={onMonthChange}
         onOpenDay={setSelected}

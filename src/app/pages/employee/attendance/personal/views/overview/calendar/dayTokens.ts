@@ -166,8 +166,14 @@ export const MODIFIER_LABEL: Record<DayModifier, string> = {
 /** Modifiers that replace the fill with an outline. Order = precedence. */
 const RING_MODIFIERS: DayModifier[] = ['request_pending', 'missing_check_in', 'missing_check_out'];
 
-/** Modifiers that render as a dot beneath the numeral. Order = left-to-right. */
-const DOT_MODIFIERS: DayModifier[] = ['late_in', 'early_out', 'remote', 'on_site', 'overtime'];
+/**
+ * Modifiers that render as a dot beneath the numeral. Order = left-to-right.
+ *
+ * `regularized` belongs here and was missing: in neither this list nor
+ * RING_MODIFIERS, its legend swatch fell through to the plain `present` fill and
+ * rendered identical green — two different things sharing one colour.
+ */
+const DOT_MODIFIERS: DayModifier[] = ['late_in', 'early_out', 'regularized', 'remote', 'on_site', 'overtime'];
 
 /* ── Resolution ───────────────────────────────────────────────────────── */
 
@@ -178,12 +184,24 @@ const DOT_MODIFIERS: DayModifier[] = ['late_in', 'early_out', 'remote', 'on_site
  */
 export type DayToneOverrides = Partial<Record<DayStatus, string>>;
 
+/**
+ * Admin-configured colours for MODIFIERS, alongside the status overrides above.
+ *
+ * Appearance Settings has carried `markedPresentViaRequestRaisedColor` all
+ * along — the calendar simply never read it, so an admin could set magenta and
+ * see nothing change. Same shape and same rules as the status overrides: the
+ * accent only, with the tint and border derived.
+ */
+export type ModifierToneOverrides = Partial<Record<DayModifier, string>>;
+
 export function resolveDayVisual(
   status: DayStatus,
   modifiers: readonly DayModifier[],
   overrides?: DayToneOverrides,
   /** Minutes past the threshold, from the server's own verdict. Grades the late dot. */
   lateMinutes?: number | null,
+  /** Admin colours for modifier dots / rings. */
+  modifierOverrides?: ModifierToneOverrides,
 ): DayVisual {
   const base = STATUS_TRIO[status];
   const trio = overrides?.[status] ? withAccent(base, overrides[status]!) : base;
@@ -207,7 +225,9 @@ export function resolveDayVisual(
         const band = m === 'late_in' ? lateBandOf(lateMinutes) : null;
         return {
           key: m,
-          trio: band?.trio ?? MODIFIER_TRIO[m],
+          trio: modifierOverrides?.[m]
+            ? withAccent(band?.trio ?? MODIFIER_TRIO[m] ?? TRIO.slate, modifierOverrides[m]!)
+            : band?.trio ?? MODIFIER_TRIO[m],
           pulse: shouldPulse(m),
           size: band?.size ?? 4.5,
         };
@@ -218,9 +238,13 @@ export function resolveDayVisual(
 }
 
 /** Legend swatches reuse the same resolver so a chip can never drift from its tiles. */
-export function resolveLegendVisual(key: LegendKey, overrides?: DayToneOverrides): DayVisual {
+export function resolveLegendVisual(
+  key: LegendKey,
+  overrides?: DayToneOverrides,
+  modifierOverrides?: ModifierToneOverrides,
+): DayVisual {
   if (key in STATUS_TRIO) return resolveDayVisual(key as DayStatus, [], overrides);
-  return resolveDayVisual('present', [key as DayModifier], overrides);
+  return resolveDayVisual('present', [key as DayModifier], overrides, null, modifierOverrides);
 }
 
 export function legendLabel(key: LegendKey): string {

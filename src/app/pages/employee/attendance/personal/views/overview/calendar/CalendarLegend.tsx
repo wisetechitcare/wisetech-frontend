@@ -19,13 +19,15 @@
 import { memo } from 'react';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
-import { legendLabel, resolveLegendVisual, shouldPulse, type DayToneOverrides } from './dayTokens';
+import { legendLabel, resolveLegendVisual, shouldPulse, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import type { LegendEntry, LegendKey } from './types';
 
 export interface CalendarLegendProps {
   legend: LegendEntry[];
   active: Set<LegendKey>;
   overrides?: DayToneOverrides;
+  /** Admin colours for modifier dots — see dayTokens.ModifierToneOverrides. */
+  modifierOverrides?: ModifierToneOverrides;
   onToggle: (key: LegendKey) => void;
   onClear: () => void;
 }
@@ -34,6 +36,7 @@ export const CalendarLegend = memo(function CalendarLegend({
   legend,
   active,
   overrides,
+  modifierOverrides,
   onToggle,
   onClear,
 }: CalendarLegendProps) {
@@ -74,6 +77,7 @@ export const CalendarLegend = memo(function CalendarLegend({
             pressed={active.has(entry.key)}
             faded={filtering && !active.has(entry.key)}
             overrides={overrides}
+            modifierOverrides={modifierOverrides}
             onToggle={onToggle}
           />
         ))}
@@ -87,16 +91,18 @@ function LegendChip({
   pressed,
   faded,
   overrides,
+  modifierOverrides,
   onToggle,
 }: {
   entry: LegendEntry;
   pressed: boolean;
   faded: boolean;
   overrides?: DayToneOverrides;
+  modifierOverrides?: ModifierToneOverrides;
   onToggle: (key: LegendKey) => void;
 }) {
   const dark = useIsDark();
-  const v = resolveLegendVisual(entry.key, overrides);
+  const v = resolveLegendVisual(entry.key, overrides, modifierOverrides);
   const t = toneSurface(v.trio, dark);
   const empty = entry.count === 0;
 

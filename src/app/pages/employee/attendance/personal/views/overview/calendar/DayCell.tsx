@@ -26,13 +26,14 @@ import {
 } from '@app/modules/common/components/ui/tw/calendarDayTones';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
-import { MODIFIER_LABEL, STATUS_LABEL, readableOn, resolveDayVisual, type DayToneOverrides } from './dayTokens';
+import { MODIFIER_LABEL, STATUS_LABEL, readableOn, resolveDayVisual, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import { DayTooltip } from './DayTooltip';
 import type { CalendarDay } from './types';
 
 export interface DayCellProps {
   /** Admin-configured structural colours, shared with the apply-leave grid. */
   structuralCols?: StructuralColors;
+  modifierOverrides?: ModifierToneOverrides;
   day: CalendarDay;
   /** Grid state for this cell, supplied by the engine. */
   ctx: MonthDayContext;
@@ -52,6 +53,7 @@ export const DayCell = memo(function DayCell({
   dimmed,
   overrides,
   structuralCols = STRUCTURAL_DEFAULTS,
+  modifierOverrides,
 }: DayCellProps) {
   const dark = useIsDark();
   const [hovered, setHovered] = useState(false);
@@ -59,7 +61,7 @@ export const DayCell = memo(function DayCell({
 
   // `lateMinutes` grades the late dot — the server's own verdict, never
   // recomputed here.
-  const v = resolveDayVisual(day.status, day.modifiers, overrides, day.lateMark?.lateMinutes);
+  const v = resolveDayVisual(day.status, day.modifiers, overrides, day.lateMark?.lateMinutes, modifierOverrides);
   const tone = toneSurface(v.trio, dark);
   const num = dayjs(day.date).date();
 
