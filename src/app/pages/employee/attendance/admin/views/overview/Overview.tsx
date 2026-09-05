@@ -136,6 +136,24 @@ interface EmployeeWithAttendance {
     designation?: string;
     avatar?: string | null;  // Changed from profileImage to avatar to match Employee interface
     isActive?: boolean;  // Added to filter inactive employees
+    /**
+     * Employment window. REQUIRED, and carried all the way through the roster
+     * transform, because the absent walk asks `getEmployeeStatus` whether this
+     * person was employed on each specific day.
+     *
+     * Optional would be worse than useless here: `getEmployeeStatus` treats a
+     * row with no dates as "employed throughout" — deliberately, so legacy rows
+     * stay visible — so dropping these silently answers "yes" for everyone and
+     * the per-day filter does nothing at all. That is exactly what happened:
+     * the predicate was wired in and had no effect, because the transform above
+     * it had already discarded the only fields it could read.
+     *
+     * `null` is a real answer (no exit recorded). `undefined` is not, which is
+     * why these are required rather than optional.
+     */
+    dateOfJoining: string | Date | null;
+    dateOfExit: string | Date | null;
+    EmployeeRejoinHistory: Array<{ dateOfReJoining?: string | Date | null; dateOfReExit?: string | Date | null }> | null;
     attendance?: Attendance & {
         workingMethod?: {
             id?: string;
@@ -1254,6 +1272,12 @@ function Overview({ date, range }: OverviewProps) {
                     employeeCode: emp.employeeCode || '',
                     avatar: emp.avatar || null,
                     isActive: emp.isActive ?? true,  // Default to true if not specified
+                    // The employment window, carried through so the absent walk can ask
+                    // whether this person was employed on each specific day. Dropping
+                    // these made the per-day filter a silent no-op.
+                    dateOfJoining: emp.dateOfJoining ?? null,
+                    dateOfExit: emp.dateOfExit ?? null,
+                    EmployeeRejoinHistory: emp.EmployeeRejoinHistory ?? null,
                 }));
 
                 if (isMountedRef.current) {
@@ -1273,7 +1297,9 @@ function Overview({ date, range }: OverviewProps) {
                     // drops leavers a historical period is supposed to include,
                     // and it drops anyone whose flag is stale-off. Two people
                     // employed today were in that state when this was measured.
-                    const activeEmployees = transformedEmployees as EmployeeWithAttendance[];
+                    // No cast: the transform now produces the full shape, so tsc checks it.
+                    // The `as` here previously hid the missing employment fields.
+                    const activeEmployees: EmployeeWithAttendance[] = transformedEmployees;
                     const visibleEmployees = filterIds
                         ? activeEmployees.filter((emp: any) => filterIds.includes(emp._id))
                         : activeEmployees;
