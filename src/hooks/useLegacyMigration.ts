@@ -4,8 +4,10 @@ import {
   analyzeLegacyCsv,
   applyBulkDecision,
   cancelMigration,
+  deleteSavedRun,
   executeMigrationBatch,
   fetchLegacyColumns,
+  fetchSavedRuns,
   fetchMigrationRecords,
   fetchMigrationRun,
   saveRecordDecision,
@@ -29,6 +31,7 @@ import type {
 
 const keys = {
   columns: ['legacy-migration', 'columns'] as const,
+  savedRuns: (organizationId: string) => ['legacy-migration', 'saved-runs', organizationId] as const,
   run: (runId: string) => ['legacy-migration', 'run', runId] as const,
   records: (runId: string, query: RecordsQuery) => ['legacy-migration', 'records', runId, query] as const,
 };
@@ -40,6 +43,26 @@ export const useLegacyColumns = () =>
     // Column metadata only changes when the code does.
     staleTime: Infinity,
   });
+
+/**
+ * Saved uploads for the org. Backs the picker on the upload step, which is the
+ * only way back into a half-reviewed run — re-uploading the file stages every
+ * row PENDING again and loses the decisions already made.
+ */
+export const useSavedRuns = (organizationId: string) =>
+  useQuery({
+    queryKey: keys.savedRuns(organizationId),
+    queryFn: () => fetchSavedRuns(organizationId),
+    enabled: Boolean(organizationId),
+  });
+
+export const useDeleteSavedRun = (organizationId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (runId: string) => deleteSavedRun(runId, organizationId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.savedRuns(organizationId) }),
+  });
+};
 
 export const useMigrationRun = (runId: string | null, organizationId: string) =>
   useQuery({

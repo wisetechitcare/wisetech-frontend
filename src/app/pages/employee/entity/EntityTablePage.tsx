@@ -57,6 +57,7 @@ import {
   isProjectEntity,
   isProjectView,
   matchesView,
+  projectNumberOf,
 } from "./entityUtils";
 
 dayjs.extend(isSameOrBefore);
@@ -702,7 +703,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             // Lead-as-master: project-only fields live on the 1:1 execution
             // extension + lead scalars now; the legacy `project` row is a fallback.
             projectId: lead?.projectId || project?.id || "",
-            projectPrefix: lead?.originalProjectPrefix || project?.prefix || "",
+            projectPrefix: projectNumberOf(lead) || "",
             projectStatus: exec?.projectStatus || project?.status || null,
             projectStartDate: lead?.startDate || project?.startDate || "",
             projectEndDate: lead?.endDate || project?.endDate || "",
@@ -2346,10 +2347,16 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                 }),
               },
             },
-            onClick: () =>
-              navigate(`/leads/${row.original.id}`, {
-                state: { leadData: row.original.id },
-              }),
+            onClick: () => {
+              // The path IS the entry context (see the /project/:id route). The
+              // project views open the project lens; the Leads view opens the
+              // lead lens; in "All" the row itself decides, since that view
+              // deliberately mixes the two. Previously every view navigated to
+              // /leads/:id, so a project opened from the Projects view showed
+              // the lead page with the project tabs stripped out.
+              const asProject = projectColumnsActive || (view === "all" && isProjectEntity(row.original));
+              navigate(`${asProject ? "/project" : "/leads"}/${row.original.id}`);
+            },
             };
           },
         }}
