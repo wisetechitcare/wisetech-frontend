@@ -105,6 +105,7 @@ const STATUS_TRIO: Record<DayStatus, Trio> = {
   weekly_off: TRIO.slate,
   not_employed: TRIO.slate,
   future: TRIO.slate,
+  pending: TRIO.slate,
 };
 
 const STATUS_FILL: Record<DayStatus, FillMode> = {
@@ -116,6 +117,9 @@ const STATUS_FILL: Record<DayStatus, FillMode> = {
   weekly_off: 'tint', // structural — tint, never a saturated fill
   not_employed: 'none',
   future: 'none',
+  // No fill: nothing has happened yet, and today's halo is already marking the
+  // cell. A tint here would read as a state rather than as the absence of one.
+  pending: 'none',
 };
 
 export const STATUS_LABEL: Record<DayStatus, string> = {
@@ -127,6 +131,7 @@ export const STATUS_LABEL: Record<DayStatus, string> = {
   weekly_off: 'Weekly off',
   not_employed: 'Not employed',
   future: 'Upcoming',
+  pending: 'No check-in yet',
 };
 
 /* ── Modifier → tone + channel ────────────────────────────────────────── */
@@ -155,6 +160,7 @@ export const MODIFIER_LABEL: Record<DayModifier, string> = {
   overtime: 'Overtime',
   remote: 'Remote',
   on_site: 'On-site',
+  in_progress: 'Currently working',
 };
 
 /** Modifiers that replace the fill with an outline. Order = precedence. */

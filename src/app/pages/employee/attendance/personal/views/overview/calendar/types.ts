@@ -21,7 +21,9 @@ export type DayStatus =
   | 'holiday'
   | 'weekly_off'
   | 'not_employed'
-  | 'future';
+  | 'future'
+  /** TODAY, still in progress — no punch yet. Not an absence until the day ends. */
+  | 'pending';
 
 /**
  * Zero or more per day, independent of status.
@@ -43,7 +45,9 @@ export type DayModifier =
   | 'worked_on_off_day'
   | 'overtime'
   | 'remote'
-  | 'on_site';
+  | 'on_site'
+  /** Checked in TODAY and not yet out — a working day underway, not a missing punch. */
+  | 'in_progress';
 
 export interface CalendarDay {
   /** YYYY-MM-DD in the employee's branch timezone. Never re-parsed for meaning. */
