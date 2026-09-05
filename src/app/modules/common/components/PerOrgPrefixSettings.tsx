@@ -1,10 +1,39 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Button, Chip, CircularProgress, MenuItem, Select, TextField, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  MenuItem,
+  Select,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
+import LinkOffRoundedIcon from '@mui/icons-material/LinkOffRounded';
+import SubdirectoryArrowRightRoundedIcon from '@mui/icons-material/SubdirectoryArrowRightRounded';
+import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import HubRoundedIcon from '@mui/icons-material/HubRounded';
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import Flatpickr from 'react-flatpickr';
-import { fetchAllPrefixSettings, createPrefixSetting, updatePrefixSetting } from '@services/options';
+import {
+  fetchAllPrefixSettings,
+  createPrefixSetting,
+  updatePrefixSetting,
+  setPrefixSequenceLink,
+  fetchLeadNumberPreview,
+} from '@services/options';
 import { fetchCompanyOverview } from '@services/company';
 import { useOrgScope } from '@hooks/useOrgScope';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
+import { ToneChip } from '@app/modules/common/components/ui/chips';
 import {
   convertFiscalYearToYearFormat,
   convertFiscalYearToDates,
@@ -23,12 +52,15 @@ interface PerOrgPrefixSettingsProps {
 interface RowState {
   organizationId: string;
   organizationName: string;
-  /** Existing row's id; absent when this organization has nothing configured. */
   settingId?: string;
-  /** Prefix as saved, for dirty-checking. */
   savedPrefix: string;
-  /** Prefix currently in the input. */
   prefix: string;
+  sequenceSourceOrganizationId: string | null;
+}
+
+interface Series {
+  leader: RowState;
+  followers: RowState[];
 }
 
 const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, typeValue }) => {
@@ -37,7 +69,6 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
     initialScopeId: '',
   });
 
-  // Filter to only sub-organizations (exclude root/parent organization)
   const organizations = useMemo(
     () => allOrganizations.filter((org) => !org.isRoot),
     [allOrganizations],
@@ -45,10 +76,13 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
 
   const [rows, setRows] = useState<RowState[]>([]);
   const [fiscalYear, setFiscalYear] = useState('');
+  const [savedFiscalYear, setSavedFiscalYear] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [linkingOrgId, setLinkingOrgId] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [selectedOrgId, setSelectedOrgId] = useState('');
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [infoOpen, setInfoOpen] = useState(false);
 
   useEffect(() => {
     if (!organizations.length) return;
@@ -75,21 +109,18 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
             settingId: saved?.id,
             savedPrefix: saved?.prefix ?? '',
             prefix: saved?.prefix ?? '',
+            sequenceSourceOrganizationId: saved?.sequenceSourceOrganizationId ?? null,
           };
         });
         setRows(newRows);
-        if (newRows.length > 0 && !selectedOrgId) {
-          setSelectedOrgId(newRows[0].organizationId);
-        }
 
-        // Seed the shared year from whatever is already configured, falling back
-        // to the company's own fiscal year and then to the current one.
         const existingYear = settings.find((s) => s.year)?.year;
-        setFiscalYear(
+        const resolvedYear =
           existingYear ||
           companyResponse?.data?.companyOverview?.fiscalYear ||
-          getDefaultFiscalYear(),
-        );
+          getDefaultFiscalYear();
+        setFiscalYear(resolvedYear);
+        setSavedFiscalYear(existingYear || '');
       } catch {
         if (!cancelled) errorConfirmation(`Could not load ${typeLabel.toLowerCase()} prefix settings.`);
       } finally {
@@ -100,6 +131,30 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
     return () => { cancelled = true; };
   }, [organizations, typeValue, typeLabel, reloadToken]);
 
+  useEffect(() => {
+    if (typeValue !== 'LEAD') return;
+    const configured = rows.filter((r) => r.settingId);
+    if (!configured.length) return;
+    let cancelled = false;
+
+    (async () => {
+      const entries = await Promise.all(
+        configured.map(async (row) => {
+          try {
+            const res = await fetchLeadNumberPreview(row.organizationId);
+            return [row.organizationId, String(res?.data?.preview ?? '')] as const;
+          } catch {
+            return [row.organizationId, ''] as const;
+          }
+        }),
+      );
+      if (cancelled) return;
+      setPreviews(Object.fromEntries(entries.filter(([, v]) => v)));
+    })();
+
+    return () => { cancelled = true; };
+  }, [rows, typeValue]);
+
   const setPrefix = (organizationId: string, value: string) =>
     setRows((prev) =>
       prev.map((row) => (row.organizationId === organizationId ? { ...row, prefix: value } : row)),
@@ -107,20 +162,78 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
 
   const shortYear = convertFiscalYearToYearFormat(fiscalYear);
   const dirtyRows = rows.filter((row) => row.prefix.trim() !== row.savedPrefix);
+  const yearDirty = !!fiscalYear && fiscalYear !== savedFiscalYear;
+  const hasChanges = dirtyRows.length > 0 || yearDirty;
+  const dirtyCount = dirtyRows.length + (yearDirty ? 1 : 0);
 
-  // Two organizations on the same prefix would share one number series, so their
-  // numbers would collide. Flag it instead of letting it save.
+  const rowsToSave = yearDirty
+    ? rows.filter((row) => row.prefix.trim() || row.settingId)
+    : dirtyRows;
+  const rowFor = (organizationId: string | null | undefined) =>
+    organizationId ? rows.find((r) => r.organizationId === organizationId) : undefined;
+
+  // ── Series grouping ─────────────────────────────────────────────────────────
+  const series: Series[] = useMemo(() => {
+    const leaderIds = new Set(
+      rows.filter((r) => !r.sequenceSourceOrganizationId).map((r) => r.organizationId),
+    );
+    const isLeader = (r: RowState) =>
+      !r.sequenceSourceOrganizationId || !leaderIds.has(r.sequenceSourceOrganizationId);
+
+    return rows.filter(isLeader).map((leader) => ({
+      leader,
+      followers: rows.filter(
+        (r) => r.sequenceSourceOrganizationId === leader.organizationId && r.organizationId !== leader.organizationId,
+      ),
+    }));
+  }, [rows]);
+
+  const seriesIdOf = (row: RowState) => row.sequenceSourceOrganizationId || row.organizationId;
+
   const duplicatePrefixes = useMemo(() => {
-    const counts = new Map<string, number>();
+    const seriesByPrefix = new Map<string, Set<string>>();
     for (const row of rows) {
       const key = row.prefix.trim().toLowerCase();
-      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+      if (!key) continue;
+      if (!seriesByPrefix.has(key)) seriesByPrefix.set(key, new Set());
+      seriesByPrefix.get(key)!.add(seriesIdOf(row));
     }
-    return new Set([...counts.entries()].filter(([, n]) => n > 1).map(([key]) => key));
+    return new Set(
+      [...seriesByPrefix.entries()].filter(([, ids]) => ids.size > 1).map(([key]) => key),
+    );
   }, [rows]);
 
   const isDuplicate = (row: RowState) =>
     !!row.prefix.trim() && duplicatePrefixes.has(row.prefix.trim().toLowerCase());
+
+  const canLink = (row: RowState) =>
+    !!row.settingId && !rows.some((r) => r.sequenceSourceOrganizationId === row.organizationId);
+
+  const linkTargets = (row: RowState) =>
+    rows.filter(
+      (candidate) =>
+        candidate.organizationId !== row.organizationId &&
+        !!candidate.settingId &&
+        !candidate.sequenceSourceOrganizationId,
+    );
+
+  const changeLink = async (row: RowState, targetId: string | null) => {
+    if (!row.settingId) return;
+    setLinkingOrgId(row.organizationId);
+    try {
+      await setPrefixSequenceLink(row.settingId, targetId);
+      successConfirmation(
+        targetId
+          ? `${row.organizationName} now shares numbers with ${rowFor(targetId)?.organizationName ?? 'the selected organization'}.`
+          : `${row.organizationName} now numbers independently.`,
+      );
+      setReloadToken((n) => n + 1);
+    } catch (err: any) {
+      errorConfirmation(err?.response?.data?.message || 'Could not change the numbering link.');
+    } finally {
+      setLinkingOrgId(null);
+    }
+  };
 
   const handleSave = async () => {
     if (!fiscalYear) {
@@ -128,15 +241,15 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
       return;
     }
     if (duplicatePrefixes.size) {
-      errorConfirmation('Two organizations cannot share the same prefix.');
+      errorConfirmation(
+        'Two organizations on separate number series cannot share a prefix — their numbers would collide.',
+      );
       return;
     }
 
     setSaving(true);
     try {
-      // Each row is its own record; save them together so one click settles the
-      // whole screen rather than one organization at a time.
-      for (const row of dirtyRows) {
+      for (const row of rowsToSave) {
         const prefix = row.prefix.trim();
         if (!prefix) continue;
         if (row.settingId) {
@@ -150,7 +263,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
           });
         }
       }
-      successConfirmation('Prefix settings saved.');
+      successConfirmation('Prefix settings saved successfully.');
       setReloadToken((n) => n + 1);
     } catch {
       errorConfirmation('Could not save prefix settings.');
@@ -161,45 +274,81 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
 
   if (loading || orgsLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-        <CircularProgress size={24} />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4, gap: 1.5 }}>
+        <CircularProgress size={24} thickness={4} />
+        <Typography sx={{ fontSize: 13, color: 'text.secondary', fontWeight: 500 }}>
+          Loading {typeLabel.toLowerCase()} prefix settings...
+        </Typography>
       </Box>
     );
   }
 
-  const selectedRow = rows.find((r) => r.organizationId === selectedOrgId);
-  const prefix = selectedRow?.prefix.trim() || '';
-  const duplicate = selectedRow ? isDuplicate(selectedRow) : false;
+  const getNextNumberDisplay = (row: RowState) => {
+    const preview = previews[row.organizationId] || '';
+    let tail = '';
+    if (preview && row.savedPrefix && preview.startsWith(row.savedPrefix)) {
+      tail = preview.slice(row.savedPrefix.length);
+    } else if (shortYear) {
+      tail = `/${shortYear}/001`;
+    } else {
+      tail = '/26-27/001';
+    }
+
+    const currentPrefixText = row.prefix.trim();
+    return {
+      fullText: currentPrefixText ? `${currentPrefixText}${tail}` : `[PREFIX]${tail}`,
+      hasCustomPrefix: Boolean(currentPrefixText),
+    };
+  };
 
   return (
-    <Box>
-      {/* Single compact line with all controls */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
-        {/* Fiscal year label & field */}
-        <Box sx={{ minWidth: 160 }}>
-          <Typography sx={{ mb: 0.5, fontSize: 12, fontWeight: 500, color: 'text.secondary' }}>
-            Fiscal Year <Box component="span" sx={{ color: 'error.main' }}>*</Box>
+    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      {/* ── Compact Top Control Toolbar ── */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1.5,
+          py: 1,
+          px: 1.75,
+          backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc'),
+          border: '1px solid',
+          borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0'),
+          borderRadius: 2,
+        }}
+      >
+        {/* Left: Fiscal Year */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
+          <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
+            Fiscal Year:
           </Typography>
+
           <Box
             sx={{
+              width: 200,
               '& input': {
                 width: '100%',
-                height: 38,
+                height: 32,
                 padding: '0 10px',
                 borderRadius: '6px',
                 border: '1px solid',
-                borderColor: 'divider',
+                borderColor: yearDirty ? 'warning.main' : '#cbd5e1',
                 backgroundColor: 'background.paper',
                 color: 'text.primary',
-                fontSize: 13,
+                fontSize: 12.5,
+                fontWeight: 600,
                 fontFamily: 'inherit',
                 outline: 'none',
+                transition: 'all 0.15s ease',
+                '&:focus': { borderColor: 'primary.main' },
               },
             }}
           >
             <Flatpickr
               value={fiscalYear ? convertFiscalYearToDates(fiscalYear) : []}
-              placeholder="Select"
+              placeholder="Select Fiscal Year"
               onChange={(dates: Date[]) => {
                 if (dates.length === 2) {
                   setFiscalYear(`${toISODateString(dates[0])} to ${toISODateString(dates[1])}`);
@@ -208,105 +357,523 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
               options={{ dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', mode: 'range' }}
             />
           </Box>
+
+          {shortYear && (
+            <ToneChip
+              tone="brand"
+              label={`/${shortYear}/...`}
+              dense
+            />
+          )}
+
+          <Tooltip title="How numbering series work">
+            <IconButton
+              size="small"
+              onClick={() => setInfoOpen(true)}
+              sx={{ color: 'primary.main', p: 0.5 }}
+            >
+              <InfoOutlinedIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
         </Box>
 
-        {/* Organization dropdown */}
-        {rows.length > 0 && (
-          <Box sx={{ minWidth: 200 }}>
-            <Typography sx={{ mb: 0.5, fontSize: 12, fontWeight: 500, color: 'text.secondary' }}>
-              Organization
-            </Typography>
-            <Select
-              size="small"
-              value={selectedOrgId}
-              onChange={(e) => setSelectedOrgId(e.target.value)}
-              sx={{ width: '100%', height: 38, '& .MuiOutlinedInput-root': { height: 38 } }}
-            >
-              {rows.map((row) => (
-                <MenuItem key={row.organizationId} value={row.organizationId}>
-                  {row.organizationName}
-                </MenuItem>
-              ))}
-            </Select>
-          </Box>
-        )}
-
-        {/* Prefix input */}
-        {selectedRow && (
-          <Box sx={{ minWidth: 180 }}>
-            <Typography sx={{ mb: 0.5, fontSize: 12, fontWeight: 500, color: 'text.secondary' }}>
-              Prefix
-            </Typography>
-            <TextField
-              size="small"
-              fullWidth
-              value={selectedRow.prefix}
-              onChange={(e) => setPrefix(selectedRow.organizationId, e.target.value)}
-              placeholder="Prefix"
-              inputProps={{ maxLength: 20 }}
-              error={duplicate}
-              sx={{ height: 38, '& .MuiOutlinedInput-root': { height: 38 } }}
+        {/* Right: Status & Save Action */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          {hasChanges ? (
+            <ToneChip
+              tone="warning"
+              label={`${dirtyCount} unsaved`}
+              dense
             />
-          </Box>
-        )}
+          ) : (
+            <ToneChip
+              tone="success"
+              label="All saved"
+              dense
+            />
+          )}
 
-        {/* Preview */}
-        {selectedRow && (
-          <Box sx={{ minWidth: 160 }}>
-            <Typography sx={{ mb: 0.5, fontSize: 12, fontWeight: 500, color: 'text.secondary' }}>
-              Preview
-            </Typography>
-            <Box sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary', height: 38, display: 'flex', alignItems: 'center', px: 1.25, border: '1px solid', borderColor: 'divider', borderRadius: '6px', bgcolor: 'action.hover' }}>
-              {prefix ? (
-                <>
-                  {shortYear ? `${prefix}/${shortYear}/001` : `${prefix}/001`}
-                  {selectedRow.prefix.trim() !== selectedRow.savedPrefix && (
-                    <Box component="span" sx={{ ml: 1, fontSize: 11, color: 'warning.main', fontWeight: 400 }}>
-                      (unsaved)
-                    </Box>
-                  )}
-                </>
-              ) : (
-                <Box component="span" sx={{ fontSize: 12, fontStyle: 'italic', color: 'text.disabled', fontWeight: 400 }}>
-                  —
-                </Box>
-              )}
-            </Box>
-          </Box>
-        )}
-
-        {/* Save button */}
-        <Button
-          variant="contained"
-          size="small"
-          onClick={handleSave}
-          disabled={saving || !dirtyRows.length || !!duplicatePrefixes.size}
-          sx={{ mt: 2.3 }}
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            size="small"
+            onClick={handleSave}
+            disabled={saving || !hasChanges || !!duplicatePrefixes.size}
+            startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <SaveRoundedIcon sx={{ fontSize: 16 }} />}
+            sx={{
+              height: 32,
+              px: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: 12.5,
+              borderRadius: 1.5,
+            }}
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </Box>
       </Box>
 
-      {/* Info and errors below */}
-      <Box sx={{ display: 'flex', gap: 3, mt: 1, fontSize: 12 }}>
-        {shortYear && (
-          <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-            Numbers will read <strong>{shortYear}</strong>
+      {/* ── Duplicate Prefix Warning Banner ── */}
+      {duplicatePrefixes.size > 0 && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            py: 1,
+            px: 1.5,
+            backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(239, 68, 68, 0.15)' : '#fff1f2'),
+            border: '1px solid',
+            borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(239, 68, 68, 0.3)' : '#fecdd3'),
+            borderRadius: 1.5,
+            color: 'error.main',
+          }}
+        >
+          <WarningAmberRoundedIcon sx={{ color: 'error.main', fontSize: 18, flexShrink: 0 }} />
+          <Typography sx={{ fontSize: 12, fontWeight: 500 }}>
+            Duplicate Prefix: Multiple independent series share the same prefix. Please link them or use unique prefixes.
           </Typography>
-        )}
-        {duplicate && (
-          <Typography sx={{ fontSize: 12, color: 'error.main' }}>
-            Already used by another organization
+        </Box>
+      )}
+
+      {/* ── Organization Configuration Table ── */}
+      <Box
+        sx={{
+          border: '1px solid',
+          borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0'),
+          borderRadius: 2,
+          backgroundColor: 'background.paper',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Table Column Header */}
+        <Box
+          sx={{
+            display: { xs: 'none', md: 'grid' },
+            gridTemplateColumns: 'minmax(220px, 1fr) 140px 180px 160px',
+            alignItems: 'center',
+            gap: 1.5,
+            px: 2,
+            py: 1,
+            backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc'),
+            borderBottom: '1px solid',
+            borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0'),
+          }}
+        >
+          <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'text.secondary', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            Organization
           </Typography>
-        )}
-        {selectedRow && !selectedRow.savedPrefix && (
-          <Typography sx={{ fontSize: 12, color: 'warning.dark' }}>
-            Not configured yet
+          <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'text.secondary', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            Prefix Code
           </Typography>
+          <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'text.secondary', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            Next Lead ID Sample
+          </Typography>
+          <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'text.secondary', letterSpacing: 0.5, textTransform: 'uppercase', textAlign: 'right' }}>
+            Series & Actions
+          </Typography>
+        </Box>
+
+        {/* Series Rows */}
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          {series.map(({ leader, followers }, index) => {
+            const isSharedSeries = followers.length > 0;
+
+            return (
+              <Box
+                key={leader.organizationId}
+                sx={{
+                  borderBottom: index < series.length - 1 ? '1px solid' : 'none',
+                  borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
+                  backgroundColor: isSharedSeries
+                    ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.06)' : 'rgba(37, 99, 235, 0.02)')
+                    : 'transparent',
+                }}
+              >
+                {/* Leader Row */}
+                <OrgRowItem
+                  row={leader}
+                  role="leader"
+                  isSharedSeries={isSharedSeries}
+                  followerCount={followers.length}
+                  leaderName={leader.organizationName}
+                  isDuplicate={isDuplicate(leader)}
+                  busy={linkingOrgId === leader.organizationId}
+                  canLink={canLink(leader)}
+                  linkTargets={linkTargets(leader)}
+                  onPrefixChange={(val) => setPrefix(leader.organizationId, val)}
+                  onChangeLink={(targetId) => changeLink(leader, targetId)}
+                  displayData={getNextNumberDisplay(leader)}
+                />
+
+                {/* Follower Rows */}
+                {followers.map((follower) => (
+                  <OrgRowItem
+                    key={follower.organizationId}
+                    row={follower}
+                    role="follower"
+                    isSharedSeries={true}
+                    followerCount={0}
+                    leaderName={leader.organizationName}
+                    isDuplicate={isDuplicate(follower)}
+                    busy={linkingOrgId === follower.organizationId}
+                    canLink={false}
+                    linkTargets={[]}
+                    onPrefixChange={(val) => setPrefix(follower.organizationId, val)}
+                    onChangeLink={(targetId) => changeLink(follower, targetId)}
+                    displayData={getNextNumberDisplay(follower)}
+                  />
+                ))}
+              </Box>
+            );
+          })}
+
+          {!series.length && (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+                No organizations found.
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      </Box>
+
+      {/* ── Info Dialog Modal (Opened via i button) ── */}
+      <Dialog
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2.5,
+            p: 1,
+            backgroundColor: 'background.paper',
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <InfoOutlinedIcon sx={{ color: 'primary.main', fontSize: 22 }} />
+            <Typography sx={{ fontSize: 16, fontWeight: 700, color: 'text.primary' }}>
+              How Lead Auto-Numbering Works
+            </Typography>
+          </Box>
+          <IconButton size="small" onClick={() => setInfoOpen(false)}>
+            <CloseRoundedIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <Box sx={{ p: 1.5, borderRadius: 2, backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc'), border: '1px solid', borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0') }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Box component="span" sx={{ color: 'primary.main', fontWeight: 700 }}>#</Box> Prefix Code
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.5 }}>
+              Each company configures its own alphanumeric prefix (e.g. <code>WT/OFFER</code>). New leads generated in that company prepend this code.
+            </Typography>
+          </Box>
+
+          <Box sx={{ p: 1.5, borderRadius: 2, backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc'), border: '1px solid', borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0') }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <HubRoundedIcon sx={{ fontSize: 16, color: 'success.main' }} /> Shared Numbering Series
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.5 }}>
+              Linking sister organizations enables them to draw from the <strong>same sequential number counter</strong> while retaining their distinct prefix codes, preventing duplicated lead numbers.
+            </Typography>
+          </Box>
+
+          <Box sx={{ p: 1.5, borderRadius: 2, backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc'), border: '1px solid', borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0') }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <CalendarMonthRoundedIcon sx={{ fontSize: 16, color: 'warning.main' }} /> Fiscal Year Suffix
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.5 }}>
+              When the active fiscal year changes, all organizations automatically synchronize their year suffix code (e.g. <code>/26-27/</code>).
+            </Typography>
+          </Box>
+
+          <Box sx={{ p: 1.5, borderRadius: 2, backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.1)' : '#eff6ff'), border: '1px solid', borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.25)' : '#bfdbfe') }}>
+            <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: 'primary.main', mb: 0.5 }}>
+              Sample Lead ID Breakdown:
+            </Typography>
+            <Typography sx={{ fontFamily: 'monospace', fontSize: 12.5, fontWeight: 700, color: 'text.primary' }}>
+              WT/OFFER <span style={{ opacity: 0.5 }}>+</span> /26-27/ <span style={{ opacity: 0.5 }}>+</span> 129 <span style={{ opacity: 0.5 }}>→</span> WT/OFFER/26-27/129
+            </Typography>
+          </Box>
+        </DialogContent>
+      </Dialog>
+    </Box>
+  );
+};
+
+// ── Compact Single Organization Row ─────────────────────────────────────────
+interface OrgRowItemProps {
+  row: RowState;
+  role: 'leader' | 'follower';
+  isSharedSeries: boolean;
+  followerCount: number;
+  leaderName: string;
+  isDuplicate: boolean;
+  busy: boolean;
+  canLink: boolean;
+  linkTargets: RowState[];
+  onPrefixChange: (val: string) => void;
+  onChangeLink: (targetId: string | null) => void;
+  displayData: {
+    fullText: string;
+    hasCustomPrefix: boolean;
+  };
+}
+
+const OrgRowItem: React.FC<OrgRowItemProps> = ({
+  row,
+  role,
+  isSharedSeries,
+  followerCount,
+  leaderName,
+  isDuplicate,
+  busy,
+  canLink,
+  linkTargets,
+  onPrefixChange,
+  onChangeLink,
+  displayData,
+}) => {
+  const isDirty = row.prefix.trim() !== row.savedPrefix;
+
+  return (
+    <Box
+      sx={{
+        display: { xs: 'flex', md: 'grid' },
+        flexDirection: { xs: 'column', md: 'unset' },
+        gridTemplateColumns: 'minmax(220px, 1fr) 140px 180px 160px',
+        alignItems: { xs: 'flex-start', md: 'center' },
+        gap: { xs: 1, md: 1.5 },
+        px: 2,
+        py: 1.25,
+        transition: 'background-color 0.12s ease',
+        '&:hover': {
+          backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc'),
+        },
+        borderLeft: isSharedSeries ? '3px solid' : '3px solid transparent',
+        borderLeftColor: isSharedSeries ? 'primary.main' : 'transparent',
+      }}
+    >
+      {/* 1. Organization Column */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          pl: role === 'follower' ? { xs: 1.5, md: 2 } : 0,
+          minWidth: 0,
+        }}
+      >
+        {role === 'follower' ? (
+          <SubdirectoryArrowRightRoundedIcon
+            sx={{ fontSize: 16, color: 'primary.main', flexShrink: 0 }}
+          />
+        ) : (
+          <Box
+            sx={{
+              width: 26,
+              height: 26,
+              borderRadius: 1.25,
+              backgroundColor: isSharedSeries
+                ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#eff6ff')
+                : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9'),
+              color: isSharedSeries ? 'primary.main' : 'text.secondary',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 700,
+              fontSize: 10.5,
+              flexShrink: 0,
+            }}
+          >
+            {row.organizationName.substring(0, 2).toUpperCase()}
+          </Box>
         )}
-        {!!dirtyRows.length && !saving && (
-          <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-            {dirtyRows.length} unsaved
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flexWrap: 'wrap' }}>
+          <Typography
+            sx={{
+              fontSize: 13,
+              fontWeight: role === 'leader' ? 600 : 500,
+              color: 'text.primary',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+            title={role === 'follower' ? `${row.organizationName} (shares with ${leaderName})` : row.organizationName}
+          >
+            {row.organizationName}
+          </Typography>
+
+          {role === 'leader' && isSharedSeries && (
+            <ToneChip
+              tone="brand"
+              label={`Series Owner (${followerCount + 1})`}
+              dense
+            />
+          )}
+
+          {role === 'follower' && (
+            <ToneChip
+              tone="cyan"
+              label="Linked"
+              dense
+            />
+          )}
+        </Box>
+      </Box>
+
+      {/* 2. Prefix Input Column */}
+      <Box sx={{ width: '100%', maxWidth: 125, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Tooltip title={isDuplicate ? 'Duplicate prefix in separate series.' : ''}>
+          <TextField
+            size="small"
+            value={row.prefix}
+            onChange={(e) => onPrefixChange(e.target.value)}
+            placeholder="WT/OFFER"
+            inputProps={{ maxLength: 20, 'aria-label': `${row.organizationName} prefix` }}
+            error={isDuplicate}
+            fullWidth
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                height: 30,
+                fontSize: 12,
+                fontWeight: 600,
+                backgroundColor: 'background.paper',
+                borderRadius: 1.5,
+                borderColor: isDirty ? 'warning.main' : '#cbd5e1',
+                '& fieldset': {
+                  borderColor: isDirty ? 'warning.main' : '#cbd5e1',
+                },
+              },
+              '& .MuiOutlinedInput-input': {
+                fontFamily: 'monospace',
+                fontSize: 12,
+                fontWeight: 600,
+                py: 0,
+                px: 1,
+              },
+            }}
+          />
+        </Tooltip>
+        {isDirty && (
+          <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'warning.main', flexShrink: 0 }} />
+        )}
+      </Box>
+
+      {/* 3. Next Lead ID Sample Column */}
+      <Box sx={{ width: '100%', display: 'flex', alignItems: 'center' }}>
+        <Box
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            px: 1,
+            py: 0.35,
+            borderRadius: 1.25,
+            backgroundColor: displayData.hasCustomPrefix
+              ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#f1f5f9')
+              : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc'),
+            border: '1px solid',
+            borderColor: displayData.hasCustomPrefix
+              ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.3)' : '#e2e8f0')
+              : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9'),
+            maxWidth: '100%',
+          }}
+        >
+          <Typography
+            sx={{
+              fontFamily: 'monospace',
+              fontSize: 12,
+              fontWeight: 700,
+              color: displayData.hasCustomPrefix ? 'text.primary' : 'text.disabled',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {displayData.fullText}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* 4. Numbering Series & Linking Actions Column */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: { xs: 'flex-start', md: 'flex-end' },
+          gap: 1,
+          width: '100%',
+        }}
+      >
+        {busy ? (
+          <CircularProgress size={16} />
+        ) : role === 'follower' ? (
+          <Tooltip title={`Give ${row.organizationName} its own independent number series.`}>
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              startIcon={<LinkOffRoundedIcon sx={{ fontSize: 14 }} />}
+              onClick={() => onChangeLink(null)}
+              sx={{
+                fontSize: 11.5,
+                fontWeight: 600,
+                textTransform: 'none',
+                height: 28,
+                borderRadius: 1.25,
+                px: 1,
+                py: 0,
+                backgroundColor: 'background.paper',
+                borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(239, 68, 68, 0.4)' : '#fecaca'),
+                '&:hover': {
+                  borderColor: 'error.main',
+                  backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2'),
+                },
+              }}
+            >
+              Stop sharing
+            </Button>
+          </Tooltip>
+        ) : !isSharedSeries && canLink && linkTargets.length > 0 ? (
+          <Select
+            size="small"
+            displayEmpty
+            value=""
+            disabled={!row.settingId}
+            onChange={(e) => onChangeLink(String(e.target.value) || null)}
+            renderValue={() => (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: 11.5, fontWeight: 600, color: 'primary.main' }}>
+                <LinkRoundedIcon sx={{ fontSize: 14 }} />
+                Share with...
+              </Box>
+            )}
+            sx={{
+              height: 28,
+              borderRadius: 1.25,
+              backgroundColor: 'background.paper',
+              fontSize: 11.5,
+              fontWeight: 600,
+              color: 'primary.main',
+              borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.4)' : '#bfdbfe'),
+              '& .MuiSelect-select': { py: '4px', px: '8px' },
+            }}
+          >
+            {linkTargets.map((target) => (
+              <MenuItem key={target.organizationId} value={target.organizationId} sx={{ fontSize: 12 }}>
+                Link to {target.organizationName}
+              </MenuItem>
+            ))}
+          </Select>
+        ) : (
+          <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontStyle: 'italic' }}>
+            {isSharedSeries ? 'Master counter' : 'Independent'}
           </Typography>
         )}
       </Box>
