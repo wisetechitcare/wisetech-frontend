@@ -118,7 +118,7 @@ Two rules the implementation settled:
 |---|----------|----------------------|
 | 1 | ~~What marks a meeting `COMPLETED`?~~ | **Settled:** derived from the end time at read. No stored flag, no cron. |
 | 2 | ~~Where is time logged?~~ | **Settled:** a "Log time" action on the meeting row, in both the table and the day modal. The form opens pre-filled with the meeting's scheduled length, so the ordinary case is one button. |
-| 3 | ~~Who may edit?~~ | **Settled:** organizer only, enforced server-side. |
+| 3 | ~~Who may edit?~~ | **Settled:** the organizer, or a manager of the meeting's project — enforced server-side by `canManageMeeting`. Organizer-only stranded meetings whose organizer was away. A meeting with no project stays organizer-only, because there is no manager to appeal to. |
 | 4 | ~~Does cancelling need a reason?~~ | **Settled:** optional free text, prompted on cancel. |
 | 5 | ~~Finished meeting, no timesheets yet~~ | **Settled:** "Awaiting timesheets", not ₹0 — an amber tag on the meeting, a count on the cost card, and a line under it saying those meetings are not in the total. |
 
@@ -153,6 +153,51 @@ Daily at 19:00 IST, bounded to meetings that ended in the last 30 days. A remind
 mid-afternoon competes with the work it is asking you to account for, and a meeting nobody
 logged two months ago will not be logged because of a notification — asking forever is how
 people learn to dismiss this app's notices unread.
+
+---
+
+## 8. Reminders BEFORE the meeting — DONE
+
+Google-style "remind me 10 minutes before", as an in-app notification.
+
+**Per person, not per meeting.** The organizer who needs twenty minutes to prepare and the
+attendee who needs to walk down a corridor are both right, and one shared setting makes one of
+them wrong. One row is one person's one offset (`meeting_reminders`, unique on
+meeting + person + minutes), so everyone on a meeting sets their own and nobody can change
+anybody else's. Anyone ON the meeting may set one — unlike edit and cancel, a reminder is the
+reader's own setting, not a change to the meeting, so it is not the organizer's to gate.
+
+**A sweep each minute, not a scheduled job.** A delayed BullMQ job would be a SECOND copy of
+when the meeting is, and this app lets people drag meetings to another day, cancel them, and
+change who is on them — so every one of those actions would have to find and rewrite its
+pending jobs, and a Redis flush would silently lose reminders that no longer exist anywhere
+else. Reading the table each minute has nothing to keep in step: a moved meeting is simply read
+at its new time, and a cancelled one stops matching. The cost is up to a minute of jitter on a
+ten-minute warning, which nobody can perceive.
+
+**It cannot fire twice.** `sent_at` on the row is both the marker and the definition of the
+reminder, and it is stamped BEFORE the notification goes out. A reminder sent twice is worse
+than one missed — the first is somebody's phone buzzing repeatedly about a meeting they already
+know about, and delivery is the part most likely to fail. For the same reason an already-sent
+reminder cannot be un-ticked: removing it would let it re-arm and buzz again.
+
+**A reminder that came due while the server was down is dropped, not fired late.** "Starts in
+10 minutes" about a meeting that ended an hour ago is worse than silence.
+
+Verified against the live database: offsets are per person, a non-participant is refused, the
+sweep sends only what is due, re-running it sends nothing, and a cancelled meeting reminds
+nobody.
+
+---
+
+## 9. Meetings are loggable in the timesheet — DONE
+
+The timesheet asked "which task?" first, so a meeting was unfileable: an hour spent in one
+simply went unrecorded, and the project's cost was short by exactly the meetings nobody could
+enter — which is the same number §3 depends on. The task picker now offers tasks AND finished
+meetings in one field, grouped so the two are not mistaken for each other, and a meeting
+pre-fills its own start, end and length because the ordinary case is confirming rather than
+typing.
 
 ---
 

@@ -614,7 +614,8 @@ const DayDetail: React.FC<{
     onEdit?: (meeting: MeetingRow) => void;
     onCancel?: (meeting: { id: string; cancelled: boolean }) => void;
     onLogTime?: (meeting: MeetingRow) => void;
-}> = ({ dayKeyValue, halves, open, onClose, timeRange, modeCell, onDelete, onEdit, onCancel, onLogTime }) => {
+    onRemind?: (meeting: MeetingRow) => void;
+}> = ({ dayKeyValue, halves, open, onClose, timeRange, modeCell, onDelete, onEdit, onCancel, onLogTime, onRemind }) => {
     const openProject = useOpenProject();
     const total = halves.am.length + halves.pm.length;
     const summary = !total
@@ -703,6 +704,16 @@ const DayDetail: React.FC<{
                                 happened to be in — and the day modal is the view people are in
                                 when they want them. */}
                             <div style={{ display: 'flex', gap: 2, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                                {onRemind && !isHeld(m) && !isCancelled(m) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onRemind(m)}
+                                        title="Remind me before this meeting"
+                                        style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#1E3A8A' }}
+                                    >
+                                        <AppIcon name="bi-bell" className="fs-5" />
+                                    </button>
+                                )}
                                 {onLogTime && isHeld(m) && !isCancelled(m) && (
                                     <button
                                         type="button"
@@ -786,11 +797,18 @@ export interface MeetingsListProps {
      * their time is what the meeting cost.
      */
     onLogTime?: (meeting: MeetingRow) => void;
+    /**
+     * Offers "remind me" on a meeting still to come.
+     *
+     * Open to ANYONE on the meeting, unlike edit and cancel: a reminder is the reader's own
+     * setting, not a change to the meeting, so it is not the organizer's to gate.
+     */
+    onRemind?: (meeting: MeetingRow) => void;
     /** Bump to refetch after the parent creates or deletes a meeting. */
     reloadToken?: number;
 }
 
-const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, onDelete, onCancel, onEdit, onReschedule, onLogTime, reloadToken }) => {
+const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, onDelete, onCancel, onEdit, onReschedule, onLogTime, onRemind, reloadToken }) => {
     const [meetings, setMeetings] = useState<MeetingRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [layout, setLayout] = useState<'month' | 'table'>('month');
@@ -1019,7 +1037,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             header: 'External Participants',
             Cell: ({ row }: any) => namesCell((row.original as MeetingRow).externalParticipantNames),
         },
-        ...(onDelete || onCancel || onEdit || onLogTime ? [{
+        ...(onDelete || onCancel || onEdit || onLogTime || onRemind ? [{
             id: 'actions',
             header: 'Actions',
             enableSorting: false,
@@ -1027,6 +1045,16 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                 const m = row.original as MeetingRow;
                 return (
                     <div style={{ display: 'flex', gap: 4 }}>
+                        {onRemind && !isHeld(m) && !isCancelled(m) && (
+                            <button
+                                type="button"
+                                onClick={() => onRemind(m)}
+                                title="Remind me before this meeting"
+                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#1E3A8A' }}
+                            >
+                                <AppIcon name="bi-bell" className="fs-5" />
+                            </button>
+                        )}
                         {onLogTime && isHeld(m) && !isCancelled(m) && (
                             <button
                                 type="button"
@@ -1072,7 +1100,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             },
         } as MRT_ColumnDef<MeetingRow>] : []),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [onDelete, onCancel, onEdit, onLogTime, mode, openProject]);
+    ], [onDelete, onCancel, onEdit, onLogTime, onRemind, mode, openProject]);
 
     const pickedList = byDay.get(picked) ?? [];
     const pickedHalves = splitHalves(pickedList, dayjs(picked));
@@ -1341,6 +1369,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                         onDelete={onDelete}
                         onCancel={onCancel}
                         onLogTime={onLogTime ? (m) => { setDayOpen(false); onLogTime(m); } : undefined}
+                        onRemind={onRemind ? (m) => { setDayOpen(false); onRemind(m); } : undefined}
                         onEdit={onEdit ? (m) => { setDayOpen(false); onEdit(m); } : undefined}
                     />
 

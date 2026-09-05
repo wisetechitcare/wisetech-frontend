@@ -6,6 +6,7 @@ import { RootState } from '@redux/store';
 import MeetingsList, { toEditableMeeting } from '@app/modules/common/components/MeetingsList';
 import MeetingDialog from '@app/pages/employee/MeetingDialog';
 import LogMeetingTimeDialog from '@app/pages/employee/LogMeetingTimeDialog';
+import MeetingRemindersDialog from '@app/pages/employee/MeetingRemindersDialog';
 import { setMeetingCancelled, updateMeeting } from '@services/employee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { apiErrorMessage } from '@app/pages/employee/tasks/taskDomain';
@@ -28,6 +29,7 @@ const ProjectMeetings: React.FC<{ leadId: string }> = ({ leadId }) => {
     const [editing, setEditing] = useState<ReturnType<typeof toEditableMeeting> | null>(null);
     const [open, setOpen] = useState(false);
     const [logging, setLogging] = useState<any>(null);
+    const [reminding, setReminding] = useState<any>(null);
 
     const reload = () => setReloadToken((n) => n + 1);
 
@@ -95,6 +97,7 @@ const ProjectMeetings: React.FC<{ leadId: string }> = ({ leadId }) => {
                 onCancel={handleCancel}
                 onReschedule={handleReschedule}
                 onLogTime={(m) => setLogging(m)}
+                onRemind={(m) => setReminding(m)}
             />
 
             <LogMeetingTimeDialog
@@ -103,6 +106,13 @@ const ProjectMeetings: React.FC<{ leadId: string }> = ({ leadId }) => {
                 employeeId={currentEmployeeId}
                 onClose={() => setLogging(null)}
                 onSaved={() => { setLogging(null); reload(); }}
+            />
+
+            <MeetingRemindersDialog
+                open={!!reminding}
+                meeting={reminding}
+                employeeId={currentEmployeeId}
+                onClose={() => setReminding(null)}
             />
 
             {/* Keyed on the meeting so opening a second one refills rather than showing the

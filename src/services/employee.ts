@@ -204,6 +204,28 @@ export const getMeetings = async (employeeId: string) => {
     }
 };
 
+/** MY reminders on a meeting. Reminders are per person — this only ever answers for me. */
+export const getMyMeetingReminders = async (meetingId: string, employeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/reminders?meetingId=${meetingId}&employeeId=${employeeId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Replace MY reminders on a meeting. An empty array turns them off. */
+export const setMyMeetingReminders = async (meetingId: string, employeeId: string, minutes: number[]) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/reminders`;
+        const response = await axios.put(endpoint, { meetingId, employeeId, minutes });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 /** Log the time you spent in a meeting. One entry per person per meeting; re-logging edits. */
 export const logMeetingTime = async (
     meetingId: string, employeeId: string, minutes: number, description?: string, billable?: boolean,

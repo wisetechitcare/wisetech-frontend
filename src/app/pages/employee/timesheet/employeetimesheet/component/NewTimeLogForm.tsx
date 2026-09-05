@@ -10,6 +10,7 @@ import {
 } from "@app/modules/common/components/ui";
 import { RootState } from "@redux/store";
 import { createTimeSheet, getAllTasks, updateTask } from "@services/tasks";
+import { getMeetingsByEmployee } from "@services/employee";
 import { successConfirmation } from "@utils/modal";
 import { Formik, Form as FormikForm, Field, FieldArray, useFormikContext } from "formik";
 import { useState, useEffect } from "react";
@@ -27,6 +28,7 @@ dayjs.extend(duration);
 interface NewTimeLogForm {
   projectId: string;
   taskId?: string;
+  meetingId?: string;
   employeeId: string;
   startTime: Date | string;
   endTime?: Date | string;
@@ -127,7 +129,14 @@ function LogTimeAutoCalc({ editTimeSheetData }: { editTimeSheetData: any }) {
 const validationSchema = Yup.object()
   .shape({
     projectId: Yup.string().required("Project is required"),
-    taskId: Yup.string().required("Task is required"),
+    // A log belongs to a task OR a meeting — an hour was spent on one thing. Requiring `taskId`
+    // outright made a meeting impossible to file at all.
+    taskId: Yup.string().when("meetingId", {
+      is: (m: string) => !m,
+      then: (sch) => sch.required("Pick the task or meeting this time was spent on"),
+      otherwise: (sch) => sch.optional(),
+    }),
+    meetingId: Yup.string().optional(),
     startTime: Yup.string().trim().required("Start time is required"),
     // Required, because the field is labelled required and an entry is a BLOCK of work. An
     // entry with no end is a RUNNING timer, and those are only ever created by the timer.
@@ -189,6 +198,10 @@ const NewTimeLogForm = ({
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
+  // Meetings this person was on that have already happened. Upcoming ones are excluded: there
+  // is no time yet to account for, and offering them invites logging against a meeting that
+  // has not occurred.
+  const [meetings, setMeetings] = useState<any[]>([]);
   const [editTimeSheetData, setEditTimeSheetData] = useState<any>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
@@ -196,7 +209,13 @@ const NewTimeLogForm = ({
     const fetchProjectsAndTasks = async () => {
       setLoading(true);
       setIsDataLoaded(false);
-      const tasksData = await getAllTasks();
+      const [tasksData, meetingsData] = await Promise.all([
+        getAllTasks(),
+        getMeetingsByEmployee(employeeId).catch(() => null),
+      ]);
+      const myMeetings = ((meetingsData?.data || []) as any[])
+        .filter((m) => m?.lifecycle === 'COMPLETED');
+      setMeetings(myMeetings);
       // ONLY tasks this person is on — owner or shared with. Time is logged by the people doing
       // the work, so a task they are not on is one the API will refuse anyway; offering it would
       // just move the refusal to after they had filled the form in.
@@ -218,6 +237,13 @@ const NewTimeLogForm = ({
         const lead = t?.lead;
         if (lead?.id && !byProject.has(lead.id)) {
           byProject.set(lead.id, { id: lead.id, title: lead.title || 'Untitled project' });
+        }
+      }
+      // ...and the projects of the meetings they were in, for the same reason: a person whose
+      // week was meetings and no tasks had an empty project picker and no way to file any of it.
+      for (const m of myMeetings) {
+        if (m?.projectId && m?.projectName && !byProject.has(m.projectId)) {
+          byProject.set(m.projectId, { id: m.projectId, title: m.projectName });
         }
       }
       setProjects([...byProject.values()] as any);
@@ -302,6 +328,7 @@ const NewTimeLogForm = ({
   const initialValues: NewTimeLogForm = {
     projectId: editTimeSheetData?.projectId || prefilledProjectId || "",
     taskId: editTimeSheetData?.taskId || prefilledTaskId || "",
+    meetingId: editTimeSheetData?.meetingId || "",
     employeeId: editTimeSheetData?.employeeId || "",
     // EMPTY, not `new Date()`. Seeding "now" made both fields permanently truthy, so
     // `required()` could never fail: the form showed an empty hh:mm, refused nothing, and
@@ -416,6 +443,39 @@ const NewTimeLogForm = ({
   };
 
   /** The project a chosen task belongs to — a task is never on two projects. */
+  /**
+   * One picker, two kinds of thing.
+   *
+   * A day is tasks AND meetings, and asking "which task?" first made meetings unfileable —
+   * so an hour in a meeting simply went unrecorded, and the project's cost was short by
+   * exactly the meetings nobody could enter. A second dedicated field would have meant two
+   * required questions where only one of them ever applies.
+   *
+   * Grouped rather than merged: "Meetings" and "Tasks" are different enough that a flat list
+   * of both would make people read every row to work out which is which.
+   */
+  const logTargets = [
+    ...(tasks || []).map((t: any) => ({
+      kind: 'task' as const,
+      id: t?.id,
+      label: t?.taskName || 'Untitled task',
+      projectId: t?.leadId || t?.lead?.id || t?.projectId || '',
+      group: 'Tasks',
+      minutes: 0,
+    })),
+    ...(meetings || []).map((m: any) => ({
+      kind: 'meeting' as const,
+      id: m?.id,
+      label: m?.title || 'Untitled meeting',
+      projectId: m?.projectId || '',
+      group: 'Meetings',
+      // Pre-fills the log with the meeting's own length — the answer for most attendees.
+      minutes: Math.max(0, dayjs(m?.endDate).diff(dayjs(m?.startDate), 'minute')),
+      startDate: m?.startDate,
+      endDate: m?.endDate,
+    })),
+  ];
+
   const projectOfTask = (taskId?: string) => {
     const task: any = (tasks || []).find((t: any) => t?.id === taskId);
     return task?.leadId || task?.lead?.id || task?.projectId || "";
@@ -433,7 +493,7 @@ const NewTimeLogForm = ({
           subtitle={
             timeSheetId
               ? "Correct the hours, say what was done, and attach what it produced"
-              : "Log time against a task — the project follows from it"
+              : "Log time against a task or a meeting — the project follows from it"
           }
           icon={<KTIcon iconName="time" className="fs-1" />}
           onClose={() => onClose()}
@@ -481,20 +541,33 @@ const NewTimeLogForm = ({
                       narrows the tasks to that project's own. */}
                   <Box sx={{ mb: 2 }}>
                     <Autocomplete
-                      options={(tasks || []).filter((t: any) =>
-                        !values.projectId || projectOfTask(t?.id) === values.projectId
+                      options={logTargets.filter((o) =>
+                        !values.projectId || o.projectId === values.projectId
                       )}
-                      value={(tasks || []).find((t: any) => t?.id === values.taskId) || null}
-                      onChange={(_, task: any) => {
-                        setFieldValue("taskId", task?.id || "");
-                        // Derived, not typed: the project is a property of the task.
-                        if (task) setFieldValue("projectId", projectOfTask(task.id));
-                        // ...and so is its progress. The slider must open where the TASK is,
-                        // never at whatever the previously selected task happened to be.
-                        setFieldValue("taskProgress", seededProgressFor(task?.id));
+                      groupBy={(o: any) => o.group}
+                      value={logTargets.find((o) =>
+                        (o.kind === 'task' && o.id === values.taskId)
+                        || (o.kind === 'meeting' && o.id === values.meetingId)) || null}
+                      onChange={(_, picked: any) => {
+                        // One or the other, never both: an hour was spent on one thing.
+                        setFieldValue("taskId", picked?.kind === 'task' ? picked.id : "");
+                        setFieldValue("meetingId", picked?.kind === 'meeting' ? picked.id : "");
+                        // Derived, not typed: the project is a property of whatever was picked.
+                        if (picked) setFieldValue("projectId", picked.projectId);
+                        // Progress belongs to a TASK. A meeting has none, so the slider is
+                        // reset rather than left showing the last task's figure.
+                        setFieldValue("taskProgress", picked?.kind === 'task' ? seededProgressFor(picked.id) : 0);
+                        // A meeting knows when it was and how long it ran, so the entry opens
+                        // filled in — the ordinary case is confirming, not typing.
+                        if (picked?.kind === 'meeting') {
+                          setFieldValue("startTime", dayjs(picked.startDate).format("HH:mm"));
+                          setFieldValue("endTime", dayjs(picked.endDate).format("HH:mm"));
+                          setFieldValue("logTimeHours", Math.floor(picked.minutes / 60));
+                          setFieldValue("logTimeMinutes", picked.minutes % 60);
+                        }
                       }}
-                      getOptionLabel={(t: any) => t?.taskName || ""}
-                      isOptionEqualToValue={(o: any, v: any) => o?.id === v?.id}
+                      getOptionLabel={(o: any) => o?.label || ""}
+                      isOptionEqualToValue={(o: any, v: any) => o?.id === v?.id && o?.kind === v?.kind}
                       size="small"
                       fullWidth
                       autoHighlight
@@ -503,16 +576,16 @@ const NewTimeLogForm = ({
                       // Correcting the hours is what this form is for; re-filing them is not.
                       disabled={lockedToTask}
                       ListboxProps={{ style: { maxHeight: 240 } }}
-                      noOptionsText="No task assigned to you matches"
+                      noOptionsText="Nothing of yours matches"
                       renderInput={(params) => (
                         <TextField
                           {...params}
                           required
-                          label="Task"
-                          placeholder="Search a task…"
+                          label="Task or meeting"
+                          placeholder="Search your tasks and meetings…"
                           helperText={lockedToTask
                             ? "Set when this entry was recorded"
-                            : "Only tasks you are assigned to"}
+                            : "Tasks you are assigned to, and meetings you attended"}
                         />
                       )}
                     />
