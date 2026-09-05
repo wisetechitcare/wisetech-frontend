@@ -18,7 +18,7 @@ import { TRIO } from '@app/modules/common/components/ui/tw/tokens';
 import { MonthGrid } from '@app/modules/common/components/ui/tw/MonthGrid';
 import { DayCell } from './DayCell';
 import { CalendarLegend } from './CalendarLegend';
-import type { DayToneOverrides, ModifierToneOverrides } from './dayTokens';
+import type { DayLabelOverrides, DayToneOverrides, ModifierToneOverrides } from './dayTokens';
 import type { StructuralColors } from '@app/modules/common/components/ui/tw/calendarDayTones';
 
 import type { AttendanceCalendarResponse, CalendarDay, LegendKey } from './types';
@@ -33,6 +33,10 @@ export interface AttendanceCalendarPanelProps {
   structuralCols?: StructuralColors;
   /** Admin colours for modifier dots — see dayTokens.ModifierToneOverrides. */
   modifierOverrides?: ModifierToneOverrides;
+  /** Admin-renamed entries, from the appearance registry. */
+  labels?: DayLabelOverrides;
+  /** Configured colour for the today halo. */
+  todayColor?: string;
   onMonthChange: (month: string) => void;
   onOpenDay: (day: CalendarDay) => void;
   onRetry?: () => void;
@@ -46,6 +50,8 @@ export function AttendanceCalendarPanel({
   overrides,
   structuralCols,
   modifierOverrides,
+  labels,
+  todayColor,
   onMonthChange,
   onOpenDay,
   onRetry,
@@ -132,6 +138,8 @@ export function AttendanceCalendarPanel({
                 overrides={overrides}
                 structuralCols={structuralCols}
                 modifierOverrides={modifierOverrides}
+                labels={labels}
+                todayColor={todayColor}
                 dimmed={
                   filters.size > 0 &&
                   ctx.inMonth &&
@@ -158,6 +166,7 @@ export function AttendanceCalendarPanel({
           active={filters}
           overrides={overrides}
           modifierOverrides={modifierOverrides}
+          labels={labels}
           onToggle={toggle}
           onClear={clear}
         />

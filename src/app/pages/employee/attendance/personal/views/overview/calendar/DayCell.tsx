@@ -26,7 +26,7 @@ import {
 } from '@app/modules/common/components/ui/tw/calendarDayTones';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
-import { MODIFIER_LABEL, STATUS_LABEL, readableOn, resolveDayVisual, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
+import { legendLabel, readableOn, resolveDayVisual, type DayLabelOverrides, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import { DayTooltip } from './DayTooltip';
 import type { CalendarDay } from './types';
 
@@ -34,6 +34,10 @@ export interface DayCellProps {
   /** Admin-configured structural colours, shared with the apply-leave grid. */
   structuralCols?: StructuralColors;
   modifierOverrides?: ModifierToneOverrides;
+  /** Admin-renamed entries, from the appearance registry. */
+  labels?: DayLabelOverrides;
+  /** Configured colour for the today halo. */
+  todayColor?: string;
   day: CalendarDay;
   /** Grid state for this cell, supplied by the engine. */
   ctx: MonthDayContext;
@@ -54,6 +58,8 @@ export const DayCell = memo(function DayCell({
   overrides,
   structuralCols = STRUCTURAL_DEFAULTS,
   modifierOverrides,
+  labels,
+  todayColor,
 }: DayCellProps) {
   const dark = useIsDark();
   const [hovered, setHovered] = useState(false);
@@ -183,12 +189,22 @@ export const DayCell = memo(function DayCell({
         {ctx.isToday && (
           <span
             aria-hidden="true"
-            className="wt-now-ring pointer-events-none absolute rounded-full size-[34px] text-[#1E3A8A] dark:text-[#8AA3EC] sm:size-[32px]"
+            className={cn(
+              'wt-now-ring pointer-events-none absolute rounded-full size-[34px] sm:size-[32px]',
+              // The class pair stays as the fallback for when nothing is
+              // configured — it is the only way to keep the dark-mode variant.
+              !todayColor && 'text-[#1E3A8A] dark:text-[#8AA3EC]',
+            )}
+            // `wt-now-ring` expands from `currentColor`, so the configured
+            // colour is applied as `color`, not a background. `todayColor` had
+            // been in Appearance Settings all along with the halo hardcoded
+            // against it.
+            style={todayColor ? { color: todayColor } : undefined}
           />
         )}
 
         {/* Colour is never the only channel. */}
-        <span className="sr-only">{describeDay(day)}</span>
+        <span className="sr-only">{describeDay(day, labels)}</span>
       </span>
 
       <Popper
@@ -202,7 +218,7 @@ export const DayCell = memo(function DayCell({
         {({ TransitionProps }) => (
           <Fade {...TransitionProps} timeout={120}>
             <div>
-              <DayTooltip day={day} overrides={overrides} modifierOverrides={modifierOverrides} />
+              <DayTooltip day={day} overrides={overrides} modifierOverrides={modifierOverrides} labels={labels} />
             </div>
           </Fade>
         )}
@@ -212,11 +228,11 @@ export const DayCell = memo(function DayCell({
 });
 
 /** The announced sentence: date, status, then every modifier. */
-export function describeDay(day: CalendarDay): string {
-  const parts = [dayjs(day.date).format('D MMMM'), STATUS_LABEL[day.status]];
+export function describeDay(day: CalendarDay, labels?: DayLabelOverrides): string {
+  const parts = [dayjs(day.date).format('D MMMM'), legendLabel(day.status, labels)];
   if (day.leave) parts.push(`${day.leave.type}${day.leave.fraction === 0.5 ? ', half day' : ''}`);
   if (day.holiday) parts.push(day.holiday.name);
-  day.modifiers.forEach((m) => parts.push(MODIFIER_LABEL[m]));
+  day.modifiers.forEach((m) => parts.push(legendLabel(m, labels)));
   if (day.actual.checkIn) parts.push(`in ${day.actual.checkIn}`);
   if (day.actual.checkOut) parts.push(`out ${day.actual.checkOut}`);
   return parts.join(', ');

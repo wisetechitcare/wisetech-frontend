@@ -18,6 +18,7 @@ import { AttendanceCalendarPanel } from './AttendanceCalendarPanel';
 import { useAttendanceCalendar } from './useAttendanceCalendar';
 import { DayDetailPanel } from './DayDetailPanel';
 import type { DayToneOverrides, ModifierToneOverrides } from './dayTokens';
+import { resolveCalendarAppearance } from './appearance';
 import {
   STRUCTURAL_DEFAULTS,
   type StructuralColors,
@@ -54,41 +55,61 @@ export default function AttendanceCalendarNext({
   const calendarColors = useSelector((s: RootState) => s.customColors?.attendanceCalendar);
   const overviewColors = useSelector((s: RootState) => s.customColors?.attendanceOverview);
 
-  const overrides = useMemo<DayToneOverrides>(
-    () => ({
-      present: calendarColors?.presentColor,
-      absent: calendarColors?.absentColor,
-      leave: calendarColors?.onLeaveColor,
-      half_day: calendarColors?.onLeaveColor,
-      weekly_off: calendarColors?.weekendColor,
-      holiday: overviewColors?.holidayColor,
-    }),
+  /**
+   * Every colour and every name, resolved ONCE from the appearance registry.
+   *
+   * This used to be three hand-written maps that each reached into the config
+   * for the keys they happened to know about — which is how the calendar ended
+   * up painting fourteen things from a config that offered seven, and how
+   * `markedPresentViaRequestRaisedColor` sat unread for so long. The registry
+   * now decides; these objects only reshape its answer into the props the
+   * components already take.
+   */
+  const appearance = useMemo(
+    () => resolveCalendarAppearance({ attendanceCalendar: calendarColors, attendanceOverview: overviewColors }),
     [calendarColors, overviewColors],
   );
 
-  /**
-   * Structural colours, read from the SAME config keys and with the SAME
-   * fallbacks ApplyLeave uses — so a holiday and a Saturday look identical on
-   * both calendars whether or not an admin has configured them.
-   */
-  /**
-   * Modifier colours the admin has already configured but the calendar never
-   * read — Appearance Settings has carried markedPresentViaRequestRaisedColor
-   * all along, so magenta could be set and nothing changed.
-   */
-  const modifierOverrides = useMemo<ModifierToneOverrides>(
-    () => ({ regularized: calendarColors?.markedPresentViaRequestRaisedColor }),
-    [calendarColors],
+  const overrides = useMemo<DayToneOverrides>(
+    () => ({
+      present: appearance.colors.present,
+      absent: appearance.colors.absent,
+      leave: appearance.colors.leave,
+      half_day: appearance.colors.half_day,
+      weekly_off: appearance.colors.weekly_off,
+      holiday: appearance.colors.holiday,
+    }),
+    [appearance],
   );
 
+  const modifierOverrides = useMemo<ModifierToneOverrides>(
+    () => ({
+      regularized: appearance.colors.regularized,
+      worked_on_off_day: appearance.colors.worked_on_off_day,
+      late_in: appearance.colors.late_in,
+      early_out: appearance.colors.early_out,
+      remote: appearance.colors.remote,
+      on_site: appearance.colors.on_site,
+      overtime: appearance.colors.overtime,
+    }),
+    [appearance],
+  );
+
+  /**
+   * Structural colours keep their own shape because they are SHARED with the
+   * apply-leave grid — the same Saturday has to look the same on both — and
+   * because `teamOff` and `sunday` are distinctions only that resolver draws.
+   * The two keys the calendar also paints come from the registry, so they can't
+   * disagree with the tiles.
+   */
   const structuralCols = useMemo<StructuralColors>(
     () => ({
-      holiday: overviewColors?.holidayColor || STRUCTURAL_DEFAULTS.holiday,
-      weekend: calendarColors?.weekendColor || STRUCTURAL_DEFAULTS.weekend,
+      holiday: appearance.colors.holiday,
+      weekend: appearance.colors.weekly_off,
       teamOff: calendarColors?.teamOffColor || STRUCTURAL_DEFAULTS.teamOff,
       sunday: STRUCTURAL_DEFAULTS.sunday,
     }),
-    [calendarColors, overviewColors],
+    [appearance, calendarColors],
   );
 
   const { data, isLoading, isError, refetch } = useAttendanceCalendar(employeeId, month);
@@ -107,6 +128,8 @@ export default function AttendanceCalendarNext({
         error={isError}
         overrides={overrides}
         modifierOverrides={modifierOverrides}
+        labels={appearance.labels}
+        todayColor={appearance.colors.today}
         structuralCols={structuralCols}
         onMonthChange={onMonthChange}
         onOpenDay={setSelected}
@@ -118,6 +141,7 @@ export default function AttendanceCalendarNext({
         open={Boolean(selected)}
         overrides={overrides}
         modifierOverrides={modifierOverrides}
+        labels={appearance.labels}
         onClose={() => setSelected(null)}
         // A submitted correction changes what the month means, so the resolved
         // month is refetched rather than patched locally.

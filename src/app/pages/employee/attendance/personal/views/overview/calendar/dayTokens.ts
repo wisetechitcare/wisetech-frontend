@@ -172,8 +172,16 @@ export const MODIFIER_LABEL: Record<DayModifier, string> = {
 /** Modifiers that replace the fill with an outline. Order = precedence. */
 const RING_MODIFIERS: DayModifier[] = ['request_pending', 'missing_check_in', 'missing_check_out'];
 
-/** Modifiers that render as a dot beneath the numeral. Order = left-to-right. */
-const DOT_MODIFIERS: DayModifier[] = ['late_in', 'early_out', 'remote', 'on_site', 'overtime'];
+/**
+ * Modifiers that render as a dot beneath the numeral. Order = left-to-right.
+ *
+ * `worked_on_off_day` was in no channel at all — the same fault `regularized`
+ * had. It ships in the server's legend, so it had a chip, and that chip
+ * resolved to the plain `present` fill: "Worked off day" and "Present" were the
+ * same green, and a Sunday you actually worked was indistinguishable from an
+ * ordinary Monday. It also left `workingWeekendColor` configuring nothing.
+ */
+const DOT_MODIFIERS: DayModifier[] = ['late_in', 'early_out', 'worked_on_off_day', 'remote', 'on_site', 'overtime'];
 
 /**
  * Modifiers that REPAINT the disc rather than adding a marker to it. The third
@@ -283,8 +291,23 @@ export function resolveLegendVisual(
   return resolveDayVisual('present', [key as DayModifier], overrides, null, modifierOverrides);
 }
 
-export function legendLabel(key: LegendKey): string {
-  return (STATUS_LABEL as Record<string, string>)[key] ?? (MODIFIER_LABEL as Record<string, string>)[key] ?? key;
+/**
+ * Admin-renamed entries, resolved from the appearance registry.
+ *
+ * The server also sends a label with each legend entry, but the admin's name
+ * outranks it: "Regularised" is a word a company gets to choose, and a company
+ * that calls it "Manually approved" should see that everywhere the key appears —
+ * the chip, the tooltip and the screen-reader sentence alike.
+ */
+export type DayLabelOverrides = Partial<Record<LegendKey | 'today', string>>;
+
+export function legendLabel(key: LegendKey, labels?: DayLabelOverrides): string {
+  return (
+    labels?.[key] ||
+    (STATUS_LABEL as Record<string, string>)[key] ||
+    (MODIFIER_LABEL as Record<string, string>)[key] ||
+    key
+  );
 }
 
 /**

@@ -19,7 +19,7 @@
 import { memo } from 'react';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
-import { legendLabel, resolveLegendVisual, shouldPulse, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
+import { legendLabel, resolveLegendVisual, shouldPulse, type DayLabelOverrides, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import type { LegendEntry, LegendKey } from './types';
 
 export interface CalendarLegendProps {
@@ -28,6 +28,8 @@ export interface CalendarLegendProps {
   overrides?: DayToneOverrides;
   /** Admin colours for modifier dots — see dayTokens.ModifierToneOverrides. */
   modifierOverrides?: ModifierToneOverrides;
+  /** Admin-renamed entries, from the appearance registry. */
+  labels?: DayLabelOverrides;
   onToggle: (key: LegendKey) => void;
   onClear: () => void;
 }
@@ -37,6 +39,7 @@ export const CalendarLegend = memo(function CalendarLegend({
   active,
   overrides,
   modifierOverrides,
+  labels,
   onToggle,
   onClear,
 }: CalendarLegendProps) {
@@ -78,6 +81,7 @@ export const CalendarLegend = memo(function CalendarLegend({
             faded={filtering && !active.has(entry.key)}
             overrides={overrides}
             modifierOverrides={modifierOverrides}
+            labels={labels}
             onToggle={onToggle}
           />
         ))}
@@ -92,6 +96,7 @@ function LegendChip({
   faded,
   overrides,
   modifierOverrides,
+  labels,
   onToggle,
 }: {
   entry: LegendEntry;
@@ -99,6 +104,7 @@ function LegendChip({
   faded: boolean;
   overrides?: DayToneOverrides;
   modifierOverrides?: ModifierToneOverrides;
+  labels?: DayLabelOverrides;
   onToggle: (key: LegendKey) => void;
 }) {
   const dark = useIsDark();
@@ -114,7 +120,7 @@ function LegendChip({
       onClick={() => onToggle(entry.key)}
       // No `title` — the visible count already says "0", and a raw title would
       // render the browser's own tooltip instead of the app's (lint-enforced).
-      aria-label={`${legendLabel(entry.key)}: ${entry.count} ${entry.count === 1 ? 'day' : 'days'}${empty ? '' : pressed ? ' — filter on' : ' — filter off'}`}
+      aria-label={`${legendLabel(entry.key, labels)}: ${entry.count} ${entry.count === 1 ? 'day' : 'days'}${empty ? '' : pressed ? ' — filter on' : ' — filter off'}`}
       className={cn(
         // rounded-full, not rounded-2xl: at 16px radius on a ~26px chip the corners
         // read as a squared-off rectangle rather than a pill. StatusBadge keeps
@@ -150,7 +156,9 @@ function LegendChip({
         pulse={shouldPulse(entry.key) && !empty}
       />
       <span className="text-[11.5px] font-bold leading-[1.3] text-slate-700 dark:text-slate-300 whitespace-nowrap">
-        {entry.label || legendLabel(entry.key)}
+        {/* The admin's name outranks the server's: a company that renames
+            "Regularised" should see that name here, not the shipped default. */}
+        {labels?.[entry.key] || entry.label || legendLabel(entry.key)}
       </span>
       <span className="text-[11.5px] font-extrabold tabular-nums leading-[1.3]" style={{ color: t.fg }}>
         {entry.count}
