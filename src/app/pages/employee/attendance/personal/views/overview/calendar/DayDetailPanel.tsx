@@ -45,13 +45,15 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import RaiseRequestForEmployee from '../RaiseRequestForEmployee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { MUMBAI_TZ } from '@utils/date';
-import { STATUS_LABEL, MODIFIER_LABEL, resolveDayVisual, type DayToneOverrides } from './dayTokens';
+import { legendLabel, resolveDayVisual, type DayLabelOverrides, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import type { CalendarDay } from './types';
 
 export interface DayDetailPanelProps {
     day: CalendarDay | null;
     open: boolean;
     overrides?: DayToneOverrides;
+    modifierOverrides?: ModifierToneOverrides;
+    labels?: DayLabelOverrides;
     onClose: () => void;
     /** Fired after a successful submit so the caller can invalidate its query. */
     onSubmitted?: () => void;
@@ -60,7 +62,7 @@ export interface DayDetailPanelProps {
 type Mode = 'read' | 'pick' | 'form';
 type RequestKind = 'checkin' | 'checkout';
 
-export function DayDetailPanel({ day, open, overrides, onClose, onSubmitted }: DayDetailPanelProps) {
+export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels, onClose, onSubmitted }: DayDetailPanelProps) {
     const dark = useIsDark();
     const [mode, setMode] = useState<Mode>('read');
     const [kind, setKind] = useState<RequestKind>('checkin');
@@ -79,7 +81,7 @@ export function DayDetailPanel({ day, open, overrides, onClose, onSubmitted }: D
     const employeeId = employee?.id ?? '';
     const tz = employee?.branches?.timezone || MUMBAI_TZ;
 
-    const visual = day ? resolveDayVisual(day.status, day.modifiers, overrides) : null;
+    const visual = day ? resolveDayVisual(day.status, day.modifiers, overrides, day.lateMark?.lateMinutes, modifierOverrides) : null;
     const tone = visual ? toneSurface(visual.trio, dark) : null;
 
     /* Reset to the read view whenever a different day opens. */
@@ -217,7 +219,7 @@ export function DayDetailPanel({ day, open, overrides, onClose, onSubmitted }: D
             header={
                 <GlassHeader
                     title={dayjs(day.date).format('dddd, D MMMM YYYY')}
-                    subtitle={STATUS_LABEL[day.status]}
+                    subtitle={legendLabel(day.status, labels)}
                     onClose={onClose}
                 />
             }
@@ -230,14 +232,14 @@ export function DayDetailPanel({ day, open, overrides, onClose, onSubmitted }: D
                             className="rounded-2xl border px-2.5 py-[4px] text-[11.5px] font-bold"
                             style={{ backgroundColor: tone.bg, borderColor: tone.bd, color: tone.fg }}
                         >
-                            {STATUS_LABEL[day.status]}
+                            {legendLabel(day.status, labels)}
                         </span>
                         {day.modifiers.map((m) => (
                             <span
                                 key={m}
                                 className="rounded-2xl border border-slate-200 px-2 py-[3px] text-[11px] font-semibold text-slate-600 dark:border-[#30363d] dark:text-slate-400"
                             >
-                                {MODIFIER_LABEL[m]}
+                                {legendLabel(m, labels)}
                             </span>
                         ))}
                     </div>

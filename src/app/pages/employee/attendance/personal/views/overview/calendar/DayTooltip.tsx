@@ -15,18 +15,20 @@ import { KTIcon } from '@metronic/helpers';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { TRIO, type Trio } from '@app/modules/common/components/ui/tw/tokens';
-import { MODIFIER_LABEL, STATUS_LABEL, lateBandOf, resolveDayVisual, type DayToneOverrides } from './dayTokens';
+import { legendLabel, lateBandOf, resolveDayVisual, type DayLabelOverrides, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import type { CalendarDay } from './types';
 
 export interface DayTooltipProps {
   day: CalendarDay;
   overrides?: DayToneOverrides;
+  modifierOverrides?: ModifierToneOverrides;
+  labels?: DayLabelOverrides;
   id?: string;
 }
 
-export const DayTooltip = memo(function DayTooltip({ day, overrides, id }: DayTooltipProps) {
+export const DayTooltip = memo(function DayTooltip({ day, overrides, modifierOverrides, labels, id }: DayTooltipProps) {
   const dark = useIsDark();
-  const visual = resolveDayVisual(day.status, day.modifiers, overrides);
+  const visual = resolveDayVisual(day.status, day.modifiers, overrides, day.lateMark?.lateMinutes, modifierOverrides);
   const head = toneSurface(visual.trio, dark);
   const { actual, expected, leave, holiday, request, lateMark } = day;
   const hasPunch = Boolean(actual.checkIn || actual.checkOut);
@@ -54,7 +56,7 @@ export const DayTooltip = memo(function DayTooltip({ day, overrides, id }: DayTo
           className="shrink-0 rounded-2xl border px-2 py-[3px] text-[11px] font-bold leading-[1.3]"
           style={{ backgroundColor: head.bg, borderColor: head.bd, color: head.fg }}
         >
-          {STATUS_LABEL[day.status]}
+          {legendLabel(day.status, labels)}
         </span>
       </header>
 
@@ -102,17 +104,17 @@ export const DayTooltip = memo(function DayTooltip({ day, overrides, id }: DayTo
             .filter((m) => m === 'missing_check_in' || m === 'missing_check_out')
             .map((m) => (
               <Flag key={m} trio={TRIO.rose} icon="information-2">
-                {MODIFIER_LABEL[m]}
+                {legendLabel(m, labels)}
               </Flag>
             ))}
           {request?.status === 'pending' && (
             <Flag trio={TRIO.blue} icon="arrow-circle-right">
-              Correction pending{request.stage ? ` · ${request.stage}` : ''}
+              Approval pending{request.stage ? ` · ${request.stage}` : ''}
             </Flag>
           )}
           {request?.status === 'rejected' && (
             <Flag trio={TRIO.rose} icon="cross-circle">
-              Correction rejected
+              Approval rejected
             </Flag>
           )}
           {day.modifiers.includes('worked_on_off_day') && (

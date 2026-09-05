@@ -16,16 +16,21 @@
  * Each swatch is drawn by the SAME resolver the tiles use — a chip can never
  * drift from the thing it describes.
  */
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
-import { legendLabel, resolveLegendVisual, shouldPulse, type DayToneOverrides } from './dayTokens';
+import { legendLabel, resolveLegendVisual, shouldPulse, type DayLabelOverrides, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
+import { LEGEND_TONES } from './appearance';
 import type { LegendEntry, LegendKey } from './types';
 
 export interface CalendarLegendProps {
   legend: LegendEntry[];
   active: Set<LegendKey>;
   overrides?: DayToneOverrides;
+  /** Admin colours for modifier dots — see dayTokens.ModifierToneOverrides. */
+  modifierOverrides?: ModifierToneOverrides;
+  /** Admin-renamed entries, from the appearance registry. */
+  labels?: DayLabelOverrides;
   onToggle: (key: LegendKey) => void;
   onClear: () => void;
 }
@@ -34,10 +39,33 @@ export const CalendarLegend = memo(function CalendarLegend({
   legend,
   active,
   overrides,
+  modifierOverrides,
+  labels,
   onToggle,
   onClear,
 }: CalendarLegendProps) {
   const filtering = active.size > 0;
+
+  /**
+   * The rows come from the REGISTRY; the server only supplies the numbers.
+   *
+   * It used to be the other way round, and that made the server's
+   * `LEGEND_ORDER` a separate hand-kept list from the one Appearance Settings
+   * renders — so the legend and the colour picker showed different things, and
+   * `remote` / `on_site` were painted on tiles with no chip to explain them.
+   *
+   * Anything the server counts but the registry does not name is dropped rather
+   * than rendered raw, and anything named but not counted shows a zero, which
+   * the chip already renders dimmed.
+   */
+  const rows = useMemo(() => {
+    const counts = new Map(legend.map((e) => [e.key, e.count]));
+    return LEGEND_TONES.map((spec) => ({
+      key: spec.key as LegendKey,
+      label: labels?.[spec.key] || spec.label,
+      count: counts.get(spec.key as LegendKey) ?? 0,
+    }));
+  }, [legend, labels]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -67,13 +95,15 @@ export const CalendarLegend = memo(function CalendarLegend({
           'sm:flex-wrap',
         )}
       >
-        {legend.map((entry) => (
+        {rows.map((entry) => (
           <LegendChip
             key={entry.key}
             entry={entry}
             pressed={active.has(entry.key)}
             faded={filtering && !active.has(entry.key)}
             overrides={overrides}
+            modifierOverrides={modifierOverrides}
+            labels={labels}
             onToggle={onToggle}
           />
         ))}
@@ -87,16 +117,20 @@ function LegendChip({
   pressed,
   faded,
   overrides,
+  modifierOverrides,
+  labels,
   onToggle,
 }: {
   entry: LegendEntry;
   pressed: boolean;
   faded: boolean;
   overrides?: DayToneOverrides;
+  modifierOverrides?: ModifierToneOverrides;
+  labels?: DayLabelOverrides;
   onToggle: (key: LegendKey) => void;
 }) {
   const dark = useIsDark();
-  const v = resolveLegendVisual(entry.key, overrides);
+  const v = resolveLegendVisual(entry.key, overrides, modifierOverrides);
   const t = toneSurface(v.trio, dark);
   const empty = entry.count === 0;
 
@@ -108,7 +142,7 @@ function LegendChip({
       onClick={() => onToggle(entry.key)}
       // No `title` — the visible count already says "0", and a raw title would
       // render the browser's own tooltip instead of the app's (lint-enforced).
-      aria-label={`${legendLabel(entry.key)}: ${entry.count} ${entry.count === 1 ? 'day' : 'days'}${empty ? '' : pressed ? ' — filter on' : ' — filter off'}`}
+      aria-label={`${legendLabel(entry.key, labels)}: ${entry.count} ${entry.count === 1 ? 'day' : 'days'}${empty ? '' : pressed ? ' — filter on' : ' — filter off'}`}
       className={cn(
         // rounded-full, not rounded-2xl: at 16px radius on a ~26px chip the corners
         // read as a squared-off rectangle rather than a pill. StatusBadge keeps
@@ -144,7 +178,9 @@ function LegendChip({
         pulse={shouldPulse(entry.key) && !empty}
       />
       <span className="text-[11.5px] font-bold leading-[1.3] text-slate-700 dark:text-slate-300 whitespace-nowrap">
-        {entry.label || legendLabel(entry.key)}
+        {/* The admin's name outranks the server's: a company that renames
+            "Regularised" should see that name here, not the shipped default. */}
+        {labels?.[entry.key] || entry.label || legendLabel(entry.key)}
       </span>
       <span className="text-[11.5px] font-extrabold tabular-nums leading-[1.3]" style={{ color: t.fg }}>
         {entry.count}

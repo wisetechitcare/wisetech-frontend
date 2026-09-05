@@ -142,11 +142,29 @@ const MODIFIER_TRIO: Partial<Record<DayModifier, Trio>> = {
   remote: TRIO.blue,
   on_site: TRIO.cyan,
   overtime: TRIO.purple,
-  regularized: TRIO.blue,
+  late_night_waiver: TRIO.cyan,
+  in_progress: TRIO.green,
+  // Rings used to borrow the STATUS tone, which made all three of these resolve
+  // to the same green as "Present" in the legend — the shape was the only thing
+  // telling them apart, and at 9px a chip swatch that is a green dashed circle
+  // beside a green filled one reads as noise. The shape still carries
+  // "unresolved"; the tone now says which kind.
+  request_pending: TRIO.amber,
+  request_rejected: TRIO.rose,
+  missing_check_in: TRIO.slate,
+  missing_check_out: TRIO.slate,
+  // Pink, built to the kit's own recipe (a 600 accent with its 50/200 surface
+  // pair) but declared HERE rather than added to TRIO: `TONE_NAMES` is derived
+  // from `TRIO` with Object.keys, so a new tone would silently appear as a
+  // choice in the FAQ section picker. Same reason LATE_BANDS carries its own
+  // amber triples. It belongs in the shared palette once the appearance
+  // registry lands — not as a side effect of this fix.
+  regularized: { c: '#db2777', bg: '#fdf2f8', bd: '#fbcfe8' },
   worked_on_off_day: TRIO.blue,
 };
 
 export const MODIFIER_LABEL: Record<DayModifier, string> = {
+  late_night_waiver: 'Late-night waiver',
   late_in: 'Late check-in',
   early_in: 'Early check-in',
   early_out: 'Early check-out',
@@ -154,8 +172,8 @@ export const MODIFIER_LABEL: Record<DayModifier, string> = {
   missing_check_in: 'Check-in missing',
   missing_check_out: 'Check-out missing',
   regularized: 'Regularised',
-  request_pending: 'Correction pending',
-  request_rejected: 'Correction rejected',
+  request_pending: 'Approval pending',
+  request_rejected: 'Approval rejected',
   worked_on_off_day: 'Worked on an off day',
   overtime: 'Overtime',
   remote: 'Remote',
@@ -164,10 +182,44 @@ export const MODIFIER_LABEL: Record<DayModifier, string> = {
 };
 
 /** Modifiers that replace the fill with an outline. Order = precedence. */
-const RING_MODIFIERS: DayModifier[] = ['request_pending', 'missing_check_in', 'missing_check_out'];
+const RING_MODIFIERS: DayModifier[] = ['request_pending', 'request_rejected', 'missing_check_in', 'missing_check_out'];
 
-/** Modifiers that render as a dot beneath the numeral. Order = left-to-right. */
-const DOT_MODIFIERS: DayModifier[] = ['late_in', 'early_out', 'remote', 'on_site', 'overtime'];
+/**
+ * Modifiers that render as a dot beneath the numeral. Order = left-to-right.
+ *
+ * `worked_on_off_day` was in no channel at all — the same fault `regularized`
+ * had. It ships in the server's legend, so it had a chip, and that chip
+ * resolved to the plain `present` fill: "Worked off day" and "Present" were the
+ * same green, and a Sunday you actually worked was indistinguishable from an
+ * ordinary Monday. It also left `workingWeekendColor` configuring nothing.
+ */
+const DOT_MODIFIERS: DayModifier[] = [
+  'late_in',
+  'late_night_waiver',
+  'early_out',
+  'worked_on_off_day',
+  'remote',
+  'on_site',
+  'overtime',
+  'in_progress',
+];
+
+/**
+ * Modifiers that REPAINT the disc rather than adding a marker to it. The third
+ * channel, alongside rings and dots. Order = precedence.
+ *
+ * `regularized` is the case that forced it. A regularised day IS a present day —
+ * the status is correct, and rule 2 above would normally keep it out of the fill.
+ * But how the day became present is the thing people scan the month for, and a
+ * dot under a green tile lost that argument: at a glance it still read as an
+ * ordinary present day, which is exactly the complaint.
+ *
+ * The rule survives intact, because the fill is only ever repainted, never
+ * competed for: the status still decides WHETHER there is a disc and what shape
+ * it takes (solid, or split for a half day), and the modifier only decides its
+ * colour. `present` + `late_in` still coexist — the dot is untouched.
+ */
+const FILL_MODIFIERS: DayModifier[] = ['regularized'];
 
 /* ── Resolution ───────────────────────────────────────────────────────── */
 
@@ -178,15 +230,26 @@ const DOT_MODIFIERS: DayModifier[] = ['late_in', 'early_out', 'remote', 'on_site
  */
 export type DayToneOverrides = Partial<Record<DayStatus, string>>;
 
+/**
+ * Admin-configured colours for MODIFIERS, alongside the status overrides above.
+ *
+ * Appearance Settings has carried `markedPresentViaRequestRaisedColor` all
+ * along — the calendar simply never read it, so an admin could set magenta and
+ * see nothing change. Same shape and same rules as the status overrides: the
+ * accent only, with the tint and border derived.
+ */
+export type ModifierToneOverrides = Partial<Record<DayModifier, string>>;
+
 export function resolveDayVisual(
   status: DayStatus,
   modifiers: readonly DayModifier[],
   overrides?: DayToneOverrides,
   /** Minutes past the threshold, from the server's own verdict. Grades the late dot. */
   lateMinutes?: number | null,
+  /** Admin colours for modifier dots / rings. */
+  modifierOverrides?: ModifierToneOverrides,
 ): DayVisual {
   const base = STATUS_TRIO[status];
-  const trio = overrides?.[status] ? withAccent(base, overrides[status]!) : base;
 
   const ringMod = RING_MODIFIERS.find((m) => modifiers.includes(m));
   const ring: RingMode = !ringMod ? 'none' : ringMod === 'request_pending' ? 'dashed' : 'solid';
@@ -195,19 +258,51 @@ export function resolveDayVisual(
   // stacking it on a solid fill would read as a border, not as a state.
   const fill: FillMode = ring !== 'none' ? 'none' : STATUS_FILL[status];
 
+  /**
+   * A fill modifier repaints the disc, but only while there IS a disc to
+   * repaint. Two guards, both deliberate:
+   *
+   *  - A ring outranks it. An unresolved day is unresolved first, whatever else
+   *    is true of it, so the outline keeps the status tone.
+   *  - A tint or an empty status is left alone — repainting a structural tint
+   *    would break rule 1 (structural tints, employee state fills).
+   */
+  const fillMod =
+    fill === 'solid' || fill === 'split'
+      ? FILL_MODIFIERS.find((m) => modifiers.includes(m))
+      : undefined;
+
+  /**
+   * Whichever modifier owns the paint, owns the tone.
+   *
+   * A ring outranks a fill modifier, and both outrank the status — otherwise
+   * the outline would be drawn in the status colour, which is what made
+   * "Approval pending", "Check-out missing" and "Present" three shades of the
+   * same green in the legend.
+   *
+   * The admin's pick wins over the built-in tone in every channel, and
+   * `withAccent` derives the tint/border pair either way, so a pale hex cannot
+   * produce an unreadable tile.
+   */
+  const paintMod = ringMod ?? fillMod;
+  const trio = paintMod
+    ? tone(MODIFIER_TRIO[paintMod] ?? base, modifierOverrides?.[paintMod])
+    : tone(base, overrides?.[status]);
+
   return {
     trio,
     fill,
-    splitWith: status === 'half_day' ? (overrides?.present ? withAccent(TRIO.green, overrides.present) : TRIO.green) : undefined,
+    splitWith: status === 'half_day' ? tone(TRIO.green, overrides?.present) : undefined,
     ring,
     dots: DOT_MODIFIERS.filter((m) => modifiers.includes(m))
       .map((m) => {
         // Lateness is the one modifier with a magnitude, so it is the one that
         // gets graded. The rest are binary and keep a single neutral size.
         const band = m === 'late_in' ? lateBandOf(lateMinutes) : null;
+        const built = band?.trio ?? MODIFIER_TRIO[m];
         return {
           key: m,
-          trio: band?.trio ?? MODIFIER_TRIO[m],
+          trio: built && tone(built, modifierOverrides?.[m]),
           pulse: shouldPulse(m),
           size: band?.size ?? 4.5,
         };
@@ -218,13 +313,32 @@ export function resolveDayVisual(
 }
 
 /** Legend swatches reuse the same resolver so a chip can never drift from its tiles. */
-export function resolveLegendVisual(key: LegendKey, overrides?: DayToneOverrides): DayVisual {
+export function resolveLegendVisual(
+  key: LegendKey,
+  overrides?: DayToneOverrides,
+  modifierOverrides?: ModifierToneOverrides,
+): DayVisual {
   if (key in STATUS_TRIO) return resolveDayVisual(key as DayStatus, [], overrides);
-  return resolveDayVisual('present', [key as DayModifier], overrides);
+  return resolveDayVisual('present', [key as DayModifier], overrides, null, modifierOverrides);
 }
 
-export function legendLabel(key: LegendKey): string {
-  return (STATUS_LABEL as Record<string, string>)[key] ?? (MODIFIER_LABEL as Record<string, string>)[key] ?? key;
+/**
+ * Admin-renamed entries, resolved from the appearance registry.
+ *
+ * The server also sends a label with each legend entry, but the admin's name
+ * outranks it: "Regularised" is a word a company gets to choose, and a company
+ * that calls it "Manually approved" should see that everywhere the key appears —
+ * the chip, the tooltip and the screen-reader sentence alike.
+ */
+export type DayLabelOverrides = Partial<Record<LegendKey | 'today' | 'sunday' | 'team_off', string>>;
+
+export function legendLabel(key: LegendKey, labels?: DayLabelOverrides): string {
+  return (
+    labels?.[key] ||
+    (STATUS_LABEL as Record<string, string>)[key] ||
+    (MODIFIER_LABEL as Record<string, string>)[key] ||
+    key
+  );
 }
 
 /**
@@ -261,6 +375,11 @@ export function shouldPulse(key: LegendKey): boolean {
 function withAccent(base: Trio, accent: string): Trio {
   if (!/^#[0-9a-fA-F]{6}$/.test(accent)) return base;
   return { c: accent, bg: hexA(accent, 0.12), bd: hexA(accent, 0.28) };
+}
+
+/** `withAccent` when an override exists, the built-in tone when it doesn't. */
+function tone(base: Trio, accent?: string): Trio {
+  return accent ? withAccent(base, accent) : base;
 }
 
 function hexA(hex: string, alpha: number): string {
