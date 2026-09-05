@@ -282,16 +282,25 @@ interface ColorPickerModalProps {
   onHide: () => void;
   label: string;
   value: string;
-  onColorChange: (color: string) => void;
+  /**
+   * ONE callback carrying both fields, never two.
+   *
+   * Applying the colour and the name through separate callbacks looked
+   * harmless and silently dropped the colour: both write through Formik, whose
+   * `setFieldValue` is batched, so the second call read the map as it was
+   * BEFORE the first and wrote it back without the colour. The name landed and
+   * the colour did not.
+   */
+  onColorChange: (color: string, name?: string) => void;
   /**
    * Registry-backed entries are also RENAMEABLE. Passing this switches the
    * dialog from "pick a colour" to "name it and pick a colour"; the flat legacy
    * fields omit it and behave exactly as before.
    */
+  editableName?: boolean;
   nameValue?: string;
   namePlaceholder?: string;
   hint?: string;
-  onApplyName?: (name: string) => void;
 }
 
 const ColorPickerModal: React.FC<ColorPickerModalProps> = ({
@@ -300,10 +309,10 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({
   label,
   value,
   onColorChange,
+  editableName,
   nameValue,
   namePlaceholder,
   hint,
-  onApplyName,
 }) => {
   const [tempColor, setTempColor] = useState(value);
   const [tempName, setTempName] = useState(nameValue ?? '');
@@ -354,7 +363,7 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({
           <p className="mb-4 mt-[-8px] text-[12.5px] leading-relaxed text-slate-500">{hint}</p>
         )}
 
-        {onApplyName && (
+        {editableName && (
           <div className="mb-5">
             <label
               htmlFor="wt-tone-name"
@@ -434,8 +443,8 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({
           </button>
           <button
             onClick={() => {
-              onColorChange(tempColor);
-              onApplyName?.(tempName.trim());
+              // Both fields in ONE write — see onColorChange's note.
+              onColorChange(tempColor, editableName ? tempName.trim() : undefined);
               onHide();
             }}
             style={{
@@ -919,10 +928,12 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
           label={toneLabel(selectedTone.key)}
           hint={selectedTone.hint}
           value={toneColor(selectedTone.key)}
+          editableName
           nameValue={readToneOverrides(formik.values.attendanceCalendar)[selectedTone.key]?.label ?? ''}
           namePlaceholder={selectedTone.label}
-          onApplyName={(name) => patchTone(selectedTone.key, { label: name })}
-          onColorChange={(color) => patchTone(selectedTone.key, { color })}
+          // ONE write carrying both fields. Two calls raced through Formik's
+          // batched setFieldValue and the colour lost.
+          onColorChange={(color, name) => patchTone(selectedTone.key, { color, label: name ?? '' })}
         />
       )}
 
