@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { deleteMeeting, setMeetingCancelled } from '@services/employee';
+import { deleteMeeting, setMeetingCancelled, updateMeeting } from '@services/employee';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { hasPermission } from '@utils/authAbac';
@@ -8,6 +8,9 @@ import dayjs from 'dayjs';
 import Swal from 'sweetalert2';
 import MeetingDialog from '../../MeetingDialog';
 import MeetingsList, { toEditableMeeting } from '@app/modules/common/components/MeetingsList';
+// The server states WHY it refused; repeating a guess here is how a validation failure ends up
+// reported as a permission problem.
+import { apiErrorMessage } from '@app/pages/employee/tasks/taskDomain';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 
 /**
@@ -47,7 +50,7 @@ const Meetings = () => {
     if (!cancelled) {
       await setMeetingCancelled(id, currentEmployeeId, false)
         .then(() => { successConfirmation('Meeting restored'); reload(); })
-        .catch(() => errorConfirmation('Could not restore the meeting.'));
+        .catch((error) => errorConfirmation(apiErrorMessage(error, 'Could not restore the meeting.')));
       return;
     }
     const result = await Swal.fire({
@@ -69,7 +72,38 @@ const Meetings = () => {
       reload();
     } catch (error) {
       console.error('Error cancelling meeting', error);
-      errorConfirmation('Could not cancel the meeting. Only the organizer can.');
+      errorConfirmation(apiErrorMessage(error, 'Could not cancel the meeting.'));
+    }
+  };
+
+  /**
+   * Drag-to-reschedule. The grid has already worked out the new start/end — day shifted, clock
+   * untouched — so this only has to persist it.
+   *
+   * `notifyIds: []` deliberately: a drag is a quick correction, and mailing everyone on every
+   * nudge is how people learn to ignore meeting mail. Open the meeting and save if the change
+   * is worth announcing.
+   */
+  const handleReschedule = async (m: any, next: { startDate: string; endDate: string }) => {
+    try {
+      await updateMeeting(m.id, currentEmployeeId, {
+        title: m.title,
+        description: m.description || '',
+        startDate: next.startDate,
+        endDate: next.endDate,
+        isOnline: m.isOnline,
+        meetingLink: m.isOnline ? (m.meetingLink || undefined) : undefined,
+        location: m.isOnline ? undefined : (m.location || undefined),
+        participants: m.participants || undefined,
+        externalParticipants: m.externalParticipants || undefined,
+        projectId: m.projectId || undefined,
+        notifyIds: [],
+      });
+      successConfirmation(`Moved to ${dayjs(next.startDate).format('DD MMM')}`);
+      reload();
+    } catch (error) {
+      console.error('Error rescheduling meeting', error);
+      errorConfirmation(apiErrorMessage(error, 'Could not move the meeting.'));
     }
   };
 
@@ -104,6 +138,7 @@ const Meetings = () => {
         reloadToken={reloadToken}
         onCreate={canCreate ? () => { setEditing(null); setShowMeetingForm(true); } : undefined}
         onEdit={canCreate ? (m) => { setEditing(toEditableMeeting(m)); setShowMeetingForm(true); } : undefined}
+        onReschedule={canCreate ? handleReschedule : undefined}
         onCancel={canCreate ? handleCancel : undefined}
         onDelete={canDelete ? handleDelete : undefined}
       />

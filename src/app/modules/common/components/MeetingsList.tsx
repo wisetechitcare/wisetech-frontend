@@ -566,7 +566,8 @@ const DayDetail: React.FC<{
     modeCell: (m: MeetingRow) => React.ReactNode;
     onDelete?: (id: string) => void;
     onEdit?: (meeting: MeetingRow) => void;
-}> = ({ dayKeyValue, halves, open, onClose, timeRange, modeCell, onDelete, onEdit }) => {
+    onCancel?: (meeting: { id: string; cancelled: boolean }) => void;
+}> = ({ dayKeyValue, halves, open, onClose, timeRange, modeCell, onDelete, onEdit, onCancel }) => {
     const openProject = useOpenProject();
     const total = halves.am.length + halves.pm.length;
     const summary = !total
@@ -647,16 +648,42 @@ const DayDetail: React.FC<{
                                     {m.organizerName && <span style={{ marginLeft: 10 }}>· {m.organizerName}</span>}
                                 </div>
                             </div>
-                            {onDelete && (
-                                <button
-                                    type="button"
-                                    onClick={() => onDelete(m.id)}
-                                    title="Delete meeting"
-                                    style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#DC2626' }}
-                                >
-                                    <AppIcon name="bi-trash" className="fs-5" />
-                                </button>
-                            )}
+                            {/* The SAME three actions the table row offers. They were only in
+                                the table, so which of them existed depended on which view you
+                                happened to be in — and the day modal is the view people are in
+                                when they want them. */}
+                            <div style={{ display: 'flex', gap: 2, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                                {onEdit && !isCancelled(m) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onEdit(m)}
+                                        title="Edit meeting"
+                                        style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#1E3A8A' }}
+                                    >
+                                        <AppIcon name="bi-pencil" className="fs-5" />
+                                    </button>
+                                )}
+                                {onCancel && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
+                                        title={isCancelled(m) ? 'Restore meeting' : 'Cancel meeting'}
+                                        style={{ border: 0, background: 'transparent', cursor: 'pointer', color: isCancelled(m) ? '#16A34A' : '#B45309' }}
+                                    >
+                                        <AppIcon name={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'} className="fs-5" />
+                                    </button>
+                                )}
+                                {onDelete && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onDelete(m.id)}
+                                        title="Delete meeting"
+                                        style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#DC2626' }}
+                                    >
+                                        <AppIcon name="bi-trash" className="fs-5" />
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -684,11 +711,19 @@ export interface MeetingsListProps {
     onCancel?: (meeting: { id: string; cancelled: boolean }) => void;
     /** Offers editing. Omitted → rows are not clickable, which is right for a report. */
     onEdit?: (meeting: MeetingRow) => void;
+    /**
+     * Offers drag-to-reschedule on the month grid. Omitted → cards are not draggable, which is
+     * what the read-only detail pages want.
+     *
+     * The handler receives the meeting and its NEW start/end, already computed: the day moves,
+     * the clock does not.
+     */
+    onReschedule?: (meeting: MeetingRow, next: { startDate: string; endDate: string }) => void;
     /** Bump to refetch after the parent creates or deletes a meeting. */
     reloadToken?: number;
 }
 
-const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, onDelete, onCancel, onEdit, reloadToken }) => {
+const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, onDelete, onCancel, onEdit, onReschedule, reloadToken }) => {
     const [meetings, setMeetings] = useState<MeetingRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [layout, setLayout] = useState<'month' | 'table'>('month');
@@ -701,6 +736,32 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     const [breakdownOpen, setBreakdownOpen] = useState(false);
     const [dayOpen, setDayOpen] = useState(false);
     const halfColors = useHalfColors();
+    // The day a dragged meeting is currently over, so the grid can show where it would land.
+    const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+
+    /**
+     * Move a meeting to another day, keeping its time of day and its duration.
+     *
+     * THE TIME IS NOT A CASUALTY OF THE DRAG. A month cell says nothing about the hour, so
+     * reading one out of the drop would be inventing it — 09:00 because that is the cell's
+     * start, or midnight because that is the date's. The meeting keeps the clock it was given
+     * and only its date changes, which is the one thing the gesture actually expresses.
+     *
+     * Duration is preserved rather than the end date being moved to the same day: a meeting
+     * that legitimately runs past midnight stays the length it was.
+     */
+    const rescheduleTo = (m: MeetingRow, dayIso: string) => {
+        const from = dayjs(m.startDate);
+        const to = dayjs(dayIso);
+        if (!from.isValid() || !to.isValid()) return;
+        // Whole days, so a DST boundary cannot shift the clock by an hour.
+        const dayShift = to.startOf('day').diff(from.startOf('day'), 'day');
+        if (dayShift === 0) return;
+        onReschedule?.(m, {
+            startDate: from.add(dayShift, 'day').toISOString(),
+            endDate: dayjs(m.endDate).add(dayShift, 'day').toISOString(),
+        });
+    };
     const openProject = useOpenProject();
 
     useEffect(() => {
@@ -1089,6 +1150,24 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                     key={k}
                                     type="button"
                                     onClick={() => { setPicked(k); setDayOpen(true); }}
+                                    // Native HTML5 DnD: the gesture is "put this card on that
+                                    // day", which is exactly what dragover/drop model. Guarded on
+                                    // onReschedule so read-only surfaces stay read-only.
+                                    onDragOver={onReschedule ? (e) => {
+                                        e.preventDefault();
+                                        e.dataTransfer.dropEffect = 'move';
+                                        if (dragOverDay !== k) setDragOverDay(k);
+                                    } : undefined}
+                                    onDragLeave={onReschedule ? () => {
+                                        setDragOverDay((cur) => (cur === k ? null : cur));
+                                    } : undefined}
+                                    onDrop={onReschedule ? (e) => {
+                                        e.preventDefault();
+                                        setDragOverDay(null);
+                                        const id = e.dataTransfer.getData('text/meeting-id');
+                                        const found = meetings.find((mm) => mm.id === id);
+                                        if (found) rescheduleTo(found, k);
+                                    } : undefined}
                                     title={`${halfWord(am.length, 'Morning')} · ${halfWord(pm.length, 'Afternoon')}`}
                                     style={{
                                         textAlign: 'left', cursor: 'pointer', minHeight: 96, padding: '6px 7px',
@@ -1096,8 +1175,13 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                         // A wholly clear day still reads grey at a glance; once either
                                         // half is taken the cell goes white and the two bars carry the
                                         // detail, so the background never contradicts them.
-                                        background: clear ? '#F1F5F9' : '#FFFFFF',
-                                        border: isPicked ? '2px solid #1E3A8A' : '1px solid #E2E8F0',
+                                        background: dragOverDay === k ? '#EFF4FF' : (clear ? '#F1F5F9' : '#FFFFFF'),
+                                        // The drop target states itself. Without it a drag across
+                                        // a 42-cell grid is a guess about which cell is under the
+                                        // cursor.
+                                        border: dragOverDay === k
+                                            ? '2px dashed #1E3A8A'
+                                            : isPicked ? '2px solid #1E3A8A' : '1px solid #E2E8F0',
                                         // Days outside the month recede, so the month's own shape is
                                         // still the first thing read.
                                         opacity: outside ? 0.35 : 1,
@@ -1127,15 +1211,25 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                     {list.slice(0, 4).map((m) => (
                                         <span
                                             key={m.id}
+                                            draggable={!!onReschedule && !isCancelled(m)}
+                                            onDragStart={onReschedule ? (e) => {
+                                                e.stopPropagation();
+                                                e.dataTransfer.setData('text/meeting-id', m.id);
+                                                e.dataTransfer.effectAllowed = 'move';
+                                            } : undefined}
                                             // The whole line on hover: a month cell is too narrow to
                                             // hold time, title AND project without clipping, and the
-                                            // clipped part is often the project.
-                                            title={`${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}`}
+                                            // clipped part is often the project. The time is named
+                                            // because dragging changes the DAY and never the clock.
+                                            title={onReschedule
+                                                ? `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}\nDrag to another day — the time stays ${dayjs(m.startDate).format('h:mm A')}`
+                                                : `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}`}
                                             style={{
                                                 fontSize: 9.5, fontWeight: 600, lineHeight: 1.3,
                                                 color: '#1E3A8A', background: '#EFF4FF',
                                                 borderRadius: 4, padding: '1px 4px',
                                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                cursor: onReschedule && !isCancelled(m) ? 'grab' : 'inherit',
                                             }}
                                         >
                                             {/* Time, then what it is, then whose it is — and the
@@ -1167,6 +1261,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                         timeRange={timeRange}
                         modeCell={modeCell}
                         onDelete={onDelete}
+                        onCancel={onCancel}
                         onEdit={onEdit ? (m) => { setDayOpen(false); onEdit(m); } : undefined}
                     />
 

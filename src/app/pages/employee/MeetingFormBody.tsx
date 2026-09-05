@@ -8,12 +8,13 @@ import { RootState } from '@redux/store';
 import { createMeetings, updateMeeting, fetchAllEmployees } from '@services/employee';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
 import { getAllProjects } from '@services/projects';
-// The task board's own project list: the projects the caller is ON, not every project in
-// the company. Reused rather than re-derived — it is the same question, already answered
-// server-side where project membership can actually be checked.
-import { getBoardProjects } from '@services/tasks';
+// The projects this person is on the INTERNAL TEAM of (or manages). Its own endpoint, not
+// the task board's: that one is gated behind a `tasks.view` scope and also includes projects
+// of tasks merely assigned to you, so it both hid projects from people without task
+// permissions and offered ones they are not really on.
+import { getMeetingProjects } from '@services/employee';
 import { getLeadById } from '@services/leadService';
-import { WtDateField } from '@app/modules/common/components/ui';
+import { WtDateField, WtSwitch } from '@app/modules/common/components/ui';
 import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
 import { KTIcon } from '@metronic/helpers';
 import { TRIO, menuOptionSx, type Trio } from '@app/modules/common/components/ui/patterns';
@@ -151,6 +152,19 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const [projectDetail, setProjectDetail] = useState<any>(null);
         const [teamLoading, setTeamLoading] = useState(false);
         const [error, setError] = useState<string | null>(null);
+        /**
+         * Whether to send the notice, and to whom.
+         *
+         * Both were previously decided for the organizer: every save mailed every participant.
+         * That is right for a new meeting and wrong for a typo fix, so a NEW meeting defaults
+         * to sending and an EDIT defaults to not — the common case for each, with the other
+         * one click away.
+         *
+         * `notifyIds === null` means "everyone on the meeting" and is what a fresh invitation
+         * wants; once the organizer touches the picker it becomes an explicit list.
+         */
+        const [notify, setNotify] = useState(!editing);
+        const [notifyIds, setNotifyIds] = useState<string[] | null>(null);
 
         /**
          * Load the meeting being edited into the form.
@@ -174,14 +188,26 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         }, [editing?.id]);
         const [touched, setTouched] = useState(false);
 
-        useEffect(() => { setProjectId(defaultProjectId ?? ''); }, [defaultProjectId]);
+        /**
+         * The caller's default project, for a NEW meeting only.
+         *
+         * This effect is declared after the one that prefills an edit, so on an edit it ran
+         * second and overwrote the meeting's own project with the caller's default — which is
+         * `undefined` when the dialog is opened from a board card, i.e. it blanked it. An
+         * existing meeting's project comes from the meeting; nothing else may set it.
+         */
+        useEffect(() => {
+            if (editing) return;
+            setProjectId(defaultProjectId ?? '');
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [defaultProjectId, editing?.id]);
 
         useEffect(() => {
             (async () => {
                 try {
                     const [types, comps, projs, mine, emps] = await Promise.all([
                         getAllCompanyTypes(), getAllClientCompanies(), getAllProjects(),
-                        getBoardProjects(), fetchAllEmployees(),
+                        getMeetingProjects(), fetchAllEmployees(),
                     ]);
                     setCompanyTypes(types?.companyTypes || []);
                     setCompanies(comps?.data?.companies || []);
@@ -190,7 +216,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     // board's lighter list does not have. So the shape comes from one and the
                     // MEMBERSHIP from the other.
                     const myIds = new Set<string>(
-                        ((mine?.projects || mine?.data?.projects || []) as any[]).map((p) => String(p.id)),
+                        ((mine?.data || []) as any[]).map((p) => String(p.id)),
                     );
                     setMyProjectIds(myIds);
                     setProjects(projs?.data?.projects || projs?.projects || []);
@@ -268,9 +294,17 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 .filter((m: any) => m.employeeId && !seen.has(m.employeeId) && seen.add(m.employeeId))
                 .map((m: any) => ({
                     value: m.employeeId,
-                    label: employeeById[m.employeeId]?.name || `Employee ${m.employeeId}`,
+                    label: employeeById[m.employeeId]?.name || '',
                     avatar: employeeById[m.employeeId]?.avatar || null,
                 }))
+                // A person we cannot NAME yet is left out rather than labelled with their id.
+                //
+                // The roster arrives with employeeId only; the names come from the directory,
+                // which is a separate request finishing at its own pace. The label used to fall
+                // back to `Employee <uuid>`, so for the moment between the two responses the
+                // picker showed raw ids — a database key in front of a user, which is never the
+                // right answer to "who is coming". They appear, named, a moment later.
+                .filter((o: Option) => !!o.label)
                 .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
         }, [projectId, projectDetail, employeeById]);
 
@@ -368,20 +402,52 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         }, [projectDetail]);
 
         const filteredCompanies = companies.filter((c: any) => !companyTypeId || c.companyTypeId === companyTypeId);
-        const projectOptions: Option[] = projects
-            .filter((p: any) => {
-                if (lockProject) return true;
-                // You can only schedule on a project you are on. The picker used to list every
-                // project in the company, so most of what it offered was somebody else's work.
-                // Empty set = the list has not arrived yet; filtering on it would blank the
-                // picker for a moment and look like "you are on nothing".
-                if (myProjectIds.size && !myProjectIds.has(String(p.id))) return false;
-                if (!p.fileLocationCompanyType && !p.fileLocationCompany) return false;
-                if (companyTypeId && p.fileLocationCompanyType !== companyTypeId) return false;
-                if (companyId && p.fileLocationCompany !== companyId) return false;
-                return true;
-            })
-            .map((p: any) => ({ value: p.id, label: p.projectNumber ? `${p.projectNumber} — ${p.title || ''}`.trim() : (p.title || p.id) }));
+        // Never the id: a project with no title is "Untitled project", not a uuid. Same rule as
+        // the people pickers — a database key is not a name, whatever is missing.
+        const projectLabelOf = (p: any): string =>
+            (p.projectNumber ? `${p.projectNumber} — ${p.title || ''}`.trim() : (p.title || 'Untitled project'));
+
+        /**
+         * The projects offerable here — and, always, the one already chosen.
+         *
+         * THE INVARIANT: whatever the filters say, the SELECTED project is in this list. An
+         * Autocomplete renders its value by finding it among the options, so a selected project
+         * that any filter excludes does not render as "filtered" — it renders as EMPTY, and the
+         * form silently claims no project is set while holding one. That is what emptied the
+         * project on an edit, and on a new meeting opened from a project's own board.
+         *
+         * `lockProject` used to hide this by returning every project when set, so the value was
+         * always findable. Unlocking the field so people can change it took that away and
+         * exposed the real bug underneath, which this fixes at the cause rather than by locking
+         * the field again.
+         */
+        const projectOptions: Option[] = useMemo(() => {
+            const opts = projects
+                .filter((p: any) => {
+                    // You can only schedule on a project you are on. An EMPTY set means the list
+                    // has not arrived yet; filtering on it would blank the picker for a moment
+                    // and read as "you are on nothing".
+                    if (myProjectIds.size && !myProjectIds.has(String(p.id))) return false;
+                    // Only narrow by company once a company is actually chosen. This used to
+                    // drop every project with no file-location metadata even when nothing was
+                    // being filtered by, which hid most of the list for no stated reason.
+                    if (companyTypeId && p.fileLocationCompanyType !== companyTypeId) return false;
+                    if (companyId && p.fileLocationCompany !== companyId) return false;
+                    return true;
+                })
+                .map((p: any) => ({ value: p.id, label: projectLabelOf(p) }));
+
+            if (projectId && !opts.some((o) => o.value === projectId)) {
+                const known = projects.find((p: any) => String(p.id) === String(projectId));
+                opts.unshift({
+                    value: projectId,
+                    // The lead detail this form already fetches for its roster names the project
+                    // even when the picker's own list has not loaded or does not contain it.
+                    label: known ? projectLabelOf(known) : (projectDetail?.title || 'Selected project'),
+                });
+            }
+            return opts;
+        }, [projects, myProjectIds, companyTypeId, companyId, projectId, projectDetail]);
 
         /**
          * Moving the start CARRIES the meeting: the end shifts with it and the duration holds.
@@ -455,6 +521,8 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                         participants: internal.length ? internal.join(',') : undefined,
                         externalParticipants: external.length ? external.join(',') : undefined,
                     projectId: projectId || undefined,
+                    // `undefined` = everyone (the server's own default), `[]` = nobody.
+                    notifyIds: notify ? (notifyIds ?? undefined) : [],
                 };
                 try {
                     if (editing) {
@@ -473,13 +541,31 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     console.error(editing ? 'Error updating meeting' : 'Error creating meeting', e);
                     // The API refuses anyone but the organizer, and that is the failure a person
                     // is most likely to hit here — so say which it was.
-                    setError(editing
-                        ? 'Could not save. Only the meeting organizer can change it.'
-                        : 'Failed to create meeting');
+                    // The server says why; guessing here turned every failed save into a
+                    // permission complaint, including the ones that were not.
+                    const detail = (e as any)?.response?.data?.message;
+                    setError(detail || (editing ? 'Could not save the meeting' : 'Failed to create meeting'));
                     return false;
                 }
             },
         }));
+
+        /**
+         * Who can be written to: the people ON this meeting, internal and external.
+         *
+         * Not the whole directory — a notice about a meeting has exactly one audience, and
+         * offering more would let somebody mail a person who is not invited. External contacts
+         * are included because they receive these mails today; leaving them out of the picker
+         * would mean the one group that cannot be un-selected is the one outside the company.
+         */
+        const notifyOptions: Option[] = useMemo(() => {
+            const picked = new Set([...internal, ...external]);
+            return [...internalOptions, ...externalOptions].filter((o) => picked.has(o.value));
+        }, [internal, external, internalOptions, externalOptions]);
+
+        // Selecting nobody is a real answer, so the toggle carries "send at all" and the
+        // picker carries "to whom" — collapsing the two would make an empty picker ambiguous.
+        const notifySelection = notifyIds ?? notifyOptions.map((o) => o.value);
 
         const chipAvatar = (o: Option) => (
             <Avatar src={o.avatar || undefined} sx={{ width: 24, height: 24, fontSize: 10, fontWeight: 700 }}>
@@ -725,18 +811,27 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     coming at a glance, the fields say how to change it. */}
                 <L text="Participants" icon="profile-user" trio={TRIO.green} />
                 <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1.25 }}>
+                    {/* Only people we can name. A chip reading "Someone" is no more use than one
+                        reading a uuid, and both are gone within a moment of the directory
+                        landing — so the row says it is still loading instead of guessing. */}
                     {internal.map((id) => {
                         const o = internalOptions.find((x) => x.value === id);
+                        if (!o) return null;
                         return (
                             <Chip
                                 key={id}
                                 size="small"
-                                avatar={<Avatar src={o?.avatar || undefined}>{initialsOf(o?.label || '?')}</Avatar>}
-                                label={o?.label || 'Someone'}
+                                avatar={<Avatar src={o.avatar || undefined}>{initialsOf(o.label)}</Avatar>}
+                                label={o.label}
                                 onDelete={() => setInternal(internal.filter((x) => x !== id))}
                             />
                         );
                     })}
+                    {internal.length > 0 && !internal.some((id) => internalOptions.some((o) => o.value === id)) && (
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            Loading people…
+                        </Typography>
+                    )}
                     {internalOptions.length > 0 && internal.length < internalOptions.length && (
                         <Button
                             size="small"
@@ -769,6 +864,59 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     onChange={(e) => setDescription(e.target.value)}
                     inputProps={{ 'aria-label': 'Agenda' }}
                 />
+
+                {/* ── who hears about this ──
+                    Placed last on purpose: it is the decision you make once the meeting itself
+                    is right, and putting it above the details invited people to send a notice
+                    about something they were still editing. */}
+                <Box sx={{ mt: 2.5, p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                        <Box sx={{ color: TRIO.blue.c, lineHeight: 0 }}>
+                            <KTIcon iconName="sms" className="fs-6" />
+                        </Box>
+                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary', flex: 1 }}>
+                            {editing ? 'Send an update email' : 'Send the invitation email'}
+                        </Typography>
+                        <WtSwitch
+                            size="sm"
+                            tone={TRIO.blue.c}
+                            checked={notify}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNotify(e.target.checked)}
+                            inputProps={{ 'aria-label': 'Send email' }}
+                        />
+                    </Stack>
+
+                    {notify && (
+                        notifyOptions.length === 0 ? (
+                            <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}>
+                                Add people to the meeting and they can be notified here.
+                            </Typography>
+                        ) : (
+                            <Box sx={{ mt: 1.25 }}>
+                                <Autocomplete
+                                    multiple size="small" fullWidth disableCloseOnSelect
+                                    options={notifyOptions}
+                                    value={notifyOptions.filter((o) => notifySelection.includes(o.value))}
+                                    onChange={(_, picked) => setNotifyIds(picked.map((p) => p.value))}
+                                    getOptionLabel={(o) => o.label}
+                                    isOptionEqualToValue={(o, v) => o.value === v.value}
+                                    ListboxProps={{ sx: menuOptionSx }}
+                                    renderTags={(picked, getTagProps) => picked.map((o, i) => (
+                                        <Chip {...getTagProps({ index: i })} key={o.value} size="small" avatar={chipAvatar(o)} label={o.label} />
+                                    ))}
+                                    renderInput={(params) => (
+                                        <TextField {...params} label="Email goes to" placeholder="Nobody selected" />
+                                    )}
+                                />
+                                {notifySelection.length === 0 && (
+                                    <Typography variant="caption" sx={{ display: 'block', mt: 0.75, color: 'warning.main' }}>
+                                        Nobody selected — no email will be sent.
+                                    </Typography>
+                                )}
+                            </Box>
+                        )
+                    )}
+                </Box>
 
                 <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: 'text.secondary' }}>
                     Times shown in {timeZoneLabel} · stored in UTC

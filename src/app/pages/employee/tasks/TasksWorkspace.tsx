@@ -54,6 +54,7 @@ import TaskBoard, { BoardColumn } from './components/TaskBoard';
 import TaskTable from './components/TaskTable';
 import TaskFilterDrawer from './components/TaskFilterDrawer';
 import TaskFormDialog from './components/TaskFormDialog';
+import MeetingDialog from '../MeetingDialog';
 import BoardBackgroundDialog from './components/BoardBackgroundDialog';
 import ProjectTeamDialog from './components/ProjectTeamDialog';
 import BoardBottomNav, { WorkspacePanel } from './components/BoardBottomNav';
@@ -184,6 +185,8 @@ export const TasksWorkspace = () => {
     const [createInStage, setCreateInStage] = useState<string | undefined>();
     const [backdropOpen, setBackdropOpen] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
+    // The meeting a board card was clicked on. null → the dialog is closed.
+    const [editingMeeting, setEditingMeeting] = useState<any>(null);
     /** The board header's avatar stack is a preview; this is where the rest of the team lives. */
     const [teamOpen, setTeamOpen] = useState(false);
     /**
@@ -334,9 +337,31 @@ export const TasksWorkspace = () => {
      */
     const openTaskOrMeeting = (id: string, task: TaskRow) => {
         if (task?.isMeeting) {
-            const projectId = task.leadId;
-            if (!projectId) return;
-            navigate(`/leads/${projectId}?tab=meetings`, { state: { leadData: projectId, isProject: true } });
+            // Opened HERE rather than by navigating to the project's Meetings tab: the card was
+            // clicked to look at the meeting, and sending somebody to another screen to do that
+            // loses the board they were reading. The row already carries everything the form
+            // needs, so there is nothing to fetch.
+            const m = task as any;
+            const ids = (raw?: string | null): string[] => {
+                if (!raw) return [];
+                try {
+                    const parsed = JSON.parse(raw);
+                    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+                } catch { return String(raw).split(',').map((x) => x.trim()).filter(Boolean); }
+            };
+            setEditingMeeting({
+                id: m.id,
+                title: m.taskName,
+                description: m.taskDescription,
+                isOnline: !!m.isOnline,
+                meetingLink: m.meetingLink,
+                location: m.location,
+                startDate: m.startDate,
+                endDate: m.endDate ?? m.dueDate,
+                projectId: m.leadId,
+                participantIds: ids(m.participants),
+                externalParticipantIds: ids(m.externalParticipants),
+            });
             return;
         }
         navigate(`/tasks/${id}`);
@@ -633,8 +658,17 @@ export const TasksWorkspace = () => {
                                         ink={ink}
                                         isLoading={boardQuery.isLoading}
                                         onOpenTask={openTaskOrMeeting}
+                                        cardOrder={filters.cardOrder}
                                         onMoveTask={(taskId, statusId) => moveStage.mutateAsync({ taskId, statusId })}
-                                        onReorder={(statusId, taskIds) => reorderTasks.mutateAsync({ statusId, taskIds })}
+                                        // Hand-arranging a lane only means something when the lane
+                                        // is READ in hand-arranged order. With a date sort on, the
+                                        // saved position would be overridden the moment the refetch
+                                        // landed and the card would snap back — so the gesture is
+                                        // withdrawn rather than allowed to lie. Moving a card to
+                                        // another stage still works either way.
+                                        onReorder={(filters.cardOrder ?? 'earliest') === 'manual'
+                                            ? ((statusId, taskIds) => reorderTasks.mutateAsync({ statusId, taskIds }))
+                                            : undefined}
                                         // The per-lane "+" files a task too, so it answers to the
                                         // same permission as the header button.
                                         onAddInStage={boardQuery.data?.canCreateTask !== false
@@ -707,6 +741,16 @@ export const TasksWorkspace = () => {
                 </Box>
                 )}
             </Box>
+
+            {/* Keyed on the meeting so opening a second card refills rather than showing the
+                first one's values — the form prefills on mount. */}
+            <MeetingDialog
+                key={editingMeeting?.id ?? 'none'}
+                open={!!editingMeeting}
+                editing={editingMeeting}
+                onClose={() => setEditingMeeting(null)}
+                onSaved={() => { setEditingMeeting(null); invalidateTasks(); }}
+            />
 
             <TaskFormDialog
                 open={createOpen}

@@ -344,6 +344,16 @@ export interface TaskFilterState {
     topLevelOnly?: boolean;
     sortBy?: string;
     sortDir?: 'asc' | 'desc';
+    /**
+     * How cards are ordered INSIDE a board column. Client-side only — never sent to the API.
+     *
+     * The server hands each lane back in hand-arranged order (`boardPosition`) with newest-created
+     * as the tie-break, which answers "what did somebody drag where" and not "what is next". A
+     * lane of five meetings therefore read newest-first, and a Monday task sat under a Wednesday
+     * one. This re-orders what is already on screen rather than changing the query, so the board
+     * and the table still agree about WHICH cards exist — only the reading order differs.
+     */
+    cardOrder?: CardOrder;
 }
 
 /**
@@ -378,6 +388,45 @@ export const filtersToQuery = (filters: TaskFilterState): Record<string, string>
 /** How many filters are actually narrowing the list — drives the "N active" badge. */
 export const activeFilterCount = (filters: TaskFilterState): number =>
     Object.keys(filtersToQuery({ ...filters, sortBy: undefined, sortDir: undefined, search: undefined })).length;
+
+/** Card order inside a lane. `manual` is the server's own hand-arranged order. */
+export type CardOrder = 'earliest' | 'latest' | 'manual';
+
+export const DEFAULT_CARD_ORDER: CardOrder = 'earliest';
+
+/**
+ * The moment a card refers to.
+ *
+ * A meeting is its START — that is when you have to be somewhere. A task is its DUE date,
+ * which is when it matters; failing that the day it was meant to start, and only then the day
+ * it was filed. `null` for anything undated, which sorts LAST: a card with no date has not
+ * earned the top of the lane.
+ */
+export const cardTime = (t: TaskRow): number | null => {
+    const raw = t.isMeeting
+        ? (t.startDate ?? t.dueDate)
+        : (t.dueDate ?? t.startDate ?? t.createdAt);
+    if (!raw) return null;
+    const ms = new Date(raw).getTime();
+    return Number.isNaN(ms) ? null : ms;
+};
+
+/** Sort a lane's cards. Undated cards keep their given order, at the end. */
+export const orderCards = (tasks: TaskRow[], order: CardOrder): TaskRow[] => {
+    if (order === 'manual') return tasks;
+    const dir = order === 'latest' ? -1 : 1;
+    // Index-carrying so the sort is STABLE for equal (and for null) times — without it, cards
+    // sharing a date shuffle between renders, which reads as the board twitching.
+    return tasks
+        .map((t, i) => ({ t, i, ms: cardTime(t) }))
+        .sort((a, b) => {
+            if (a.ms === null && b.ms === null) return a.i - b.i;
+            if (a.ms === null) return 1;
+            if (b.ms === null) return -1;
+            return a.ms === b.ms ? a.i - b.i : (a.ms - b.ms) * dir;
+        })
+        .map((x) => x.t);
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Errors

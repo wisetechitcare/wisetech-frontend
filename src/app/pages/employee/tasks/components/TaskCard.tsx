@@ -78,7 +78,16 @@ const TaskCardBase = ({
 }: TaskCardProps) => {
     const theme = useTheme();
     const dark = theme.palette.mode === 'dark';
-    const overdue = isTaskOverdue(task, now);
+    /**
+     * A MEETING is not a task, and most of this card's furniture is about work in progress.
+     *
+     * It was wearing all of it: a 0% progress bar (a meeting has no progress), "4 days
+     * overdue" (a meeting that has passed HAPPENED, it is not late), and a task-id chip. The
+     * card is shared on purpose — one card, one board — so the pieces that only mean something
+     * for a task are simply not drawn for a meeting.
+     */
+    const meeting = (task as any).isMeeting === true;
+    const overdue = !meeting && isTaskOverdue(task, now);
     // Finished work, read off the STORED property of its stage — never the stage's name.
     const done = isTaskFinal(task);
     const logged = loggedSeconds(task.timesheets);
@@ -137,15 +146,29 @@ const TaskCardBase = ({
             <Stack spacing={1}>
                 {/* ── band 1: what it is ── */}
                 <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
-                    <TaskScopeBadge scope={task.taskScope} />
-                    {task.priority && <TaskPriorityBadge priority={task.priority} />}
+                    {meeting
+                        ? (
+                            <Box sx={{
+                                px: 0.7, py: 0.15, borderRadius: 0.75, fontSize: 9.5, fontWeight: 800,
+                                letterSpacing: 0.4, bgcolor: alpha('#1E3A8A', dark ? 0.34 : 0.12),
+                                color: dark ? '#BFD2F5' : '#1E3A8A',
+                            }}>
+                                MEETING
+                            </Box>
+                        )
+                        : <TaskScopeBadge scope={task.taskScope} />}
+                    {!meeting && task.priority && <TaskPriorityBadge priority={task.priority} />}
                     <Box sx={{ flex: 1, minWidth: 8 }} />
                     <FinalStageMark task={task} />
+                    {/* A meeting's id is not a reference anybody quotes, so it does not earn
+                        the space; the time it starts does. */}
                     <Typography
                         variant="caption"
-                        sx={{ color: 'text.disabled', fontFamily: 'monospace', fontSize: 10, letterSpacing: '-.02em' }}
+                        sx={{ color: 'text.disabled', fontFamily: meeting ? undefined : 'monospace', fontSize: 10, letterSpacing: '-.02em' }}
                     >
-                        {shortTaskId(task.id)}
+                        {meeting
+                            ? (task.startDate ? new Date(task.startDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '')
+                            : shortTaskId(task.id)}
                     </Typography>
                     {onRequestMove && (
                         <Tooltip title="Move to stage">
@@ -218,16 +241,24 @@ const TaskCardBase = ({
                     </Stack>
                 </Box>
 
-                <TaskProgress value={task.progress} height={4} />
+                {!meeting && <TaskProgress value={task.progress} height={4} />}
 
                 <Divider sx={{ borderColor: 'divider', opacity: 0.7 }} />
 
                 {/* ── band 3: who and when ── */}
                 <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
                     {/* Everyone on it, owner first — a shared task shows as a group. */}
-                    <TaskAssignees assignees={task.assignees} fallback={task.assignedTo} size={24} max={2} />
+                    {!meeting && (
+                        <TaskAssignees assignees={task.assignees} fallback={task.assignedTo} size={24} max={2} />
+                    )}
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <TaskDueDate task={task} now={now} pill />
+                        {meeting
+                            ? (
+                                <Typography variant="caption" noWrap sx={{ fontSize: 11, color: 'text.secondary' }}>
+                                    {(task as any).isOnline ? 'Online' : ((task as any).location || 'In person')}
+                                </Typography>
+                            )
+                            : <TaskDueDate task={task} now={now} pill />}
                     </Box>
                     {/* "3 subtasks", not a bare "3" beside a glyph nobody has to decode. This is
                         the other half of telling the two apart: a card either belongs to a

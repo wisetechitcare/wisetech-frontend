@@ -670,7 +670,11 @@ export const TaskFormDialog = ({
                             // task fields above, else the one the screen was opened from. A
                             // meeting scheduled from a project should not ask which project.
                             defaultProjectId={values.projectId || defaultProjectId}
-                            lockProject={!!(values.projectId || defaultProjectId)}
+                            // NOT locked. The board it was opened from is a sensible default,
+                            // not a decision — somebody scheduling from one project's board is
+                            // often booking with another, and printing the name as fixed text
+                            // meant closing the dialog and starting again from the right board.
+                            lockProject={false}
                             onSaved={onSaved}
                         />
                     )}

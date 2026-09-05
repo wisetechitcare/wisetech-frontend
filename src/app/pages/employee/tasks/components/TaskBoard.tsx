@@ -29,7 +29,9 @@ import {
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { confirmDialog, toast } from '@app/modules/common/components/ui';
-import { TaskRow, TaskStatusRef, apiErrorMessage } from '../taskDomain';
+import {
+    TaskRow, TaskStatusRef, apiErrorMessage, orderCards, DEFAULT_CARD_ORDER, type CardOrder,
+} from '../taskDomain';
 import {
     SortableProvider, SortableContainer, SortableItem, type SortableDrop,
 } from '@components/dnd/SortableList';
@@ -86,6 +88,8 @@ export interface TaskBoardProps {
      * rearrangement it cannot remember.
      */
     onReorderLanes?: (statusIds: string[]) => Promise<unknown>;
+    /** How cards read inside a lane. Defaults to earliest-first. */
+    cardOrder?: CardOrder;
     isLoading?: boolean;
     /**
      * How to draw the few marks that sit on the BACKDROP rather than on a card — currently the
@@ -130,7 +134,7 @@ const LANE_SURFACE = 'board-lanes';
 
 export const TaskBoard = ({
     columns, now, onOpenTask, onMoveTask, onAddInStage, onCreateList, onDeleteList, onReorder,
-    onReorderLanes, canCreateGlobalList = false, isLoading, ink = 'light',
+    onReorderLanes, cardOrder = DEFAULT_CARD_ORDER, canCreateGlobalList = false, isLoading, ink = 'light',
 }: TaskBoardProps) => {
     const theme = useTheme();
     /** Optimistic overrides: taskId → statusId. Cleared once the server answers. */
@@ -180,7 +184,13 @@ export const TaskBoard = ({
     const view = useMemo(() => {
         const hasMoves = Object.keys(pending).length > 0;
         const hasOrders = Object.keys(pendingOrder).length > 0;
-        if (!hasMoves && !hasOrders) return columns;
+        // Sorting happens LAST in this function, so it also applies on the quiet path where
+        // nothing is in flight — which is most of the time.
+        if (!hasMoves && !hasOrders) {
+            return cardOrder === 'manual'
+                ? columns
+                : columns.map((col) => ({ ...col, tasks: orderCards(col.tasks, cardOrder) }));
+        }
 
         const moved = new Map<string, TaskRow>();
         for (const col of columns) {
@@ -211,9 +221,13 @@ export const TaskBoard = ({
                     (a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
                 );
             }
-            return { ...col, tasks, total: Math.max(0, col.total + delta) };
+            // A drag the user JUST made outranks the sort until the refetch lands; after that
+            // the chosen order takes over again. Without this the card would snap back under
+            // the cursor, which reads as the drop having failed.
+            const ordered = order ? tasks : orderCards(tasks, cardOrder);
+            return { ...col, tasks: ordered, total: Math.max(0, col.total + delta) };
         });
-    }, [columns, pending, pendingOrder]);
+    }, [columns, pending, pendingOrder, cardOrder]);
 
     const move = useCallback(
         async (task: TaskRow, statusId: string) => {

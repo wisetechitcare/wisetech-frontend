@@ -204,6 +204,17 @@ export const getMeetings = async (employeeId: string) => {
     }
 };
 
+/** Projects this person may schedule a meeting on: their internal-team and managed ones. */
+export const getMeetingProjects = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/projects`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 /** Cancel a meeting, or restore one. A status write — the row stays in the project record. */
 export const setMeetingCancelled = async (
     meetingId: string, employeeId: string, cancelled: boolean, reason?: string,

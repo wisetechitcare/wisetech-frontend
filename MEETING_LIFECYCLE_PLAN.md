@@ -14,6 +14,9 @@ the decisions were made, and of what is left.
 Cost is still computed at read time from the invite list. That is wrong for the reasons in
 §3 below, and stays wrong until steps 4 and 5 land together.
 
+Everything below the line in §6 was NOT in the original plan. It came out of using the thing
+and is recorded so the next reader knows why it exists.
+
 ---
 
 ## 1. Editing a meeting — DONE
@@ -117,6 +120,54 @@ Step 5 must not land before step 4, or every meeting reads ₹0.
 
 ---
 
+## 6. Built after the plan was written
+
+None of this was planned; all of it came from using the feature. Recorded because the reasons
+are not obvious from the diff.
+
+**The notice says what it is.** An update used to send the invitation template, so somebody who
+already had the meeting got a second "MEETING INVITATION" and had to compare times to work out
+what changed. Now INVITATION / RESCHEDULED / UPDATED, subject and body from one source.
+RESCHEDULED is reserved for a change of TIME — telling somebody their meeting moved when only
+its title changed is the same disservice pointed the other way.
+
+**Sending is a decision, and so is the audience.** Every save mailed every participant. A new
+meeting still defaults to sending; an EDIT defaults to not, because fixing a typo should not
+mail five people. Recipients are chosen from the meeting's own people (internal and external —
+excluding the externals would mean the one group who cannot opt out is the one outside the
+company), and travel as ids, never addresses.
+
+**Who may change a meeting: organizer OR a manager of its project.** Organizer-only was too
+tight to use — a project manager rearranging their own project's week could not touch a single
+one of its meetings. A meeting on a project belongs to the project, not to whoever typed it in.
+A meeting with no project stays organizer-only. Deleting is deliberately still organizer-only:
+cancelling exists so that destroying a record stays rare.
+
+**Drag a meeting to another day.** The DAY moves, the clock never does — a month cell says
+nothing about the hour, so reading one out of the drop would be inventing it. Duration is
+preserved rather than the end pinned to the same day, so a meeting running past midnight keeps
+its length, and the shift is computed in whole days so DST cannot move the time. No email on a
+drag: it is a quick correction, and mailing on every nudge is how people learn to ignore
+meeting mail.
+
+**Cards read earliest-first.** The server returns a lane hand-arranged with newest-created as
+the tie-break, which answers "what did somebody drag where", not "what is next" — so a Monday
+task sat under a Wednesday one. Ordering is client-side and a control in the filter drawer
+(Earliest / Latest / As arranged). Undated cards sink; ties are stable. Within-lane dragging is
+withdrawn unless the order is "As arranged", because a hand-arrangement a date sort overrides
+is a gesture that lies.
+
+**The same actions in every view.** Edit / cancel / delete existed only in the table, and the
+project's Meetings tab had no actions at all — so what a meeting could do depended on which
+screen you were looking at it from. One list component, one set of actions, both screens.
+
+**Project scoping asks the right question.** The picker was using the task board's project
+endpoint, which is gated behind a `tasks.view` scope and also includes projects of tasks merely
+assigned to you — so it hid projects from people without task permissions and offered ones they
+are not on. Its own endpoint now: internal-team member, or project manager.
+
+---
+
 ## Note for whoever does steps 4–5
 
 `tsc` will NOT catch a removed or renamed Prisma field once the object literal carries at
@@ -132,3 +183,18 @@ Every real query has other fields, so all four `isActive` filters compiled clean
 being broken at runtime. This is the same gap that shipped a `companyLogo` select against a
 column actually named `logo`, and 500'd every lead fetch. When changing Prisma fields: grep
 for the old name, and RUN the queries. A green typecheck proves nothing here.
+
+**Do not run `prisma migrate dev` here.** This schema carries pre-existing drift, so Prisma's
+diff captures unrelated changes (a `lead_sequences` enum, FULLTEXT indexes it re-emits, a
+case-only rename that generates a DROP TABLE) and files them under whatever name you gave your
+migration. Hand-author the SQL and apply with `migrate deploy`, as every migration in this repo
+already does and says.
+
+**Transport fields must not reach Prisma.** Both meeting write paths spread their payload
+straight into `data`, so a field that is not a column throws "Unknown argument" and surfaces as
+a 500 reading "Bad request" — naming neither the field nor the cause. `splitMeetingPayload`
+strips them in one place; add new ones there.
+
+**A catch-all error message is a lie waiting to happen.** A reschedule failure was reported as
+"Only the organizer can" for every possible cause, which sent an afternoon chasing a permission
+bug that was actually the Prisma one above. The server states why it refused; repeat that.
