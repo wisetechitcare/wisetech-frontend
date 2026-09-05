@@ -17,22 +17,16 @@
   visibility: visible;
 }
 
-/* Bootstrap Reboot's `button { border-radius: 0 }` (its fix for a macOS Chrome
-   default) silently squares EVERY Tailwind-rounded button in the app.
-   `style.scss` is imported after this file and is unlayered, and unlayered CSS
-   beats layered CSS outright — specificity never enters into it, so a
-   `rounded-full` utility loses to a bare element selector.
+/* NOTE for anyone hitting square Tailwind buttons:
+   Bootstrap Reboot sets `button { border-radius: 0 }`, and `style.scss` is
+   imported after this file UNLAYERED — so it beats every layered Tailwind
+   `rounded-*` utility outright, specificity never entering into it.
 
-   `revert-layer` rolls the declaration back to the previous layer, which is
-   Tailwind's, so each button gets whatever radius its own utility asked for.
-   Scoped to buttons that already carry a `rounded-*` class, so nothing that
-   didn't opt in changes. Unlayered, like the `.collapse.show` shim above.
-
-   Symptom this fixes: the attendance legend chips rendering as sharp
-   rectangles despite `rounded-full`. */
-button[class*="rounded-"] {
-  border-radius: revert-layer;
-}
+   A global `button[class*="rounded-"] { border-radius: revert-layer }` fixes it
+   in one line, and was deliberately NOT taken: it silently restyles every
+   button in an app whose screens have not been reviewed for it. Components that
+   need a radius set it inline instead, which beats the Reboot rule and changes
+   nothing they do not own. */
 
 /* ============================================================
    TAILWIND UI KIT (tw/) — dynamic bits Tailwind utilities can't express

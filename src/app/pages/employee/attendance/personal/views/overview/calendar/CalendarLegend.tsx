@@ -125,6 +125,12 @@ function LegendChip({
         backgroundColor: pressed ? t.bg : 'transparent',
         borderColor: pressed ? t.bd : dark ? '#30363d' : '#E6E9EE',
         color: t.fg,
+        // Inline, not the `rounded-full` class. Bootstrap Reboot's
+        // `button { border-radius: 0 }` is UNLAYERED and loads after Tailwind,
+        // so it beats every rounded-* utility regardless of specificity. An
+        // inline style outranks both, and unlike a global override it changes
+        // nothing outside this chip.
+        borderRadius: 9999,
       }}
     >
       <Swatch

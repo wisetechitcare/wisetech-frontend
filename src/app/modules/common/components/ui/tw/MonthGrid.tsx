@@ -307,8 +307,12 @@ export function MonthGrid({
               onFocus={() => { setFocusedDate(iso); setActiveDate(iso); }}
               onBlur={() => setActiveDate((cur) => (cur === iso ? null : cur))}
               onClick={() => !disabled && onDayActivate?.(iso)}
+              // Inline radius: Bootstrap Reboot's unlayered `button { border-radius: 0 }`
+              // loads after Tailwind and beats every rounded-* utility. Inline outranks
+              // both without touching any button this component does not own.
+              style={{ borderRadius: 12 }}
               className={cn(
-                'relative grid place-items-center rounded-xl outline-none',
+                'relative grid place-items-center outline-none',
                 'aspect-square w-full sm:aspect-auto sm:h-[46px]',
                 'transition-[background-color,opacity] duration-150',
                 !disabled && 'hover:bg-slate-100/70 dark:hover:bg-white/[0.06]',
@@ -332,8 +336,9 @@ function NavBtn({ label, icon, onClick }: { label: string; icon: string; onClick
       type="button"
       aria-label={label}
       onClick={onClick}
+      style={{ borderRadius: 8 }}
       className={cn(
-        'grid size-8 place-items-center rounded-lg text-slate-500 dark:text-slate-400',
+        'grid size-8 place-items-center text-slate-500 dark:text-slate-400',
         'transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/[0.06] dark:hover:text-slate-100',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A8A] dark:focus-visible:ring-[#8AA3EC]',
       )}
