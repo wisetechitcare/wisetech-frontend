@@ -496,14 +496,26 @@ function TonePreview({ spec, color, presentColor }: { spec: CalendarToneSpec; co
     );
   }
   if (spec.channel === 'dot') {
-    // A mark sits ON a present day, so it is previewed on one — the dot alone
-    // would not show that it never consumes the fill.
+    /**
+     * The disc is NEUTRAL here, not the Present colour.
+     *
+     * Previewing a mark on the day it usually sits on was the more faithful
+     * drawing, and it made the card useless: six marks all rendered as a green
+     * Present tile whose only difference was a 4.5px dot, so Remote, Late
+     * check-in and Currently working were indistinguishable from each other and
+     * from Present. A settings card exists to show the value being edited, so
+     * the configured colour is the most saturated thing on it and the dot is
+     * drawn large enough to read.
+     */
     return (
-      <span className={`${disc} relative`} style={{ backgroundColor: presentColor, color: readableOn(presentColor) }}>
-        <span className="-translate-y-[2px] leading-none">{numeral}</span>
+      <span
+        className={`${disc} relative`}
+        style={{ backgroundColor: 'rgba(100,116,139,.10)', color: '#64748B', boxShadow: 'inset 0 0 0 1px rgba(100,116,139,.20)' }}
+      >
+        <span className="-translate-y-[3px] leading-none">{numeral}</span>
         <i
-          className="absolute bottom-[2.5px] left-1/2 block size-[4.5px] -translate-x-1/2 rounded-full"
-          style={{ backgroundColor: color }}
+          className="absolute bottom-[3px] left-1/2 block size-[8px] -translate-x-1/2 rounded-full"
+          style={{ backgroundColor: color, boxShadow: '0 0 0 1.5px rgba(255,255,255,.9)' }}
         />
       </span>
     );

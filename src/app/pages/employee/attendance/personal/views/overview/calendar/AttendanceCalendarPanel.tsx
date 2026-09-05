@@ -14,14 +14,13 @@ import { GlassCard } from '@app/modules/common/components/ui/tw/Glass';
 import { StatTile } from '@app/modules/common/components/ui/tw/Patterns';
 import { Spinner } from '@app/modules/common/components/ui/tw/Spinner';
 import { ErrorState } from '@app/modules/common/components/ui/tw/ErrorState';
-import { TRIO } from '@app/modules/common/components/ui/tw/tokens';
 import { MonthGrid } from '@app/modules/common/components/ui/tw/MonthGrid';
 import { DayCell } from './DayCell';
 import { CalendarLegend } from './CalendarLegend';
-import type { DayLabelOverrides, DayToneOverrides, ModifierToneOverrides } from './dayTokens';
+import { legendLabel, resolveDayVisual, type DayLabelOverrides, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import type { StructuralColors } from '@app/modules/common/components/ui/tw/calendarDayTones';
 
-import type { AttendanceCalendarResponse, CalendarDay, LegendKey } from './types';
+import type { AttendanceCalendarResponse, CalendarDay, DayStatus, LegendKey } from './types';
 
 export interface AttendanceCalendarPanelProps {
   month: string;
@@ -78,16 +77,35 @@ export function AttendanceCalendarPanel({
   const tiles = useMemo(() => {
     const s = data?.summary;
     if (!s) return [];
-    // Day counts only. Hours were dropped — a month total in whole hours is not
-    // a number anyone acts on here, and the per-day duration is in the tooltip
-    // where it is actually useful. `summary.minutesWorked` still comes from the
-    // server for anything that does want it.
+
+    /**
+     * Colour and NAME both come from the same resolver the tiles beneath use.
+     *
+     * These three were the last things on this screen still painted from the
+     * kit's palette: the summary said "Present" in the kit's green while the
+     * grid two inches below painted the configured one, and renaming a status
+     * in settings left the tile still saying the shipped word. One resolver
+     * means the header can no longer contradict the calendar it summarises.
+     *
+     * Day counts only — hours were dropped, because a month total in whole
+     * hours is not a number anyone acts on here and the per-day duration is in
+     * the tooltip. `summary.minutesWorked` still arrives for anything that
+     * does want it.
+     */
+    const tile = (key: DayStatus, icon: string, value: number) => ({
+      key,
+      value,
+      icon,
+      label: legendLabel(key, labels),
+      trio: resolveDayVisual(key, [], overrides).trio,
+    });
+
     return [
-      { label: 'Present', value: s.present, trio: TRIO.green, icon: 'check-circle' },
-      { label: 'Leave', value: s.leave, trio: TRIO.amber, icon: 'calendar-remove' },
-      { label: 'Absent', value: s.absent, trio: TRIO.rose, icon: 'cross-circle' },
+      tile('present', 'check-circle', s.present),
+      tile('leave', 'calendar-remove', s.leave),
+      tile('absent', 'cross-circle', s.absent),
     ];
-  }, [data?.summary]);
+  }, [data?.summary, overrides, labels]);
 
   if (error) {
     return (
@@ -103,7 +121,7 @@ export function AttendanceCalendarPanel({
       {tiles.length > 0 && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {tiles.map((t) => (
-            <StatTile key={t.label} label={t.label} value={t.value} trio={t.trio} icon={t.icon} />
+            <StatTile key={t.key} label={t.label} value={t.value} trio={t.trio} icon={t.icon} />
           ))}
         </div>
       )}
