@@ -54,6 +54,7 @@ import {
 } from '@app/modules/common/components/EmployeeStatGrid';
 import type { EmployeeStatGroup } from '@app/modules/common/components/employeeStatGrouping';
 import { computeAbsentEntries, computeLeaveDaysByDate } from "./absentDays";
+import { getEmployeeStatus } from "@utils/employeeStatus";
 
 // Sort/search/close modal shell and the employee card grid are shared with the
 // Dashboard daily overview — see the two components above, not a local copy.
@@ -493,6 +494,13 @@ function Overview({ date, range }: OverviewProps) {
             // The same predicate the rest of this page uses, so the modal cannot disagree
             // with the calendar about which days are working days.
             isNonWorking: checkIfWeekendOrHoliday,
+            // Per-DAY employment. The roster is scoped to the window, which says who
+            // belongs in the period; this says which of that period's days each of them
+            // was actually on the books for. Without it, someone who left on 14 August
+            // collected an absence for every working day from the 15th onward.
+            // `getEmployeeStatus` is the shared frontend twin of the backend's
+            // employment-window predicate, and is rejoin-aware.
+            isEmployedOn: (employee: any, day) => getEmployeeStatus(employee, day) === 1,
             presentByDay,
             leaveByDay,
             roster: allEmployees,

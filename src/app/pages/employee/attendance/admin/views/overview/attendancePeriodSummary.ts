@@ -36,7 +36,8 @@ export interface EmployeePeriodSummary {
     /**
      * Working days in the window the employee neither worked nor was on leave.
      * Derived, not observed: an absent day produces no attendance row at all, so it can
-     * only be `workingDays - present - leave`. Floored at 0 — a half-day leave that also
+     * only be `workingDaysFor(employee) - present - leave`, where the denominator is that
+     * employee's OWN employed working days. Floored at 0 — a half-day leave that also
      * carries a check-in would otherwise push it negative.
      */
     absent: number;
@@ -74,8 +75,17 @@ export interface SummaryRosterEntry {
 export interface SummarizeOptions {
     /** Everyone who should appear, including employees with zero rows in the window. */
     roster: SummaryRosterEntry[];
-    /** Working (non-weekend) days in the window — the denominator for `absent`. */
-    workingDays: number;
+    /**
+     * Working days in the window FOR THIS EMPLOYEE — the denominator for `absent`.
+     *
+     * Per-employee, not one number for the period, and required rather than
+     * optional. August has ~22 working days, but someone who left on the 14th
+     * had 10; charging them the period's figure invented twelve absences for
+     * days they were not employed. A single shared number cannot express that,
+     * and an optional override would read as a refinement rather than as the
+     * thing that makes the count correct.
+     */
+    workingDaysFor: (employeeId: string) => number;
     /** employeeId → weighted leave days in the window (half-days already 0.5). */
     leaveDaysByEmployee: Map<string, number>;
     /**
@@ -95,7 +105,7 @@ const displayName = (emp: SummaryRosterEntry) =>
 
 export function summarizeAttendanceByEmployee(
     rows: readonly IEmployeesAttendance[],
-    { roster, workingDays, leaveDaysByEmployee, classificationByEmployee }: SummarizeOptions,
+    { roster, workingDaysFor, leaveDaysByEmployee, classificationByEmployee }: SummarizeOptions,
 ): EmployeePeriodSummary[] {
     const byEmployee = new Map<string, EmployeePeriodSummary>();
 
@@ -165,7 +175,9 @@ export function summarizeAttendanceByEmployee(
         if (summary.days.length > 1) {
             summary.days.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
         }
-        summary.absent = Math.max(0, workingDays - summary.present - summary.leave);
+        // Denominator is this employee's own employed working days, so a leaver is
+        // not charged for the rest of the month.
+        summary.absent = Math.max(0, workingDaysFor(summary.employeeId) - summary.present - summary.leave);
         // 0.5 weights are exact in IEEE-754, but round defensively so a future
         // fractional-day policy can't surface 2.9999999999999996 in a cell.
         summary.leave = Math.round(summary.leave * 100) / 100;
