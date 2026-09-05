@@ -1,18 +1,20 @@
 # Meeting Lifecycle — Plan
 
-**Steps 1–3 are built.** Steps 4 and 5 are not. This document is kept as the record of why
-the decisions were made, and of what is left.
+**All five steps are built.** This document is kept as the record of why the decisions were
+made.
 
 | Step | State |
 |------|-------|
 | 1. Schema — meeting `status`, `Timesheet.meetingId` | **done** (`20260904090000_meeting_lifecycle`) |
 | 2. Cancellation as a state | **done** |
 | 3. Editing a meeting | **done** |
-| 4. Logging time against a meeting | not started |
-| 5. Cost from timesheets, deleting the salary block | not started — must not land before 4 |
+| 4. Logging time against a meeting | **done** |
+| 5. Cost from timesheets, deleting the salary block | **done** — landed together with 4 |
+| 6. Reminders to log time | **done** (added later, see §7) |
 
-Cost is still computed at read time from the invite list. That is wrong for the reasons in
-§3 below, and stays wrong until steps 4 and 5 land together.
+Cost now comes from timesheets. An upcoming meeting has no cost; a held meeting nobody has
+logged reads **Awaiting timesheets**, not ₹0 — zero says "free" when the truth is
+"unrecorded", and the difference matters to whoever is reading the total.
 
 Everything below the line in §6 was NOT in the original plan. It came out of using the thing
 and is recorded so the next reader knows why it exists.
@@ -58,10 +60,9 @@ wrong until that cron next ran. The column holds only `SCHEDULED` or `CANCELLED`
 `meetingLifecycle()` says which of the three a reader is looking at. Nothing to keep in step,
 so nothing can drift.
 
-## 3. Cost from timesheets, not from the invite list — NOT STARTED
+## 3. Cost from timesheets, not from the invite list — DONE
 
-The important one, and the reason the rest is worth doing. The schema for it is in place
-(`Timesheet.meetingId`); nothing reads or writes it yet.
+The important one, and the reason the rest was worth doing.
 
 **Today:** cost is computed at read time as `duration × Σ(hourly rate of everyone invited)`.
 Two things are wrong with that. Half an invited team does not attend, so the number is
@@ -96,6 +97,19 @@ the `finance.view` gate and billable handling. Meeting cost becomes "sum the tim
 This requirement is a net subtraction. Build it that way — if the salary block is still there
 afterwards, the job is not finished.
 
+**Built, and it did subtract.** The salary-history resolution, the per-date rate derivation and
+the working-hours lookup are gone from the analytics endpoint; cost is the sum of timesheets
+carrying that `meetingId`. Attendance is no longer a list anybody maintains: whoever logs time
+was there.
+
+Two rules the implementation settled:
+
+- **One timesheet per person per meeting**, updated on a re-log rather than appended. A second
+  entry for the same person in the same meeting can only be a correction, and treating a
+  correction as extra attendance would double what the meeting cost.
+- **Only people ON the meeting may log against it.** Somebody uninvited claiming time is either
+  a mistake or a story the project's cost should not have to carry.
+
 ---
 
 ## Decisions still open
@@ -103,20 +117,42 @@ afterwards, the job is not finished.
 | # | Question | Recommended first cut |
 |---|----------|----------------------|
 | 1 | ~~What marks a meeting `COMPLETED`?~~ | **Settled:** derived from the end time at read. No stored flag, no cron. |
-| 2 | Where is time logged? | A "Log time" action on the meeting row — fewest clicks at the moment it matters. The alternative is a meeting picker in the existing timesheet screen. |
+| 2 | ~~Where is time logged?~~ | **Settled:** a "Log time" action on the meeting row, in both the table and the day modal. The form opens pre-filled with the meeting's scheduled length, so the ordinary case is one button. |
 | 3 | ~~Who may edit?~~ | **Settled:** organizer only, enforced server-side. |
 | 4 | ~~Does cancelling need a reason?~~ | **Settled:** optional free text, prompted on cancel. |
-| 5 | Finished meeting, no timesheets yet | "Awaiting timesheets", not ₹0. Zero reads as free; it is actually unrecorded, and the difference matters to whoever is reading the total. |
+| 5 | ~~Finished meeting, no timesheets yet~~ | **Settled:** "Awaiting timesheets", not ₹0 — an amber tag on the meeting, a count on the cost card, and a line under it saying those meetings are not in the total. |
 
 ## Order of work
 
 1. ~~Schema: meeting `status`, `Timesheet.meetingId`. One migration.~~ **done**
 2. ~~Cancellation — status writes, and the read split between calendar and project record.~~ **done**
 3. ~~Edit mode on the meeting dialog.~~ **done**
-4. Time logging against a meeting.
-5. Rewire cost to timesheets, and delete the salary block it replaces.
+4. ~~Time logging against a meeting.~~ **done**
+5. ~~Rewire cost to timesheets, and delete the salary block it replaces.~~ **done**
 
-Step 5 must not land before step 4, or every meeting reads ₹0.
+Steps 4 and 5 landed together, as the plan required.
+
+---
+
+## 7. Reminders to log time
+
+Added after the plan: an in-app notification asking people to log the time they spent.
+
+**"Notify whoever attended" cannot be taken literally**, because attendance is DERIVED from
+the timesheets the notice exists to collect — nobody has attended until somebody logs. So it
+goes to the people who were ON the meeting, and whoever answers by logging is thereby recorded
+as having been there. Anyone who has already logged is skipped: a reminder to do what you have
+done is noise.
+
+**It cannot send twice.** The notification's own `path` carries the meeting id, so "has this
+person already been asked about this meeting" is a query, not a flag somebody maintains. The
+whole sweep is therefore safe to re-run — a crash halfway, or two workers racing, can only
+produce the notices that were missing.
+
+Daily at 19:00 IST, bounded to meetings that ended in the last 30 days. A reminder landing
+mid-afternoon competes with the work it is asking you to account for, and a meeting nobody
+logged two months ago will not be logged because of a notification — asking forever is how
+people learn to dismiss this app's notices unread.
 
 ---
 

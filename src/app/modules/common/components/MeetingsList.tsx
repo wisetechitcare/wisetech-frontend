@@ -52,6 +52,9 @@ interface MeetingRow {
     endDate: string;
     /** SCHEDULED | COMPLETED | CANCELLED — derived server-side, never stored as COMPLETED. */
     lifecycle?: string;
+    /** Time actually logged against this meeting, and by how many people. 0 = unrecorded. */
+    loggedMinutes?: number;
+    loggedBy?: number;
     cancelReason?: string | null;
     /** The organizer. Who may edit or cancel is decided against this. */
     employeeId?: string;
@@ -138,6 +141,30 @@ export interface HalfColors { free: string; one: string; busy: string }
 const DEFAULT_HALF_COLORS: HalfColors = { free: '#F8FAFC', one: '#DBEAFE', busy: '#1E3A8A' };
 
 const isCancelled = (m: MeetingRow) => m.lifecycle === 'CANCELLED';
+const isHeld = (m: MeetingRow) => m.lifecycle === 'COMPLETED';
+
+/**
+ * A meeting that happened and that nobody has logged time against.
+ *
+ * NOT the same as "free". Cost comes from timesheets now, so a held meeting with nothing
+ * logged costs ₹0 — and ₹0 reads as "this was free", when what it actually means is "nobody
+ * has said what this took". The two need telling apart wherever a cost is shown, or the
+ * project's total quietly understates itself and looks precise doing it.
+ */
+const isAwaitingTime = (m: MeetingRow) => isHeld(m) && !(m.loggedMinutes ?? 0);
+
+const AwaitingTag = () => (
+    <span
+        title="This meeting has happened, but nobody has logged their time yet — so it has no cost recorded."
+        style={{
+            display: 'inline-block', marginLeft: 6, padding: '1px 7px', borderRadius: 20,
+            background: '#FEF3C7', color: '#92400E', fontSize: 9.5, fontWeight: 800,
+            letterSpacing: 0.3, verticalAlign: 'middle', whiteSpace: 'nowrap',
+        }}
+    >
+        AWAITING TIMESHEETS
+    </span>
+);
 
 /**
  * Participant ids as stored: a JSON array on newer rows, a comma-separated string on older
@@ -299,6 +326,10 @@ interface MeetingAnalytics {
     heldMinutes: number;
     upcomingMinutes: number;
     personMinutes: number;
+    /** Held meetings nobody has logged time against — the cost below is not the whole story. */
+    awaitingTimesheets: number;
+    loggedMinutes: number;
+    cancelledCount: number;
     onlineCount: number;
     inPersonCount: number;
     internalAttendees: number;
@@ -351,15 +382,23 @@ const CostSummary: React.FC<{ data: MeetingAnalytics; onOpenBreakdown: () => voi
         {
             label: 'Total cost',
             value: data.costVisible ? inr(data.heldCost ?? 0) : 'Hidden',
-            sub: data.costVisible
-                ? `across ${data.heldCount} held meeting${data.heldCount === 1 ? '' : 's'}`
-                : 'needs finance access',
+            // The denominator is the meetings that ACTUALLY have time logged. Saying "across 5
+            // held meetings" over a total drawn from two of them reads as precise and is not.
+            sub: !data.costVisible
+                ? 'needs finance access'
+                : data.awaitingTimesheets
+                    ? `${data.heldCount - data.awaitingTimesheets} of ${data.heldCount} meetings logged`
+                    : `across ${data.heldCount} held meeting${data.heldCount === 1 ? '' : 's'}`,
             loud: true,
         },
         {
-            label: 'Time spent',
-            value: hm(data.heldMinutes),
-            sub: `${hm(data.personMinutes)} of people's time`,
+            label: 'Time logged',
+            // Claimed, not scheduled. The old figure multiplied a meeting's length by everyone
+            // invited, so it counted hours nobody spent.
+            value: hm(data.loggedMinutes ?? 0),
+            sub: data.awaitingTimesheets
+                ? `${hm(data.heldMinutes)} of meetings held`
+                : `across ${hm(data.heldMinutes)} of meetings`,
         },
         {
             label: 'Average meeting',
@@ -441,6 +480,13 @@ const CostSummary: React.FC<{ data: MeetingAnalytics; onOpenBreakdown: () => voi
                         ? `, along with ${data.externalAttendees} from the client side.`
                         : '.'}
                 </div>
+                {data.awaitingTimesheets > 0 && (
+                    <div style={{ color: '#92400E' }}>
+                        {data.awaitingTimesheets} held meeting{data.awaitingTimesheets === 1 ? ' has' : 's have'} no
+                        time logged yet, so {data.awaitingTimesheets === 1 ? 'it is' : 'they are'} not in the total
+                        above. Cost comes from the timesheets attendees file.
+                    </div>
+                )}
                 {data.costVisible && data.costliestMeeting && (
                     <div>
                         The most expensive was{' '}
@@ -567,7 +613,8 @@ const DayDetail: React.FC<{
     onDelete?: (id: string) => void;
     onEdit?: (meeting: MeetingRow) => void;
     onCancel?: (meeting: { id: string; cancelled: boolean }) => void;
-}> = ({ dayKeyValue, halves, open, onClose, timeRange, modeCell, onDelete, onEdit, onCancel }) => {
+    onLogTime?: (meeting: MeetingRow) => void;
+}> = ({ dayKeyValue, halves, open, onClose, timeRange, modeCell, onDelete, onEdit, onCancel, onLogTime }) => {
     const openProject = useOpenProject();
     const total = halves.am.length + halves.pm.length;
     const summary = !total
@@ -637,7 +684,10 @@ const DayDetail: React.FC<{
                                 {timeRange(m)}
                             </div>
                             <div style={{ minWidth: 0, flex: 1 }}>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B' }}>{m.title}</div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B' }}>
+                                    {m.title}
+                                    {isAwaitingTime(m) && <AwaitingTag />}
+                                </div>
                                 {m.projectName && (
                                     <div style={{ fontSize: 12, fontWeight: 600, color: '#1E3A8A', marginTop: 2 }}>
                                         <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId)} />
@@ -653,6 +703,16 @@ const DayDetail: React.FC<{
                                 happened to be in — and the day modal is the view people are in
                                 when they want them. */}
                             <div style={{ display: 'flex', gap: 2, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                                {onLogTime && isHeld(m) && !isCancelled(m) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onLogTime(m)}
+                                        title={m.loggedMinutes ? 'Edit your logged time' : 'Log your time'}
+                                        style={{ border: 0, background: 'transparent', cursor: 'pointer', color: m.loggedMinutes ? '#16A34A' : '#B45309' }}
+                                    >
+                                        <AppIcon name="bi-stopwatch" className="fs-5" />
+                                    </button>
+                                )}
                                 {onEdit && !isCancelled(m) && (
                                     <button
                                         type="button"
@@ -719,11 +779,18 @@ export interface MeetingsListProps {
      * the clock does not.
      */
     onReschedule?: (meeting: MeetingRow, next: { startDate: string; endDate: string }) => void;
+    /**
+     * Offers "log my time" on a meeting that has happened. Omitted → the list only reports.
+     *
+     * This is what turns an invite list into an attendance record: whoever logs was there, and
+     * their time is what the meeting cost.
+     */
+    onLogTime?: (meeting: MeetingRow) => void;
     /** Bump to refetch after the parent creates or deletes a meeting. */
     reloadToken?: number;
 }
 
-const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, onDelete, onCancel, onEdit, onReschedule, reloadToken }) => {
+const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, onDelete, onCancel, onEdit, onReschedule, onLogTime, reloadToken }) => {
     const [meetings, setMeetings] = useState<MeetingRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [layout, setLayout] = useState<'month' | 'table'>('month');
@@ -922,6 +989,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                         }}>
                             {m.title}
                             {isCancelled(m) && <CancelledTag reason={m.cancelReason} />}
+                            {isAwaitingTime(m) && <AwaitingTag />}
                         </div>
                         {m.description && (
                             <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 3, maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={m.description}>
@@ -951,7 +1019,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             header: 'External Participants',
             Cell: ({ row }: any) => namesCell((row.original as MeetingRow).externalParticipantNames),
         },
-        ...(onDelete || onCancel || onEdit ? [{
+        ...(onDelete || onCancel || onEdit || onLogTime ? [{
             id: 'actions',
             header: 'Actions',
             enableSorting: false,
@@ -959,6 +1027,16 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                 const m = row.original as MeetingRow;
                 return (
                     <div style={{ display: 'flex', gap: 4 }}>
+                        {onLogTime && isHeld(m) && !isCancelled(m) && (
+                            <button
+                                type="button"
+                                onClick={() => onLogTime(m)}
+                                title={m.loggedMinutes ? 'Edit your logged time' : 'Log your time'}
+                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: m.loggedMinutes ? '#16A34A' : '#B45309' }}
+                            >
+                                <AppIcon name="bi-stopwatch" className="fs-5" />
+                            </button>
+                        )}
                         {onEdit && !isCancelled(m) && (
                             <button
                                 type="button"
@@ -994,7 +1072,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             },
         } as MRT_ColumnDef<MeetingRow>] : []),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [onDelete, onCancel, onEdit, mode, openProject]);
+    ], [onDelete, onCancel, onEdit, onLogTime, mode, openProject]);
 
     const pickedList = byDay.get(picked) ?? [];
     const pickedHalves = splitHalves(pickedList, dayjs(picked));
@@ -1262,6 +1340,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                         modeCell={modeCell}
                         onDelete={onDelete}
                         onCancel={onCancel}
+                        onLogTime={onLogTime ? (m) => { setDayOpen(false); onLogTime(m); } : undefined}
                         onEdit={onEdit ? (m) => { setDayOpen(false); onEdit(m); } : undefined}
                     />
 

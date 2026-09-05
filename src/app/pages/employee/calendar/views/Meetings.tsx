@@ -7,6 +7,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import dayjs from 'dayjs';
 import Swal from 'sweetalert2';
 import MeetingDialog from '../../MeetingDialog';
+import LogMeetingTimeDialog from '../../LogMeetingTimeDialog';
 import MeetingsList, { toEditableMeeting } from '@app/modules/common/components/MeetingsList';
 // The server states WHY it refused; repeating a guess here is how a validation failure ends up
 // reported as a permission problem.
@@ -33,6 +34,8 @@ const Meetings = () => {
   const [reloadToken, setReloadToken] = useState(0);
   // The meeting being edited. null → the dialog opens on a blank new meeting.
   const [editing, setEditing] = useState<ReturnType<typeof toEditableMeeting> | null>(null);
+  // The meeting whose time is being logged. null → the dialog is closed.
+  const [logging, setLogging] = useState<any>(null);
 
   const canCreate = hasPermission(resourceNameMapWithCamelCase.meeting, permissionConstToUseWithHasPermission.create);
   const canDelete = hasPermission(resourceNameMapWithCamelCase.meeting, permissionConstToUseWithHasPermission.deleteOwn);
@@ -139,12 +142,21 @@ const Meetings = () => {
         onCreate={canCreate ? () => { setEditing(null); setShowMeetingForm(true); } : undefined}
         onEdit={canCreate ? (m) => { setEditing(toEditableMeeting(m)); setShowMeetingForm(true); } : undefined}
         onReschedule={canCreate ? handleReschedule : undefined}
+        onLogTime={(m) => setLogging(m)}
         onCancel={canCreate ? handleCancel : undefined}
         onDelete={canDelete ? handleDelete : undefined}
       />
 
       {/* The same dialog the calendar and the task form open — the third and last copy of
           this modal. */}
+      <LogMeetingTimeDialog
+        open={!!logging}
+        meeting={logging}
+        employeeId={currentEmployeeId}
+        onClose={() => setLogging(null)}
+        onSaved={() => { setLogging(null); reload(); }}
+      />
+
       <MeetingDialog
         // Remounted per meeting: the form prefills from `editing` on mount, and reusing one
         // instance across two different meetings would show the first one's values.

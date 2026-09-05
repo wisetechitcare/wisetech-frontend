@@ -204,6 +204,30 @@ export const getMeetings = async (employeeId: string) => {
     }
 };
 
+/** Log the time you spent in a meeting. One entry per person per meeting; re-logging edits. */
+export const logMeetingTime = async (
+    meetingId: string, employeeId: string, minutes: number, description?: string, billable?: boolean,
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/time`;
+        const response = await axios.post(endpoint, { meetingId, employeeId, minutes, description, billable });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** What this person already logged against this meeting, so the form opens on it. */
+export const getMyMeetingTime = async (meetingId: string, employeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/my-time?meetingId=${meetingId}&employeeId=${employeeId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 /** Projects this person may schedule a meeting on: their internal-team and managed ones. */
 export const getMeetingProjects = async () => {
     try {
