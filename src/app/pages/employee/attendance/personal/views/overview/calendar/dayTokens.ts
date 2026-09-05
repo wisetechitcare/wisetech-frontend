@@ -63,10 +63,16 @@ export interface LateBand {
   size: number;
 }
 
-/** Ordered widest-first so a `.find` picks the most severe match. */
+/**
+ * Ordered widest-first so a `.find` picks the most severe match.
+ *
+ * Sizes are capped at 6px: the dot sits INSIDE a 32px disc, and anything larger
+ * runs into the numeral's descender space. The three steps stay distinguishable
+ * because they are read against each other across a month, not in isolation.
+ */
 export const LATE_BANDS: readonly LateBand[] = [
-  { id: 'severe', label: 'Severely late', from: 46, trio: { c: '#B45309', bg: '#FFFBEB', bd: '#FCD34D' }, size: 7 },
-  { id: 'moderate', label: 'Moderately late', from: 16, trio: { c: '#D97706', bg: '#FFFBEB', bd: '#FDE68A' }, size: 5.5 },
+  { id: 'severe', label: 'Severely late', from: 46, trio: { c: '#B45309', bg: '#FFFBEB', bd: '#FCD34D' }, size: 6 },
+  { id: 'moderate', label: 'Moderately late', from: 16, trio: { c: '#D97706', bg: '#FFFBEB', bd: '#FDE68A' }, size: 5 },
   { id: 'slight', label: 'Slightly late', from: 0, trio: { c: '#F59E0B', bg: '#FFFBEB', bd: '#FDE68A' }, size: 4 },
 ] as const;
 
@@ -227,13 +233,13 @@ export function legendLabel(key: LegendKey): string {
  *   in flight  →  animated   (today = orbiting beam, pending = pulse)
  *   settled    →  static, graded by severity  (lateness, absence)
  *
- * `late_in` was in this set and has been removed deliberately. A late mark is
- * a settled historical fact — nothing about it is still happening — and it now
- * carries something better than a pulse: a magnitude, via `LATE_BANDS`. That
- * says five-minutes-late and ninety-minutes-late are different, which no
- * amount of animation ever could.
+ * `late_in` is here by product decision, having been seen both ways. The two
+ * channels do not fight: the pulse says LOOK, the size and tone say HOW MUCH.
+ * A late mark is the one settled fact that still wants chasing — it is what an
+ * employee is asked about — so the exception is a considered one rather than a
+ * hole in the rule.
  */
-const PULSING: ReadonlySet<LegendKey> = new Set<LegendKey>(['request_pending']);
+const PULSING: ReadonlySet<LegendKey> = new Set<LegendKey>(['late_in', 'request_pending']);
 
 export function shouldPulse(key: LegendKey): boolean {
   return PULSING.has(key);

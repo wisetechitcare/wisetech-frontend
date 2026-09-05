@@ -142,7 +142,11 @@ export const DayCell = memo(function DayCell({
           )}
           style={disc}
         >
-          {num}
+          {/* The numeral lifts 2px when a dot is present. Both live inside a
+              32px disc, and a centred numeral leaves the dot sitting in its
+              descender space — they touched. Lifting the numeral rather than
+              shrinking the dot keeps the severity grading readable. */}
+          <span className={cn('leading-none', v.dots.length > 0 && '-translate-y-[2px]')}>{num}</span>
 
           {/* Modifiers float INSIDE the disc, pinned to its lower edge, so the
               day reads as one object instead of a circle with something stuck
@@ -151,7 +155,7 @@ export const DayCell = memo(function DayCell({
           {v.dots.length > 0 && (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-[3px] left-1/2 flex -translate-x-1/2 items-end gap-[3px]"
+              className="pointer-events-none absolute bottom-[2.5px] left-1/2 flex -translate-x-1/2 items-end gap-[3px]"
             >
               {v.dots.map((d) => (
                 <i
