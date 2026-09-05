@@ -383,7 +383,9 @@ function OverviewView() {
 
     return (
         <>
-            <h3 className="fw-bold fs-1 mb-4 font-barlow">Overview</h3>
+            {/* No "Overview" heading: the tab bar directly above already names
+                this view, and repeating it cost a full heading's worth of
+                vertical space before any content. */}
             <div className="row mt-7 align-items-start">
                 <div className="col-lg-7">
                     <Suspense fallback={<div className="d-flex justify-content-center py-10"><Spinner size={32} /></div>}>

@@ -1,8 +1,8 @@
 /**
- * Flagged entry point — the new calendar, wired to real data.
+ * The attendance calendar, wired to real data.
  *
- * The DEFAULT calendar on this branch, rendered in place of the 979-line
- * `AttendanceCalendar`. It owns exactly two pieces of state — the month cursor
+ * Replaced the 979-line `AttendanceCalendar`, which has since been deleted.
+ * It owns exactly two pieces of state — the month cursor
  * and the selected day — because everything else arrives already resolved from
  * `GET /attendance/calendar`.
  *
@@ -35,7 +35,6 @@ export default function AttendanceCalendarNext({
   setActiveStartDate,
 }: AttendanceCalendarNextProps) {
   const employeeId = useSelector((s: RootState) => s.employee?.currentEmployee?.id) ?? '';
-  const [dismissed, setDismissed] = useState(false);
   const [selected, setSelected] = useState<CalendarDay | null>(null);
 
   const month = useMemo(() => dayjs(activeStartDate).format('YYYY-MM'), [activeStartDate]);
@@ -91,32 +90,6 @@ export default function AttendanceCalendarNext({
 
   return (
     <div className="flex flex-col gap-3">
-      {!dismissed && (
-        <div className="flex items-start gap-2 rounded-xl border border-[#1E3A8A]/25 bg-[#EAF0FA] px-3 py-2 dark:border-[#8AA3EC]/25 dark:bg-[#8AA3EC]/10">
-          <div className="min-w-0 flex-1">
-            <p className="m-0 text-[11.5px] font-bold text-[#1E3A8A] dark:text-[#8AA3EC]">
-              Preview · re-platformed calendar
-            </p>
-            <p className="m-0 text-[11px] leading-snug text-slate-600 dark:text-slate-400">
-              Hover or focus a day for detail; click to open it. The old calendar is one
-              click away and stays remembered.
-            </p>
-          </div>
-          <button
-            type="button"
-            // Opting OUT is now the explicit act, so this navigates to the
-            // legacy variant rather than clearing to the (new) default.
-            onClick={() => {
-              setDismissed(true);
-              window.location.search = '?calendar=legacy';
-            }}
-            className="shrink-0 rounded-md px-2 py-1 text-[11px] font-bold text-[#1E3A8A] hover:bg-white/60 dark:text-[#8AA3EC] dark:hover:bg-white/[0.06]"
-          >
-            Use old calendar
-          </button>
-        </div>
-      )}
-
       <AttendanceCalendarPanel
         month={month}
         data={data}
