@@ -437,10 +437,12 @@ export function glassTokens(mode: ThemeMode, variant: GlassVariant) {
 }
 
 /** Resolve a semantic tone to its { fg, soft } color pair. */
-export function tonePair(tone: SemanticTone): { fg: string; soft: string } {
+export function tonePair(tone: SemanticTone | string): { fg: string; soft: string } {
   const c = LEGACY_UIKIT.color;
-  const map: Record<SemanticTone, { fg: string; soft: string }> = {
+  const map: Record<string, { fg: string; soft: string }> = {
     brand: { fg: c.brand, soft: c.brandSoft },
+    primary: { fg: c.brand, soft: c.brandSoft },
+    info: { fg: c.cyan, soft: c.cyanSoft },
     success: { fg: c.success, soft: c.successSoft },
     danger: { fg: c.danger, soft: c.dangerSoft },
     warning: { fg: c.warning, soft: c.warningSoft },
@@ -448,7 +450,7 @@ export function tonePair(tone: SemanticTone): { fg: string; soft: string } {
     cyan: { fg: c.cyan, soft: c.cyanSoft },
     neutral: { fg: c.neutral, soft: c.neutralSoft },
   };
-  return map[tone];
+  return map[tone] || map.neutral;
 }
 
 // ─── Configuration (`ConfigDesignSystem.ts`) ────────────────────────────────

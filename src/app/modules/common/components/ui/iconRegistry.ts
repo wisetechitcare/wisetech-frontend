@@ -53,6 +53,7 @@ import {
     TextCursorInput, ToggleLeft, TrendingUp, UserPen, UserRound, Venus, Video, VideoOff,
     Wifi, Zap,
     CircleArrowLeft, PanelLeft,
+    CirclePause, Pause, CirclePlay, Play,
 } from 'lucide-react';
 
 /**
@@ -140,6 +141,7 @@ const KEENICON: Record<string, AppIconComponent> = {
     'switch': ToggleRight, 'time': Clock, 'timer': Timer, 'trash': Trash2, 'up': ChevronUp,
     'update-file': FileClock, 'user-tick': UserCheck, 'verify': BadgeCheck, 'wallet': Wallet,
     'warning-2': TriangleAlert, 'word': FileText, 'wrench': Wrench,
+    'pause': Pause, 'pause-circle': CirclePause, 'play': Play, 'play-circle': CirclePlay,
     // Written as raw `ki-duotone ki-*` classes rather than through <KTIcon>, so they never
     // showed up in an `iconName` scan until the font was being removed.
     'burger-menu': Menu, 'files': Files,
@@ -194,6 +196,10 @@ const BI_DIRECT: Record<string, AppIconComponent> = {
     'bi-input-cursor-text': TextCursorInput, 'bi-person-vcard': IdCard,
     'bi-shield-exclamation': ShieldAlert, 'bi-symmetry-vertical': FlipVertical2,
     'bi-trash3': Trash2, 'bi-x-octagon-fill': OctagonX,
+    'bi-pause': Pause, 'bi-pause-fill': Pause,
+    'bi-pause-circle': CirclePause, 'bi-pause-circle-fill': CirclePause,
+    'bi-play': Play, 'bi-play-fill': Play,
+    'bi-play-circle': CirclePlay, 'bi-play-circle-fill': CirclePlay,
     // "Check-out Missing" on the attendance overview. A person-with-exclamation has no
     // Lucide twin, and every user-* variant reads as removal or approval rather than an
     // unfinished record — a clock that needs attention says the actual thing.

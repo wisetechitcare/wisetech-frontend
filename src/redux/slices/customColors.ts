@@ -9,6 +9,28 @@ export interface IAttendanceCalendarColor {
     workingWeekendColor: string,
     markedPresentViaRequestRaisedColor: string,
     adminRaisedRequestColor?: string,
+    /**
+     * Branch-configured weekday off (e.g. an office closed on Wednesdays).
+     *
+     * Already read by ApplyLeave and now by the attendance grid, but it was
+     * missing from this interface, so both had to reach it through an `any`
+     * cast. Declared here so the config key has one typed home.
+     */
+    teamOffColor?: string,
+    /**
+     * Per-key colour and name overrides for the attendance calendar, keyed by
+     * the calendar's OWN vocabulary (present, late_in, regularized, …) rather
+     * than by the flat legacy field names above, which never matched what the
+     * grid actually paints.
+     *
+     * Nested here rather than given its own column so it needs no migration —
+     * `attendance_calendar` is already a JSON column — and so the legacy
+     * siblings keep serving the other screens that still read them.
+     *
+     * Typed loosely on purpose: the registry in the calendar module owns the
+     * key list, and importing it here would make the two files circular.
+     */
+    tones?: Record<string, { color?: string; label?: string }>,
 }
 
 export interface IAttendanceOverviewColor {

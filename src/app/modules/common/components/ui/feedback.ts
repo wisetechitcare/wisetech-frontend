@@ -26,6 +26,13 @@ function ensureStyles() {
     .wt-swal-cancel{background:#fff;color:${T.color.inkSoft};border:1px solid ${T.color.line};border-radius:9px;font-weight:600;font-size:13.5px;padding:9px 20px;transition:background .15s;}
     .wt-swal-cancel:hover{background:${T.color.panel};color:${T.color.ink};}
 
+    /* Toast variant — same skin, dialog proportions stripped out. The shared
+       .wt-swal-popup padding and 18px title are sized for a modal and make a
+       one-line notice look like an announcement. */
+    .wt-swal-toast{padding:4px 6px;margin:0 0 20px 20px;max-width:min(380px,calc(100vw - 40px));}
+    .wt-swal-toast .wt-swal-title{font-size:14px;font-weight:650;margin:0;}
+    .wt-swal-toast .wt-swal-html{font-size:12.5px;}
+
     /* Dark mode — scoped to the app-wide [data-theme="dark"] signal set by ColorModeProvider.
        Swal portals to <body>, so these descendant selectors match. */
     html[data-theme="dark"] .wt-swal-popup{background:#161b22;border:1px solid #30363d;box-shadow:0 24px 64px -12px rgba(1,4,9,.7);}
@@ -54,13 +61,32 @@ export interface FeedbackOptions {
   html?: string;
 }
 
-/** Auto-dismissing toast for success/info confirmations. */
+/**
+ * Auto-dismissing toast for success/info confirmations.
+ *
+ * `toast: true` is what makes this a toast rather than a modal. Without it Swal
+ * renders a full centred popup over a backdrop — a two-word "deleted" notice was
+ * taking the middle of the screen and blocking the list behind it, which is the
+ * opposite of what a toast is for. It also means the toast never steals focus,
+ * so the work underneath keeps going.
+ *
+ * Bottom-left keeps it clear of the app header and the search bar. Hovering
+ * pauses the dismiss timer — a notice that vanishes while being read is worse
+ * than no notice.
+ */
 export function toast(opts: FeedbackOptions & { timer?: number }) {
   ensureStyles();
   return Swal.fire({
     icon: opts.icon, title: opts.title, text: opts.text, html: opts.html,
+    toast: true,
+    position: 'bottom-start',
+    backdrop: false,
     timer: opts.timer ?? 2200, showConfirmButton: false, timerProgressBar: true,
-    customClass: baseClass,
+    customClass: { ...baseClass, popup: 'wt-swal-popup wt-swal-toast' },
+    didOpen: (el) => {
+      el.addEventListener('mouseenter', Swal.stopTimer);
+      el.addEventListener('mouseleave', Swal.resumeTimer);
+    },
   });
 }
 

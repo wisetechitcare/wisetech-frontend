@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { getSocket } from '@utils/socketClient';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { store } from '@redux/store';
+import { setCustomColors, type ICustomColorCode } from '@redux/slices/customColors';
 
 /**
  * Mounted once at the App root when authenticated.
@@ -111,7 +113,22 @@ export function useRealtimeSync(
       eventBus.emit(key, { id: payload?.id ?? '' });
     };
 
+    /**
+     * Appearance colours changed — an admin saved the Appearance Settings
+     * screen. Applied STRAIGHT to the store rather than bridged to the
+     * eventBus, because there is nothing to refetch: every themed surface reads
+     * these colours from Redux, so the payload is already the new state.
+     *
+     * Company-wide config, so this is the one class of change where the person
+     * who made it is the least affected — before this, everyone else kept the
+     * old palette until they happened to reload.
+     */
+    const onColorsUpdated = (payload: { colors?: ICustomColorCode }) => {
+      if (payload?.colors) store.dispatch(setCustomColors(payload.colors));
+    };
+
     socket.on('connect', onConnect);
+    socket.on('colors_updated', onColorsUpdated);
     socket.on('faqs_updated', onFaqsUpdated);
     socket.on('attendanceRequests:updated', onAttendanceRequestChanged);
     socket.on('lead_project_synced', onLeadProjectSynced);
@@ -126,6 +143,7 @@ export function useRealtimeSync(
 
     return () => {
       socket.off('connect', onConnect);
+      socket.off('colors_updated', onColorsUpdated);
       socket.off('faqs_updated', onFaqsUpdated);
       socket.off('attendanceRequests:updated', onAttendanceRequestChanged);
       socket.off('lead_project_synced', onLeadProjectSynced);

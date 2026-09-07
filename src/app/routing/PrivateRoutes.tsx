@@ -572,6 +572,21 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
+        {/* Same page, same id (the LEAD id — lead-as-master), different lens. The
+            path is what tells the detail page which view to open: /leads/:id is
+            the lead view, /project/:id the project view. It lives in the URL and
+            not in history.state so the choice is shareable, survives a refresh,
+            and cannot be lost by a navigation that forgets to carry state.
+            Singular, so it never collides with '/projects/:projectId' below,
+            which takes a legacy PROJECT id and redirects here. */}
+        <Route
+          path='/project/:id'
+          element={
+            <SuspensedView>
+              <EntityDetailPage />
+            </SuspensedView>
+          }
+        />
         <Route
           // The section's tab bar (Overview · Tasks · Configure). The Tasks tab renders the
           // board that used to be mounted here directly, so this URL still lands on it.
