@@ -4,7 +4,7 @@ import {
     Box, Stack, Typography, TextField, MenuItem, Chip, CircularProgress, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, GlassCard, WtButton, WtIconButton, ToneChip, WtDateTimeField, toast } from "@app/modules/common/components/ui";
+import { GlassDialog, GlassHeader, GlassCard, WtButton, WtIconButton, ToneChip, WtDateTimeField, WtField, toast } from "@app/modules/common/components/ui";
 import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
 import { queryKeys } from "@/lib/queryKeys";
 import {
@@ -326,17 +326,24 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                                         fullWidth
                                     />
                                 </Box>
-                                <TextField
+                                <WtField
+                                    // The set's own name is the label when it is short enough to read
+                                    // as one ("Hire / Hold / Reject"); otherwise it would wrap and the
+                                    // generic word is clearer.
                                     label={decisions.label.length > 40 ? "Decision" : decisions.label}
-                                    select size="small" fullWidth
                                     value={score.recommendation}
-                                    onChange={(e) => setScore({ ...score, recommendation: e.target.value })}
-                                >
-                                    {decisions.options.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
-                                </TextField>
+                                    onChange={(v) => setScore({ ...score, recommendation: v })}
+                                    options={decisions.options.map((o) => ({ value: o.value, label: o.label }))}
+                                />
                             </>
                         )}
-                        <TextField label="Comments" size="small" fullWidth multiline minRows={3} value={score.comments ?? ""} onChange={(e) => setScore({ ...score, comments: e.target.value })} />
+                        <WtField
+                            label="Comments"
+                            multiline minRows={3}
+                            value={score.comments ?? ""}
+                            onChange={(v) => setScore({ ...score, comments: v })}
+                            placeholder="What did you see? Evidence beats adjectives."
+                        />
                         {scoreFor && (scoreFor.scorecards?.length ?? 0) > 0 && (
                             <Box>
                                 <Typography sx={{ fontSize: 12.5, color: "text.secondary", mb: 0.5 }}>Existing scorecards</Typography>

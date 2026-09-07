@@ -259,71 +259,72 @@ Later phases each verified the same way: build green, then intentional before/af
 
 ---
 
-## Labelled-field consolidation — `WtLabeledField`
+## The labelled control — `WtField` · **BUILT 2026-09-07**
 
-**Added 2026-09-07**, from a bug found in use: the floating uppercase label on
-`ToolbarFilterSelect` rendered *on top of* the border line instead of inside the gap cut
-for it.
+One component owns every labelled input in the app: the label, the field, and the
+hint or error beneath it. `@app/modules/common/components/ui` → `WtField`.
 
-### Why it happened
+### The bug it ends
 
-MUI cuts that gap with a `<legend>` inside the notched outline, and sizes it from the label
-text rendered in the **field's** typography — not the label's. A label that is bold,
-letter-spaced and uppercased therefore needs more room than the gap reserves, and spills onto
-the line. The file already carried a warning against overriding the shrink transform for the
-same underlying reason; nobody had written down the other half.
+MUI's outlined field puts the label INSIDE the border, in a gap cut by a `<legend>`
+in the outline — and MUI sizes that legend from the text rendered in the FIELD's
+typography, not the label's. So the moment a label is bold, uppercase, letter-spaced
+or resized, it is wider than the gap reserved for it and lands on the border line.
 
-Fixed in the shared control, so it landed on payroll, the employee list, reimbursement,
-documents, the dashboard and recruitment at once.
+It is not a bug in one screen. It is what the pattern does, and the codebase was
+paying for it one file at a time:
 
-### The actual problem
+- `ToolbarFilterSelect` carried a hand-maintained copy of the legend's font metrics.
+- `ProjectTablePage` nudges its label with `{ fontSize: '11px', top: '-3px' }` — a
+  magic number arrived at by eye, and wrong at any other font size.
+- Twelve files build their own `InputLabel` + control pairing, each free to drift the
+  same way.
 
-The knowledge of *how a floating label relates to its gap* lives in `ToolbarFilterSelect`
-and is re-derived independently in **12 other files**:
+### The fix is structural, not another patch
 
+**`WtField` cuts no gap in anything.** The label sits above the field, so it cannot
+overflow a notch — at any weight, size, length or language. That is also what every
+product worth benchmarking against does, and it reads better: the label stays at full
+size instead of shrinking to 75% and competing with the value.
+
+The compactness that made the notched pattern attractive is kept, without the
+fragility. `labelPlacement="inline"` puts the label inside the control as a small
+uppercase prefix — `ORGANIZATION  Wisetech MEP` — so a filter toolbar still stands
+exactly one control tall. Neither placement uses a legend.
+
+### One frame, many controls
+
+Text, number, textarea and select share a single frame, so two fields on one row
+cannot disagree about height, radius, focus ring or error colour — the drift this
+was built to end. Colours come from the MUI theme, so it is correct in dark mode
+without a second definition of itself.
+
+```tsx
+<WtField label="Rating scale" value={scale} onChange={setScale}
+         options={scales} hint="How each criterion is rated" />
+
+<WtField label="Organization" labelPlacement="inline" icon="bank" size="sm"
+         value={org} onChange={setOrg} options={orgs} tone={FILTER_TONES.blue.icon} />
 ```
-app/modules/common/inputs/DateInput.tsx
-app/modules/common/inputs/MonthYearInput.tsx
-app/modules/common/inputs/TimeInput.tsx
-app/pages/employee/companies/companyOverview/components/CompaniesByLocationAndSatatus.tsx
-app/pages/employee/entity/EntityTablePage.tsx
-app/pages/employee/leads/configuration/components/PaymentPlanStagesTree.tsx
-app/pages/employee/leads/lead/LeadNewLead.tsx
-app/pages/employee/leads/overview/commonComponents/LeadByLocationChart.tsx
-app/pages/employee/projects/commonComponents/BarChart.tsx
-app/pages/employee/projects/commonComponents/FilterDropdown.tsx
-app/pages/employee/projects/commonComponents/ProjectByLocationChart.tsx
-app/pages/employee/projects/table/ProjectTablePage.tsx
-```
 
-Each is its own arrangement of `InputLabel` plus an outlined control, and each can drift the
-same way. The 55 files using a plain `TextField label=` are **not** part of this — that is
-MUI's own notched label, already one implementation.
+**Delegation, not reimplementation.** Searchable / multi / creatable stays `WtSelect`
+(react-select) — pass `searchable` and it renders inside the same frame, so it still
+gets the same label, hint and error treatment. Dates stay `WtDateField`. `WtField`
+owns the frame, not every engine that can sit in it.
 
-### What this is NOT
+This is why one component for *everything* was the wrong ask: react-select and MUI
+Select are different engines, and collapsing them behind one name loses either the
+search or the label. One component for the FRAME is the part that was genuinely
+duplicated, and that is what got consolidated.
 
-**Not one component for every input.** `WtSelect` is react-select — search, multi, creatable,
-async. `ToolbarFilterSelect` is MUI's Select with a notched outline, which react-select has no
-equivalent of. Collapsing them means rebuilding one on the other's engine and losing either
-the search or the label, behind a `variant` prop that switches between two unrelated
-implementations. One name over two things is worse than two honest names.
+### What is migrated
 
-An earlier note in the kit barrel claimed `ToolbarFilterSelect` delegated to `WtSelect`. It
-never did. That comment has been corrected — a comment describing an intent that was never
-built is worse than none, because callers read it as fact.
+| Surface | State |
+|---|---|
+| `ToolbarFilterSelect` | Now a thin adapter over `WtField`, public API unchanged. Fixes the payroll, employee-list, documents, reimbursement, dashboard and recruitment toolbars at once — no call site was touched. |
+| Recruitment scorecard + rubric editor | Migrated. |
+| The other 11 custom `InputLabel` pairings | **Not yet.** Each is a small mechanical swap; none is blocking. |
+| ~55 plain `TextField label=` call sites | **Not a defect.** Those use MUI's own notched label, which is one implementation, not a duplicated one. Migrate opportunistically when a file is open for other reasons. |
 
-### The shape
-
-One `WtLabeledField` that owns the label-and-notch treatment and nothing else; the specific
-controls compose it. Not a new control — a wrapper for the one piece of knowledge that is
-currently copied.
-
-Then migrate the 12. The payoff is that the bug above could not recur in any of them.
-
-### Effort and sequencing
-
-Roughly a day, touching charts, filters and table pages across leads, projects and companies.
-
-**Deliberately not scheduled yet.** It is a codebase-wide refactor competing with HR's
-recruitment migration, and starting it mid-migration would leave both half-done. Schedule it
-once HR's data is in.
+The kit index (`ui/README.md`) now names `WtField` as the first stop for any labelled
+input, so the next person does not build the pairing again.

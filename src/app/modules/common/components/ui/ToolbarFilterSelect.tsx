@@ -1,27 +1,32 @@
 import React from 'react';
-import { FormControl, InputLabel, MenuItem, Select, alpha } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { WtField } from './WtField';
 
 /**
  * ToolbarFilterSelect — the app's standard toolbar filter control.
  *
  * The "SUB ORGANIZATION / BRANCH / STATUS" row on the payroll, employee-list,
- * reimbursement and dashboard screens.
+ * reimbursement, dashboard and recruitment screens.
  *
  * WHY IT LIVES HERE: it was defined inside
- * `pages/employee/salary/admin/SalaryTableFilters.tsx`, and three unrelated
- * pages reached across feature boundaries to import it from there. It was
- * reused but never shared — a feature page owning a control four screens
- * depend on. Nothing about it is salary-specific.
+ * `pages/employee/salary/admin/SalaryTableFilters.tsx`, and three unrelated pages
+ * reached across feature boundaries to import it from there. It was reused but
+ * never shared — a feature page owning a control four screens depend on. Nothing
+ * about it is salary-specific.
  *
- * Rebuilt on MUI + Tailwind per the app standard. The floating uppercase label
- * sitting in a gap in the border is MUI's own notched `InputLabel`, not a
- * hand-positioned absolute element as before — so it tracks the field, works in
- * dark mode, and announces itself to screen readers without extra wiring.
+ * WHAT IT IS NOW: a thin adapter over `WtField`, which owns the label, the frame,
+ * the focus ring and the error treatment for every labelled control in the app.
  *
- * `theme` tints the control when a non-default value is selected, which is how
- * these toolbars show "a filter is active" at a glance.
+ * It used to be MUI's outlined Select with a floating `InputLabel`, and it carried
+ * a hand-maintained copy of the notch's font metrics — because MUI sizes the gap
+ * in the border from the FIELD's typography rather than the label's, so a bold
+ * uppercase label rendered wider than its own gap and sat on the border line.
+ * That whole class of bug is gone: `WtField` cuts no gap. The label is a small
+ * uppercase prefix INSIDE the control (`labelPlacement="inline"`), so the toolbar
+ * stays exactly one control tall, which is what the notched pattern was bought
+ * for in the first place.
+ *
+ * The public API is unchanged, deliberately — every existing call site keeps
+ * working, and no screen had to be touched to get the fix.
  */
 
 export interface FilterSelectTheme {
@@ -59,123 +64,26 @@ export interface ToolbarFilterSelectProps {
     disabled?: boolean;
 }
 
-const FieldIcon = ({ icon, color }: { icon: string; color: string }) =>
-    icon.startsWith('bi-')
-        ? <AppIcon name={icon} className="fs-6" style={{ color, lineHeight: 1 }} />
-        : <KTIcon iconName={icon} className="fs-6" />;
-
 export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
     label, icon, value, onChange, options, minWidth = 160, theme, disabled,
-}) => {
-    const tinted = Boolean(theme);
-
-    return (
-        <FormControl size="small" sx={{ minWidth }} disabled={disabled}>
-            <InputLabel
-                shrink
-                sx={{
-                    // Do NOT override MUI's shrink transform. It positions the label
-                    // AND sizes the notch in the outline together, assuming the
-                    // default scale(0.75). Forcing scale(1) renders a bigger label
-                    // into a notch cut for a smaller one, so it overflows the field
-                    // and collides with whatever sits above. Set the size instead
-                    // and let MUI scale it: 14.5 * 0.75 ≈ 11px rendered.
-                    fontSize: 14.5,
-                    fontWeight: 700,
-                    letterSpacing: '0.5px',
-                    textTransform: 'uppercase',
-                    color: 'text.secondary',
-                    '&.Mui-focused': { color: theme?.icon ?? 'primary.main' },
-                }}
-            >
-                {label}
-            </InputLabel>
-
-            <Select
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-                label={label}
-                notched
-                displayEmpty
-                // The full value stays reachable on hover once the label ellipsizes.
-                renderValue={(selected) => {
-                    const match = options.find((option) => option.value === selected);
-                    return <span title={match?.label}>{match?.label ?? ''}</span>;
-                }}
-                startAdornment={
-                    <span
-                        className="mr-2 grid shrink-0 place-items-center"
-                        style={{ color: theme?.icon ?? 'inherit' }}
-                        aria-hidden="true"
-                    >
-                        <FieldIcon icon={icon} color={theme?.icon ?? 'currentColor'} />
-                    </span>
-                }
-                sx={{
-                    height: 38,
-                    borderRadius: '10px',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    // The gap in the border is cut by the <legend> inside the notched
-                    // outline, and MUI sizes that legend from the label text in the
-                    // FIELD's typography — not the label's. So a label that is bold,
-                    // letter-spaced and uppercased renders wider than the gap reserved
-                    // for it and sits on top of the border line.
-                    //
-                    // The existing comment on InputLabel warns against overriding the
-                    // shrink transform for the same reason; this is the other half of
-                    // it. The legend has to carry the same metrics as the label, or the
-                    // two disagree about how much room the text needs.
-                    //
-                    // 10.875px = 14.5 × 0.75, MUI's shrink scale, resolved to a fixed
-                    // size because the legend's own `em` is relative to the field.
-                    '& .MuiOutlinedInput-notchedOutline legend': {
-                        fontSize: '10.875px',
-                        fontWeight: 700,
-                        letterSpacing: '0.5px',
-                        textTransform: 'uppercase',
-                    },
-                    // Tinted only while a non-default value is active; otherwise the
-                    // control inherits the theme and stays correct in dark mode.
-                    ...(tinted && {
-                        bgcolor: theme!.bg,
-                        color: theme!.text,
-                        '& .MuiOutlinedInput-notchedOutline': { borderColor: theme!.border },
-                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: theme!.icon },
-                    }),
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: theme?.icon ?? 'primary.main',
-                        borderWidth: 1,
-                    },
-                    '&.Mui-focused': {
-                        boxShadow: `0 0 0 3px ${theme?.ring ?? alpha('#1E3A8A', 0.12)}`,
-                    },
-                    '& .MuiSelect-select': {
-                        display: 'flex',
-                        alignItems: 'center',
-                        py: 0,
-                        pl: 1.5,
-                        // Long values (a full sub-organisation name) must ellipsize
-                        // inside the control rather than spill past it into whatever
-                        // sits alongside. `minWidth: 0` is what actually allows the
-                        // flex child to shrink below its content width — without it
-                        // the other rules do nothing.
-                        minWidth: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                    },
-                }}
-                MenuProps={{ PaperProps: { sx: { borderRadius: '10px', mt: 0.5 } } }}
-            >
-                {options.map((option) => (
-                    <MenuItem key={option.value} value={option.value} sx={{ fontSize: 13 }}>
-                        {option.label}
-                    </MenuItem>
-                ))}
-            </Select>
-        </FormControl>
-    );
-};
+}) => (
+    <WtField
+        label={label}
+        labelPlacement="inline"
+        icon={icon}
+        value={value}
+        onChange={onChange}
+        options={options}
+        // Only the accent travels. The old theme object also carried a background
+        // and a text colour, which is what made these controls the one thing on
+        // the page that stayed light in dark mode; WtField takes its surface from
+        // the theme and tints only the border, icon and focus ring.
+        tone={theme?.icon}
+        disabled={disabled}
+        size="sm"
+        fullWidth={false}
+        minWidth={minWidth}
+    />
+);
 
 export default ToolbarFilterSelect;

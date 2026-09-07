@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Box, Stack, Typography, TextField, MenuItem, DialogContent, DialogActions, CircularProgress } from "@mui/material";
+import { Box, Stack, Typography, TextField, DialogContent, DialogActions, CircularProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
     GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, WtSwitchField,
-    IconBox, ToneChip, TRIO, toast, confirmDialog,
+    IconBox, ToneChip, TRIO, toast, confirmDialog, WtField,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import {
@@ -206,9 +206,9 @@ const ScorecardTemplateSection = () => {
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
-                        <TextField
-                            label="Name" size="small" fullWidth required
-                            value={name} onChange={(e) => setName(e.target.value)}
+                        <WtField
+                            label="Name" required
+                            value={name} onChange={setName}
                             placeholder="e.g. MEP Design Engineer interview"
                         />
                         <WtSwitchField
@@ -224,24 +224,22 @@ const ScorecardTemplateSection = () => {
                             their own paperwork mid-interview is not listening to the candidate.
                             Options come from the API, never from a list in this file. */}
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                            <TextField
-                                select size="small" fullWidth label="Rating scale"
+                            <WtField
+                                label="Rating scale"
                                 value={ratingScale}
-                                onChange={(e) => setRatingScale(e.target.value)}
-                                helperText="How each criterion is rated"
-                            >
-                                <MenuItem value="">App default</MenuItem>
-                                {scales.map((sc) => <MenuItem key={sc.id} value={sc.id}>{sc.label}</MenuItem>)}
-                            </TextField>
-                            <TextField
-                                select size="small" fullWidth label="Final decision"
+                                onChange={setRatingScale}
+                                // "App default" is a real choice here, not a placeholder —
+                                // it stores null, meaning "follow the module default".
+                                options={[{ value: "", label: "App default" }, ...scales.map((sc) => ({ value: sc.id, label: sc.label }))]}
+                                hint="How each criterion is rated"
+                            />
+                            <WtField
+                                label="Final decision"
                                 value={decisionSet}
-                                onChange={(e) => setDecisionSet(e.target.value)}
-                                helperText="How the panel closes"
-                            >
-                                <MenuItem value="">App default</MenuItem>
-                                {decisionSets.map((ds) => <MenuItem key={ds.id} value={ds.id}>{ds.label}</MenuItem>)}
-                            </TextField>
+                                onChange={setDecisionSet}
+                                options={[{ value: "", label: "App default" }, ...decisionSets.map((ds) => ({ value: ds.id, label: ds.label }))]}
+                                hint="How the panel closes"
+                            />
                         </Stack>
 
                         <Box>
