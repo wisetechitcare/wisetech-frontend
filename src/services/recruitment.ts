@@ -297,6 +297,26 @@ export const linkConvertedEmployee = async (applicationId: string, employeeId: s
 };
 
 // ─── Applicants ──────────────────────────────────────────────────────────────
+/**
+ * Attach a resume to a candidate entered by hand.
+ *
+ * Multipart, because the file is the payload. The browser must set its own
+ * multipart boundary, so Content-Type is deliberately NOT specified here — naming it
+ * would send a boundary-less header and the server would reject every upload.
+ *
+ * The response carries the applicant with a short-lived signed URL already in
+ * resumeS3Url, so the caller can open what it just uploaded without a second request.
+ */
+export const uploadApplicantResume = async (applicantId: string, file: File): Promise<Applicant> => {
+    const form = new FormData();
+    form.append("resume", file);
+    const { data } = await axios.post(
+        `${API_BASE_URL}/${RECRUITMENT.UPLOAD_APPLICANT_RESUME.replace(":id", applicantId)}`,
+        form,
+    );
+    return data?.applicant;
+};
+
 export const getApplicants = async (search?: string, companyId?: string): Promise<Applicant[]> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICANTS}${listQuery({ search, companyId })}`);
     return data?.applicants ?? [];

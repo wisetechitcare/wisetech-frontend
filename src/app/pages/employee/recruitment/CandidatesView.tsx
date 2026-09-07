@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Box, Stack, Typography, TextField, MenuItem, CircularProgress, DialogContent, DialogActions, InputAdornment,
@@ -13,6 +13,7 @@ import { formatDate } from "@utils/dateFormats";
 import {
     getApplicants, createApplicant, updateApplicant, getApplicantSources,
     type Applicant, type ApplicantPayload, type ApplicantSource, type OrgScoped,
+    uploadApplicantResume,
 } from "@services/recruitment";
 
 /** Blank create form. Only firstName + email are required by the API. */
@@ -70,6 +71,40 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
 
     // Invalidate the whole applicants branch: a rename changes which search terms match.
     const invalidate = () => qc.invalidateQueries({ queryKey: [...queryKeys.recruitment.all, "applicants"] });
+
+    // Resume upload. A hidden file input is triggered per candidate rather than rendering
+    // one input per tile — the browser control cannot be styled, and dozens of them make the
+    // grid unusable. `uploadingFor` drives the per-tile spinner so a large CV on a slow
+    // connection does not look like nothing happened.
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const [uploadFor, setUploadFor] = useState<Applicant | null>(null);
+    const [uploadingId, setUploadingId] = useState<string | null>(null);
+
+    const pickResume = (a: Applicant) => {
+        setUploadFor(a);
+        // Clearing the value first means picking the SAME file twice still fires onChange.
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        fileInputRef.current?.click();
+    };
+
+    const onResumeChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        const target = uploadFor;
+        if (!file || !target) return;
+        setUploadingId(target.id);
+        try {
+            await uploadApplicantResume(target.id, file);
+            invalidate();
+            toast({ icon: "success", title: `Resume attached to ${target.firstName}` });
+        } catch (err: any) {
+            // The server validates type, size and magic bytes; surface its reason rather
+            // than a generic failure, because it tells HR what to do differently.
+            toast({ icon: "error", title: err?.response?.data?.message ?? "Could not upload the resume" });
+        } finally {
+            setUploadingId(null);
+            setUploadFor(null);
+        }
+    };
 
     const createMut = useMutation({
         mutationFn: () => createApplicant(form),
@@ -129,6 +164,15 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
 
     return (
         <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
+        {/* One hidden picker for the whole grid — see pickResume. accept is a hint only;
+            the server re-validates type, extension and magic bytes before storing. */}
+        <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,application/pdf"
+            hidden
+            onChange={onResumeChosen}
+        />
             <ListHeader
                 title="Candidates"
                 subtitle="Every applicant on record — searchable across name, email and employer."
@@ -213,6 +257,16 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                                         Added {formatDate(a.createdAt)}
                                     </Typography>
                                     <Box sx={{ flex: 1 }} />
+                                    <WtIconButton
+                                        title={a.resumeS3Url ? "Replace resume" : "Attach resume"}
+                                        disabled={uploadingId === a.id}
+                                        onClick={() => pickResume(a)}
+                                        sx={{ width: 34, height: 34, borderRadius: "10px" }}
+                                    >
+                                        {uploadingId === a.id
+                                            ? <CircularProgress size={15} />
+                                            : <KTIcon iconName={a.resumeS3Url ? "arrows-circle" : "cloud-add"} className="fs-5" />}
+                                    </WtIconButton>
                                     {a.resumeS3Url && (
                                         <WtIconButton
                                             title={a.resumeFileName ? `Resume — ${a.resumeFileName}` : "Resume"}

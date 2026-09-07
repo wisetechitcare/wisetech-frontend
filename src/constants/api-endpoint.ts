@@ -26,6 +26,7 @@ export const RECRUITMENT = {
     GET_ALL_APPLICANTS: "api/recruitment/applicants",
     GET_APPLICANT_BY_ID: "api/recruitment/applicants/:id",
     UPDATE_APPLICANT: "api/recruitment/applicants/:id",
+    UPLOAD_APPLICANT_RESUME: "api/recruitment/applicants/:id/resume",
     // Applications / pipeline (Phase 2)
     CREATE_APPLICATION: "api/recruitment/applications",
     GET_ALL_APPLICATIONS: "api/recruitment/applications",
