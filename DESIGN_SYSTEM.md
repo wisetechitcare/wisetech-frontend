@@ -256,3 +256,74 @@ Later phases each verified the same way: build green, then intentional before/af
 
 - Revamp plan (visual): https://claude.ai/code/artifact/f0b132bf-3e39-43e0-a304-13abf7e445b8
 - Token module spec (visual): https://claude.ai/code/artifact/a7fea572-45a3-4529-80b9-c5251fd24bb2
+
+---
+
+## Labelled-field consolidation — `WtLabeledField`
+
+**Added 2026-09-07**, from a bug found in use: the floating uppercase label on
+`ToolbarFilterSelect` rendered *on top of* the border line instead of inside the gap cut
+for it.
+
+### Why it happened
+
+MUI cuts that gap with a `<legend>` inside the notched outline, and sizes it from the label
+text rendered in the **field's** typography — not the label's. A label that is bold,
+letter-spaced and uppercased therefore needs more room than the gap reserves, and spills onto
+the line. The file already carried a warning against overriding the shrink transform for the
+same underlying reason; nobody had written down the other half.
+
+Fixed in the shared control, so it landed on payroll, the employee list, reimbursement,
+documents, the dashboard and recruitment at once.
+
+### The actual problem
+
+The knowledge of *how a floating label relates to its gap* lives in `ToolbarFilterSelect`
+and is re-derived independently in **12 other files**:
+
+```
+app/modules/common/inputs/DateInput.tsx
+app/modules/common/inputs/MonthYearInput.tsx
+app/modules/common/inputs/TimeInput.tsx
+app/pages/employee/companies/companyOverview/components/CompaniesByLocationAndSatatus.tsx
+app/pages/employee/entity/EntityTablePage.tsx
+app/pages/employee/leads/configuration/components/PaymentPlanStagesTree.tsx
+app/pages/employee/leads/lead/LeadNewLead.tsx
+app/pages/employee/leads/overview/commonComponents/LeadByLocationChart.tsx
+app/pages/employee/projects/commonComponents/BarChart.tsx
+app/pages/employee/projects/commonComponents/FilterDropdown.tsx
+app/pages/employee/projects/commonComponents/ProjectByLocationChart.tsx
+app/pages/employee/projects/table/ProjectTablePage.tsx
+```
+
+Each is its own arrangement of `InputLabel` plus an outlined control, and each can drift the
+same way. The 55 files using a plain `TextField label=` are **not** part of this — that is
+MUI's own notched label, already one implementation.
+
+### What this is NOT
+
+**Not one component for every input.** `WtSelect` is react-select — search, multi, creatable,
+async. `ToolbarFilterSelect` is MUI's Select with a notched outline, which react-select has no
+equivalent of. Collapsing them means rebuilding one on the other's engine and losing either
+the search or the label, behind a `variant` prop that switches between two unrelated
+implementations. One name over two things is worse than two honest names.
+
+An earlier note in the kit barrel claimed `ToolbarFilterSelect` delegated to `WtSelect`. It
+never did. That comment has been corrected — a comment describing an intent that was never
+built is worse than none, because callers read it as fact.
+
+### The shape
+
+One `WtLabeledField` that owns the label-and-notch treatment and nothing else; the specific
+controls compose it. Not a new control — a wrapper for the one piece of knowledge that is
+currently copied.
+
+Then migrate the 12. The payoff is that the bug above could not recur in any of them.
+
+### Effort and sequencing
+
+Roughly a day, touching charts, filters and table pages across leads, projects and companies.
+
+**Deliberately not scheduled yet.** It is a codebase-wide refactor competing with HR's
+recruitment migration, and starting it mid-migration would leave both half-done. Schedule it
+once HR's data is in.
