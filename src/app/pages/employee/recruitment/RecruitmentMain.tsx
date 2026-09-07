@@ -3,7 +3,8 @@ import MaterialHeaderTab, {
 } from "@app/modules/common/components/MaterialHeaderTab";
 import { useSearchParams } from "react-router-dom";
 import { PageTitle } from "@metronic/layout/core";
-import { MenuItem, Select, Stack, Typography } from "@mui/material";
+import { Box, Stack } from "@mui/material";
+import { ToolbarFilterSelect } from "@app/modules/common/components/ui";
 import { useOrgScope, ALL_ORGS, toCompanyIdParam } from "@/hooks/useOrgScope";
 import RecruitmentOverview from "./RecruitmentOverview";
 import RequisitionsView from "./RequisitionsView";
@@ -49,12 +50,52 @@ const RecruitmentMain = () => {
   // Undefined when "All" is selected, which the API reads as the whole family.
   const companyId = toCompanyIdParam(scopeId);
 
+  /**
+   * The organization filter, rendered at the top of each scoped tab rather than above the
+   * tab bar. Everywhere else in the app, controls live BELOW the navigation — a filter
+   * floating above it reads as chrome belonging to the page, not to the tab beneath.
+   *
+   * Stacks on mobile so the select gets the full width instead of being squeezed beside
+   * its label; right-aligned from sm upward, where there is room.
+   */
+  const orgFilter = hasChoice ? (
+    <Stack
+      direction={{ xs: "column", sm: "row" }}
+      alignItems={{ xs: "stretch", sm: "center" }}
+      justifyContent={{ sm: "flex-end" }}
+      spacing={1.25}
+      sx={{ px: { xs: 1.5, sm: 2 }, pt: { xs: 1.5, sm: 2 } }}
+    >
+      {/* The app's standard toolbar filter, not a bespoke select: it carries its own
+          label and tints when a non-default value is chosen, so this control behaves
+          exactly like the org filters on payroll and the employee list. */}
+      <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+        <ToolbarFilterSelect
+          label="Organization"
+          icon="bank"
+          value={scopeId}
+          onChange={setScopeId}
+          options={selectOptions}
+          minWidth={240}
+        />
+      </Box>
+    </Stack>
+  ) : null;
+
+  /** Puts the filter above a tab body without each view having to know about it. */
+  const scoped = (node: React.ReactNode) => (
+    <>
+      {orgFilter}
+      {node}
+    </>
+  );
+
   const tabItems: TabItem[] = [
-    { title: "Overview", component: <RecruitmentOverview companyId={companyId} />, icon: "bi-grid-1x2" },
-    { title: "Requisitions", component: <RequisitionsView companyId={companyId} />, icon: "bi-briefcase" },
-    { title: "Postings", component: <PostingsView companyId={companyId} />, icon: "bi-megaphone" },
-    { title: "Pipeline", component: <PipelineView companyId={companyId} />, icon: "bi-kanban" },
-    { title: "Candidates", component: <CandidatesView companyId={companyId} />, icon: "bi-people" },
+    { title: "Overview", component: scoped(<RecruitmentOverview companyId={companyId} />), icon: "bi-grid-1x2" },
+    { title: "Requisitions", component: scoped(<RequisitionsView companyId={companyId} />), icon: "bi-briefcase" },
+    { title: "Postings", component: scoped(<PostingsView companyId={companyId} />), icon: "bi-megaphone" },
+    { title: "Pipeline", component: scoped(<PipelineView companyId={companyId} />), icon: "bi-kanban" },
+    { title: "Candidates", component: scoped(<CandidatesView companyId={companyId} />), icon: "bi-people" },
     // Sits before Configure: it is a migration tool, used heavily for a short while and
     // then rarely, so it belongs beside the day-to-day tabs rather than buried in settings.
     { title: "Import", component: <ImportView />, icon: "bi-upload" },
@@ -70,33 +111,6 @@ const RecruitmentMain = () => {
     <div>
       <PageTitle breadcrumbs={breadcrumbs}>{tabItems[activeTab].title}</PageTitle>
 
-      {/* Only worth showing when there is more than one organization to choose between. */}
-      {hasChoice && (
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="flex-end"
-          spacing={1.25}
-          sx={{ mb: 1.5, px: { xs: 1.5, sm: 2 }, flexWrap: "wrap" }}
-        >
-          <Typography sx={{ fontSize: 13, fontWeight: 600, color: "text.secondary" }}>
-            Organization
-          </Typography>
-          <Select
-            size="small"
-            value={scopeId}
-            onChange={(e) => setScopeId(e.target.value)}
-            sx={{ minWidth: 220, fontSize: 14, bgcolor: "background.paper" }}
-            inputProps={{ "aria-label": "Filter recruitment by organization" }}
-          >
-            {selectOptions.map((o) => (
-              <MenuItem key={o.value} value={o.value} sx={{ fontSize: 14 }}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </Stack>
-      )}
 
       <MaterialHeaderTab
         tabItems={tabItems}

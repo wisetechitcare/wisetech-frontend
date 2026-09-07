@@ -6,7 +6,7 @@ import {
 import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip,
-    WtSwitchField, toast, confirmDialog,
+    WtSwitchField, toast, confirmDialog, controlHeightSx,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
@@ -83,7 +83,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
     const [uploadFor, setUploadFor] = useState<Applicant | null>(null);
     const [uploadingId, setUploadingId] = useState<string | null>(null);
 
-    // Résumé chosen INSIDE the form. A new candidate has no id yet — the upload endpoint is
+    // resume chosen INSIDE the form. A new candidate has no id yet — the upload endpoint is
     // /applicants/:id/resume — so the file is held here and sent once the record exists.
     // Without this, attaching a CV meant saving, finding the tile, then uploading: two
     // steps for one intention.
@@ -117,7 +117,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
     };
 
     /**
-     * Attach the form-chosen résumé to a candidate that now exists. Deliberately not fatal:
+     * Attach the form-chosen resume to a candidate that now exists. Deliberately not fatal:
      * the candidate was saved either way, and losing the save because the file failed would
      * be the worse outcome. The failure is reported so it can be retried from the tile.
      */
@@ -126,7 +126,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
         try {
             await uploadApplicantResume(applicantId, formFile);
         } catch (err: any) {
-            toast({ icon: "error", title: err?.response?.data?.message ?? "Candidate saved, but the résumé did not upload" });
+            toast({ icon: "error", title: err?.response?.data?.message ?? "Candidate saved, but the resume did not upload" });
         }
     };
 
@@ -226,7 +226,9 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                             placeholder="Search candidates…"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            sx={{ minWidth: { xs: "100%", sm: 260 } }}
+                            // Matches the New Candidate button beside it — MUI's small size
+                            // is 40px against the kit's 46, which is the mismatch you see otherwise.
+                            sx={{ minWidth: { xs: "100%", sm: 260 }, ...controlHeightSx }}
                             InputProps={{
                                 startAdornment: (
                                     <InputAdornment position="start">
@@ -431,7 +433,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                                 startIcon={<KTIcon iconName="cloud-add" className="fs-5" />}
                                 onClick={() => { if (formFileRef.current) formFileRef.current.value = ""; formFileRef.current?.click(); }}
                             >
-                                {formFile ? "Choose a different résumé" : editing?.resumeS3Url ? "Replace résumé" : "Attach résumé"}
+                                {formFile ? "Choose a different resume" : editing?.resumeS3Url ? "Replace resume" : "Attach resume"}
                             </WtButton>
                             <Typography sx={{ fontSize: 12.5, color: "text.secondary", minWidth: 0, flex: 1 }} noWrap>
                                 {formFile?.name ?? (editing?.resumeFileName ?? "PDF, DOC or DOCX")}

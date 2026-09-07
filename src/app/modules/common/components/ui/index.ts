@@ -2,6 +2,7 @@
 // This barrel is the one import surface for the shared UI kit:
 //   - tokens: single source of truth for brand colors + glass tokens (also feeds the MUI theme)
 //   - buttons: WtButton / WtIconButton + sx helpers (calendar-derived CTA physics)
+//     plus WT_CONTROL_HEIGHT / controlHeightSx — the one height a control row shares
 //   - glass: reusable glassmorphism primitives (GlassSurface / GlassDialog / GlassHeader / GlassCard)
 //   - feedback: branded Swal helpers (toast / alertDialog / confirmDialog)
 export { T, tonePair, label, glassTokens } from './tokens';
