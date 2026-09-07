@@ -19,7 +19,8 @@ import {
 /** Blank create form. Only firstName + email are required by the API. */
 const emptyForm = (): ApplicantPayload => ({
     firstName: "", lastName: "", email: "", phone: "",
-    currentEmployer: "", currentTitle: "", totalExperienceMonths: null,
+    currentEmployer: "", currentTitle: "", currentLocation: "", qualification: "",
+    totalExperienceMonths: null, currentCtcInLpa: null,
     expectedCtcInLpa: null, noticePeriodDays: null, sourceId: null,
 });
 
@@ -149,12 +150,16 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
     };
 
     const saving = createMut.isPending || updateMut.isPending;
-    const canSave = Boolean(form.firstName.trim() && form.email.trim()) && !saving;
+    // A candidate is identified by email OR phone — the same rule the server enforces.
+    // Requiring an email here would block the real intake outright: candidates arriving by
+    // WhatsApp, walk-in or referral routinely have a number and no address.
+    const hasIdentity = Boolean((form.email ?? "").trim() || (form.phone ?? "").trim());
+    const canSave = Boolean(form.firstName.trim()) && hasIdentity && !saving;
 
     const set = <K extends keyof ApplicantPayload>(key: K, value: ApplicantPayload[K]) =>
         setForm((f) => ({ ...f, [key]: value }));
     /** Numeric fields: "" must become null, not 0 — 0 years' experience is a real value. */
-    const setNum = (key: "totalExperienceMonths" | "expectedCtcInLpa" | "noticePeriodDays", raw: string) =>
+    const setNum = (key: "totalExperienceMonths" | "currentCtcInLpa" | "expectedCtcInLpa" | "noticePeriodDays", raw: string) =>
         set(key, raw === "" ? null : Number(raw));
 
     const sourceName = useMemo(
@@ -314,21 +319,36 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <TextField
-                                label="Email" required type="email" size="small" sx={{ flex: 1 }}
+                                label="Email" type="email" size="small" sx={{ flex: 1 }}
                                 value={form.email} onChange={(e) => set("email", e.target.value)}
-                                helperText={editing ? undefined : "Used to de-duplicate — re-applying updates the same candidate."}
+                                error={!hasIdentity}
+                                helperText={hasIdentity ? "Either an email or a phone number is enough." : "Enter an email or a phone number."}
                             />
-                            <TextField label="Phone" size="small" sx={{ flex: 1 }} value={form.phone ?? ""} onChange={(e) => set("phone", e.target.value)} />
+                            <TextField
+                                label="Phone" size="small" sx={{ flex: 1 }}
+                                value={form.phone ?? ""} onChange={(e) => set("phone", e.target.value)}
+                                error={!hasIdentity}
+                                helperText="Used to de-duplicate — re-applying updates the same candidate."
+                            />
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <TextField label="Current title" size="small" sx={{ flex: 1 }} value={form.currentTitle ?? ""} onChange={(e) => set("currentTitle", e.target.value)} />
                             <TextField label="Current employer" size="small" sx={{ flex: 1 }} value={form.currentEmployer ?? ""} onChange={(e) => set("currentEmployer", e.target.value)} />
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                            <TextField label="Current location" size="small" sx={{ flex: 1 }} value={form.currentLocation ?? ""} onChange={(e) => set("currentLocation", e.target.value)} />
+                            <TextField label="Qualification" size="small" sx={{ flex: 1 }} value={form.qualification ?? ""} onChange={(e) => set("qualification", e.target.value)} />
+                        </Stack>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <TextField
                                 label="Experience (months)" type="number" size="small" sx={{ flex: 1 }}
                                 inputProps={{ min: 0 }}
                                 value={form.totalExperienceMonths ?? ""} onChange={(e) => setNum("totalExperienceMonths", e.target.value)}
+                            />
+                            <TextField
+                                label="Current CTC (LPA)" type="number" size="small" sx={{ flex: 1 }}
+                                inputProps={{ min: 0, step: 0.5 }}
+                                value={form.currentCtcInLpa ?? ""} onChange={(e) => setNum("currentCtcInLpa", e.target.value)}
                             />
                             <TextField
                                 label="Expected CTC (LPA)" type="number" size="small" sx={{ flex: 1 }}

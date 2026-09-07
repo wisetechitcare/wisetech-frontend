@@ -177,9 +177,25 @@ export interface Application {
 }
 
 export interface ApplicantPayload {
-    firstName: string; lastName?: string | null; email: string; phone?: string | null;
-    currentEmployer?: string | null; currentTitle?: string | null; totalExperienceMonths?: number | null;
-    expectedCtcInLpa?: number | null; noticePeriodDays?: number | null; sourceId?: string | null;
+    firstName: string;
+    lastName?: string | null;
+    /**
+     * Optional, because a candidate is identified by email OR phone. Most real intake —
+     * WhatsApp, walk-in, referral — arrives with a number and no address, and the API
+     * rejects only a record carrying neither.
+     */
+    email: string;
+    phone?: string | null;
+    currentEmployer?: string | null;
+    currentTitle?: string | null;
+    currentLocation?: string | null;
+    qualification?: string | null;
+    totalExperienceMonths?: number | null;
+    /** What they earn now. `expectedCtcInLpa` is what they are asking for; both are LPA. */
+    currentCtcInLpa?: number | null;
+    expectedCtcInLpa?: number | null;
+    noticePeriodDays?: number | null;
+    sourceId?: string | null;
 }
 export interface ApplicationCreatePayload {
     applicantId?: string | null;
