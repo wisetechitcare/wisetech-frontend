@@ -11,7 +11,7 @@
  * path so they land in their own chunk, and going through this barrel would pull the whole
  * feature into whatever imports it.
  */
-export { WorkspaceShellProvider, useWorkspaceShell } from './WorkspaceShellContext';
+export { WorkspaceShellProvider, WorkspaceShellState, useWorkspaceShell } from './WorkspaceShellContext';
 export { useWorkspaceApps, toDockApp } from './useWorkspaceApps';
 export { useWorkspaceChrome } from './useWorkspaceChrome';
 export { WorkspaceLayout } from './components/WorkspaceLayout';

@@ -1,6 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useNavTransform } from '@/contexts/NavTransformContext';
-import { WorkspaceShellProvider } from './WorkspaceShellContext';
 import { WorkspaceLayout } from './components/WorkspaceLayout';
 import { useWorkspaceChrome } from './useWorkspaceChrome';
 import { isWorkspacePath } from './appSlug';
@@ -44,9 +43,7 @@ export default function WorkspaceShell() {
     return <Outlet />;
   }
 
-  return (
-    <WorkspaceShellProvider>
-      <WorkspaceLayout />
-    </WorkspaceShellProvider>
-  );
+  // The provider itself is mounted by MasterLayout (WorkspaceShellState), above the header —
+  // the header's breadcrumb reads this state too, and it renders outside this route.
+  return <WorkspaceLayout />;
 }

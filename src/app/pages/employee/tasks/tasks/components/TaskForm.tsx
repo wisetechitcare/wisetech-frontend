@@ -9,7 +9,7 @@ import TextInput from "@app/modules/common/inputs/TextInput";
 import { Modal, Form, Row, Col, Button } from "react-bootstrap";
 import DateInput from '@app/modules/common/inputs/DateInput';
 import RadioInput from '@app/modules/common/inputs/RadioInput';
-import { getAllPersetTasks, getAllPriority, getAllProjectOnlySelectedFields, getAllTasks, getAllTasksStatus } from '@services/tasks';
+import { getAllPersetTasks, getAllPriority, getAllTasks, getAllTasksStatus, getAvailableProjects, getProjectAssignees, getGeneralAssignees } from '@services/tasks';
 import { getAllProjects } from '@services/projects';
 import { fetchAllEmployees } from '@services/employee';
 import { useSelector } from 'react-redux';
@@ -51,6 +51,9 @@ interface TaskFormModalProps {
   } | null;
 }
 
+// Phase 3 — the project is required for PROJECT tasks and FORBIDDEN for GENERAL ones. This
+// mirrors the server's `checkTaskScopeConsistency`; the server is still the authority, this
+// just stops the user submitting something it will reject.
 const validationSchema = Yup.object().shape({
   taskName: Yup.string().required('Task name is required'),
   // In preset mode the name comes from the selected configuration node, so the error
@@ -61,11 +64,56 @@ const validationSchema = Yup.object().shape({
     otherwise: (schema) => schema.notRequired(),
   }),
   taskDescription: Yup.string(),
-  chooseProject: Yup.string().required('Project is required'),
+  taskScope: Yup.string().oneOf(['PROJECT', 'GENERAL']).required(),
+  chooseProject: Yup.string().when('taskScope', {
+    is: 'PROJECT',
+    then: (schema) => schema.required('Project is required'),
+    otherwise: (schema) => schema.strip(),
+  }),
   assignTo: Yup.string().required('Assignee is required'),
   status: Yup.string().required('Status is required'),
   priority: Yup.string(),
 });
+
+/**
+ * Keeps the server-resolved assignee list in step with the form.
+ *
+ * A child component rather than an effect in the parent because scope and project live in
+ * Formik state, which is only readable inside the render prop. It renders nothing.
+ *
+ * It also CLEARS a stale assignee: switching project or scope must not leave a previously
+ * chosen employee selected, because that employee is very likely not on the new project's team
+ * — and the API would reject the submit with a 403 the user could not explain.
+ */
+const TaskFormSelectorSync = ({
+  scope,
+  projectId,
+  assignTo,
+  assignees,
+  onLoad,
+  onClearAssignee,
+}: {
+  scope: string;
+  projectId: string;
+  assignTo: string;
+  assignees: any[];
+  onLoad: (scope: string, projectId: string) => void;
+  onClearAssignee: () => void;
+}) => {
+  useEffect(() => {
+    onLoad(scope, projectId);
+  }, [scope, projectId, onLoad]);
+
+  useEffect(() => {
+    if (!assignTo) return;
+    if (assignees.length === 0) return;      // still loading, or genuinely empty — leave it
+    if (!assignees.some((e: any) => e.id === assignTo)) onClearAssignee();
+    // `onClearAssignee` is recreated each render; depending on it would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignees, assignTo]);
+
+  return null;
+};
 
 const TaskForm = ({
   headerName,
@@ -107,6 +155,9 @@ const TaskForm = ({
   const initialValue = {
     projectType: determinedProjectType,
     taskType: determinedProjectType === 'custom' ? 'CUSTOM' : 'PRESETS',
+    // Phase 3 — scope is explicit. When editing, it comes from the stored column; the server
+    // refuses to change it after creation (DEC-019), so the control is disabled in edit mode.
+    taskScope: (selectedTask?.taskScope as string) || (chooseProject ? 'PROJECT' : 'PROJECT'),
     // The task's OWN name — the selected node's name, never its path.
     taskName: taskName || '',
     // Preset mode only — the configuration node the name above came from. This is what
@@ -129,6 +180,11 @@ const TaskForm = ({
   const [tasks, setTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  // Phase 3 — the assignee list is SERVER-RESOLVED and depends on scope + selected project.
+  // It is never the global employee list filtered in React.
+  const [assignees, setAssignees] = useState<any[]>([]);
+  const [assigneesLoading, setAssigneesLoading] = useState(false);
+  const [projectsLoading, setProjectsLoading] = useState(false);
   const [taskStatus, setTaskStatus] = useState<any[]>([]);
   const [taskPriority, setTaskPriority] = useState<any[]>([]);
   const [allTasks, setAllTasks] = useState<any[]>([]);
@@ -164,15 +220,10 @@ const TaskForm = ({
 
     const totalTimeInSeconds = (hours * 3600) + (minutes * 60) + seconds;
 
-    // Check if the selected status is "completed"
-    const selectedStatus = taskStatus.find(status => status.id === values.status);
-    const isCompletedStatus = selectedStatus?.name?.toLowerCase() === 'completed';
+    // Completion is derived SERVER-SIDE from TaskStatus.isFinal (Phase 2). The old
+    // name-matching on "completed" broke the moment a stage was renamed in Configure.
 
-    // Set completion date if status is completed
-    // let completionDate = selectedTask?.completionDate || null;
-    // if (isCompletedStatus && !completionDate) {
-    //   completionDate = new Date().toISOString();
-    // }
+    const isGeneral = values.taskScope === 'GENERAL';
 
     const isCustom = values.projectType === 'custom';
 
@@ -184,12 +235,16 @@ const TaskForm = ({
       presetTaskId: isCustom ? null : (values.presetTaskId || null),
       taskDescription: values.taskDescription,
       taskType: isCustom ? 'CUSTOM' : 'PRESETS',
-      projectId: values.chooseProject,
+      // Phase 3 — scope is explicit, and a GENERAL task carries NO project. Sending an empty
+      // string here would be read as a project reference and rejected.
+      taskScope: isGeneral ? 'GENERAL' : 'PROJECT',
+      ...(isGeneral ? {} : { projectId: values.chooseProject }),
       assignedToId: values.assignTo,
       statusId: values.status,
       priorityId: values.priority,
-      createdById: currentEmployeeId,
-      lastEditedById: currentEmployeeId,
+      // `createdById` / `lastEditedById` are deliberately NOT sent. They are derived from the
+      // session server-side (Phase 1A); `createdById` is in fact a protected field, so sending
+      // it made every task UPDATE fail with 400.
       startDate: values.startDate ? new Date(values.startDate).toISOString() : null,
       dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : null,
       startTime: values.startTime ? new Date(`1970-01-01T${values.startTime}`).toISOString() : null,
@@ -238,7 +293,12 @@ const TaskForm = ({
         await handleCreateTask(values);
       }
     } catch (error: any) {
+      // Phase 3 — these failures are now MEANINGFUL: a 403 says the project or assignee was
+      // not permitted, a 400 says the payload broke a domain rule. Swallowing them into
+      // console.error left the modal sitting there looking like nothing had happened.
       console.error("Error saving task:", error);
+      const res = error?.response?.data;
+      errorConfirmation(res?.detail || res?.message || error?.message || 'Unable to save task');
     } finally {
       setSubmitting(false);
     }
@@ -278,7 +338,7 @@ const TaskForm = ({
       // them separately means each field fills in whenever its own request succeeds.
       const [presetsRes, projectsRes, statusRes, priorityRes, allTasksRes] = await Promise.allSettled([
         getAllPersetTasks(),
-        getAllProjectOnlySelectedFields(),
+        getAvailableProjects(),
         getAllTasksStatus(),
         getAllPriority(),
         getAllTasks(),
@@ -315,6 +375,45 @@ const TaskForm = ({
     getTaskName();
   }, []);
 
+  /**
+   * Phase 3 — resolve the assignee list from the SERVER, keyed on scope and project.
+   *
+   *   PROJECT + project selected → that project's internal team, filtered to whom this caller
+   *                                may actually assign (same rule the API enforces on write)
+   *   PROJECT + no project yet   → empty; the project is what defines the team
+   *   GENERAL                    → management scope, never project scope
+   *
+   * The previous form offered every employee in Redux for every task. That was never a
+   * security boundary — it just meant the user picked someone the API would refuse.
+   */
+  const loadAssignees = useCallback(async (scope: string, projectId: string) => {
+    if (scope === 'PROJECT' && !projectId) {
+      setAssignees([]);
+      return;
+    }
+    setAssigneesLoading(true);
+    try {
+      const res = scope === 'GENERAL'
+        ? await getGeneralAssignees()
+        : await getProjectAssignees(projectId);
+      setAssignees(res?.assignees || []);
+    } catch (error) {
+      // An empty selector is the honest outcome of a failed lookup: better than falling back
+      // to "every employee", which is exactly the behaviour this phase removes.
+      setAssignees([]);
+      console.error("error loading assignees: ", error);
+    } finally {
+      setAssigneesLoading(false);
+    }
+  }, []);
+
+  const assigneeOptions = assignees.map((emp: any) => {
+    const first = emp?.users?.firstName || '';
+    const last = emp?.users?.lastName || '';
+    const name = `${first} ${last}`.trim();
+    return { value: emp.id, label: name || `Employee ${emp.id}`, avatar: emp.avatar };
+  });
+
 
   return (
     <div>
@@ -344,7 +443,10 @@ const TaskForm = ({
           <Formik
             initialValues={{
               ...formData,
-              assignTo: formData.assignTo || (employeesData.list?.[0]?.id || ''),
+              // Phase 3 — no longer defaulted to "the first employee in the Redux list". That
+              // default was almost never someone the caller was authorised to assign, and it
+              // pre-filled a value the API would reject.
+              assignTo: formData.assignTo || '',
               billable: isEdit ? (formData.billable ?? 'BILLABLE') : 'BILLABLE'
             }}
             validationSchema={validationSchema}
@@ -354,12 +456,36 @@ const TaskForm = ({
           >
             {(formikProps) => {
               const { values, setFieldValue, errors, touched, handleSubmit, isSubmitting, validateForm } = formikProps;
+              const isGeneral = values.taskScope === 'GENERAL';
 
               return (
                 <FormikForm>
+                  {/* Keeps the server-resolved assignee list in step with the scope and the
+                      selected project, and clears a stale selection when either changes. */}
+                  <TaskFormSelectorSync
+                    scope={values.taskScope}
+                    projectId={values.chooseProject as string}
+                    assignTo={values.assignTo as string}
+                    assignees={assignees}
+                    onLoad={loadAssignees}
+                    onClearAssignee={() => setFieldValue('assignTo', '')}
+                  />
                   {/* Project Details Section */}
                   <Box>
                     <Grid container spacing={1} className='card-body  p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
+                      <Grid item xs={12} md={12}>
+                        <RadioInput
+                          isRequired={true}
+                          inputLabel="Task Scope"
+                          radioBtns={[
+                            { label: "Project Task", value: "PROJECT" },
+                            { label: "General Task", value: "GENERAL" },
+                          ]}
+                          formikField="taskScope"
+                          // DEC-019 — scope cannot change after creation, so don't offer it.
+                          disabled={isEdit}
+                        />
+                      </Grid>
                       <Grid item xs={12} md={12}>
                         <RadioInput
                           isRequired={false}
@@ -409,34 +535,62 @@ const TaskForm = ({
                         <TextInput formikField='taskDescription' label='Task Description' isRequired={false} />
                       </Grid>
 
-                      <Grid item xs={12} md={12}>
-                        <DropDownInput
-                          formikField="chooseProject"
-                          isRequired={true}
-                          inputLabel="Choose Project"
-                          options={projects.map((project: any) => ({ value: project.id, label: project.title }))}
-                          // options={[]}
-                          placeholder="Select Project"
-                        />
-
-                      </Grid>
+                      {/* PROJECT only. A GENERAL task carries no project by definition, and
+                          the server rejects one outright (checkTaskScopeConsistency). */}
+                      {!isGeneral && (
+                        <Grid item xs={12} md={12}>
+                          <DropDownInput
+                            formikField="chooseProject"
+                            isRequired={true}
+                            inputLabel="Choose Project"
+                            options={projects.map((project: any) => ({
+                              value: project.id,
+                              label: project.projectNumber
+                                ? `${project.projectNumber} — ${project.title}`
+                                : project.title,
+                            }))}
+                            disabled={isEdit}
+                            placeholder={
+                              projectsLoading
+                                ? 'Loading projects…'
+                                : projects.length === 0
+                                  ? 'No projects available — you are not a manager of any project'
+                                  : 'Select Project'
+                            }
+                          />
+                          {!projectsLoading && projects.length === 0 && (
+                            <Typography variant="caption" color="text.secondary">
+                              Only projects you manage can receive project tasks. Create a General Task instead.
+                            </Typography>
+                          )}
+                        </Grid>
+                      )}
 
                       <Grid item xs={12} md={12}>
                         <DropDownInput
                           formikField="assignTo"
                           isRequired={true}
                           inputLabel="Assign To"
-                          options={employeesData.list?.map((emp: any) => ({
-                            value: emp.employeeId,
-                            label: emp.employeeName || `Employee ${emp.employeeId}`,
-                            avatar: emp.avatar,
-                          })) || []}
+                          // Server-resolved. Never the global employee list.
+                          options={assigneeOptions}
                           showColor={true}
-                          placeholder="Select Assign To"
-
+                          placeholder={
+                            assigneesLoading
+                              ? 'Loading…'
+                              : !isGeneral && !values.chooseProject
+                                ? 'Select a project first'
+                                : assigneeOptions.length === 0
+                                  ? 'No assignable employees'
+                                  : 'Select Assign To'
+                          }
                         />
-
-
+                        {!assigneesLoading && assigneeOptions.length === 0 && (isGeneral || values.chooseProject) && (
+                          <Typography variant="caption" color="text.secondary">
+                            {isGeneral
+                              ? 'You are not permitted to assign general tasks to anyone.'
+                              : "This project's internal team has no members you can assign."}
+                          </Typography>
+                        )}
                       </Grid>
                       <Grid item xs={12} md={6}>
                         <DropDownInput

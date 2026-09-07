@@ -14,8 +14,10 @@ import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutli
 import HourglassBottomOutlinedIcon from '@mui/icons-material/HourglassBottomOutlined';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import SavingsOutlinedIcon from '@mui/icons-material/SavingsOutlined';
-import { formatCurrencyDecimal, formatCurrencyRounded } from '@utils/currency';
+// Whole rupees only on screen — this view never shows paise.
+import { formatCurrencyRounded } from '@utils/currency';
 import YearlyKpiCard from './components/salary/YearlyKpiCard';
+import KpiCompactList from './components/salary/KpiCompactList';
 import YearlyOverViewCard from './YearlyOverViewCard';
 import SalaryBreakdownTable, { PayState, YearlyBreakdownRow } from './components/salary/SalaryBreakdownTable';
 import MonthlySalaryComparison from './MonthlySalaryComparison';
@@ -153,6 +155,17 @@ const getGovtPaidByType = (row: any): Record<'PF' | 'PT' | 'TDS', number> => {
     return paid;
 };
 
+/**
+ * Retention settlements ride the statutory ledger, so pull them back out of
+ * `govtPayments` to tell "still held back" from "returned to the employee".
+ */
+const getRetentionPaid = (row: any): number =>
+    (row?.govtPayments || []).reduce((sum: number, payment: any) => (
+        String(payment?.deductionType ?? '').toUpperCase().includes('RETENTION')
+            ? sum + parseCurrencyOrNumber(payment?.paidAmount ?? payment?.amount)
+            : sum
+    ), 0);
+
 const convertHoursToDays = (time: string) => {
     if (!time || time === '-' || time === '') return 0;
     const [hh, mm, ss] = time.split(':').map(Number);
@@ -174,6 +187,7 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
                 ptaxDeduction: '-',
                 tdsDeduction: '-',
                 tds2Deduction: '-',
+                retention: '',
                 // A month that has not happened yet is neither paid nor unpaid.
                 status: 'None',
                 govtStatus: 'None',
@@ -188,6 +202,7 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
         const ptax = getFixedDeductionAmount(row, isPtaxKey);
         const tds = getDeductionAmountAny(row, isTdsKey);
         const tds2 = getDeductionAmountAny(row, isTds2Key);
+        const retention = getFixedDeductionAmount(row, isRetentionKey);
 
         // Statutory remittance status: what was deducted vs what reached the government.
         const govtPaid = getGovtPaidByType(row);
@@ -201,7 +216,7 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
         const govtStatus = payState(govtDue, govtPaidTotal);
         const govtDetail = govtBuckets
             .filter(([, due]) => due > 0)
-            .map(([label, due, paid]) => `${label}: ${formatCurrencyDecimal(paid)} of ${formatCurrencyDecimal(due)}`)
+            .map(([label, due, paid]) => `${label}: ${formatCurrencyRounded(paid)} of ${formatCurrencyRounded(due)}`)
             .join('  ·  ');
 
         const basicSalary = parseCurrencyOrNumber(row.basicSalary);
@@ -211,16 +226,19 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
 
         return {
             month,
-            basicSalary: formatCurrencyDecimal(basicSalary),
-            overtime: formatCurrencyDecimal(overtime),
-            overtimeDisplay: row.overTimeRuleDisplay || formatCurrencyDecimal(overtime),
+            basicSalary: formatCurrencyRounded(basicSalary),
+            overtime: formatCurrencyRounded(overtime),
+            overtimeDisplay: row.overTimeRuleDisplay || formatCurrencyRounded(overtime),
             netPayable: formatCurrencyRounded(netPayable),
             paid: formatCurrencyRounded(paidAmount),
             pending: formatCurrencyRounded(pendingAmount),
-            pfDeduction: formatCurrencyDecimal(pfDeduction),
-            ptaxDeduction: ptax > 0 ? formatCurrencyDecimal(ptax) : '',
-            tdsDeduction: formatCurrencyDecimal(tds),
-            tds2Deduction: tds2 > 0 ? formatCurrencyDecimal(tds2) : '',
+            pfDeduction: formatCurrencyRounded(pfDeduction),
+            ptaxDeduction: ptax > 0 ? formatCurrencyRounded(ptax) : '',
+            tdsDeduction: formatCurrencyRounded(tds),
+            tds2Deduction: tds2 > 0 ? formatCurrencyRounded(tds2) : '',
+            retention: retention > 0 ? formatCurrencyRounded(retention) : '',
+            // Company-side money: "Paid" here means settled back to the employee.
+            retentionStatus: payState(retention, getRetentionPaid(row)),
             status: payState(netPayable, paidAmount),
             govtStatus,
             govtDetail,
@@ -430,12 +448,7 @@ const Yearly = ({
             const grossPay = parseCurrencyOrNumber(item.totalGrossPayAmount);
             const govPaid = parseCurrencyOrNumber(item.governmentPaid);
             const retention = getFixedDeductionAmount(item, isRetentionKey);
-            // Retention settlements share the statutory ledger (so they land in the
-            // master governmentPaid) — split them back out for their own bucket.
-            const retentionPaid = ((item as any)?.govtPayments || []).reduce((sum: number, p: any) => {
-                const dt = String(p?.deductionType ?? '').toUpperCase();
-                return dt.includes('RETENTION') ? sum + parseCurrencyOrNumber(p?.paidAmount ?? p?.amount) : sum;
-            }, 0);
+            const retentionPaid = getRetentionPaid(item);
 
             return {
                 payableDays: acc.payableDays + payableDays,
@@ -507,9 +520,9 @@ const Yearly = ({
 
     const getPendingFooter = (pendingAmount: number) => {
         if (pendingAmount > 0) {
-            return { label: 'Pending', value: formatCurrencyDecimal(pendingAmount) };
+            return { label: 'Pending', value: formatCurrencyRounded(pendingAmount) };
         } else if (pendingAmount < 0) {
-            return { label: 'Extra', value: formatCurrencyDecimal(Math.abs(pendingAmount)) };
+            return { label: 'Extra', value: formatCurrencyRounded(Math.abs(pendingAmount)) };
         }
         return { label: 'Cleared', value: '' };
     };
@@ -527,7 +540,7 @@ const Yearly = ({
         {
             label:    'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS',
             sublabel: 'After variable deductions',
-            value:    formatCurrencyDecimal(intermediateSalary),
+            value:    formatCurrencyRounded(intermediateSalary),
             footer:     financialYear !== '-' ? `FY ${financialYear}` : 'Financial Year',
             footerValue: '',
             tone: 'blue' as const,
@@ -536,7 +549,7 @@ const Yearly = ({
         {
             label:    hasPtax ? 'DEDUCTIONS (PTAX)' : 'DEDUCTIONS',
             sublabel: 'Govt. & statutory charges',
-            value:    formatCurrencyDecimal(govtOnlyDeduction),
+            value:    formatCurrencyRounded(govtOnlyDeduction),
             footer:     getPendingFooter(govtOnlyDeduction - govtOnlyPaid).label,
             footerValue: getPendingFooter(govtOnlyDeduction - govtOnlyPaid).value,
             tone: 'purple' as const,
@@ -546,7 +559,7 @@ const Yearly = ({
             ? [{
                 label:    'COMPANY DEDUCTION (RETENTION)',
                 sublabel: 'Fresher bond held back',
-                value:    formatCurrencyDecimal(retentionTotal),
+                value:    formatCurrencyRounded(retentionTotal),
                 footer:      getPendingFooter(retentionTotal - yearOverview.totalRetentionPaid).label,
                 footerValue: getPendingFooter(retentionTotal - yearOverview.totalRetentionPaid).value,
                 tone: 'amber' as const,
@@ -556,7 +569,7 @@ const Yearly = ({
         {
             label:    'PAYABLE SALARY',
             sublabel: 'Net take-home amount',
-            value:    formatCurrencyDecimal(Math.abs(yearOverview.totalNetAmount)),
+            value:    formatCurrencyRounded(Math.abs(yearOverview.totalNetAmount)),
             footer:     getPendingFooter(yearOverview.totalDueAmount).label,
             footerValue: getPendingFooter(yearOverview.totalDueAmount).value,
             tone: (yearOverview.totalNetAmount < 0 ? 'danger' : 'green') as 'danger' | 'green',
@@ -566,11 +579,27 @@ const Yearly = ({
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {/* Phone: the same three figures as one summed column — see KpiCompactList.
+                Skipped while loading; the skeleton grid below already stands in. */}
+            {!isLoadingOverview && (
+                <KpiCompactList
+                    cards={kpis}
+                    shortLabels={{
+                        'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS': 'Total salary',
+                        'DEDUCTIONS (PTAX)': 'Deductions (PTax)',
+                        'DEDUCTIONS': 'Deductions',
+                        'COMPANY DEDUCTION (RETENTION)': 'Retention held',
+                        'PAYABLE SALARY': 'Payable salary',
+                    }}
+                    resultIsNegative={yearOverview.totalNetAmount < 0}
+                    sx={{ display: { xs: 'block', sm: 'none' } }}
+                />
+            )}
+
             <Box
                 sx={{
-                    display: 'grid',
+                    display: { xs: 'none', sm: 'grid' },
                     gridTemplateColumns: {
-                        xs: '1fr',
                         sm: 'repeat(2, minmax(0, 1fr))',
                         lg: `repeat(${kpis.length}, minmax(0, 1fr))`,
                     },
@@ -599,7 +628,7 @@ const Yearly = ({
                 {isLoadingOverview ? (
                     <>
                         <Skeleton variant="rounded" height={276} sx={{ borderRadius: '16px' }} />
-                        <Skeleton variant="rounded" height={276} sx={{ borderRadius: '16px' }} />
+                        <Skeleton className="d-none d-md-block" variant="rounded" height={276} sx={{ borderRadius: '16px', display: { xs: 'none', md: 'block' } }} />
                     </>
                 ) : (
                     <>
@@ -612,7 +641,7 @@ const Yearly = ({
                             attendance={`${yearOverview.attendancePercent}%`}
                             paymentProgress={`${paidPercent}%`}
                         />
-                        <Box sx={{ minWidth: 0, '& > .card': { height: '100%', mb: '0 !important' } }}>
+                        <Box className="d-none d-md-block" sx={{ minWidth: 0, display: { xs: 'none', md: 'block' }, '& > .card': { height: '100%', mb: '0 !important' } }}>
                             <MonthlySalaryComparison ComparisonData={yearlySalaryRows} loading={isLoadingSalaryData} compact showSensitiveData={showSensitiveData} />
                         </Box>
                     </>

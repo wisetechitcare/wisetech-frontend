@@ -28,6 +28,7 @@ import {
   createPreviousExperienceDetails,
   createRejoinHistoryDetails,
   fetchWizardData,
+  fetchApprovalWorkflowConfigs,
   updateAddressDetails,
   updateBankDetails,
   updateDocumentDetails,
@@ -41,7 +42,7 @@ import {
   updateRejoinHistoryDetails,
   deleteAllRejoinHistoryByEmployeeId,
 } from "@services/employee";
-import { persistApprovalChains } from "@app/components/ApprovalSettings";
+import { approvalChainsFromConfigs, persistApprovalChains } from "@app/components/ApprovalSettings";
 import { fetchCompanyOverview } from "@services/company";
 import { takeConversion, clearConversion, linkConvertedEmployee } from "@services/recruitment";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
@@ -1960,7 +1961,16 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     if (!editMode) return;
     async function wizard() {
       if (!employeeId) return;
-      const { data: { wizardData } } = await fetchWizardData(employeeId, false);
+      // Approval chains are loaded HERE, not left to the Approval Settings step to seed
+      // when it mounts. Only the step you are looking at is rendered, so an edit that
+      // never opened Payroll & Access reached the save gate below with empty chains and
+      // was refused for missing approvers the employee already had. Non-fatal: a failed
+      // read leaves the chains empty and the gate asks for them, which is the old
+      // behaviour rather than a broken save.
+      const [{ data: { wizardData } }, approvalConfigs] = await Promise.all([
+        fetchWizardData(employeeId, false),
+        fetchApprovalWorkflowConfigs(employeeId).catch(() => null),
+      ]);
 
       let presentAddress = {};
       const { allowOverTime } = wizardData;
@@ -2008,6 +2018,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         retentionStartDate: (() => { const v = (wizardData as any)?.retentionStartDate; return v ? String(v).slice(0, 10) : ""; })(),
         retentionEndDate: (() => { const v = (wizardData as any)?.retentionEndDate; return v ? String(v).slice(0, 10) : ""; })(),
         reimbursementLimitPerRequest: wizardData?.reimbursementLimitPerRequest != null ? String(wizardData.reimbursementLimitPerRequest) : "",
+        approvalChains: approvalChainsFromConfigs((approvalConfigs as any)?.data ?? approvalConfigs),
       };
       setDefaultState(newState);
     }

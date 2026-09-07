@@ -13,18 +13,14 @@ import {
   InputAdornment,
 } from "@mui/material";
 import { getRowBackgroundColor } from "@app/modules/common/design-tokens";
-import { deleteLead, getAllLeadsComplete } from "@services/leads";
+import { getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { projectManagerIds } from "@app/pages/employee/entity/detail/entityViewModel";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
+import { dateSortingFn } from "@app/modules/common/components/table/dateSort";
 import Loader from "@app/modules/common/utils/Loader";
-import {
-  errorConfirmation,
-  rejectConfirmation,
-  successConfirmation,
-} from "@utils/modal";
 import LeadWizardModal from "@pages/employee/leads/lead/LeadWizardModal";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
@@ -42,10 +38,8 @@ import {
 } from "@services/options";
 import { AppDispatch, RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
-import eventBus from "@utils/EventBus";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { mapLeadToFormInitialValues } from "@pages/employee/leads/lead/utils";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -63,6 +57,7 @@ import {
   isProjectEntity,
   isProjectView,
   matchesView,
+  projectNumberOf,
 } from "./entityUtils";
 
 dayjs.extend(isSameOrBefore);
@@ -708,7 +703,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             // Lead-as-master: project-only fields live on the 1:1 execution
             // extension + lead scalars now; the legacy `project` row is a fallback.
             projectId: lead?.projectId || project?.id || "",
-            projectPrefix: lead?.originalProjectPrefix || project?.prefix || "",
+            projectPrefix: projectNumberOf(lead) || "",
             projectStatus: exec?.projectStatus || project?.status || null,
             projectStartDate: lead?.startDate || project?.startDate || "",
             projectEndDate: lead?.endDate || project?.endDate || "",
@@ -842,6 +837,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         accessorKey: "inquiryDate",
         header: "Inquiry Date",
         size: 150,
+        sortingFn: dateSortingFn,
         Cell: ({ cell }: { cell: any }) => {
           const v = cell.getValue();
           return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
@@ -973,6 +969,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           accessorKey: "receivedDate",
           header: "Received Date",
           size: 150,
+          sortingFn: dateSortingFn,
           Cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
@@ -1041,6 +1038,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           accessorKey: "projectStartDate",
           header: "Start Date",
           size: 140,
+          sortingFn: dateSortingFn,
           Cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
@@ -1050,6 +1048,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           accessorKey: "projectEndDate",
           header: "Expected Closure",
           size: 150,
+          sortingFn: dateSortingFn,
           Cell: ({ row }: { row: any }) => {
             const v = row.original.projectEndDate;
             if (!v) return "N/A";
@@ -1142,41 +1141,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       },
     ];
 
-    const actions: any[] = isDrillDown
-      ? []
-      : [
-        {
-          accessorKey: "actions",
-          header: "Actions",
-          size: 120,
-          enableEditing: false,
-          Cell: ({ row }: { row: any }) => (
-            <Box sx={{ display: "flex", gap: "8px" }}>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const currLead = rawLeadsDatas.find((l: any) => l.id === row.original.id);
-                  setFormValues(mapLeadToFormInitialValues(currLead));
-                }}
-              >
-                <KTIcon iconName="pencil" className="fs-2" />
-              </button>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteLead(row.original.id);
-                }}
-              >
-                <KTIcon iconName="trash" className="fs-2" />
-              </button>
-            </Box>
-          ),
-        },
-      ];
-
-    const assembled = [...base, ...leadOnly, ...projectCols, ...tail, ...actions];
+    const assembled = [...base, ...leadOnly, ...projectCols, ...tail];
 
     // Full-page table: every column visible by default (user toggles via the menu).
     // Drill-down: only the curated base + the drilled dimension's context column are
@@ -1199,24 +1164,6 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       meta: { ...(col.meta || {}), defaultVisible: essentialDrillColumns.has(col.accessorKey) },
     }));
   }, [view, projectColumnsActive, isDrillDown, drillVisibleKeys, projectServices, projectCategories, projectSubcategories, allemployees, rawLeadsDatas]);
-
-  // ── Handlers ──────────────────────────────────────────────────────────────────
-  const handleDeleteLead = async (id: string) => {
-    try {
-      const confirmed = await rejectConfirmation("Yes, delete it!");
-      if (confirmed) {
-        setTableData((prev) => prev.filter((l: any) => l.id !== id));
-        setRawLeadsDatas((prev) => prev.filter((l: any) => l.id !== id));
-        await deleteLead(id);
-        successConfirmation("Lead deleted successfully!");
-        eventBus.emit(EVENT_KEYS.leadDeleted, { id });
-      }
-    } catch (error) {
-      console.error("Error deleting lead:", error);
-      errorConfirmation("Failed to delete lead. Please try again.");
-      fetchAllData();
-    }
-  };
 
   // ── Export columns (adapt to view) ───────────────────────────────────────────
   const exportColumns = useMemo(() => {
@@ -2400,10 +2347,16 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                 }),
               },
             },
-            onClick: () =>
-              navigate(`/leads/${row.original.id}`, {
-                state: { leadData: row.original.id },
-              }),
+            onClick: () => {
+              // The path IS the entry context (see the /project/:id route). The
+              // project views open the project lens; the Leads view opens the
+              // lead lens; in "All" the row itself decides, since that view
+              // deliberately mixes the two. Previously every view navigated to
+              // /leads/:id, so a project opened from the Projects view showed
+              // the lead page with the project tabs stripped out.
+              const asProject = projectColumnsActive || (view === "all" && isProjectEntity(row.original));
+              navigate(`${asProject ? "/project" : "/leads"}/${row.original.id}`);
+            },
             };
           },
         }}

@@ -259,7 +259,6 @@ module.exports = [
   "src/app/pages/employee/leads/configuration/components/MeetingScheduleModal.tsx",
   "src/app/pages/employee/leads/configuration/components/PaymentPlanModal.tsx",
   "src/app/pages/employee/leads/lead/DetailsModal.tsx",
-  "src/app/pages/employee/leads/lead/LeadBulkImport.tsx",
   "src/app/pages/employee/leads/lead/LeadNewLead.tsx",
   "src/app/pages/employee/leads/lead/LeadWizardModal.tsx",
   "src/app/pages/employee/leads/lead/components/ConvertToClientProject.tsx",

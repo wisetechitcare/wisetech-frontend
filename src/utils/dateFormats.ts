@@ -81,6 +81,21 @@ export const formatTime = (value: DateLike, fallback = "—"): string => {
   return d.isValid() ? d.format(DATE_FORMATS.DISPLAY_TIME) : fallback;
 };
 
+/**
+ * Format a value only if it looks like a stored date, otherwise hand it back untouched.
+ *
+ * For screens that render arbitrary column values side by side — an import preview, an
+ * audit diff — where the same cell may hold a name, a number or `2021-04-06T00:00:00.000Z`
+ * depending on the row. Anchored to the start so a project number like `2021-04 rev 2`
+ * is left alone.
+ */
+export const formatMaybeDate = (value: string | null | undefined, fallback = "—"): string => {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (!/^\d{4}-\d{2}-\d{2}([T ]|$)/.test(value)) return value;
+  const d = dayjs(value);
+  return d.isValid() ? d.format(DATE_FORMATS.DISPLAY) : value;
+};
+
 /** Serialize for the API/DB (ISO `YYYY-MM-DD`). Returns `''` when absent/invalid. */
 export const toWireDate = (value: DateLike): string => {
   if (value === null || value === undefined || value === "") return "";

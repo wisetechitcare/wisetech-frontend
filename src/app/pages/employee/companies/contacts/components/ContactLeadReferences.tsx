@@ -26,7 +26,9 @@ const ContactLeadReferences: React.FC<{ referrals?: LeadReferral[] }> = ({ refer
             style={{ color: "inherit", fontSize: "14px" }}
             onClick={() => navigate(`/leads/${ref.lead!.id}`)}
           >
-            {ref.lead.title || ref.lead.id}
+            {/* Never the id: an untitled lead is still a lead, and a uuid in a link
+                label tells the reader nothing they can act on. */}
+            {ref.lead.title || "Untitled lead"}
           </button>
         );
       },

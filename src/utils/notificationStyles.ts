@@ -9,6 +9,15 @@ export const ATTENDANCE_NOTIFICATION_TYPE = {
   MISSING_CHECKOUT: 'attendance_missing_checkout',
 } as const;
 
+/**
+ * Task notifications. Not attendance, and deliberately in the same style map: a person opening
+ * the inbox reads one list, and a task alert that fell back to the generic grey bell was
+ * indistinguishable from a system message about nothing in particular.
+ */
+export const TASK_NOTIFICATION_TYPE = {
+  ASSIGNED: 'TASK_ASSIGNED',
+} as const;
+
 export type AttendanceNotificationType =
   (typeof ATTENDANCE_NOTIFICATION_TYPE)[keyof typeof ATTENDANCE_NOTIFICATION_TYPE];
 
@@ -71,6 +80,13 @@ const STYLES: Record<string, NotificationStyle> = {
     bgColor:     '#F5F3FF',
     textColor:   '#4C1D95',
     label:       'Missing Checkout',
+  },
+  [TASK_NOTIFICATION_TYPE.ASSIGNED]: {
+    icon: '📋',
+    borderColor: '#1E3A8A',
+    bgColor:     '#EEF2FF',
+    textColor:   '#1E3A8A',
+    label:       'Task Assigned',
   },
 };
 

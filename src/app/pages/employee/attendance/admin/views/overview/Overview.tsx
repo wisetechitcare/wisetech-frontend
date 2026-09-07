@@ -45,7 +45,6 @@ import "./OverviewStatsGrid.css";
 import { ToneChip, AppIcon } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { DATE_FORMATS, formatDateLong } from '@utils/dateFormats';
-import { filterActiveEmployees } from '@utils/activeEmployee';
 import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
 import {
     EmployeeStatGrid,
@@ -55,6 +54,7 @@ import {
 } from '@app/modules/common/components/EmployeeStatGrid';
 import type { EmployeeStatGroup } from '@app/modules/common/components/employeeStatGrouping';
 import { computeAbsentEntries, computeLeaveDaysByDate } from "./absentDays";
+import { getEmployeeStatus } from "@utils/employeeStatus";
 
 // Sort/search/close modal shell and the employee card grid are shared with the
 // Dashboard daily overview — see the two components above, not a local copy.
@@ -136,6 +136,24 @@ interface EmployeeWithAttendance {
     designation?: string;
     avatar?: string | null;  // Changed from profileImage to avatar to match Employee interface
     isActive?: boolean;  // Added to filter inactive employees
+    /**
+     * Employment window. REQUIRED, and carried all the way through the roster
+     * transform, because the absent walk asks `getEmployeeStatus` whether this
+     * person was employed on each specific day.
+     *
+     * Optional would be worse than useless here: `getEmployeeStatus` treats a
+     * row with no dates as "employed throughout" — deliberately, so legacy rows
+     * stay visible — so dropping these silently answers "yes" for everyone and
+     * the per-day filter does nothing at all. That is exactly what happened:
+     * the predicate was wired in and had no effect, because the transform above
+     * it had already discarded the only fields it could read.
+     *
+     * `null` is a real answer (no exit recorded). `undefined` is not, which is
+     * why these are required rather than optional.
+     */
+    dateOfJoining: string | Date | null;
+    dateOfExit: string | Date | null;
+    EmployeeRejoinHistory: Array<{ dateOfReJoining?: string | Date | null; dateOfReExit?: string | Date | null }> | null;
     attendance?: Attendance & {
         workingMethod?: {
             id?: string;
@@ -494,6 +512,13 @@ function Overview({ date, range }: OverviewProps) {
             // The same predicate the rest of this page uses, so the modal cannot disagree
             // with the calendar about which days are working days.
             isNonWorking: checkIfWeekendOrHoliday,
+            // Per-DAY employment. The roster is scoped to the window, which says who
+            // belongs in the period; this says which of that period's days each of them
+            // was actually on the books for. Without it, someone who left on 14 August
+            // collected an absence for every working day from the 15th onward.
+            // `getEmployeeStatus` is the shared frontend twin of the backend's
+            // employment-window predicate, and is rejoin-aware.
+            isEmployedOn: (employee: any, day) => getEmployeeStatus(employee, day) === 1,
             presentByDay,
             leaveByDay,
             roster: allEmployees,
@@ -1247,6 +1272,12 @@ function Overview({ date, range }: OverviewProps) {
                     employeeCode: emp.employeeCode || '',
                     avatar: emp.avatar || null,
                     isActive: emp.isActive ?? true,  // Default to true if not specified
+                    // The employment window, carried through so the absent walk can ask
+                    // whether this person was employed on each specific day. Dropping
+                    // these made the per-day filter a silent no-op.
+                    dateOfJoining: emp.dateOfJoining ?? null,
+                    dateOfExit: emp.dateOfExit ?? null,
+                    EmployeeRejoinHistory: emp.EmployeeRejoinHistory ?? null,
                 }));
 
                 if (isMountedRef.current) {
@@ -1256,13 +1287,19 @@ function Overview({ date, range }: OverviewProps) {
                     //     attendance: allAttendance.length
                     // });
 
-                    // Filter only active employees for state. Same predicate, now shared —
-                    // every table and graph on this page derives from `isActiveEmployee`
-                    // so none of them can disagree with these cards about who counts.
-                    // Explicit type argument: `transformedEmployees` is `any[]`, and TS
-                    // falls back to the generic's constraint rather than inferring the
-                    // row shape, which would widen the state to MaybeActiveEmployee[].
-                    const activeEmployees = filterActiveEmployees<EmployeeWithAttendance>(transformedEmployees);
+                    // No flag filter. `fetchAllEmployees` above is already scoped
+                    // server-side to this period by the employment TIMELINE
+                    // (dates + rejoin history) — which is what the request just
+                    // above this was always meant to do, and finally does now
+                    // that the window is sent under the names the server reads.
+                    //
+                    // Re-applying `isActive` here would undo it twice over: it
+                    // drops leavers a historical period is supposed to include,
+                    // and it drops anyone whose flag is stale-off. Two people
+                    // employed today were in that state when this was measured.
+                    // No cast: the transform now produces the full shape, so tsc checks it.
+                    // The `as` here previously hid the missing employment fields.
+                    const activeEmployees: EmployeeWithAttendance[] = transformedEmployees;
                     const visibleEmployees = filterIds
                         ? activeEmployees.filter((emp: any) => filterIds.includes(emp._id))
                         : activeEmployees;

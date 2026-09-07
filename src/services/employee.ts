@@ -105,7 +105,15 @@ export const fetchAllEmployees = async (isActive?: boolean, from?: string, to?: 
 
         const params = new URLSearchParams();
         if (isActive !== undefined) params.set('isActive', String(isActive));
-        if (from && to) { params.set('from', from); params.set('to', to); }
+        // `startDate`/`endDate`, NOT `from`/`to`.
+        //
+        // The server parses this window with the shared `parseOptionalDateRange`,
+        // which reads those two names — every other ranged endpoint uses them.
+        // Sent as from/to it matched nothing, so the period was silently dropped
+        // and "active" fell back to meaning active TODAY. That is why a
+        // historical month still hid people who had since left, and why the
+        // caller in admin Overview that already passed a range had no effect.
+        if (from && to) { params.set('startDate', from); params.set('endDate', to); }
         if ([...params].length) endpoint += `?${params.toString()}`;
 
         const { data } = await axios.get(endpoint);
@@ -897,6 +905,47 @@ export const fetchEmployeeIdCard = async (employeeId: string): Promise<EmployeeI
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_ID_CARD}/${employeeId}`;
         const { data } = await axios.get(endpoint);
         return data.data as EmployeeIdCardPayload;
+    } catch (err) {
+        throw err;
+    }
+};
+
+/* ── Birthday card ────────────────────────────────────────────────────────────
+   One payload for both audiences. `kind` is 'employee' or 'contact'; the id is the
+   USER's for an employee (the calendar's birthday events are built from the users
+   list, where the date of birth lives) and the contact's own for a contact.
+
+   Photo and logo arrive as base64 `data:` URIs for the same reason the ID card's do —
+   the card is rasterised to PNG through a <canvas>, and a cross-origin S3 image would
+   taint it and make `toBlob()` throw. */
+export type BirthdayCardKind = 'employee' | 'contact';
+
+export interface BirthdayCardPerson {
+    id: string;
+    name: string;
+    /** Base64 `data:` URI, or null — the card falls back to an initials monogram. */
+    photo: string | null;
+    /**
+     * ISO `YYYY-MM-DD`, or null when none is on file. Only contacts can be null: the
+     * column is optional for them and NOT NULL for employees. A null drops the age
+     * line and the card greets them by name alone.
+     */
+    dateOfBirth: string | null;
+    /** Designation for an employee, "Role · Company" for a contact. */
+    subtitle: string | null;
+}
+
+export interface BirthdayCardPayload {
+    person: BirthdayCardPerson;
+    /** Same shape the ID card uses — the sub-organization's mark, or the group's. */
+    organization: EmployeeIdCardOrganization;
+}
+
+export const fetchBirthdayCard = async (kind: BirthdayCardKind, id: string): Promise<BirthdayCardPayload> => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_BIRTHDAY_CARD}/${kind}/${encodeURIComponent(id)}`;
+        const { data } = await axios.get(endpoint);
+        return data.data as BirthdayCardPayload;
     } catch (err) {
         throw err;
     }
@@ -1951,7 +2000,10 @@ export const fetchApprovalWorkflowConfigs = async (employeeId: string, workflowT
 
 export const saveApprovalWorkflowChain = async (
     employeeId: string,
-    workflowType: 'attendance' | 'leave' | 'reimbursement',
+    // The backend stores workflowType as a free-form string and handles every type
+    // generically, so this list is the set the settings UI currently exposes — extend it
+    // when a new module is added to ApprovalSettings' MODULES.
+    workflowType: 'attendance' | 'leave' | 'reimbursement' | 'billing_request',
     levels: Array<{ level: number; approverId?: string | null }>,
 ) => {
     try {
@@ -3120,3 +3172,22 @@ export const fetchUnsettledLeavers = async (params?: { branchId?: string; lookba
         };
     };
 };
+
+/**
+ * The employee attendance calendar for one month — days already resolved by
+ * the server (status + modifiers, late verdicts, leave fractions, holidays).
+ *
+ * Replaces the five-call fan-out the Overview used to run per month
+ * (attendance + leaves + holidays + company overview + requests) and the
+ * client-side rule engine that combined them.
+ */
+export const fetchAttendanceCalendar = async (employeeId: string, month: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_CALENDAR}?employeeId=${employeeId}&month=${month}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}

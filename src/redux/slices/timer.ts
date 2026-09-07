@@ -149,6 +149,20 @@ export const startTimerThunk = createAsyncThunk(
   }
 );
 
+/**
+ * The one rejection that means "stop trying".
+ *
+ * Everything else is worth keeping the session on screen for — a network blip must never discard
+ * real logged work. This one cannot be recovered from: the row is gone.
+ */
+export const TIMER_ENTRY_GONE = 'This time entry no longer exists — it was deleted elsewhere.';
+
+const isMissingTimesheet = (error: any): boolean => {
+  const status = error?.response?.status ?? error?.statusCode;
+  const text = String(error?.response?.data?.message ?? error?.message ?? '');
+  return status === 404 || /timesheet (with id .*)?not found/i.test(text);
+};
+
 export const pauseTimerThunk = createAsyncThunk(
   'timer/pauseTimer',
   async (_, { getState, rejectWithValue }) => {
@@ -201,7 +215,55 @@ export const pauseTimerThunk = createAsyncThunk(
       };
     } catch (error: any) {
       console.error('Error pausing timer:', error);
+      // The entry this timer was writing into no longer exists — it was deleted from a timesheet
+      // screen while the clock ran. There is nothing to save into and no amount of retrying will
+      // change that, so the caller is told to let the session go instead of showing the same
+      // failure on every tick.
+      if (isMissingTimesheet(error)) return rejectWithValue(TIMER_ENTRY_GONE);
       return rejectWithValue(error.message || 'Failed to pause timer');
+    }
+  }
+);
+
+/**
+ * STOP — end the work session.
+ *
+ * Pause and stop both commit the elapsed time; the difference is what happens afterwards:
+ *
+ *   pause → time is written, `currentTask` is KEPT, so resuming adds to the SAME timesheet entry
+ *   stop  → time is written, the session is CLEARED, so the next start opens a NEW entry
+ *
+ * Until now only pause existed, so a finished piece of work stayed attached to the timer for the
+ * rest of the day and the next start silently appended to it. That made one entry out of two
+ * separate sittings, which is wrong on a timesheet that feeds cost.
+ *
+ * The commit itself is identical to pause and is deliberately duplicated nowhere — this thunk
+ * dispatches the pause work first and only then clears, so there is one implementation of "write
+ * the elapsed time".
+ */
+export const stopTimerThunk = createAsyncThunk(
+  'timer/stopTimer',
+  async (_, { getState, dispatch, rejectWithValue }) => {
+    try {
+      const state = getState() as RootState;
+      if (!state.timer.currentTask) {
+        return rejectWithValue('No active timer to stop');
+      }
+
+      // Only commit if the clock is actually running: stopping an already-paused session must
+      // not write a second, zero-length slice on top of the one pause already saved.
+      if (state.timer.isRunning && state.timer.timerStartTime) {
+        const result = await dispatch(pauseTimerThunk());
+        if (pauseTimerThunk.rejected.match(result)) {
+          const reason = (result.payload as string) || 'Failed to save time before stopping';
+          // A deleted entry still stops: there is no work to lose, only a widget to clear.
+          if (reason !== TIMER_ENTRY_GONE) return rejectWithValue(reason);
+        }
+      }
+      return true;
+    } catch (error: any) {
+      console.error('Error stopping timer:', error);
+      return rejectWithValue(error.message || 'Failed to stop timer');
     }
   }
 );
@@ -351,6 +413,21 @@ export const timerSlice = createSlice({
       .addCase(pauseTimerThunk.pending, (state) => {
         state.loading = true;
         state.error = null;
+      })
+      .addCase(stopTimerThunk.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(stopTimerThunk.rejected, (state, action) => {
+        // Keep the session on screen if the save failed — silently discarding a running timer
+        // would lose real logged work.
+        state.loading = false;
+        state.error = (action.payload as string) || 'Failed to stop timer';
+      })
+      .addCase(stopTimerThunk.fulfilled, (state) => {
+        // The elapsed time is already persisted by the pause commit; clear the session so the
+        // next start opens a NEW timesheet entry rather than appending to this one.
+        const userId = state.userId;
+        Object.assign(state, initialState);
+        state.userId = userId;
+        if (userId) clearFromLocalStorage(userId);
       })
       .addCase(pauseTimerThunk.fulfilled, (state, action) => {
         state.loading = false;

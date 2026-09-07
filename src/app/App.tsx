@@ -10,6 +10,7 @@ import { setUserId, loadTimerStateThunk } from '@redux/slices/timer'
 import GlobalTimerModal from '../components/GlobalTimerModal';
 import { IdleLogoutGuard } from './components/IdleLogoutGuard';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { fetchColorAndStoreInSlice } from '@utils/file';
 import { usePushSubscription } from '../hooks/usePushSubscription';
 import { Toaster } from 'sonner';
 import { ColorModeProvider } from '@app/theme/ColorMode';
@@ -135,8 +136,29 @@ const App = () => {
     }
   }, [isAuthenticated, currentUser?.id, dispatch]);
 
-  // Global real-time sync: backend socket events → eventBus → component refetches
-  useRealtimeSync(isAuthenticated ? currentUser?.id : null);
+  /**
+   * Load the company's appearance colours ONCE, on login.
+   *
+   * These were fetched lazily by whichever screen happened to remember to ask —
+   * fourteen call sites, and the attendance Overview tab was not one of them.
+   * Land there directly and the store still held the shipped defaults, so the
+   * calendar painted a configured magenta as the default teal and no saved
+   * colour reached the screen at all until you visited some other page that did
+   * ask. That is not a caching problem to tune; it is company-wide config that
+   * every themed surface reads, so it belongs here with the other things the
+   * app loads once it knows who you are.
+   *
+   * The existing call sites are left in place: after this they find the store
+   * already populated and return without a request.
+   */
+  useEffect(() => {
+    if (isAuthenticated) void fetchColorAndStoreInSlice();
+  }, [isAuthenticated]);
+
+  // Global real-time sync: backend socket events → eventBus → component refetches.
+  // BOTH ids: broadcast events are addressed by user, but every personal notification the server
+  // pushes (`newNotification`) is addressed by EMPLOYEE id — see useRealtimeSync.
+  useRealtimeSync(isAuthenticated ? currentUser?.id : null, isAuthenticated ? employeeId : null);
 
   // Browser push notifications: register SW + subscribe when employee is loaded
   usePushSubscription(isAuthenticated ? employeeId : null);

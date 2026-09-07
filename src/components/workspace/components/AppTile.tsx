@@ -122,6 +122,7 @@ function AppTileBase({
       <motion.span
         layout="position"
         transition={transition}
+        data-dock-text
         className={home ? TILE_TEXT_HOME : TILE_TEXT_DOCKED}
       >
         <span className={home ? TILE_LABEL_HOME : TILE_LABEL_DOCKED}>{app.title}</span>

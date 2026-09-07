@@ -8,10 +8,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { deleteConfirmation, errorConfirmation } from "@utils/modal";
+// The shared configuration delete: confirm → delete → announce, with the server's
+// "still in use" refusal surfaced. Reusable by any Configure screen.
+import { confirmAndDelete } from "@utils/configDelete";
 import EmployeeConfigureForm from "./EmployeeConfigureForm";
 import QualificationConfigureForm, { QualificationItem } from "./QualificationConfigureForm";
 import JobProfileConfigureForm, { JobProfileItem } from "./JobProfileConfigureForm";
+// The preset-task configure tree, reused verbatim — job profiles nest the same way.
+import PresetTaskTree from "../tasks/configure/components/PresetTaskTree";
 import { fetchQualificationMasters, deleteQualificationMaster } from "@services/employee";
 import { fetchDesignations, archiveDesignationById } from "@services/options";
 import { fetchCompanyOverview } from "@services/company";
@@ -67,6 +71,16 @@ interface EmployeeConfigItem {
 
 const EmployeeConfigure = () => {
   const [loading, setLoading] = useState(false);
+  /** Flips once the first load settles; from then on refreshes happen behind the content. */
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  /**
+   * Every fetcher ends here, including the failed ones — a first load that errors should show
+   * the page and its error, not a spinner with nothing behind it.
+   */
+  const finishLoading = () => {
+    setLoading(false);
+    setHasLoadedOnce(true);
+  };
 
   /**
    * Which section the rail highlights. Every section is on the page at once, so this
@@ -139,6 +153,8 @@ const EmployeeConfigure = () => {
   const [showJobProfileModal, setShowJobProfileModal] = useState(false);
   const [editingJobProfile, setEditingJobProfile] = useState<JobProfileItem | null>(null);
   const [jobProfileCompanyId, setJobProfileCompanyId] = useState<string | undefined>(undefined);
+  /** Set by the tree's [Add child] action — the profile a NEW one will be filed under. */
+  const [jobProfileParent, setJobProfileParent] = useState<JobProfileItem | null>(null);
 
   // Employee Type configurations
   const [employeeTypes, setEmployeeTypes] = useState<EmployeeConfigItem[]>([]);
@@ -223,7 +239,17 @@ const EmployeeConfigure = () => {
       employeeLevels.length, onboardingDocs.length, qualifications.length, sourcesOfHire.length]);
 
   // Modal open handlers
-  const handleJobProfileModalOpen = () => setShowJobProfileModal(true);
+  const handleJobProfileModalOpen = () => {
+    setJobProfileParent(null);
+    setShowJobProfileModal(true);
+  };
+
+  /** [Add child] on a tree row — the new profile is filed under that node. */
+  const handleJobProfileAddChild = (parentId: string) => {
+    setEditingJobProfile(null);
+    setJobProfileParent(jobProfiles.find((profile) => profile.id === parentId) ?? null);
+    setShowJobProfileModal(true);
+  };
   const handleEmployeeTypeModalOpen = () => setShowEmployeeTypeModal(true);
   const handleEmployeeLevelModalOpen = () => setShowEmployeeLevelModal(true);
 
@@ -231,6 +257,7 @@ const EmployeeConfigure = () => {
   const handleJobProfileModalClose = () => {
     setShowJobProfileModal(false);
     setEditingJobProfile(null);
+    setJobProfileParent(null);
   };
 
   const handleEmployeeTypeModalClose = () => {
@@ -245,6 +272,7 @@ const EmployeeConfigure = () => {
 
   // Edit handlers
   const handleJobProfileEdit = (jobProfile: JobProfileItem) => {
+    setJobProfileParent(null);
     setEditingJobProfile(jobProfile);
     setShowJobProfileModal(true);
   };
@@ -278,27 +306,24 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching qualifications:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
-  const handleQualificationDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation("Successfully deleted qualification");
-      if (!confirmed) return;
-      await deleteQualificationMaster(id);
-      fetchQualifications();
-    } catch (error) {
-      console.error("Error deleting qualification:", error);
-    }
-  };
+  const handleQualificationDelete = (id: string) =>
+    confirmAndDelete({
+      label: "qualification",
+      action: "archived",
+      remove: () => deleteQualificationMaster(id),
+      refresh: fetchQualifications,
+    });
 
   /**
    * Job Profiles read from DESIGNATIONS — the table the onboarding "Job Profile"
    * dropdown actually uses. This card previously listed employee_configurations
    * (JOB_PROFILE), a separate table nothing consumed: anything created here never
    * reached the form, and the real designations could not be edited from this screen.
-   * The column is `role`; it is mapped to `name` so ItemChip renders it unchanged.
+   * The column is `role`; it is mapped to `name` so the shared tree renders it unchanged.
    */
   const fetchJobProfiles = async () => {
     try {
@@ -311,6 +336,9 @@ const EmployeeConfigure = () => {
           name: d.role ?? d.name ?? "",
           companyId: d.companyId,
           isActive: d.isActive,
+          // The API returns the tree FLAT; `parentId` is what nests it. Null here is a
+          // top-level profile, which is what all 24 existing rows are.
+          parentId: d.parentId ?? null,
         }))
       );
 
@@ -329,7 +357,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching job profiles:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -352,20 +380,16 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching shifts:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
-  const handleShiftDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation("Successfully deleted shift");
-      if (!confirmed) return;
-      await deleteOrganizationConfigurationById(id);
-      fetchShifts();
-    } catch (error) {
-      console.error("Error deleting shift:", error);
-    }
-  };
+  const handleShiftDelete = (id: string) =>
+    confirmAndDelete({
+      label: "shift",
+      remove: () => deleteOrganizationConfigurationById(id),
+      refresh: fetchShifts,
+    });
 
   // Onboarding document handlers
   const handleOnboardingDocModalOpen = () => setShowOnboardingDocModal(true);
@@ -406,7 +430,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching onboarding documents:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -434,25 +458,19 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching working location types:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
-  const handleWorkingTypeDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation("Successfully deleted working location type");
-      if (!confirmed) return;
-      await deleteWorkingMethodById(id);
-      fetchWorkingTypes();
-    fetchSourcesOfHire();
-    } catch (error: any) {
-      // The server refuses while employees or attendance still reference it — that
-      // message names the count, so show it rather than failing silently.
-      errorConfirmation(
-        error?.response?.data?.message || "Could not delete this working location type."
-      );
-    }
-  };
+  // The stray `fetchSourcesOfHire()` that used to trail the refresh here was a
+  // copy-paste leftover — it reloaded an unrelated list and left this one stale on the
+  // error path.
+  const handleWorkingTypeDelete = (id: string) =>
+    confirmAndDelete({
+      label: "working location type",
+      remove: () => deleteWorkingMethodById(id),
+      refresh: fetchWorkingTypes,
+    });
 
   const handleSourceOfHireModalOpen = () => setShowSourceOfHireModal(true);
   const handleSourceOfHireModalClose = () => {
@@ -475,24 +493,16 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching sources of hire:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
-  const handleSourceOfHireDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation("Successfully deleted source of hire");
-      if (!confirmed) return;
-      await deleteSourceOfHire(id);
-      fetchSourcesOfHire();
-    } catch (error: any) {
-      // The server refuses while employees still reference it — that message names
-      // the count, so show it rather than failing silently.
-      errorConfirmation(
-        error?.response?.data?.message || "Could not delete this source of hire."
-      );
-    }
-  };
+  const handleSourceOfHireDelete = (id: string) =>
+    confirmAndDelete({
+      label: "source of hire",
+      remove: () => deleteSourceOfHire(id),
+      refresh: fetchSourcesOfHire,
+    });
 
   // Department handlers
   const handleDepartmentModalOpen = () => setShowDepartmentModal(true);
@@ -536,31 +546,25 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching departments:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
-  const handleDepartmentDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation("Successfully deleted department");
-      if (!confirmed) return;
-      await archiveDepartmentById(id);
-      fetchDepartments();
-    } catch (error) {
-      console.error("Error deleting department:", error);
-    }
-  };
+  const handleDepartmentDelete = (id: string) =>
+    confirmAndDelete({
+      label: "department",
+      action: "archived",
+      remove: () => archiveDepartmentById(id),
+      refresh: fetchDepartments,
+    });
 
-  const handleJobProfileDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation("Successfully deleted job profile");
-      if (!confirmed) return;
-      await archiveDesignationById(id);
-      fetchJobProfiles();
-    } catch (error) {
-      console.error("Error deleting job profile:", error);
-    }
-  };
+  const handleJobProfileDelete = (id: string) =>
+    confirmAndDelete({
+      label: "job profile",
+      action: "archived",
+      remove: () => archiveDesignationById(id),
+      refresh: fetchJobProfiles,
+    });
 
   // Fetch employee types
   const fetchEmployeeTypes = async () => {
@@ -573,7 +577,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching employee types:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -588,7 +592,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching employee levels:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -619,37 +623,27 @@ const EmployeeConfigure = () => {
   }, []);
 
   // Delete handler
-  const handleDelete = async (
+  const handleDelete = (
     id: string,
     type: "JOB_PROFILE" | "EMPLOYEE_TYPE" | "EMPLOYEE_LEVEL"
   ) => {
-    try {
-      const confirmed = await deleteConfirmation(
-        `Successfully deleted ${type.toLowerCase().replace('_', ' ')}`
-      );
-      if (!confirmed) return;
-
-      await deleteEmployeeConfigurationById(id);
-
-      // Refresh appropriate list
-      switch (type) {
-        case "JOB_PROFILE":
-          fetchJobProfiles();
-          break;
-        case "EMPLOYEE_TYPE":
-          fetchEmployeeTypes();
-          break;
-        case "EMPLOYEE_LEVEL":
-          fetchEmployeeLevels();
-          break;
-          break;
-      }
-    } catch (error) {
-      console.error(`Error deleting ${type}:`, error);
-    }
+    const refresh = {
+      JOB_PROFILE: fetchJobProfiles,
+      EMPLOYEE_TYPE: fetchEmployeeTypes,
+      EMPLOYEE_LEVEL: fetchEmployeeLevels,
+    }[type];
+    return confirmAndDelete({
+      label: type.toLowerCase().replace("_", " "),
+      remove: () => deleteEmployeeConfigurationById(id),
+      refresh,
+    });
   };
 
-  if (loading) {
+  // Only the FIRST load blanks the page. Every fetcher on this screen sets `loading`, so a
+  // refetch after a save used to unmount the whole configuration — which reset each tree's
+  // expanded set and sent the scroll back to the top, landing the user at screen one after
+  // editing a job profile three screens down.
+  if (loading && !hasLoadedOnce) {
     return <Loader />;
   }
 
@@ -806,23 +800,25 @@ const EmployeeConfigure = () => {
             badge={{ label: `${jobProfiles.length}`, color: C.primary, bg: C.primaryLight }}
             primaryAction={{ label: 'New Job Profile', icon: 'bi-plus-lg', onClick: handleJobProfileModalOpen, variant: 'primary' }}
           >
+            {/* The SAME tree the preset-task configure page uses. Job profiles have
+                the same shape — one self-referencing table, `parentId` alone deciding
+                where a node sits — so a flat grid of 24 chips was hiding a structure
+                the names were already spelling out ("Associate", "Associate (D) (L1)",
+                "(L2)", "(L3)"). Search, expand/collapse and the row actions come with
+                it; only the nouns are passed in. */}
             <div style={{ marginTop: SP.md }}>
-              {jobProfiles.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted }}>
-                  <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No job profiles created yet</p>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
-                  {jobProfiles.map((jobProfile) => (
-                    <ItemChip
-                      key={jobProfile.id}
-                      item={jobProfile}
-                      onEdit={handleJobProfileEdit}
-                      onDelete={handleJobProfileDelete}
-                    />
-                  ))}
-                </div>
-              )}
+              <PresetTaskTree
+                presetTasks={jobProfiles}
+                onAddChild={handleJobProfileAddChild}
+                onEditTask={handleJobProfileEdit}
+                onDeleteTask={handleJobProfileDelete}
+                labels={{
+                  noun: 'job profile',
+                  plural: 'job profiles',
+                  kind: 'profile',
+                  empty: 'No job profiles created yet',
+                }}
+              />
             </div>
           </ConfigSectionCard>
           </Box>
@@ -1131,6 +1127,11 @@ const EmployeeConfigure = () => {
         initialData={editingJobProfile}
         isEditing={!!editingJobProfile}
         companyId={jobProfileCompanyId}
+        parentId={jobProfileParent?.id}
+        parentName={jobProfileParent?.name}
+        // The whole list, so the form's Parent picker can offer every branch — this
+        // is what lets an EXISTING profile be moved, which [Add child] cannot do.
+        allProfiles={jobProfiles}
       />
 
       {/* Employee Type Modal */}

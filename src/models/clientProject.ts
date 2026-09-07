@@ -59,7 +59,21 @@ export interface ConfigItem {
   isActive: boolean;
   categoryId?: string; // For subcategory
   parentId?: string | null; // For preset tasks — the main task this one sits under
+  // Stages only — the preset tasks in this stage, in stage order. `tasks` is what the API
+  // returns (each row wrapping a preset task); `presetTaskIds` is what a save sends back.
+  tasks?: StageTaskLink[];
+  presetTaskIds?: string[];
+  // Stages only — the project type the stage belongs to. `subCategoryId` null = the whole
+  // category. (`categoryId` above is the legacy subcategory-form field; a stage reuses it.)
+  subCategoryId?: string | null;
   createdAt?: string;
   updatedAt?: string;
   sortOrder?: number;
+}
+
+/** One preset task's membership in a stage, as the stages API returns it. */
+export interface StageTaskLink {
+  presetTaskId: string;
+  sortOrder?: number;
+  presetTask?: { id: string; name: string; parentId?: string | null };
 }

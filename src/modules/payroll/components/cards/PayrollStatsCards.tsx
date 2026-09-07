@@ -7,6 +7,7 @@ import HourglassBottomOutlinedIcon from '@mui/icons-material/HourglassBottomOutl
 import SavingsOutlinedIcon from '@mui/icons-material/SavingsOutlined';
 import { Box, Skeleton } from '@mui/material';
 import YearlyKpiCard, { YearlyKpiCardProps } from '@pages/employee/salary/personal/views/my-salary/Toggle/components/salary/YearlyKpiCard';
+import KpiCompactList from '@pages/employee/salary/personal/views/my-salary/Toggle/components/salary/KpiCompactList';
 import { PayrollSummary } from '../../types/payroll.types';
 import { formatINRDecimal } from '../../utils/payrollFormatters';
 
@@ -86,6 +87,20 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
     const payableFt    = pendingFooter(payablePending);
     const retentionFt  = pendingFooter(retentionPending);
 
+    /**
+     * A short label for the phone layout. The desktop labels are written to stand alone in
+     * a card ("TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS"); in a stacked list they sit
+     * directly above and below each other, so the qualifier is carried by the neighbours
+     * and the long form is just wrapping.
+     */
+    const shortLabels: Record<string, string> = {
+        'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS': 'Total salary',
+        [deductionLabel]: deductionParts.length ? `Deductions (${deductionParts.join(' & ')})` : 'Deductions',
+        'COMPANY DEDUCTION (RETENTION)': 'Retention held',
+        'PAYABLE SALARY': 'Payable salary',
+        'PENDING ARREARS': 'Pending arrears',
+    };
+
     const cards: YearlyKpiCardProps[] = [
         {
             label:      'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS',
@@ -148,22 +163,31 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
     const cols = Math.min(cards.length, 4);
 
     return (
-        <Box
-            sx={{
-                display: 'grid',
-                gridTemplateColumns: {
-                    xs: '1fr',
-                    sm: 'repeat(2, minmax(0,1fr))',
-                    lg: `repeat(${cols}, minmax(0,1fr))`,
-                },
-                gap: '14px',
-                mb: 3,
-            }}
-        >
-            {cards.map((card) => (
-                <YearlyKpiCard key={card.label} {...card} />
-            ))}
-        </Box>
+        <>
+            <KpiCompactList
+                cards={cards}
+                shortLabels={shortLabels}
+                resultIsNegative={summaryData.netSalary < 0}
+                showSensitiveData={showSensitiveData}
+                sx={{ display: { xs: 'block', sm: 'none' }, mb: 2 }}
+            />
+
+            <Box
+                sx={{
+                    display: { xs: 'none', sm: 'grid' },
+                    gridTemplateColumns: {
+                        sm: 'repeat(2, minmax(0,1fr))',
+                        lg: `repeat(${cols}, minmax(0,1fr))`,
+                    },
+                    gap: '14px',
+                    mb: 3,
+                }}
+            >
+                {cards.map((card) => (
+                    <YearlyKpiCard key={card.label} {...card} />
+                ))}
+            </Box>
+        </>
     );
 };
 

@@ -70,6 +70,36 @@ export const toSortableTime = (value: unknown): number => {
   return time;
 };
 
-/** Chronological comparator for any date column. Pass as `sortingFn`. */
+/**
+ * Trailing digit run of a project number: "WT/PROJECT/25-26/196" → 196.
+ *
+ * A trailing 1990–2099 run is year junk, not a number ("WT/PROJECT/Lead/2017") —
+ * the same rule the backend applies in `parseNum`
+ * (scripts/fix_project_number_alignment.ts), so the two agree on what counts.
+ */
+const seriesNumber = (prefix: unknown): number => {
+  const match = String(prefix ?? "").match(/(\d+)\s*$/);
+  if (!match) return 0;
+  const n = Number(match[1]);
+  return n >= 1990 && n <= 2099 ? 0 : n;
+};
+
+/**
+ * Chronological comparator for any date column. Pass as `sortingFn`.
+ *
+ * Every date here is picked from a DAY picker, so the stored value is midnight
+ * and same-day ties are the norm, not an edge case. Comparing only the date
+ * leaves ties at 0 and the table renders them in whatever order the DB happened
+ * to return — which is what makes three projects received on one date show up
+ * with their project numbers apparently shuffled.
+ *
+ * Ties break on the project number, which `getNextProjectNumber()` allocates
+ * max-based at the moment a lead is received, so number order IS receipt order.
+ * Rows with no number yet (leads, drafts) fall through to `createdAt`. Both
+ * tiebreaks are ascending, so a descending sort inverts them together and the
+ * numbers stay monotone in either direction.
+ */
 export const dateSortingFn = (rowA: any, rowB: any, columnId: string): number =>
-  toSortableTime(rowA.getValue(columnId)) - toSortableTime(rowB.getValue(columnId));
+  toSortableTime(rowA.getValue(columnId)) - toSortableTime(rowB.getValue(columnId)) ||
+  seriesNumber(rowA.original?.projectPrefix) - seriesNumber(rowB.original?.projectPrefix) ||
+  toSortableTime(rowA.original?.createdAt) - toSortableTime(rowB.original?.createdAt);

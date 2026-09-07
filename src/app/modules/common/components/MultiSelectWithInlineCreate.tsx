@@ -3,7 +3,7 @@ import Select, { components, MultiValue, ActionMeta } from 'react-select';
 import { Modal } from 'react-bootstrap';
 import { useFormikContext } from 'formik';
 import { sortOptionsAlphabetically } from '@utils/sortUtils';
-import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
+import { FLOATING_MENU_BEHAVIOUR, MENU_PORTAL_STYLE } from "@app/modules/common/inputs/selectMenuProps";
 
 // TypeScript interfaces
 export interface Option {
@@ -225,15 +225,21 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
               createButtonText 
             }) 
           } : undefined}
-          styles={hasError ? {
-            control: (base) => ({
-              ...base,
-              borderColor: '#dc3545',
-              '&:hover': {
+          // MENU_PORTAL_STYLE must always be merged in: the menu is portalled to
+          // <body>, and without its z-index it paints BEHIND any dialog/modal that
+          // owns the field — the menu opens, but is invisible and unclickable.
+          styles={{
+            ...MENU_PORTAL_STYLE,
+            ...(hasError ? {
+              control: (base: any) => ({
+                ...base,
                 borderColor: '#dc3545',
-              },
-            }),
-          } : undefined}
+                '&:hover': {
+                  borderColor: '#dc3545',
+                },
+              }),
+            } : {}),
+          }}
         />
 
         {hasError && (

@@ -134,7 +134,7 @@ function getCellColor<T>(row: T, col: ExportColumn<T>): string {
 
 // ─── CSV Export ───────────────────────────────────────────────────────────────
 
-function exportCsv<T>(
+export function exportCsv<T>(
     data: T[],
     columns: ExportColumn<T>[],
     filename: string,
@@ -203,7 +203,7 @@ const colAlign = (col: ExportColumn): 'left' | 'center' | 'right' => {
     return 'left';
 };
 
-async function exportXlsx<T>(
+export async function exportXlsx<T>(
     data: T[],
     columns: ExportColumn<T>[],
     filename: string,

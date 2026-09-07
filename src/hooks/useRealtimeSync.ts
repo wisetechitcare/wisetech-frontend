@@ -2,26 +2,41 @@ import { useEffect } from 'react';
 import { getSocket } from '@utils/socketClient';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { store } from '@redux/store';
+import { setCustomColors, type ICustomColorCode } from '@redux/slices/customColors';
 
 /**
  * Mounted once at the App root when authenticated.
  * Bridges backend socket events → eventBus so every subscribed
  * component refetches without a hard refresh.
+ *
+ * ─── TWO IDs, TWO ROOMS ──────────────────────────────────────────────────────
+ * The parameter was historically the logged-in USER id, but every targeted emit on the server
+ * addresses the room by EMPLOYEE id — `notificationRepo.createNotification`, the email worker's
+ * `triggeredBy`, and `SocketGateway.toEmployee` all do. Those are different uuids on different
+ * tables, so a client that joined only the user room received none of them: the notification row
+ * was written correctly and simply never arrived until the next refetch, which is exactly what
+ * "I got no notification" looks like from the outside.
+ *
+ * Both are joined now. Joining a room nobody emits to costs nothing; missing the one that
+ * carries every personal notification costs the whole feature.
  */
-export function useRealtimeSync(employeeId: string | null | undefined) {
+export function useRealtimeSync(
+  userId: string | null | undefined,
+  employeeId?: string | null,
+) {
   useEffect(() => {
-    if (!employeeId) return;
+    const rooms = [userId, employeeId].filter(Boolean) as string[];
+    if (!rooms.length) return;
 
     const socket = getSocket();
 
-    const onConnect = () => {
-      socket.emit('joinRoom', employeeId);
-    };
+    const join = () => rooms.forEach((room) => socket.emit('joinRoom', room));
+    const onConnect = () => join();
 
-    // If already connected, join immediately
-    if (socket.connected) {
-      socket.emit('joinRoom', employeeId);
-    }
+    // If already connected, join immediately — `connect` has already fired and will not fire
+    // again for this socket.
+    if (socket.connected) join();
 
     // lead ↔ project data synced (field update propagated)
     // Emit both leadUpdated AND projectUpdated so both tables refresh.
@@ -98,7 +113,22 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       eventBus.emit(key, { id: payload?.id ?? '' });
     };
 
+    /**
+     * Appearance colours changed — an admin saved the Appearance Settings
+     * screen. Applied STRAIGHT to the store rather than bridged to the
+     * eventBus, because there is nothing to refetch: every themed surface reads
+     * these colours from Redux, so the payload is already the new state.
+     *
+     * Company-wide config, so this is the one class of change where the person
+     * who made it is the least affected — before this, everyone else kept the
+     * old palette until they happened to reload.
+     */
+    const onColorsUpdated = (payload: { colors?: ICustomColorCode }) => {
+      if (payload?.colors) store.dispatch(setCustomColors(payload.colors));
+    };
+
     socket.on('connect', onConnect);
+    socket.on('colors_updated', onColorsUpdated);
     socket.on('faqs_updated', onFaqsUpdated);
     socket.on('attendanceRequests:updated', onAttendanceRequestChanged);
     socket.on('lead_project_synced', onLeadProjectSynced);
@@ -113,6 +143,7 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
 
     return () => {
       socket.off('connect', onConnect);
+      socket.off('colors_updated', onColorsUpdated);
       socket.off('faqs_updated', onFaqsUpdated);
       socket.off('attendanceRequests:updated', onAttendanceRequestChanged);
       socket.off('lead_project_synced', onLeadProjectSynced);
@@ -125,5 +156,5 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       socket.off('approval:updated', onLeaveChanged);
       socket.off('approval:cancelled', onLeaveChanged);
     };
-  }, [employeeId]);
+  }, [userId, employeeId]);
 }

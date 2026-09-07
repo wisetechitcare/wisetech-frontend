@@ -1,6 +1,7 @@
 ﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
+import { Avatar, Box, Stack, Typography } from "@mui/material";
 import { RootState } from "@redux/store";
 import { fetchConfiguration } from "@services/company";
 import { calculateProjectTotalTime, formatStringINR } from "@utils/statistics";
@@ -17,6 +18,9 @@ import { toast } from "react-toastify";
 import { getAllEmployeeWithMonthDailyHourlySalary } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import eventBus from "@utils/EventBus";
+import { usePermission } from "@hooks/usePermission";
+import TimeLogDetailDialog from "../../components/TimeLogDetailDialog";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
 
 const MyEmployeesTimeSheetPorject = ({
@@ -43,6 +47,23 @@ const MyEmployeesTimeSheetPorject = ({
   const [selectedTimeSheet, setSelectedTimeSheet] = useState<any>(null);
 
   const navigate = useNavigate();
+  /**
+   * Who may see labour cost.
+   *
+   * The API already decides this — `canViewTaskCost` narrows it to an explicit finance grant or
+   * the project's PRIMARY manager, and strips the fields for everyone else. This only stops the
+   * column being drawn for somebody the server will never fill it for.
+   *
+   * ⚠️ A HINT, not the gate: `usePermission` treats a blanket `*.*.all` wildcard as satisfying
+   * any key, so it can read true for somebody the API still refuses. That is fine — the server
+   * remains the boundary.
+   */
+  const canSeeAllFinance = usePermission('finance.view.all');
+  const canSeeDeptFinance = usePermission('finance.view.department');
+  const canSeeCost = canSeeAllFinance || canSeeDeptFinance;
+  // The time log opens as a dialog over this table rather than as a page of
+  // its own: it is a detail OF this list, and reading one used to mean leaving.
+  const [openLogId, setOpenLogId] = useState<string | null>(null);
 
   const formatDuration = useCallback((start: string, end: string) => {
     if (!start || !end) return "-";
@@ -89,6 +110,9 @@ const MyEmployeesTimeSheetPorject = ({
         createdBy: sheet.employee,
         original: sheet,
         employeeId: sheet.employee?.id,
+        // The person, on the row — this page's whole reason for existing.
+        employeeName: `${sheet.employee?.users?.firstName ?? ""} ${sheet.employee?.users?.lastName ?? ""}`.trim() || "—",
+        employeeAvatar: sheet.employee?.avatar || null,
       }));
     },
     [formatDuration, calculateCostOfTimesheet]
@@ -139,22 +163,19 @@ const MyEmployeesTimeSheetPorject = ({
   }, []);
 
   // group by employeeId instead of projectId
-  const groupedByEmployee = useMemo(() => {
-    if (!data?.timeSheets?.timeSheets) return {};
-
-    return data.timeSheets?.timeSheets.reduce((acc: any, timesheet: any) => {
-      const empId = timesheet.employee?.id;
-
-      if (!acc[empId]) {
-        acc[empId] = {
-          employee: timesheet.employee,
-          timeSheets: [],
-        };
-      }
-      acc[empId].timeSheets.push(timesheet);
-      return acc;
-    }, {});
-  }, [data?.timeSheets]);
+  /**
+   * EVERY entry, in ONE table — the same shape My Timesheet now uses, so the two pages read
+   * identically and a manager moving between them is not re-learning a layout.
+   *
+   * A card per employee meant a team of nine was nine tables, each with its own search and
+   * paginator and no way to see the team's day as one thing. The person is a COLUMN here, which
+   * the table can sort, filter and group on — and which the employee page keeps and the personal
+   * page does not, since on your own timesheet every row is you.
+   */
+  const allTimeSheets = useMemo(
+    () => data?.timeSheets?.timeSheets ?? [],
+    [data?.timeSheets]
+  );
 
   const startDates = startDate?.format("YYYY-MM-DD");
   const endDates = endDate?.format("YYYY-MM-DD");
@@ -178,15 +199,31 @@ const MyEmployeesTimeSheetPorject = ({
               style={{ cursor: "pointer" }}
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(
-                  `/tasks/timesheet/${taskId?.id}/${taskId?.employeeId}/${startDates}/${endDates}`
-                );
+                setOpenLogId(taskId?.id ?? null);
               }}
             >
               {taskId?.taskName}
             </div>
           );
         },
+      },
+      {
+        header: "Employee",
+        accessorKey: "employeeName",
+        size: 200,
+        Cell: ({ row }: any) => (
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+            <Avatar
+              src={row.original?.employeeAvatar || undefined}
+              sx={{ width: 26, height: 26, fontSize: 11, fontWeight: 700 }}
+            >
+              {String(row.original?.employeeName || "?").charAt(0)}
+            </Avatar>
+            <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
+              {row.original?.employeeName || "—"}
+            </Typography>
+          </Stack>
+        ),
       },
       {
         header: "Total Log Time",
@@ -222,11 +259,17 @@ const MyEmployeesTimeSheetPorject = ({
         size: 100,
         Cell: ({ cell }: any) => (cell.getValue() ? "Yes" : "No"),
       },
-      {
-        header: "Cost",
-        accessorKey: "cost",
-        size: 120,
-      },
+      // Labour cost is derived from internal SALARY data. It is a manager's figure, not the
+      // employee's own — an ordinary person reading their timesheet should not be able to
+      // work backwards from it to anybody's pay, their own included. Omitted rather than
+      // blanked: a column of dashes still advertises that a number exists.
+      ...(canSeeCost
+        ? [{
+            header: "Cost",
+            accessorKey: "cost",
+            size: 120,
+          }]
+        : []),
       {
         header: "Project",
         accessorKey: "projectTitle",
@@ -280,74 +323,61 @@ const MyEmployeesTimeSheetPorject = ({
     [handleEditTimeSheet, handleDeleteTimeSheet, navigate]
   );
 
-  const EmployeeContainer = memo(({ employeeData }: { employeeData: any }) => {
+  /**
+   * The period's entries for the whole team, as one table — the same card My Timesheet renders,
+   * so the two pages are the same screen with one extra column.
+   */
+  const TimesheetCard = memo(({ timeSheets }: { timeSheets: any[] }) => {
     const totalTime = useMemo(
-      () => calculateProjectTotalTime(employeeData.timeSheets),
-      [employeeData.timeSheets]
+      () => calculateProjectTotalTime(timeSheets),
+      [timeSheets]
     );
 
-    const tableData = useMemo(
-      () => prepareTableData(employeeData.timeSheets),
-      [employeeData.timeSheets, prepareTableData]
+    const tableData = useMemo(() => prepareTableData(timeSheets), [timeSheets]);
+
+    const peopleCount = useMemo(
+      () => new Set(timeSheets.map((t: any) => t?.employee?.id).filter(Boolean)).size,
+      [timeSheets]
+    );
+    const projectCount = useMemo(
+      () => new Set(timeSheets.map((t: any) => t?.project?.id).filter(Boolean)).size,
+      [timeSheets]
     );
 
     return (
-      <div className="mb-6 bg-white w-100 shadow rounded-2">
-        <div className="px-5 py-6">
-          <div className="d-flex align-items-center justify-content-between">
-            <h6
-              className="d-flex align-items-center gap-3"
-              style={{
-                fontFamily: "Barlow",
-                fontWeight: 600,
-                fontStyle: "normal",
-                fontSize: "16px",
-                lineHeight: "100%",
-                letterSpacing: "1%",
-              }}
-            >
-              {employeeData?.employee?.avatar ? (
-                <img
-                  src={employeeData?.employee?.avatar}
-                  alt={employeeData?.employee?.users?.firstName}
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                  }}
-                />
-              ) : (
-                <img
-                  src={toAbsoluteUrl("media/svg/avatars/043-boy-18.svg")}
-                  alt={employeeData?.employee?.users?.firstName}
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                  }}
-                />
-              )}
-              {employeeData?.employee?.users?.firstName}{" "}
-              {employeeData?.employee?.users?.lastName}
-            </h6>
-            <p>
-              <span
-                style={{
-                  fontFamily: "Inter",
-                  fontWeight: 600,
-                  fontStyle: "normal",
-                  fontSize: "14px",
-                  lineHeight: "100%",
-                  letterSpacing: "0%",
-                }}
-              >
+      <Box
+        sx={{
+          mb: 3, borderRadius: 2, bgcolor: "background.paper",
+          border: "1px solid", borderColor: "divider",
+        }}
+      >
+        <Box sx={{ px: { xs: 2, md: 3 }, py: 2.5 }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            justifyContent="space-between"
+            alignItems={{ sm: "center" }}
+            spacing={1}
+            sx={{ mb: 2 }}
+          >
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "text.primary" }}>
+                Team time logs
+              </Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                {tableData.length} {tableData.length === 1 ? "entry" : "entries"}
+                {peopleCount > 0 && ` from ${peopleCount} ${peopleCount === 1 ? "person" : "people"}`}
+                {projectCount > 0 && ` across ${projectCount} project${projectCount === 1 ? "" : "s"}`}
+              </Typography>
+            </Box>
+            <Box sx={{ textAlign: { sm: "right" } }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2, color: "text.primary" }}>
                 {totalTime}
-              </span>
-            </p>
-          </div>
-          <div>
+              </Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                logged in this period
+              </Typography>
+            </Box>
+          </Stack>
             <MaterialTable
               columns={columns}
               data={tableData}
@@ -398,9 +428,8 @@ const MyEmployeesTimeSheetPorject = ({
                 }),
               }}
             />
-          </div>
-        </div>
-      </div>
+        </Box>
+      </Box>
     );
   });
 
@@ -453,17 +482,15 @@ const MyEmployeesTimeSheetPorject = ({
 
   return (
     <div className="mt-6">
-      {Object.keys(groupedByEmployee).length === 0 ? (
-        <div className="text-center mt-6 fs-2 text-muted">Not Found</div>
+      {allTimeSheets.length === 0 ? (
+        <Box sx={{ textAlign: "center", py: 6, color: "text.disabled" }}>
+          <KTIcon iconName="time" className="fs-3x" />
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Nobody logged time in this period.
+          </Typography>
+        </Box>
       ) : (
-        Object.values(groupedByEmployee).map(
-          (employeeData: any, index: number) => (
-            <EmployeeContainer
-              employeeData={employeeData}
-              key={employeeData.employee?.id || index}
-            />
-          )
-        )
+        <TimesheetCard timeSheets={allTimeSheets} />
       )}
       {openTimeSheet && (
         <NewTimeLogForm
@@ -472,6 +499,15 @@ const MyEmployeesTimeSheetPorject = ({
           timeSheetId={selectedTimeSheet?.id}
         />
       )}
+
+      {/* The row's own detail, over the table it belongs to. `onChanged` reuses the key this
+          screen already refetches on, so an edit or a delete lands without a second mechanism. */}
+      <TimeLogDetailDialog
+        open={!!openLogId}
+        timesheetId={openLogId}
+        onClose={() => setOpenLogId(null)}
+        onChanged={() => eventBus.emit(EVENT_KEYS.NewTimeLogFromCreated, { id: openLogId ?? '' })}
+      />
     </div>
   );
 };

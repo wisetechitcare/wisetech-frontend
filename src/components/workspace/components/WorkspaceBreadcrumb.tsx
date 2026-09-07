@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  BREADCRUMB_CURRENT, BREADCRUMB_LINK, BREADCRUMB_NAV, BREADCRUMB_SEP,
-} from '../shellTokens';
+import { useWorkspaceShell } from '../WorkspaceShellContext';
 
 /**
  * Anything that owns Escape for itself. A modal, a drawer, a confirm dialog and a menu all
@@ -31,17 +29,25 @@ const OVERLAY_SELECTOR = [
  * the standing navigation now, which frees this to be what a breadcrumb should be:
  * orientation, not an exit.
  *
+ * ─── IT RENDERS IN THE HEADER, IN THE HEADER'S OWN MARKUP ────────────────────
+ * There were two breadcrumbs on screen: this one, and the header's `wt-crumb` list fed by
+ * PageData — which each page hand-writes, so it drifted and omitted the application level
+ * ("Home › Dashboard" where the truth was "Home › Overview › Dashboard"). This trail is
+ * DERIVED from the nav tree and cannot drift, so it is the one that survived.
+ *
+ * It wears `wt-crumb` rather than the shell's own tokens because it now sits on the header
+ * bar: the classes are the header's, styled once in premium-layout.css, and both navigation
+ * modes therefore render an identical-looking crumb. Reading context directly (no props)
+ * keeps DefaultTitle from having to know the shell's data model to place it.
+ *
  * Every crumb is a real anchor. Hover is a colour change only — no transition, no transform.
  */
-export function WorkspaceBreadcrumb({
-  homePath, appTitle, appPath, moduleTitle,
-}: {
-  homePath: string;
-  appTitle?: string;
-  appPath?: string;
-  moduleTitle?: string;
-}) {
+export function WorkspaceBreadcrumb() {
   const navigate = useNavigate();
+  const { activeApp, activeModule, homePath } = useWorkspaceShell();
+  const appTitle = activeApp?.title;
+  const appPath = activeApp?.path;
+  const moduleTitle = activeModule?.title;
 
   // The crumb one step up: the app landing from inside a module, the launcher from an app
   // landing, and nothing at all from home — the same target the previous crumb links to.
@@ -74,29 +80,26 @@ export function WorkspaceBreadcrumb({
   }, [parentPath, navigate]);
 
   return (
-    <nav aria-label="Breadcrumb" className={BREADCRUMB_NAV}>
-      {/* Colour lives on the inner span in every crumb: Reboot's `a { color }` is unlayered
-          and beats text-* utilities outright, so a directly-styled anchor renders
-          brand-navy in both themes regardless of the class. */}
-      <Link to={homePath}><span className={BREADCRUMB_LINK}>Home</span></Link>
+    <ul className="wt-crumb" aria-label="Breadcrumb">
+      <li className="wt-crumb__item"><Link to={homePath}>Home</Link></li>
 
       {appTitle && (
         <>
-          <span className={BREADCRUMB_SEP} aria-hidden="true">›</span>
+          <li className="wt-crumb__sep" aria-hidden>›</li>
           {/* The app crumb is a link only when it is NOT the current page — a self-link is
               noise for pointer users and a dead stop for screen readers. */}
           {moduleTitle && appPath
-            ? <Link to={appPath}><span className={BREADCRUMB_LINK}>{appTitle}</span></Link>
-            : <span className={BREADCRUMB_CURRENT} aria-current="page">{appTitle}</span>}
+            ? <li className="wt-crumb__item"><Link to={appPath}>{appTitle}</Link></li>
+            : <li className="wt-crumb__item wt-crumb__item--active" aria-current="page">{appTitle}</li>}
         </>
       )}
 
       {moduleTitle && (
         <>
-          <span className={BREADCRUMB_SEP} aria-hidden="true">›</span>
-          <span className={BREADCRUMB_CURRENT} aria-current="page">{moduleTitle}</span>
+          <li className="wt-crumb__sep" aria-hidden>›</li>
+          <li className="wt-crumb__item wt-crumb__item--active" aria-current="page">{moduleTitle}</li>
         </>
       )}
-    </nav>
+    </ul>
   );
 }

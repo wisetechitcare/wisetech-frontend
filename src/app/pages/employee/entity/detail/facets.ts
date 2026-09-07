@@ -322,6 +322,9 @@ export const ENTITY_TABS: TabDef[] = [
   { key: 'leads', label: 'Leads', icon: 'bi bi-person-lines-fill' },
   { key: 'projects', label: 'Projects', icon: 'bi bi-kanban', projectOnly: true },
   { key: 'commercial', label: 'Commercial', icon: 'bi bi-cash-stack' },
+  // Execution = stage management. Stages are snapshotted from the lead's payment plan;
+  // only the deliverables inside them are editable, so it is not "Configuration".
+  { key: 'execution', label: 'Execution', icon: 'bi bi-diagram-3', projectOnly: true },
   { key: 'tasks', label: 'Tasks', icon: 'bi bi-check2-square', projectOnly: true },
   { key: 'timesheet', label: 'Timesheet', icon: 'bi bi-stopwatch', projectOnly: true },
   { key: 'reimbursement', label: 'Reimbursement', icon: 'bi bi-wallet2', projectOnly: true },

@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-import { IconButton, Tooltip } from '@mui/material';
+import { Button, IconButton, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { T } from './tokens';
 
-export type ActionTone = 'brand' | 'indigo' | 'danger' | 'success';
+export type ActionTone = 'brand' | 'indigo' | 'danger' | 'success' | 'onBrand';
 
 const TONE_COLOR: Record<ActionTone, string> = {
   brand: T.color.brand,
@@ -13,6 +13,20 @@ const TONE_COLOR: Record<ActionTone, string> = {
   // — the affirmative counterpart to `danger`, so those buttons stop being a raw
   // FontAwesome glyph in a Bootstrap `btn-icon`.
   success: T.color.success,
+  /**
+   * For a button placed ON the brand navy — a page banner or the gradient header —
+   * rather than on a card.
+   *
+   * Every other tone here is a saturated colour chosen to read on WHITE, and the
+   * tinted-square recipe below then paints it at 10% fill / 24% border. Put one of
+   * those on navy and you get a dark glyph on a dark ground behind an almost invisible
+   * tint: that is how the Tasks Configuration back arrow came to be barely findable.
+   *
+   * The recipe itself is fine — it just needs ink that belongs on that surface. At
+   * white the same formula yields a solid white glyph over a 10% white wash, which is
+   * the standard treatment for a control on a coloured header.
+   */
+  onBrand: T.color.onBrand,
 };
 
 export interface ActionIconButtonProps {
@@ -26,6 +40,17 @@ export interface ActionIconButtonProps {
   icon?: ReactNode;
   /** Tooltip text — also the accessible label. */
   title: string;
+  /**
+   * Render as a WIDE button with this text beside the glyph instead of a square.
+   *
+   * For card footers, where three 40px squares huddled in a corner leave the rest
+   * of the row empty and make the actions read as an afterthought. Same tone tints
+   * and the same press physics — only the shape changes, so a card's actions and a
+   * table row's still belong to one system. No tooltip: the label already names it.
+   */
+  label?: string;
+  /** Let a labelled button share the row equally with its siblings. */
+  fullWidth?: boolean;
   onClick: () => void;
   tone?: ActionTone;
   disabled?: boolean;
@@ -59,9 +84,47 @@ export default function ActionIconButton({
   tone = 'indigo',
   disabled = false,
   size = 'md',
+  label,
+  fullWidth = false,
 }: ActionIconButtonProps) {
   const color = TONE_COLOR[tone];
   const px = SIZE_PX[size];
+  const glyph = icon ?? <KTIcon iconName={iconName ?? ''} className={SIZE_ICON_CLASS[size]} />;
+
+  const toneSx = {
+    color,
+    bgcolor: `${color}1A`,
+    border: `1px solid ${color}3D`,
+    transition: 'background-color .15s, border-color .15s',
+    '&:hover': { bgcolor: `${color}30`, borderColor: `${color}66` },
+  } as const;
+
+  if (label) {
+    return (
+      <Button
+        onClick={onClick}
+        disabled={disabled}
+        startIcon={glyph}
+        fullWidth={fullWidth}
+        sx={{
+          ...toneSx,
+          height: px,
+          minWidth: 0,
+          px: 1.25,
+          borderRadius: '10px',
+          textTransform: 'none',
+          fontSize: 12.5,
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          // The kit's icon font sets its own margins; without this the glyph and
+          // the word drift apart at small sizes.
+          '& .MuiButton-startIcon': { mr: 0.625, ml: 0 },
+        }}
+      >
+        {label}
+      </Button>
+    );
+  }
 
   return (
     <Tooltip title={title}>
@@ -72,18 +135,9 @@ export default function ActionIconButton({
           onClick={onClick}
           disabled={disabled}
           aria-label={title}
-          sx={{
-            width: px,
-            height: px,
-            borderRadius: size === 'sm' ? '8px' : '10px',
-            color,
-            bgcolor: `${color}1A`,
-            border: `1px solid ${color}3D`,
-            transition: 'background-color .15s, border-color .15s',
-            '&:hover': { bgcolor: `${color}30`, borderColor: `${color}66` },
-          }}
+          sx={{ ...toneSx, width: px, height: px, borderRadius: size === 'sm' ? '8px' : '10px' }}
         >
-          {icon ?? <KTIcon iconName={iconName ?? ''} className={SIZE_ICON_CLASS[size]} />}
+          {glyph}
         </IconButton>
       </span>
     </Tooltip>

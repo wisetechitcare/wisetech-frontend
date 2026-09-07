@@ -2,6 +2,7 @@ import { safeJsonParse } from '@utils/safeJson';
 import { T as UiTokens } from '@app/modules/common/components/ui/tokens';
 import { useEffect, useRef, useState } from 'react';
 import { parseWorkingDays } from '@utils/workingDays';
+import { anniversaryDateOrNull } from '@utils/anniversary';
 import { useFormik } from 'formik';
 import Flatpickr from "react-flatpickr";
 import { Modal } from 'react-bootstrap';
@@ -50,9 +51,13 @@ import {
   SHOW_HOLIDAYS_ON_CALENDAR
 } from '@constants/configurations-key';
 import { getUpcomingContactsBirthdays } from '@services/companies';
+import Tooltip from '@mui/material/Tooltip';
+import BirthdayCardDialog from '@pages/employee/components/birthdaycard/BirthdayCardDialog';
+import type { BirthdayCardKind } from '@services/employee';
 import { fetchColorAndStoreInSlice } from '@utils/file';
 import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // ---- Premium outline icon set (consistent, no emoji) ----
 const ICONS: Record<string, JSX.Element> = {
@@ -72,6 +77,7 @@ const ICONS: Record<string, JSX.Element> = {
     gift: <><rect x="3.5" y="8.5" width="17" height="12" rx="2" /><path d="M3.5 12.5h17M12 8.5v12" /><path d="M12 8.5S10.5 4 8 4a2 2 0 0 0 0 4h4zM12 8.5S13.5 4 16 4a2 2 0 0 1 0 4h-4z" /></>,
     file: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></>,
     eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></>,
+    filter: <path d="M3 5h18l-7 8.2V20l-4-2.2v-4.6z" />,
     eyeOff: <><path d="M9.9 5.1A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.5 6.6C3.7 8.2 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.2-.9M3 3l18 18M9.9 9.9a3 3 0 0 0 4.2 4.2" /></>,
 };
 const Ico = ({ n, cls = '' }: { n: string; cls?: string }) => (
@@ -94,15 +100,64 @@ const CAT: Record<string, { color: string; tint: string; icon: string; label: st
 };
 
 // Calendar legend groups → drive the visibility toggles in the right panel.
-// Each row maps a friendly label to one or more underlying event `type`s.
-const LEGEND: { key: string; label: string; color: string; types: string[] }[] = [
-    { key: 'meeting', label: 'Meetings', color: 'var(--mrd-violet)', types: ['meeting'] },
-    { key: 'birthday', label: 'Birthdays', color: 'var(--mrd-rose)', types: ['birthday', 'contact-birthday'] },
-    { key: 'anniversary', label: 'Anniversaries', color: 'var(--mrd-blue)', types: ['anniversary', 'contact-anniversary'] },
-    { key: 'marriage-anniversary', label: 'Marriage Anniversaries', color: 'var(--mrd-amber)', types: ['marriage-anniversary', 'contact-marriage-anniversary'] },
-    { key: 'holiday', label: 'Holidays', color: 'var(--mrd-primary)', types: ['holiday'] },
-    { key: 'weekend', label: 'Weekly Offs', color: 'var(--mrd-amber)', types: ['weekend'] },
+//
+// Mirrors the granularity of Calendar → Configure: what an admin can colour there,
+// a viewer can switch off here. The three person categories each split internal
+// active / internal inactive / external, and Weekly Offs splits by day — previously
+// one "Birthdays" row hid inactive leavers and live colleagues together, with no way
+// to keep one and drop the other.
+//
+// A leaf `key` IS the value stored in `hiddenCats` and stamped on the event as
+// `extendedProps.filterKey`. A group holding a single leaf renders as one plain row.
+const LEGEND: {
+    key: string;
+    label: string;
+    color: string;
+    children: { key: string; label: string }[];
+}[] = [
+    {
+        key: 'meeting', label: 'Meetings', color: 'var(--mrd-violet)',
+        children: [{ key: 'meeting', label: 'Meetings' }],
+    },
+    {
+        key: 'birthday', label: 'Birthdays', color: 'var(--mrd-rose)',
+        children: [
+            { key: 'birthday:active', label: 'Current employees' },
+            { key: 'birthday:inactive', label: 'Former employees' },
+            { key: 'birthday:external', label: 'External contacts' },
+        ],
+    },
+    {
+        key: 'anniversary', label: 'Work Anniversaries', color: 'var(--mrd-blue)',
+        children: [
+            { key: 'anniversary:active', label: 'Current employees' },
+            { key: 'anniversary:inactive', label: 'Former employees' },
+            { key: 'anniversary:external', label: 'External contacts' },
+        ],
+    },
+    {
+        key: 'marriage', label: 'Marriage Anniversaries', color: 'var(--mrd-amber)',
+        children: [
+            { key: 'marriage:active', label: 'Current employees' },
+            { key: 'marriage:inactive', label: 'Former employees' },
+            { key: 'marriage:external', label: 'External contacts' },
+        ],
+    },
+    {
+        key: 'holiday', label: 'Public Holidays', color: 'var(--mrd-primary)',
+        children: [{ key: 'holiday', label: 'Public Holidays' }],
+    },
+    {
+        key: 'weekend', label: 'Weekly Offs', color: 'var(--mrd-amber)',
+        children: [
+            { key: 'weekend:saturday', label: 'Saturday' },
+            { key: 'weekend:sunday', label: 'Sunday' },
+        ],
+    },
 ];
+
+/** Every leaf key the legend can toggle — used to drop stale persisted entries. */
+const LEGEND_KEYS = new Set(LEGEND.flatMap((group) => group.children.map((child) => child.key)));
 
 // View options shown in the shared PeriodTabs (same control used app-wide).
 const CALENDAR_VIEW_OPTIONS = [
@@ -143,6 +198,10 @@ const calendarEventSchema = Yup.object().shape({
 
 function CustomCalendar() {
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
+    // Who may issue a birthday card. Admin only, by request: a card is the company
+    // wishing someone publicly, so who sends one is an HR call. `/birthday-card`
+    // enforces the same thing server-side — this only decides whether the button draws.
+    const isAdmin = useSelector((state: RootState) => state?.auth?.currentUser?.isAdmin);
     const branchId = useSelector((state:RootState)=>state?.employee?.currentEmployee?.branchId);  
     // const weekendColor =  useSelector((state:RootState) => state?.customColors?.attendanceCalendar?.weekendColor);
     const birthdaysColor = useSelector((state:RootState) => state?.customColors?.momentsThatMatter?.birthdaysColor);  
@@ -158,6 +217,10 @@ function CustomCalendar() {
     const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
     // console.log("calendarEvents=>",calendarEvents)
     const [meetings, setMeetings] = useState<any[]>([]);
+    /** The birthday event a card is open for, or null. */
+    const [birthdayCardTarget, setBirthdayCardTarget] = useState<
+        { kind: BirthdayCardKind; id: string; name: string } | null
+    >(null);
     const [filterInternalBirthdays, setFilterInternalBirthdays] = useState(true);
     const [filterExternalBirthdays, setFilterExternalBirthdays] = useState(true);
     const [filterInternalAnniversaries, setFilterInternalAnniversaries] = useState(true);
@@ -173,7 +236,10 @@ function CustomCalendar() {
     const [hiddenCats, setHiddenCats] = useState<Set<string>>(() => {
         try {
             const saved = JSON.parse(localStorage.getItem('wt_calendar_hidden_cats') || '[]');
-            return new Set(Array.isArray(saved) ? saved : []);
+            // Keys the legend no longer has (it used to store bare event types) are
+            // dropped: a stale entry hides nothing but keeps "Show All" permanently lit.
+            const list: string[] = Array.isArray(saved) ? saved : [];
+            return new Set(list.filter((key) => LEGEND_KEYS.has(key)));
         } catch { return new Set(); }
     });
     const [showOptionsModal, setShowOptionsModal] = useState(false);
@@ -205,7 +271,15 @@ function CustomCalendar() {
     // bento cards on every phone. Matches the existing 760px CSS breakpoint.
     const [isMobile, setIsMobile] = useState(false);
     const [panelSheetOpen, setPanelSheetOpen] = useState(false);
+    // What the mobile bottom sheet is showing: the tapped day, or the filters.
+    // On tablet+ the rail shows both at once and this is ignored.
+    const [mobileFilters, setMobileFilters] = useState(false);
+    // Set when a single event chip was clicked — the panel then shows just that
+    // event instead of the whole day. Cleared by any day-level navigation.
+    const [focusedEvent, setFocusedEvent] = useState<any>(null);
     const [branchWorkingAndOffDays, setBranchWorkingAndOffDays] = useState<any>({});
+    const location = useLocation();
+    const navigate = useNavigate();
     // console.log("branchWorkingAndOffDays =>",branchWorkingAndOffDays)
     const selectRef = useRef(null);
 
@@ -219,7 +293,6 @@ function CustomCalendar() {
         setSelectedViewForCalendar(value);
         calendarRef?.current?.getApi()?.changeView(value);
     };
-    const handleToday = () => calendarRef?.current?.getApi()?.today();
     const handlePrevPeriod = () => calendarRef?.current?.getApi()?.prev();
     const handleNextPeriod = () => calendarRef?.current?.getApi()?.next();
     const formik = useFormik<ICalendarEvent>({
@@ -287,8 +360,7 @@ function CustomCalendar() {
 
     const handleDateSelect = (selectInfo: any) => {
         setSelectedDateTimeInfo(selectInfo);
-        setPanelDate(new Date(selectInfo.startStr));
-        if (isMobile) setPanelSheetOpen(true);
+        showDay(new Date(selectInfo.startStr));
     };
 
     const handleShowLeaveRequestForm = () => {
@@ -471,7 +543,8 @@ function CustomCalendar() {
             // "Sunday" (weekend days saved as holidays). Bucket those under the
             // "Weekly Offs" toggle — same as the branch-generated weekend rows —
             // so switching Holidays on/off only affects real holidays.
-            const isWeekendRow = ['saturday', 'sunday'].includes(holidayName.trim().toLowerCase());
+            const weekendDay = holidayName.trim().toLowerCase();
+            const isWeekendRow = ['saturday', 'sunday'].includes(weekendDay);
 
             return {
               title,
@@ -479,6 +552,9 @@ function CustomCalendar() {
               date: holiday?.date,
               extendedProps: {
                 type: isWeekendRow ? 'weekend' : 'holiday',
+                // Follows the day it names, so it toggles with the matching
+                // Saturday/Sunday row rather than with real holidays.
+                filterKey: isWeekendRow ? `weekend:${weekendDay}` : 'holiday',
                 icon: parsedHolidaysCfg.icon
               }
             };
@@ -552,6 +628,7 @@ function CustomCalendar() {
                 className: 'birthday-event',
                 extendedProps: {
                   type: 'birthday',
+                  filterKey: isInactive ? 'birthday:inactive' : 'birthday:active',
                   icon: iconToUse,
                   user: {
                     id: user.id,
@@ -584,6 +661,7 @@ function CustomCalendar() {
                   className: 'birthday-event-external',
                   extendedProps: {
                     type: 'contact-birthday',
+                    filterKey: 'birthday:external',
                     icon: parsedBdayExt.icon,
                     contact: c
                   }
@@ -597,12 +675,9 @@ function CustomCalendar() {
           employeeAnniversaries = allEmployeeDateOfjoining?.data?.employees
             ?.filter((employee: any) => employee.dateOfJoining && employee?.users)
             .map((employee: any) => {
-              const anniversaryDate = dayjs(employee.dateOfJoining);
-              const today = dayjs().startOf('day');
-              let nextAnniversary = dayjs(anniversaryDate).year(today.year());
-              if (nextAnniversary.isBefore(today, 'day')) {
-                nextAnniversary = dayjs(anniversaryDate).year(Number(currentYear));
-              }
+              const nextAnniversary = anniversaryDateOrNull(dayjs(employee.dateOfJoining), Number(currentYear));
+              // Joined less than a year ago: no anniversary to mark yet.
+              if (!nextAnniversary) return null;
               const isInactive = employee.isActive === false || employee.users?.isActive === false;
               
               if (isInactive && !showAnniversariesInternalInactiveEnabled) return null;
@@ -621,6 +696,7 @@ function CustomCalendar() {
                 className: 'anniversary-event',
                 extendedProps: {
                   type: 'anniversary',
+                  filterKey: isInactive ? 'anniversary:inactive' : 'anniversary:active',
                   icon: iconToUse,
                   user: {
                     id: employee.users.id,
@@ -637,12 +713,8 @@ function CustomCalendar() {
             contactAnniversaries = allContacts
               .filter((c: any) => c.anniversary)
               .map((c: any) => {
-                const anniversaryDate = dayjs(c.anniversary);
-                const today = dayjs().startOf('day');
-                let nextAnniversary = dayjs(anniversaryDate).year(today.year());
-                if (nextAnniversary.isBefore(today, 'day')) {
-                  nextAnniversary = dayjs(anniversaryDate).year(Number(currentYear));
-                }
+                const nextAnniversary = anniversaryDateOrNull(dayjs(c.anniversary), Number(currentYear));
+                if (!nextAnniversary) return null;
                 return {
                   title: `${c.name}'s Anniversary`,
                   start: nextAnniversary.format('YYYY-MM-DD'),
@@ -653,11 +725,13 @@ function CustomCalendar() {
                   className: 'anniversary-event-external',
                   extendedProps: {
                     type: 'contact-anniversary',
+                    filterKey: 'anniversary:external',
                     icon: parsedAnnyExt.icon,
                     contact: c
                   }
                 };
-              });
+              })
+              .filter(Boolean);
           }
 
           // 5. Process employee marriage anniversaries (Internal Team) — same
@@ -670,12 +744,8 @@ function CustomCalendar() {
           employeeMarriageAnniversaries = allEmployeeDateOfjoining?.data?.employees
             ?.filter((employee: any) => employee.anniversary && employee?.users)
             .map((employee: any) => {
-              const marriageAnniversaryDate = dayjs(employee.anniversary);
-              const today = dayjs().startOf('day');
-              let nextMarriageAnniversary = dayjs(marriageAnniversaryDate).year(today.year());
-              if (nextMarriageAnniversary.isBefore(today, 'day')) {
-                nextMarriageAnniversary = dayjs(marriageAnniversaryDate).year(Number(currentYear));
-              }
+              const nextMarriageAnniversary = anniversaryDateOrNull(dayjs(employee.anniversary), Number(currentYear));
+              if (!nextMarriageAnniversary) return null;
               const isInactive = employee.isActive === false || employee.users?.isActive === false;
 
               if (isInactive && !showMarriageAnnyInternalInactiveEnabled) return null;
@@ -694,6 +764,7 @@ function CustomCalendar() {
                 className: 'marriage-anniversary-event',
                 extendedProps: {
                   type: 'marriage-anniversary',
+                  filterKey: isInactive ? 'marriage:inactive' : 'marriage:active',
                   icon: iconToUse,
                   user: {
                     id: employee.users.id,
@@ -715,12 +786,8 @@ function CustomCalendar() {
             contactMarriageAnniversaries = allContacts
               .filter((c: any) => c.anniversary)
               .map((c: any) => {
-                const marriageAnniversaryDate = dayjs(c.anniversary);
-                const today = dayjs().startOf('day');
-                let nextMarriageAnniversary = dayjs(marriageAnniversaryDate).year(today.year());
-                if (nextMarriageAnniversary.isBefore(today, 'day')) {
-                  nextMarriageAnniversary = dayjs(marriageAnniversaryDate).year(Number(currentYear));
-                }
+                const nextMarriageAnniversary = anniversaryDateOrNull(dayjs(c.anniversary), Number(currentYear));
+                if (!nextMarriageAnniversary) return null;
                 return {
                   title: `${c.name}'s Marriage Anniversary`,
                   start: nextMarriageAnniversary.format('YYYY-MM-DD'),
@@ -731,11 +798,13 @@ function CustomCalendar() {
                   className: 'marriage-anniversary-event-external',
                   extendedProps: {
                     type: 'contact-marriage-anniversary',
+                    filterKey: 'marriage:external',
                     icon: parsedMarriageAnnyExt.icon,
                     contact: c
                   }
                 };
-              });
+              })
+              .filter(Boolean);
           }
 
           for (let d = start; d.isBefore(end); d = d.add(1, 'day')) {
@@ -751,6 +820,7 @@ function CustomCalendar() {
                 fixed: true,
                 extendedProps: {
                   type: 'weekend',
+                  filterKey: 'weekend:saturday',
                   icon: parsedSaturday.icon
                 }
               });
@@ -762,6 +832,7 @@ function CustomCalendar() {
                 fixed: true,
                 extendedProps: {
                   type: 'weekend',
+                  filterKey: 'weekend:sunday',
                   icon: parsedSunday.icon
                 }
               });
@@ -856,6 +927,21 @@ function CustomCalendar() {
         return () => window.removeEventListener('resize', updateColumns);
     }, []);
 
+    /* Landed here from the mobile bottom-nav "+" quick-actions sheet — open the
+       "Select Event Type" chooser on today straight away, and clear the nav state
+       so a back/forward or refresh doesn't re-trigger it. Reads the width live
+       rather than through `isMobile`: that state is still false on this first
+       commit (its own effect above has run, but this render closed over the old
+       value), and on a phone the chooser lives inside the bottom sheet. */
+    useEffect(() => {
+        if ((location.state as any)?.quickAction !== 'newEvent') return;
+        setSelectedDateTimeInfo({ startStr: dayjs().format('YYYY-MM-DD') } as any);
+        setShowOptionsModal(true);
+        if (window.innerWidth <= 760) { setMobileFilters(false); setPanelSheetOpen(true); }
+        navigate(location.pathname, { replace: true, state: {} });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Lock background scroll while the mobile day-detail sheet is open, and
     // let Escape close it (the same affordance the backdrop/close button give).
     useEffect(() => {
@@ -880,6 +966,26 @@ function CustomCalendar() {
     const evDateOf = (e: any) => e.date || e.start;
     const evType = (e: any): string => e.extendedProps?.type || (e.date ? 'holiday' : 'event');
     const evMeta = (e: any) => CAT[evType(e)] || CAT.event;
+
+    /**
+     * The card target for a birthday event, or null for anything that is not one.
+     *
+     * Employee events carry `extendedProps.user` (built from the users list, so the id
+     * is the USER's — which is what `/birthday-card/employee/:id` resolves on) and
+     * contact events carry `extendedProps.contact`. Anniversaries deliberately do NOT
+     * match: they are a different occasion and would want a different card.
+     */
+    const birthdayTargetOf = (e: any): { kind: BirthdayCardKind; id: string; name: string } | null => {
+        const type = evType(e);
+        if (type !== 'birthday' && type !== 'contact-birthday') return null;
+        const who = type === 'birthday' ? e.extendedProps?.user : e.extendedProps?.contact;
+        if (!who?.id) return null;
+        return {
+            kind: type === 'birthday' ? 'employee' : 'contact',
+            id: who.id,
+            name: who.name || e.title || '',
+        };
+    };
     
 
     const renderProfileOrIcon = (
@@ -930,8 +1036,16 @@ function CustomCalendar() {
         if (!d.isValid() || d.format('HH:mm') === '00:00') return '';
         return d.format('h:mm A');
     };
+    /**
+     * The legend row an event belongs to.
+     *
+     * Person events carry an explicit `filterKey` because they split three ways
+     * (internal active / internal inactive / external) while sharing one `type`;
+     * anything without one falls back to its bare type.
+     */
+    const evFilterKey = (e: any): string => e.extendedProps?.filterKey || evType(e);
     // Events currently visible after applying the legend visibility toggles.
-    const visibleEvents = mergedEvents.filter((e) => !hiddenCats.has(evType(e)));
+    const visibleEvents = mergedEvents.filter((e) => !hiddenCats.has(evFilterKey(e)));
     const toggleCat = (types: string[]) => setHiddenCats((prev) => {
         const next = new Set(prev);
         const allHidden = types.every((t) => next.has(t));
@@ -994,18 +1108,37 @@ function CustomCalendar() {
         .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
         .slice(0, 5);
 
-    const celebrations = calendarEvents
-        .filter((e: any) => ['birthday', 'contact-birthday', 'anniversary', 'contact-anniversary'].includes(e.extendedProps?.type))
-        .filter((e: any) => e.start && dayjs(e.start).isValid())
-        .sort((a: any, b: any) => new Date(a.start).getTime() - new Date(b.start).getTime())
-        .slice(0, 6);
-
     const holidayList = holidays
         .filter((h: any) => { const t = (h.title || '').toLowerCase(); return t !== 'saturday' && t !== 'sunday'; })
         .filter((h: any) => h.date && dayjs(h.date).format('YYYY') === currentYear)
         .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     const thisMonthCount = mergedEvents.filter((e) => dayjs(evDateOf(e)).format('YYYY-MM') === dayjs().format('YYYY-MM')).length;
+
+    /* Overview tiles. Deliberately NOT a repeat of the counts already shown in the
+       other cards' headers — these are the numbers you can't read off the grid. */
+    const weekStart = dayjs().startOf('week');
+    const weekEnd = dayjs().endOf('week');
+    const thisWeekCount = mergedEvents.filter((e) => {
+        const d = dayjs(evDateOf(e));
+        return d.isValid() && !d.isBefore(weekStart) && !d.isAfter(weekEnd);
+    }).length;
+
+    // Remaining working days: today through month end, minus weekends and holidays.
+    const holidayKeys = new Set(holidayList.map((h: any) => dkey(h.date)));
+    const workingDaysLeft = (() => {
+        const end = dayjs().endOf('month');
+        let n = 0;
+        for (let d = startOfToday; !d.isAfter(end, 'day'); d = d.add(1, 'day')) {
+            if (d.day() === 0 || d.day() === 6) continue;
+            if (holidayKeys.has(d.format('YYYY-MM-DD'))) continue;
+            n++;
+        }
+        return n;
+    })();
+
+    const nextHoliday = holidayList.find((h: any) => !dayjs(h.date).startOf('day').isBefore(startOfToday));
+    const daysToNextHoliday = nextHoliday ? dayjs(nextHoliday.date).startOf('day').diff(startOfToday, 'day') : null;
 
     const relLabel = (d: any) => {
         const diff = dayjs(d).startOf('day').diff(startOfToday, 'day');
@@ -1025,9 +1158,24 @@ function CustomCalendar() {
         .sort((a, b) => new Date(evDateOf(a)).getTime() - new Date(evDateOf(b)).getTime())
         .slice(0, 6);
 
-    const panelPrev = () => setPanelDate((d) => dayjs(d).subtract(1, 'day').toDate());
-    const panelNext = () => setPanelDate((d) => dayjs(d).add(1, 'day').toDate());
-    const panelToday = () => setPanelDate(new Date());
+    const panelPrev = () => { setFocusedEvent(null); setPanelDate((d) => dayjs(d).subtract(1, 'day').toDate()); };
+    const panelNext = () => { setFocusedEvent(null); setPanelDate((d) => dayjs(d).add(1, 'day').toDate()); };
+    const panelToday = () => { setFocusedEvent(null); setPanelDate(new Date()); };
+    // The sheet is one surface with two modes — every day entry point resets it
+    // to the day view so the filters never show up where they weren't asked for.
+    const openDaySheet = () => { setMobileFilters(false); setPanelSheetOpen(true); };
+
+    /* Two ways into the panel, deliberately different: tapping a day cell shows
+       everything on that day, tapping one event chip narrows to that event.
+       `focusedEvent` is what separates them; anything that moves off the day
+       clears it. */
+    const showDay = (d: Date) => { setFocusedEvent(null); setPanelDate(d); if (isMobile) openDaySheet(); };
+    const showEvent = (e: any) => { setFocusedEvent(e); setPanelDate(new Date(evDateOf(e))); if (isMobile) openDaySheet(); };
+    const panelItems = focusedEvent ? [focusedEvent] : panelEvents;
+    const openFilters = () => { setShowOptionsModal(false); setMobileFilters(true); setPanelSheetOpen(true); };
+    // Filters replace the day view on mobile; on tablet+ the rail shows both.
+    const sheetFilters = isMobile && mobileFilters;
+
     const openCreateFor = (d: Date) => {
         setSelectedDateTimeInfo({ startStr: dayjs(d).format('YYYY-MM-DD') } as any);
         setShowOptionsModal(true);
@@ -1035,7 +1183,7 @@ function CustomCalendar() {
         // bottom sheet translated off-screen until panelSheetOpen flips it into view — without
         // this the FAB/"New" button silently did nothing on mobile (desktop's panel is a
         // static rail with no sheet state, so it never needed this).
-        if (isMobile) setPanelSheetOpen(true);
+        if (isMobile) openDaySheet();
     };
 
     // Quick-action shortcuts — open the same forms as the "Select Event Type"
@@ -1057,9 +1205,9 @@ function CustomCalendar() {
                     {/* Premium toolbar — reuses the shared PeriodTabs + PeriodNavigator
                         so behaviour stays consistent with the rest of the app. The
                         "Workspace calendar" title always sits on its own row; the view
-                        tabs + Today + date nav always share a single controls row below
-                        it, at every viewport — a simpler, more predictable structure
-                        than title/tabs and today/nav splitting left/right. */}
+                        tabs + date nav always share a single controls row below it, at
+                        every viewport — a simpler, more predictable structure than
+                        title/tabs and nav splitting left/right. */}
                     <div className="mrd-toolbar">
                         <div className="mrd-eyebrow mrd-toolbar__title">Workspace calendar</div>
                         <div className="mrd-toolbar__controls">
@@ -1071,43 +1219,48 @@ function CustomCalendar() {
                                 selectedColor="var(--mrd-primary)"
                             />
                             <span className="mrd-spacer" />
-                            {/* Icon-only on mobile (CSS hides .mrd-btn__lbl there) — the tabs
-                                + this + the date navigator's two fixed 32px icon buttons need
-                                more width than most phones have as plain text, and unlike the
-                                navigator this button has no unavoidable minimum content. */}
-                            <button type="button" className="mrd-btn mrd-btn--today" onClick={handleToday} aria-label="Jump to today" title="Today">
-                                <Ico n="calendar" cls="sm" />
-                                <span className="mrd-btn__lbl">Today</span>
-                            </button>
-                            <PeriodNavigator
-                                label={periodTitle}
-                                onPrevious={handlePrevPeriod}
-                                onNext={handleNextPeriod}
-                                previousTitle="Previous"
-                                nextTitle="Next"
-                                // 170px was tuned for desktop; on mobile that alone pushed the
-                                // navigator past what's left after the view tabs + Today button,
-                                // wrapping it to its own row. 108px still fits "July 2026" with
-                                // room to spare and keeps everything on one line.
-                                minWidth={isMobile ? 108 : 170}
-                                labelColor="var(--mrd-primary)"
-                            />
-                            {/* Hidden below 760px (mrd-btn--new) — the mrd-fab below takes over
-                                so the controls row doesn't have to fit a fourth element on a
-                                narrow phone. */}
+                            {/* PeriodNavigator goes width:100% on phones, so anything after it
+                                is pushed to a row of its own. Pairing the two in one flex line
+                                keeps the filter button beside the date instead of costing a
+                                third toolbar row. */}
+                            <div className="mrd-toolbar__nav">
+                                <PeriodNavigator
+                                    label={periodTitle}
+                                    onPrevious={handlePrevPeriod}
+                                    onNext={handleNextPeriod}
+                                    previousTitle="Previous"
+                                    nextTitle="Next"
+                                    // 170px was tuned for desktop; on mobile that alone pushed the
+                                    // navigator past what's left after the view tabs, wrapping it to
+                                    // its own row. 108px still fits "July 2026" with room to spare
+                                    // and keeps everything on one line.
+                                    minWidth={isMobile ? 108 : 170}
+                                    labelColor="var(--mrd-primary)"
+                                />
+                                {/* Mobile-only. On tablet+ the same legend is always visible in the
+                                    side rail, so a button for it would just be a second way in. */}
+                                {isMobile && (
+                                    <button
+                                        type="button"
+                                        className={`mrd-btn mrd-btn--filter${hiddenCats.size ? ' is-active' : ''}`}
+                                        onClick={openFilters}
+                                        aria-label="Filter what shows on the calendar"
+                                        title="Filters"
+                                    >
+                                        <Ico n="filter" cls="sm" />
+                                        {hiddenCats.size > 0 && <span className="mrd-btn__dot" />}
+                                    </button>
+                                )}
+                            </div>
+                            {/* Hidden below 760px (mrd-btn--new) — on a phone the bottom nav's
+                                "+" → Quick Actions → New Event lands here with the chooser
+                                already open, so the compact toolbar stays uncluttered. */}
                             <PremiumButton className="mrd-btn--new" icon="bi-plus" onClick={() => openCreateFor(panelDate)}>
                                 New
                             </PremiumButton>
                         </div>
                     </div>
 
-                    {/* Mobile-only floating Create action — replaces the toolbar's "New"
-                        button below 760px (see .mrd-btn--new / .mrd-fab in the CSS) so the
-                        primary create action stays reachable with a thumb without crowding
-                        the compact toolbar. Respects safe-area-inset-bottom. */}
-                    <button type="button" className="mrd-fab" onClick={() => openCreateFor(panelDate)} aria-label="Create new event">
-                        <Ico n="plus" />
-                    </button>
 
                     <div className="mrd-main">
                         {/* ---- Main calendar card (FullCalendar engine, restyled) ---- */}
@@ -1118,8 +1271,8 @@ function CustomCalendar() {
                                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, bootstrapPlugin, multiMonthPlugin]}
                                 headerToolbar={false}
                                 // "July 2026" vs "Jul 2026" — a few px that matter when the title
-                                // sits in the same one-line row as the view tabs + Today button
-                                // and the date navigator's two fixed-width icon buttons.
+                                // sits in the same one-line row as the view tabs and the date
+                                // navigator's two fixed-width icon buttons.
                                 titleFormat={isMobile ? { month: 'short', year: 'numeric' } : { month: 'long', year: 'numeric' }}
                                 views={{
                                     multiMonthYear: {
@@ -1147,9 +1300,24 @@ function CustomCalendar() {
                                 selectable={true}
                                 // editable={true}
                                 select={handleDateSelect}
-                                dateClick={(info: any) => { setPanelDate(info.date); if (isMobile) setPanelSheetOpen(true); }}
-                                longPressDelay={1}
-                                // eventClick={handleEventClick}
+                                dateClick={(info: any) => showDay(info.date)}
+                                // Keep FullCalendar's default 1s long-press for touch selection.
+                                // A 1ms delay made every finger-down start a date drag-select, so
+                                // scrolling the month grid selected whatever cell you lifted off.
+                                longPressDelay={1000}
+                                /* Clicking a chip opens that one event. FullCalendar hands back an
+                                   EventApi, not our source object, so rebuild the shape the panel
+                                   renderers expect (title / start / extendedProps) — extendedProps
+                                   is passed through untouched, which is where type, filterKey,
+                                   user and contact live. */
+                                eventClick={(info: any) => {
+                                    info.jsEvent?.preventDefault();
+                                    showEvent({
+                                        title: info.event.title,
+                                        start: info.event.start,
+                                        extendedProps: info.event.extendedProps,
+                                    });
+                                }}
                                 ref={calendarRef}
                                 datesSet={handleDatesSet}
                                 height={"auto"}
@@ -1157,21 +1325,9 @@ function CustomCalendar() {
                             />
                         </section>
 
-                        {/* Compact mobile trigger bar — glanceable day summary that opens the
-                            bottom sheet on tap. Hidden while the sheet itself is open. */}
-                        {isMobile && !panelSheetOpen && (
-                            <button type="button" className="mrd-daybar" onClick={() => setPanelSheetOpen(true)}>
-                                <span className="mrd-daybar__date">
-                                    <strong>{dayjs(panelDate).format('MMM D')}</strong>
-                                    <span>{panelLabel}</span>
-                                </span>
-                                <span className="mrd-spacer" />
-                                <span className="mrd-daybar__count">
-                                    {panelEvents.length ? `${panelEvents.length} event${panelEvents.length > 1 ? 's' : ''}` : 'No events'}
-                                </span>
-                                <Ico n="chevR" cls="sm" />
-                            </button>
-                        )}
+                        {/* A compact day-summary bar used to sit here on mobile. It repeated the
+                            "Today's schedule" card further down the page — same date, same
+                            count — so the day sheet now opens from a date cell only. */}
 
                         {/* Backdrop for the mobile bottom-sheet variant of the panel below —
                             inert/invisible on tablet+ (CSS), tapping it closes the sheet. */}
@@ -1191,19 +1347,26 @@ function CustomCalendar() {
                             <div className="mrd-panel__head">
                                 <div className="mrd-panel__top">
                                     {isMobile && <span className="mrd-panel__grabber" aria-hidden="true" />}
-                                    <span className="mrd-eyebrow">{panelLabel}</span>
+                                    <span className="mrd-eyebrow">{sheetFilters ? 'Filters' : panelLabel}</span>
                                     <span className="mrd-spacer" />
-                                    <button type="button" className="mrd-navbtn" onClick={panelPrev} aria-label="Previous day"><Ico n="chevL" cls="sm" /></button>
-                                    <button type="button" className="mrd-navbtn" onClick={panelNext} aria-label="Next day"><Ico n="chevR" cls="sm" /></button>
+                                    {/* Day stepping is meaningless while the sheet is showing filters. */}
+                                    {!sheetFilters && <>
+                                        <button type="button" className="mrd-navbtn" onClick={panelPrev} aria-label="Previous day"><Ico n="chevL" cls="sm" /></button>
+                                        <button type="button" className="mrd-navbtn" onClick={panelNext} aria-label="Next day"><Ico n="chevR" cls="sm" /></button>
+                                    </>}
                                     {isMobile && (
-                                        <button type="button" className="mrd-navbtn" onClick={() => setPanelSheetOpen(false)} aria-label="Close day details">
+                                        <button type="button" className="mrd-navbtn" onClick={() => setPanelSheetOpen(false)} aria-label="Close">
                                             <Ico n="x" cls="sm" />
                                         </button>
                                     )}
                                 </div>
                                 <div className="mrd-panel__date">
-                                    <h2>{dayjs(panelDate).format('MMM D')}</h2>
-                                    <span className="wd">{dayjs(panelDate).format('dddd, YYYY')}</span>
+                                    {sheetFilters ? (
+                                        <h2>Show on calendar</h2>
+                                    ) : (<>
+                                        <h2>{dayjs(panelDate).format('MMM D')}</h2>
+                                        <span className="wd">{dayjs(panelDate).format('dddd, YYYY')}</span>
+                                    </>)}
                                 </div>
                             </div>
                             <div className="mrd-panel__body">
@@ -1247,11 +1410,21 @@ function CustomCalendar() {
                                 </div>
                               ) : (
                                 <>
+                                {/* Day view. Hidden on mobile while the sheet is in filter
+                                    mode — tapping a day and tapping Filters are two different
+                                    intents and the sheet answers exactly one at a time. */}
+                                {!sheetFilters && (<>
+                                {/* One clicked event, or the whole day. */}
+                                {focusedEvent && panelEvents.length > 1 && (
+                                    <button type="button" className="mrd-ghost mrd-tl__all" onClick={() => setFocusedEvent(null)}>
+                                        <Ico n="chevL" cls="xs" /> All {panelEvents.length} events on this day
+                                    </button>
+                                )}
                                 {/* Selected-day summary — timeline when busy, or a clean
                                     "no events" card with a Create Event CTA when clear. */}
-                                {panelEvents.length ? (
+                                {panelItems.length ? (
                                     <div className="mrd-tl">
-                                        {panelEvents.map((e: any, i: number) => {
+                                        {panelItems.map((e: any, i: number) => {
                                             const m = evMeta(e);
                                             return (
                                                 <div className="mrd-tl__item" key={i}>
@@ -1263,6 +1436,25 @@ function CustomCalendar() {
                                                             <div className="mrd-tl__title">{e.title}</div>
                                                             <div className="mrd-tl__sub">{m.label}</div>
                                                         </div>
+                                                        {/* Birthday cards are issued from here because this is the one
+                                                            place BOTH audiences already meet: employee and contact
+                                                            birthdays are the same list on this panel. Admin only. */}
+                                                        {(() => {
+                                                            const target = isAdmin ? birthdayTargetOf(e) : null;
+                                                            if (!target) return null;
+                                                            return (
+                                                                <Tooltip title={`Birthday card for ${target.name}`} arrow>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="mrd-tl__act"
+                                                                        aria-label={`Generate a birthday card for ${target.name}`}
+                                                                        onClick={() => setBirthdayCardTarget(target)}
+                                                                    >
+                                                                        <Ico n="gift" cls="sm" />
+                                                                    </button>
+                                                                </Tooltip>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                             );
@@ -1294,7 +1486,7 @@ function CustomCalendar() {
                                             {upcomingEvents.map((e: any, i: number) => {
                                                 const m = evMeta(e);
                                                 return (
-                                                    <button type="button" className="mrd-up__row" key={i} onClick={() => setPanelDate(new Date(evDateOf(e)))}>
+                                                    <button type="button" className="mrd-up__row" key={i} onClick={() => showEvent(e)}>
                                                         <span className="mrd-up__col">
                                                             {renderProfileOrIcon(e, 32, "circle", "mrd-up__dot", true)}
                                                         </span>
@@ -1311,11 +1503,14 @@ function CustomCalendar() {
                                         <div className="mrd-sect__empty">No upcoming events</div>
                                     )}
                                 </div>
+                                </>)}
 
                                 {/* ---- Calendar filters (per-category visibility toggles).
                                     Drives `hiddenCats`, which every rendered list — the
                                     FullCalendar grid, the day timeline and Upcoming Events —
-                                    already filters through via `visibleEvents`. ---- */}
+                                    already filters through via `visibleEvents`. On mobile this
+                                    is the whole sheet, reached from the toolbar's filter button. ---- */}
+                                {(!isMobile || sheetFilters) && (
                                 <div className="mrd-sect">
                                     <div className="mrd-sect__head">
                                         <span className="mrd-sect__t">Show on Calendar</span>
@@ -1325,23 +1520,46 @@ function CustomCalendar() {
                                     </div>
                                     <div className="mrd-leg">
                                         {LEGEND.map((g) => {
-                                            const off = g.types.every((t) => hiddenCats.has(t));
+                                            const keys = g.children.map((c) => c.key);
+                                            // A group reads as off only when every row under it is —
+                                            // one audience left on still means the category is showing.
+                                            const groupOff = keys.every((k) => hiddenCats.has(k));
                                             return (
-                                                <button
-                                                    type="button"
-                                                    className={`mrd-leg__row${off ? ' is-off' : ''}`}
-                                                    key={g.key}
-                                                    onClick={() => toggleCat(g.types)}
-                                                    aria-pressed={!off}
-                                                >
-                                                    <span className="mrd-leg__dot" style={{ background: g.color }} />
-                                                    <span className="mrd-leg__t">{g.label}</span>
-                                                    <span className="mrd-leg__sw" />
-                                                </button>
+                                                <div className="mrd-leg__grp" key={g.key}>
+                                                    <button
+                                                        type="button"
+                                                        className={`mrd-leg__row${groupOff ? ' is-off' : ''}`}
+                                                        onClick={() => toggleCat(keys)}
+                                                        aria-pressed={!groupOff}
+                                                    >
+                                                        <span className="mrd-leg__dot" style={{ background: g.color }} />
+                                                        <span className="mrd-leg__t">{g.label}</span>
+                                                        <span className="mrd-leg__sw" />
+                                                    </button>
+
+                                                    {/* A single-row group is its own toggle — repeating it
+                                                        underneath would be the same switch drawn twice. */}
+                                                    {g.children.length > 1 && g.children.map((c) => {
+                                                        const off = hiddenCats.has(c.key);
+                                                        return (
+                                                            <button
+                                                                type="button"
+                                                                className={`mrd-leg__row mrd-leg__row--sub${off ? ' is-off' : ''}`}
+                                                                key={c.key}
+                                                                onClick={() => toggleCat([c.key])}
+                                                                aria-pressed={!off}
+                                                            >
+                                                                <span className="mrd-leg__t">{c.label}</span>
+                                                                <span className="mrd-leg__sw" />
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
                                             );
                                         })}
                                     </div>
                                 </div>
+                                )}
 
                                 </>
                               )}
@@ -1501,7 +1719,7 @@ function CustomCalendar() {
                     </Modal>
                 <div className="mrd-cards">
                     {/* Today's schedule */}
-                    <section className="mrd-card mrd-card--hover mrd-col-4">
+                    <section className="mrd-card mrd-card--hover mrd-col-6">
                         <div className="mrd-card__head">
                             <div className="mrd-card__title"><span className="mrd-thumb"><Ico n="clock" cls="sm" /></span>Today's schedule</div>
                             <span className="mrd-spacer" />
@@ -1522,7 +1740,7 @@ function CustomCalendar() {
                     </section>
 
                     {/* Upcoming meetings */}
-                    <section className="mrd-card mrd-card--hover mrd-col-4">
+                    <section className="mrd-card mrd-card--hover mrd-col-6">
                         <div className="mrd-card__head">
                             <div className="mrd-card__title"><span className="mrd-thumb" style={{ background: 'var(--mrd-violet-tint)', color: 'var(--mrd-violet)', borderColor: 'transparent' }}><Ico n="video" cls="sm" /></span>Upcoming meetings</div>
                             <span className="mrd-spacer" />
@@ -1536,27 +1754,6 @@ function CustomCalendar() {
                                     <span className="mrd-tag mrd-tag--wk">{relLabel(mtg.startDate)}</span>
                                 </div>
                             )) : emptyInline('No upcoming meetings')}
-                        </div>
-                    </section>
-
-                    {/* Celebrations */}
-                    <section className="mrd-card mrd-card--hover mrd-col-4">
-                        <div className="mrd-card__head">
-                            <div className="mrd-card__title"><span className="mrd-thumb" style={{ background: 'var(--mrd-rose-tint)', color: 'var(--mrd-rose)', borderColor: 'transparent' }}><Ico n="cake" cls="sm" /></span>Celebrations</div>
-                            <span className="mrd-spacer" />
-                            <span className="mrd-card__meta">Birthdays &amp; anniversaries</span>
-                        </div>
-                        <div className="mrd-card__body">
-                            {celebrations.length ? celebrations.map((e: any, i: number) => {
-                                const m = evMeta(e);
-                                return (
-                                    <div className="mrd-row" key={i}>
-                                        {renderProfileOrIcon(e, 34, "circle", "mrd-av")}
-                                        <div className="mrd-row__main"><div className="mrd-row__t">{e.title}</div><div className="mrd-row__s">{m.label}</div></div>
-                                        <span className="mrd-tag mrd-tag--wk">{relLabel(e.start)}</span>
-                                    </div>
-                                );
-                            }) : emptyInline('No celebrations coming up')}
                         </div>
                     </section>
 
@@ -1595,25 +1792,43 @@ function CustomCalendar() {
                                     <div className="mrd-stat__lbl">Events this month</div>
                                 </div>
                                 <div className="mrd-stat">
-                                    <span className="mrd-stat__ic" style={{ background: 'var(--mrd-violet-tint)', color: 'var(--mrd-violet)' }}><Ico n="video" cls="sm" /></span>
-                                    <div className="mrd-stat__val tnum">{upcomingMeetings.length}</div>
-                                    <div className="mrd-stat__lbl">Upcoming meetings</div>
+                                    <span className="mrd-stat__ic" style={{ background: 'var(--mrd-violet-tint)', color: 'var(--mrd-violet)' }}><Ico n="clock" cls="sm" /></span>
+                                    <div className="mrd-stat__val tnum">{thisWeekCount}</div>
+                                    <div className="mrd-stat__lbl">Events this week</div>
+                                </div>
+                                <div className="mrd-stat">
+                                    <span className="mrd-stat__ic" style={{ background: 'var(--mrd-emerald-tint)', color: 'var(--mrd-emerald)' }}><Ico n="flag" cls="sm" /></span>
+                                    <div className="mrd-stat__val tnum">{workingDaysLeft}</div>
+                                    <div className="mrd-stat__lbl">Working days left this month</div>
                                 </div>
                                 <div className="mrd-stat">
                                     <span className="mrd-stat__ic" style={{ background: 'var(--mrd-accent-tint)', color: 'var(--mrd-accent)' }}><Ico n="sun" cls="sm" /></span>
-                                    <div className="mrd-stat__val tnum">{holidayList.length}</div>
-                                    <div className="mrd-stat__lbl">Holidays in {currentYear}</div>
-                                </div>
-                                <div className="mrd-stat">
-                                    <span className="mrd-stat__ic" style={{ background: 'var(--mrd-rose-tint)', color: 'var(--mrd-rose)' }}><Ico n="cake" cls="sm" /></span>
-                                    <div className="mrd-stat__val tnum">{celebrations.length}</div>
-                                    <div className="mrd-stat__lbl">Celebrations soon</div>
+                                    <div className="mrd-stat__val tnum">
+                                        {nextHoliday ? (daysToNextHoliday === 0 ? 'Today' : daysToNextHoliday) : '—'}
+                                    </div>
+                                    <div className="mrd-stat__lbl">
+                                        {nextHoliday
+                                            ? `${daysToNextHoliday === 0 ? '' : `Days to `}${nextHoliday.title} · ${dayjs(nextHoliday.date).format('DD MMM')}`
+                                            : `No holidays left in ${currentYear}`}
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </section>
                 </div>
             </div>
+
+            {/* Mounted once for the whole calendar rather than per row: one open card at
+                a time, and the rail re-renders on every day change. */}
+            {birthdayCardTarget && (
+                <BirthdayCardDialog
+                    open
+                    kind={birthdayCardTarget.kind}
+                    personId={birthdayCardTarget.id}
+                    personName={birthdayCardTarget.name}
+                    onClose={() => setBirthdayCardTarget(null)}
+                />
+            )}
         </>
     );
 }

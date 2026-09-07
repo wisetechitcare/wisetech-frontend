@@ -11,10 +11,15 @@ import dayjs from 'dayjs';
  *     off-Saturdays were reported as company-wide absences
  *   · it ran over a roster that still contained people who had left
  *
- * The third is fixed at the source (the roster is now requested scoped to the employment
- * window), so this function deliberately takes the roster as given and does not re-filter
- * it — two places deciding who counts is how the cards and their own modal drifted apart
- * in the first place.
+ * The third needs BOTH halves. The roster is requested scoped to the employment window,
+ * which answers "does this person belong in August?" — but a window is a SET, and absence
+ * is judged per DAY. Someone who left on 14 August belongs in August and is absent on
+ * none of the days after the 14th. Scoping the roster alone gave them a full month of
+ * fabricated absences, which is what the `isEmployedOn` predicate below closes.
+ *
+ * The function still does not re-filter the roster — two places deciding MEMBERSHIP is
+ * how the cards and their own modal drifted apart in the first place. It asks a different
+ * question, one the roster cannot answer on its own.
  */
 
 export interface AbsentDayOptions<T> {
@@ -39,6 +44,19 @@ export interface AbsentDayOptions<T> {
     leaveByDay: ReadonlyMap<string, ReadonlyMap<string, unknown>>;
     /** The roster to judge, already scoped to who was employed in this window. */
     roster: readonly T[];
+    /**
+     * Was THIS employee employed on THIS day?
+     *
+     * Required, not optional, and deliberately so: a default of "always true" is
+     * precisely the bug — it reads as a safe no-op and silently fabricates a month of
+     * absences for anyone who left mid-window. Making callers answer it means a new
+     * caller has to think about leavers rather than inherit the wrong answer.
+     *
+     * Injected rather than derived here so this file stays free of employee-shape
+     * assumptions; the Overview passes the shared `getEmployeeStatus`, which is the
+     * frontend twin of the backend's employment-window predicate and is rejoin-aware.
+     */
+    isEmployedOn: (employee: T, date: dayjs.Dayjs) => boolean;
 }
 
 /**
@@ -67,6 +85,9 @@ export function computeAbsentEntries<T extends { _id?: string }>(
         for (const employee of opts.roster) {
             const id = employee?._id;
             if (!id) continue;
+            // Not employed that day — a leaver is absent on none of the days after
+            // they left, and a joiner on none of the days before they arrived.
+            if (!opts.isEmployedOn(employee, d)) continue;
             if (present?.has(id)) continue;
             if (onLeave?.has(id)) continue;
             entries.push({ ...employee, _absentDate: d });

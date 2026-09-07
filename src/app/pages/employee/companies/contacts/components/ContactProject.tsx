@@ -13,7 +13,7 @@ import {
   getProjectsByContactId,
 } from "@services/companies";
 import { fetchAllCountries } from "@services/options";
-import { getAllClientBranches } from "@services/lead";
+import { getAllClientBranches, getAllLeadDirectSource } from "@services/lead";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import dayjs from "dayjs";
@@ -42,6 +42,7 @@ const ContactProject = ({ contact }: { contact: any }) => {
   const [allCountries, setAllCountries] = useState<any>([]);
   const [allCompanyTypes, setAllCompanyTypes] = useState<any>([]);
   const [allTeams, setAllTeams] = useState<any>([]);
+  const [allLeadDirectSources, setAllLeadDirectSources] = useState<any>([]);
   const [rowColors, setRowColors] = useState<any>([]);
 
   const navigate = useNavigate();
@@ -59,6 +60,7 @@ const ContactProject = ({ contact }: { contact: any }) => {
       const response9 = await fetchAllCountries();
       const response10 = await getAllCompanyTypes();
       const response11 = await getAllTeams(1, 9999); // Get all teams for dropdown
+      const response12 = await getAllLeadDirectSource();
 
       // Use the contact-scoped endpoint (projects where this contact is on the Teams
       // page external roster) instead of client-side filtering all projects.
@@ -73,6 +75,7 @@ const ContactProject = ({ contact }: { contact: any }) => {
       setAllCountries(response9.data?.countries);
       setAllCompanyTypes(response10?.companyTypes);
       setAllTeams(response11?.data?.teams);
+      setAllLeadDirectSources(response12?.leadDirectSources || []);
     } catch (error) {
       console.log(error);
     } finally {
@@ -101,6 +104,12 @@ const ContactProject = ({ contact }: { contact: any }) => {
     if (!branchId) return null;
     const branch = allClientBranches.find((b: any) => b.id === branchId);
     return branch?.name || null;
+  };
+
+  const findLeadDirectSourceName = (sourceId: string | undefined) => {
+    if (!sourceId) return null;
+    const source = allLeadDirectSources.find((s: any) => s.id === sourceId);
+    return source?.name || null;
   };
 
   // set background color based on project status of each row
@@ -403,9 +412,11 @@ const ContactProject = ({ contact }: { contact: any }) => {
     },
     {
       accessorKey: "leadDirectSourceId",
+      // Every other *Id column here resolves through a name list; this one printed the
+      // raw id under a header that says "Name".
       header: "Lead Direct Source Name",
       Cell: ({ renderedCellValue }: any) =>
-        renderedCellValue ? renderedCellValue : "N/A",
+        findLeadDirectSourceName(renderedCellValue) || "N/A",
     },
   ];
 

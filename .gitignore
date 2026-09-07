@@ -30,5 +30,9 @@ CLAUDE.md
 *_diff.txt
 *.labbai.*
 
+# Bundled task-domain tests (npm run test:tasks). Node ignores node_modules for
+# --test, so the bundle has to live outside it.
+.task-tests/
+
 # npm is not used here — pnpm-lock.yaml is the lockfile
 package-lock.json

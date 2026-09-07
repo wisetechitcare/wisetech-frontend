@@ -19,6 +19,7 @@ import { useTableFilters } from "@app/hooks/useTableFilters";
 import { projectManagerIds } from "@app/pages/employee/entity/detail/entityViewModel";
 import { flexibleTextMatch, searchAcrossFields } from "@app/utils/robustSearch";
 import Loader from "@app/modules/common/utils/Loader";
+import { dateSortingFn } from "@app/modules/common/components/table/dateSort";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
@@ -46,7 +47,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
-import { formatCompactCurrency, getProjectPhase, isDelayedProject, PHASE_THEMES } from "../../entity/entityUtils";
+import { formatCompactCurrency, getProjectPhase, isDelayedProject, projectNumberOf, PHASE_THEMES } from "../../entity/entityUtils";
 import PeriodNavigationButtons from "@pages/employee/leads/table/PeriodNavigationButtons";
 import "./ProjectTablePage.css";
 
@@ -90,11 +91,9 @@ const ProjectTablePage = () => {
   const [alignment, setAlignment] = useState<DateMode>("monthly");
   // Filters sync with URL params — persist across navigation without page reload
   const {
-    searchText,
     projectStatusFilter,
     projectManagerFilter,
     showMissingAddress,
-    updateSearchText,
     updateStatusFilter,
     updateManagerFilter,
     updateMissingAddress,
@@ -376,7 +375,7 @@ const ProjectTablePage = () => {
             // Project-specific fields — sourced from lead.execution (lead-as-master)
             // with lead scalars and the transitional lead.project as fallbacks.
             projectId: lead?.projectId || project?.id || "N/A",
-            projectPrefix: lead?.originalProjectPrefix || project?.prefix || "N/A",
+            projectPrefix: projectNumberOf(lead) || "N/A",
             projectStatus: exec?.projectStatus || project?.status || null,
             projectStartDate: startVal || "N/A",
             projectEndDate: endVal || "N/A",
@@ -469,11 +468,10 @@ const ProjectTablePage = () => {
         meta: { defaultVisible: true },
         size: 140,
         enableSorting: true,
-        // "N/A" sorts as oldest so dated rows lead the default (desc) view.
-        sortingFn: (rowA: any, rowB: any) => {
-          const toTime = (v: any) => (v && v !== "N/A" ? new Date(v).getTime() : 0);
-          return toTime(rowA.original.projectStartDate) - toTime(rowB.original.projectStartDate);
-        },
+        // "N/A" sorts as oldest so dated rows lead the default (desc) view, and
+        // same-date rows break the tie on project number instead of arriving in
+        // whatever order the DB returned. See dateSort.ts.
+        sortingFn: dateSortingFn,
         Cell: ({ cell }: { cell: any }) => {
           try {
             const v = cell.getValue();
@@ -587,6 +585,7 @@ const ProjectTablePage = () => {
         meta: { defaultVisible: false },
         size: 150,
         enableSorting: true,
+        sortingFn: dateSortingFn,
         Cell: ({ row }: { row: any }) => {
           try {
             const v = row.original.projectEndDate;
@@ -765,26 +764,9 @@ const ProjectTablePage = () => {
       ? rowManagerIds(item).includes(projectManagerFilter)
       : true;
 
-    let searchMatch = true;
-    if (searchText) {
-      const pmName = pmNames(item);
-      const serviceName = projectServices?.find((s: any) => s.id === item.service)?.name || "";
-      const categoryName = projectCategories?.find((c: any) => c.id === item.category)?.name || "";
-
-      // Robust search: "dmart" matches "D Mart", "D-Mart", "D_Mart", etc.
-      searchMatch = searchAcrossFields(searchText, [
-        item.projectName,
-        item.projectPrefix,
-        item.client,
-        item.contact,
-        item.projectStatus?.name,
-        pmName,
-        serviceName,
-        categoryName,
-      ]);
-    }
-
-    return dateMatch && projectStatusMatch && projectManagerMatch && searchMatch;
+    // Text search is the table's own "Search in All Columns" box now — this page
+    // no longer keeps a second search input (or a ?search= param) of its own.
+    return dateMatch && projectStatusMatch && projectManagerMatch;
   });
 
   // "Missing Address" is a GLOBAL view: the count and the list ignore the period
@@ -798,7 +780,7 @@ const ProjectTablePage = () => {
   // Note: showMissingAddress is intentionally NOT part of hasAnyFilter — its own
   // toggle button turns it off, so surfacing a separate "Clear filters" chip for it
   // would only shift the toolbar layout when the button is clicked.
-  const hasAnyFilter = projectStatusFilter || projectManagerFilter || searchText;
+  const hasAnyFilter = projectStatusFilter || projectManagerFilter;
   const clearAllFilters = clearFiltersURL;
 
   const totalFilteredCost = (quickFilteredData ?? []).reduce(
@@ -974,128 +956,9 @@ const ProjectTablePage = () => {
               </div>
             )}
 
-            {/* Search */}
-            <TextField
-              size="small"
-              placeholder="Search…"
-              value={searchText}
-              onChange={(e) => updateSearchText(e.target.value)}
-              sx={{
-                minWidth: isMobile ? "100%" : 180,
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "6px",
-                  height: FILTER_HEIGHT,
-                  fontFamily: "Inter",
-                  fontSize: "12px",
-                  "& fieldset": { borderColor: searchText ? "#1E3A8A" : "#E2E8F0" },
-                  "&:hover fieldset": { borderColor: "#1E3A8A" },
-                  "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
-                },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <KTIcon iconName="magnifier" className="fs-6" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            {/* Project Status Filter */}
-            {projectStatuses.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 150 }}>
-                <Select
-                  value={projectStatusFilter}
-                  onChange={(e) => updateStatusFilter(e.target.value)}
-                  displayEmpty
-                  sx={pillSelectSx(!!projectStatusFilter)}
-                  renderValue={(val) => {
-                    if (!val) {
-                      return (
-                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                          Project Status
-                        </span>
-                      );
-                    }
-                    const st = projectStatuses.find((s: any) => s.id === val);
-                    return (
-                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
-                        {st?.name || val}
-                      </span>
-                    );
-                  }}
-                  MenuProps={menuSx}
-                >
-                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                    All Project Statuses
-                  </MenuItem>
-                  {projectStatuses.map((st: any) => (
-                    <MenuItem key={st.id} value={st.id} sx={{ fontSize: "12px" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color || "#64748B", display: "inline-block", flexShrink: 0 }} />
-                        {st.name}
-                      </span>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-
-            {/* Project Manager Filter */}
-            {projectManagerOptions.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 160 }}>
-                <Select
-                  value={projectManagerFilter}
-                  onChange={(e) => updateManagerFilter(e.target.value)}
-                  displayEmpty
-                  sx={pillSelectSx(!!projectManagerFilter)}
-                  renderValue={(val) => {
-                    if (!val) {
-                      return (
-                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                          Project Manager
-                        </span>
-                      );
-                    }
-                    const emp = projectManagerOptions.find((e: any) => e.employeeId === val);
-                    return (
-                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
-                        {emp?.employeeName || val}
-                      </span>
-                    );
-                  }}
-                  MenuProps={menuSx}
-                >
-                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                    All Project Managers
-                  </MenuItem>
-                  {projectManagerOptions.map((emp: any) => (
-                    <MenuItem key={emp.employeeId} value={emp.employeeId} sx={{ fontSize: "12px" }}>
-                      {emp.employeeName}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-
-            {hasAnyFilter && (
-              <button
-                onClick={clearAllFilters}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  color: "#1E3A8A",
-                  fontWeight: 600,
-                  fontFamily: "Inter, sans-serif",
-                  padding: "2px 8px",
-                  whiteSpace: "nowrap"
-                }}
-              >
-                ✕ Clear Filters
-              </button>
-            )}
+            {/* Search / Status / Manager / Clear now live inside the table's own toolbar
+                (renderTopToolbarRightActions below), next to its column picker and
+                search — same arrangement as the reimbursement tables. */}
           </div>
 
           {/* Right-side group: budget/results pill + missing-address toggle, kept together */}
@@ -1157,6 +1020,105 @@ const ProjectTablePage = () => {
         // discards them so latest-start-date-first applies for everyone.
         tableName="ProjectTableV4"
         defaultSorting={[{ id: "projectStartDate", desc: true }]}
+        // Returns elements, not a <FilterToolbar/> component declared in render —
+        // a fresh component type each render remounts the controls mid-interaction.
+        renderTopToolbarRightActions={() => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {projectStatuses.length > 0 && (
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <Select
+                  value={projectStatusFilter}
+                  onChange={(e) => updateStatusFilter(e.target.value)}
+                  displayEmpty
+                  sx={pillSelectSx(!!projectStatusFilter)}
+                  renderValue={(val) => {
+                    if (!val) {
+                      return (
+                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
+                          Project Status
+                        </span>
+                      );
+                    }
+                    const st = projectStatuses.find((s: any) => s.id === val);
+                    return (
+                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
+                        {st?.name || val}
+                      </span>
+                    );
+                  }}
+                  MenuProps={menuSx}
+                >
+                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
+                    All Project Statuses
+                  </MenuItem>
+                  {projectStatuses.map((st: any) => (
+                    <MenuItem key={st.id} value={st.id} sx={{ fontSize: "12px" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+                        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color || "#64748B", display: "inline-block", flexShrink: 0 }} />
+                        {st.name}
+                      </span>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {projectManagerOptions.length > 0 && (
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <Select
+                  value={projectManagerFilter}
+                  onChange={(e) => updateManagerFilter(e.target.value)}
+                  displayEmpty
+                  sx={pillSelectSx(!!projectManagerFilter)}
+                  renderValue={(val) => {
+                    if (!val) {
+                      return (
+                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
+                          Project Manager
+                        </span>
+                      );
+                    }
+                    const emp = projectManagerOptions.find((e: any) => e.employeeId === val);
+                    return (
+                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
+                        {emp?.employeeName || val}
+                      </span>
+                    );
+                  }}
+                  MenuProps={menuSx}
+                >
+                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
+                    All Project Managers
+                  </MenuItem>
+                  {projectManagerOptions.map((emp: any) => (
+                    <MenuItem key={emp.employeeId} value={emp.employeeId} sx={{ fontSize: "12px" }}>
+                      {emp.employeeName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {hasAnyFilter && (
+              <button
+                onClick={clearAllFilters}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  color: "#1E3A8A",
+                  fontWeight: 600,
+                  fontFamily: "Inter, sans-serif",
+                  padding: "2px 8px",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                ✕ Clear Filters
+              </button>
+            )}
+          </Box>
+        )}
         renderExportActions={() => (
           <ExportButton
             data={quickFilteredData}
@@ -1223,10 +1185,8 @@ const ProjectTablePage = () => {
                 },
               },
             },
-            onClick: () =>
-              navigate(`/leads/${row.original.id}`, {
-                state: { leadData: row.original.id, isProject: true },
-              }),
+            // The path carries the project context — see the /project/:id route.
+            onClick: () => navigate(`/project/${row.original.id}`),
           }),
         }}
       />

@@ -4,61 +4,26 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { PageHeadingTitle } from "@metronic/layout/components/header/page-title/PageHeadingTitle";
 import { KTCard, KTCardBody, KTIcon } from "@metronic/helpers";
-import { deleteAnnouncementById, getAllAnnouncements, updateAnnouncementById } from "@services/company";
+import { deleteAnnouncementById, getAllAnnouncements } from "@services/company";
 import { miscellaneousIcons } from "../../../../_metronic/assets/miscellaneousicons";
 import dayjs from "dayjs";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, ShareWith } from "@constants/statistics";
 import CreateAnnouncementButton from "@pages/dashboard/views/CreateAnnouncementButton";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import { Modal } from "react-bootstrap";
-import { Field, Form, Formik } from "formik";
-import * as Yup from "yup";
-import MultiSelectInput from "@pages/dashboard/views/MultiSelectInput";
-import TextInput from "@app/modules/common/inputs/TextInput";
-import DateInput from "@app/modules/common/inputs/DateInput";
-import HighlightErrors from "@app/modules/errors/components/HighlightErrors";
-import { fetchAllUsers } from "@services/users";
-import { uploadUserAsset } from "@services/uploader";
 import { IAnnouncement } from "@models/company";
 import { hasPermission } from "@utils/authAbac";
+import AnnouncementFormDialog from "./AnnouncementFormDialog";
 
 const announcement: Array<PageLink> = [
     { title: "Company", path: "#", isSeparator: false, isActive: false },
     { title: "", path: "", isSeparator: true, isActive: false },
 ];
 
-const announcementSchema = Yup.object({
-    title: Yup.string().required("Title is required"),
-    description: Yup.string().required("Description is required"),
-    shareWith: Yup.string().required("Share with is required"),
-    fromDate: Yup.string().required("From date is required"),
-    toDate: Yup.string().required("To date is required"),
-    selectedUsers: Yup.array(
-        Yup.object().shape({
-            id: Yup.string(),
-        })
-    ),
-    imageUrl: Yup.string().required("Image is required"),
-});
-
-interface IAnnouncementEdit {
-    id: number;
-    title: string;
-    content: string;
-    imageUrl: string;
-    fromDate: string;
-    toDate: string;
-    createdAt: string;
-    description: string;
-    shareWith: string;
-}
-
-
 function Announcements() {
     const isAdmin = useSelector(
         (state: RootState) => state.auth.currentUser.isAdmin
     );
-    const [whomToShareWith, setWhomToShareWith] = useState(ShareWith.EVERYONE);
     const [showEditModal, setShowEditModal] = useState(false);
     const [announcementsList, setAnnouncementsList] = useState<IAnnouncement[]>(
         []
@@ -67,28 +32,10 @@ function Announcements() {
         useState<IAnnouncement | null>(null);
     const [announcementToBeEdited, setAnnouncementToBeEdited] =
         useState<IAnnouncement | null>(null);
-    const [loading, setLoading] = useState(false);
     const [refetch, setRefetch] = useState(false);
-    const [allUsersList, setAllUsersList] = useState([]);
     const [showDeleteModal, setshowDeleteModal] = useState(false);
     const [currentPage, setCurrentPage] = useState(0);
-    const userId = useSelector((state: RootState) => state.auth.currentUser.id);
     const itemsPerPage = 7;
-     console.log("announcementsList ==========================>",announcementsList);
-    useEffect(() => {
-        if (whomToShareWith != ShareWith.SELECTED_MEMBERS) return;
-        async function getAllUsers() {
-            try {
-                const {
-                    data: { users },
-                } = await fetchAllUsers();
-                setAllUsersList(users);
-            } catch (error) {
-                console.error("Failed to fetch users");
-            }
-        }
-        getAllUsers();
-    }, [whomToShareWith]);
 
     const handleShowEditModal = (announcement: IAnnouncement) => {
         setShowEditModal(true);
@@ -97,12 +44,7 @@ function Announcements() {
 
     const handleEditClose = () => {
         setShowEditModal(false);
-        // setAnnouncementToBeEdited(null);
     };
-
-    // useEffect(() => {
-    //     console.log("announcementToBeEdited", announcementToBeEdited);
-    // }, [announcementToBeEdited])
 
     const handleDeleteClose = () => {
         setshowDeleteModal(false);
@@ -144,44 +86,6 @@ function Announcements() {
         setshowDeleteModal(false);
     };
 
-    const handleEdit = async (announcement: IAnnouncement) => {
-        announcement.shareWith = whomToShareWith;
-        if (announcement?.fromDate) announcement.fromDate = dayjs(announcement?.fromDate).format("YYYY-MM-DD");
-        if (announcement?.toDate) announcement.toDate = dayjs(announcement?.toDate).format("YYYY-MM-DD");
-        const res = await updateAnnouncementById(announcement, announcement.id);
-        if (!res?.hasError) {
-            successConfirmation("Announcement updated successfully");
-            setRefetch(!refetch);
-        } else {
-            errorConfirmation("Failed to update announcement");
-        }
-        setShowEditModal(false);
-    };
-
-    const uploadFile = async (
-        event: React.ChangeEvent<HTMLInputElement>,
-        formikProps: any
-    ) => {
-        const {
-            target: { files },
-        } = event;
-        if (files && files.length > 0) {
-            const form = new FormData();
-            form.append("file", files[0]);
-            if (!userId) return;
-            try {
-                const {
-                    data: { path },
-                } = await uploadUserAsset(form, userId);
-
-                formikProps.setFieldValue("imageUrl", path);
-            } catch (error) {
-                console.error("Failed to upload file. Please try again.");
-            }
-        }
-    };
-
-
     // Filter out expired announcements (where toDate has passed)
     // const filteredAnnouncementsList = useMemo(() => {
     //     const now = new Date().getTime();
@@ -221,8 +125,6 @@ function Announcements() {
                                     <CreateAnnouncementButton
                                         setRefetch={setRefetch}
                                         refetch={refetch}
-                                        style="btn btn-sm btn-light-primary"
-                                        showPlusIcon
                                     />
                                 </div>
                             )}
@@ -496,197 +398,12 @@ function Announcements() {
                 </Modal.Body>
             </Modal>
 
-            <Modal show={showEditModal} onHide={handleEditClose}>
-                <Modal.Header closeButton>
-                    <Modal.Title>Edit Announcement</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Formik
-                        initialValues={announcementToBeEdited!}
-                        onSubmit={handleEdit}
-                        validationSchema={announcementSchema}
-                        enableReinitialize={true} // Allow reinitializing when initialValues change
-                    >
-                        {(formikProps) => (
-                            <Form
-                                className="d-flex flex-column"
-                                noValidate
-                                id="employee_reimbursement_form"
-                               
-                            >
-                                <div className="row d-flex flex-direction-column">
-                                    <label className="col-lg-4 col-form-label  fs-6 small">
-                                        Share With
-                                    </label>
-                                    <div className="d-flex flex-column mb-7 fv-row">
-                                        <span className="form-check form-check-custom form-check-solid">
-                                            <div key={ShareWith.EVERYONE}>
-                                                <Field
-                                                    className="form-check-input"
-                                                    type="radio"
-                                                    name="shareWith"
-                                                    value={ShareWith.EVERYONE}
-                                                    checked={whomToShareWith === ShareWith.EVERYONE}
-                                                    onChange={() => {
-                                                        setWhomToShareWith(ShareWith.EVERYONE);
-                                                        formikProps.setFieldValue(
-                                                            "shareWith",
-                                                            ShareWith.EVERYONE
-                                                        );
-                                                    }}
-                                                />
-                                                <span className="px-2">{"Everyone"}</span>
-                                            </div>
-                                            <div key={ShareWith.SELECTED_MEMBERS}>
-                                                <Field
-                                                    className="form-check-input"
-                                                    type="radio"
-                                                    name="shareWith"
-                                                    value={ShareWith.SELECTED_MEMBERS}
-                                                    checked={
-                                                        whomToShareWith === ShareWith.SELECTED_MEMBERS
-                                                    }
-                                                    onChange={() => {
-                                                        setWhomToShareWith(ShareWith.SELECTED_MEMBERS);
-                                                        formikProps.setFieldValue(
-                                                            "shareWith",
-                                                            ShareWith.SELECTED_MEMBERS
-                                                        );
-                                                    }}
-                                                />
-                                                <span className="px-2">{"Selected Members"}</span>
-                                            </div>
-                                        </span>
-                                    </div>
-                                </div>
-                                {whomToShareWith === ShareWith.SELECTED_MEMBERS && (
-                                    <div className="row">
-                                        <div className="col-lg-12">
-                                            <MultiSelectInput
-                                                label="Select Users"
-                                                options={allUsersList}
-                                                value={formikProps.values?.selectedUsers}
-                                                onChange={formikProps.setFieldValue}
-                                                // closeMenuOnSelect={false}
-                                                placeholder="Select Users"
-                                                formikField="selectedUsers"
-                                                margin="mb-4"
-                                                isRequired={true}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="row">
-                                    <div className="col-lg-12">
-                                        <TextInput
-                                            isRequired={true}
-                                            label="Announcement Title"
-                                            margin="mb-4"
-                                            formikField="title"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="row mb-4">
-                                    <div className="col-lg-6 ">
-                                        <DateInput
-                                            isRequired={true}
-                                            inputLabel={"Select From Date"}
-                                            formikProps={formikProps}
-                                            formikField="fromDate"
-                                            placeHolder={"Select Date"}
-                                        />
-                                    </div>
-                                    <div className="col-lg-6">
-                                        <DateInput
-                                            isRequired={true}
-                                            inputLabel={"Select To Date"}
-                                            formikProps={formikProps}
-                                            formikField="toDate"
-                                            placeHolder={"Select Date"}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="row">
-                                    <div className="col-lg-12 mb-4">
-                                        <label className="mb-3 fw-bold required">
-                                            Choose Icon/Image
-                                        </label>
-
-                                        <input
-                                            type="file"
-                                            className="form-control form-control-lg form-control-solid"
-                                            required={true}
-                                            accept=".png, .jpg, .jpeg, .svg"
-                                            onChange={(event) => uploadFile(event, formikProps)}
-                                        />
-                                        {formikProps.touched.imageUrl &&
-                                            formikProps.errors.imageUrl && (
-                                                <div className="fv-plugins-message-container">
-                                                    <div className="fv-help-block">
-                                                        {formikProps.errors.imageUrl}
-                                                    </div>
-                                                </div>
-                                            )}
-                                    </div>
-                                </div>
-                                <div className={`d-flex flex-column fv-row mb-4`}>
-                                    <label className="d-flex align-items-center fs-6 form-label mb-2">
-                                        <span className={`required`}>Description</span>
-                                    </label>
-
-                                    <Field name={"description"}>
-                                        {({ field }: { field: any }) => {
-                                            const handleChange = (
-                                                e: React.ChangeEvent<HTMLTextAreaElement>
-                                            ) => {
-                                                const { value } = e.target;
-
-                                                field.onChange(e);
-                                            };
-                                            return (
-                                                <textarea
-                                                    {...field}
-                                                    className={`employee__form_wizard__input form-control `}
-                                                    onChange={handleChange}
-                                                    rows={5}
-                                                />
-                                            );
-                                        }}
-                                    </Field>
-
-                                    <HighlightErrors
-                                        isRequired={true}
-                                        formikField={"description"}
-                                    />
-                                </div>
-
-                                <div className="d-flex justify-content-start">
-                                    <button
-                                        type="submit"
-                                        className="btn btn-primary"
-                                        disabled={loading || !formikProps.isValid}
-                                    >
-                                        {/* || !formikProps.isValid */}
-                                        {!loading && "Post"}
-                                        {loading && (
-                                            <span
-                                                className="indicator-progress"
-                                                style={{ display: "block" }}
-                                            >
-                                                Please wait...{" "}
-                                                <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                                            </span>
-                                        )}
-                                    </button>
-                                </div>
-                            </Form>
-                        )}
-                    </Formik>
-
-                </Modal.Body>
-            </Modal>
+            <AnnouncementFormDialog
+                open={showEditModal}
+                onClose={handleEditClose}
+                announcement={announcementToBeEdited}
+                onSaved={() => setRefetch(!refetch)}
+            />
         </>
     );
 }

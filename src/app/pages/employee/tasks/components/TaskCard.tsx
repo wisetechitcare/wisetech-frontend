@@ -1,0 +1,254 @@
+/**
+ * A Kanban task card (Phase 4 §5).
+ *
+ * Dense on purpose. A board is scanned, not read: scope, title, project, progress, assignee and
+ * due state must all land in one glance without the card becoming a form. Anything that needs
+ * explaining belongs on the detail page.
+ *
+ * The layout is three bands, top to bottom — **what it is** (priority · scope · id), **what it
+ * says** (title · project · progress), **who and when** (assignee · due · subtasks · logged time),
+ * separated by a hairline. A flat stack of eight equal rows is what made the old card read as a
+ * list of fields; banding it gives the eye somewhere to land first.
+ *
+ * ### Dragging
+ *
+ * Native HTML5 DnD, no library. The only gesture a board needs is "move this card to that
+ * column", and that is exactly what the API models. Touch devices get the stage menu instead
+ * (HTML5 DnD does not fire on touch), so the feature is reachable either way.
+ *
+ * **The drag image is an explicit clone, not the card itself.** Letting the browser snapshot the
+ * live node produced the blurred ghost: the snapshot is a raster of the element *including* its
+ * transform, so a `scale()` resamples it, and the card sits inside the board's backdrop-filtered
+ * surface, which the compositor renders through as well. A detached clone — plain, opaque, tilted,
+ * outside that stacking context — is sharp on every browser.
+ *
+ * **The clone is positioned ON the card it copies, and torn down on the first `drag` event.**
+ * Both halves matter, and each was a bug on its own:
+ *
+ *   - Parking the clone off-screen (`left: -10000px`) is the usual trick and it is not reliable —
+ *     Chrome frequently declines to rasterize a node outside the viewport, and silently falls back
+ *     to snapshotting the source element instead. The source is dimmed to 35% during a drag, which
+ *     is precisely the see-through ghost. Sitting the clone exactly over the original keeps it in
+ *     the viewport, so it always rasterizes, and it is invisible to the user because it is pixel-
+ *     identical to what was already there.
+ *   - `drag` fires only after the drag image has been captured, so it is the one honest signal
+ *     that the snapshot is done. A `setTimeout(0)` is a guess, and it lost the race often enough
+ *     to make the ghost's appearance look random.
+ *
+ * `dragend` and unmount are the belt-and-braces cleanups — never the primary one.
+ */
+import { memo, useEffect, useRef } from 'react';
+import { Box, Card, Divider, Stack, Tooltip, Typography, alpha, useTheme } from '@mui/material';
+import { KTIcon } from '@metronic/helpers';
+import {
+    TaskRow, isTaskOverdue, isTaskFinal, loggedSeconds, formatDuration, shortTaskId,
+} from '../taskDomain';
+import {
+    TaskScopeBadge, TaskPriorityBadge, TaskProgress, TaskAssignees, TaskDueDate, FinalStageMark,
+} from './primitives';
+
+export interface TaskCardProps {
+    task: TaskRow;
+    now: Date;
+    onOpen: (taskId: string) => void;
+    /**
+     * Dragging is no longer this component's business.
+     *
+     * The card used to own the whole gesture — `draggable`, a hand-built `setDragImage` clone,
+     * and a dance to stop the browser snapshotting the faded original. `SortableItem` wraps it
+     * now: it registers the drag, draws the insertion edge, and renders THIS component again as
+     * the floating preview. What is left here is a card.
+     */
+    /** Touch fallback for stage moves — the board supplies the menu. */
+    onRequestMove?: (task: TaskRow, anchor: HTMLElement) => void;
+}
+
+/** A muted count — subtasks, logged time. Quiet by design: these are footnotes, not headlines. */
+const MetaChip = ({ icon, label }: { icon: string; label: string }) => (
+    <Stack direction="row" spacing={0.3} alignItems="center" sx={{ color: 'text.disabled' }}>
+        <KTIcon iconName={icon} className="fs-8" />
+        <Typography variant="caption" sx={{ fontSize: 10.5, fontWeight: 600, color: 'inherit' }}>
+            {label}
+        </Typography>
+    </Stack>
+);
+
+const TaskCardBase = ({
+    task, now, onOpen, onRequestMove,
+}: TaskCardProps) => {
+    const theme = useTheme();
+    const dark = theme.palette.mode === 'dark';
+    const overdue = isTaskOverdue(task, now);
+    // Finished work, read off the STORED property of its stage — never the stage's name.
+    const done = isTaskFinal(task);
+    const logged = loggedSeconds(task.timesheets);
+    const subtaskCount = task._count?.subtasks ?? 0;
+    return (
+        <Card
+            elevation={0}
+            onClick={() => onOpen(task.id)}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(task.id); }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label={`${task.taskName}, ${task.taskScope.toLowerCase()} task`}
+            sx={{
+                p: 1.5,
+                // The grab cursor comes from SortableItem, which knows whether this
+                // card is actually draggable here.
+                cursor: 'inherit',
+                borderRadius: 2,
+                border: '1px solid',
+                // Overdue outranks finished: a card can only be one of them, and a late card is
+                // the one worth interrupting for. The finished tint is deliberately faint — a
+                // wash, not a highlight — because a done card is something the eye should be
+                // able to SKIP, not something competing for attention.
+                borderColor: overdue
+                    ? alpha(theme.palette.error.main, 0.35)
+                    : done ? alpha(theme.palette.success.main, 0.3) : 'divider',
+                bgcolor: !overdue && done
+                    ? alpha(theme.palette.success.main, dark ? 0.09 : 0.045)
+                    : 'background.paper',
+                // The dragged card's slot is dimmed by SortableItem, so nothing is needed here.
+                boxShadow: `0 1px 2px ${alpha(theme.palette.common.black, theme.palette.mode === 'dark' ? 0.4 : 0.06)}`,
+                transition: theme.transitions.create(
+                    ['border-color', 'box-shadow', 'transform', 'opacity'],
+                    { duration: 160, easing: theme.transitions.easing.easeOut },
+                ),
+                '&:hover': {
+                    borderColor: alpha(theme.palette.primary.main, 0.45),
+                    boxShadow: `0 6px 18px ${alpha(theme.palette.common.black, theme.palette.mode === 'dark' ? 0.5 : 0.1)}`,
+                    transform: 'translateY(-2px)',
+                },
+                '&:focus-visible': {
+                    outline: `2px solid ${theme.palette.primary.main}`,
+                    outlineOffset: 2,
+                },
+                // The row menu is chrome, not content: on a pointer device it appears when the
+                // card is under the cursor. On touch — where it is the ONLY way to move a card —
+                // it is always visible, because there is no hover to reveal it with.
+                '@media (hover: hover)': {
+                    '& .wt-card-menu': { opacity: 0 },
+                    '&:hover .wt-card-menu, & .wt-card-menu:focus-visible': { opacity: 1 },
+                },
+            }}
+        >
+            <Stack spacing={1}>
+                {/* ── band 1: what it is ── */}
+                <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
+                    <TaskScopeBadge scope={task.taskScope} />
+                    {task.priority && <TaskPriorityBadge priority={task.priority} />}
+                    <Box sx={{ flex: 1, minWidth: 8 }} />
+                    <FinalStageMark task={task} />
+                    <Typography
+                        variant="caption"
+                        sx={{ color: 'text.disabled', fontFamily: 'monospace', fontSize: 10, letterSpacing: '-.02em' }}
+                    >
+                        {shortTaskId(task.id)}
+                    </Typography>
+                    {onRequestMove && (
+                        <Tooltip title="Move to stage">
+                            <Box
+                                component="button"
+                                type="button"
+                                className="wt-card-menu"
+                                aria-label="Move to stage"
+                                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                                    e.stopPropagation();
+                                    onRequestMove(task, e.currentTarget);
+                                }}
+                                sx={{
+                                    border: 0, p: 0.25, borderRadius: 0.75, cursor: 'pointer',
+                                    bgcolor: 'transparent', color: 'text.disabled', lineHeight: 0,
+                                    transition: 'opacity .15s, background-color .15s, color .15s',
+                                    '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+                                }}
+                            >
+                                <KTIcon iconName="dots-vertical" className="fs-8" />
+                            </Box>
+                        </Tooltip>
+                    )}
+                </Stack>
+
+                {/* ── band 2: what it says ── */}
+                <Box sx={{ minWidth: 0 }}>
+                    {/* A subtask must READ as a subtask.
+                        This used to be 10px disabled-grey text with a small glyph — the same
+                        weight and colour as the project line two rows below it, so the one line
+                        that says "this is part of something bigger" looked like more metadata.
+                        It is now a tinted pill with the parent's name and a return arrow, which
+                        is the shape the eye already reads as "belongs to". */}
+                    {task.parentTaskId && (
+                        <Stack
+                            direction="row" spacing={0.4} alignItems="center"
+                            sx={{
+                                mb: 0.5, maxWidth: '100%', width: 'fit-content',
+                                px: 0.6, py: 0.15, borderRadius: 0.75,
+                                bgcolor: alpha(theme.palette.secondary.main, dark ? 0.24 : 0.12),
+                                color: theme.palette.secondary.main,
+                            }}
+                        >
+                            <KTIcon iconName="arrow-down-left" className="fs-9" />
+                            <Typography variant="caption" noWrap sx={{ fontSize: 10, fontWeight: 700, minWidth: 0 }}>
+                                {task.parentTask?.taskName || 'Subtask'}
+                            </Typography>
+                        </Stack>
+                    )}
+
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            fontWeight: 600, fontSize: 13.5, lineHeight: 1.4, color: 'text.primary',
+                            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden', wordBreak: 'break-word',
+                        }}
+                    >
+                        {task.taskName}
+                    </Typography>
+
+                    {/* The project — or an explicit internal marker, never a blank line. */}
+                    <Stack direction="row" spacing={0.4} alignItems="center" sx={{ mt: 0.35, minWidth: 0, color: 'text.secondary' }}>
+                        <KTIcon iconName={task.taskScope === 'PROJECT' ? 'office-bag' : 'home-2'} className="fs-9" />
+                        <Typography variant="caption" noWrap sx={{ fontSize: 11, minWidth: 0, color: 'inherit' }}>
+                            {task.taskScope === 'PROJECT'
+                                ? (task.lead?.title || 'Project unavailable')
+                                : 'Internal / no project'}
+                        </Typography>
+                    </Stack>
+                </Box>
+
+                <TaskProgress value={task.progress} height={4} />
+
+                <Divider sx={{ borderColor: 'divider', opacity: 0.7 }} />
+
+                {/* ── band 3: who and when ── */}
+                <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
+                    {/* Everyone on it, owner first — a shared task shows as a group. */}
+                    <TaskAssignees assignees={task.assignees} fallback={task.assignedTo} size={24} max={2} />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <TaskDueDate task={task} now={now} pill />
+                    </Box>
+                    {/* "3 subtasks", not a bare "3" beside a glyph nobody has to decode. This is
+                        the other half of telling the two apart: a card either belongs to a
+                        parent (the pill above) or HAS children (this chip), and a card with
+                        neither is standalone work. */}
+                    {subtaskCount > 0 && (
+                        <MetaChip
+                            icon="tree"
+                            label={`${subtaskCount} subtask${subtaskCount === 1 ? '' : 's'}`}
+                        />
+                    )}
+                    {logged > 0 && <MetaChip icon="timer" label={formatDuration(logged)} />}
+                </Stack>
+            </Stack>
+        </Card>
+    );
+};
+
+/**
+ * Memoised: a board can hold hundreds of cards, and a drag re-renders the columns constantly.
+ * Without this, every pointer move over a column repaints every card in it.
+ */
+export const TaskCard = memo(TaskCardBase);
+export default TaskCard;

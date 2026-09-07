@@ -23,6 +23,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { rgba, tintOf, borderOf } from '@utils/leaveTypeColors';
 import { ACCENT, RED, PJK, DAY_NAMES, pad, navBtnSt } from './tokens';
+import { structuralDayKind, structuralDayTone, type StructuralColors } from '@app/modules/common/components/ui/tw/calendarDayTones';
 import { useLeavePalette } from './theme';
 
 export interface LeaveCalendarProps {
@@ -107,6 +108,76 @@ function LeaveCalendarBase({
         if (transient) tipTimer.current = setTimeout(() => setHoverTip(null), 2400);
     };
     const hideTip = () => { if (tipTimer.current) clearTimeout(tipTimer.current); setHoverTip(null); };
+
+    /**
+     * Keyboard navigation.
+     *
+     * `focusISO` is the roving tab stop: exactly one day is tabbable, so reaching
+     * the grid costs one Tab and leaving it costs one more, instead of tabbing
+     * through every day of the month. Arrows move within the month, PageUp/Down
+     * change month (Shift for year), Home/End jump to the ends of the week.
+     *
+     * Movement across a month boundary calls `nav` and then focuses the target
+     * after paint, because the destination cell does not exist until the new
+     * month renders.
+     */
+    const gridRef = useRef<HTMLDivElement | null>(null);
+    const [focusISO, setFocusISO] = useState<string | null>(null);
+    const pendingFocus = useRef<string | null>(null);
+
+    const focusDay = (iso: string) => {
+        const el = gridRef.current?.querySelector<HTMLButtonElement>(`[data-day="${iso}"]`);
+        if (el) { el.focus(); return true; }
+        return false;
+    };
+
+    // A month change queues the focus; this lands it once the new cells exist.
+    useEffect(() => {
+        if (!pendingFocus.current) return;
+        const iso = pendingFocus.current;
+        pendingFocus.current = null;
+        setFocusISO(iso);
+        requestAnimationFrame(() => focusDay(iso));
+    }, [cal.y, cal.m]);
+
+    const moveFocus = (fromISO: string, deltaDays: number) => {
+        const d = new Date(fromISO + 'T00:00:00');
+        d.setDate(d.getDate() + deltaDays);
+        const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        if (d.getFullYear() === cal.y && d.getMonth() === cal.m) {
+            setFocusISO(iso);
+            focusDay(iso);
+            return;
+        }
+        // Out of the displayed month — step the month, then focus after paint.
+        pendingFocus.current = iso;
+        nav(d.getFullYear() > cal.y || (d.getFullYear() === cal.y && d.getMonth() > cal.m) ? 1 : -1);
+    };
+
+    const onGridKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        const active = (e.target as HTMLElement)?.dataset?.day;
+        const from = active || focusISO;
+        if (!from) return;
+
+        const step: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+        if (e.key in step) { e.preventDefault(); moveFocus(from, step[e.key]); return; }
+
+        if (e.key === 'Home' || e.key === 'End') {
+            e.preventDefault();
+            // Monday-first, matching the grid's own column order.
+            const col = (new Date(from + 'T00:00:00').getDay() + 6) % 7;
+            moveFocus(from, e.key === 'Home' ? -col : 6 - col);
+            return;
+        }
+        if (e.key === 'PageUp' || e.key === 'PageDown') {
+            e.preventDefault();
+            const back = e.key === 'PageUp';
+            const d = new Date(from + 'T00:00:00');
+            d.setMonth(d.getMonth() + (back ? -1 : 1) * (e.shiftKey ? 12 : 1));
+            pendingFocus.current = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            nav((back ? -1 : 1) * (e.shiftKey ? 12 : 1));
+        }
+    };
     const { y, m } = cal;
     // Monday-first week: shift the JS Sun=0 lead so Monday occupies column 0.
     const lead = (new Date(y, m, 1).getDay() + 6) % 7, dim = new Date(y, m + 1, 0).getDate();
@@ -116,6 +187,12 @@ function LeaveCalendarBase({
     const end = previewEnd ?? s.to ?? s.from;
     const sz = small ? 40 : 44, rad = small ? 9 : 10;
     const hasWod = Object.keys(workingAndOffDays).length > 0;
+    // The four structural colours, in the shape the shared tone resolver wants.
+    // Sunday keeps RED so it matches this grid's own red column header.
+    const structuralCols: StructuralColors = React.useMemo(
+        () => ({ holiday: holidayCol, weekend: weekendCol, teamOff: teamOffCol, sunday: RED }),
+        [holidayCol, weekendCol, teamOffCol],
+    );
     const cells: React.ReactNode[] = [];
     for (let i = 0; i < lead; i++) cells.push(<div key={'l' + i} />);
     for (let d = 1; d <= dim; d++) {
@@ -143,6 +220,9 @@ function LeaveCalendarBase({
         const seg      = segByDate.get(iso), charged = !!seg;
         // sandwichCharged: interior off-day excluded from salary (Model B — not booked as leave)
         const sandwichCharged = sandwichDateSet.has(iso);
+        // Structural kind, shared with the attendance grid. A holiday wins over
+        // an off-day, matching the precedence the old inline branches had.
+        const structuralKind = structuralDayKind(iso, { isHoliday: holiday, isOffDay: offDay });
         const dtColor  = charged ? colorOf(seg!.leaveType) : ACCENT;
 
         const st: React.CSSProperties = {
@@ -152,31 +232,27 @@ function LeaveCalendarBase({
         };
         if (past || workedToday)  { st.opacity = 0.4; st.color = P.inkDisabled; }
         if (blocked && !past) { st.background = rgba(RED, P.dark ? 0.22 : 0.09); st.color = RED; st.textDecoration = 'line-through'; }
-        // Holiday — colour from customColors.attendanceOverview.holidayColor
-        if (holiday && !charged && !blocked) {
-            st.background = rgba(holidayCol, 0.12); st.color = holidayCol; st.boxShadow = `inset 0 0 0 1px ${rgba(holidayCol, 0.30)}`;
-        }
-        // Off-days — three distinct identities so they never read as the same swatch:
-        //  • Team Off (branch-configured weekday off) → teal tint + dashed ring (its own colour,
-        //    plus a non-colour cue for accessibility)
-        //  • Sunday → RED (matches the column header)
-        //  • Saturday / other weekend → weekendCol from config
-        if (offDay && !charged && !blocked && !holiday) {
-            if (teamOff) {
-                st.background     = rgba(teamOffCol, 0.12);
-                st.color          = teamOffCol;
-                // Dashed ring (via outline → no layout shift) is the non-colour cue that sets
-                // Team Off apart from the SOLID rings on weekend/holiday cells.
-                st.outline        = `1.5px dashed ${rgba(teamOffCol, 0.55)}`;
-                st.outlineOffset  = '-3px';
-                st.borderRadius   = rad;
+        // Structural days — holiday, team off, Sunday, Saturday.
+        //
+        // These four are facts about the CALENDAR rather than about this person,
+        // so their appearance now comes from `calendarDayTones` in the kit and is
+        // shared with the attendance grid: the same Saturday looks the same on
+        // both screens. The values there were lifted from this file verbatim,
+        // so nothing about how these cells render has changed.
+        //
+        // Team Off keeps its DASHED ring, applied via `outline` rather than
+        // `boxShadow` so it causes no layout shift — the non-colour cue that
+        // separates it from the solid rings on weekend and holiday cells.
+        if (structuralKind && !charged && !blocked) {
+            const t = structuralDayTone(structuralKind, structuralCols);
+            st.background = t.background;
+            st.color = t.color;
+            if (t.ring.style === 'dashed') {
+                st.outline = `${t.ring.width}px dashed ${t.ring.color}`;
+                st.outlineOffset = '-3px';
+                st.borderRadius = rad;
             } else {
-                const isSun   = wd === 0;
-                const offCol  = isSun ? RED : weekendCol;
-                const offAlpha = isSun ? 0.07 : 0.10;
-                st.background = rgba(offCol, offAlpha);
-                st.color      = offCol;
-                st.boxShadow  = `inset 0 0 0 1px ${rgba(offCol, isSun ? 0.20 : 0.25)}`;
+                st.boxShadow = `inset 0 0 0 ${t.ring.width}px ${t.ring.color}`;
             }
         }
         // In-range uncharged — light accent band so the selection reads cohesively.
@@ -265,6 +341,13 @@ function LeaveCalendarBase({
             : null;
         cells.push(
             <button key={iso} type="button" style={st}
+                data-day={iso}
+                role="gridcell"
+                // Roving tabindex: the focused day, else today, else the 1st.
+                // Exactly one cell is tabbable, so the grid is one Tab stop
+                // rather than one per day.
+                tabIndex={(focusISO ?? (today.startsWith(`${y}-${pad(m + 1)}`) ? today : `${y}-${pad(m + 1)}-01`)) === iso ? 0 : -1}
+                aria-current={iso === today ? 'date' : undefined}
                 aria-pressed={isEp || undefined}
                 /* eslint-disable-next-line no-restricted-syntax -- calendar chrome, not data: this must read as a weekday + month name ("Mon, 24 Aug"); formatDate()'s YYYY.MM.DD would make the tooltip and the screen-reader label worse, not compliant. */
                 aria-label={`${new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} — ${tip}`}
@@ -283,7 +366,7 @@ function LeaveCalendarBase({
                 }}
                 onMouseLeave={() => { setHoverDate(null); hideTip(); }}
                 // Keyboard parity: tabbing through the grid surfaces the same label a mouse gets.
-                onFocus={(e) => { if (!small) showTip(e.currentTarget, tip, tipColor); }}
+                onFocus={(e) => { setFocusISO(iso); if (!small) showTip(e.currentTarget, tip, tipColor); }}
                 onBlur={hideTip}
             >
                 {sandwichCharged && (
@@ -350,7 +433,27 @@ function LeaveCalendarBase({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: small ? 2 : 4, marginBottom: small ? 2 : 4 }}>
                 {labels.map((w, i) => <div key={i} style={{ textAlign: 'center', fontSize: small ? 10 : 11, fontWeight: 600, color: i === 6 ? RED : P.inkMuted, textTransform: 'uppercase' }}>{w}</div>)}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', columnGap: 0, rowGap: small ? 2 : 4 }}>{cells}</div>
+            {/*
+              * `role="grid"` plus the roving tabindex on each day turns 31+ tab
+              * stops into one, and gives this calendar the arrow-key model every
+              * other date grid on the web has. It was the single thing this
+              * component lacked — everything else (per-cell aria-label with the
+              * reason, aria-pressed on endpoints, focus/blur tooltip parity) was
+              * already here.
+              *
+              * Handled on the container, not per cell: keydown bubbles, so one
+              * listener serves every day and no cell has to know about its
+              * neighbours.
+              */}
+            <div
+                ref={gridRef}
+                role="grid"
+                aria-label={`${monthLabel} — choose leave dates`}
+                onKeyDown={onGridKeyDown}
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', columnGap: 0, rowGap: small ? 2 : 4 }}
+            >
+                {cells}
+            </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 16px', marginTop: 13, paddingTop: 11, borderTop: `1px solid ${P.lineSoft}` }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: P.inkMuted, fontWeight: 500 }}><span style={{ width: 13, height: 13, borderRadius: 4, border: `1.5px solid ${ACCENT}`, flexShrink: 0 }} />Today</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: P.inkMuted, fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: tintOf('casual', colorOf), border: `1px solid ${borderOf('casual', colorOf)}`, flexShrink: 0 }} />Charged</span>

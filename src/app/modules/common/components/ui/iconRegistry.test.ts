@@ -22,6 +22,26 @@ function iconNamesIn(source: string): string[] {
     const names: string[] = [];
     for (const [, name] of source.matchAll(/<AppIcon[^>]*?\sname=\{?"([a-z0-9-]+)"/g)) names.push(name);
     for (const [, name] of source.matchAll(/<KTIcon[^>]*?\siconName=\{?"([a-z0-9-]+)"/g)) names.push(name);
+    // Names that reach an icon through an OPTIONS ARRAY or lookup map rather than JSX —
+    // `{ value: 'table', icon: 'burger-menu-1' }`. Scanning JSX alone missed every one of
+    // them, so the font migration left the Tasks board's Table toggle rendering a blank
+    // button, and ~40 others like it, with the suite green.
+    for (const [, , name] of source.matchAll(/(?:^|[\s,{(])(icon|iconName)\s*:\s*['"]([a-z0-9-]{3,})['"]/g)) {
+        // `bi-*` are Bootstrap Icon CLASSES drawn by the icon font, not registry keys.
+        if (!name.startsWith('bi-')) names.push(name);
+    }
+    // Names chosen INSIDE a JSX expression — `iconName={enabled ? 'a' : 'b'}`. The two
+    // patterns above want the quote to follow the `=` or the `:` directly, so a ternary hid
+    // both of its branches from them: that is how the nav-style toggle shipped rendering an
+    // empty circle in shell mode. Every quoted literal inside the braces is a candidate name.
+    for (const [, , expr] of source.matchAll(/<(AppIcon|KTIcon)[^>]*?\s(?:icon)?[nN]ame=\{([^}]*)\}/g)) {
+        // Only the BRANCHES of the ternary, i.e. a literal sitting after `?` or `:`. Taking
+        // every literal in the expression also swept up the operand being tested against —
+        // `mode === 'dark' ? …` reported "dark" as a missing icon.
+        for (const [, name] of expr.matchAll(/[?:]\s*['"]([a-z0-9-]{3,})['"]/g)) {
+            if (!name.startsWith('bi-')) names.push(name);
+        }
+    }
     return names;
 }
 

@@ -188,13 +188,17 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
             setError(null);
             
             let response: ApiResponse;
-            
-            // if (fetchMode === 'task') {
-            //     response = await getTimesheetByTaskId(fetchId);
-            // } else {
+
+            // RSK-036 (Phase 0B): this branch was commented out, so a TASK id was being sent to
+            // the PROJECT endpoint. It only ever returned the right rows because the repository
+            // falls back to querying by taskId when the lead-scoped query is empty
+            // (db/TaskAndTime.ts). Each mode now calls the endpoint that actually matches it.
+            if (fetchMode === 'task') {
+                response = await getTimesheetByTaskId(fetchId);
+            } else {
                 response = await getAllTimeSheetWithCostByProjectId(fetchId, "");
-            // }
-            
+            }
+
             
             if (response.hasError) {
                 throw new Error(response.message || 'Failed to fetch timesheet data');

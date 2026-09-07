@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Box, CircularProgress, Stack, Typography, useTheme } from '@mui/material';
 import { PageTitle } from '@metronic/layout/core';
 import { KTIcon } from '@metronic/helpers';
@@ -84,8 +85,15 @@ const SEGMENTS: Array<{ key: Segment; label: string; hint: string; blank: string
 const submittedKey = (s: ApprovalStep) =>
     String((s.requestDetails as any)?.submittedAt ?? s.instance.createdAt ?? '');
 
-/** Employee-facing and approver-actionable inbox tasks. */
-const MY_TASK_TYPES = new Set(['QUERY_RECEIVED', 'REJECTION_RECEIVED', 'ACTION_REQUIRED', 'QUERY_RESPONSE_RECEIVED']);
+/** Employee-facing and approver-actionable inbox tasks.
+ *
+ *  TASK_ASSIGNED belongs here because a task somebody put on your plate is waiting on you in
+ *  exactly the sense this tab means. It arrives with the same alert that rings the bell, but
+ *  unlike the bell it stays until the work is done, reassigned or dismissed. */
+const MY_TASK_TYPES = new Set([
+    'QUERY_RECEIVED', 'REJECTION_RECEIVED', 'ACTION_REQUIRED', 'QUERY_RESPONSE_RECEIVED',
+    'TASK_ASSIGNED',
+]);
 
 /** Tasks where you are waiting on someone else. */
 const AWAITING_TASK_TYPES = new Set<string>([]);
@@ -95,10 +103,13 @@ const TASK_STYLE: Record<string, { tone: SemanticTone; icon: string; cta: string
     REJECTION_RECEIVED: { tone: 'danger', icon: 'cross-circle', cta: 'Mark as Seen', label: 'Expense Rejected', doneLabel: 'You Have Seen This' },
     ACTION_REQUIRED: { tone: 'warning', icon: 'information', cta: 'Open', label: 'Needs Your Attention', doneLabel: 'Sorted' },
     QUERY_RESPONSE_RECEIVED: { tone: 'cyan', icon: 'message-text-2', cta: 'Review', label: 'They Answered You', doneLabel: 'You Reviewed It' },
+    // Added on this branch; worded to match main's rewrite of the copy above.
+    TASK_ASSIGNED: { tone: 'brand', icon: 'abstract-26', cta: 'Open Task', label: 'Task Assigned to You', doneLabel: 'Task Closed' },
 };
 
 export default function Approvals() {
     const theme = useTheme();
+    const navigate = useNavigate();
     const canApprove = usePermission('approvals.approve.team');
 
     const [segment, setSegment] = useState<Segment>('mine');
@@ -302,6 +313,14 @@ export default function Approvals() {
 
     const openTask = (task: InboxTask) => {
         const payload = (task.payload ?? {}) as Record<string, unknown>;
+
+        // An assigned task opens the board it lives on, already scoped to its project - the same
+        // address its notification carries, so both routes into a piece of work land in the same
+        // place. The card is NOT acknowledged here: it clears when the work is actually done.
+        if (task.type === 'TASK_ASSIGNED') {
+            navigate(task.path || '/tasks');
+            return;
+        }
 
         // A rejection is final — there is nothing left to do about it. "Open" here just means
         // "I've seen this", so it moves out of Pending and into Completed rather than opening

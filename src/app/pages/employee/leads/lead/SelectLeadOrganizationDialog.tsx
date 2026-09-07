@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { OptionPickerDialog } from '@app/modules/common/components/ui';
+import SmartAvatar from '@app/modules/common/components/SmartAvatar';
 import { useOrgScope } from '@hooks/useOrgScope';
 import { fetchAllPrefixSettings } from '@services/options';
 import type { PrefixSetting } from '@app/modules/common/components/PrefixSettingsForm';
@@ -28,8 +29,13 @@ const SelectLeadOrganizationDialog: React.FC<SelectLeadOrganizationDialogProps> 
     onClose,
     onContinue,
 }) => {
-    // includeAll is off: a lead belongs to exactly one organization.
-    const { organizations, isLoading: orgsLoading } = useOrgScope({ includeAll: false, initialScopeId: '' });
+    // includeAll is off: a lead belongs to exactly one organization (we include
+    // root organization now, and filter out those without a lead prefix configured).
+    const { organizations, isLoading: orgsLoading } = useOrgScope({
+        includeAll: false,
+        initialScopeId: '',
+        subOrgsOnly: false,
+    });
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [prefixByOrg, setPrefixByOrg] = useState<Record<string, string>>({});
     const [prefixesLoading, setPrefixesLoading] = useState(false);
@@ -69,14 +75,28 @@ const SelectLeadOrganizationDialog: React.FC<SelectLeadOrganizationDialogProps> 
 
     const options = useMemo(
         () =>
-            organizations.map((org) => {
-                const prefix = prefixByOrg[org.id];
-                return {
-                    id: org.id,
-                    name: prefix ? `${org.name} — ${prefix}` : `${org.name} — no lead prefix configured`,
-                    disabled: !prefix,
-                };
-            }),
+            organizations
+                .filter((org) => !!prefixByOrg[org.id])
+                .map((org) => {
+                    const prefix = prefixByOrg[org.id];
+                    return {
+                        id: org.id,
+                        name: org.name,
+                        caption: `Prefix ${prefix}`,
+                        disabled: false,
+                        // The org's own logo, with a deterministic initials avatar when none is set.
+                        leading: (
+                            <SmartAvatar
+                                name={org.name}
+                                id={org.id}
+                                imageUrl={org.logo}
+                                size={76}
+                                shape="rounded"
+                                imageFit="contain"
+                            />
+                        ),
+                    };
+                }),
         [organizations, prefixByOrg],
     );
 
@@ -109,6 +129,8 @@ const SelectLeadOrganizationDialog: React.FC<SelectLeadOrganizationDialogProps> 
             confirmLabel="Continue"
             confirmDisabled={!selectedOrg || isLoading}
             maxWidth="sm"
+            layout="grid"
+            gridMin={168}
         >
             {isLoading && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>

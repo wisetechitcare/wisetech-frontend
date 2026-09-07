@@ -4,6 +4,8 @@ import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { createSingleSourceOfHire, updateSourceOfHire } from "@services/options";
 import { successConfirmation } from "@utils/modal";
+// `detail` carries the server's reason; `.message` is only the HTTP status name.
+import { apiErrorMessage } from "@utils/apiError";
 import { C, FONT, SP, RADIUS } from "@app/modules/configuration";
 
 export interface SourceOfHireItem {
@@ -73,10 +75,7 @@ const SourceOfHireConfigureForm: React.FC<SourceOfHireFormProps> = ({
     } catch (err: any) {
       // `source` is UNIQUE table-wide and the handler rejects duplicates by
       // message — surface it inline rather than as a generic failure.
-      setError(
-        err?.response?.data?.message ||
-          `Failed to ${isEditing ? "update" : "create"} source of hire`
-      );
+      setError(apiErrorMessage(err, `Failed to ${isEditing ? "update" : "create"} source of hire`));
     } finally {
       setIsSubmitting(false);
     }

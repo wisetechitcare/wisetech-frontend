@@ -1,6 +1,7 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { KTIcon } from "@metronic/helpers";
+import { Avatar, Box, Stack, Typography } from "@mui/material";
 import { RootState } from "@redux/store";
 import { fetchConfiguration } from "@services/company";
 import { calculateProjectTotalTime, formatStringINR } from "@utils/statistics";
@@ -17,9 +18,11 @@ import {
 import { deleteConfirmation } from "@utils/modal";
 import { toast } from "react-toastify";
 import eventBus from "@utils/EventBus";
+import { usePermission } from "@hooks/usePermission";
 import { getAllEmployeeWithMonthDailyHourlySalary } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import TimeLogDetailDialog from "../../components/TimeLogDetailDialog";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
 
 const MyTimeSheetProject = ({
@@ -51,6 +54,23 @@ const MyTimeSheetProject = ({
   const [selectedTimeSheet, setSelectedTimeSheet] = useState<any>(null);
 
   const navigate = useNavigate();
+  /**
+   * Who may see labour cost.
+   *
+   * The API already decides this — `canViewTaskCost` narrows it to an explicit finance grant or
+   * the project's PRIMARY manager, and strips the fields for everyone else. This only stops the
+   * column being drawn for somebody the server will never fill it for.
+   *
+   * ⚠️ A HINT, not the gate: `usePermission` treats a blanket `*.*.all` wildcard as satisfying
+   * any key, so it can read true for somebody the API still refuses. That is fine — the server
+   * remains the boundary.
+   */
+  const canSeeAllFinance = usePermission('finance.view.all');
+  const canSeeDeptFinance = usePermission('finance.view.department');
+  const canSeeCost = canSeeAllFinance || canSeeDeptFinance;
+  // The time log opens as a dialog over this table rather than as a page of
+  // its own: it is a detail OF this list, and reading one used to mean leaving.
+  const [openLogId, setOpenLogId] = useState<string | null>(null);
 
   // Memoized utility functions
   const formatDuration = useCallback((start: string, end: string) => {
@@ -176,22 +196,19 @@ const MyTimeSheetProject = ({
   }, []);
 
   // Memoized grouped data
-  const groupedByProject = useMemo(() => {
-    if (!data?.timeSheets) return {};
-
-    return data.timeSheets.reduce((acc: any, timesheet: any) => {
-      const projectId = timesheet.project?.id;
-
-      if (!acc[projectId]) {
-        acc[projectId] = {
-          project: timesheet.project,
-          timeSheets: [],
-        };
-      }
-      acc[projectId].timeSheets.push(timesheet);
-      return acc;
-    }, {});
-  }, [data?.timeSheets]);
+  /**
+   * EVERY entry, in ONE table — not a card per project.
+   *
+   * The page used to render a separate table for each project in the period, which meant a week
+   * spent across four projects was four tables, each with its own search box, its own paginator
+   * and its own column widths — and nowhere to see the day as a whole. Worse, entries whose
+   * project could not be resolved collapsed into a single card titled "Unknown Project", so the
+   * grouping key was doing real damage while claiming to organise.
+   *
+   * The project is a COLUMN now. Sorting, filtering and grouping by it are things the table
+   * already does well, and one table can be read, sorted and exported as one thing.
+   */
+  const allTimeSheets = useMemo(() => data?.timeSheets ?? [], [data?.timeSheets]);
 
   const startDates = startDate?.format("YYYY-MM-DD");
   const endDates = endDate?.format("YYYY-MM-DD");
@@ -219,13 +236,33 @@ const MyTimeSheetProject = ({
               style={{ cursor: "pointer" }}
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(
-                  `/tasks/timesheet/${taskId?.id}/${employeeId}/${startDates}/${endDates}`
-                );
+                setOpenLogId(taskId?.id ?? null);
               }}
             >
               {taskId?.taskName}
             </div>
+          );
+        },
+      },
+      {
+        header: "Task assigned to",
+        accessorKey: "taskOwner",
+        size: 180,
+        Cell: ({ row }: any) => {
+          const name = row.original?.taskOwner;
+          // Your own task needs no attribution — this column exists to explain the rows that
+          // are somebody else's work, which you logged time against.
+          if (!name) return <span style={{ color: "#7A8597" }}>—</span>;
+          return (
+            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+              <Avatar
+                src={row.original?.taskOwnerAvatar || undefined}
+                sx={{ width: 22, height: 22, fontSize: 10, fontWeight: 700 }}
+              >
+                {name.charAt(0)}
+              </Avatar>
+              <Typography variant="body2" noWrap>{name}</Typography>
+            </Stack>
           );
         },
       },
@@ -275,11 +312,17 @@ const MyTimeSheetProject = ({
         size: 100,
         Cell: ({ cell }: any) => (cell.getValue() ? "Yes" : "No"),
       },
-      {
-        header: "Cost",
-        accessorKey: "cost",
-        size: 120,
-      },
+      // Labour cost is derived from internal SALARY data. It is a manager's figure, not the
+      // employee's own — an ordinary person reading their timesheet should not be able to
+      // work backwards from it to anybody's pay, their own included. Omitted rather than
+      // blanked: a column of dashes still advertises that a number exists.
+      ...(canSeeCost
+        ? [{
+            header: "Cost",
+            accessorKey: "cost",
+            size: 120,
+          }]
+        : []),
       {
         header: "Project",
         accessorKey: "projectTitle",
@@ -342,66 +385,65 @@ const MyTimeSheetProject = ({
         },
       },
     ],
-    [handleEditTimeSheet, handleDeleteTimeSheet, navigate, findEmployeeName]
+    [handleEditTimeSheet, handleDeleteTimeSheet, navigate, findEmployeeName, canSeeCost]
   );
 
-  // Memoized ProjectContainer component
-  const ProjectContainer = memo(({ projectData }: { projectData: any }) => {
+  /**
+   * The period's entries, as one table.
+   *
+   * Header states what the table IS and what it adds up to — the two things a timesheet is read
+   * for — and the projects live in a column beneath rather than in four separate cards.
+   */
+  const TimesheetCard = memo(({ timeSheets }: { timeSheets: any[] }) => {
     const totalTime = useMemo(
-      () => calculateProjectTotalTime(projectData.timeSheets),
-      [projectData.timeSheets]
+      () => calculateProjectTotalTime(timeSheets),
+      [timeSheets]
     );
 
     const tableData = useMemo(
-      () => prepareTableData(projectData.timeSheets),
-      [projectData.timeSheets, prepareTableData]
+      () => prepareTableData(timeSheets),
+      [timeSheets]
+    );
+
+    /** How many distinct projects the period touched — the header says so instead of hiding it. */
+    const projectCount = useMemo(
+      () => new Set(timeSheets.map((t: any) => t?.project?.id).filter(Boolean)).size,
+      [timeSheets]
     );
 
     return (
-      <div className="mb-6 bg-white w-100 shadow rounded-2">
-        <div className="px-5 py-6">
-          <div className="d-flex align-items-center justify-content-between">
-            <h6
-              style={{
-                fontFamily: "Barlow",
-                fontWeight: 600,
-                fontStyle: "normal",
-                fontSize: "16px",
-                lineHeight: "100%",
-                letterSpacing: "1%",
-              }}
-            >
-              {projectData?.project?.title || projectData?.timeSheets[0]?.original?.project?.title || "Unknown Project"}
-            </h6>
-            <p>
-              <span
-                style={{
-                  fontFamily: "Inter",
-                  fontWeight: 600,
-                  fontStyle: "normal",
-                  fontSize: "14px",
-                  lineHeight: "100%",
-                  letterSpacing: "0%",
-                }}
-              >
+      <Box
+        sx={{
+          mb: 3, borderRadius: 2, bgcolor: "background.paper",
+          border: "1px solid", borderColor: "divider",
+        }}
+      >
+        <Box sx={{ px: { xs: 2, md: 3 }, py: 2.5 }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            justifyContent="space-between"
+            alignItems={{ sm: "center" }}
+            spacing={1}
+            sx={{ mb: 2 }}
+          >
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "text.primary" }}>
+                Time logs
+              </Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                {tableData.length} {tableData.length === 1 ? "entry" : "entries"}
+                {projectCount > 0 && ` across ${projectCount} project${projectCount === 1 ? "" : "s"}`}
+              </Typography>
+            </Box>
+            <Box sx={{ textAlign: { sm: "right" } }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2, color: "text.primary" }}>
                 {totalTime}
-              </span>{" "}
-              <span
-                style={{
-                  fontFamily: "Inter",
-                  fontWeight: 400,
-                  fontStyle: "normal",
-                  fontSize: "14px",
-                  lineHeight: "100%",
-                  letterSpacing: "0%",
-                  color: "#7A8597",
-                }}
-              >
-                {}
-              </span>
-            </p>
-          </div>
-          <div>
+              </Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                logged in this period
+              </Typography>
+            </Box>
+          </Stack>
             <MaterialTable
               columns={columns}
               data={tableData}
@@ -452,9 +494,8 @@ const MyTimeSheetProject = ({
                 }),
               }}
             />
-          </div>
-        </div>
-      </div>
+        </Box>
+      </Box>
     );
   });
 
@@ -502,17 +543,15 @@ const MyTimeSheetProject = ({
 
   return (
     <div className="mt-6">
-      {Object.keys(groupedByProject).length === 0 ? (
-        <div className="text-center mt-6 fs-2 text-muted">Not Found</div>
+      {allTimeSheets.length === 0 ? (
+        <Box sx={{ textAlign: "center", py: 6, color: "text.disabled" }}>
+          <KTIcon iconName="time" className="fs-3x" />
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            No time logged in this period.
+          </Typography>
+        </Box>
       ) : (
-        Object.values(groupedByProject).map(
-          (projectData: any, index: number) => (
-            <ProjectContainer
-              projectData={projectData}
-              key={projectData.project?.id || index}
-            />
-          )
-        )
+        <TimesheetCard timeSheets={allTimeSheets} />
       )}
       {openTimeSheet && (
         <NewTimeLogForm
@@ -521,6 +560,15 @@ const MyTimeSheetProject = ({
           timeSheetId={selectedTimeSheet?.id}
         />
       )}
+
+      {/* The row's own detail, over the table it belongs to. `onChanged` reuses the key this
+          screen already refetches on, so an edit or a delete lands without a second mechanism. */}
+      <TimeLogDetailDialog
+        open={!!openLogId}
+        timesheetId={openLogId}
+        onClose={() => setOpenLogId(null)}
+        onChanged={() => eventBus.emit(EVENT_KEYS.NewTimeLogFromCreated, { id: openLogId ?? '' })}
+      />
     </div>
   );
 };

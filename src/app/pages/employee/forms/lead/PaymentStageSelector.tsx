@@ -3,6 +3,7 @@ import { useFormikContext } from "formik";
 import { Table } from "react-bootstrap";
 import { getAllPaymentPlans } from "@services/paymentPlan";
 import type { PaymentPlan } from "@models/leads";
+import { filterPlansForLead } from "./paymentPlanScope";
 
 /**
  * Lead commercial step — payment stage break-up.
@@ -47,16 +48,24 @@ export const PaymentStageSelector: React.FC = () => {
     [values.projectAreas],
   );
 
+  // Only the plans for the project types this lead is. See `filterPlansForLead` for why an
+  // un-typed plan and a lead with no categories both widen the list rather than emptying it.
+  const scopedPlans = useMemo(
+    () => filterPlansForLead(plans, values.categoryIds, values.subcategoryIds),
+    [plans, values.categoryIds, values.subcategoryIds],
+  );
+
   // Merge the lead's currently-selected plan (carried on edit) into the options so a
-  // plan that was archived after selection still renders instead of vanishing.
+  // plan that was archived — or scoped to a type this lead is no longer — still renders
+  // instead of vanishing and silently blanking a saved selection.
   const options = useMemo(() => {
-    const merged = [...plans];
+    const merged = [...scopedPlans];
     const carried: PaymentPlan | null = values.paymentPlan || null;
     if (carried?.id && !merged.some((p) => p.id === carried.id)) {
       merged.unshift(carried);
     }
     return merged;
-  }, [plans, values.paymentPlan]);
+  }, [scopedPlans, values.paymentPlan]);
 
   const selectedPlan = useMemo(
     () => options.find((p) => p.id === values.paymentPlanId) || null,

@@ -19,7 +19,7 @@ import { IEmployeesAttendance } from "@models/employee";
 import { saveEmployeesAttendance } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
 import { fetchAllEmployees, fetchAllEmployeesAttendance, fetchAllEmployeesAttendanceRange, fetchEmployeeLeaves, fetchEmployeesOnLeaveToday } from "@services/employee";
-import { activeEmployeeIdSet } from "@utils/activeEmployee";
+import { employeeIdSet } from "@utils/activeEmployee";
 import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDifference, convertTo12HourFormat, MUMBAI_TZ } from "@utils/date";
 import dayjs, { Dayjs } from "dayjs";
 import { MRT_ColumnDef } from "material-react-table";
@@ -313,9 +313,24 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         let cancelled = false;
         (async () => {
             try {
-                const employeesRes = await fetchAllEmployees();
+                // Ask the SERVER for the roster that was on the books on the
+                // viewed date, rather than pulling everyone and filtering the
+                // `isActive` flag here.
+                //
+                // The flag is only a manual suspend switch: it drifts whenever
+                // an exit date is recorded without someone also unticking
+                // Active, which left leavers in this table being counted absent
+                // every working day. The server scopes by the employment
+                // TIMELINE — dates, plus rejoin history — so a rehire is
+                // included and a leaver drops off the day after they left.
+                const iso = date.format('YYYY-MM-DD');
+                const employeesRes = await fetchAllEmployees(true, iso, iso);
                 if (cancelled) return;
-                setActiveEmployeeIds(activeEmployeeIdSet(employeesRes?.data?.employees || []));
+                // Ids as-is: the server already scoped this roster to the viewed
+                // day. Re-applying the isActive flag would drop anyone whose flag
+                // is stale-off, which is how two currently-employed people went
+                // missing from these boards.
+                setActiveEmployeeIds(employeeIdSet(employeesRes?.data?.employees || []));
             } catch (error) {
                 // Non-fatal: an empty set means "don't filter", so a roster failure shows
                 // everything rather than an empty table.
@@ -323,7 +338,9 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             }
         })();
         return () => { cancelled = true; };
-    }, []);
+        // `date` is a dependency now: the roster is scoped to the viewed day, so
+        // changing the date must re-ask the server who was employed then.
+    }, [date]);
 
 
     useEffect(() => {

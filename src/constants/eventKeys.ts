@@ -80,6 +80,9 @@ export type AppEventMap = {
     presetTaskCreated: { id: string };
     presetTaskUpdated: { id: string };
     presetTaskDeleted: { id: string };
+    taskStageCreated: { id: string };
+    taskStageUpdated: { id: string };
+    taskStageDeleted: { id: string };
     
     timesheetDeleted: { id: string };
     closeChartDialogModal: {  };
@@ -193,6 +196,9 @@ export type AppEventMap = {
     presetTaskCreated: 'presetTaskCreated',
     presetTaskUpdated: 'presetTaskUpdated',
     presetTaskDeleted: 'presetTaskDeleted',
+    taskStageCreated: 'taskStageCreated',
+    taskStageUpdated: 'taskStageUpdated',
+    taskStageDeleted: 'taskStageDeleted',
     timesheetDeleted: 'timesheetDeleted',
     closeChartDialogModal: 'closeChartDialogModal',
     chartSettingsUpdated: 'chartSettingsUpdated',

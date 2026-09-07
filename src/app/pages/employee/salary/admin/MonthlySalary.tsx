@@ -31,6 +31,30 @@ interface SalarySummary {
   totalPaidAmount: number;
 }
 
+/**
+ * Sort order for the Action column: most outstanding first.
+ *
+ *   0 Pay        — salary still owed (govt may be owed too)
+ *   1 Pay Govt   — salary settled, statutory dues left
+ *   2 Paid ✓     — nothing left to pay
+ *   3 —          — no employee on the row, so no action at all
+ *
+ * Must stay in step with the button the cell renders; both read the same two
+ * fields, so a row can never sort into a bucket its label disagrees with.
+ */
+const payActionRank = (row: any): number => {
+  if (!row?.employeeId) return 3;
+  const salaryDue = Math.round(Number(row.dueAmount) || 0);
+  const govtDue = Math.round(Number(row.govtPending) || 0);
+  if (salaryDue > 0) return 0;
+  if (govtDue > 0) return 1;
+  return 2;
+};
+
+/** Cell value for the Action column — the words on the button, so the column's own
+ *  search box matches what the reader sees rather than a rank number. */
+const PAY_ACTION_LABEL = ['Pay', 'Pay Govt', 'Paid ✓', '-'];
+
 const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isLoading = false, onStatusFilterChange }) => {
 
   const dispatch = useDispatch();
@@ -491,7 +515,15 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
             },
             {
-              accessorKey: "payAction",
+              // No row carries a `payAction` field, so an accessorKey sorted every
+              // row on `undefined` — the header's sort arrow moved and nothing else
+              // did. The state is derived from the dues, so derive the sort value
+              // the same way the Cell derives the label.
+              id: "payAction",
+              accessorFn: (row: any) => PAY_ACTION_LABEL[payActionRank(row)],
+              // Sort by how much is still owed, not alphabetically — "Paid ✓" would
+              // otherwise land between "Pay" and "Pay Govt".
+              sortingFn: (a: any, b: any) => payActionRank(a.original) - payActionRank(b.original),
               header: "Action",
               Cell: ({ row }: any) => {
                 if (!row.original.employeeId) return "-";

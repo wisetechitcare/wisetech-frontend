@@ -28,7 +28,8 @@ import type { LucideIcon, LucideProps } from 'lucide-react';
 import { BI_TO_KEENICON } from './iconMap';
 import { FacebookIcon, TwitterIcon, WhatsAppIcon } from './brandIcons';
 import {
-    Activity, AlarmClock, Archive, BadgeCheck, ChartColumn, ChartNoAxesColumn, ChartPie,
+    List, User, Circle, Share2, Sheet, Images, Cake, Pin, Truck, UserX, Cpu, Frown, Smile,
+    Activity, AlarmClock, Archive, ArrowDownLeft, BadgeCheck, Database, Inbox, Link, ListTree, Printer, Receipt, ChartColumn, ChartNoAxesColumn, ChartPie,
     FileClock, IdCard, ShieldUser, StickyNote, X, ArrowDown, ArrowDownRight, ArrowLeft, ArrowLeftRight,
     ArrowRight, ArrowUp, ArrowUpDown, ArrowUpRight, Award, Banknote, Bell, BellRing,
     Book, Boxes, Briefcase, Building2, Calculator, Calendar, CalendarCheck, CalendarDays,
@@ -51,6 +52,8 @@ import {
     ShieldAlert, SlidersHorizontal, SquareCheck, SquareMinus, TextAlignStart,
     TextCursorInput, ToggleLeft, TrendingUp, UserPen, UserRound, Venus, Video, VideoOff,
     Wifi, Zap,
+    CircleArrowLeft, PanelLeft,
+    CirclePause, Pause, CirclePlay, Play,
 } from 'lucide-react';
 
 /**
@@ -73,6 +76,24 @@ const brand = (Mark: ComponentType<Record<string, unknown>>): AppIconComponent =
 
 /** Keenicon names — the largest namespace, 135 in use across ~570 call sites. */
 const KEENICON: Record<string, AppIconComponent> = {
+    // Names reaching the registry from an OPTIONS ARRAY rather than a JSX literal — view
+    // toggles, document-type maps, status maps, the global search index. The font migration
+    // could not see them (`iconRegistry.test.ts` scanned JSX only), so each rendered nothing
+    // at all: the Tasks board's Table toggle was a blank button.
+    'burger-menu-1': List, 'grid-2': LayoutGrid, 'grid': Grid2x2, 'element-equal': Grid2x2,
+    'abstract-8': Component, 'auto-brightness': Sun, 'calendar-2': Calendar,
+    'circle': Circle, 'clock': Clock, 'delivery': Truck, 'download-1': Download,
+    'error': CircleX, 'file-added': FilePlus, 'file-pdf': FileText, 'file-sheet': Sheet,
+    'file-text': FileText, 'gallery': Images, 'graph-3': ChartColumn, 'cake': Cake,
+    'info': Info, 'information-4': Info, 'mail': Mail, 'map001': Map, 'pin': Pin,
+    'notification-bing': Bell, 'receipt-square': Receipt, 'share': Share2, 'share-1': Share2,
+    'success': CircleCheck, 'technology-2': Cpu, 'user-cross': UserX, 'video': Video,
+    'warning': TriangleAlert,
+    // Prefixed spellings some call sites still pass.
+    'ki-user': User, 'ki-document': FileText, 'ki-bank': Landmark, 'ki-education': GraduationCap,
+    'ki-bill': Receipt, 'ki-wallet': Wallet, 'ki-folder': Folder,
+    'fa-crown': Crown, 'fa-bolt': Zap, 'fa-face-frown': Frown, 'fa-face-smile': Smile,
+    'fa-arrow-trend-up': TrendingUp,
     // Metronic's abstract/decorative shapes. These never named a concept, so the
     // replacement only has to be neutral and in-family, not literal.
     'abstract-14': Shapes, 'abstract-21': LayoutGrid, 'abstract-26': Layers,
@@ -103,6 +124,12 @@ const KEENICON: Record<string, AppIconComponent> = {
     'message-text-2': MessageSquareText, 'minus': Minus, 'minus-circle': CircleMinus,
     'moon': Moon, 'night-day': SunMoon, 'note-2': StickyNote, 'notepad-edit': NotebookPen,
     'notification': Bell, 'notification-on': BellRing, 'office-bag': Briefcase,
+    // Names the billing and task screens were already passing when the icon fonts were
+    // replaced with Lucide. Unmapped, they render nothing at all — `iconRegistry.test.ts`
+    // scans every call site for exactly this.
+    'arrow-down-left': ArrowDownLeft, 'data': Database, 'dots-vertical': EllipsisVertical,
+    'inbox': Inbox, 'link': Link, 'lock-2': Lock, 'printer': Printer,
+    'receipt-cutoff': Receipt, 'tree': ListTree,
     'package': Package, 'paper-clip': Paperclip, 'pencil': Pencil, 'people': Users,
     'percentage': Percent, 'phone': Phone, 'plus': Plus, 'plus-square': SquarePlus,
     'pointers': MousePointerClick, 'profile-circle': CircleUser, 'pulse': Activity,
@@ -114,9 +141,16 @@ const KEENICON: Record<string, AppIconComponent> = {
     'switch': ToggleRight, 'time': Clock, 'timer': Timer, 'trash': Trash2, 'up': ChevronUp,
     'update-file': FileClock, 'user-tick': UserCheck, 'verify': BadgeCheck, 'wallet': Wallet,
     'warning-2': TriangleAlert, 'word': FileText, 'wrench': Wrench,
+    'pause': Pause, 'pause-circle': CirclePause, 'play': Play, 'play-circle': CirclePlay,
     // Written as raw `ki-duotone ki-*` classes rather than through <KTIcon>, so they never
     // showed up in an `iconName` scan until the font was being removed.
     'burger-menu': Menu, 'files': Files,
+    // Chosen inside a JSX ternary — `iconName={cond ? 'a' : 'b'}` — which the call-site scan
+    // could not see until iconRegistry.test.ts learned to read the branches. All four were
+    // rendering nothing: the nav-style toggle in shell mode, the general-task glyph on a task
+    // detail, the PDF row in the DMS explorer, and unarchive on a proforma.
+    'panel-left': PanelLeft, 'home-2': House, 'pdf': FileText,
+    'arrow-circle-left': CircleArrowLeft,
     // Used as a dropdown trigger on the documents table, next to `dots-square`. The keenicon
     // was a clasp shape that never read as "more actions" anyway; an overflow ellipsis says
     // what the button does.
@@ -162,6 +196,10 @@ const BI_DIRECT: Record<string, AppIconComponent> = {
     'bi-input-cursor-text': TextCursorInput, 'bi-person-vcard': IdCard,
     'bi-shield-exclamation': ShieldAlert, 'bi-symmetry-vertical': FlipVertical2,
     'bi-trash3': Trash2, 'bi-x-octagon-fill': OctagonX,
+    'bi-pause': Pause, 'bi-pause-fill': Pause,
+    'bi-pause-circle': CirclePause, 'bi-pause-circle-fill': CirclePause,
+    'bi-play': Play, 'bi-play-fill': Play,
+    'bi-play-circle': CirclePlay, 'bi-play-circle-fill': CirclePlay,
     // "Check-out Missing" on the attendance overview. A person-with-exclamation has no
     // Lucide twin, and every user-* variant reads as removal or approval rather than an
     // unfinished record — a clock that needs attention says the actual thing.

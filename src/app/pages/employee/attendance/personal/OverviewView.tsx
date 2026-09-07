@@ -12,7 +12,9 @@ import { fetchAttendanceDetails, fetchEmployeeLeaves, getAttendanceRequest } fro
 import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, getWeekDay, isDateAfterOrSameAsEmployeeOnboardingDate, isDateBeforeOrSameAsCurrDate, MUMBAI_TZ as mumbaiTz } from "@utils/date";
 import { saveCoordinates, savePersonalAttendance, toggleLocationPermission } from "@redux/slices/attendance";
 import { savePersonalLeaves } from "@redux/slices/leaves";
-import AttendanceCalendar from "./views/overview/AttendanceCalendar";
+// The attendance calendar. Lazy so the Overview tab does not pull the grid,
+// tooltip and correction dialog until it actually renders.
+const AttendanceCalendar = lazy(() => import("./views/overview/calendar/AttendanceCalendarNext"));
 import MarkAttendance from "./views/overview/MarkAttendance";
 const AttendanceGraphicalOverview = lazy(() => import("./views/overview/AttendanceGraphicalOverview"));
 import { customLeaves, filterLeavesPublicHolidays } from "@utils/statistics";
@@ -26,10 +28,6 @@ export interface FormattedDate {
     dbDate: string;
 }
 
-interface Cell {
-    date: string;
-    status: string;
-}
 
 interface LeaveResponse {
     id: string;
@@ -77,7 +75,6 @@ export const transformAttendance = (dates: FormattedDate[], attendance: Attendan
         // Check if date is a public holiday
         const isPublicHoliday = publicHolidays.some(holiday => {
             const holidayDate = dayjs(holiday.date).format('YYYY-MM-DD');
-            // debugger;
             return holidayDate === formattedDbDate && holiday?.isActive;
         });
         
@@ -239,7 +236,6 @@ function OverviewView() {
     });
     const [activeStartDate, setActiveStartDate] = useState(new Date());
     const dispatch = useDispatch();
-    const [calendarCells, setCalendarCells] = useState<Cell[]>([]);
     const [errored, setErrored] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     useEffect(() => {
@@ -374,15 +370,6 @@ function OverviewView() {
         fetchLeavesPublicHolidays();
     }, [employeeId, checkInCheckOut])
 
-    useEffect(() => {
-        if(!attendance) return;
-        
-        setCalendarCells(attendance.map((el: IAttendance) => ({ 
-            date: el.formattedDate || "", 
-            status: el.status 
-        })));
-    }, [attendance]);
-
     if (errored) {
         return (
             <div className="mt-10">
@@ -396,14 +383,17 @@ function OverviewView() {
 
     return (
         <>
-            <h3 className="fw-bold fs-1 mb-4 font-barlow">Overview</h3>
+            {/* No "Overview" heading: the tab bar directly above already names
+                this view, and repeating it cost a full heading's worth of
+                vertical space before any content. */}
             <div className="row mt-7 align-items-start">
-                <div className="col-lg-7 react_calendar__wrapper">
-                    <AttendanceCalendar 
-                        calendarCells={calendarCells} 
-                        activeStartDate={activeStartDate} 
-                        setActiveStartDate={setActiveStartDate} 
-                    />
+                <div className="col-lg-7">
+                    <Suspense fallback={<div className="d-flex justify-content-center py-10"><Spinner size={32} /></div>}>
+                        <AttendanceCalendar
+                            activeStartDate={activeStartDate}
+                            setActiveStartDate={setActiveStartDate}
+                        />
+                    </Suspense>
                 </div>
                 
                 <div className="col-lg-5">

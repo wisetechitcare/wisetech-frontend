@@ -122,36 +122,46 @@ const PercentageConfigurationTable: React.FC<Props> = ({
     setDraggedIndex(null);
   };
 
-  const totalPercentage = percentages.reduce(
-    (sum, row) => sum + (parseFloat(row.value) || 0),
-    0,
-  );
+  // Rounded to 2dp: summing floats gives "100.00000000000001", which then fails the
+  // === 100 check and shows nonsense in the badge.
+  const totalPercentage =
+    Math.round(
+      percentages.reduce((sum, row) => sum + (parseFloat(row.value) || 0), 0) * 100,
+    ) / 100;
   const isValid = totalPercentage === 100;
 
+  /**
+   * Rescale every row to whole-number percentages that total exactly 100.
+   *
+   * Largest-remainder: floor each scaled value, then hand the leftover points to the
+   * rows with the biggest fractions. Proportional rounding alone would leave a gap
+   * (7 rows → 14 each → 98), and dumping the remainder on the last row alone skews it.
+   */
   const handleAutoFix = () => {
-    if (percentages.length === 0) return;
+    const count = percentages.length;
+    if (count === 0) return;
 
-    if (totalPercentage === 0) {
-      const even = 100 / percentages.length;
-      setPercentages(
-        percentages.map((p) => ({ ...p, value: parseFloat(even.toFixed(2)) })),
-      );
-      return;
-    }
+    const current = percentages.map((p) => parseFloat(p.value) || 0);
+    const sum = current.reduce((a, b) => a + b, 0);
+    // Nothing meaningful to scale (empty or negative total) → split evenly.
+    const raw = sum > 0 ? current.map((v) => (v * 100) / sum) : current.map(() => 100 / count);
 
-    const ratio = 100 / totalPercentage;
-    let currentTotal = 0;
-    const updated = percentages.map((p, idx) => {
-      if (idx === percentages.length - 1) {
-        return { ...p, value: parseFloat((100 - currentTotal).toFixed(2)) };
-      }
-      const newVal = parseFloat(
-        ((parseFloat(p.value) || 0) * ratio).toFixed(2),
-      );
-      currentTotal += newVal;
-      return { ...p, value: newVal };
-    });
-    setPercentages(updated);
+    const floors = raw.map((v) => Math.floor(v));
+    const leftover = 100 - floors.reduce((a, b) => a + b, 0); // integer in [0, count-1]
+    const bump = new Set(
+      raw
+        .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+        .sort((a, b) => b.frac - a.frac)
+        .slice(0, Math.max(0, leftover))
+        .map((r) => r.i),
+    );
+
+    setPercentages(
+      percentages.map((p, i) => {
+        const value = floors[i] + (bump.has(i) ? 1 : 0);
+        return { ...p, value, config_value: value };
+      }),
+    );
   };
 
   return (

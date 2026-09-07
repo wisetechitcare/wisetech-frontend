@@ -12,7 +12,7 @@ import Flatpickr from "react-flatpickr";
 // Format a Date object to "YYYY-MM-DD" — used when storing fiscal year range in the DB.
 // We do NOT use Intl.DateTimeFormat here because en-IN locale produces "DD/MM/YYYY"
 // which cannot be parsed back by new Date() reliably.
-const toISODateString = (date: Date): string => {
+export const toISODateString = (date: Date): string => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
@@ -41,6 +41,12 @@ export interface PrefixSetting {
   identifier: string;
   /** null on the global/default row; set on an organization's own row. */
   organizationId?: string | null;
+  /**
+   * Sequence sharing. null = this organization runs its own counter. When set,
+   * its numbers come out of THAT organization's counter, so the two run one
+   * continuous series — each still keeps its own prefix string.
+   */
+  sequenceSourceOrganizationId?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -54,7 +60,7 @@ export interface PrefixSettingsFormValues {
 }
 
 // Generate default fiscal year (April to March of next year)
-const getDefaultFiscalYear = () => {
+export const getDefaultFiscalYear = () => {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1; // getMonth() returns 0-11, so add 1
   if (currentMonth >= 4) {
@@ -119,7 +125,7 @@ export const convertFiscalYearToYearFormat = (fiscalYear: string) => {
 };
 
 // Convert fiscal year date range to date objects for Flatpickr
-const convertFiscalYearToDates = (fiscalYear: string): Date[] => {
+export const convertFiscalYearToDates = (fiscalYear: string): Date[] => {
   if (fiscalYear.includes(' to ')) {
     const [startDate, endDate] = fiscalYear.split(' to ');
     return [parseDateString(startDate), parseDateString(endDate)];
@@ -181,8 +187,9 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
 
   // Which organization's setting is on screen. Reuses the shared org-scope hook
   // rather than fetching organizations again; includeAll is off because a prefix
-  // always belongs to exactly one organization.
-  const orgScope = useOrgScope({ includeAll: false, initialScopeId: '' });
+  // always belongs to exactly one organization, and the holding root is dropped
+  // because records are numbered under the operating sub-organizations.
+  const orgScope = useOrgScope({ includeAll: false, initialScopeId: '', subOrgsOnly: true });
   const selectedOrgId = perOrganization ? orgScope.scopeId : '';
   const selectedOrgName = orgScope.selected?.name ?? '';
 

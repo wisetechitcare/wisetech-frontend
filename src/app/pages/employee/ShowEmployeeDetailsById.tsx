@@ -88,6 +88,16 @@ const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
     fetchTypes();
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('openSettings') === 'true') {
+      setShowAppSettingsModal(true);
+      // Clean up search param without triggering reload
+      const newUrl = window.location.pathname;
+      window.history.replaceState({ path: newUrl }, '', newUrl);
+    }
+  }, []);
+
   if (!employee) return <Loader />;
 
   const {

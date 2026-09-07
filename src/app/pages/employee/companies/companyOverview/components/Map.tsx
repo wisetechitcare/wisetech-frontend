@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import {
   MapContainer,
   TileLayer,
+  LayersControl,
   Marker,
   Popup,
   Tooltip,
@@ -1620,17 +1621,19 @@ export default function Maps({
       <style>{`
         ${mapStyles}
 
-        /* ── Reduce Bootstrap parent padding, keep small 1rem buffer ── */
+        /* ── Cancel the tab panel's own padding so the map's edges line up with
+           the tab bar above it. MaterialHeaderTab renders the bar outside the
+           padding and each panel inside "px-5 py-0 lg:px-9" — so cancel exactly
+           that: 1.25rem, and 2.25rem from Tailwind's lg (1024px) up. ── */
         .map-outer-wrapper {
-          width: calc(100% + 4rem);
-          margin-left: -2rem;
+          width: calc(100% + 2.5rem);
+          margin-left: -1.25rem;
           margin-top: -1.5rem;
         }
-        @media (min-width: 992px) {
+        @media (min-width: 1024px) {
           .map-outer-wrapper {
-            width: calc(100% + 7rem);
-            margin-left: -3.5rem;
-            margin-top: -1.5rem;
+            width: calc(100% + 4.5rem);
+            margin-left: -2.25rem;
           }
         }
 
@@ -1888,7 +1891,7 @@ export default function Maps({
           border: 1px solid rgba(255, 255, 255, 0.6);
           min-height: 48px;
           animation: filterBarIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-          /* The map wrapper bleeds 7rem past the visible area (negative margins), and the
+          /* The map wrapper bleeds 4.5rem past the visible area (negative margins), and the
              layers control sits top-right — so reserve 15rem of horizontal room. Otherwise
              the bar grows wider than what's on screen, the pills don't trigger their scroll,
              and they crowd the search. On wide screens the bar is still auto-width/centered;
@@ -2899,10 +2902,17 @@ export default function Maps({
         zoomControl={false}
         preferCanvas={true}
       >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          attribution="&copy; OpenStreetMap &copy; CARTO"
-        />
+        {/* Same basemap as the lead form address picker (SmartLocationPicker):
+            Google Map + Satellite. Bottom-right because the Map Labels panel
+            owns top-right (mapTheme.ts: .map-control-panel). */}
+        <LayersControl position="bottomright">
+          <LayersControl.BaseLayer checked name="Map">
+            <TileLayer url="https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" subdomains={["mt0", "mt1", "mt2", "mt3"]} attribution="&copy; Google Maps" />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Satellite">
+            <TileLayer url="https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}" subdomains={["mt0", "mt1", "mt2", "mt3"]} attribution="&copy; Google Maps" />
+          </LayersControl.BaseLayer>
+        </LayersControl>
         <MapInvalidator />
         <MapZoomSyncHandler setZoom={setZoom} />
         <ZoomHandler setZoom={setZoom} />

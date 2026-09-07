@@ -1,3 +1,6 @@
+
+
+
 import React, { useEffect, useRef, useState } from 'react';
 import Select from 'react-select';
 import { ColourOption, SingleValue, DropdownIndicator } from '@app/modules/common/inputs/ColorInDropdwon';
@@ -8,7 +11,7 @@ import {
   saveApprovalWorkflowChain,
 } from '@services/employee';
 
-type WorkflowType = 'attendance' | 'leave' | 'reimbursement';
+type WorkflowType = 'attendance' | 'leave' | 'reimbursement' | 'billing_request';
 
 interface ApproverOption {
   value: string;
@@ -47,6 +50,9 @@ const MODULES: Array<{ key: WorkflowType; label: string }> = [
   { key: 'attendance', label: 'Attendance' },
   { key: 'leave', label: 'Leave' },
   { key: 'reimbursement', label: 'Reimbursement' },
+  // Billing Request approval chain. Same generic framework as every other module —
+  // configuring approvers here is all that is needed to route a billing request.
+  { key: 'billing_request', label: 'Billing Request' },
 ];
 
 const emptyChain = (): string[] => ['', '', '', '', ''];
@@ -55,11 +61,43 @@ const emptyRecord = (): Record<WorkflowType, string[]> => ({
   attendance: emptyChain(),
   leave: emptyChain(),
   reimbursement: emptyChain(),
+  billing_request: emptyChain(),
 });
 
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+// Read the display name off MODULES rather than capitalizing the key — a snake_case key
+// like `billing_request` would otherwise surface as "Billing_request" in toasts.
+const capitalize = (s: string) =>
+  MODULES.find((m) => m.key === s)?.label ?? s.charAt(0).toUpperCase() + s.slice(1);
 
 export const emptyApprovalChains = (): ApprovalChains => emptyRecord();
+
+/**
+ * Saved `ApprovalWorkflowConfig` rows → the flat five-slot chains this form edits.
+ *
+ * Exported because the chains have to be loadable WITHOUT rendering this component. The
+ * edit wizard only mounts the step you are looking at, so the chains used to arrive in
+ * Formik purely as a side effect of opening Payroll & Access — and its save gate, which
+ * reads those form values, refused every employee whose approvers were configured but
+ * whose Approval Settings step had not been visited this session.
+ *
+ * Ignores workflow types this form does not edit (`conveyance` is in the data).
+ */
+export const approvalChainsFromConfigs = (configs: any[] | null | undefined): ApprovalChains => {
+  const chains = emptyRecord();
+
+  // Callers hand this whatever the endpoint returned, which is `{ data: [...] }` on some
+  // paths and the array itself on others — anything that is not a list means no chains.
+  (Array.isArray(configs) ? configs : []).forEach((cfg: any) => {
+    const type = cfg?.workflowType as WorkflowType;
+    if (!type || !chains[type]) return;
+    const idx = Number(cfg.level) - 1;
+    if (idx >= 0 && idx < 5 && cfg?.isActive) {
+      chains[type][idx] = String(cfg.approverId || '');
+    }
+  });
+
+  return chains;
+};
 
 /**
  * Shared rule set for one chain. Exported so the onboarding wizard, which persists
@@ -102,7 +140,12 @@ export const persistApprovalChains = async (
 ): Promise<void> => {
   if (!chains || !targetEmployeeId) return;
 
-  for (const type of ['attendance', 'leave', 'reimbursement'] as const) {
+  // Derived from MODULES, not listed by hand. This helper arrived with three workflow
+  // types hardcoded and the branch it merged into had added a fourth
+  // (`billing_request`), so a billing chain would have been configured in the UI and
+  // then silently not written. Deriving it means adding a workflow stays a one-line
+  // change instead of a hunt for every hardcoded list.
+  for (const { key: type } of MODULES) {
     const chain: string[] = Array.isArray(chains?.[type]) ? (chains[type] as string[]) : [];
     if (!chain.some(Boolean)) continue;
     if (validateApprovalChain(chain)) continue;
@@ -170,17 +213,8 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({
           .sort((a: ApproverOption, b: ApproverOption) => a.label.localeCompare(b.label)),
       );
 
-      const configs: any[] = workflowsRes?.data || workflowsRes || [];
-      const nextChains = emptyRecord();
+      const nextChains = approvalChainsFromConfigs(workflowsRes?.data || workflowsRes || []);
 
-      configs.forEach((cfg: any) => {
-        const type = cfg?.workflowType as WorkflowType;
-        if (!type || !nextChains[type]) return;
-        const idx = Number(cfg.level) - 1;
-        if (idx >= 0 && idx < 5 && cfg?.isActive) {
-          nextChains[type][idx] = String(cfg.approverId || '');
-        }
-      });
 
       // Uncontrolled: hold the loaded chains ourselves so the pickers actually show them.
       if (!controlled) setInternalChains(nextChains);

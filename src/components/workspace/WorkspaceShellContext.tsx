@@ -2,6 +2,7 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavTransform } from '@/contexts/NavTransformContext';
 import { useIsMobile } from '@components/navigation/BottomNavigation/useIsMobile';
 import { useWorkspaceApps } from './useWorkspaceApps';
 import { slugFromPathname, WORKSPACE_ROOT } from './appSlug';
@@ -177,4 +178,25 @@ export function WorkspaceShellProvider({ children }: { children: ReactNode }) {
   return (
     <WorkspaceShellContext.Provider value={value}>{children}</WorkspaceShellContext.Provider>
   );
+}
+
+/**
+ * The provider, gated on the navigation mode.
+ *
+ * ─── WHY THE GATE IS ITS OWN COMPONENT ───────────────────────────────────────
+ * It lives in MasterLayout, ABOVE the header, because the header's breadcrumb is the shell's
+ * breadcrumb and a consumer cannot sit outside its provider. MasterLayout renders
+ * NavTransformProvider itself, so it cannot read the flag in its own body — this component
+ * sits one level down, where the flag is readable.
+ *
+ * The gate is not an optimisation. `useWorkspaceApps()` calls `useNavigation()`, which is a
+ * plain hook holding its own state and firing its own `fetchPendingApprovals()` — one more
+ * mount is one more request. Classic-sidebar users have no shell, so they get no provider
+ * and no extra call. Hooks cannot be conditional, which is why the branch is a component
+ * rather than an `if` inside the provider.
+ */
+export function WorkspaceShellState({ children }: { children: ReactNode }) {
+  const { enabled } = useNavTransform();
+  if (!enabled) return <>{children}</>;
+  return <WorkspaceShellProvider>{children}</WorkspaceShellProvider>;
 }

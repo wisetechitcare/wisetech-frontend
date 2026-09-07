@@ -8,7 +8,6 @@ import {
   WORKSPACE_SUBTITLE, WORKSPACE_TITLE,
 } from '../shellTokens';
 import { contentRevealTransition, fadeAnimation } from '../motion';
-import { WorkspaceBreadcrumb } from './WorkspaceBreadcrumb';
 
 /**
  * The workspace's own chrome: where you are, what this application is, and what else is in it.
@@ -17,6 +16,10 @@ import { WorkspaceBreadcrumb } from './WorkspaceBreadcrumb';
  * Every one of the ~65 pages would otherwise render an identical header, and they would
  * drift. Hoisting it here means an application's identity is stated once, by the shell, and
  * every page inherits it. Pages render only their content.
+ *
+ * The BREADCRUMB is not here — it renders on the header bar (see DefaultTitle), because two
+ * breadcrumbs on one screen is one breadcrumb too many. What is left is the application
+ * identity on a landing, and the compact back link.
  *
  * ─── NO MODULE STRIP ─────────────────────────────────────────────────────────
  * There was a horizontal text list of the application's modules here, directly above the
@@ -53,7 +56,11 @@ export function WorkspaceHeader() {
     // which is already animating; a second layout animation nested in the first is how a
     // clean expansion turns into a reflow. It waits for the box to settle, then appears.
     <motion.header
-      className={HEADER_WRAP}
+      // Inside a module the only child left is the compact back link, which is `lg:hidden`.
+      // Hiding the wrapper too at lg reclaims its margin instead of leaving a 24px void, and
+      // does it on the SAME breakpoint as the link — a JS check on `isCompact` (992px) would
+      // disagree with `lg:` (1024px) and drop the back link between the two.
+      className={`${HEADER_WRAP}${activeModule ? ' lg:hidden' : ''}`}
       initial={fadeAnimation.initial}
       animate={fadeAnimation.animate}
       transition={contentRevealTransition}
@@ -64,16 +71,9 @@ export function WorkspaceHeader() {
         <span className={HEADER_BACK_TEXT}>All applications</span>
       </Link>
 
-      <WorkspaceBreadcrumb
-        homePath={homePath}
-        appTitle={activeApp.title}
-        appPath={activeApp.path}
-        moduleTitle={activeModule?.title}
-      />
-
-      {/* Inside a MODULE the page owns its own title and toolbar, so the shell contributes
-          the breadcrumb and nothing else. Repeating the name here would put two headings on
-          one screen — the same duplication the module strip was removed for. */}
+      {/* Inside a MODULE the page owns its own title and toolbar, and the breadcrumb now
+          lives on the header bar — so the shell contributes nothing here. Repeating the name
+          would put two headings on one screen, the duplication the module strip went for. */}
       {!activeModule && (
         <>
           <div className={HEADER_IDENTITY}>

@@ -4,6 +4,8 @@ import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { createOnboardingDocs, updateOnboardingDocs } from "@services/options";
 import { successConfirmation } from "@utils/modal";
+// `detail` carries the server's reason; `.message` is only the HTTP status name.
+import { apiErrorMessage } from "@utils/apiError";
 import { C, FONT, SP, RADIUS } from "@app/modules/configuration";
 
 export interface OnboardingDocItem {
@@ -99,10 +101,7 @@ const OnboardingDocConfigureForm: React.FC<OnboardingDocFormProps> = ({
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      setError(
-        err?.response?.data?.message ||
-          `Failed to ${isEditing ? "update" : "create"} onboarding document`
-      );
+      setError(apiErrorMessage(err, `Failed to ${isEditing ? "update" : "create"} onboarding document`));
     } finally {
       setIsSubmitting(false);
     }
