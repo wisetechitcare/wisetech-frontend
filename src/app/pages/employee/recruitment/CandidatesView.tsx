@@ -83,6 +83,13 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
     const [uploadFor, setUploadFor] = useState<Applicant | null>(null);
     const [uploadingId, setUploadingId] = useState<string | null>(null);
 
+    // Résumé chosen INSIDE the form. A new candidate has no id yet — the upload endpoint is
+    // /applicants/:id/resume — so the file is held here and sent once the record exists.
+    // Without this, attaching a CV meant saving, finding the tile, then uploading: two
+    // steps for one intention.
+    const formFileRef = useRef<HTMLInputElement | null>(null);
+    const [formFile, setFormFile] = useState<File | null>(null);
+
     const pickResume = (a: Applicant) => {
         setUploadFor(a);
         // Clearing the value first means picking the SAME file twice still fires onChange.
@@ -109,13 +116,36 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
         }
     };
 
+    /**
+     * Attach the form-chosen résumé to a candidate that now exists. Deliberately not fatal:
+     * the candidate was saved either way, and losing the save because the file failed would
+     * be the worse outcome. The failure is reported so it can be retried from the tile.
+     */
+    const attachFormFile = async (applicantId: string) => {
+        if (!formFile) return;
+        try {
+            await uploadApplicantResume(applicantId, formFile);
+        } catch (err: any) {
+            toast({ icon: "error", title: err?.response?.data?.message ?? "Candidate saved, but the résumé did not upload" });
+        }
+    };
+
     const createMut = useMutation({
-        mutationFn: () => createApplicant(form),
+        mutationFn: async () => {
+            const created = await createApplicant(form);
+            const id = created?.applicant?.id;
+            if (id) await attachFormFile(id);
+            return created;
+        },
         onSuccess: () => { toast({ icon: "success", title: "Candidate added" }); close(); invalidate(); },
         onError: () => toast({ icon: "error", title: "Could not add candidate (a candidate with this email may already exist)" }),
     });
     const updateMut = useMutation({
-        mutationFn: () => updateApplicant(editing!.id, { ...form, isBlacklisted: blacklisted }),
+        mutationFn: async () => {
+            const updated = await updateApplicant(editing!.id, { ...form, isBlacklisted: blacklisted });
+            await attachFormFile(editing!.id);
+            return updated;
+        },
         onSuccess: () => { toast({ icon: "success", title: "Candidate updated" }); close(); invalidate(); },
         onError: () => toast({ icon: "error", title: "Could not update candidate" }),
     });
@@ -125,7 +155,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
         onError: () => toast({ icon: "error", title: "Could not update candidate" }),
     });
 
-    const openNew = () => { setEditing(null); setForm(emptyForm()); setBlacklisted(false); setOpen(true); };
+    const openNew = () => { setEditing(null); setForm(emptyForm()); setBlacklisted(false); setFormFile(null); setOpen(true); };
     const openEdit = (a: Applicant) => {
         setEditing(a);
         setForm({
@@ -142,9 +172,10 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
             sourceId: a.sourceId ?? null,
         });
         setBlacklisted(a.isBlacklisted);
+        setFormFile(null);
         setOpen(true);
     };
-    const close = () => { setOpen(false); setEditing(null); };
+    const close = () => { setOpen(false); setEditing(null); setFormFile(null); };
 
     const toggleBlacklist = async (a: Applicant) => {
         if (a.isBlacklisted) { blacklistMut.mutate({ id: a.id, isBlacklisted: false }); return; }
@@ -387,6 +418,25 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                             <MenuItem value="">— None —</MenuItem>
                             {sources.map((s: ApplicantSource) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
                         </TextField>
+                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                            <input
+                                ref={formFileRef}
+                                type="file"
+                                accept=".pdf,.doc,.docx,application/pdf"
+                                hidden
+                                onChange={(e) => setFormFile(e.target.files?.[0] ?? null)}
+                            />
+                            <WtButton
+                                ghost size="small"
+                                startIcon={<KTIcon iconName="cloud-add" className="fs-5" />}
+                                onClick={() => { if (formFileRef.current) formFileRef.current.value = ""; formFileRef.current?.click(); }}
+                            >
+                                {formFile ? "Choose a different résumé" : editing?.resumeS3Url ? "Replace résumé" : "Attach résumé"}
+                            </WtButton>
+                            <Typography sx={{ fontSize: 12.5, color: "text.secondary", minWidth: 0, flex: 1 }} noWrap>
+                                {formFile?.name ?? (editing?.resumeFileName ?? "PDF, DOC or DOCX")}
+                            </Typography>
+                        </Stack>
                         {editing && (
                             <WtSwitchField
                                 title="Blacklisted"
