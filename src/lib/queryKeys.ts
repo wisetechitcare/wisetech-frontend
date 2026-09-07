@@ -81,6 +81,8 @@ export const queryKeys = {
     application: (id: string) => [...queryKeys.recruitment.all, 'application', id] as const,
     notes: (applicationId: string) => [...queryKeys.recruitment.all, 'notes', applicationId] as const,
     postings: (scope = '') => [...queryKeys.recruitment.all, 'postings', scope] as const,
+    scorecardTemplates: () => [...queryKeys.recruitment.all, 'scorecard-templates'] as const,
+    scorecardTemplateFor: (interviewId: string) => [...queryKeys.recruitment.all, 'scorecard-template', interviewId] as const,
     overview: (range: Record<string, unknown> = {}) => [...queryKeys.recruitment.all, 'overview', range] as const,
   },
 } as const;

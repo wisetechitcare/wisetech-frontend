@@ -10,6 +10,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import {
     getApplicationInterviews, createInterview, updateInterview, submitScorecard, getApplicationEvaluation,
     type Interview, type InterviewPayload, type ScorecardPayload,
+    getScorecardTemplateForInterview, type ScorecardTemplate,
 } from "@services/recruitment";
 
 const TYPES = ["PHONE", "VIDEO", "ONSITE", "TECHNICAL", "HR"];
@@ -52,6 +53,19 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
     const [form, setForm] = useState<InterviewPayload>({ ...emptySchedule(), applicationId });
     const [scoreFor, setScoreFor] = useState<Interview | null>(null);
     const [score, setScore] = useState<ScorecardPayload>({ overallRating: 4, recommendation: "YES", comments: "" });
+
+    // The rubric for the interview being scored. Resolved server-side from the
+    // requisition’s designation, falling back to the tenant default; null is an ordinary
+    // answer, and the dialog then behaves exactly as it did before rubrics existed.
+    const { data: rubric } = useQuery({
+        queryKey: queryKeys.recruitment.scorecardTemplateFor(scoreFor?.id ?? ""),
+        queryFn: () => getScorecardTemplateForInterview(scoreFor!.id),
+        enabled: !!scoreFor,
+    });
+
+    const factors = rubric?.factors ?? [];
+    const setFactor = (factorId: string, value: number) =>
+        setScore((prev) => ({ ...prev, factorScores: { ...(prev.factorScores ?? {}), [factorId]: value } }));
 
     const { data: interviews = [], isLoading } = useQuery({ queryKey: queryKeys.recruitment.interviews(applicationId), queryFn: () => getApplicationInterviews(applicationId) });
     const { data: evaluation } = useQuery({ queryKey: queryKeys.recruitment.evaluation(applicationId), queryFn: () => getApplicationEvaluation(applicationId) });
@@ -123,7 +137,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                                 >
                                     {STATUSES.map((s) => <MenuItem key={s} value={s}>{s.replace("_", " ")}</MenuItem>)}
                                 </TextField>
-                                <WtIconButton title="Add scorecard" onClick={() => { setScoreFor(iv); setScore({ overallRating: 4, recommendation: "YES", comments: "" }); }}>
+                                <WtIconButton title="Add scorecard" onClick={() => { setScoreFor(iv); setScore({ overallRating: 4, recommendation: "YES", comments: "", factorScores: null }); }}>
                                     <KTIcon iconName="questionnaire-tablet" className="fs-5" />
                                 </WtIconButton>
                             </Stack>
@@ -181,6 +195,36 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
+                        {/* The rubric, when one is configured. Each criterion is scored 1–5 and
+                            stored against its factor id, so a later rename of the label cannot
+                            silently re-point a score that was already given. */}
+                        {factors.length > 0 && (
+                            <Box>
+                                <Typography sx={{ fontSize: 12.5, color: "text.secondary", mb: 1 }}>
+                                    {rubric?.name ?? "Criteria"}
+                                </Typography>
+                                <Stack spacing={1.25}>
+                                    {factors.map((factor) => (
+                                        <Stack key={factor.id} direction="row" alignItems="center" spacing={1.5}>
+                                            <Typography sx={{ flex: 1, fontSize: 13.5, minWidth: 0 }}>
+                                                {factor.label}
+                                                {Number(factor.weight) !== 1 && (
+                                                    <Typography component="span" sx={{ ml: 0.75, fontSize: 11.5, color: "text.disabled" }}>
+                                                        ×{Number(factor.weight)}
+                                                    </Typography>
+                                                )}
+                                            </Typography>
+                                            <TextField
+                                                type="number" size="small" sx={{ width: 92 }}
+                                                inputProps={{ min: 1, max: 5, "aria-label": `${factor.label} rating out of 5` }}
+                                                value={score.factorScores?.[factor.id] ?? ""}
+                                                onChange={(e) => setFactor(factor.id, Math.min(5, Math.max(1, Number(e.target.value) || 1)))}
+                                            />
+                                        </Stack>
+                                    ))}
+                                </Stack>
+                            </Box>
+                        )}
                         <TextField label="Overall rating (1–5)" type="number" size="small" inputProps={{ min: 1, max: 5 }} value={score.overallRating} onChange={(e) => setScore({ ...score, overallRating: Math.min(5, Math.max(1, Number(e.target.value) || 1)) })} />
                         <TextField label="Recommendation" select size="small" fullWidth value={score.recommendation} onChange={(e) => setScore({ ...score, recommendation: e.target.value })}>
                             {RECOMMENDATIONS.map((r) => <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>)}

@@ -454,6 +454,57 @@ export interface InterviewPayload {
     applicationId: string; round?: number; type?: string; mode?: string;
     scheduledStart: string; scheduledEnd: string; meetingLink?: string | null; location?: string | null; panelistIds: string[];
 }
+
+// ─── Scorecard templates (the interview rubric) ──────────────────────────────
+export interface ScorecardFactor {
+    id: string;
+    label: string;
+    /** Relative weight; the panel score normalises by the sum, so these need not total anything. */
+    weight: number | string;
+    sortOrder: number;
+}
+export interface ScorecardTemplate {
+    id: string;
+    name: string;
+    designationId?: string | null;
+    isDefault: boolean;
+    isActive: boolean;
+    factors: ScorecardFactor[];
+}
+export interface ScorecardTemplatePayload {
+    name?: string;
+    designationId?: string | null;
+    isDefault?: boolean;
+    isActive?: boolean;
+    /** Sent whole — the API replaces the factor set rather than diffing it. */
+    factors?: { label: string; weight?: number; sortOrder?: number }[];
+}
+
+export const getScorecardTemplates = async (): Promise<ScorecardTemplate[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATES}`);
+    return data?.templates ?? [];
+};
+export const createScorecardTemplate = async (payload: ScorecardTemplatePayload) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATES}`, payload);
+    return data;
+};
+export const updateScorecardTemplate = async (id: string, payload: ScorecardTemplatePayload) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATE_BY_ID.replace(":id", id)}`, payload);
+    return data;
+};
+export const deleteScorecardTemplate = async (id: string) => {
+    const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATE_BY_ID.replace(":id", id)}`);
+    return data;
+};
+
+/**
+ * The rubric to show for one interview. Null is an ordinary answer, not an error: an
+ * interview with no matching template still records an overall rating.
+ */
+export const getScorecardTemplateForInterview = async (interviewId: string): Promise<ScorecardTemplate | null> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATE_FOR_INTERVIEW.replace(":id", interviewId)}`);
+    return data?.template ?? null;
+};
 export interface ScorecardPayload {
     overallRating: number; recommendation: string; factorScores?: Record<string, number> | null; comments?: string | null;
 }

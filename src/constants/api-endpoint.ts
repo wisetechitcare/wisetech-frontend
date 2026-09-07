@@ -27,6 +27,9 @@ export const RECRUITMENT = {
     GET_APPLICANT_BY_ID: "api/recruitment/applicants/:id",
     UPDATE_APPLICANT: "api/recruitment/applicants/:id",
     UPLOAD_APPLICANT_RESUME: "api/recruitment/applicants/:id/resume",
+    SCORECARD_TEMPLATES: "api/recruitment/config/scorecard-templates",
+    SCORECARD_TEMPLATE_BY_ID: "api/recruitment/config/scorecard-templates/:id",
+    SCORECARD_TEMPLATE_FOR_INTERVIEW: "api/recruitment/interviews/:id/scorecard-template",
     // Applications / pipeline (Phase 2)
     CREATE_APPLICATION: "api/recruitment/applications",
     GET_ALL_APPLICATIONS: "api/recruitment/applications",
