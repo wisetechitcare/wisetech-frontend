@@ -21,8 +21,15 @@ export type { ActionIconButtonProps, ActionTone } from './ActionIconButton';
 export { WhatsAppIcon } from './brandIcons';
 // The one icon element: resolves legacy `bi-*` names to keenicons and renders KTIcon.
 export { AppIcon, type AppIconProps } from './AppIcon';
-// The one select ENGINE. Wrappers (DropdownInput / SelectInput / ToolbarFilterSelect)
-// delegate to this so menu behaviour and theming are defined once, not per screen.
+// The rich select: react-select underneath, so it is the one to reach for when a control
+// needs search, multi-select, creatable or async options. DropdownInput / SelectInput
+// delegate to it.
+//
+// ToolbarFilterSelect does NOT — it is MUI's Select with a notched outline label, which
+// react-select has no equivalent of. Two engines on purpose, for two jobs: this one for
+// choosing from many, that one for a compact labelled filter in a toolbar. An earlier note
+// here claimed ToolbarFilterSelect delegated to WtSelect; it never did, and reading that as
+// fact is how a caller ends up expecting behaviour the control does not have.
 export { WtSelect, type WtSelectProps, type WtSelectOption, type WtSelectGroup } from './WtSelect';
 export { BI_TO_KEENICON, keeniconFor } from './iconMap';
 export type { BrandIconProps } from './brandIcons';

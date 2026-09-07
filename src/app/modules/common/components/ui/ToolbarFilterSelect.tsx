@@ -116,6 +116,25 @@ export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
                     borderRadius: '10px',
                     fontSize: 13,
                     fontWeight: 600,
+                    // The gap in the border is cut by the <legend> inside the notched
+                    // outline, and MUI sizes that legend from the label text in the
+                    // FIELD's typography — not the label's. So a label that is bold,
+                    // letter-spaced and uppercased renders wider than the gap reserved
+                    // for it and sits on top of the border line.
+                    //
+                    // The existing comment on InputLabel warns against overriding the
+                    // shrink transform for the same reason; this is the other half of
+                    // it. The legend has to carry the same metrics as the label, or the
+                    // two disagree about how much room the text needs.
+                    //
+                    // 10.875px = 14.5 × 0.75, MUI's shrink scale, resolved to a fixed
+                    // size because the legend's own `em` is relative to the field.
+                    '& .MuiOutlinedInput-notchedOutline legend': {
+                        fontSize: '10.875px',
+                        fontWeight: 700,
+                        letterSpacing: '0.5px',
+                        textTransform: 'uppercase',
+                    },
                     // Tinted only while a non-default value is active; otherwise the
                     // control inherits the theme and stays correct in dark mode.
                     ...(tinted && {
