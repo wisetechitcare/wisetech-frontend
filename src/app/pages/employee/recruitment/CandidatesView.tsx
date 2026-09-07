@@ -12,7 +12,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { formatDate } from "@utils/dateFormats";
 import {
     getApplicants, createApplicant, updateApplicant, getApplicantSources,
-    type Applicant, type ApplicantPayload, type ApplicantSource,
+    type Applicant, type ApplicantPayload, type ApplicantSource, type OrgScoped,
 } from "@services/recruitment";
 
 /** Blank create form. Only firstName + email are required by the API. */
@@ -50,7 +50,7 @@ const fullName = (a: Applicant) => [a.firstName, a.lastName].filter(Boolean).joi
  * data-retention and the audit trail both require the row to survive, so the destructive action
  * is "blacklist" (an update), not a delete.
  */
-const CandidatesView = () => {
+const CandidatesView = ({ companyId }: OrgScoped) => {
     const qc = useQueryClient();
     const [search, setSearch] = useState("");
     const [open, setOpen] = useState(false);
@@ -60,8 +60,8 @@ const CandidatesView = () => {
 
     // The server does the searching, so the key includes the term — each term caches separately.
     const { data: applicants = [], isLoading } = useQuery({
-        queryKey: queryKeys.recruitment.applicants(search),
-        queryFn: () => getApplicants(search || undefined),
+        queryKey: queryKeys.recruitment.applicants(search, companyId),
+        queryFn: () => getApplicants(search || undefined, companyId),
     });
     const { data: sources = [] } = useQuery({
         queryKey: queryKeys.recruitment.applicantSources(),

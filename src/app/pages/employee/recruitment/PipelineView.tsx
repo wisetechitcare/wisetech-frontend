@@ -8,7 +8,8 @@ import {
 import { KTIcon } from "@metronic/helpers";
 import { ListHeader, GlassDialog, GlassHeader, WtButton, ToneChip, toast, AppIcon } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
-import { getRequisitions, type JobRequisition } from "@services/recruitment";
+import { getRequisitions, type JobRequisition, type OrgScoped,
+} from "@services/recruitment";
 import {
     getApplications, createApplication, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
     stashConversion,
@@ -32,7 +33,7 @@ const scoreLabel = (a: Application): string | null => {
     return s === null || s === undefined ? null : `${Number(s).toFixed(0)}`;
 };
 
-const PipelineView = () => {
+const PipelineView = ({ companyId }: OrgScoped) => {
     const qc = useQueryClient();
     const navigate = useNavigate();
     const [mode, setMode] = useState<"board" | "list">("board");
@@ -48,10 +49,10 @@ const PipelineView = () => {
     const [interviewsFor, setInterviewsFor] = useState<Application | null>(null);
     const [offerFor, setOfferFor] = useState<Application | null>(null);
 
-    const { data: applications = [], isLoading } = useQuery({ queryKey: queryKeys.recruitment.applications(), queryFn: () => getApplications() });
+    const { data: applications = [], isLoading } = useQuery({ queryKey: queryKeys.recruitment.applications({ companyId }), queryFn: () => getApplications({}, companyId) });
     const { data: statuses = [] } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
     const { data: reasons = [] } = useQuery({ queryKey: queryKeys.recruitment.rejectionReasons(), queryFn: getRejectionReasons });
-    const { data: requisitions = [] } = useQuery({ queryKey: queryKeys.recruitment.requisitions(), queryFn: getRequisitions });
+    const { data: requisitions = [] } = useQuery({ queryKey: queryKeys.recruitment.requisitions(companyId), queryFn: () => getRequisitions(companyId) });
 
     const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.recruitment.all });
 

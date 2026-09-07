@@ -71,8 +71,29 @@ export interface RequisitionStagePayload {
 }
 
 // ─── Requisitions ────────────────────────────────────────────────────────────
-export const getRequisitions = async (): Promise<JobRequisition[]> => {
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_REQUISITIONS}`);
+/**
+ * Query string for a recruitment list read. Blank values are dropped, so `companyId`
+ * is simply absent when the org filter is on "All" — which the API reads as the
+ * caller's whole organization family. Replaces three hand-rolled param builders that
+ * each did this slightly differently.
+ */
+/**
+ * Props for a recruitment view that honours the shell's organization filter.
+ * `undefined` means "no filter" — the API then reads the whole org family.
+ */
+export interface OrgScoped {
+    companyId?: string;
+}
+
+const listQuery = (params: Record<string, string | undefined> = {}): string => {
+    const qs = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) if (value) qs.set(key, value);
+    const s = qs.toString();
+    return s ? `?${s}` : "";
+};
+
+export const getRequisitions = async (companyId?: string): Promise<JobRequisition[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_REQUISITIONS}${listQuery({ companyId })}`);
     return data?.requisitions ?? [];
 };
 
@@ -173,13 +194,8 @@ export interface StageMovePayload {
 }
 
 // ─── Applications ────────────────────────────────────────────────────────────
-export const getApplications = async (filters: { requisitionId?: string; statusId?: string; search?: string } = {}): Promise<Application[]> => {
-    const params = new URLSearchParams();
-    if (filters.requisitionId) params.set("requisitionId", filters.requisitionId);
-    if (filters.statusId) params.set("statusId", filters.statusId);
-    if (filters.search) params.set("search", filters.search);
-    const qs = params.toString();
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${qs ? `?${qs}` : ""}`);
+export const getApplications = async (filters: { requisitionId?: string; statusId?: string; search?: string } = {}, companyId?: string): Promise<Application[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${listQuery({ ...filters, companyId })}`);
     return data?.applications ?? [];
 };
 
@@ -281,9 +297,8 @@ export const linkConvertedEmployee = async (applicationId: string, employeeId: s
 };
 
 // ─── Applicants ──────────────────────────────────────────────────────────────
-export const getApplicants = async (search?: string): Promise<Applicant[]> => {
-    const qs = search ? `?search=${encodeURIComponent(search)}` : "";
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICANTS}${qs}`);
+export const getApplicants = async (search?: string, companyId?: string): Promise<Applicant[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICANTS}${listQuery({ search, companyId })}`);
     return data?.applicants ?? [];
 };
 
@@ -479,8 +494,8 @@ export interface PostingPayload {
     showSalary?: boolean;
 }
 
-export const getPostings = async (): Promise<JobPosting[]> => {
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_POSTINGS}`);
+export const getPostings = async (companyId?: string): Promise<JobPosting[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_POSTINGS}${listQuery({ companyId })}`);
     return data?.postings ?? [];
 };
 export const createPosting = async (payload: PostingPayload) => {
@@ -524,11 +539,7 @@ export interface RecruitmentOverview {
     range: { from: string | null; to: string | null };
 }
 
-export const getRecruitmentOverview = async (range: { from?: string; to?: string } = {}): Promise<RecruitmentOverview | null> => {
-    const qs = new URLSearchParams();
-    if (range.from) qs.set("from", range.from);
-    if (range.to) qs.set("to", range.to);
-    const suffix = qs.toString() ? `?${qs}` : "";
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_OVERVIEW}${suffix}`);
+export const getRecruitmentOverview = async (range: { from?: string; to?: string } = {}, companyId?: string): Promise<RecruitmentOverview | null> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_OVERVIEW}${listQuery({ ...range, companyId })}`);
     return data?.overview ?? null;
 };

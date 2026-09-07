@@ -65,12 +65,12 @@ export const queryKeys = {
   },
   recruitment: {
     all: ['recruitment'] as const,
-    requisitions: () => [...queryKeys.recruitment.all, 'requisitions'] as const,
+    requisitions: (scope = '') => [...queryKeys.recruitment.all, 'requisitions', scope] as const,
     requisition: (id: string) => [...queryKeys.recruitment.all, 'requisition', id] as const,
     requisitionStages: () => [...queryKeys.recruitment.all, 'requisition-stages'] as const,
     applications: (filters: Record<string, unknown> = {}) =>
       [...queryKeys.recruitment.all, 'applications', filters] as const,
-    applicants: (search = '') => [...queryKeys.recruitment.all, 'applicants', search] as const,
+    applicants: (search = '', scope = '') => [...queryKeys.recruitment.all, 'applicants', search, scope] as const,
     applicationStatuses: () => [...queryKeys.recruitment.all, 'application-statuses'] as const,
     rejectionReasons: () => [...queryKeys.recruitment.all, 'rejection-reasons'] as const,
     applicantSources: () => [...queryKeys.recruitment.all, 'applicant-sources'] as const,
@@ -80,7 +80,7 @@ export const queryKeys = {
     offer: (applicationId: string) => [...queryKeys.recruitment.all, 'offer', applicationId] as const,
     application: (id: string) => [...queryKeys.recruitment.all, 'application', id] as const,
     notes: (applicationId: string) => [...queryKeys.recruitment.all, 'notes', applicationId] as const,
-    postings: () => [...queryKeys.recruitment.all, 'postings'] as const,
+    postings: (scope = '') => [...queryKeys.recruitment.all, 'postings', scope] as const,
     overview: (range: Record<string, unknown> = {}) => [...queryKeys.recruitment.all, 'overview', range] as const,
   },
 } as const;

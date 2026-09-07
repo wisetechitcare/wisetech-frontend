@@ -7,7 +7,8 @@ import {
 } from "@app/modules/common/components/ui";
 import PeriodFilter, { type PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import { queryKeys } from "@/lib/queryKeys";
-import { getRecruitmentOverview } from "@services/recruitment";
+import { getRecruitmentOverview, type OrgScoped,
+} from "@services/recruitment";
 
 const FALLBACK_BAR = "#94A3B8";
 const OFFER_TONE: Record<string, SemanticTone> = { ACCEPTED: "success", PENDING: "warning", DECLINED: "danger", EXPIRED: "brand" };
@@ -85,7 +86,7 @@ const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays }: 
     </Stack>
 );
 
-const RecruitmentOverview = () => {
+const RecruitmentOverview = ({ companyId }: OrgScoped) => {
     // The shared PeriodFilter (Daily / Weekly / Monthly / Yearly / All Time) is the same
     // control Attendance uses, so the period vocabulary is identical across the app.
     // "All Time" emits no start/end, which the API reads as no window.
@@ -100,8 +101,8 @@ const RecruitmentOverview = () => {
     const range = { from: period.from, to: period.to };
 
     const { data, isLoading } = useQuery({
-        queryKey: queryKeys.recruitment.overview(range),
-        queryFn: () => getRecruitmentOverview(range),
+        queryKey: queryKeys.recruitment.overview({ ...range, companyId }),
+        queryFn: () => getRecruitmentOverview(range, companyId),
     });
 
     if (isLoading) return <Stack alignItems="center" sx={{ py: 8 }}><CircularProgress size={30} /></Stack>;

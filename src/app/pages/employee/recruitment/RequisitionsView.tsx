@@ -14,7 +14,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import {
     getRequisitions, createRequisition, updateRequisition, archiveRequisition, submitRequisitionApproval,
     getRequisitionStages,
-    type JobRequisition, type RequisitionPayload,
+    type JobRequisition, type RequisitionPayload, type OrgScoped,
 } from "@services/recruitment";
 
 const STATUS_META: Record<number, { label: string; tone: SemanticTone }> = {
@@ -60,15 +60,15 @@ const MetaPill = ({ text }: { text: string }) => (
     </Box>
 );
 
-const RequisitionsView = () => {
+const RequisitionsView = ({ companyId }: OrgScoped) => {
     const qc = useQueryClient();
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<JobRequisition | null>(null);
     const [form, setForm] = useState<RequisitionPayload>(emptyForm());
 
     const { data: requisitions = [], isLoading } = useQuery({
-        queryKey: queryKeys.recruitment.requisitions(),
-        queryFn: getRequisitions,
+        queryKey: queryKeys.recruitment.requisitions(companyId),
+        queryFn: () => getRequisitions(companyId),
     });
     const { data: stages = [] } = useQuery({
         queryKey: queryKeys.recruitment.requisitionStages(),
