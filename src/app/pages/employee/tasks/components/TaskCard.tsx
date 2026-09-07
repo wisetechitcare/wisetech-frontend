@@ -38,8 +38,10 @@
  * `dragend` and unmount are the belt-and-braces cleanups — never the primary one.
  */
 import { memo, useEffect, useRef } from 'react';
-import { Box, Card, Divider, Stack, Tooltip, Typography, alpha, useTheme } from '@mui/material';
+import { Avatar, Box, Card, Divider, Stack, Tooltip, Typography, alpha, useTheme } from '@mui/material';
+import { type Attendee, initialsOf, ringFor } from '../../MeetingAttendeesDialog';
 import { KTIcon } from '@metronic/helpers';
+import { formatDate } from '@utils/dateFormats';
 import {
     TaskRow, isTaskOverdue, isTaskFinal, loggedSeconds, formatDuration, shortTaskId,
 } from '../taskDomain';
@@ -71,7 +73,59 @@ export interface TaskCardProps {
      * one that has not happened.
      */
     onLogTime?: (task: TaskRow) => void;
+    /**
+     * Opens the attendee list for a MEETING card.
+     *
+     * The faces on the card answer "is everyone's time in?" at a glance and nothing more —
+     * four avatars is all a 120px card can hold, and the question behind them ("who has not
+     * logged, and were they even there?") needs a list, a name per row and a control. So the
+     * card shows the state and the modal does the work.
+     */
+    onOpenAttendees?: (task: TaskRow) => void;
 }
+
+/**
+ * "Is this meeting accounted for?" — the one thing a finished meeting still owes.
+ *
+ * ─── IT ONLY APPEARS ONCE THERE IS SOMETHING TO SAY ──────────────────────────
+ * A meeting that has not happened owes nobody a timesheet, so it gets no dot at all rather
+ * than a third colour meaning "not yet". Once it is over the dot is green if every attendee's
+ * time is in and red if any is missing — which is exactly the state that decides whether the
+ * project's cost for that meeting is a real number or an understatement.
+ *
+ * It PULSES because it is the one live thing on a static card: a red dot that does not move is
+ * decoration, and this one is a request. The pulse is a ring expanding out of the dot rather
+ * than the dot itself changing size, so nothing on the card reflows while it animates — and it
+ * stops entirely under `prefers-reduced-motion`, where a repeating animation is a barrier
+ * rather than a hint.
+ */
+const StatusDot = ({ done, title }: { done: boolean; title: string }) => {
+    const color = done ? '#16A34A' : '#DC2626';
+    return (
+        <Tooltip title={title}>
+            <Box
+                aria-label={title}
+                sx={{
+                    position: 'relative', width: 8, height: 8, borderRadius: '50%',
+                    bgcolor: color, flexShrink: 0,
+                    '&::after': {
+                        content: '""', position: 'absolute', inset: 0, borderRadius: '50%',
+                        boxShadow: `0 0 0 0 ${alpha(color, 0.7)}`,
+                        animation: 'wt-dot-pulse 1.9s cubic-bezier(.4,0,.6,1) infinite',
+                    },
+                    '@keyframes wt-dot-pulse': {
+                        '0%': { boxShadow: `0 0 0 0 ${alpha(color, 0.65)}` },
+                        '70%': { boxShadow: `0 0 0 6px ${alpha(color, 0)}` },
+                        '100%': { boxShadow: `0 0 0 0 ${alpha(color, 0)}` },
+                    },
+                    '@media (prefers-reduced-motion: reduce)': {
+                        '&::after': { animation: 'none', boxShadow: `0 0 0 2px ${alpha(color, 0.35)}` },
+                    },
+                }}
+            />
+        </Tooltip>
+    );
+};
 
 /** A muted count — subtasks, logged time. Quiet by design: these are footnotes, not headlines. */
 const MetaChip = ({ icon, label }: { icon: string; label: string }) => (
@@ -84,7 +138,7 @@ const MetaChip = ({ icon, label }: { icon: string; label: string }) => (
 );
 
 const TaskCardBase = ({
-    task, now, onOpen, onRequestMove, onLogTime,
+    task, now, onOpen, onRequestMove, onLogTime, onOpenAttendees,
 }: TaskCardProps) => {
     const theme = useTheme();
     const dark = theme.palette.mode === 'dark';
@@ -97,6 +151,39 @@ const TaskCardBase = ({
      * for a task are simply not drawn for a meeting.
      */
     const meeting = (task as any).isMeeting === true;
+    /**
+     * Everyone still counted as coming — an explicit "did not attend" takes a person out of
+     * the row rather than leaving them in it as a permanent red mark.
+     */
+    /** Over and done: only then does an unfiled timesheet mean anything. */
+    const held = meeting && (task as any).lifecycle === 'COMPLETED';
+    const attendees: Attendee[] = meeting
+        ? ((task as any).attendees ?? []).filter((a: Attendee) => a.attended !== false)
+        : [];
+    const awaitingCount = attendees.filter((a) => !a.logged).length;
+
+    /**
+     * The meeting's day and hour, in the reader's own locale.
+     *
+     * The date goes through `formatDate`, which is the company standard (`2026.09.10`) and
+     * what the lint rule enforces — an OS-locale date would read differently for different
+     * people looking at the same board. The TIME stays 12-hour, as the calendar's own chips
+     * were changed to be: `formatTime` is 24-hour, and mixing the two would be worse than
+     * either.
+     */
+    const startsAt = meeting && task.startDate ? new Date(task.startDate) : null;
+    const meetingDate = startsAt ? formatDate(startsAt, '') : '';
+    const meetingTime = startsAt
+        ? startsAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+        : '';
+    /**
+     * Four faces, then a count. The people who have NOT logged come first, because the row
+     * exists to answer "who still owes a timesheet" — showing the four who are already done
+     * and hiding the one who is not would make the card say the opposite of the truth.
+     */
+    const orderedAttendees = [...attendees].sort((a, b) => Number(a.logged) - Number(b.logged));
+    const shownAttendees = orderedAttendees.slice(0, 4);
+    const overflowCount = orderedAttendees.length - shownAttendees.length;
     const overdue = !meeting && isTaskOverdue(task, now);
     // Finished work, read off the STORED property of its stage — never the stage's name.
     const done = isTaskFinal(task);
@@ -168,18 +255,79 @@ const TaskCardBase = ({
                         )
                         : <TaskScopeBadge scope={task.taskScope} />}
                     {!meeting && task.priority && <TaskPriorityBadge priority={task.priority} />}
+                    {/* Only once the meeting is over: before that nothing is owed. */}
+                    {meeting && held && (
+                        <StatusDot
+                            done={awaitingCount === 0}
+                            title={awaitingCount === 0
+                                ? 'All timesheets submitted'
+                                : `${awaitingCount} ${awaitingCount === 1 ? 'timesheet' : 'timesheets'} outstanding`}
+                        />
+                    )}
                     <Box sx={{ flex: 1, minWidth: 8 }} />
                     <FinalStageMark task={task} />
-                    {/* A meeting's id is not a reference anybody quotes, so it does not earn
-                        the space; the time it starts does. */}
-                    <Typography
-                        variant="caption"
-                        sx={{ color: 'text.disabled', fontFamily: meeting ? undefined : 'monospace', fontSize: 10, letterSpacing: '-.02em' }}
-                    >
-                        {meeting
-                            ? (task.startDate ? new Date(task.startDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '')
-                            : shortTaskId(task.id)}
-                    </Typography>
+                    {/* A meeting's id is not a reference anybody quotes, so it does not earn the
+                        space; the time it starts does — and at 10px, in disabled grey, it was
+                        the quietest thing on a card whose whole subject is WHEN. It reads at
+                        the weight of the thing it names now, in the meeting's own navy. The
+                        task id keeps its old whisper, because an id is a lookup key, not news. */}
+                    {meeting
+                        ? (
+                            /* WHEN, in two lines: the date quiet above, the time loud below.
+                               A card in the Meeting lane can be next week's or last month's,
+                               and a bare "7:04 PM" said which hour without ever saying which
+                               day — the one thing you cannot infer from a board that is not
+                               ordered by date on every screen. Stacked rather than joined by a
+                               separator so the time keeps the weight it was just given, and so
+                               the pair costs no width in a row that also holds the badge. */
+                            /* ONE object, not two lines that happen to sit together.
+                               The date was the quietest thing in the corner, in disabled
+                               grey, next to a time in full navy — so a card in the Meeting
+                               lane read as an hour with no day. Tinting the pair as a single
+                               block lifts the date without giving it a second accent to
+                               compete with the badge and the status dot: the panel is the
+                               emphasis, and inside it the time still leads. */
+                            /* One line, level with the badge. Stacking the date over the
+                                time made the corner two rows tall against a one-row badge, so
+                                the head of the card sat lopsided; side by side the two ends
+                                balance and the row costs a single line. The date is toned
+                                back and the time carries the weight — same order of
+                                importance, laid out along the row instead of down it. */
+                            <Stack
+                                direction="row" spacing={0.6} alignItems="baseline"
+                                sx={{
+                                    flexShrink: 0, px: 0.85, py: 0.3, borderRadius: 1.25,
+                                    bgcolor: alpha('#1E3A8A', dark ? 0.28 : 0.07),
+                                }}
+                            >
+                                <Typography
+                                    variant="caption"
+                                    sx={{
+                                        fontSize: 10, fontWeight: 700, letterSpacing: '.01em',
+                                        whiteSpace: 'nowrap', color: dark ? '#8FA9D9' : '#5C7BBF',
+                                    }}
+                                >
+                                    {meetingDate}
+                                </Typography>
+                                <Typography
+                                    variant="caption"
+                                    sx={{
+                                        fontSize: 12, fontWeight: 800, letterSpacing: '-.01em',
+                                        whiteSpace: 'nowrap', color: dark ? '#DCE8FF' : '#1E3A8A',
+                                    }}
+                                >
+                                    {meetingTime}
+                                </Typography>
+                            </Stack>
+                        )
+                        : (
+                            <Typography
+                                variant="caption"
+                                sx={{ color: 'text.disabled', fontFamily: 'monospace', fontSize: 10, letterSpacing: '-.02em' }}
+                            >
+                                {shortTaskId(task.id)}
+                            </Typography>
+                        )}
                     {onRequestMove && (
                         <Tooltip title="Move to stage">
                             <Box
@@ -253,6 +401,88 @@ const TaskCardBase = ({
 
                 {!meeting && <TaskProgress value={task.progress} height={4} />}
 
+                {/* ── who is coming, and whose time is in ──
+                    Only on meetings, and only once there are faces to draw. A ring per person:
+                    green if their time is logged, red if it is not. People who have said they
+                    did not attend are absent from the row entirely — they are not being chased
+                    for a timesheet, so a red mark against them would be asking for work they
+                    never did. */}
+                {meeting && attendees.length > 0 && (
+                    <Stack
+                        direction="row" spacing={0.75} alignItems="center"
+                        onClick={onOpenAttendees ? (e) => { e.stopPropagation(); onOpenAttendees(task); } : undefined}
+                        role={onOpenAttendees ? 'button' : undefined}
+                        tabIndex={onOpenAttendees ? 0 : undefined}
+                        onKeyDown={onOpenAttendees ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenAttendees(task); }
+                        } : undefined}
+                        sx={{
+                            minWidth: 0, cursor: onOpenAttendees ? 'pointer' : 'default',
+                            borderRadius: 1, px: 0.25, py: 0.25,
+                            '&:hover': onOpenAttendees ? { bgcolor: alpha(theme.palette.text.primary, dark ? 0.08 : 0.04) } : undefined,
+                        }}
+                    >
+                        {/* TWO rings per face, and they do different jobs. The inner one is the
+                            status colour and hugs the photo; the outer one is the card's own
+                            surface and is what cuts the notch between overlapping circles, so a
+                            stack reads as separate people rather than one smeared shape. Without
+                            the outer ring the status colours of neighbouring faces touch and the
+                            row becomes a striped blur.
+
+                            Hand-stacked rather than MUI's AvatarGroup: its surplus bubble shares
+                            a class with every other avatar in the group, so styling "+N" alone
+                            means guessing at DOM order, and its spacing rule and a border of our
+                            own fight over the same margin. A flex row with one negative margin is
+                            less code than working around either.
+
+                            Left-most sits on top, so the eye reads the row in the direction it
+                            already reads everything else. */}
+                        <Box sx={{ display: 'flex', flexShrink: 0 }}>
+                            {shownAttendees.map((a, i) => (
+                                <Tooltip
+                                    key={a.employeeId}
+                                    title={`${a.name}${a.isOrganizer ? ' (organizer)' : ''} — ${ringFor(a).label}`}
+                                >
+                                    <Avatar
+                                        src={a.avatar || undefined}
+                                        sx={{
+                                            width: 26, height: 26, fontSize: 9.5, fontWeight: 800,
+                                            border: `2px solid ${ringFor(a).color}`,
+                                            boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
+                                            ml: i === 0 ? 0 : '-9px',
+                                            zIndex: shownAttendees.length - i,
+                                        }}
+                                    >
+                                        {initialsOf(a.name)}
+                                    </Avatar>
+                                </Tooltip>
+                            ))}
+                            {overflowCount > 0 && (
+                                <Tooltip title={`${overflowCount} more — view attendance`}>
+                                    <Avatar
+                                        sx={{
+                                            width: 26, height: 26, fontSize: 9.5, fontWeight: 800,
+                                            bgcolor: dark ? '#0B1220' : '#0F172A',
+                                            color: '#FFFFFF',
+                                            border: '2px solid transparent',
+                                            boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
+                                            ml: '-9px',
+                                            zIndex: 0,
+                                        }}
+                                    >
+                                        +{overflowCount > 99 ? 99 : overflowCount}
+                                    </Avatar>
+                                </Tooltip>
+                            )}
+                        </Box>
+                        {awaitingCount > 0 && (
+                            <Typography variant="caption" sx={{ fontSize: 10, fontWeight: 700, color: '#DC2626' }}>
+                                {awaitingCount} pending
+                            </Typography>
+                        )}
+                    </Stack>
+                )}
+
                 <Divider sx={{ borderColor: 'divider', opacity: 0.7 }} />
 
                 {/* ── band 3: who and when ── */}
@@ -261,12 +491,28 @@ const TaskCardBase = ({
                     {!meeting && (
                         <TaskAssignees assignees={task.assignees} fallback={task.assignedTo} size={24} max={2} />
                     )}
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                         {meeting
                             ? (
-                                <Typography variant="caption" noWrap sx={{ fontSize: 11, color: 'text.secondary' }}>
-                                    {(task as any).isOnline ? 'Online' : ((task as any).location || 'In person')}
-                                </Typography>
+                                <Tooltip title={(task as any).isOnline ? 'Online' : ((task as any).location || 'In person')}>
+                                    {/* TWO lines, then an ellipsis. A single truncated line of
+                                        a real address stops at the district and tells you
+                                        nothing — "Uran, Uran Subdistrict, Raigad, Maharas…"
+                                        is not a place. Two lines usually hold the whole thing,
+                                        and the clamp guarantees the card cannot be stretched
+                                        by a long one. */}
+                                    <Typography
+                                        variant="caption"
+                                        sx={{
+                                            fontSize: 11, color: 'text.secondary',
+                                            display: '-webkit-box', WebkitBoxOrient: 'vertical',
+                                            WebkitLineClamp: 2, overflow: 'hidden',
+                                            lineHeight: 1.35, wordBreak: 'break-word',
+                                        }}
+                                    >
+                                        {(task as any).isOnline ? 'Online' : ((task as any).location || 'In person')}
+                                    </Typography>
+                                </Tooltip>
                             )
                             : <TaskDueDate task={task} now={now} pill />}
                     </Box>
@@ -283,7 +529,7 @@ const TaskCardBase = ({
                     {logged > 0 && <MetaChip icon="timer" label={formatDuration(logged)} />}
                     {/* A real <button>, which is also what keeps it from starting a drag —
                         the sortable engine ignores presses that land on something operable. */}
-                    {meeting && onLogTime && (task as any).lifecycle === 'COMPLETED' && (
+                    {held && onLogTime && (
                         <Tooltip title="Log my time">
                             <Box
                                 component="button"

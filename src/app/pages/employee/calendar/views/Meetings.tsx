@@ -7,7 +7,10 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import dayjs from 'dayjs';
 import Swal from 'sweetalert2';
 import MeetingDialog from '../../MeetingDialog';
-import LogMeetingTimeDialog from '../../LogMeetingTimeDialog';
+// The SAME form the timesheet uses. There were two, writing the same Timesheet row
+// through different endpoints, so what logging an hour asked you depended on which
+// screen you started from.
+import NewTimeLogForm from '@app/pages/employee/timesheet/employeetimesheet/component/NewTimeLogForm';
 import MeetingRemindersDialog from '../../MeetingRemindersDialog';
 import MeetingsList, { toEditableMeeting } from '@app/modules/common/components/MeetingsList';
 // The server states WHY it refused; repeating a guess here is how a validation failure ends up
@@ -153,12 +156,11 @@ const Meetings = () => {
 
       {/* The same dialog the calendar and the task form open — the third and last copy of
           this modal. */}
-      <LogMeetingTimeDialog
-        open={!!logging}
-        meeting={logging}
-        employeeId={currentEmployeeId}
-        onClose={() => setLogging(null)}
-        onSaved={() => { setLogging(null); reload(); }}
+      <NewTimeLogForm
+        key={logging?.id ?? 'none'}
+        show={!!logging}
+        prefilledMeetingId={logging?.id}
+        onClose={() => { setLogging(null); reload(); }}
       />
 
       <MeetingRemindersDialog

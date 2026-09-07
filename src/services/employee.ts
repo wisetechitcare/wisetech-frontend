@@ -204,6 +204,31 @@ export const getMeetings = async (employeeId: string) => {
     }
 };
 
+/** Who was on a meeting, who has said they attended, and whose time is in. */
+export const getMeetingAttendance = async (meetingId: string, employeeId?: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/attendance?meetingId=${meetingId}`
+            + (employeeId ? `&employeeId=${employeeId}` : '');
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Record whether somebody attended. Returns the refreshed roster. */
+export const setMeetingAttendance = async (
+    meetingId: string, employeeId: string, attended: boolean, actorId: string,
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/attendance`;
+        const response = await axios.put(endpoint, { meetingId, employeeId, attended, actorId });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 /** MY reminders on a meeting. Reminders are per person — this only ever answers for me. */
 export const getMyMeetingReminders = async (meetingId: string, employeeId: string) => {
     try {
@@ -220,30 +245,6 @@ export const setMyMeetingReminders = async (meetingId: string, employeeId: strin
     try {
         const endpoint = `${API_BASE_URL}/api/employee/meetings/reminders`;
         const response = await axios.put(endpoint, { meetingId, employeeId, minutes });
-        return response.data;
-    } catch (error) {
-        throw error;
-    }
-};
-
-/** Log the time you spent in a meeting. One entry per person per meeting; re-logging edits. */
-export const logMeetingTime = async (
-    meetingId: string, employeeId: string, minutes: number, description?: string, billable?: boolean,
-) => {
-    try {
-        const endpoint = `${API_BASE_URL}/api/employee/meetings/time`;
-        const response = await axios.post(endpoint, { meetingId, employeeId, minutes, description, billable });
-        return response.data;
-    } catch (error) {
-        throw error;
-    }
-};
-
-/** What this person already logged against this meeting, so the form opens on it. */
-export const getMyMeetingTime = async (meetingId: string, employeeId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/api/employee/meetings/my-time?meetingId=${meetingId}&employeeId=${employeeId}`;
-        const response = await axios.get(endpoint);
         return response.data;
     } catch (error) {
         throw error;

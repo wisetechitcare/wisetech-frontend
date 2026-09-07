@@ -180,12 +180,23 @@ const NewTimeLogForm = ({
   timeSheetId,
   prefilledProjectId,
   prefilledTaskId,
+  prefilledMeetingId,
 }: {
   show: boolean;
   onClose: () => void;
   timeSheetId?: string;
   prefilledProjectId?: string;
   prefilledTaskId?: string;
+  /**
+   * Open on a MEETING, the way `prefilledTaskId` opens on a task.
+   *
+   * This is what let the second log-time form be deleted. The board and the calendar each had
+   * their own small "how long were you in it?" dialog writing the same Timesheet row through a
+   * different endpoint — so the same act of logging an hour offered different fields, different
+   * validation and a different idea of what a description was, depending on which screen you
+   * happened to start from.
+   */
+  prefilledMeetingId?: string;
 }) => {
   const employeeId = useSelector(
     (state: RootState) => state?.employee?.currentEmployee?.id
@@ -213,8 +224,17 @@ const NewTimeLogForm = ({
         getAllTasks(),
         getMeetingsByEmployee(employeeId).catch(() => null),
       ]);
+      /**
+       * Meetings still to come are KEPT, and shown greyed out.
+       *
+       * Filtering them away was correct and unreadable: you cannot log time against a meeting
+       * that has not happened, and the API refuses it — but the picker simply had no row for
+       * the meeting somebody had just been invited to, which reads as the feature being
+       * broken rather than as the rule it is. Cancelled ones are dropped outright; there is
+       * nothing to say about a meeting that will never happen.
+       */
       const myMeetings = ((meetingsData?.data || []) as any[])
-        .filter((m) => m?.lifecycle === 'COMPLETED');
+        .filter((m) => m?.lifecycle !== 'CANCELLED');
       setMeetings(myMeetings);
       // ONLY tasks this person is on — owner or shared with. Time is logged by the people doing
       // the work, so a task they are not on is one the API will refuse anyway; offering it would
@@ -242,6 +262,7 @@ const NewTimeLogForm = ({
       // ...and the projects of the meetings they were in, for the same reason: a person whose
       // week was meetings and no tasks had an empty project picker and no way to file any of it.
       for (const m of myMeetings) {
+        if (m?.lifecycle !== 'COMPLETED') continue;
         if (m?.projectId && m?.projectName && !byProject.has(m.projectId)) {
           byProject.set(m.projectId, { id: m.projectId, title: m.projectName });
         }
@@ -309,6 +330,9 @@ const NewTimeLogForm = ({
   const taskById = (id?: string) => (tasks || []).find((t: any) => t?.id === id) as any;
 
   const seededTaskId = editTimeSheetData?.taskId || prefilledTaskId || "";
+  const seededMeetingId = editTimeSheetData?.meetingId || prefilledMeetingId || "";
+  /** The meeting a form value points at, from the list already loaded. */
+  const meetingById = (id?: string) => (meetings || []).find((m: any) => m?.id === id) as any;
 
   /**
    * This entry is already attached to a task, so the task and its project are facts, not choices.
@@ -317,7 +341,10 @@ const NewTimeLogForm = ({
    * still correct the hours, say what they did and attach what it produced — everything this
    * form exists for — but not move the hours onto different work.
    */
-  const lockedToTask = !!(editTimeSheetData?.taskId || prefilledTaskId);
+  const lockedToTask = !!(
+    editTimeSheetData?.taskId || prefilledTaskId
+    || editTimeSheetData?.meetingId || prefilledMeetingId
+  );
   /** What the task currently says, so the form can show what a change would actually change. */
   const seededProgressFor = (id?: string) => {
     const value = Number(taskById(id)?.progress ?? 0);
@@ -325,10 +352,24 @@ const NewTimeLogForm = ({
   };
   const seededProgress = seededProgressFor(seededTaskId);
 
+  /**
+   * A meeting opened directly knows when it was and how long it ran, so the form arrives
+   * filled in and the ordinary case is confirming rather than typing. Exactly what picking a
+   * meeting from the dropdown does — seeded here instead, because with the field locked
+   * nobody is going to pick it.
+   *
+   * `enableReinitialize` is what makes this land: these values are read again once the
+   * meetings finish loading, which is after the first render.
+   */
+  const seededMeeting = prefilledMeetingId ? meetingById(prefilledMeetingId) : null;
+  const seededMeetingMinutes = seededMeeting
+    ? Math.max(0, dayjs(seededMeeting.endDate).diff(dayjs(seededMeeting.startDate), "minute"))
+    : 0;
+
   const initialValues: NewTimeLogForm = {
-    projectId: editTimeSheetData?.projectId || prefilledProjectId || "",
+    projectId: editTimeSheetData?.projectId || prefilledProjectId || seededMeeting?.projectId || "",
     taskId: editTimeSheetData?.taskId || prefilledTaskId || "",
-    meetingId: editTimeSheetData?.meetingId || "",
+    meetingId: seededMeetingId,
     employeeId: editTimeSheetData?.employeeId || "",
     // EMPTY, not `new Date()`. Seeding "now" made both fields permanently truthy, so
     // `required()` could never fail: the form showed an empty hh:mm, refused nothing, and
@@ -336,15 +377,15 @@ const NewTimeLogForm = ({
     // be. A required field has to be able to be empty for the rule to mean anything.
     startTime: editTimeSheetData?.startTime
       ? formatTime(editTimeSheetData?.startTime)
-      : "",
+      : seededMeeting ? dayjs(seededMeeting.startDate).format("HH:mm") : "",
     endTime: editTimeSheetData?.endTime
       ? formatTime(editTimeSheetData?.endTime)
-      : "",
+      : seededMeeting ? dayjs(seededMeeting.endDate).format("HH:mm") : "",
     description: editTimeSheetData?.description || "",
     billable: editTimeSheetData?.billable !== undefined ? (editTimeSheetData.billable ? "true" : "false") : "true",
     logTime: logTime,
-    logTimeHours: editTimeSheetData?.logTimeHours || 0,
-    logTimeMinutes: editTimeSheetData?.logTimeMinutes || 0,
+    logTimeHours: editTimeSheetData?.logTimeHours ?? Math.floor(seededMeetingMinutes / 60),
+    logTimeMinutes: editTimeSheetData?.logTimeMinutes ?? (seededMeetingMinutes % 60),
     logTimeSeconds: editTimeSheetData?.logTimeSeconds || 0,
     // The entry's existing files, so opening an edit does not silently drop them on save —
     // the API replaces the set with whatever is submitted.
@@ -463,12 +504,28 @@ const NewTimeLogForm = ({
       group: 'Tasks',
       minutes: 0,
     })),
-    ...(meetings || []).map((m: any) => ({
+    /**
+     * Loggable meetings first, then the ones that have not finished.
+     *
+     * `groupBy` groups by ADJACENCY, not by value: it starts a new heading every time the
+     * group of the next option differs from the last. An unsorted list of meetings therefore
+     * produced "Meetings", "Not yet", "Meetings" again — the same heading two or three times
+     * down one dropdown. Sorting by loggability is what makes each heading appear once.
+     */
+    ...(meetings || [])
+      .slice()
+      .sort((a: any, b: any) =>
+        Number(b?.lifecycle === 'COMPLETED') - Number(a?.lifecycle === 'COMPLETED'))
+      .map((m: any) => ({
       kind: 'meeting' as const,
       id: m?.id,
       label: m?.title || 'Untitled meeting',
       projectId: m?.projectId || '',
-      group: 'Meetings',
+      // Two groups, so an upcoming meeting is somewhere other than among the loggable ones —
+      // a disabled row in the same list reads as a bug you cannot click. The heading says
+      // WHEN it becomes loggable, because "still to come" is not true of one that is running.
+      group: m?.lifecycle === 'COMPLETED' ? 'Meetings' : 'Not yet — nothing to log until it ends',
+      upcoming: m?.lifecycle !== 'COMPLETED',
       // Pre-fills the log with the meeting's own length — the answer for most attendees.
       minutes: Math.max(0, dayjs(m?.endDate).diff(dayjs(m?.startDate), 'minute')),
       startDate: m?.startDate,
@@ -568,6 +625,30 @@ const NewTimeLogForm = ({
                       }}
                       getOptionLabel={(o: any) => o?.label || ""}
                       isOptionEqualToValue={(o: any, v: any) => o?.id === v?.id && o?.kind === v?.kind}
+                      // Listed but not selectable. The row exists to answer "where is the
+                      // meeting I was just invited to" — the answer being "it has not happened
+                      // yet", which an absent row cannot give.
+                      getOptionDisabled={(o: any) => !!o?.upcoming}
+                      renderOption={(props, o: any) => (
+                        <li {...props} key={`${o.kind}-${o.id}`}>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="body2" noWrap sx={{ fontWeight: o.upcoming ? 400 : 500 }}>
+                              {o.label}
+                            </Typography>
+                            {o.upcoming && (
+                              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                                {/* A meeting that has STARTED but not ended is neither
+                                    loggable nor "still to come", and telling somebody it
+                                    "starts at 12:35" at 12:50 reads as a stale screen. What
+                                    they need is the time it frees up. */}
+                                {dayjs().isAfter(dayjs(o.startDate))
+                                  ? `Happening now — log it after ${dayjs(o.endDate).format("h:mm A")}`
+                                  : `Starts ${dayjs(o.startDate).format("ddd DD MMM, h:mm A")} — log it once it has ended`}
+                              </Typography>
+                            )}
+                          </Box>
+                        </li>
+                      )}
                       size="small"
                       fullWidth
                       autoHighlight

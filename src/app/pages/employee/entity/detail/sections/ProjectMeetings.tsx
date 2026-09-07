@@ -5,7 +5,10 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import MeetingsList, { toEditableMeeting } from '@app/modules/common/components/MeetingsList';
 import MeetingDialog from '@app/pages/employee/MeetingDialog';
-import LogMeetingTimeDialog from '@app/pages/employee/LogMeetingTimeDialog';
+// The SAME form the timesheet uses. There were two, writing the same Timesheet row
+// through different endpoints, so what logging an hour asked you depended on which
+// screen you started from.
+import NewTimeLogForm from '@app/pages/employee/timesheet/employeetimesheet/component/NewTimeLogForm';
 import MeetingRemindersDialog from '@app/pages/employee/MeetingRemindersDialog';
 import { setMeetingCancelled, updateMeeting } from '@services/employee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
@@ -100,12 +103,11 @@ const ProjectMeetings: React.FC<{ leadId: string }> = ({ leadId }) => {
                 onRemind={(m) => setReminding(m)}
             />
 
-            <LogMeetingTimeDialog
-                open={!!logging}
-                meeting={logging}
-                employeeId={currentEmployeeId}
-                onClose={() => setLogging(null)}
-                onSaved={() => { setLogging(null); reload(); }}
+            <NewTimeLogForm
+                key={logging?.id ?? 'none'}
+                show={!!logging}
+                prefilledMeetingId={logging?.id}
+                onClose={() => { setLogging(null); reload(); }}
             />
 
             <MeetingRemindersDialog

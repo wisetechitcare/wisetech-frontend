@@ -20,11 +20,14 @@ import { formatDateTime } from '@utils/dateFormats';
 import { formatFileSize } from '@utils/fileValidation';
 import { deleteTimeSheetById, getTimesheetById } from '@services/tasks';
 import { apiErrorMessage } from '@app/pages/employee/tasks/taskDomain';
+import {
+    entrySeconds, durationConflict, formatSpan, formatSpanExact, logSubject,
+} from '../timesheetDuration';
 import NewTimeLogForm from '../employeetimesheet/component/NewTimeLogForm';
 
 /** `2h 20m 0s` from the three stored columns — the same shape the rest of the module shows. */
-const duration = (h?: number, m?: number, s?: number) =>
-    `${h ?? 0}h ${m ?? 0}m ${s ?? 0}s`;
+/** The shared rule — see timesheetDuration.ts. This dialog used to read the raw fields. */
+const durationOf = (log: any) => formatSpanExact(entrySeconds(log));
 
 const personName = (employee?: { users?: { firstName?: string | null; lastName?: string | null } | null } | null) =>
     `${employee?.users?.firstName ?? ''} ${employee?.users?.lastName ?? ''}`.trim() || '—';
@@ -104,7 +107,7 @@ export const TimeLogDetailDialog = ({
             <GlassDialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
                 <GlassHeader
                     icon={<KTIcon iconName="timer" className="fs-1" />}
-                    title={log?.task?.taskName || 'Time log'}
+                    title={log ? logSubject(log).name : 'Time log'}
                     subtitle={timesheetId ? `Time Log #${timesheetId.slice(0, 4)}` : ''}
                     onClose={onClose}
                 />
@@ -139,8 +142,18 @@ export const TimeLogDetailDialog = ({
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
                                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>Duration</Typography>
                                     <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', lineHeight: 1.2 }}>
-                                        {duration(log.logTimeHours, log.logTimeMinutes, log.logTimeSeconds)}
+                                        {durationOf(log)}
                                     </Typography>
+                                    {/* When the entry and the clock disagree, say so HERE.
+                                        This dialog put a 2h duration directly above a
+                                        6:37–7:37 window and left the reader to decide which
+                                        of the two was the mistake. */}
+                                    {durationConflict(log) && (
+                                        <Typography variant="caption" sx={{ color: 'warning.main', display: 'block', mt: 0.25 }}>
+                                            The start and end times below span {formatSpan(durationConflict(log)!.window)}.
+                                            This entry is charged at {formatSpan(durationConflict(log)!.logged)}.
+                                        </Typography>
+                                    )}
                                 </Box>
                                 <Chip
                                     size="small"
@@ -155,7 +168,9 @@ export const TimeLogDetailDialog = ({
 
                             <Box>
                                 <SectionTitle icon="briefcase">The work</SectionTitle>
-                                <Row label="Task"><Plain>{log.task?.taskName || '—'}</Plain></Row>
+                                <Row label={logSubject(log).kind === 'meeting' ? 'Meeting' : 'Task'}>
+                                    <Plain>{logSubject(log).name}</Plain>
+                                </Row>
                                 <Row label="Project"><Plain>{log.lead?.title || 'General task'}</Plain></Row>
                                 <Row label="Logged by"><Plain>{personName(log.employee)}</Plain></Row>
                             </Box>

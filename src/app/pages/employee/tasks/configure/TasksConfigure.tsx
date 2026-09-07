@@ -77,6 +77,8 @@ const STAGE_VIEW_OPTIONS = [
   { value: 'list' as const, icon: 'bi-list-ul', label: 'List view' },
 ];
 
+import BillingRateCard from './BillingRateCard';
+
 const TasksConfigure = () => {
   // Deletes here must reach the React Query cache the board and the New Task dialog read from,
   // for the same reason saves do — see the note in TaskConfigForm.
@@ -733,6 +735,10 @@ const TasksConfigure = () => {
                 </div>
               </div>
             </ConfigSectionCard>
+
+            {/* Last of the three: statuses and priorities are the vocabulary the boards are
+                written in, and this is what the hours logged against them are worth. */}
+            <BillingRateCard />
             </>
           )}
 

@@ -19,6 +19,7 @@ import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
 import { KTIcon } from '@metronic/helpers';
 import { TRIO, menuOptionSx, type Trio } from '@app/modules/common/components/ui/patterns';
 import { ReminderChips } from './MeetingRemindersDialog';
+import { joinAddress } from './meetingAddress';
 
 /**
  * The meeting form's FIELDS, with no shell of its own.
@@ -129,6 +130,8 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
     ({ editing, defaultProjectId, lockProject = false, selectedDateTimeInfo, onSaved, onScheduleChange }, ref) => {
         const theme = useTheme();
         const employeeId = useSelector((s: RootState) => s.employee?.currentEmployee?.id);
+        // Already in the store from sign-in, so the office costs no fetch.
+        const myBranch = useSelector((s: RootState) => s.employee?.currentEmployee?.branches);
 
         const opening = useMemo(() => openingRange(selectedDateTimeInfo), [selectedDateTimeInfo]);
 
@@ -349,19 +352,44 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
          * a picker that refuses to accept one is worse than the box it replaced.
          */
         const addressOptions: Option[] = useMemo(() => {
-            if (!projectDetail) return [];
             const out: Option[] = [];
             const seen = new Set<string>();
             const push = (owner: string, parts: Array<string | null | undefined>) => {
-                const address = parts.filter(Boolean).join(', ').trim();
+                const address = joinAddress(parts);
                 if (!address || seen.has(address)) return;
                 seen.add(address);
                 out.push({ value: address, label: `${owner} — ${address}` });
             };
 
-            const co = projectDetail.company;
-            if (co) push('Project address', [co.address, co.area, co.city, co.state]);
-            if (projectDetail.contact) {
+            /**
+             * The SITE — where the thing is actually being built.
+             *
+             * This is what "project address" means on an MEP project, and it was the one
+             * address the picker could not offer. What it labelled "Project address" was the
+             * CLIENT COMPANY's address, which is a different place entirely: the client's
+             * office is where you meet the client, the site is where you meet the building.
+             * On a project with no client company attached — plenty of internal ones — that
+             * mislabelled option was also simply absent, which is how a project with a site
+             * address on its own detail page offered nothing but a referral's address.
+             *
+             * First in the list, so it is what an empty in-person field opens on. It is the
+             * likeliest answer for a project meeting, and the list is ordered by likelihood.
+             *
+             * `additionalDetails` arrives as an object today and as a one-element array on
+             * legacy rows — the repository's own parser accepts both, so this does too.
+             */
+            const ad = Array.isArray(projectDetail?.additionalDetails)
+                ? projectDetail?.additionalDetails[0]
+                : projectDetail?.additionalDetails;
+            if (ad) {
+                push('Project site', [ad.projectAddress, ad.locality, ad.city, ad.state, ad.zipCode, ad.country]);
+            }
+
+            const co = projectDetail?.company;
+            // Named for what it is. "Project address" on the client's office was the label
+            // that hid the absence of the real one.
+            if (co) push(`${co.companyName || 'Client company'} address`, [co.address, co.area, co.city, co.state]);
+            if (projectDetail?.contact) {
                 push(`${projectDetail.contact.fullName || 'Primary contact'} address`,
                     [projectDetail.contact.address, projectDetail.contact.city, projectDetail.contact.state]);
             }
@@ -370,23 +398,46 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
             // External Team (projectExternalTeams), which the Teams tab writes and which is
             // deliberately decoupled from the lead. Reading only the first meant a meeting at
             // a stakeholder added on the Teams tab could not offer their address.
-            for (const t of [...(projectDetail.leadTeams || []), ...(projectDetail.projectExternalTeams || [])]) {
+            for (const t of [...(projectDetail?.leadTeams || []), ...(projectDetail?.projectExternalTeams || [])]) {
                 if (t.contact) push(`${t.contact.fullName || 'Stakeholder'} address`, [t.contact.address, t.contact.city, t.contact.state]);
                 if (t.company) push(`${t.company.companyName || 'Company'} address`, [t.company.address, t.company.area, t.company.city, t.company.state]);
             }
 
-            for (const r of projectDetail.referrals || []) {
+            for (const r of projectDetail?.referrals || []) {
                 const c = r.referredByContact;
                 if (c) push(`${c.fullName || 'Referral'} address`, [c.address, c.city, c.state]);
                 const rc = r.referringCompany;
                 if (rc) push(`${rc.companyName || 'Referring company'} address`, [rc.address, rc.area, rc.city, rc.state]);
             }
 
-            return out;
-        }, [projectDetail]);
+            /**
+             * Our own office, LAST.
+             *
+             * The list used to be the client's addresses or nothing: a project with no client
+             * company and no contact — which plenty of internal projects are — offered only
+             * whichever stakeholder happened to be attached, and a meeting with no project at
+             * all offered nothing whatsoever. But an in-person meeting still happens
+             * somewhere, and when there is no client that somewhere is the office.
+             *
+             * Last on purpose. The first option is what an empty field opens on, and for a
+             * project that HAS a client address that address is the better guess; the office
+             * becomes the default only when nothing more specific exists.
+             *
+             * ponytail: the signed-in person's own branch, which is already in the store. Fetch
+             * the full branch list if people start booking at offices they do not work from —
+             * until then it is a request for a case nobody has hit, and the field is freeSolo,
+             * so any address can still be typed.
+             */
+            if (myBranch?.address) {
+                push(myBranch.name ? `${myBranch.name} office` : 'Our office', [myBranch.address]);
+            }
 
-        // Opening value for a newly-offline meeting: the project's own address, which is where
-        // most of them happen. Only when the field is still empty — never over a typed one.
+            return out;
+        }, [projectDetail, myBranch]);
+
+        // Opening value for a newly-offline meeting: the first option, which the list orders as
+        // the project's own address where there is one and our office where there is not.
+        // Only when the field is still empty — never over a typed one.
         useEffect(() => {
             if (isOnline || location || !addressOptions.length) return;
             setLocation(addressOptions[0].value);
