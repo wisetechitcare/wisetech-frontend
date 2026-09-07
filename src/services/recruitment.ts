@@ -455,6 +455,74 @@ export interface InterviewPayload {
     scheduledStart: string; scheduledEnd: string; meetingLink?: string | null; location?: string | null; panelistIds: string[];
 }
 
+
+// ─── HR tracker import ───────────────────────────────────────────────────────
+export type TrackerSheet = "candidates" | "requisitions";
+
+export interface RowIssue { level: "error" | "warning"; field: string; message: string }
+
+/** One row as the server resolved it, with everything it found wrong. */
+export interface ImportRow {
+    importable: boolean;
+    issues: RowIssue[];
+    mapped: {
+        sourceRef?: string | null;
+        applicant?: { firstName: string; lastName?: string | null; phone?: string | null };
+        application?: { positionName?: string | null; statusName?: string | null };
+        positionName?: string | null;
+        headcount?: number;
+    };
+}
+
+export interface ImportPreview {
+    sheet: TrackerSheet;
+    /** Which line the header was found on — a mis-read shows up here before anyone commits. */
+    headerLine: number;
+    headers: string[];
+    preview: {
+        total: number;
+        importable: number;
+        blocked: number;
+        withWarnings?: number;
+        rows: ImportRow[];
+        questions?: {
+            ambiguousNames: { name: string; employeeIds: string[]; employees: { id: string; label: string }[] }[];
+            unmappedStatuses: { value: string; rowCount: number }[];
+        };
+    };
+}
+
+export interface ImportAnswers {
+    nameOverrides?: Record<string, string>;
+    statusAliases?: Record<string, string>;
+}
+
+/** Answers ride as a JSON field because the request is a file upload. */
+const importForm = (file: File, answers?: ImportAnswers): FormData => {
+    const form = new FormData();
+    form.append("file", file);
+    if (answers && (answers.nameOverrides || answers.statusAliases)) {
+        form.append("answers", JSON.stringify(answers));
+    }
+    return form;
+};
+
+/** Reads the file and reports. Writes nothing. */
+export const previewTrackerImport = async (sheet: TrackerSheet, file: File, answers?: ImportAnswers): Promise<ImportPreview> => {
+    const { data } = await axios.post(
+        `${API_BASE_URL}/${RECRUITMENT.IMPORT_PREVIEW.replace(":sheet", sheet)}`,
+        importForm(file, answers),
+    );
+    return data;
+};
+
+export const executeTrackerImport = async (sheet: TrackerSheet, file: File, answers?: ImportAnswers) => {
+    const { data } = await axios.post(
+        `${API_BASE_URL}/${RECRUITMENT.IMPORT_EXECUTE.replace(":sheet", sheet)}`,
+        importForm(file, answers),
+    );
+    return data?.result;
+};
 // ─── Scorecard templates (the interview rubric) ──────────────────────────────
 export interface ScorecardFactor {
     id: string;

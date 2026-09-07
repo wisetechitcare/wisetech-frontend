@@ -11,6 +11,7 @@ import PostingsView from "./PostingsView";
 import PipelineView from "./PipelineView";
 import CandidatesView from "./CandidatesView";
 import RecruitmentConfigurationMain from "./RecruitmentConfigurationMain";
+import ImportView from "./ImportView";
 
 /**
  * Recruitment / ATS module shell. Mirrors LeadsMain (MaterialHeaderTab +
@@ -32,7 +33,7 @@ import RecruitmentConfigurationMain from "./RecruitmentConfigurationMain";
  * family root and shared by every sub-org, so filtering them by org would imply an
  * ownership that does not exist.
  */
-const TAB_KEYS = ["overview", "requisitions", "postings", "pipeline", "candidates", "configure"] as const;
+const TAB_KEYS = ["overview", "requisitions", "postings", "pipeline", "candidates", "import", "configure"] as const;
 
 const RecruitmentMain = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -54,6 +55,9 @@ const RecruitmentMain = () => {
     { title: "Postings", component: <PostingsView companyId={companyId} />, icon: "bi-megaphone" },
     { title: "Pipeline", component: <PipelineView companyId={companyId} />, icon: "bi-kanban" },
     { title: "Candidates", component: <CandidatesView companyId={companyId} />, icon: "bi-people" },
+    // Sits before Configure: it is a migration tool, used heavily for a short while and
+    // then rarely, so it belongs beside the day-to-day tabs rather than buried in settings.
+    { title: "Import", component: <ImportView />, icon: "bi-upload" },
     { title: "Configure", component: <RecruitmentConfigurationMain />, icon: "bi-gear" },
   ];
 
