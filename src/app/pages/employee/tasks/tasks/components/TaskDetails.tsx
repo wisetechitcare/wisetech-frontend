@@ -7,7 +7,7 @@ import { getTaskById, createTimeSheet, updateTimeSheetById, updateTaskStatusById
 import { warningNotification } from '@utils/modal';
 import TaskOverview from './TaskOverview';
 import TaskTimesheet from './TaskTimesheet';
-import TaskForm from './TaskForm';
+import TaskFormDialog, { taskRowToDialogTask } from '@pages/employee/tasks/components/TaskFormDialog';
 import { RootState, AppDispatch } from '@redux/store';
 import { 
   startTimerThunk, 
@@ -835,30 +835,11 @@ const TaskDetails = () => {
             </div>
 
             {showTaskModal && (
-                <TaskForm
+                <TaskFormDialog
                     open={showTaskModal}
                     onClose={handleTaskModalClose}
-                    onSubmit={handleTaskSubmitSuccess}
-                    isEdit={isEdit}
-                    selectedTask={task}
-                    title={isEdit ? "Edit Task" : "Add New Task"}
-                    // headerName={isEdit ? "Edit Task" : "Create New Task"}
-                    taskType={task?.taskType || 'PRESETS'}
-                    taskName={task?.taskName || ''}
-                    taskDescription={task?.taskDescription || ''}
-                    chooseProject={task?.project?.id || ''}
-                    assignTo={task?.assignedTo?.id || ''}
-                    status={task?.status?.id || ''}
-                    priority={task?.priority?.id || ''}
-                    billable={task?.billingType ?? 'BILLABLE'}
-                    startDate={task?.startDate ? new Date(task.startDate).toISOString().split('T')[0] : ''}
-                    dueDate={task?.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
-                    startTime={task?.startTime ? new Date(task.startTime).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}
-                    dueTime={task?.dueTime ? new Date(task.dueTime).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}
-                    logTime={task ? 
-                        `${String(task.logTimeHours || 0).padStart(2, '0')}:${String(task.logTimeMinutes || 0).padStart(2, '0')}:${String(task.logTimeSeconds || 0).padStart(2, '0')}` 
-                        : undefined
-                    }
+                    onSaved={() => handleTaskSubmitSuccess(null)}
+                    task={isEdit ? taskRowToDialogTask(task) : null}
                 />
             )}
 

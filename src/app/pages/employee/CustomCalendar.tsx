@@ -27,7 +27,7 @@ import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
 import ApplyLeave from './attendance/personal/views/my-leaves/ApplyLeave';
 import Holiday from '@pages/company/Holiday';
 import './CustomCalendar.premium.css';
-import MeetingsForm from './attendance/personal/views/my-leaves/MeetingsForm';
+import MeetingDialog from './MeetingDialog';
 import SmartAvatar from '@app/modules/common/components/SmartAvatar';
 import PremiumButton from '@app/modules/common/components/PremiumButton';
 import { hasPermission } from '@utils/authAbac';
@@ -1614,15 +1614,15 @@ function CustomCalendar() {
                 </Modal.Body>
             </Modal>
 
-                    {/* Add new Meeting form model */}
-                    <Modal show={showMeetingsForm} onHide={handleCloseMeetingForm} centered fullscreen="md-down">
-                        <Modal.Header closeButton>
-                            <Modal.Title>Add New Meetings</Modal.Title>
-                        </Modal.Header>
-                        <Modal.Body>
-                    <MeetingsForm onClose={handleCloseMeetingForm} selectedDateTimeInfo={selectedDateTimeInfo}/>
-                        </Modal.Body>
-                    </Modal>
+                    {/* The SAME form the task dialog's "Meeting" choice opens — one body, one
+                        look, one set of rules. It was a react-bootstrap modal wrapping a
+                        differently-styled form, so scheduling a meeting from here and from the
+                        board looked like two different products. */}
+                    <MeetingDialog
+                        open={showMeetingsForm}
+                        onClose={handleCloseMeetingForm}
+                        selectedDateTimeInfo={selectedDateTimeInfo}
+                    />
 
                     {/* Event Form Modal */}
                     <Modal show={showEventForm} onHide={handleCloseEventForm} centered fullscreen="md-down">

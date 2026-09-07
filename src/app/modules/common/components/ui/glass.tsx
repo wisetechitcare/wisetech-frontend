@@ -4,6 +4,7 @@ import {
   Stack, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
+import { alpha } from '@mui/material/styles';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { T, GlassVariant, VividTone, ThemeMode, label } from './tokens';
 import { toTitleCase } from './text';
@@ -211,6 +212,74 @@ export function GlassHeader({
   );
 }
 
+/**
+ * The header for a `plain` dialog: a line of chrome, not a banner.
+ *
+ * `GlassHeader` paints an 88px navy gradient — the right weight above a glass sheet, far too
+ * much above a white form, where it reads as a different product bolted to the top. This is a
+ * tinted glyph, a title, and a hairline.
+ */
+export function PlainDialogHeader({
+  icon, title, subtitle, onClose, closeIcon,
+}: {
+  icon?: React.ReactNode; title: string; subtitle?: string;
+  onClose?: () => void; closeIcon?: React.ReactNode;
+}) {
+  return (
+    <Stack
+      direction="row"
+      alignItems="center"
+      spacing={1.25}
+      // The brand band GlassHeader already uses — same gradient, same accent rule underneath —
+      // just at dialog-chrome height rather than banner height. A 4.5% tint read as "almost
+      // white", which is not a header; this is unmistakably one, and the body stays plain.
+      sx={{
+        px: 2.5, py: 1.5,
+        background: `linear-gradient(135deg, ${T.color.brandHover} 0%, ${T.color.brand} 100%)`,
+        color: '#fff',
+        borderBottom: `3px solid ${T.color.accent}`,
+      }}
+    >
+      {icon ? (
+        <Box sx={{
+          width: 38, height: 38, borderRadius: 2, flexShrink: 0,
+          display: 'grid', placeItems: 'center',
+          bgcolor: 'rgba(255,255,255,0.14)',
+          border: '1px solid rgba(255,255,255,0.22)',
+          color: '#fff',
+        }}>
+          {icon}
+        </Box>
+      ) : null}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontWeight: 700, fontSize: 16, lineHeight: 1.25, color: '#fff' }}>
+          {title}
+        </Typography>
+        {subtitle ? (
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.72)', display: 'block' }}>
+            {subtitle}
+          </Typography>
+        ) : null}
+      </Box>
+      {onClose ? (
+        <IconButton
+          onClick={onClose}
+          aria-label="Close"
+          size="small"
+          sx={{
+            flexShrink: 0, color: '#fff',
+            bgcolor: 'rgba(255,255,255,0.14)',
+            border: '1px solid rgba(255,255,255,0.22)',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.24)' },
+          }}
+        >
+          {closeIcon ?? <Box component="span" sx={{ fontSize: 20, lineHeight: 1 }}>×</Box>}
+        </IconButton>
+      ) : null}
+    </Stack>
+  );
+}
+
 // ─── GlassDialog: MUI Dialog with a frosted Paper + dimmed/blurred backdrop ───────────────────
 export interface GlassDialogProps extends Omit<DialogProps, 'title'> {
   /** Rendered flush at the top of the Paper (typically a <GlassHeader/>). */
@@ -219,10 +288,21 @@ export interface GlassDialogProps extends Omit<DialogProps, 'title'> {
   mobileFullScreen?: boolean;
   /** Skip the Paper's backdrop-filter (perf). */
   disableBlur?: boolean;
+  /**
+   * A PLAIN white sheet instead of the frosted one: opaque Paper, hairline border, and a dimmed
+   * but UNBLURRED scrim.
+   *
+   * Glass reads well over a dashboard. Over a dense form — a scheduling grid, a column of
+   * inputs — whatever is behind the modal shows through the surface a person is trying to read,
+   * and the blurred backdrop smears it further. This is the same dialog with that turned off,
+   * rather than a second dialog component: the scroll region, the phone full-screen and the
+   * transition are all still wanted.
+   */
+  plain?: boolean;
 }
 
 export function GlassDialog({
-  header, mobileFullScreen = true, disableBlur, children,
+  header, mobileFullScreen = true, disableBlur, plain = false, children,
   PaperProps, slotProps, disableEnforceFocus = true, maxWidth = 'md', fullWidth = true,
   TransitionComponent, ...rest
 }: GlassDialogProps) {
@@ -259,7 +339,17 @@ export function GlassDialog({
       PaperProps={{
         ...PaperProps,
         sx: [
-          glassSx('regular', { mode, disableBlur }),
+          plain
+            ? {
+                backgroundColor: 'background.paper',
+                backgroundImage: 'none',
+                backdropFilter: 'none',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: '14px',
+                boxShadow: '0 24px 64px -12px rgba(15,23,42,0.28)',
+              }
+            : glassSx('regular', { mode, disableBlur }),
           { fontFamily: T.font.family, overflow: 'hidden', ...(fullScreen ? { borderRadius: 0 } : null) },
           ...(PaperProps?.sx ? (Array.isArray(PaperProps.sx) ? PaperProps.sx : [PaperProps.sx]) : []),
         ] as SxProps<Theme>,
@@ -270,8 +360,10 @@ export function GlassDialog({
           ...(slotProps?.backdrop as object),
           sx: {
             backgroundColor: scrim,
-            backdropFilter: scrimBlur,
-            WebkitBackdropFilter: scrimBlur,
+            // Dimmed but not smeared in plain mode — the blur is half of what reads as "glass",
+            // and leaving it on made the Paper override look like it had not worked.
+            backdropFilter: plain ? 'none' : scrimBlur,
+            WebkitBackdropFilter: plain ? 'none' : scrimBlur,
           },
         },
       }}

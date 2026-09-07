@@ -216,6 +216,10 @@ body {
    -------------------------------------------------------------------------- */
 .aside .menu-item {
   margin: 2px 0;
+  /* The row's own accent = ITS ICON'S COLOUR. Every hover/selected state below is
+     painted from this one var, so selection is always the same hue as the glyph
+     next to it. Pinned rows carry no section, so they fall back to the brand. */
+  --wt-a: var(--wt-sec-fg, var(--nav-accent));
 }
 
 .aside .menu-link {
@@ -281,58 +285,64 @@ body {
   height: 34px;
   margin-right: 12px;
   border-radius: 10px;
-  background: var(--nav-chip-bg);
-  color: var(--nav-chip-fg) !important;
+  background: var(--wt-sec-tint, var(--nav-chip-bg));
+  color: var(--wt-sec-fg, var(--nav-chip-fg)) !important;
   font-size: 18px !important;
   line-height: 1;
   transition: background 0.2s var(--wt-ease), color 0.2s var(--wt-ease),
     transform 0.2s var(--wt-ease);
 }
 
-/* Hover (non-active): accent-tinted chip to match the row hover. */
+/* Hover (non-active): accent-tinted chip to match the row hover. The glyph holds
+   its SECTION colour — swapping it to brand navy on hover would undo the one thing
+   the per-section accents are there to do. */
 .aside .menu-item .menu-link:not(.active):hover .menu-font-icon {
-  background: rgba(var(--nav-accent-rgb), 0.14);
-  color: var(--nav-accent) !important;
+  background: color-mix(in srgb, var(--wt-a) 16%, transparent);
+  color: var(--wt-a) !important;
   transform: translateX(3px);
 }
 
-/* Active leaf item: solid accent chip with a white glyph — the strong,
-   "premium" highlight (matches the reference), not a flat tint. */
+/* Active leaf item. The glyph KEEPS its section colour — a white-on-solid chip
+   made every selected row look identical no matter which application it belonged
+   to, which is the one thing the per-section accents exist to prevent. The chip
+   deepens and gains a ring in that same colour instead. */
 .aside .menu-item .menu-link.without-sub.active .menu-font-icon {
-  background: linear-gradient(135deg, var(--nav-accent) 0%, var(--nav-accent-2) 100%) !important;
-  color: #fff !important;
-  box-shadow: 0 4px 10px rgba(var(--nav-accent-rgb), 0.32);
+  background: color-mix(in srgb, var(--wt-a) 22%, transparent) !important;
+  color: var(--wt-a) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wt-a) 38%, transparent);
 }
 
 /* Hover (non-active) */
 .aside .menu-item .menu-link:not(.active):hover {
-  background: var(--nav-hover-bg) !important;
+  background: color-mix(in srgb, var(--wt-a) 9%, transparent) !important;
 }
 
 /* The title used to translateX(3px) alongside the icon, so the label slid out
    from under the cursor on every hover. The icon nudge alone carries the
    affordance without moving the thing you are trying to read. */
 .aside .menu-item .menu-link:not(.active):hover .menu-title {
-  color: var(--nav-accent) !important;
+  color: var(--wt-a) !important;
 }
 
 .aside .menu-item .menu-link:not(.active):hover .menu-icon {
   transform: translateX(3px);
 }
 
-/* Active leaf items (top level without submenus) */
+/* Active leaf items (top level without submenus). Tint, rail and label all come
+   from --wt-a, so "you are here" is drawn in the colour of the icon beside it. The
+   tint is ~2x the hover tint so the two states never read as the same thing. */
 .aside .menu-item .menu-link.without-sub.active {
-  background: var(--nav-active-bg) !important;
-  color: var(--nav-accent) !important;
+  background: color-mix(in srgb, var(--wt-a) 15%, transparent) !important;
+  color: var(--wt-a) !important;
   border-left: 0 !important;
   border-radius: 11px !important;
-  box-shadow: inset 3px 0 0 var(--nav-accent) !important;
+  box-shadow: inset 3px 0 0 var(--wt-a) !important;
 }
 
 /* Weight, not just hue: colour alone is a weak "you are here" signal for anyone
    who cannot separate the accent from the body tone. */
 .aside .menu-item .menu-link.without-sub.active .menu-title {
-  color: var(--nav-accent) !important;
+  color: var(--wt-a) !important;
   font-weight: 700 !important;
 }
 
@@ -399,7 +409,12 @@ body {
   padding: 7px 12px !important;
   margin: 0 !important;
   border-radius: 6px 0 0 6px;
-  background: var(--nav-heading-bg);
+  /* Was one blue wash for every application. Tinting it with the section's own
+     colour (--wt-a, inherited from the .menu-item) makes the band, its bar, its
+     glyph and its selected rows one family. */
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--wt-a) 15%, transparent) 0%,
+    transparent 78%);
   box-shadow: none;
 }
 
@@ -409,10 +424,46 @@ body {
   display: inline-block;
   width: 4px;
   height: 14px;
-  background: var(--nav-accent);
+  background: var(--wt-a);
   border-radius: 2px;
   flex-shrink: 0;
 }
+
+/* The application's glyph, matching its tile in the workspace shell. Sized off the
+   heading rather than the 34px row chip — a heading is a label, not a row. */
+.aside .menu-section .menu-section-icon {
+  font-size: 18px !important;
+  color: var(--wt-a);
+  flex-shrink: 0;
+}
+
+/* -----------------------------------------------------------------------------
+   PER-SECTION ACCENTS
+   One class per application, set on the menu item by AsideMenuMain from
+   navTheme.ts's accent map — the SAME map the workspace shell tiles use, so the
+   rail and the shell can never disagree about an application's colour.
+   Values are Tailwind's 600/50 (light) and 300/15% (dark), i.e. the literal
+   resolutions of navTheme's `icon`/`iconWrap` classes: those are Tailwind
+   utilities and cannot reach in here, because Metronic's menu CSS is unlayered
+   and !important (see shellTokens.ts).
+   -------------------------------------------------------------------------- */
+.aside .wt-sec-slate   { --wt-sec-fg: #475569; --wt-sec-tint: #f1f5f9; }
+.aside .wt-sec-blue    { --wt-sec-fg: #2563eb; --wt-sec-tint: #eff6ff; }
+.aside .wt-sec-emerald { --wt-sec-fg: #059669; --wt-sec-tint: #ecfdf5; }
+.aside .wt-sec-purple  { --wt-sec-fg: #9333ea; --wt-sec-tint: #faf5ff; }
+.aside .wt-sec-amber   { --wt-sec-fg: #d97706; --wt-sec-tint: #fffbeb; }
+.aside .wt-sec-teal    { --wt-sec-fg: #0d9488; --wt-sec-tint: #f0fdfa; }
+.aside .wt-sec-rose    { --wt-sec-fg: #e11d48; --wt-sec-tint: #fff1f2; }
+.aside .wt-sec-indigo  { --wt-sec-fg: #4f46e5; --wt-sec-tint: #eef2ff; }
+
+[data-bs-theme='dark'] .aside .wt-sec-slate   { --wt-sec-fg: #cbd5e1; --wt-sec-tint: rgba(100, 116, 139, 0.15); }
+[data-bs-theme='dark'] .aside .wt-sec-blue    { --wt-sec-fg: #93c5fd; --wt-sec-tint: rgba(59, 130, 246, 0.15); }
+[data-bs-theme='dark'] .aside .wt-sec-emerald { --wt-sec-fg: #6ee7b7; --wt-sec-tint: rgba(16, 185, 129, 0.15); }
+[data-bs-theme='dark'] .aside .wt-sec-purple  { --wt-sec-fg: #d8b4fe; --wt-sec-tint: rgba(168, 85, 247, 0.15); }
+[data-bs-theme='dark'] .aside .wt-sec-amber   { --wt-sec-fg: #fcd34d; --wt-sec-tint: rgba(245, 158, 11, 0.15); }
+[data-bs-theme='dark'] .aside .wt-sec-teal    { --wt-sec-fg: #5eead4; --wt-sec-tint: rgba(20, 184, 166, 0.15); }
+[data-bs-theme='dark'] .aside .wt-sec-rose    { --wt-sec-fg: #fda4af; --wt-sec-tint: rgba(244, 63, 94, 0.15); }
+[data-bs-theme='dark'] .aside .wt-sec-indigo  { --wt-sec-fg: #a5b4fc; --wt-sec-tint: rgba(99, 102, 241, 0.15); }
 
 .aside .menu-content {
   padding-top: 12px;
@@ -455,9 +506,16 @@ body {
 }
 
 .aside .menu-item.menu-tree-group > .menu-link:not(.active):hover .menu-title,
-.aside .menu-item.menu-tree-group > .menu-link:not(.active):hover .menu-icon,
-.aside .menu-item.menu-tree-group > .menu-link:not(.active):hover .menu-font-icon {
+.aside .menu-item.menu-tree-group > .menu-link:not(.active):hover .menu-icon {
   color: var(--nav-fg) !important;
+  transform: none !important;
+}
+
+/* Same for the group's chip — no hover response, but it keeps its section colour
+   rather than reverting to body ink. */
+.aside .menu-item.menu-tree-group > .menu-link:not(.active):hover .menu-font-icon {
+  background: var(--wt-sec-tint, var(--nav-chip-bg));
+  color: var(--wt-a) !important;
   transform: none !important;
 }
 
@@ -527,7 +585,7 @@ body {
   top: 6px;
   bottom: 6px;
   width: 3px;
-  background: var(--nav-accent) !important;
+  background: var(--wt-a) !important;
   border-radius: 0 2px 2px 0 !important;
 }
 
@@ -547,12 +605,12 @@ body {
 
 /* Inactive Submenu Hover */
 .aside .menu-sub-accordion .menu-link:not(.active):hover {
-  background: var(--nav-hover-bg) !important;
+  background: color-mix(in srgb, var(--wt-a) 9%, transparent) !important;
 }
 
 /* Same reasoning as the top-level rows: colour shift only, no sliding label. */
 .aside .menu-sub-accordion .menu-link:not(.active):hover .menu-title {
-  color: var(--nav-accent) !important;
+  color: var(--wt-a) !important;
 }
 
 .aside .menu-sub-accordion .menu-link:not(.active):hover .menu-icon {
@@ -561,11 +619,11 @@ body {
 
 /* Active Submenu Link */
 .aside .menu-sub-accordion .menu-link.active {
-  background: var(--nav-active-bg) !important;
+  background: color-mix(in srgb, var(--wt-a) 15%, transparent) !important;
 }
 
 .aside .menu-sub-accordion .menu-link.active .menu-title {
-  color: var(--nav-accent) !important;
+  color: var(--wt-a) !important;
   font-weight: 700 !important;
 }
 
@@ -727,8 +785,18 @@ body {
   }
 
   body[data-aside-collapsed='true'] .aside .menu-item .menu-link:not(.active):hover .menu-font-icon {
-    background: rgba(var(--nav-accent-rgb), 0.14);
+    background: color-mix(in srgb, var(--wt-a) 16%, transparent);
   }
+
+  /* Collapsed: the row tint is gone, so the selected chip is the ONLY thing left
+     saying where you are — give it the rail the expanded row has, in the same
+     section colour, hung off the aside's left edge. */
+  body[data-aside-collapsed='true'] .aside .menu-item .menu-link.without-sub.active {
+    background: transparent !important;
+    box-shadow: inset 3px 0 0 var(--wt-a) !important;
+  }
+
+
 }
 
 /* The nav's motion is decorative — the colour and weight changes carry every

@@ -77,6 +77,35 @@ const toWire = (v?: string | null) => (v ? dayjs(v).format('YYYY-MM-DD') : '');
 const userName = (u: UserOption) =>
     [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Unnamed user';
 
+/**
+ * Why an upload failed, in terms the person reading it can act on.
+ *
+ * `apiErrorMessage` returns the server's own sentence, which is the best answer whenever the API
+ * actually replied in its own envelope. But an upload can fail in ways that never reach the API:
+ * a proxy that caps request bodies answers 413 with an HTML page, a cold or crashed instance
+ * answers 502/504, and a CORS or network failure produces no response at all. In every one of
+ * those the envelope is absent and a bare "please try again" is a dead end — the admin retries
+ * the same file, it fails the same way, and nobody learns anything. So when there is no sentence
+ * to show, say what layer refused and quote the status, which is what makes it diagnosable.
+ */
+const uploadFailureMessage = (error: unknown): string => {
+    const sentence = apiErrorMessage(error, '');
+    if (sentence) return sentence;
+
+    const status = (error as { response?: { status?: number } })?.response?.status;
+    if (!status) {
+        return 'The server could not be reached, so the image was not uploaded. Check your connection '
+            + 'and try again — if it keeps happening the upload service may be down.';
+    }
+    if (status === 413) {
+        return 'The server rejected this file as too large (HTTP 413) before it finished uploading. '
+            + 'This is a limit in front of the application, not the app itself, so a smaller image '
+            + 'should work — please report it if a small one fails too.';
+    }
+    return `The upload was refused with HTTP ${status} and no explanation, which usually means the `
+        + `request did not reach the application. Please report this status code.`;
+};
+
 export const AnnouncementFormDialog = ({
     open, onClose, announcement, onSaved,
 }: AnnouncementFormDialogProps) => {
@@ -180,10 +209,7 @@ export const AnnouncementFormDialog = ({
             const { data: { path } } = await uploadUserAsset(form, userId);
             set({ imageUrl: path });
         } catch (error) {
-            // The server's own sentence, not "Upload failed". It is the side that knows why —
-            // over the size ceiling, contents that do not match the extension, an unreadable
-            // file — and swallowing it left the admin retrying the same file.
-            setPosterError(apiErrorMessage(error, 'That image could not be uploaded. Please try again.'));
+            setPosterError(uploadFailureMessage(error));
         } finally {
             setUploading(false);
         }

@@ -40,7 +40,7 @@ import {
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { useFillViewport } from '@app/hooks/useFillViewport';
-import { TaskFilterState, filtersToQuery, apiErrorMessage, activeFilterCount } from './taskDomain';
+import { TaskFilterState, TaskRow, filtersToQuery, apiErrorMessage, activeFilterCount } from './taskDomain';
 import {
     useTaskBoard, useTaskList, useTaskStatuses, useTaskPriorities,
     useAvailableProjects, useBoardProjects, useMoveTaskStage, useCreateBoardList, useDeleteBoardList,
@@ -54,11 +54,23 @@ import TaskBoard, { BoardColumn } from './components/TaskBoard';
 import TaskTable from './components/TaskTable';
 import TaskFilterDrawer from './components/TaskFilterDrawer';
 import TaskFormDialog from './components/TaskFormDialog';
+import { useSelector } from 'react-redux';
+import { RootState } from '@redux/store';
+import MeetingDialog from '../MeetingDialog';
+// The SAME form the timesheet uses. There were two, writing the same Timesheet row
+// through different endpoints, so what logging an hour asked you depended on which
+// screen you started from.
+import NewTimeLogForm from '@app/pages/employee/timesheet/employeetimesheet/component/NewTimeLogForm';
+import MeetingAttendeesDialog from '../MeetingAttendeesDialog';
 import BoardBackgroundDialog from './components/BoardBackgroundDialog';
 import ProjectTeamDialog from './components/ProjectTeamDialog';
 import BoardBottomNav, { WorkspacePanel } from './components/BoardBottomNav';
 import ProjectRail, { RailProject, RailGeneralTask, GENERAL_PREFIX } from './components/ProjectRail';
 import { readPinnedProjects } from './usePinnedProjects';
+import { useMeetingLanePosition, moveTo } from './useMeetingLanePosition';
+
+/** The synthetic lane's id, mirrored from the server (TaskAndTime.getTaskBoard). */
+const MEETINGS_LANE = '__meetings__';
 import { TaskStateBlock, TeamAvatars } from './components/primitives';
 
 type ViewMode = 'kanban' | 'table';
@@ -184,6 +196,19 @@ export const TasksWorkspace = () => {
     const [createInStage, setCreateInStage] = useState<string | undefined>();
     const [backdropOpen, setBackdropOpen] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
+    // The meeting a board card was clicked on. null → the dialog is closed.
+    const currentEmployeeId = useSelector((s: RootState) => s.employee?.currentEmployee?.id);
+    const [editingMeeting, setEditingMeeting] = useState<any>(null);
+    /**
+     * The meeting whose time is being logged, if any.
+     *
+     * Separate from `editingMeeting` because they are different questions asked of the same
+     * card: one changes the meeting, the other records what it cost you. Sharing one slot
+     * would mean picking which dialog a click opens.
+     */
+    const [loggingMeeting, setLoggingMeeting] = useState<any>(null);
+    /** The meeting whose attendee list is open. */
+    const [attendeesOf, setAttendeesOf] = useState<any>(null);
     /** The board header's avatar stack is a preview; this is where the rest of the team lives. */
     const [teamOpen, setTeamOpen] = useState(false);
     /**
@@ -314,7 +339,17 @@ export const TasksWorkspace = () => {
     const reorderTasks = useReorderBoardTasks();
     const reorderStatuses = useReorderStatuses();
 
-    const columns: BoardColumn[] = boardQuery.data?.columns ?? [];
+    /**
+     * The Meeting lane's position, which is this viewer's own — see useMeetingLanePosition.
+     * Applied here rather than in TaskBoard so the board component keeps knowing nothing about
+     * which of its lanes happen to be synthetic.
+     */
+    const meetingLane = useMeetingLanePosition(scopeSel || 'all');
+    const columns: BoardColumn[] = useMemo(() => {
+        const fromServer: BoardColumn[] = boardQuery.data?.columns ?? [];
+        if (meetingLane.position === null) return fromServer;
+        return moveTo(fromServer, (c) => c.status.id === MEETINGS_LANE, meetingLane.position);
+    }, [boardQuery.data?.columns, meetingLane.position]);
     const boardTotal = boardQuery.data?.total ?? 0;
     const tasks = listQuery.data?.data?.tasks ?? [];
     const pagination = listQuery.data?.data?.pagination;
@@ -325,7 +360,58 @@ export const TasksWorkspace = () => {
         localStorage.setItem(VIEW_KEY, next);
     };
     const updateFilters = (next: TaskFilterState) => { setFilters(next); setPage(0); };
-    const selectScope = (id: string) => { setScopeSel(id); setPage(0); };
+    /**
+     * A meeting card is not a task: there is no /tasks/:id for it. It opens the project it was
+     * scheduled on, at that project's Meetings tab — which is where meetings are actually read
+     * and edited. `isProject` in the nav state is what keeps the project-only tabs (Meetings
+     * among them) on screen; without it the page falls back to the lead view and the tab it
+     * was asked for does not exist.
+     */
+    const openTaskOrMeeting = (id: string, task: TaskRow) => {
+        if (task?.isMeeting) {
+            // Opened HERE rather than by navigating to the project's Meetings tab: the card was
+            // clicked to look at the meeting, and sending somebody to another screen to do that
+            // loses the board they were reading. The row already carries everything the form
+            // needs, so there is nothing to fetch.
+            const m = task as any;
+            const ids = (raw?: string | null): string[] => {
+                if (!raw) return [];
+                try {
+                    const parsed = JSON.parse(raw);
+                    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+                } catch { return String(raw).split(',').map((x) => x.trim()).filter(Boolean); }
+            };
+            setEditingMeeting({
+                id: m.id,
+                title: m.taskName,
+                description: m.taskDescription,
+                isOnline: !!m.isOnline,
+                meetingLink: m.meetingLink,
+                location: m.location,
+                startDate: m.startDate,
+                endDate: m.endDate ?? m.dueDate,
+                projectId: m.leadId,
+                participantIds: ids(m.participants),
+                externalParticipantIds: ids(m.externalParticipants),
+            });
+            return;
+        }
+        navigate(`/tasks/${id}`);
+    };
+
+    /**
+     * First click scopes the board to a project; clicking the one already in view OPENS it.
+     * The rail is the only place a project is named on this screen, so it is where somebody
+     * reaches for the project itself — and a second click on an already-selected row was doing
+     * nothing at all.
+     */
+    const selectScope = (id: string) => {
+        if (id === scopeSel && projects.some((p) => p.id === id)) {
+            navigate(`/leads/${id}?tab=projects`, { state: { leadData: id, isProject: true } });
+            return;
+        }
+        setScopeSel(id); setPage(0);
+    };
 
     const togglePanel = (panel: WorkspacePanel) => {
         setPanels((current) => {
@@ -603,9 +689,28 @@ export const TasksWorkspace = () => {
                                         now={now}
                                         ink={ink}
                                         isLoading={boardQuery.isLoading}
-                                        onOpenTask={(id) => navigate(`/tasks/${id}`)}
+                                        onOpenTask={openTaskOrMeeting}
+                                        // The board row already carries the meeting's title
+                                        // and hours, so the dialog opens pre-filled with
+                                        // nothing left to fetch.
+                                        onOpenMeetingAttendees={(t) => setAttendeesOf({ id: t.id, title: t.taskName })}
+                                        onLogMeetingTime={(t) => setLoggingMeeting({
+                                            id: t.id,
+                                            title: t.taskName,
+                                            startDate: (t as any).startDate,
+                                            endDate: (t as any).endDate ?? t.dueDate,
+                                        })}
+                                        cardOrder={filters.cardOrder}
                                         onMoveTask={(taskId, statusId) => moveStage.mutateAsync({ taskId, statusId })}
-                                        onReorder={(statusId, taskIds) => reorderTasks.mutateAsync({ statusId, taskIds })}
+                                        // Hand-arranging a lane only means something when the lane
+                                        // is READ in hand-arranged order. With a date sort on, the
+                                        // saved position would be overridden the moment the refetch
+                                        // landed and the card would snap back — so the gesture is
+                                        // withdrawn rather than allowed to lie. Moving a card to
+                                        // another stage still works either way.
+                                        onReorder={(filters.cardOrder ?? 'earliest') === 'manual'
+                                            ? ((statusId, taskIds) => reorderTasks.mutateAsync({ statusId, taskIds }))
+                                            : undefined}
                                         // The per-lane "+" files a task too, so it answers to the
                                         // same permission as the header button.
                                         onAddInStage={boardQuery.data?.canCreateTask !== false
@@ -636,9 +741,21 @@ export const TasksWorkspace = () => {
                                         // stored where stages are stored and the same reorder
                                         // endpoint Configure uses. Dragging a lane on the board
                                         // and dragging a row in Configure are one operation.
-                                        onReorderLanes={(statusIds) => reorderStatuses.mutateAsync(
-                                            statusIds.map((id, index) => ({ id, sortOrder: index })),
-                                        )}
+                                        onReorderLanes={async (statusIds) => {
+                                            // The Meeting lane has no TaskStatus row to carry a
+                                            // sortOrder, so its index is remembered per viewer
+                                            // and the real stages are renumbered without it —
+                                            // sending it would be an update to a row that does
+                                            // not exist, and counting it would shift every
+                                            // stage's sortOrder by one for everybody.
+                                            const at = statusIds.indexOf(MEETINGS_LANE);
+                                            meetingLane.remember(at < 0 ? null : at);
+                                            const real = statusIds.filter((id) => id !== MEETINGS_LANE);
+                                            if (!real.length) return;
+                                            await reorderStatuses.mutateAsync(
+                                                real.map((id, index) => ({ id, sortOrder: index })),
+                                            );
+                                        }}
                                         onDeleteList={activeProject
                                             ? (statusId) => deleteList.mutateAsync(statusId)
                                             : undefined}
@@ -679,8 +796,41 @@ export const TasksWorkspace = () => {
                 )}
             </Box>
 
+            {/* Keyed on the meeting so opening a second card refills rather than showing the
+                first one's values — the form prefills on mount. */}
+            <MeetingDialog
+                key={editingMeeting?.id ?? 'none'}
+                open={!!editingMeeting}
+                editing={editingMeeting}
+                onClose={() => setEditingMeeting(null)}
+                onSaved={() => { setEditingMeeting(null); invalidateTasks(); }}
+            />
+
+            {/* Keyed on the meeting so opening a second one refills rather than showing the
+                first one's values — the form seeds its fields on mount. */}
+            <NewTimeLogForm
+                key={loggingMeeting?.id ?? 'none'}
+                show={!!loggingMeeting}
+                prefilledMeetingId={loggingMeeting?.id}
+                onClose={() => { setLoggingMeeting(null); invalidateTasks(); }}
+            />
+
+            <MeetingAttendeesDialog
+                open={!!attendeesOf}
+                meeting={attendeesOf}
+                employeeId={currentEmployeeId}
+                onClose={() => setAttendeesOf(null)}
+                // The rings on the card are drawn from the board payload, so a change in here
+                // has to refetch it or the faces go stale the moment the modal closes.
+                onChanged={invalidateTasks}
+            />
+
             <TaskFormDialog
                 open={createOpen}
+                // Without this the dialog saved and told nobody. A task still appeared because
+                // its own mutation invalidates the board; a MEETING is written by a different
+                // path that does not, so a new meeting sat in the database until a reload.
+                onSaved={invalidateTasks}
                 onClose={() => { setCreateOpen(false); setCreateInStage(undefined); }}
                 defaultStatusId={createInStage}
                 defaultProjectId={activeProject ? scopeSel : undefined}

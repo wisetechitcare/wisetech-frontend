@@ -26,7 +26,7 @@ import DocumentsTab from './detail/sections/DocumentsTab';
 import AuditSection from './detail/sections/AuditSection';
 import TeamsSection from './detail/sections/TeamsSection';
 import ExecutionSection from './detail/sections/ExecutionSection';
-import MeetingsList from '@app/modules/common/components/MeetingsList';
+import ProjectMeetings from './detail/sections/ProjectMeetings';
 import ProjectStatusControl from './detail/ProjectStatusControl';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
@@ -167,7 +167,20 @@ const EntityDetailPage: React.FC = () => {
     fetchLeadDetails();
   }, [fetchLeadDetails]);
 
-  useEventBus(EVENT_KEYS.leadUpdated, () => {
+  useEventBus(EVENT_KEYS.leadUpdated, (payload) => {
+    // A saver that already holds the updated lead hands it over and the page takes it as
+    // given: the PATCH read it back AFTER its own transaction committed, so there is nothing
+    // fresher to fetch. Every save used to wait 150ms and then re-fetch the whole lead behind
+    // this page's loading spinner — a second round-trip whose only job was to see what the
+    // first had already returned.
+    //
+    // Only when company/contact are unmoved: those two drive side fetches this page also
+    // holds, so a save that changes either still takes the full path.
+    const next = (payload as any)?.lead;
+    if (next?.id && lead?.companyId === next.companyId && lead?.contactId === next.contactId) {
+      setLead(next);
+      return;
+    }
     // Small delay to ensure backend has persisted the change
     setTimeout(fetchLeadDetails, 150);
   });
@@ -213,7 +226,7 @@ const EntityDetailPage: React.FC = () => {
         return <TeamsSection lead={lead} />;
       case 'meetings':
         // Meetings are linked by projectId = the lead id (lead-as-master).
-        return <MeetingsList mode="project" targetId={lead.id} />;
+        return <ProjectMeetings leadId={lead.id} />;
       default:
         return null;
     }

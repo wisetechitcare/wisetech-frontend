@@ -21,7 +21,7 @@ import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { useDashboardSettings } from "./useDashboardSettings";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
-import TaskForm from "../employee/tasks/tasks/components/TaskForm";
+import TaskFormDialog, { taskRowToDialogTask } from "@pages/employee/tasks/components/TaskFormDialog";
 import PerformanceBadge from "@pages/employee/kpis/personal/components/PerformanceBadge";
 import { useNavigate } from "react-router-dom";
 import DashboardAnnouncements from "./DashboardAnnouncements";
@@ -307,31 +307,13 @@ const DashboardPage = () => {
       </div> */}
 
       {/* Task Form Modal */}
+      {/* The one task form — this screen used the older one. */}
       {showTaskModal && (
-        <TaskForm
+          <TaskFormDialog
           open={showTaskModal}
           onClose={handleTaskModalClose}
-          onSubmit={handleTaskSubmitSuccess}
-          isEdit={isEdit}
-          selectedTask={selectedTask}
-          title={isEdit ? "Edit Task" : "Add New Task"}
-          taskType={selectedTask?.taskType || 'PRESETS'}
-          taskName={selectedTask?.taskName || ''}
-          taskDescription={selectedTask?.taskDescription || ''}
-          chooseProject={selectedTask?.project?.id || ''}
-          assignTo={selectedTask?.assignedTo?.id || ''}
-          status={selectedTask?.status?.id || ''}
-          priority={selectedTask?.priority?.id || ''}
-          billable={selectedTask?.billingType ?? "BILLABLE"}
-          startDate={selectedTask?.startDate ? new Date(selectedTask.startDate).toISOString().split('T')[0] : ''}
-          dueDate={selectedTask?.dueDate ? new Date(selectedTask.dueDate).toISOString().split('T')[0] : ''}
-          startTime={selectedTask?.startTime ? new Date(selectedTask.startTime).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}
-          dueTime={selectedTask?.dueTime ? new Date(selectedTask.dueTime).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}
-          logTime={
-            selectedTask
-              ? `${String(selectedTask.logTimeHours || 0).padStart(2, '0')}:${String(selectedTask.logTimeMinutes || 0).padStart(2, '0')}:${String(selectedTask.logTimeSeconds || 0).padStart(2, '0')}`
-              : undefined
-          }
+          onSaved={() => handleTaskSubmitSuccess(null)}
+          task={isEdit ? taskRowToDialogTask(selectedTask) : null}
         />
       )}
 

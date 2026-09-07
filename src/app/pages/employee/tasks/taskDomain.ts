@@ -29,6 +29,13 @@ export interface TaskStatusRef {
 
 export interface TaskRow {
     id: string;
+    /**
+     * This row is a MEETING, not a task — the board's synthetic Meeting lane reads the meetings
+     * table directly rather than copying it into tasks. It has no stage to be moved to and no
+     * page under /tasks/:id, so the board keeps it out of drag-and-drop and opens the project's
+     * Meetings tab instead.
+     */
+    isMeeting?: boolean;
     taskName: string;
     taskDescription?: string | null;
     taskScope: TaskScope;
@@ -241,9 +248,36 @@ export interface TaskFormValues {
     presetTaskId?: string;
     startDate?: string | null;
     dueDate?: string | null;
+    /**
+     * Clock times for the two dates, and the effort already logged — all `HH:mm`, all optional.
+     *
+     * They came back with the legacy form, which the project tab and the dashboard still used:
+     * the rebuilt dialog had dropped them, so retiring the old form would have silently taken
+     * three fields with real data in them. The columns (`start_time`, `due_time`,
+     * `log_time_hours/minutes/seconds`) and the create/update schema already accept them, so
+     * nothing on the server changes.
+     *
+     * A MEETING carries its own start and end datetime instead — these are task-only.
+     */
+    startTime?: string | null;
+    dueTime?: string | null;
+    logTime?: string | null;
     progress?: number | string;
     billingType?: 'BILLABLE' | 'NON_BILLABLE';
 }
+
+/** `HH:mm` on a date → the ISO datetime the API stores. Either half missing means no value. */
+const combineDateTime = (date?: string | null, time?: string | null): string | null => {
+    if (!date || !time || !/^\d{2}:\d{2}$/.test(time)) return null;
+    return new Date(`${date}T${time}:00`).toISOString();
+};
+
+/** `HH:mm` → the hours/minutes/seconds triple the task row stores effort in. */
+const splitLogTime = (time?: string | null): { logTimeHours: number; logTimeMinutes: number; logTimeSeconds: number } | null => {
+    if (!time || !/^\d{2}:\d{2}$/.test(time)) return null;
+    const [h, m] = time.split(':');
+    return { logTimeHours: Number(h), logTimeMinutes: Number(m), logTimeSeconds: 0 };
+};
 
 /**
  * Build the API payload from form values.
@@ -269,6 +303,10 @@ export const buildTaskPayload = (values: TaskFormValues): Record<string, unknown
         assignedToId: values.assignedToId || null,
         startDate: values.startDate || null,
         dueDate: values.dueDate || null,
+        // Sent as full datetimes: the columns are DateTime, and a bare `HH:mm` has no day to
+        // belong to. No date means no time — the pair travels together or not at all.
+        startTime: combineDateTime(values.startDate, values.startTime),
+        dueTime: combineDateTime(values.dueDate, values.dueTime),
         billingType: values.billingType || 'BILLABLE',
         // Explicit null on CUSTOM, so switching a task off presets CLEARS the link rather than
         // leaving it pointing at a node whose name the task no longer carries.
@@ -282,6 +320,10 @@ export const buildTaskPayload = (values: TaskFormValues): Record<string, unknown
     if (values.progress !== undefined && values.progress !== '') {
         payload.progress = clampProgress(Number(values.progress));
     }
+    // Absent rather than zeroed when the field was left empty: sending 0/0/0 would overwrite
+    // effort somebody already logged against the task.
+    const logged = splitLogTime(values.logTime);
+    if (logged) Object.assign(payload, logged);
     return payload;
 };
 
@@ -302,6 +344,16 @@ export interface TaskFilterState {
     topLevelOnly?: boolean;
     sortBy?: string;
     sortDir?: 'asc' | 'desc';
+    /**
+     * How cards are ordered INSIDE a board column. Client-side only — never sent to the API.
+     *
+     * The server hands each lane back in hand-arranged order (`boardPosition`) with newest-created
+     * as the tie-break, which answers "what did somebody drag where" and not "what is next". A
+     * lane of five meetings therefore read newest-first, and a Monday task sat under a Wednesday
+     * one. This re-orders what is already on screen rather than changing the query, so the board
+     * and the table still agree about WHICH cards exist — only the reading order differs.
+     */
+    cardOrder?: CardOrder;
 }
 
 /**
@@ -336,6 +388,45 @@ export const filtersToQuery = (filters: TaskFilterState): Record<string, string>
 /** How many filters are actually narrowing the list — drives the "N active" badge. */
 export const activeFilterCount = (filters: TaskFilterState): number =>
     Object.keys(filtersToQuery({ ...filters, sortBy: undefined, sortDir: undefined, search: undefined })).length;
+
+/** Card order inside a lane. `manual` is the server's own hand-arranged order. */
+export type CardOrder = 'earliest' | 'latest' | 'manual';
+
+export const DEFAULT_CARD_ORDER: CardOrder = 'earliest';
+
+/**
+ * The moment a card refers to.
+ *
+ * A meeting is its START — that is when you have to be somewhere. A task is its DUE date,
+ * which is when it matters; failing that the day it was meant to start, and only then the day
+ * it was filed. `null` for anything undated, which sorts LAST: a card with no date has not
+ * earned the top of the lane.
+ */
+export const cardTime = (t: TaskRow): number | null => {
+    const raw = t.isMeeting
+        ? (t.startDate ?? t.dueDate)
+        : (t.dueDate ?? t.startDate ?? t.createdAt);
+    if (!raw) return null;
+    const ms = new Date(raw).getTime();
+    return Number.isNaN(ms) ? null : ms;
+};
+
+/** Sort a lane's cards. Undated cards keep their given order, at the end. */
+export const orderCards = (tasks: TaskRow[], order: CardOrder): TaskRow[] => {
+    if (order === 'manual') return tasks;
+    const dir = order === 'latest' ? -1 : 1;
+    // Index-carrying so the sort is STABLE for equal (and for null) times — without it, cards
+    // sharing a date shuffle between renders, which reads as the board twitching.
+    return tasks
+        .map((t, i) => ({ t, i, ms: cardTime(t) }))
+        .sort((a, b) => {
+            if (a.ms === null && b.ms === null) return a.i - b.i;
+            if (a.ms === null) return 1;
+            if (b.ms === null) return -1;
+            return a.ms === b.ms ? a.i - b.i : (a.ms - b.ms) * dir;
+        })
+        .map((x) => x.t);
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Errors

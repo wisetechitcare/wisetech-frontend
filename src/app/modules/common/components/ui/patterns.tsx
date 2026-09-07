@@ -40,6 +40,40 @@ export const TRIO: Record<'blue' | 'green' | 'purple' | 'amber' | 'rose' | 'cyan
   slate:  { c: '#64748b', bg: '#f8fafc', bd: '#e2e8f0' },
 };
 
+/**
+ * Dropdown option colours, for a menu Paper or an Autocomplete listbox.
+ *
+ * MUI's default selected state is `action.selected` — an ~8% neutral wash that, behind
+ * unchanged body text, is nearly invisible on a white menu. The chosen row here states itself
+ * in the accent both behind AND in the ink, and hover reads as a rounded pill rather than a
+ * full-bleed band, which is what every other surface in this app does.
+ *
+ *   <TextField select SelectProps={{ MenuProps: { PaperProps: { sx: menuOptionSx } } }} />
+ *   <Autocomplete slotProps={{ listbox: { sx: menuOptionSx } }} />
+ */
+export const menuOptionSx = (theme: Theme) => {
+  const dark = theme.palette.mode === 'dark';
+  const c = theme.palette.primary.main;
+  return {
+    '& .MuiMenuItem-root, & .MuiAutocomplete-option': {
+      borderRadius: '8px',
+      marginLeft: '4px',
+      marginRight: '4px',
+      marginTop: '2px',
+      marginBottom: '2px',
+      '&:hover, &.Mui-focused, &.Mui-focusVisible': {
+        backgroundColor: alpha(c, dark ? 0.2 : 0.08),
+      },
+      '&.Mui-selected, &[aria-selected="true"]': {
+        backgroundColor: alpha(c, dark ? 0.34 : 0.13),
+        color: dark ? theme.palette.primary.light : theme.palette.primary.dark,
+        fontWeight: 600,
+        '&:hover, &.Mui-focused': { backgroundColor: alpha(c, dark ? 0.42 : 0.18) },
+      },
+    },
+  };
+};
+
 /** Card hover physics (shared) — a gentle lift + shadow deepen. */
 export const EASE_200 = 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)';
 export const SHADOW_REST = '0 1px 2px rgba(15,23,42,0.04), 0 8px 16px rgba(15,23,42,0.035)';
