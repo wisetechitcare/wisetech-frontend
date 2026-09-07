@@ -443,6 +443,12 @@ export const saveRecruitmentSettings = async (payload: Partial<RecruitmentSettin
 // ─── Interviews + scorecards (Phase 4) ───────────────────────────────────────
 export interface InterviewScorecard {
     id: string; interviewId: string; panelistId: string; overallRating: number; recommendation: string;
+    /**
+     * The vocabulary this card was scored under, frozen at submission. Read these
+     * rather than the template's: the template can be edited afterwards, and a Good
+     * on a three-point form must never be redisplayed as 3 out of 5.
+     */
+    ratingScale?: string | null; decisionSet?: string | null;
     factorScoresJson?: Record<string, number> | null; comments?: string | null; submittedAt: string;
 }
 export interface Interview {
@@ -524,6 +530,43 @@ export const executeTrackerImport = async (sheet: TrackerSheet, file: File, answ
     return data?.result;
 };
 // ─── Scorecard templates (the interview rubric) ──────────────────────────────
+
+/**
+ * The rubric vocabularies. These SHAPES are declared here; the VALUES are never
+ * authored on the client — every scale and decision set arrives from the API,
+ * whose registry (utils/scorecardRubric.ts) is the only definition of what is
+ * valid. A hardcoded list here would be a second source of truth, and the one
+ * users see, so it would win arguments it should lose.
+ */
+export interface RatingLevel {
+    value: number;
+    label: string;
+}
+export interface RatingScale {
+    id: string;
+    label: string;
+    min: number;
+    max: number;
+    /** Present when the scale is worded (Good / Average / Poor) rather than numeric. */
+    levels?: RatingLevel[];
+}
+export type DecisionOutcome = "ADVANCE" | "HOLD" | "REJECT";
+export interface DecisionOption {
+    value: string;
+    label: string;
+    outcome: DecisionOutcome;
+}
+export interface DecisionSet {
+    id: string;
+    label: string;
+    options: DecisionOption[];
+}
+/** What a scorecard dialog needs in order to render itself. */
+export interface ResolvedRubric {
+    template: ScorecardTemplate | null;
+    scale: RatingScale;
+    decisions: DecisionSet;
+}
 export interface ScorecardFactor {
     id: string;
     label: string;
@@ -537,6 +580,9 @@ export interface ScorecardTemplate {
     designationId?: string | null;
     isDefault: boolean;
     isActive: boolean;
+    /** Registry ids. Null means the server default — not "no scale". */
+    ratingScale?: string | null;
+    decisionSet?: string | null;
     factors: ScorecardFactor[];
 }
 export interface ScorecardTemplatePayload {
@@ -544,13 +590,25 @@ export interface ScorecardTemplatePayload {
     designationId?: string | null;
     isDefault?: boolean;
     isActive?: boolean;
+    ratingScale?: string | null;
+    decisionSet?: string | null;
     /** Sent whole — the API replaces the factor set rather than diffing it. */
     factors?: { label: string; weight?: number; sortOrder?: number }[];
 }
 
-export const getScorecardTemplates = async (): Promise<ScorecardTemplate[]> => {
+export interface ScorecardTemplateList {
+    templates: ScorecardTemplate[];
+    /** The ids the API accepts, so the editor cannot offer one it would reject. */
+    scales: RatingScale[];
+    decisionSets: DecisionSet[];
+}
+export const getScorecardTemplates = async (): Promise<ScorecardTemplateList> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATES}`);
-    return data?.templates ?? [];
+    return {
+        templates: data?.templates ?? [],
+        scales: data?.rubricOptions?.scales ?? [],
+        decisionSets: data?.rubricOptions?.decisionSets ?? [],
+    };
 };
 export const createScorecardTemplate = async (payload: ScorecardTemplatePayload) => {
     const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATES}`, payload);
@@ -566,18 +624,29 @@ export const deleteScorecardTemplate = async (id: string) => {
 };
 
 /**
- * The rubric to show for one interview. Null is an ordinary answer, not an error: an
- * interview with no matching template still records an overall rating.
+ * The rubric to show for one interview: the criteria, and the vocabulary to score
+ * them in. A null template is an ordinary answer, not an error — an interview with
+ * no matching template still records an overall rating, and the server still says
+ * which scale and decisions apply to it.
  */
-export const getScorecardTemplateForInterview = async (interviewId: string): Promise<ScorecardTemplate | null> => {
+export const getScorecardTemplateForInterview = async (interviewId: string): Promise<ResolvedRubric> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATE_FOR_INTERVIEW.replace(":id", interviewId)}`);
-    return data?.template ?? null;
+    return { template: data?.template ?? null, scale: data?.rubric?.scale, decisions: data?.rubric?.decisions };
 };
 export interface ScorecardPayload {
     overallRating: number; recommendation: string; factorScores?: Record<string, number> | null; comments?: string | null;
 }
 export interface EvaluationAggregate {
-    scorecardCount: number; averageOverall: number | null; recommendation: string | null; byRecommendation: Record<string, number>;
+    scorecardCount: number;
+    /** In scale units. Null when the panel used more than one scale. */
+    averageOverall: number | null;
+    /** Which scale averageOverall is in, so it renders as "2/3" and not "2/5". */
+    ratingScale: string | null;
+    /** Mean position 0..1 within each card's own scale — always comparable. */
+    averagePercent: number | null;
+    /** The panel verdict by meaning, so it survives a vocabulary change. */
+    verdict: "ADVANCE" | "HOLD" | "REJECT" | "MIXED" | null;
+    byRecommendation: Record<string, number>;
 }
 
 export const getApplicationInterviews = async (applicationId: string): Promise<Interview[]> => {

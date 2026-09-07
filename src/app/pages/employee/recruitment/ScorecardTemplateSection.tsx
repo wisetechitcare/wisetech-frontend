@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Box, Stack, Typography, TextField, DialogContent, DialogActions, CircularProgress } from "@mui/material";
+import { Box, Stack, Typography, TextField, MenuItem, DialogContent, DialogActions, CircularProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
     GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, WtSwitchField,
@@ -46,17 +46,29 @@ const ScorecardTemplateSection = () => {
     const [name, setName] = useState("");
     const [isDefault, setIsDefault] = useState(false);
     const [factors, setFactors] = useState<FactorDraft[]>([newFactor()]);
+    // Empty string means "use the app default", which is what a null column means
+    // server-side. Kept as "" rather than null so the select stays controlled.
+    const [ratingScale, setRatingScale] = useState("");
+    const [decisionSet, setDecisionSet] = useState("");
 
-    const { data: templates = [], isLoading } = useQuery({
+    // The endpoint answers with the templates AND the vocabularies the API will
+    // accept, so this editor cannot offer a scale the server would reject. The lists
+    // are deliberately not declared in this file — see utils/scorecardRubric.ts.
+    const { data, isLoading } = useQuery({
         queryKey: queryKeys.recruitment.scorecardTemplates(),
         queryFn: getScorecardTemplates,
     });
+    const templates = data?.templates ?? [];
+    const scales = data?.scales ?? [];
+    const decisionSets = data?.decisionSets ?? [];
 
     const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.recruitment.scorecardTemplates() });
 
     const payload = (): ScorecardTemplatePayload => ({
         name: name.trim(),
         isDefault,
+        ratingScale: ratingScale || null,
+        decisionSet: decisionSet || null,
         // Blank rows are the natural residue of an "add row" button; drop them rather than
         // saving criteria with no name.
         factors: factors
@@ -85,6 +97,8 @@ const ScorecardTemplateSection = () => {
         setName("");
         setIsDefault(templates.length === 0); // the first template is the obvious default
         setFactors([newFactor()]);
+        setRatingScale("");
+        setDecisionSet("");
         setOpen(true);
     };
 
@@ -93,6 +107,8 @@ const ScorecardTemplateSection = () => {
         setName(t.name);
         setIsDefault(t.isDefault);
         setFactors(toDrafts(t));
+        setRatingScale(t.ratingScale ?? "");
+        setDecisionSet(t.decisionSet ?? "");
         setOpen(true);
     };
 
@@ -157,6 +173,12 @@ const ScorecardTemplateSection = () => {
                                         ? t.factors.map((f) => f.label).join(" · ")
                                         : "No criteria — records an overall rating only"}
                                 </Typography>
+                                {/* Two templates with the same criteria can still score differently. */}
+                                <Typography sx={{ fontSize: 11.5, color: "text.disabled", mt: 0.25 }}>
+                                    {scales.find((sc) => sc.id === t.ratingScale)?.label ?? "Default scale"}
+                                    {" · "}
+                                    {decisionSets.find((ds) => ds.id === t.decisionSet)?.label ?? "Default decisions"}
+                                </Typography>
                             </Box>
                             <WtIconButton title="Edit" onClick={() => openEdit(t)} sx={{ width: 32, height: 32, borderRadius: "9px" }}>
                                 <KTIcon iconName="pencil" className="fs-5" />
@@ -176,7 +198,7 @@ const ScorecardTemplateSection = () => {
                 header={
                     <GlassHeader
                         title={editing ? `Edit ${editing.name}` : "New scorecard"}
-                        subtitle="Criteria a panelist rates from 1 to 5"
+                        subtitle="The criteria a panel rates, and the words they rate them in"
                         icon={<KTIcon iconName="questionnaire-tablet" className="fs-2" />}
                         onClose={() => setOpen(false)}
                     />
@@ -195,6 +217,32 @@ const ScorecardTemplateSection = () => {
                             checked={isDefault}
                             onChange={(_e, checked) => setIsDefault(checked)}
                         />
+
+                        {/* Match these to the form the panel actually holds. The printed Master
+                            Form rates Good / Average / Poor and closes on Hire / Hold / Reject;
+                            the tracker workbook scores out of 10. An interviewer translating
+                            their own paperwork mid-interview is not listening to the candidate.
+                            Options come from the API, never from a list in this file. */}
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                            <TextField
+                                select size="small" fullWidth label="Rating scale"
+                                value={ratingScale}
+                                onChange={(e) => setRatingScale(e.target.value)}
+                                helperText="How each criterion is rated"
+                            >
+                                <MenuItem value="">App default</MenuItem>
+                                {scales.map((sc) => <MenuItem key={sc.id} value={sc.id}>{sc.label}</MenuItem>)}
+                            </TextField>
+                            <TextField
+                                select size="small" fullWidth label="Final decision"
+                                value={decisionSet}
+                                onChange={(e) => setDecisionSet(e.target.value)}
+                                helperText="How the panel closes"
+                            >
+                                <MenuItem value="">App default</MenuItem>
+                                {decisionSets.map((ds) => <MenuItem key={ds.id} value={ds.id}>{ds.label}</MenuItem>)}
+                            </TextField>
+                        </Stack>
 
                         <Box>
                             <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: "text.secondary", mb: 1 }}>
