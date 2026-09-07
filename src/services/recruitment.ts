@@ -161,6 +161,8 @@ export interface ApplicationStatus {
 export interface Applicant {
     id: string; firstName: string; lastName?: string | null; email: string; phone?: string | null;
     currentEmployer?: string | null; currentTitle?: string | null; totalExperienceMonths?: number | null;
+    currentLocation?: string | null; qualification?: string | null; employeeLevelId?: string | null;
+    currentCtcInLpa?: number | string | null;
     expectedCtcInLpa?: number | string | null; noticePeriodDays?: number | null; resumeS3Url?: string | null;
     resumeFileName?: string | null; linkedInUrl?: string | null; sourceId?: string | null; source?: ApplicantSource | null;
     isBlacklisted: boolean; isActive: boolean; createdAt: string;
@@ -190,6 +192,8 @@ export interface ApplicantPayload {
     currentTitle?: string | null;
     currentLocation?: string | null;
     qualification?: string | null;
+    /** Seniority, from the same ladder a requisition picks from. */
+    employeeLevelId?: string | null;
     totalExperienceMonths?: number | null;
     /** What they earn now. `expectedCtcInLpa` is what they are asking for; both are LPA. */
     currentCtcInLpa?: number | null;

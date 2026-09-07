@@ -9,6 +9,7 @@ import {
     WtSwitchField, toast, confirmDialog,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
+import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
 import { formatDate } from "@utils/dateFormats";
 import {
     getApplicants, createApplicant, updateApplicant, getApplicantSources,
@@ -16,10 +17,10 @@ import {
     uploadApplicantResume,
 } from "@services/recruitment";
 
-/** Blank create form. Only firstName + email are required by the API. */
+/** Blank create form. The API requires a first name plus EITHER an email or a phone. */
 const emptyForm = (): ApplicantPayload => ({
     firstName: "", lastName: "", email: "", phone: "",
-    currentEmployer: "", currentTitle: "", currentLocation: "", qualification: "",
+    currentEmployer: "", currentTitle: "", currentLocation: "", qualification: "", employeeLevelId: null,
     totalExperienceMonths: null, currentCtcInLpa: null,
     expectedCtcInLpa: null, noticePeriodDays: null, sourceId: null,
 });
@@ -54,6 +55,7 @@ const fullName = (a: Applicant) => [a.firstName, a.lastName].filter(Boolean).joi
  */
 const CandidatesView = ({ companyId }: OrgScoped) => {
     const qc = useQueryClient();
+    const { levels, isEmpty: noLevels } = useEmployeeLevels();
     const [search, setSearch] = useState("");
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Applicant | null>(null);
@@ -129,7 +131,12 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
         setForm({
             firstName: a.firstName ?? "", lastName: a.lastName ?? "", email: a.email ?? "", phone: a.phone ?? "",
             currentEmployer: a.currentEmployer ?? "", currentTitle: a.currentTitle ?? "",
+            // Every field the form edits must be repopulated here. A field left out renders
+            // blank on edit even though the record holds a value, which reads as data loss.
+            currentLocation: a.currentLocation ?? "", qualification: a.qualification ?? "",
+            employeeLevelId: a.employeeLevelId ?? null,
             totalExperienceMonths: a.totalExperienceMonths ?? null,
+            currentCtcInLpa: a.currentCtcInLpa == null ? null : Number(a.currentCtcInLpa),
             expectedCtcInLpa: a.expectedCtcInLpa == null ? null : Number(a.expectedCtcInLpa),
             noticePeriodDays: a.noticePeriodDays ?? null,
             sourceId: a.sourceId ?? null,
@@ -338,6 +345,18 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <TextField label="Current location" size="small" sx={{ flex: 1 }} value={form.currentLocation ?? ""} onChange={(e) => set("currentLocation", e.target.value)} />
                             <TextField label="Qualification" size="small" sx={{ flex: 1 }} value={form.qualification ?? ""} onChange={(e) => set("qualification", e.target.value)} />
+                            {/* Same ladder the requisition picks from — a level comparison only
+                                means something if both sides chose from one list. */}
+                            {!noLevels && (
+                                <TextField
+                                    select label="Seniority" size="small" sx={{ flex: 1 }}
+                                    value={form.employeeLevelId ?? ""}
+                                    onChange={(e) => set("employeeLevelId", e.target.value || null)}
+                                >
+                                    <MenuItem value="">— Not set —</MenuItem>
+                                    {levels.map((l) => <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>)}
+                                </TextField>
+                            )}
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <TextField
