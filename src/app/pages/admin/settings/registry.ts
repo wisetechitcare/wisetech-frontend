@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import type { Trio } from '@app/modules/common/components/ui/patterns';
 import { TRIO } from '@app/modules/common/components/ui/patterns';
 import { AppearancePanel } from './AppearancePanel';
+import { DateTimePanel } from './DateTimePanel';
 
 /**
  * The Settings areas, declared once.
@@ -38,6 +39,14 @@ export const SETTINGS_AREAS: readonly SettingsArea[] = [
     icon: 'color-swatch',
     tone: TRIO.purple,
     Panel: AppearancePanel,
+  },
+  {
+    id: 'date-time',
+    title: 'date & time',
+    description: 'Whether times read as 2:30 PM or 14:30, for you and for your organisation.',
+    icon: 'time',
+    tone: TRIO.blue,
+    Panel: DateTimePanel,
   },
 ];
 
