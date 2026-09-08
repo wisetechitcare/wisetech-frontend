@@ -224,5 +224,28 @@ export const getTimeFormat = (): TimeFormat => {
     return resolveTimeFormat(readTimeFormatPreference(), branchFlag, orgFlag);
 };
 
+/**
+ * Split a 24-hour hour into what a 12-hour clock shows.
+ *
+ * For TimeWheelField, whose wheels render 12-hour while its `value` stays 24h
+ * "HH:MM". Lives here rather than in the component because it is the same 12/24h
+ * policy as everything else in this file — and because a component module drags
+ * Metronic in, which makes the logic untestable.
+ *
+ * Midnight and noon are the cases: hour 0 and hour 12 both show as "12", and only
+ * the meridiem separates them.
+ */
+export const to12 = (hh: string): { h12: string; meridiem: string } => {
+    const h = Number(hh);
+    const mod = h % 12;
+    return { h12: String(mod === 0 ? 12 : mod).padStart(2, "0"), meridiem: h >= 12 ? "PM" : "AM" };
+};
+
+/** The inverse: '01' + 'PM' -> '13', '12' + 'AM' -> '00'. */
+export const to24 = (h12: string, meridiem: string): string => {
+    const h = Number(h12) % 12;
+    return String(meridiem === "PM" ? h + 12 : h).padStart(2, "0");
+};
+
 /** The dayjs tokens for the current user's format. */
 export const getTimeTokens = () => TIME_TOKENS[getTimeFormat()];

@@ -3,18 +3,35 @@ import { KTIcon } from '@metronic/helpers';
 import { Box, ButtonBase, Popover, Typography, useTheme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { TRIO, type Trio } from '@app/modules/common/components/ui/tw';
+import { useTimeFormat } from '@hooks/useTimeFormat';
+import { formatTimeString } from '@utils/date';
+import { to12, to24 } from '@utils/timeFormat';
 
 /**
- * TimeWheelField — the app's canonical 24-hour time picker.
+ * TimeWheelField — the app's canonical time picker.
  *
- * Two snap-scrolling columns (hours / minutes) in a popover: big touch targets, no
- * clock-face fiddling, identical on phone and desktop. Controlled — `value` is a 24h
- * "HH:MM" string. Reuse this everywhere a time is picked instead of a native
- * `<input type="time">` or a bespoke picker. (Originally lived inside LeavePolicyModal.)
+ * Snap-scrolling columns in a popover: big touch targets, no clock-face fiddling,
+ * identical on phone and desktop. Reuse this everywhere a time is picked instead of a
+ * native `<input type="time">` or a bespoke picker. (Originally lived inside
+ * LeavePolicyModal.)
+ *
+ * ── 12h / 24h ─────────────────────────────────────────────────────────────
+ *
+ * The WHEELS follow the viewer's app-wide time format: 24-hour shows one 00–23
+ * column, 12-hour shows 12/01–11 plus an AM·PM column. Reading `8:00 AM` in a
+ * table and then being asked to pick `20:00` is the mismatch this removes.
+ *
+ * `value` and `onChange` are UNCHANGED and always speak 24h "HH:MM". This is a
+ * display/interaction concern only — every caller, form value and payload keeps
+ * the one shape it already had, and nothing downstream has to know which wheels
+ * the user saw. See utils/timeFormat.ts.
  */
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+/** 12-hour clock order — 12 leads, as it does on a clock face. */
+const HOURS_12 = ['12', ...Array.from({ length: 11 }, (_, i) => String(i + 1).padStart(2, '0'))];
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+const MERIDIEM = ['AM', 'PM'];
 const ITEM_H = 40;
 
 function WheelColumn({ items, selected, onSelect, tone }: {
@@ -92,6 +109,12 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
     const mm = m ? m[2] : '00';
     const borderColor = invalid ? '#e11d48' : open ? tone.c : theme.palette.divider;
 
+    const is12h = useTimeFormat() === '12h';
+    const { h12, meridiem } = to12(hh);
+    // Rendered from the same helper the rest of the app uses, so the field reads
+    // exactly like the value it will sit beside in a table.
+    const display = formatTimeString(`${hh}:${mm}`, `${hh}:${mm}`);
+
     return (
         <>
             <ButtonBase
@@ -108,7 +131,7 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
                 }}
             >
                 <Typography component="span" sx={{ fontSize: 16.5, fontWeight: 700, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
-                    {hh}<Box component="span" sx={{ color: tone.c, mx: 0.5 }}>:</Box>{mm}
+                    {display}
                 </Typography>
                 <KTIcon iconName="time" className="fs-3" />
             </ButtonBase>
@@ -121,17 +144,31 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
                 slotProps={{ paper: { sx: { mt: 1, borderRadius: 3, overflow: 'hidden', boxShadow: '0 24px 64px -12px rgba(0,0,0,0.35)', border: `1px solid ${theme.palette.divider}`, zIndex: 1500 } } }}
             >
-                <Box sx={{ width: 220 }}>
+                {/* The 12h layout carries a third (AM/PM) column, so it needs the extra room. */}
+                <Box sx={{ width: is12h ? 268 : 220 }}>
                     <Box sx={{ px: 2, py: 1.25, borderBottom: `1px solid ${theme.palette.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>
                             Cutoff Time
                         </Typography>
-                        <Typography sx={{ fontSize: 17, fontWeight: 800, color: tone.c, fontVariantNumeric: 'tabular-nums' }}>{hh}:{mm}</Typography>
+                        <Typography sx={{ fontSize: 17, fontWeight: 800, color: tone.c, fontVariantNumeric: 'tabular-nums' }}>{display}</Typography>
                     </Box>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'stretch' }}>
-                        <WheelColumn items={HOURS} selected={hh} tone={tone} onSelect={(h) => onChange(`${h}:${mm}`)} />
+                    <Box sx={{ display: 'grid', gridTemplateColumns: is12h ? '1fr auto 1fr 1fr' : '1fr auto 1fr', alignItems: 'stretch' }}>
+                        <WheelColumn
+                            items={is12h ? HOURS_12 : HOURS}
+                            selected={is12h ? h12 : hh}
+                            tone={tone}
+                            onSelect={(h) => onChange(`${is12h ? to24(h, meridiem) : h}:${mm}`)}
+                        />
                         <Box sx={{ display: 'grid', placeItems: 'center', fontSize: 20, fontWeight: 800, color: 'text.disabled' }}>:</Box>
                         <WheelColumn items={MINUTES} selected={mm} tone={tone} onSelect={(mi) => onChange(`${hh}:${mi}`)} />
+                        {is12h && (
+                            <WheelColumn
+                                items={MERIDIEM}
+                                selected={meridiem}
+                                tone={tone}
+                                onSelect={(md) => onChange(`${to24(h12, md)}:${mm}`)}
+                            />
+                        )}
                     </Box>
                     <Box sx={{ px: 1.25, pb: 1.25, pt: 0.5 }}>
                         <ButtonBase

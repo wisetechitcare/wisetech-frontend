@@ -4,6 +4,8 @@ import {
   TIME_TOKENS,
   normalizeTimeFormatFlag,
   resolveTimeFormat,
+  to12,
+  to24,
 } from './timeFormat';
 
 describe('normalizeTimeFormatFlag', () => {
@@ -75,5 +77,33 @@ describe('TIME_TOKENS', () => {
 
   test('both formats offer the same shapes, so no call site can lack one', () => {
     expect(Object.keys(TIME_TOKENS['12h']).sort()).toEqual(Object.keys(TIME_TOKENS['24h']).sort());
+  });
+});
+
+// TimeWheelField renders 12-hour wheels while its `value` stays 24h "HH:MM", so
+// these sit between what the user touches and what every form and payload gets.
+describe('12-hour wheel conversion', () => {
+  test('midnight is 12 AM and noon is 12 PM — not 00', () => {
+    expect(to12('00')).toEqual({ h12: '12', meridiem: 'AM' });
+    expect(to12('12')).toEqual({ h12: '12', meridiem: 'PM' });
+    expect(to24('12', 'AM')).toBe('00');
+    expect(to24('12', 'PM')).toBe('12');
+  });
+
+  test('either side of noon', () => {
+    expect(to12('11')).toEqual({ h12: '11', meridiem: 'AM' });
+    expect(to12('13')).toEqual({ h12: '01', meridiem: 'PM' });
+    expect(to24('01', 'PM')).toBe('13');
+    expect(to24('11', 'PM')).toBe('23');
+  });
+
+  // The property that matters: switching a user between formats must never move
+  // the time they already picked.
+  test('all 24 hours survive 24h -> wheels -> 24h unchanged', () => {
+    for (let h = 0; h < 24; h += 1) {
+      const hh = String(h).padStart(2, '0');
+      const { h12, meridiem } = to12(hh);
+      expect(to24(h12, meridiem)).toBe(hh);
+    }
   });
 });
