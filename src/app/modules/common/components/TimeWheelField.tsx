@@ -17,7 +17,8 @@ import { TRIO, type Trio } from '@app/modules/common/components/ui/tw';
  */
 
 const HOURS_24 = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-const HOURS_12 = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+/** 12-hour clock order — 12 leads, as it does on a clock face. */
+const HOURS_12 = ['12', ...Array.from({ length: 11 }, (_, i) => String(i + 1).padStart(2, '0'))];
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 const to12 = (h: number) => String(h % 12 || 12).padStart(2, '0');
 
@@ -128,6 +129,10 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
     const mm = m ? m[2] : '00';
     const meridiem = h24 >= 12 ? 'PM' : 'AM';
     const hh = hour12 ? to12(h24) : String(h24).padStart(2, '0');
+    // The closed field must read exactly like the same value in a table, which renders
+    // through formatTimeString's `h:mm A` — no leading zero. `hh` stays padded because the
+    // wheel matches its selection against the padded column items.
+    const displayHour = hour12 ? String(h24 % 12 || 12) : hh;
     // Every write goes back out as 24h "HH:MM" — the display format is a view over the value,
     // never part of it, so no caller has to know which way the picker happens to be showing.
     const emit = (h: number) => onChange(`${String(h).padStart(2, '0')}:${mm}`);
@@ -156,7 +161,7 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
                 }}
             >
                 <Typography component="span" sx={{ fontSize: 14, fontWeight: 600, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
-                    {hh}<Box component="span" sx={{ color: tone.c, mx: 0.5 }}>:</Box>{mm}
+                    {displayHour}<Box component="span" sx={{ color: tone.c, mx: 0.5 }}>:</Box>{mm}
                     {hour12 && <Box component="span" sx={{ ml: 0.75, fontSize: 11, fontWeight: 700, color: 'text.secondary' }}>{meridiem}</Box>}
                 </Typography>
                 {/* Tinted to the field's own accent rather than left at body grey: it is the one
