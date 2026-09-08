@@ -307,7 +307,12 @@ function MaterialTable({
   enableFilters = true,
   enableSorting = true,
   enableGrouping = true,
-  enableColumnDragging = true,
+  // Off by default: the drag handle sits beside the sort label wearing KTIcon
+  // "sort" (an up/down arrow pair), so every header read as TWO sort controls —
+  // one that sorts and one that silently reorders columns. Sorting is the small
+  // inline arrow; column order is already in the ⋮ menu. Pass `true` to opt a
+  // table back in, and give it a grab icon if you do.
+  enableColumnDragging = false,
   enableColumnResizing = false,
   enableColumnPinning = true,
   enableExpandAll = true,
@@ -1495,7 +1500,7 @@ function MaterialTable({
           manualPagination={manualPagination}
           rowCount={manualPagination ? rowCount : undefined}
           enablePagination={paginationDisabled ? false : undefined}
-          enableColumnDragging={enableColumnDragging ?? true}
+          enableColumnDragging={enableColumnDragging}
           enableColumnResizing={enableColumnResizing ?? false}
           enableColumnPinning={isMobile ? false : (enableColumnPinning ?? true)}
           enableGrouping={enableGrouping ?? true}
@@ -2544,15 +2549,14 @@ function MaterialTable({
             FilterListIcon: (props: any) => (
               <KTIcon iconName="filter" className="fs-2" {...props} />
             ),
+            // `arrow-two-diagonals` draws a left/right swap and reads as "reorder",
+            // not "expand"; `cross` reads as "close the table". The corner-bracket
+            // pair is what a full-screen control looks like everywhere else.
             FullscreenIcon: (props: any) => (
-              <KTIcon
-                iconName="arrow-two-diagonals"
-                className="fs-2"
-                {...props}
-              />
+              <KTIcon iconName="maximize" className="fs-2" {...props} />
             ),
             FullscreenExitIcon: (props: any) => (
-              <KTIcon iconName="cross" className="fs-2" {...props} />
+              <KTIcon iconName="minimize" className="fs-2" {...props} />
             ),
             SearchIcon: (props: any) => (
               <KTIcon iconName="magnifier" className="fs-2" {...props} />
