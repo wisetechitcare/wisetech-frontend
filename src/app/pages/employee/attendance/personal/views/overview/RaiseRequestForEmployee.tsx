@@ -609,6 +609,10 @@ const RaiseRequestForEmployee = ({
   const initialValues = useMemo(() => {
     return {
       employeeId: "",
+      // Which punch(es) this request is for. `both` keeps the existing
+      // behaviour as the default — an admin adding a whole missing day should
+      // still file one request, not two.
+      kind: "both",
       checkIn: "",
       checkOut: "",
       workingMethodId: "",
@@ -617,12 +621,38 @@ const RaiseRequestForEmployee = ({
     };
   }, []);
 
+  /**
+   * The schema required BOTH times while `handleSubmit` below is written
+   * end-to-end for either-or — it has an "at least one" guard, formats each
+   * time only `if` present, and sends `checkIn: ... || null`. The schema won,
+   * so that guard could never run and an admin simply could not raise a
+   * check-in-only correction: the form refused before the handler was reached.
+   *
+   * What is required now follows the chosen kind, which is what the handler
+   * always assumed. `both` stays the default, so an admin filling in a whole
+   * missing day still does it in one request rather than two.
+   */
+  const TIME_FORMAT = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  const wantsCheckIn = (k: string) => k === "both" || k === "checkin";
+  const wantsCheckOut = (k: string) => k === "both" || k === "checkout";
+
   const validationSchema = Yup.object({
     employeeId: Yup.string().required("Employee is required"),
-    checkIn: Yup.string()
-      .matches(/^([01]\d|2[0-3]):([0-5]\d)$/, "Time must be in 24h format HH:mm").required("Check In Time is required"),
-    checkOut: Yup.string()
-      .matches(/^([01]\d|2[0-3]):([0-5]\d)$/, "Time must be in 24h format HH:mm").required("Check Out Time is required"),
+    kind: Yup.string().oneOf(["both", "checkin", "checkout"]).required(),
+    checkIn: Yup.string().matches(TIME_FORMAT, {
+      message: "Time must be in 24h format HH:mm",
+      excludeEmptyString: true,
+    }).when("kind", {
+      is: wantsCheckIn,
+      then: (s) => s.required("Check In Time is required"),
+    }),
+    checkOut: Yup.string().matches(TIME_FORMAT, {
+      message: "Time must be in 24h format HH:mm",
+      excludeEmptyString: true,
+    }).when("kind", {
+      is: wantsCheckOut,
+      then: (s) => s.required("Check Out Time is required"),
+    }),
     workingMethodId: Yup.string().required("Working Method is required"),
     remarks: Yup.string().required("Remarks are required"),
     status: Yup.string().required("Status is required"),
@@ -823,25 +853,73 @@ const RaiseRequestForEmployee = ({
                   )}
                 </div>
 
-                {/* Check In Time */}
+                {/* What is being corrected. Asked BEFORE the times, because it
+                    decides which of them the form needs — the same order the
+                    employee's own correction flow uses. Switching clears the
+                    field that is no longer part of the request, so a value typed
+                    and then excluded can never be submitted. */}
                 <div className="col-lg mb-5">
-                  <TimePickerInput
-                    isRequired={true}
-                    label="Check In (24 hr HH:MM)"
-                    formikField="checkIn"
-                    placeholder="HH MM"
-                  />
+                  <label className="form-label required">What are you correcting?</label>
+                  <div className="d-flex flex-wrap gap-2">
+                    {([
+                      { value: "both", label: "Both" },
+                      { value: "checkin", label: "Check-in only" },
+                      { value: "checkout", label: "Check-out only" },
+                    ] as const).map((opt) => {
+                      const active = formikProps.values.kind === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => {
+                            formikProps.setFieldValue("kind", opt.value);
+                            if (!wantsCheckIn(opt.value)) formikProps.setFieldValue("checkIn", "");
+                            if (!wantsCheckOut(opt.value)) formikProps.setFieldValue("checkOut", "");
+                          }}
+                          style={{
+                            border: `1px solid ${active ? "#1E3A8A" : "#E5E7EB"}`,
+                            background: active ? "#1E3A8A" : "#ffffff",
+                            color: active ? "#ffffff" : "#334155",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            padding: "7px 14px",
+                            cursor: "pointer",
+                            // Bootstrap Reboot's unlayered `button { border-radius: 0 }`
+                            // outranks any class, so the radius has to be inline.
+                            borderRadius: 8,
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
+                {/* Check In Time */}
+                {wantsCheckIn(formikProps.values.kind) && (
+                  <div className="col-lg mb-5">
+                    <TimePickerInput
+                      isRequired={true}
+                      label="Check In (24 hr HH:MM)"
+                      formikField="checkIn"
+                      placeholder="HH MM"
+                    />
+                  </div>
+                )}
+
                 {/* Check Out Time */}
-                <div className="col-lg mb-5">
-                  <TimePickerInput
-                    isRequired={true}
-                    label="Check Out (24 hr HH:MM)"
-                    formikField="checkOut"
-                    placeholder="HH MM"
-                  />
-                </div>
+                {wantsCheckOut(formikProps.values.kind) && (
+                  <div className="col-lg mb-5">
+                    <TimePickerInput
+                      isRequired={true}
+                      label="Check Out (24 hr HH:MM)"
+                      formikField="checkOut"
+                      placeholder="HH MM"
+                    />
+                  </div>
+                )}
 
                 {/* Working Method */}
                 <div className="col-lg mb-5">
