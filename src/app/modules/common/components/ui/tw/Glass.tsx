@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { KTIcon } from '@metronic/helpers';
 import { cn } from './cn';
 import { BRAND } from './tokens';
 import { WtCloseButton } from './WtCloseButton';
+import { currentSurface, subscribeSurface, type SurfaceStyle } from '@app/theme/appearance';
 
 /**
  * Tailwind glass primitives — GlassSurface / GlassCard / GlassHeader /
@@ -29,6 +30,35 @@ const SURFACE: Record<GlassVariant, string> = {
     'dark:bg-[#1c2128] dark:border-[#30363d]',
 };
 
+/**
+ * The same surfaces with the frost off — opaque, hairline border, flat
+ * elevation. Not a second design language: the components, the layout and the
+ * spacing are identical, and only the material of the surface changes.
+ *
+ * Written as full strings rather than as overrides appended to the glass ones,
+ * because Tailwind decides between two conflicting utilities by their order in
+ * the generated stylesheet, not by the order they appear in a class attribute —
+ * so `bg-white` appended after `bg-white/70` is not reliably the winner.
+ */
+const SURFACE_MATERIAL: Record<GlassVariant, string> = {
+  regular:
+    'bg-white border border-[#E2E8F0] ' +
+    'shadow-[0_1px_2px_rgba(16,24,40,0.06),0_4px_12px_rgba(16,24,40,0.06)] ' +
+    'dark:bg-[#161b22] dark:border-[#30363d]',
+  thin:
+    'bg-white border border-[#E6E9EE] ' +
+    'shadow-[0_1px_2px_rgba(15,23,42,0.05)] ' +
+    'dark:bg-[#1c2128] dark:border-[#30363d]',
+};
+
+/** Re-renders both kits together when the surface switches. */
+export function useSurfaceStyle(): SurfaceStyle {
+  return useSyncExternalStore(subscribeSurface, currentSurface, () => 'glass' as SurfaceStyle);
+}
+
+const surfaceClass = (variant: GlassVariant, surface: SurfaceStyle) =>
+  (surface === 'material' ? SURFACE_MATERIAL : SURFACE)[variant];
+
 export interface GlassSurfaceProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: GlassVariant;
   radius?: number;
@@ -37,7 +67,8 @@ export interface GlassSurfaceProps extends React.HTMLAttributes<HTMLDivElement> 
 export const GlassSurface = React.forwardRef<HTMLDivElement, GlassSurfaceProps>(function GlassSurface(
   { variant = 'thin', radius = 16, className, style, ...rest }, ref,
 ) {
-  return <div ref={ref} className={cn(SURFACE[variant], className)} style={{ borderRadius: radius, ...style }} {...rest} />;
+  const surface = useSurfaceStyle();
+  return <div ref={ref} className={cn(surfaceClass(variant, surface), className)} style={{ borderRadius: radius, ...style }} {...rest} />;
 });
 
 // ─── GlassCard ────────────────────────────────────────────────────────────────
@@ -145,6 +176,7 @@ export function GlassDialog({
 }: GlassDialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
+  const surface = useSurfaceStyle();
 
   // ESC to close + body scroll-lock while open.
   useEffect(() => {
@@ -179,7 +211,7 @@ export function GlassDialog({
             aria-modal="true"
             className={cn(
               'relative w-full flex flex-col overflow-hidden outline-none',
-              GlassSurfaceRegular,
+              surface === 'material' ? GlassSurfaceRegularMaterial : GlassSurfaceRegular,
               mobileFullScreen
                 ? 'h-full sm:h-auto rounded-none sm:rounded-2xl max-h-full sm:max-h-[92vh]'
                 : 'rounded-2xl max-h-[92vh]',
@@ -226,3 +258,11 @@ const GlassSurfaceRegular =
   'bg-white/90 supports-[backdrop-filter]:bg-white/80 backdrop-blur-xl border border-white/60 ' +
   'shadow-[0_24px_64px_-12px_rgba(16,24,40,0.28),0_8px_20px_-8px_rgba(16,24,40,0.18)] ' +
   'dark:bg-[#161b22]/95 dark:supports-[backdrop-filter]:bg-[#161b22]/85 dark:border-[#30363d]';
+
+// Material's dialog: the same panel, opaque, with a flat elevation instead of
+// the frosted one. The scrim above it keeps its blur either way — that is the
+// modal's own separation from the page, not the panel's material.
+const GlassSurfaceRegularMaterial =
+  'bg-white border border-[#E2E8F0] ' +
+  'shadow-[0_24px_48px_-16px_rgba(16,24,40,0.24),0_6px_16px_-8px_rgba(16,24,40,0.16)] ' +
+  'dark:bg-[#161b22] dark:border-[#30363d]';

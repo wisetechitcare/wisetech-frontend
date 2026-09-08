@@ -4,6 +4,21 @@ import { IconButton, IconButtonProps, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { makeWisetechTheme } from './wisetechTheme';
 import { ghDarkCssVars, ghDarkCssVarNames } from './githubDark';
+import {
+  DEFAULT_APPEARANCE,
+  normalizeBrand,
+  announceSurfaceChange,
+  readAppearance,
+  readableOn,
+  resolveMode,
+  shade,
+  writeAppearance,
+  type AppearanceSettings,
+  type BrandPalette,
+  type ColorPreference,
+  type SurfaceStyle,
+  type ThemeMode,
+} from './appearance';
 
 /**
  * Reusable MUI color-mode system. Wraps the app once (in App.tsx) and provides the branded
@@ -16,31 +31,27 @@ import { ghDarkCssVars, ghDarkCssVarNames } from './githubDark';
  *   <ColorModeToggle />   // drop-in sun/moon button
  */
 
-type Mode = 'light' | 'dark';
-
-/**
- * What the USER chose. `system` defers to the OS and keeps following it, which
- * is different from having picked whatever the OS happens to say right now.
- *
- * Kept separate from `mode` — the RESOLVED light/dark that everything paints
- * from — because the two answer different questions and collapsing them is how
- * "follow my system" quietly becomes "pinned to light".
- */
-export type ColorPreference = Mode | 'system';
-const STORAGE_KEY = 'wt-mui-color-mode';
+type Mode = ThemeMode;
+export type { ColorPreference, SurfaceStyle, BrandPalette } from './appearance';
 
 const prefersDark = (): boolean => {
   try { return window.matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; }
 };
-
-const resolve = (pref: ColorPreference): Mode => (pref === 'system' ? (prefersDark() ? 'dark' : 'light') : pref);
 
 interface ColorModeCtx {
   /** The resolved mode everything paints from. */
   mode: Mode;
   /** What the user actually chose, `system` included. */
   preference: ColorPreference;
+  /** The four brand roles. */
+  brand: BrandPalette;
+  /** Frosted or opaque. */
+  surface: SurfaceStyle;
   setPreference: (p: ColorPreference) => void;
+  setBrand: (b: BrandPalette) => void;
+  setSurface: (s: SurfaceStyle) => void;
+  /** Back to the shipped navy, glass, light. */
+  reset: () => void;
   setMode: (m: Mode) => void;
   toggle: () => void;
 }
@@ -52,16 +63,14 @@ export function useColorMode(): ColorModeCtx {
   return ctx;
 }
 
-export function ColorModeProvider({ children, defaultMode = 'light' }: { children: React.ReactNode; defaultMode?: ColorPreference }) {
-  const [preference, setPreferenceState] = useState<ColorPreference>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
-    } catch { /* SSR / privacy mode */ }
-    return defaultMode;
-  });
+/** The app-wide appearance engine. `useColorMode` is kept as the historical name. */
+export const useAppearance = useColorMode;
 
+export function ColorModeProvider({ children }: { children: React.ReactNode }) {
+  const [settings, setSettings] = useState<AppearanceSettings>(readAppearance);
   const [systemDark, setSystemDark] = useState(prefersDark);
+
+  const { preference, brand, surface } = settings;
 
   // Follow the OS while — and only while — the user asked us to. Registered
   // unconditionally so the answer is already current the moment they switch to
@@ -74,22 +83,31 @@ export function ColorModeProvider({ children, defaultMode = 'light' }: { childre
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
-  const mode: Mode = preference === 'system' ? (systemDark ? 'dark' : 'light') : preference;
+  const mode: Mode = resolveMode(preference, systemDark);
 
-  const setPreference = useCallback((p: ColorPreference) => {
-    setPreferenceState(p);
-    try { localStorage.setItem(STORAGE_KEY, p); } catch { /* ignore */ }
+  const commit = useCallback((patch: Partial<AppearanceSettings>) => {
+    setSettings((prev) => {
+      const next = { ...prev, ...patch };
+      writeAppearance(next);
+      return next;
+    });
   }, []);
 
+  const setPreference = useCallback((p: ColorPreference) => commit({ preference: p }), [commit]);
+  const setBrand = useCallback((b: BrandPalette) => commit({ brand: normalizeBrand(b) }), [commit]);
+  const setSurface = useCallback((s: SurfaceStyle) => commit({ surface: s }), [commit]);
+  const reset = useCallback(() => commit(DEFAULT_APPEARANCE), [commit]);
+
   // Unchanged for existing callers: setting an explicit mode pins it.
-  const setMode = useCallback((m: Mode) => setPreference(m), [setPreference]);
+  const setMode = useCallback((m: Mode) => commit({ preference: m }), [commit]);
 
   // Flips the RESOLVED mode and pins the result, so one tap from `system` lands
   // on the opposite of what you are looking at — never on the same shade again.
   const toggle = useCallback(() => {
-    setPreferenceState((prev) => {
-      const next: Mode = resolve(prev) === 'dark' ? 'light' : 'dark';
-      try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
+    setSettings((prev) => {
+      const resolved = resolveMode(prev.preference, prefersDark());
+      const next = { ...prev, preference: (resolved === 'dark' ? 'light' : 'dark') as ColorPreference };
+      writeAppearance(next);
       return next;
     });
   }, []);
@@ -117,17 +135,33 @@ export function ColorModeProvider({ children, defaultMode = 'light' }: { childre
       for (const name of ghDarkCssVarNames()) root.style.removeProperty(name);
     }
 
+    // Surface treatment travels the same way as the mode: one attribute on the
+    // root, so the kit reads it once instead of every call site threading a prop.
+    root.setAttribute('data-surface', surface);
+    announceSurfaceChange();
+
+    // The brand, as CSS custom properties, for the stylesheets that cannot reach
+    // the MUI theme. Derived shades ship alongside the four picks so a hover or
+    // a tint is never invented per-screen from a raw hex.
+    root.style.setProperty('--wt-brand', brand.primary);
+    root.style.setProperty('--wt-brand-hover', shade(brand.primary, -0.15));
+    root.style.setProperty('--wt-brand-soft', shade(brand.primary, 0.85));
+    root.style.setProperty('--wt-brand-on', readableOn(brand.primary));
+    root.style.setProperty('--wt-secondary', brand.secondary);
+    root.style.setProperty('--wt-accent', brand.accent);
+    root.style.setProperty('--wt-ink', brand.ink);
+
     // Keep Metronic's own keys in sync so its init() doesn't clobber the attribute on reload.
     try {
       localStorage.setItem('kt_theme_mode_value', mode);
       localStorage.setItem('kt_theme_mode_menu', mode);
     } catch { /* private mode */ }
-  }, [mode]);
+  }, [mode, surface, brand]);
 
-  const theme = useMemo(() => makeWisetechTheme(mode), [mode]);
+  const theme = useMemo(() => makeWisetechTheme(mode, brand), [mode, brand]);
   const ctx = useMemo(
-    () => ({ mode, preference, setPreference, setMode, toggle }),
-    [mode, preference, setPreference, setMode, toggle],
+    () => ({ mode, preference, brand, surface, setPreference, setBrand, setSurface, reset, setMode, toggle }),
+    [mode, preference, brand, surface, setPreference, setBrand, setSurface, reset, setMode, toggle],
   );
 
   return (

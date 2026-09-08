@@ -1,6 +1,7 @@
 import { createTheme, Theme } from '@mui/material/styles';
 import { T } from '@app/modules/common/components/ui/tokens';
 import { GH_DARK } from './githubDark';
+import { DEFAULT_BRAND, readableOn, shade, type BrandPalette } from './appearance';
 
 /**
  * Branded Material UI theme — single source of truth for the app's MUI look.
@@ -16,7 +17,7 @@ import { GH_DARK } from './githubDark';
  *  the tw kit, and (via `--gh-*` custom properties) every plain stylesheet. */
 export { GH_DARK };
 
-export function makeWisetechTheme(mode: 'light' | 'dark' = 'light'): Theme {
+export function makeWisetechTheme(mode: 'light' | 'dark' = 'light', brand: BrandPalette = DEFAULT_BRAND): Theme {
   const dark = mode === 'dark';
   const line = dark ? GH_DARK.border : T.color.line;
   const menuPaper = dark ? GH_DARK.elevated : T.color.surface;
@@ -26,14 +27,29 @@ export function makeWisetechTheme(mode: 'light' | 'dark' = 'light'): Theme {
   return createTheme({
     palette: {
       mode,
-      // Dark brightens the accent: the brand navy (#1E3A8A) sits almost on top of the #0d1117
-      // canvas, so links, focus rings and selected states became unreadable. GitHub/VS Code do the
-      // same — a brighter blue in dark. Branded CTAs keep their gradient (see ui/buttons.tsx), so
-      // this only affects the states that need the contrast.
+      // The configured brand drives BOTH modes. Dark still brightens it — a
+      // navy that works on white is unreadable on #0d1117 — but it brightens
+      // the chosen colour now instead of falling back to GitHub's blue, so a
+      // company that sets teal gets a teal dark mode rather than someone
+      // else's accent. `shade` derives the hover/soft pair, so one pick is all
+      // anyone has to make.
       primary: dark
-        ? { main: GH_DARK.accent, dark: '#1f6feb', light: '#58a6ff', contrastText: '#ffffff' }
-        : { main: T.color.brand, dark: T.color.brandHover, light: T.color.brandSoft, contrastText: '#ffffff' },
-      secondary: { main: T.color.accent, contrastText: '#ffffff' },
+        ? {
+            main: shade(brand.primary, 0.42),
+            dark: shade(brand.primary, 0.2),
+            light: shade(brand.primary, 0.62),
+            contrastText: readableOn(shade(brand.primary, 0.42)),
+          }
+        : {
+            main: brand.primary,
+            dark: shade(brand.primary, -0.18),
+            light: shade(brand.primary, 0.82),
+            contrastText: readableOn(brand.primary),
+          },
+      secondary: {
+        main: dark ? shade(brand.secondary, 0.38) : brand.secondary,
+        contrastText: readableOn(dark ? shade(brand.secondary, 0.38) : brand.secondary),
+      },
       error: { main: T.color.danger },
       success: { main: T.color.success },
       warning: { main: T.color.warning },
@@ -80,7 +96,7 @@ export function makeWisetechTheme(mode: 'light' | 'dark' = 'light'): Theme {
         defaultProps: { disableElevation: true },
         styleOverrides: {
           root: { borderRadius: 8, fontWeight: 600, boxShadow: 'none' },
-          containedPrimary: { '&:hover': { backgroundColor: T.color.brandHover } },
+          containedPrimary: { '&:hover': { backgroundColor: shade(brand.primary, dark ? 0.28 : -0.18) } },
         },
       },
       MuiIconButton: {

@@ -6,6 +6,7 @@ import {
 import type { TransitionProps } from '@mui/material/transitions';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { T, GlassVariant, VividTone, ThemeMode, label } from './tokens';
+import { isMaterial } from '@app/theme/appearance';
 import { toTitleCase } from './text';
 import { GH_DARK } from '@app/theme/githubDark';
 import { MRD_EASE } from './buttons';
@@ -58,17 +59,34 @@ export function glassSx(
   const g = T.glass[opts?.mode ?? 'light'][variant];
   const radius = opts?.radius ?? g.radius;
   const tone = opts?.tone ? T.color.vivid[opts.tone] : undefined;
+  /**
+   * MATERIAL turns the frost off for the whole app.
+   *
+   * It is the same surface with translucency removed — opaque background, a
+   * hairline border, a flat elevation — not a second component tree. That is
+   * the only version of "choose a UI style" that does not fork the kit and then
+   * drift, and it is why the switch is one read here rather than a prop
+   * threaded through every call site.
+   *
+   * Read from the root attribute the appearance provider stamps, so a change
+   * reaches surfaces that never re-render through React state.
+   */
+  const material = isMaterial();
   // Only `regular` surfaces (shell / header / dialog Paper) apply a real backdrop-filter. `thin`
   // surfaces (cards/rows/tiles) are translucent tint ONLY — they're designed to sit on an
   // already-frosted `regular` surface, so blurring them again would stack GPU cost for no gain.
-  const useBlur = variant === 'regular' && !opts?.disableBlur;
+  const useBlur = variant === 'regular' && !opts?.disableBlur && !material;
 
   const sx: Record<string, unknown> = {
     borderRadius: `${radius}px`,
     border: g.border,
-    boxShadow: `${g.shadow}, ${g.highlight}`,
+    // Material drops the inner highlight — that specular line is what reads as
+    // "glass"; keeping it on an opaque card just looks like a stray border.
+    boxShadow: material ? g.shadow : `${g.shadow}, ${g.highlight}`,
     // regular+blur and thin both use the translucent tint; regular+disableBlur goes opaque.
-    backgroundColor: variant === 'thin' || useBlur ? g.bg : g.fallbackBg,
+    // Material is opaque at every level, including `thin`, so cards do not sit
+    // as a translucent tint over a surface that is no longer frosted.
+    backgroundColor: material ? g.fallbackBg : variant === 'thin' || useBlur ? g.bg : g.fallbackBg,
     // A subtle tone wash (~8% alpha) layered over the glass tint for accented surfaces.
     ...(tone ? { backgroundImage: `linear-gradient(0deg, ${tone}14, ${tone}14)` } : null),
   };
