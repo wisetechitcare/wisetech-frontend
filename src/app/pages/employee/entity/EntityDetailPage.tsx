@@ -29,6 +29,7 @@ import ExecutionSection from './detail/sections/ExecutionSection';
 import ProjectMeetings from './detail/sections/ProjectMeetings';
 import ProjectStatusControl from './detail/ProjectStatusControl';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { UnderlineTabs } from '@app/modules/common/components/ui';
 
 /**
  * Unified Entity detail page. ONE entity, ONE page. The Lead is the master; the
@@ -370,67 +371,14 @@ const EntityDetailPage: React.FC = () => {
           </div>
 
           {/* ── Sticky tab nav ── */}
-          <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(248,250,252,0.92)', backdropFilter: 'blur(6px)', margin: '24px -8px 18px', padding: '6px 8px' }}>
-            <div className="d-flex overflow-auto">
-              {/* Primary nav = clean underline tab bar. The active tab carries a brand
-                  underline indicator; the secondary sub-nav (Overview/Client/…) uses the
-                  segmented pill control, giving a clear two-level hierarchy. */}
-              <ul
-                className="nav flex-nowrap mb-0"
-                style={{ gap: '4px', listStyle: 'none', borderBottom: '1px solid #E2E8F0', width: '100%' }}
-              >
-                {tabs.map(tab => {
-                  const isActive = activeTab === tab.key;
-                  const count = tabCounts[tab.key];
-                  return (
-                    <li key={tab.key}>
-                      <a
-                        className="d-inline-flex align-items-center gap-2 px-3 cursor-pointer"
-                        onClick={() => setActiveTab(tab.key)}
-                        aria-pressed={isActive}
-                        style={{
-                          fontFamily: 'Inter, sans-serif',
-                          whiteSpace: 'nowrap',
-                          fontWeight: isActive ? 700 : 500,
-                          fontSize: '13.5px',
-                          paddingTop: '8px',
-                          paddingBottom: '10px',
-                          marginBottom: '-1px',
-                          color: isActive ? '#1E3A8A' : '#64748B',
-                          background: 'transparent',
-                          borderBottom: `2px solid ${isActive ? '#1E3A8A' : 'transparent'}`,
-                          transition: 'color 0.15s ease, border-color 0.15s ease',
-                        }}
-                      >
-                        <i className={tab.icon} />
-                        {tab.label}
-                        {count > 0 && (
-                          <span
-                            style={{
-                              fontFamily: 'Barlow',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              color: isActive ? '#fff' : '#64748B',
-                              background: isActive ? '#1E3A8A' : '#E2E8F0',
-                              borderRadius: '999px',
-                              minWidth: '18px',
-                              height: '18px',
-                              padding: '0 5px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            {count}
-                          </span>
-                        )}
-                      </a>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
+          <UnderlineTabs
+            sticky
+            tabs={tabs.map(t => ({ ...t, count: tabCounts[t.key] }))}
+            value={activeTab}
+            onChange={setActiveTab}
+            ariaLabel="Record sections"
+            sx={{ mt: 3 }}
+          />
 
           <div className="tab-content">
             <DensityProvider mode="advanced">{renderTab()}</DensityProvider>

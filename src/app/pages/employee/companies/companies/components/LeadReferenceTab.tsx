@@ -1,52 +1,49 @@
-import React, { useMemo, useState } from "react";
-import dayjs from "dayjs";
-import PeriodFilter, { PeriodRange } from "@app/modules/common/components/PeriodFilter";
-import LeadReferralAnalytics, { referredLeadDate } from "./LeadReferralAnalytics";
+import React from "react";
+import AnalyticsTab from "@app/modules/common/components/AnalyticsTab";
+import { referredLeadDate } from "./LeadReferralAnalytics";
 import CompanyLeadReferences from "./CompanyLeadReferences";
 
 interface ReferredLead {
   id: string;
-  lead?: { id: string; createdAt?: string; inquiryDate?: string | null } | null;
+  lead?: {
+    id: string;
+    title?: string;
+    createdAt?: string;
+    inquiryDate?: string | null;
+    status?: { name: string; color?: string | null } | null;
+    commercials?: Array<{ cost?: number | string | null }> | null;
+  } | null;
   [key: string]: any;
 }
 
+/** A referred lead is worth the sum of its fee line items. */
+export const leadValue = (r: ReferredLead): number =>
+  (r.lead?.commercials || []).reduce((sum, c) => sum + (Number(c?.cost) || 0), 0);
+
+/** Bars split by lead status, so the mix of Received / Pending / Not Received is visible. */
+export const leadRow = (r: ReferredLead) => ({
+  date: referredLeadDate(r),
+  value: leadValue(r),
+  series: r.lead?.status?.name || "No status",
+  color: r.lead?.status?.color,
+  label: r.lead?.title,
+  href: r.lead?.id ? `/leads/${r.lead.id}` : undefined,
+});
+
 /**
- * Lead Reference tab: a period filter drives BOTH the referred-leads analytics
- * chart and the table below it, so they always reflect the same window.
- * Dates are the leads' INQUIRY dates (business date), not createdAt.
+ * Company → Lead Reference: the leads this company referred to us, over time.
+ * Dates are the leads' INQUIRY dates (the business date), not createdAt.
  */
-const LeadReferenceTab: React.FC<{ referredLeads?: ReferredLead[] }> = ({ referredLeads = [] }) => {
-  const [range, setRange] = useState<PeriodRange>({ mode: "allyear", start: null, end: null, label: "All time" });
-
-  const filtered = useMemo(() => {
-    if (!range.start || !range.end) return referredLeads; // "All Time" / unset → everything
-    const s = range.start.valueOf();
-    const e = range.end.valueOf();
-    return referredLeads.filter((r) => {
-      const d = referredLeadDate(r);
-      if (!d) return false;
-      const t = dayjs(d).valueOf();
-      return t >= s && t <= e;
-    });
-  }, [referredLeads, range.start, range.end]);
-
-  return (
-    <div>
-      <div className="mb-3">
-        <PeriodFilter onChange={setRange} initialMode="allyear" storageKey="leadReferencePeriodMode" />
-      </div>
-
-      <LeadReferralAnalytics
-        referredLeads={filtered}
-        totalCount={referredLeads.length}
-        mode={range.mode}
-        rangeStart={range.start}
-        rangeEnd={range.end}
-      />
-
-      <CompanyLeadReferences referredLeads={filtered as any} />
-    </div>
-  );
-};
+const LeadReferenceTab: React.FC<{ referredLeads?: ReferredLead[] }> = ({ referredLeads = [] }) => (
+  <AnalyticsTab
+    items={referredLeads}
+    toRow={leadRow}
+    title="Referred Leads — Business"
+    noun="lead"
+    storageKey="leadReferencePeriodMode"
+  >
+    {(filtered) => <CompanyLeadReferences referredLeads={filtered as any} />}
+  </AnalyticsTab>
+);
 
 export default LeadReferenceTab;

@@ -37,9 +37,9 @@ export type {
 // grid/toolbar breakpoints so every collection view fills wide screens and stacks cleanly on mobile.
 export {
   TRIO, EASE_200, SHADOW_REST, SHADOW_HOVER, IconBox, StatusBadge, StatTile, Eyebrow, SectionHead,
-  AutoGrid, ListHeader, ViewModeSwitch, StatusCyclePill,
+  AutoGrid, ListHeader, ViewModeSwitch, StatusCyclePill, UnderlineTabs,
 } from './patterns';
-export type { Trio, ViewModeOption, StatusCycleOption } from './patterns';
+export type { Trio, ViewModeOption, StatusCycleOption, UnderlineTabItem } from './patterns';
 // Choose-one-from-a-visual-set controls, for any feature that lets an admin
 // brand a record (section icon/colour, status colour, category icon).
 export { IconPicker, TONE_NAMES } from './SwatchPicker';

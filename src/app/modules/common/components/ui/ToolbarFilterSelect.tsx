@@ -85,6 +85,12 @@ export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
                     letterSpacing: '0.5px',
                     textTransform: 'uppercase',
                     color: 'text.secondary',
+                    // Metronic's Bootstrap reboot styles bare `label` elements, and this IS
+                    // one. Neutralise the inherited box so the label sits exactly where MUI's
+                    // transform puts it instead of being nudged off the notch.
+                    lineHeight: 1,
+                    margin: 0,
+                    padding: 0,
                     '&.Mui-focused': { color: theme?.icon ?? 'primary.main' },
                 }}
             >
@@ -124,6 +130,16 @@ export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
                         '& .MuiOutlinedInput-notchedOutline': { borderColor: theme!.border },
                         '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: theme!.icon },
                     }),
+                    // The notch is cut to fit the LEGEND, which is a separate element that
+                    // does not inherit the label's sx. Bold + 0.5px tracking made the label
+                    // wider than the gap cut for it, so the border ran through the text.
+                    // Same metrics here = a notch that actually fits: 14.5 * 0.75 = 10.875px.
+                    '& .MuiOutlinedInput-notchedOutline legend': {
+                        fontSize: '10.875px',
+                        fontWeight: 700,
+                        letterSpacing: '0.5px',
+                        textTransform: 'uppercase',
+                    },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
                         borderColor: theme?.icon ?? 'primary.main',
                         borderWidth: 1,
