@@ -122,7 +122,22 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
         return dayjs().diff(dayjs(day.date), 'day') <= restrictionDays - 1;
     }, [day, restrictionDays]);
 
-    const hasCheckIn = Boolean(day?.actual.checkIn);
+    /**
+     * A PENDING check-in request counts as a check-in for this gate.
+     *
+     * The rule is "you cannot ask to correct a check-out with no check-in to
+     * anchor it", and a raised-but-unapproved check-in satisfies that just as
+     * well as a punch does. Reading only `actual.checkIn` meant someone who
+     * forgot both punches had to raise the check-in, wait for an approver, and
+     * come back for the check-out — two round trips for one forgotten day.
+     *
+     * The server was already built for it: `saveAttendanceRequest` finds an
+     * existing request for the same date and MERGES the missing half into it,
+     * so the second raise completes the pending correction rather than
+     * competing with it.
+     */
+    const pendingCheckInRequest = day?.request?.kind === 'check_in' && day.request.status === 'pending';
+    const hasCheckIn = Boolean(day?.actual.checkIn) || pendingCheckInRequest;
 
     // The same gate the legacy calendar used for its "Raise Request for Another
     // Employee" button, carried over so the admin path survives its deletion.
@@ -283,7 +298,7 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                     <section className="border-t border-slate-200 pt-3 dark:border-[#30363d]">
                         {mode === 'read' && (
                             <div className="flex flex-wrap items-center gap-2">
-                                <WtButton onClick={startCorrection}>Raise a correction</WtButton>
+                                <WtButton onClick={startCorrection}>Raise a Request</WtButton>
                                 {/* Carried over from the legacy calendar rather than lost with it:
                                     admins could raise a request on someone else's behalf from the
                                     day they clicked. Same permission gate, same modal. */}
@@ -327,6 +342,15 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                                     <p className="m-0 flex items-center gap-1.5 text-[11.5px] text-slate-500 dark:text-slate-400">
                                         <KTIcon iconName="information-2" className="fs-7" />
                                         There is no check-in yet, so raise that first.
+                                    </p>
+                                )}
+                                {/* Says what will happen, because "it merged into
+                                    the one I already raised" is surprising if you
+                                    were expecting a second request. */}
+                                {pendingCheckInRequest && (
+                                    <p className="m-0 flex items-center gap-1.5 text-[11.5px] text-slate-500 dark:text-slate-400">
+                                        <KTIcon iconName="information-2" className="fs-7" />
+                                        Your check-in request is still awaiting approval — a check-out will be added to it.
                                     </p>
                                 )}
                             </div>
