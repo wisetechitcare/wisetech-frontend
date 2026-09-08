@@ -21,6 +21,7 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import { LEAVE_MANAGEMENT_TYPE, LEAVE_MANAGEMENT_TYPE_NAMES, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
+import { getTimeTokens } from '@utils/timeFormat';
 
 interface LeaveManagementRequest {
   id: string;
@@ -266,7 +267,7 @@ function LeaveManagementRequests() {
       accessorKey: "createdAt",
       header: "Requested At",
       Cell: ({ row }: any) => (
-        <span>{dayjs(row.original.createdAt).format("DD MMM YYYY hh:mm A")}</span>
+        <span>{dayjs(row.original.createdAt).format(`DD MMM YYYY ${getTimeTokens().TIME}`)}</span>
       ),
     },
     {

@@ -19,7 +19,7 @@ import { getAllAttendanceRequestByCompanyId } from "@services/employee";
 import { hasPermission } from "@utils/authAbac";
 import { getGraceBasedThresholds } from "@utils/getGraceBasedThresholds";
 import { markWeekendOrHoliday, transformAttendanceRequest } from "@utils/statistics";
-import { convertTo12HourFormat, MUMBAI_TZ } from "@utils/date";
+import { formatTimeString, MUMBAI_TZ } from "@utils/date";
 import dayjs from "dayjs";
 import dayjsTimezone from "dayjs/plugin/timezone";
 import dayjsUTC from "dayjs/plugin/utc";
@@ -81,6 +81,8 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import type { PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import { toPeriodParams, periodKey } from "@utils/periodRange";
+import { useTimeFormat } from '@hooks/useTimeFormat';
+import { getTimeTokens } from '@utils/timeFormat';
 
 interface OpenAttendanceRequestsProps {
     /**
@@ -97,7 +99,10 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
     const { filterIds } = useTeamFilter();
     const worktypeColorValues = useSelector((state: RootState) => state?.customColors?.workingLocation)
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
-    const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
+    // Subscribes this screen to the resolved 12/24h format so it re-renders when the
+    // preference changes. Replaces a selector that read the raw branch flag and was
+    // never actually used to decide anything. See utils/timeFormat.ts.
+    const timeFormat = useTimeFormat();
     const allEmployees = useSelector((state: RootState) => state.allEmployees?.list);
 
     const [leaveConfiguration, setLeaveConfiguration] = useState<any>()
@@ -337,7 +342,7 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
 
                 // Compare just the time portions using the 'minute' unit
                 const isLateCheckIn = checkInTime.isAfter(thresholdTime, 'minute');
-                const finalCheckIn = showDateIn12HourFormat == true ? convertTo12HourFormat(checkIn) : checkIn;
+                const finalCheckIn = formatTimeString(checkIn);
 
                 return (
                     <span style={{
@@ -375,7 +380,7 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
                 if (!thresholdTime) return <span>{checkOut || "N/A"}</span>;
                 const isEarlyCheckOut = checkOutTime.isBefore(thresholdTime);
 
-                const finalCheckOut = showDateIn12HourFormat == true ? convertTo12HourFormat(checkOut) : checkOut;
+                const finalCheckOut = formatTimeString(checkOut);
 
                 return (
                     <span style={{
@@ -445,7 +450,7 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
                 const actorId = isApproved ? approvedById : isRejected ? rejectedById : null;
                 const name = actorId ? allEmployees?.find((emp: any) => emp.employeeId === actorId)?.employeeName : null;
                 const date = row.original.approvedOrRejectedDate
-                    ? dayjs(row.original.approvedOrRejectedDate).format('DD MMM YYYY hh:mm A')
+                    ? dayjs(row.original.approvedOrRejectedDate).format(`DD MMM YYYY ${getTimeTokens().TIME}`)
                     : null;
 
                 if (!name) return <span className="text-slate-400 text-[12.5px]">-NA-</span>;

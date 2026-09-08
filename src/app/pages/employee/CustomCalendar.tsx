@@ -58,6 +58,7 @@ import { fetchColorAndStoreInSlice } from '@utils/file';
 import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getTimeTokens } from '@utils/timeFormat';
 
 // ---- Premium outline icon set (consistent, no emoji) ----
 const ICONS: Record<string, JSX.Element> = {
@@ -1034,7 +1035,7 @@ function CustomCalendar() {
         if (!s || allDayTypes.includes(evType(e))) return '';
         const d = dayjs(s);
         if (!d.isValid() || d.format('HH:mm') === '00:00') return '';
-        return d.format('h:mm A');
+        return d.format(getTimeTokens().TIME);
     };
     /**
      * The legend row an event belongs to.
@@ -1750,7 +1751,7 @@ function CustomCalendar() {
                             {upcomingMeetings.length ? upcomingMeetings.map((mtg: any, i: number) => (
                                 <div className="mrd-row" key={i}>
                                     <span className="mrd-av" style={{ background: 'var(--mrd-violet-tint)', color: 'var(--mrd-violet)' }}><Ico n="video" cls="sm" /></span>
-                                    <div className="mrd-row__main"><div className="mrd-row__t">{mtg.title || 'Meeting'}</div><div className="mrd-row__s">{dayjs(mtg.startDate).format('MMM D · h:mm A')}</div></div>
+                                    <div className="mrd-row__main"><div className="mrd-row__t">{mtg.title || 'Meeting'}</div><div className="mrd-row__s">{dayjs(mtg.startDate).format(`MMM D · ${getTimeTokens().TIME}`)}</div></div>
                                     <span className="mrd-tag mrd-tag--wk">{relLabel(mtg.startDate)}</span>
                                 </div>
                             )) : emptyInline('No upcoming meetings')}
@@ -1858,7 +1859,7 @@ function renderEventContent(eventInfo: any) {
     let time = '';
     if (ev.start && !ev.allDay && !allDayTypes.includes(type)) {
         const d = dayjs(ev.start);
-        if (d.isValid() && d.format('HH:mm') !== '00:00') time = d.format('h:mm');
+        if (d.isValid() && d.format('HH:mm') !== '00:00') time = d.format(getTimeTokens().TIME);
     }
 
     const isProfileEvent = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'marriage-anniversary', 'contact-marriage-anniversary'].includes(type);

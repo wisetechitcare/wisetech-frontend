@@ -31,6 +31,7 @@ import { DatePicker, MobileDatePicker, DateTimePicker, MobileDateTimePicker } fr
 import { useMediaQuery, useTheme, type SxProps, type Theme } from '@mui/material';
 import dayjs, { Dayjs } from 'dayjs';
 import { DATE_FORMATS } from '@utils/dateFormats';
+import { getTimeTokens } from '@utils/timeFormat';
 
 export interface WtDateFieldBaseProps {
   label?: string;
@@ -143,7 +144,7 @@ export function WtDateTimeField(props: WtDateTimeFieldProps) {
         disabled={disabled}
         minDateTime={parse(minDateTime) ?? undefined}
         maxDateTime={parse(maxDateTime) ?? undefined}
-        format={DATE_FORMATS.DISPLAY_DATETIME}
+        format={getTimeTokens().DATETIME}
         reduceAnimations
         slotProps={textFieldSlot(props)}
       />

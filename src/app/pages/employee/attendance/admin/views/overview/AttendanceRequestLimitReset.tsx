@@ -17,6 +17,7 @@ import Tooltip from "@mui/material/Tooltip";
 import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getTimeTokens } from '@utils/timeFormat';
 
 interface AttendanceRequestLimitResetRequest {
   id: string;
@@ -172,7 +173,7 @@ function AttendanceRequestLimitReset() {
       accessorKey: "createdAt",
       header: "Requested At",
       Cell: ({ row }: any) => (
-        <span>{dayjs(row.original.createdAt).format("DD MMM YYYY hh:mm A")}</span>
+        <span>{dayjs(row.original.createdAt).format(`DD MMM YYYY ${getTimeTokens().TIME}`)}</span>
       ),
     },
     {

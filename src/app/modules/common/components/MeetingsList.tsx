@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { getMeetingsByProject, getMeetingsByContact, getMeetingsByEmployee } from '@services/employee';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getTimeTokens } from '@utils/timeFormat';
 
 /**
  * MeetingsList — read-only roster of meetings linked to a record, shared by the
@@ -153,7 +154,7 @@ const MeetingsList: React.FC<{ mode: 'project' | 'contact' | 'employee'; targetI
                                         <td style={{ ...td, whiteSpace: 'nowrap' }}>
                                             <div>{dayjs(m.startDate).format('DD MMM YYYY')}</div>
                                             <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
-                                                {dayjs(m.startDate).format('hh:mm A')} – {dayjs(m.endDate).format('hh:mm A')}
+                                                {dayjs(m.startDate).format(getTimeTokens().TIME)} – {dayjs(m.endDate).format(getTimeTokens().TIME)}
                                             </div>
                                         </td>
                                         <td style={{ ...td, whiteSpace: 'nowrap' }}>

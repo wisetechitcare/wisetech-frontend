@@ -10,6 +10,7 @@ import dayjs from "dayjs";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { LEAVE_MANAGEMENT_TYPE, LEAVE_MANAGEMENT_TYPE_NAMES } from "@constants/statistics";
+import { getTimeTokens } from '@utils/timeFormat';
 
 interface LeaveManagementRequest {
   id: string;
@@ -143,7 +144,7 @@ function MyLeaveManagementRequests({ startDateNew, endDateNew }: { startDateNew:
       accessorKey: "createdAt",
       header: "Requested At",
       Cell: ({ row }: any) => (
-        <span>{dayjs(row.original.createdAt).format("DD MMM YYYY hh:mm A")}</span>
+        <span>{dayjs(row.original.createdAt).format(`DD MMM YYYY ${getTimeTokens().TIME}`)}</span>
       ),
     },
     {

@@ -16,6 +16,7 @@ import type { AppDispatch, RootState } from "@redux/store";
 // Audit (change history)
 import { VersionHistory } from "@modules/audit/VersionHistory";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getTimeTokens } from '@utils/timeFormat';
 
 interface ProjectData {
   currentStatus: string;
@@ -203,9 +204,9 @@ const LeadOverview = ({ lead }: { lead: any }) => {
       branch: lead.branchMappings?.[0]?.branch?.name || '-',
       visibility: company?.visibility || '-',
       createdBy: lead.createdBy?.users?.firstName+" "+lead.createdBy?.users?.lastName || '-',
-      createdDate: lead.createdAt ? dayjs(lead.createdAt).format("DD/M/YYYY, h:mmA") : '-',
+      createdDate: lead.createdAt ? dayjs(lead.createdAt).format(`DD/M/YYYY, ${getTimeTokens().TIME}`) : '-',
       lastEditedBy: lead.updatedBy?.users?.firstName+" "+lead.updatedBy?.users?.lastName || '-',
-      lastEdited: lead.updatedAt ? dayjs(lead.updatedAt).format("DD/M/YYYY, h:mmA") : '-',
+      lastEdited: lead.updatedAt ? dayjs(lead.updatedAt).format(`DD/M/YYYY, ${getTimeTokens().TIME}`) : '-',
       projectAddress: lead?.additionalDetails?.projectAddress || '-',
       city: lead?.additionalDetails?.city || '-',
       state: lead?.additionalDetails?.state || '-',

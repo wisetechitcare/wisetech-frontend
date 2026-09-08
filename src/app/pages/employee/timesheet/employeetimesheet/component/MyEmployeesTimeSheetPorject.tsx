@@ -22,6 +22,7 @@ import eventBus from "@utils/EventBus";
 import { usePermission } from "@hooks/usePermission";
 import TimeLogDetailDialog from "../../components/TimeLogDetailDialog";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
+import { getTimeTokens } from '@utils/timeFormat';
 
 const MyEmployeesTimeSheetPorject = ({
   startDate,
@@ -241,7 +242,7 @@ const MyEmployeesTimeSheetPorject = ({
         size: 150,
         Cell: ({ cell }: any) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format("DD-MM-YYYY hh:mm A")
+            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
@@ -250,7 +251,7 @@ const MyEmployeesTimeSheetPorject = ({
         size: 150,
         Cell: ({ cell }: any) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format("DD-MM-YYYY hh:mm A")
+            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
@@ -281,7 +282,7 @@ const MyEmployeesTimeSheetPorject = ({
         size: 150,
         Cell: ({ cell }: any) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format("DD-MM-YYYY hh:mm A")
+            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
@@ -290,7 +291,7 @@ const MyEmployeesTimeSheetPorject = ({
         size: 150,
         Cell: ({ cell }: any) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format("DD-MM-YYYY hh:mm A")
+            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {

@@ -8,6 +8,7 @@ import { useSelector } from "react-redux";
 import EditMeetingModal from "./EditMeetingModal";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import { getTimeTokens } from '@utils/timeFormat';
 
 interface Meetings {
   id: string;
@@ -195,11 +196,11 @@ const MeetingViewModal = ({ show, onClose, meetingId }: MeetingViewModalProps) =
             <div className="d-flex mb-3">
               <div className="me-4">
                 <p className="text-muted mb-0">Start Time</p>
-                <div>{dayjs(viewModelMeeting.startDate).format("DD MMM, hh:mm A")}</div>
+                <div>{dayjs(viewModelMeeting.startDate).format(`DD MMM, ${getTimeTokens().TIME}`)}</div>
               </div>
               <div>
                 <p className="text-muted mb-0">End Time</p>
-                <div>{dayjs(viewModelMeeting.endDate).format("DD MMM, hh:mm A")}</div>
+                <div>{dayjs(viewModelMeeting.endDate).format(`DD MMM, ${getTimeTokens().TIME}`)}</div>
               </div>
             </div>
 

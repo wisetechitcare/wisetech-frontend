@@ -5,6 +5,7 @@ import { Chip } from '@mui/material';
 import dayjs from 'dayjs';
 import { projectOverviewIcons } from '@metronic/assets/sidepanelicons';
 import { useNavigate } from 'react-router-dom';
+import { getTimeTokens } from '@utils/timeFormat';
 
 interface TaskOverviewProps {
     task: any;
@@ -41,7 +42,7 @@ const TaskOverview: React.FC<TaskOverviewProps> = ({ task }) => {
 
     const formatTime = (date: string) => {
         if (!date) return '-';
-        return dayjs(date).format('h:mm A');
+        return dayjs(date).format(getTimeTokens().TIME);
     };
 
     const formatDuration = (minutes: number) => {

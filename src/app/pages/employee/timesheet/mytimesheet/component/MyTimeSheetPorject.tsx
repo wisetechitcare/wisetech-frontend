@@ -24,6 +24,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import TimeLogDetailDialog from "../../components/TimeLogDetailDialog";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
+import { getTimeTokens } from '@utils/timeFormat';
 
 const MyTimeSheetProject = ({
   startDate,
@@ -294,7 +295,7 @@ const MyTimeSheetProject = ({
         size: 150,
         Cell: ({ cell }: any) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format("DD-MM-YYYY hh:mm A")
+            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
@@ -303,7 +304,7 @@ const MyTimeSheetProject = ({
         size: 150,
         Cell: ({ cell }: any) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format("DD-MM-YYYY hh:mm A")
+            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
@@ -334,7 +335,7 @@ const MyTimeSheetProject = ({
         size: 150,
         Cell: ({ cell }: any) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format("DD-MM-YYYY hh:mm A")
+            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
@@ -343,7 +344,7 @@ const MyTimeSheetProject = ({
         size: 150,
         Cell: ({ cell }: any) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format("DD-MM-YYYY hh:mm A")
+            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
