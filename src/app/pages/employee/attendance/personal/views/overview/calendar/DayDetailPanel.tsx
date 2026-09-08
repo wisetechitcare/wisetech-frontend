@@ -79,6 +79,7 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
 
     const employee = useSelector((s: RootState) => s.employee?.currentEmployee);
     const employeeId = employee?.id ?? '';
+    const companyId = employee?.companyId ?? '';
     const tz = employee?.branches?.timezone || MUMBAI_TZ;
 
     const visual = day ? resolveDayVisual(day.status, day.modifiers, overrides, day.lateMark?.lateMinutes, modifierOverrides) : null;
@@ -191,6 +192,13 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
             const iso = dayjs.tz(`${day.date} ${time}`, 'YYYY-MM-DD HH:mm', tz).toISOString();
             await createUpdateAttendanceRequest({
                 employeeId,
+                // REQUIRED. `AttendanceRequests.companyId` is non-nullable with a
+                // relation, and the handler spreads the request body straight into
+                // `prisma.create`, so omitting it throws before anything is written —
+                // a 500 the form could only report as "please try again later".
+                // It only surfaced on a day with no existing request: a date that
+                // already had one takes the update path, where the column is set.
+                companyId,
                 workingMethodId: methodId,
                 remarks: remarks.trim(),
                 latitude: 0,
