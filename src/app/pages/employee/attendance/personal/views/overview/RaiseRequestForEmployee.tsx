@@ -442,13 +442,22 @@
 
 // export default RaiseRequestForEmployee;
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import { WtButton } from "@app/modules/common/components/ui/tw/Buttons";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import TimePickerInput from "@app/modules/common/inputs/TimeInput";
 import { RootState } from "@redux/store";
 import { createUpdateAttendanceRequest, fetchAllEmployees, getAllKpiFactors, createKpiScore } from "@services/employee";
 import { fetchWorkingMethods } from "@services/options";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
-import { isValidTime } from "@utils/statistics";
+// The ONE rule set for what makes a correction request valid — shared with the
+// employee's own correction form in the attendance calendar.
+import {
+  TIME_24H,
+  validateAttendanceRequest,
+  wantsCheckIn,
+  wantsCheckOut,
+  type RequestKind,
+} from "@app/modules/common/components/attendance/attendanceRequest";
 import dayjs from "dayjs";
 import { Formik, useField } from "formik";
 import { useState, useEffect, useMemo } from "react";
@@ -632,9 +641,10 @@ const RaiseRequestForEmployee = ({
    * always assumed. `both` stays the default, so an admin filling in a whole
    * missing day still does it in one request rather than two.
    */
-  const TIME_FORMAT = /^([01]\d|2[0-3]):([0-5]\d)$/;
-  const wantsCheckIn = (k: string) => k === "both" || k === "checkin";
-  const wantsCheckOut = (k: string) => k === "both" || k === "checkout";
+  // Sourced from the shared module, not restated here. Three local copies of
+  // "what does this kind want" is exactly how this form's schema came to
+  // disagree with its own submit handler.
+  const TIME_FORMAT = TIME_24H;
 
   const validationSchema = Yup.object({
     employeeId: Yup.string().required("Employee is required"),
@@ -673,41 +683,35 @@ const RaiseRequestForEmployee = ({
         return;
       }
 
-      // Validate at least one time is provided
-      if (!values.checkIn && !values.checkOut) {
-        errorConfirmation("Please provide at least Check In or Check Out time.");
+      // The SHARED rules — the same call the employee's correction form makes,
+      // so the two cannot disagree about what a valid request is. The Yup
+      // schema above still drives the inline per-field messages; this is the
+      // authority that decides whether the payload is built.
+      const problem = validateAttendanceRequest({
+        kind: values.kind as RequestKind,
+        checkIn: values.checkIn ?? "",
+        checkOut: values.checkOut ?? "",
+        workingMethodId: values.workingMethodId ?? "",
+        remarks: values.remarks ?? "",
+      });
+      if (problem) {
+        errorConfirmation(problem);
         return;
       }
 
       const formattedDate = dayjs(selectedDate).format("YYYY-MM-DD");
       const updatedValues = { ...values };
 
-      // Validate & format Check-In
+      // Format only — the shared validator above has already established that
+      // any time present here is a well-formed HH:mm and correctly ordered.
       if (values.checkIn) {
-        if (!isValidTime(values.checkIn)) {
-          errorConfirmation("Enter Check In in HH:MM (24 hr format)");
-          return;
-        }
         const checkInUTC = dayjs(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm").toISOString();
         updatedValues.checkIn = checkInUTC;
       }
 
-      // Validate & format Check-Out
       if (values.checkOut) {
-        if (!isValidTime(values.checkOut)) {
-          errorConfirmation("Enter Check Out in HH:MM (24 hr format)");
-          return;
-        }
         const checkOutUTC = dayjs(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm").toISOString();
         updatedValues.checkOut = checkOutUTC;
-      }
-
-      // Validate time sequence
-      if (updatedValues.checkIn && updatedValues.checkOut) {
-        if (!dayjs(updatedValues.checkOut).isAfter(dayjs(updatedValues.checkIn))) {
-          errorConfirmation("Check Out must be after Check In");
-          return;
-        }
       }
 
       // Final payload
@@ -874,8 +878,8 @@ const RaiseRequestForEmployee = ({
                           aria-pressed={active}
                           onClick={() => {
                             formikProps.setFieldValue("kind", opt.value);
-                            if (!wantsCheckIn(opt.value)) formikProps.setFieldValue("checkIn", "");
-                            if (!wantsCheckOut(opt.value)) formikProps.setFieldValue("checkOut", "");
+                            if (!wantsCheckIn(opt.value as RequestKind)) formikProps.setFieldValue("checkIn", "");
+                            if (!wantsCheckOut(opt.value as RequestKind)) formikProps.setFieldValue("checkOut", "");
                           }}
                           style={{
                             border: `1px solid ${active ? "#1E3A8A" : "#E5E7EB"}`,
@@ -898,7 +902,7 @@ const RaiseRequestForEmployee = ({
                 </div>
 
                 {/* Check In Time */}
-                {wantsCheckIn(formikProps.values.kind) && (
+                {wantsCheckIn(formikProps.values.kind as RequestKind) && (
                   <div className="col-lg mb-5">
                     <TimePickerInput
                       isRequired={true}
@@ -910,7 +914,7 @@ const RaiseRequestForEmployee = ({
                 )}
 
                 {/* Check Out Time */}
-                {wantsCheckOut(formikProps.values.kind) && (
+                {wantsCheckOut(formikProps.values.kind as RequestKind) && (
                   <div className="col-lg mb-5">
                     <TimePickerInput
                       isRequired={true}
@@ -954,23 +958,21 @@ const RaiseRequestForEmployee = ({
                   />
                 </div>
 
-                {/* Submit Button */}
-                <div className="d-flex justify-content-end mt-4">
-                  <button
-                    type="button"
-                    className="btn btn-secondary me-3"
-                    onClick={onHide}
-                  >
+                {/* Both actions come from the kit now. `btn btn-secondary` is
+                    Bootstrap's grey-blue, which sat beside the navy primary
+                    looking like a third, unrelated colour — and the primary was
+                    a Bootstrap button with the brand hex hand-painted onto it,
+                    so neither followed the theme. */}
+                <div className="d-flex justify-content-end gap-2 mt-4">
+                  <WtButton ghost onClick={onHide}>
                     Cancel
-                  </button>
-                  <button
+                  </WtButton>
+                  <WtButton
                     type="submit"
                     disabled={formikProps.isSubmitting}
-                    className="btn btn-primary"
-                    style={{ backgroundColor: "#1E3A8A", borderColor: "#1E3A8A" }}
                   >
                     {formikProps.isSubmitting ? "Saving..." : "Raise Request"}
-                  </button>
+                  </WtButton>
                 </div>
               </Box>
             )}

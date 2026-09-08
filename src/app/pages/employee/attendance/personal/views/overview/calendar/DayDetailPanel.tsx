@@ -30,8 +30,6 @@ import { Spinner } from '@app/modules/common/components/ui/tw/Spinner';
 import { TRIO } from '@app/modules/common/components/ui/tw/tokens';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
-import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
-import { WtSelect } from '@app/modules/common/components/ui/WtSelect';
 import type { RootState } from '@redux/store';
 import { createUpdateAttendanceRequest } from '@services/employee';
 import { fetchWorkingMethods } from '@services/options';
@@ -47,6 +45,14 @@ import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { MUMBAI_TZ } from '@utils/date';
 import { legendLabel, resolveDayVisual, type DayLabelOverrides, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import type { CalendarDay } from './types';
+import { AttendanceRequestFields } from '@app/modules/common/components/attendance/AttendanceRequestFields';
+import {
+    applyKind,
+    emptyDraft,
+    validateAttendanceRequest,
+    type AttendanceRequestDraft,
+    type RequestKind,
+} from '@app/modules/common/components/attendance/attendanceRequest';
 
 export interface DayDetailPanelProps {
     day: CalendarDay | null;
@@ -60,21 +66,24 @@ export interface DayDetailPanelProps {
 }
 
 type Mode = 'read' | 'pick' | 'form';
-type RequestKind = 'checkin' | 'checkout';
+// The kind union and the field rules are shared with the admin raise-for-someone
+// modal — see modules/common/components/attendance/attendanceRequest.
 
 export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels, onClose, onSubmitted }: DayDetailPanelProps) {
     const dark = useIsDark();
     const [mode, setMode] = useState<Mode>('read');
-    const [kind, setKind] = useState<RequestKind>('checkin');
-    const [time, setTime] = useState('');
-    const [remarks, setRemarks] = useState('');
-    const [methodId, setMethodId] = useState('');
+    const [draft, setDraft] = useState<AttendanceRequestDraft>(() => emptyDraft('checkin'));
+    const kind = draft.kind;
+    const time = kind === 'checkin' ? draft.checkIn : draft.checkOut;
     const [methods, setMethods] = useState<Array<{ value: string; label: string }>>([]);
     const [restrictionDays, setRestrictionDays] = useState(1);
     const [gate, setGate] = useState<{ checking: boolean; blocked: boolean; blockingDate: string }>({
         checking: false, blocked: false, blockingDate: '',
     });
     const [saving, setSaving] = useState(false);
+    /** Errors stay quiet until a submit is attempted — a form that is red before
+        you have typed anything is scolding, not helping. */
+    const [attempted, setAttempted] = useState(false);
     const [adminOpen, setAdminOpen] = useState(false);
 
     const employee = useSelector((s: RootState) => s.employee?.currentEmployee);
@@ -89,9 +98,8 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
     useEffect(() => {
         if (!open) return;
         setMode('read');
-        setTime('');
-        setRemarks('');
-        setMethodId('');
+        setDraft(emptyDraft('checkin'));
+        setAttempted(false);
         setGate({ checking: false, blocked: false, blockingDate: '' });
     }, [open, day?.date]);
 
@@ -137,7 +145,27 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
      * competing with it.
      */
     const pendingCheckInRequest = day?.request?.kind === 'check_in' && day.request.status === 'pending';
+    const pendingCheckOutRequest = day?.request?.kind === 'check_out' && day.request.status === 'pending';
     const hasCheckIn = Boolean(day?.actual.checkIn) || pendingCheckInRequest;
+
+    /**
+     * A half that is already awaiting approval cannot be raised again.
+     *
+     * The server merges a second request for the same date into the first, so
+     * raising the SAME half twice does not create a duplicate — it silently
+     * overwrites the pending one. That is worse than a duplicate: the employee
+     * thinks they have filed a second correction and the approver sees only the
+     * newer time, with no sign the first was replaced.
+     *
+     * So the half that is pending is closed, and the OTHER half stays open —
+     * which is the case that made merging worth having.
+     */
+    const kindBlocked = (k: RequestKind): string | null => {
+        if (k === 'checkin' && pendingCheckInRequest) return 'A check-in correction for this day is already awaiting approval.';
+        if (k === 'checkout' && pendingCheckOutRequest) return 'A check-out correction for this day is already awaiting approval.';
+        if (k === 'checkout' && !hasCheckIn) return 'There is no check-in yet, so raise that first.';
+        return null;
+    };
 
     // The same gate the legacy calendar used for its "Raise Request for Another
     // Employee" button, carried over so the admin path survives its deletion.
@@ -176,18 +204,22 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
             errorConfirmation('You are not allowed to raise an attendance request for this date. Contact admin for assistance.');
             return;
         }
-        setKind(k);
-        setTime('');
+        setDraft(applyKind({ ...draft, checkIn: '', checkOut: '' }, k));
+        setAttempted(false);
         setMode('form');
     };
 
     const submit = async () => {
         if (!day) return;
-        if (!time) return errorConfirmation(`${kind === 'checkin' ? 'Check-in' : 'Check-out'} time is required`);
-        if (!remarks.trim()) return errorConfirmation('Remarks are required');
-        if (!methodId) return errorConfirmation('Working method is required');
+        setAttempted(true);
 
-        // Ordering guard, mirroring the legacy modal's conflict check.
+        // The SHARED rules — the same ones the admin modal validates against, so
+        // the two forms cannot disagree about what a valid request is.
+        const problem = validateAttendanceRequest(draft);
+        if (problem) return errorConfirmation(problem);
+
+        // This guard stays HERE: it compares against the punch already on the
+        // day, which is state the shared validator has no access to.
         const other = kind === 'checkin' ? day.actual.checkOut : day.actual.checkIn;
         if (other) {
             const proposed = dayjs(`${day.date} ${time}`);
@@ -214,8 +246,8 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                 // It only surfaced on a day with no existing request: a date that
                 // already had one takes the update path, where the column is set.
                 companyId,
-                workingMethodId: methodId,
-                remarks: remarks.trim(),
+                workingMethodId: draft.workingMethodId,
+                remarks: draft.remarks.trim(),
                 latitude: 0,
                 longitude: 0,
                 status: 0,
@@ -329,28 +361,41 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                                     What would you like to correct?
                                 </p>
                                 <div className="flex flex-wrap gap-2">
-                                    <WtButton inverted onClick={() => pickKind('checkin')}>Check-in</WtButton>
-                                    <WtButton
-                                        inverted
-                                        disabled={!hasCheckIn}
-                                        onClick={() => pickKind('checkout')}
-                                    >
-                                        Check-out
-                                    </WtButton>
+                                    {(['checkin', 'checkout'] as const).map((k) => (
+                                        <WtButton
+                                            key={k}
+                                            inverted
+                                            disabled={Boolean(kindBlocked(k))}
+                                            onClick={() => pickKind(k)}
+                                        >
+                                            {k === 'checkin' ? 'Check-in' : 'Check-out'}
+                                        </WtButton>
+                                    ))}
                                 </div>
-                                {!hasCheckIn && (
-                                    <p className="m-0 flex items-center gap-1.5 text-[11.5px] text-slate-500 dark:text-slate-400">
-                                        <KTIcon iconName="information-2" className="fs-7" />
-                                        There is no check-in yet, so raise that first.
-                                    </p>
-                                )}
+
+                                {/* One reason per closed option, from the same
+                                    predicate that closed it — so a disabled button
+                                    can never sit there unexplained. */}
+                                {(['checkin', 'checkout'] as const)
+                                    .map((k) => kindBlocked(k))
+                                    .filter((reason, i, all): reason is string => Boolean(reason) && all.indexOf(reason) === i)
+                                    .map((reason) => (
+                                        <p
+                                            key={reason}
+                                            className="m-0 flex items-center gap-1.5 text-[11.5px] text-slate-500 dark:text-slate-400"
+                                        >
+                                            <KTIcon iconName="information-2" className="fs-7" />
+                                            {reason}
+                                        </p>
+                                    ))}
+
                                 {/* Says what will happen, because "it merged into
                                     the one I already raised" is surprising if you
                                     were expecting a second request. */}
-                                {pendingCheckInRequest && (
+                                {pendingCheckInRequest && !pendingCheckOutRequest && (
                                     <p className="m-0 flex items-center gap-1.5 text-[11.5px] text-slate-500 dark:text-slate-400">
                                         <KTIcon iconName="information-2" className="fs-7" />
-                                        Your check-in request is still awaiting approval — a check-out will be added to it.
+                                        A check-out will be added to that same pending request.
                                     </p>
                                 )}
                             </div>
@@ -371,7 +416,7 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                          */}
                         {mode === 'pick' && (
                             <div className="flex">
-                                <WtButton ghost onClick={() => setMode('read')}>Back</WtButton>
+                                <WtButton inverted onClick={() => setMode('read')} startIcon={<KTIcon iconName="arrow-left" className="fs-5" />}>Back</WtButton>
                             </div>
                         )}
 
@@ -381,38 +426,20 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                                     {kind === 'checkin' ? 'Check-in' : 'Check-out'} correction
                                 </p>
 
-                                <Labelled label={`${kind === 'checkin' ? 'Check-in' : 'Check-out'} time`} required>
-                                    <TimeWheelField value={time} onChange={setTime} />
-                                </Labelled>
-
-                                <Labelled label="Working method" required>
-                                    {/* WtSelect, not a raw <select> — the kit's dropdown ENGINE.
-                                        A bespoke one would theme wrong in dark mode and be the
-                                        fourth select in this codebase. */}
-                                    <WtSelect
-                                        options={methods}
-                                        value={methods.find((m) => m.value === methodId) ?? null}
-                                        onChange={(opt: { value: string } | null) => setMethodId(opt?.value ?? '')}
-                                        ariaLabel="Working method"
-                                        placeholder="Select…"
-                                        isLoading={!methods.length}
-                                        error={mode === 'form' && !methodId && saving}
-                                        size="sm"
-                                    />
-                                </Labelled>
-
-                                <Labelled label="Remarks" required>
-                                    <textarea
-                                        value={remarks}
-                                        onChange={(e) => setRemarks(e.target.value)}
-                                        rows={2}
-                                        className="w-full resize-y rounded-lg border border-slate-200 bg-transparent px-2.5 py-2 text-[13px] text-slate-900 dark:border-[#30363d] dark:text-slate-100"
-                                        placeholder="Why is this correction needed?"
-                                    />
-                                </Labelled>
+                                {/* The SAME fields the admin's raise-for-someone modal
+                                    renders. No kind selector here — this flow picks the
+                                    kind in the step before, so offering it again would
+                                    be a second way to change the same thing. */}
+                                <AttendanceRequestFields
+                                    value={draft}
+                                    onChange={setDraft}
+                                    methods={methods}
+                                    showErrors={attempted}
+                                    disabled={saving}
+                                />
 
                                 <div className="flex flex-wrap justify-between gap-2">
-                                    <WtButton ghost onClick={() => setMode('pick')}>Back</WtButton>
+                                    <WtButton inverted onClick={() => setMode('pick')} startIcon={<KTIcon iconName="arrow-left" className="fs-5" />}>Back</WtButton>
                                     <WtButton onClick={submit} disabled={saving}>
                                         {saving ? 'Saving…' : 'Submit request'}
                                     </WtButton>
@@ -445,18 +472,6 @@ function Field({ k, v, hint }: { k: string; v: string; hint?: string }) {
                 {hint && <span className="ml-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">{hint}</span>}
             </dd>
         </div>
-    );
-}
-
-function Labelled({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-    return (
-        <label className={cn('flex flex-col gap-1')}>
-            <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-slate-500 dark:text-slate-400">
-                {label}
-                {required && <span className="ml-0.5 text-rose-500">*</span>}
-            </span>
-            {children}
-        </label>
     );
 }
 
