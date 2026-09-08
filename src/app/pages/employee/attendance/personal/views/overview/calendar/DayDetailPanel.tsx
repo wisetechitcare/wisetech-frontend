@@ -332,6 +332,25 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                             </div>
                         )}
 
+                        {/**
+                         * One way back for the WHOLE pick step, not just the branch that
+                         * offers the two buttons.
+                         *
+                         * The form had a Back and this step had none, so choosing to
+                         * correct a day left closing the entire dialog as the only exit,
+                         * taking the record you opened it to read with it. The blocked
+                         * branch was worse: it explains that an earlier day needs fixing
+                         * first and then stranded you on that message.
+                         *
+                         * Outside the gate conditions on purpose — a step you can enter
+                         * is a step you can leave, whatever it happens to be showing.
+                         */}
+                        {mode === 'pick' && (
+                            <div className="flex">
+                                <WtButton ghost onClick={() => setMode('read')}>Back</WtButton>
+                            </div>
+                        )}
+
                         {mode === 'form' && !gate.blocked && (
                             <div className="flex flex-col gap-3">
                                 <p className="m-0 text-[12px] font-bold text-slate-700 dark:text-slate-300">
