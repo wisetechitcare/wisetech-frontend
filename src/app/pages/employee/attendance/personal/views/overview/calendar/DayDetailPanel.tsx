@@ -388,18 +388,20 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                     <section className="border-t border-slate-200 pt-3 dark:border-[#30363d]">
                         {mode === 'read' && (
                             <div className="flex flex-wrap items-center gap-2">
-                                <WtButton onClick={startCorrection} disabled={nothingLeftToRaise}>
-                                    Raise a Request
-                                </WtButton>
-                                {/* The reason sits next to the disabled control, not
-                                    somewhere else on the screen — a greyed button with
-                                    no explanation is the thing people file a ticket
-                                    about. */}
-                                {nothingLeftToRaise && (
-                                    <span className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-2.5 py-[4px] text-[11.5px] font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+                                {/* Hidden rather than disabled once both halves are
+                                    spoken for. A disabled control implies "not yet" —
+                                    that something you could do would enable it. Nothing
+                                    on this screen can: it takes an approver, elsewhere.
+                                    So the action goes and the state speaks for itself,
+                                    which also stops the eye landing on a grey rectangle
+                                    before reading why. */}
+                                {nothingLeftToRaise ? (
+                                    <span className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-2.5 py-[5px] text-[11.5px] font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
                                         <KTIcon iconName="time" className="fs-7" />
                                         Both times awaiting approval
                                     </span>
+                                ) : (
+                                    <WtButton onClick={startCorrection}>Raise a Request</WtButton>
                                 )}
                                 {/* Carried over from the legacy calendar rather than lost with it:
                                     admins could raise a request on someone else's behalf from the
