@@ -7,7 +7,8 @@ import {
 } from "@app/modules/common/components/ui";
 import PeriodFilter, { type PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import { queryKeys } from "@/lib/queryKeys";
-import { getRecruitmentOverview } from "@services/recruitment";
+import { getRecruitmentOverview, type OrgScoped,
+} from "@services/recruitment";
 
 const FALLBACK_BAR = "#94A3B8";
 const OFFER_TONE: Record<string, SemanticTone> = { ACCEPTED: "success", PENDING: "warning", DECLINED: "danger", EXPIRED: "brand" };
@@ -44,7 +45,22 @@ const EmptyHint = ({ text }: { text: string }) => (
     <Typography sx={{ fontSize: 12.5, color: "text.disabled", py: 1.5 }}>{text}</Typography>
 );
 
-const dayWord = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
+/**
+ * A duration, at a precision the data actually earns.
+ *
+ * The API rounds to one decimal, which is right for storage and wrong for reading: "21.1
+ * days" across two hires claims a precision two data points cannot support, and "0.8 days"
+ * is a number the reader has to convert in their head. Worse, a genuinely sub-day step
+ * rounded to one decimal can print "0 days", which reads as instant when it means same-day.
+ *
+ * So: under a day is said in words, and anything longer is whole days. The precise value
+ * stays on the server for anyone who needs it.
+ */
+const dayWord = (n: number): string => {
+    if (n < 0.5) return "less than a day";
+    const whole = Math.round(n);
+    return `${whole} ${whole === 1 ? "day" : "days"}`;
+};
 
 /**
  * One step of the hiring process: how long it usually takes, and who is waiting there now.
@@ -85,7 +101,7 @@ const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays }: 
     </Stack>
 );
 
-const RecruitmentOverview = () => {
+const RecruitmentOverview = ({ companyId }: OrgScoped) => {
     // The shared PeriodFilter (Daily / Weekly / Monthly / Yearly / All Time) is the same
     // control Attendance uses, so the period vocabulary is identical across the app.
     // "All Time" emits no start/end, which the API reads as no window.
@@ -100,8 +116,8 @@ const RecruitmentOverview = () => {
     const range = { from: period.from, to: period.to };
 
     const { data, isLoading } = useQuery({
-        queryKey: queryKeys.recruitment.overview(range),
-        queryFn: () => getRecruitmentOverview(range),
+        queryKey: queryKeys.recruitment.overview({ ...range, companyId }),
+        queryFn: () => getRecruitmentOverview(range, companyId),
     });
 
     if (isLoading) return <Stack alignItems="center" sx={{ py: 8 }}><CircularProgress size={30} /></Stack>;
@@ -181,9 +197,14 @@ const RecruitmentOverview = () => {
                     icon="time"
                     title="How Long Each Step Takes"
                     hint={
-                        timeToHire.count > 0
-                            ? `Across ${timeToHire.count === 1 ? "1 hire" : `${timeToHire.count} hires`}, most people were hired within ${dayWord(timeToHire.medianDays ?? 0)}, and 9 out of 10 within ${dayWord(timeToHire.p90Days ?? 0)}.`
-                            : "How long people usually wait at each step, and who is waiting right now."
+                        // A 90th percentile needs enough hires to mean anything — "9 out of 10
+                        // within 22 days" drawn from two people is a claim the data cannot make.
+                        // Below that, report only what two hires can honestly say.
+                        timeToHire.count >= 5
+                            ? `Across ${timeToHire.count} hires, most people were hired within ${dayWord(timeToHire.medianDays ?? 0)}, and 9 out of 10 within ${dayWord(timeToHire.p90Days ?? 0)}.`
+                            : timeToHire.count > 0
+                              ? `Based on ${timeToHire.count === 1 ? "1 hire" : `${timeToHire.count} hires`} so far, hiring took about ${dayWord(timeToHire.medianDays ?? 0)} — too few to read as a trend yet.`
+                              : "How long people usually wait at each step, and who is waiting right now."
                     }
                 />
                 {stageDurations.length === 0 ? (
