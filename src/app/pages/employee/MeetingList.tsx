@@ -21,6 +21,7 @@ import MeetingViewModal from "./MeetingViewModal";
 import EditMeetingModal from "./EditMeetingModal";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import { getTimeTokens } from '@utils/timeFormat';
 
 dayjs.extend(isLeapYear);
 
@@ -317,8 +318,8 @@ export default function MeetingList() {
                         {formatParticipants(meeting.participantNames)}
                       </td>
                       <td className="d-none d-md-table-cell">
-                        {dayjs(meeting.startDate).format("DD MMM, hh:mm A")} -{" "}
-                        {dayjs(meeting.endDate).format("hh:mm A")}
+                        {dayjs(meeting.startDate).format(`DD MMM, ${getTimeTokens().TIME}`)} -{" "}
+                        {dayjs(meeting.endDate).format(getTimeTokens().TIME)}
                       </td>
 
                       {viewAllowed && (

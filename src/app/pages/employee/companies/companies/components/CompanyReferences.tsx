@@ -1,11 +1,14 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import AnalyticsTab from "@app/modules/common/components/AnalyticsTab";
 
 // A row = a company this company referred (this company is their referral company).
 interface ReferredCompanyReference {
   id: string;
   referenceType: "INTERNAL" | "EXTERNAL";
+  /** When the referral was recorded — the only date a reference row carries. */
+  createdAt?: string | null;
   company?: {
     id: string;
     prefix?: string | null;
@@ -16,6 +19,20 @@ interface ReferredCompanyReference {
     companyType?: { id: string; name: string } | null;
   } | null;
 }
+
+/**
+ * A referral is charted on the date it was recorded — a reference row carries no
+ * business date of its own. Bars split by the referred company's TYPE, because
+ * "he sends us Builders" is the useful half of "he sent us eleven companies";
+ * splitting by reference type would be a single colour here, since every row on
+ * this tab is by definition an external referral.
+ */
+const referenceRow = (r: ReferredCompanyReference) => ({
+  date: r.createdAt,
+  series: r.company?.companyType?.name || "Unspecified type",
+  label: r.company?.companyName,
+  href: r.company?.id ? `/companies/${r.company.id}` : undefined,
+});
 
 const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference[] }> = ({ referredCompanies = [] }) => {
   const navigate = useNavigate();
@@ -89,13 +106,24 @@ const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference
   ];
 
   return (
-    <MaterialTable
-      data={referredCompanies}
-      columns={columns}
-      tableName="company-references"
-      hidePagination={true}
-      muiTableProps={{ sx: { minWidth: 600 } }}
-    />
+    <AnalyticsTab
+      items={referredCompanies}
+      toRow={referenceRow}
+      title="Referred Companies"
+      icon="bi-building"
+      noun="company"
+      storageKey="companyReferencesPeriodMode"
+    >
+      {(filtered) => (
+        <MaterialTable
+          data={filtered}
+          columns={columns}
+          tableName="company-references"
+          hidePagination={true}
+          muiTableProps={{ sx: { minWidth: 600 } }}
+        />
+      )}
+    </AnalyticsTab>
   );
 };
 

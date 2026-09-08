@@ -15,6 +15,7 @@ import { usePushSubscription } from '../hooks/usePushSubscription';
 import { Toaster } from 'sonner';
 import { ColorModeProvider } from '@app/theme/ColorMode';
 import { GlassToastProvider } from '@app/modules/common/components/ui';
+import { useTimeFormat } from '@hooks/useTimeFormat';
 // import { MaintenancePage } from './modules/errors/MaintenancePage';
 // import { NoInternetPage } from './modules/errors/NoInternetPage';
 
@@ -56,6 +57,19 @@ const App = () => {
   const currentUser  = useSelector((state: RootState) => state.auth.currentUser);
   const employeeId   = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const isAuthenticated = !!currentUser?.id;
+
+  // Keys the routed tree, so switching between 12h and 24h rebuilds it.
+  //
+  // Times are formatted by plain calls to `getTimeTokens()` inside memoised column
+  // definitions across ~15 screens. A context or a re-render would not reach those:
+  // a `useMemo` whose deps didn't change keeps its stale columns. Threading the
+  // format into fifteen dependency arrays is fifteen chances to miss one; remounting
+  // is one line that cannot be wrong.
+  //
+  // Affordable because the format is changed from a settings screen, by hand, almost
+  // never — the cost is the same as navigating, and the only screen whose state is
+  // discarded is the one holding the switch, which re-reads it on mount anyway.
+  const timeFormat = useTimeFormat();
 
   // // Listen for online/offline and backend-down events
   // useEffect(() => {
@@ -182,7 +196,7 @@ const App = () => {
                   No CssBaseline so Metronic/Bootstrap global styles stay intact. */}
               <ColorModeProvider>
                 <GlassToastProvider>
-                  <Outlet />
+                  <Outlet key={timeFormat} />
                   <MasterInit />
                   <Toaster richColors position="top-right" />
 

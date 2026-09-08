@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import dayjs from "dayjs";
 import { KTIcon } from "@metronic/helpers";
+import { getTimeTokens } from '@utils/timeFormat';
 
 
 interface AttendanceData {
@@ -48,7 +49,6 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
       const endDate = dayjs().endOf("day").format("YYYY-MM-DD");
       const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(employeeId, startDate, endDate);
      
-      // debugger;
       if (empAttendanceStatistics?.length > 0) {
         setDailyAttendance(empAttendanceStatistics);
         setDailyLatitude(empAttendanceStatistics[0]?.latitude || null);
@@ -159,7 +159,7 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
             <div className="overflow-hidden">
               <span className="text-muted d-block fs-8 fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>Check In</span>
               <span className="fw-bolder fs-7 text-gray-800 text-truncate">
-                {data.checkInTime && data.checkInTime !== "-NA-" ? dayjs(data.checkInTime).format("hh:mm:ss A") : "—"}
+                {data.checkInTime && data.checkInTime !== "-NA-" ? dayjs(data.checkInTime).format(getTimeTokens().TIME_WITH_SECONDS) : "—"}
               </span>
             </div>
           </div>
@@ -182,7 +182,7 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
             <div className="overflow-hidden">
               <span className="text-muted d-block fs-8 fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>Check Out</span>
               <span className="fw-bolder fs-7 text-gray-800 text-truncate">
-                {data.checkOutTime && data.checkOutTime !== "-NA-" && data.checkOutTime !== '' ? dayjs(data.checkOutTime).format("hh:mm:ss A") : "—"}
+                {data.checkOutTime && data.checkOutTime !== "-NA-" && data.checkOutTime !== '' ? dayjs(data.checkOutTime).format(getTimeTokens().TIME_WITH_SECONDS) : "—"}
               </span>
             </div>
           </div>

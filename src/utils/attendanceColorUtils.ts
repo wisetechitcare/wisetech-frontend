@@ -7,6 +7,7 @@ import {
   GRACE_TIME_ON_SITE_KEY,
 } from '@constants/configurations-key';
 import { ATTENDANCE_STATUS, WORKING_METHOD_TYPE } from '@constants/attendance';
+import { getTimeTokens } from './timeFormat';
 
 dayjs.extend(customParseFormat);
 dayjs.extend(durationPlugin);
@@ -310,7 +311,7 @@ export function resolveCheckInColor(input: ResolveCheckInColorInput): CheckInCol
   // Make the grace window visible: both branches spell out the on-time deadline
   // (shift start + grace) so a check-in that lands after the shift but before the
   // deadline reads as on-time for an obvious reason, not a mystery.
-  const deadlineLabel = allowedTime.format('h:mm:ss A');
+  const deadlineLabel = allowedTime.format(getTimeTokens().TIME_WITH_SECONDS);
 
   if (checkInTime.isAfter(allowedTime)) {
     const lateMinutes = checkInTime.diff(allowedTime, 'minute');

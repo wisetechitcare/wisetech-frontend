@@ -10,6 +10,7 @@ import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
 import * as Yup from "yup";
 import { Formik, Field, ErrorMessage } from "formik";
+import { formatTime } from '@utils/dateFormats';
 
 const validationSchema = Yup.object().shape({
   description: Yup.string().required("Description is required"),
@@ -391,10 +392,7 @@ const TodoList = memo(() => {
                             );
                           }
 
-                          return `${displayDate} ${createdAtDate.toLocaleTimeString(
-                            "en-GB",
-                            { hour: "2-digit", minute: "2-digit", hour12: true }
-                          )}`;
+                          return `${displayDate} ${formatTime(createdAtDate)}`;
                         })()}
                       </div>
                     </div>

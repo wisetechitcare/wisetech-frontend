@@ -11,6 +11,7 @@ import { deleteConfirmation } from '@utils/modal';
 import { toast } from 'react-toastify';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { getTimeTokens } from '@utils/timeFormat';
 
 // Extend dayjs with duration plugin
 dayjs.extend(duration);
@@ -455,9 +456,9 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                                                     {formatDuration(log.logTimeHours, log.logTimeMinutes, log.logTimeSeconds)}
                                                 </span>
                                             </td>
-                                            <td className="text-nowrap">{dayjs(log.startTime).format('HH:mm')}</td>
-                                            <td className="text-nowrap">{dayjs(log.endTime).format('HH:mm')}</td>
-                                            <td className="text-nowrap text-center">{log?.updatedAt ? dayjs(log.updatedAt).format('DD MMM YYYY HH:mm') : '—'}</td>
+                                            <td className="text-nowrap">{dayjs(log.startTime).format(getTimeTokens().TIME)}</td>
+                                            <td className="text-nowrap">{dayjs(log.endTime).format(getTimeTokens().TIME)}</td>
+                                            <td className="text-nowrap text-center">{log?.updatedAt ? dayjs(log.updatedAt).format(`DD MMM YYYY ${getTimeTokens().TIME}`) : '—'}</td>
                                             <td className="text-center"> {log.billable ? 'Yes' : 'No'}</td>
                                             <td>
                                                 <span className="" style={{color:'#1D5DE1'}}>
@@ -465,7 +466,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                                                 </span>
                                             </td>
                                             <td className="text-nowrap">
-                                                {log.updatedAt ? dayjs(log.updatedAt).format('DD MMM YYYY HH:mm') : '—'}
+                                                {log.updatedAt ? dayjs(log.updatedAt).format(`DD MMM YYYY ${getTimeTokens().TIME}`) : '—'}
                                             </td>
                                             <td className="text-end">
                                                 <div className="d-flex gap-2 justify-content-end">

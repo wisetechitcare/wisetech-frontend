@@ -14,6 +14,7 @@ import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { SegmentedControl } from '@app/modules/common/components/ui/SegmentedControl';
+import { getTimeTokens } from '@utils/timeFormat';
 
 /**
  * MeetingsList — the meetings surface, shared by the project (entity), contact and employee
@@ -1076,7 +1077,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
         },
         {
             id: 'time',
-            accessorFn: (m: MeetingRow) => `${dayjs(m.startDate).format('hh:mm A')} - ${dayjs(m.endDate).format('hh:mm A')}`,
+            accessorFn: (m: MeetingRow) => `${dayjs(m.startDate).format(getTimeTokens().TIME)} - ${dayjs(m.endDate).format(getTimeTokens().TIME)}`,
             header: 'Time',
         },
         // Not on the project's own tab: every row there belongs to the project whose page
@@ -1225,7 +1226,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     }
 
     const timeRange = (m: MeetingRow) =>
-        `${dayjs(m.startDate).format('hh:mm A')} – ${dayjs(m.endDate).format('hh:mm A')}`;
+        `${dayjs(m.startDate).format(getTimeTokens().TIME)} – ${dayjs(m.endDate).format(getTimeTokens().TIME)}`;
 
 
     return (

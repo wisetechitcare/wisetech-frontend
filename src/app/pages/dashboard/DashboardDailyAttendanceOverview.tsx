@@ -45,6 +45,7 @@ function isAttendanceDurationShort(checkIn: string | undefined, checkOut: string
 import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
 import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
 import { ToneChip, AppIcon } from '@app/modules/common/components/ui';
+import { getTimeTokens } from '@utils/timeFormat';
 
 type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | null;
 
@@ -669,7 +670,7 @@ const DashboardDailyAttendanceOverview = () => {
                 const lateByMinutes = actualCheckIn.diff(expectedCheckIn, 'minute');
                 const lateHours = Math.floor(lateByMinutes / 60);
                 const lateMins = lateByMinutes % 60;
-                additionalInfo[emp._id] = `Late by ${lateHours > 0 ? lateHours + 'h ' : ''}${lateMins}m (Checked in at ${actualCheckIn.format('h:mm A')})`;
+                additionalInfo[emp._id] = `Late by ${lateHours > 0 ? lateHours + 'h ' : ''}${lateMins}m (Checked in at ${actualCheckIn.format(getTimeTokens().TIME)})`;
               }
             }
           });
@@ -695,7 +696,7 @@ const DashboardDailyAttendanceOverview = () => {
                 const earlyByMinutes = expectedCheckOut.diff(actualCheckOut, 'minute');
                 const earlyHours = Math.floor(earlyByMinutes / 60);
                 const earlyMins = earlyByMinutes % 60;
-                additionalInfo[emp._id] = `Early by ${earlyHours > 0 ? earlyHours + 'h ' : ''}${earlyMins}m (Checked out at ${actualCheckOut.format('h:mm A')})`;
+                additionalInfo[emp._id] = `Early by ${earlyHours > 0 ? earlyHours + 'h ' : ''}${earlyMins}m (Checked out at ${actualCheckOut.format(getTimeTokens().TIME)})`;
               }
             }
           });
@@ -798,11 +799,11 @@ const DashboardDailyAttendanceOverview = () => {
                           <>
                             <span className={(isLateCheckIn || isShortDuration) ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
                               <AppIcon name="bi-clock" className="me-1" />
-                              {dayjs(emp.attendance.checkIn).format('h:mm A')}
+                              {dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}
                             </span>
                             <span className={isEarlyCheckOut ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
                               <AppIcon name="bi-clock-fill" className="me-1" />
-                              {dayjs(emp.attendance.checkOut).format('h:mm A')}
+                              {dayjs(emp.attendance.checkOut).format(getTimeTokens().TIME)}
                             </span>
                           </>
                         );
@@ -848,7 +849,7 @@ const DashboardDailyAttendanceOverview = () => {
                         return (
                           <span className={isLateCheckIn ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
                             <AppIcon name="bi-clock" className="me-1" />
-                            {dayjs(emp.attendance.checkIn).format('h:mm A')}
+                            {dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}
                           </span>
                         );
                       })()}

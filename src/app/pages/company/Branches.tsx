@@ -149,7 +149,7 @@ let initialState = {
   // dateFormat: '',
   companyId: '',
   isActive: false,
-  showDateIn12HourFormat: '0',
+  showDateIn12HourFormat: '1',
   timezone: '',
 }
 
@@ -359,7 +359,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       // dateFormat: '',
       companyId: '',
       isActive: false,
-      showDateIn12HourFormat: '0',
+      showDateIn12HourFormat: '1',
       timezone: '',
     }
 
@@ -425,7 +425,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       isActive,
       longitude,
       postalCode,
-      showDateIn12HourFormat: branch.showDateIn12HourFormat ? '1' : '0',
+      showDateIn12HourFormat: branch.showDateIn12HourFormat === false ? '0' : '1',
       timezone: timezone || '',
     }
 

@@ -217,6 +217,10 @@ const SmartAvatar: React.FC<Props> = ({
   const [imageFailed, setImageFailed] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [imageAspect, setImageAspect] = useState<number | null>(null);
+  // Source width in real pixels, for the lightbox. Profile photos are stored small, and a
+  // lightbox that only caps (max-width/max-height, width:auto) renders them at intrinsic
+  // size — a postage stamp floating in a full-screen backdrop.
+  const [naturalWidth, setNaturalWidth] = useState<number | null>(null);
   const [brand, setBrand] = useState<BrandPalette | null>(() =>
     cleanUrl ? colorCache.get(cleanUrl) ?? null : null
   );
@@ -229,6 +233,7 @@ const SmartAvatar: React.FC<Props> = ({
   useEffect(() => {
     setImageFailed(false);
     setImageAspect(null);
+    setNaturalWidth(null);
     setBrand(cleanUrl ? colorCache.get(cleanUrl) ?? null : null);
   }, [cleanUrl]);
 
@@ -329,6 +334,7 @@ const SmartAvatar: React.FC<Props> = ({
               const img = e.currentTarget;
               if (img.naturalWidth && img.naturalHeight) {
                 setImageAspect(img.naturalWidth / img.naturalHeight);
+                setNaturalWidth(img.naturalWidth);
               }
             }}
             draggable={false}
@@ -429,10 +435,15 @@ const SmartAvatar: React.FC<Props> = ({
             alt={name || ""}
             onClick={(e) => e.stopPropagation()}
             style={{
-              // Display the full image without cropping, at maximum usable size.
+              // Fill the viewport, but don't blow a small source up into mush.
+              // `width` is the requested size and max-width/max-height clamp it; with
+              // height:auto the browser re-derives the other axis from the intrinsic
+              // ratio when a max is hit, so the aspect is preserved either way.
+              // ponytail: flat 3x upscale ceiling — swap for a DPR/sharpness heuristic
+              // if someone complains about a specific photo.
               maxWidth: "95vw",
               maxHeight: "90vh",
-              width: "auto",
+              width: naturalWidth ? naturalWidth * 3 : "auto",
               height: "auto",
               objectFit: "contain",
               objectPosition: "center",

@@ -64,7 +64,10 @@ export async function generateFiscalYearFromGivenYear(year: dayjs.Dayjs, fromAdm
             id: companyDetails?.id,
             name: companyDetails?.name,
             fiscalYear: companyDetails?.fiscalYear,
-            showDateIn12HourFormat: companyDetails?.showDateIn12HourFormat || "0"
+            // Passed through as-is: `|| "0"` turned an org that has no setting
+            // into an explicit 24-hour one, which is the one value this must not
+            // invent. null keeps it inheritable. See utils/timeFormat.ts.
+            showDateIn12HourFormat: companyDetails?.showDateIn12HourFormat ?? null
         }));
     }
 

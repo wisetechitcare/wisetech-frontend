@@ -12,6 +12,7 @@ import Loader from "@app/modules/common/utils/Loader";
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
 import { PATH_SEPARATOR } from "@utils/presetTaskHierarchy";
+import { getTimeTokens } from '@utils/timeFormat';
 
 interface Props {
     projectId?: string;
@@ -222,7 +223,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
             header: "Start Date",
             Cell: ({ row }: any) =>
                 row?.original?.startDate
-                    ? dayjs(row.original.startDate).format("DD-MM-YYYY") + " " + dayjs(row.original.startTime).format("HH:mm")
+                    ? dayjs(row.original.startDate).format("DD-MM-YYYY") + " " + dayjs(row.original.startTime).format(getTimeTokens().TIME)
                     : "N/A",
         },
         {
@@ -230,7 +231,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
             header: "Due Date",
             Cell: ({ row }: any) =>
                 row?.original?.dueDate
-                    ? dayjs(row.original.dueDate).format("DD-MM-YYYY") + " " + dayjs(row.original.dueTime).format("HH:mm")
+                    ? dayjs(row.original.dueDate).format("DD-MM-YYYY") + " " + dayjs(row.original.dueTime).format(getTimeTokens().TIME)
                     : "N/A",
         },
         {
@@ -242,7 +243,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
 
                 const completionDate = row?.original?.completionDate || row?.original?.updatedAt;
                 return completionDate
-                    ? dayjs(completionDate).format("DD-MM-YYYY") + " " + dayjs(completionDate).format("HH:mm")
+                    ? dayjs(completionDate).format("DD-MM-YYYY") + " " + dayjs(completionDate).format(getTimeTokens().TIME)
                     : "N/A";
             },
         },

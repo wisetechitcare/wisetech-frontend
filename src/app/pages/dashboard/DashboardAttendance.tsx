@@ -28,6 +28,7 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import { Status } from "@constants/statistics";
 import { useNavigate } from "react-router-dom";
 import MarkAttendance from "@pages/employee/attendance/personal/views/overview/MarkAttendance";
+import { getTimeTokens } from '@utils/timeFormat';
 
 function DashboardAttendance() {
     const dispatch = useDispatch();
@@ -358,8 +359,8 @@ useEffect(() => {
         const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(employeeId, dayjs().format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD'));
         if(empAttendanceStatistics.length > 0){
             setHasCheckin(empAttendanceStatistics[0].checkIn);
-            setCheckInTime(empAttendanceStatistics[0].checkIn ? dayjs(empAttendanceStatistics[0].checkIn).format('h:mm A') : '');
-            setCheckOutTime(empAttendanceStatistics[0].checkOut ? dayjs(empAttendanceStatistics[0].checkOut).format('h:mm A') : '');
+            setCheckInTime(empAttendanceStatistics[0].checkIn ? dayjs(empAttendanceStatistics[0].checkIn).format(getTimeTokens().TIME) : '');
+            setCheckOutTime(empAttendanceStatistics[0].checkOut ? dayjs(empAttendanceStatistics[0].checkOut).format(getTimeTokens().TIME) : '');
             setWorkingMethod(empAttendanceStatistics[0].workingMethod || '');
         }
     }, [employeeId]);
