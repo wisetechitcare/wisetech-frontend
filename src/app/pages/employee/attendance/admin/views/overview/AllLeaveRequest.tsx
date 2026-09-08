@@ -43,6 +43,7 @@ import type { PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import { toPeriodParams, periodKey } from "@utils/periodRange";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import { getTimeTokens } from '@utils/timeFormat';
 
 interface AllLeaveRequestProps {
     fromAdmin?: boolean;
@@ -295,7 +296,7 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
                 const isApproved = statusNumber === Status.Approved;
                 const isRejected = statusNumber === Status.Rejected;
                 const name = isApproved ? approvedByName : isRejected ? rejectedByName : null;
-                const date = updatedAt ? dayjs(updatedAt).format('DD MMM YYYY, hh:mm A') : null;
+                const date = updatedAt ? dayjs(updatedAt).format(`DD MMM YYYY, ${getTimeTokens().TIME}`) : null;
 
                 if (!name) return <span className="text-slate-400 text-[12.5px]">-NA-</span>;
 

@@ -1,4 +1,6 @@
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { useTimeFormat } from '@hooks/useTimeFormat';
+import { writeTimeFormatPreference } from '@utils/timeFormat';
 import { KTIcon } from '@metronic/helpers';
 import { Box, ButtonBase, Popover, Typography, useTheme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -19,26 +21,16 @@ const HOURS_12 = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, 
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 const to12 = (h: number) => String(h % 12 || 12).padStart(2, '0');
 
+
 /**
  * 12h/24h is a reader's preference, not a property of any one field: somebody who thinks in
- * "5:30 PM" thinks that way in every form. So the choice is stored once and shared by every
- * mounted picker — a form with a start and a due time must not end up showing one of each —
- * and it survives a reload. localStorage is wrapped: it throws outright in some privacy modes.
+ * "5:30 PM" thinks that way in every form. It is therefore the APP-WIDE preference — the same
+ * one the tables and `getTimeTokens` read — not a setting private to this picker. Two stores
+ * would mean a table showing "8:00 AM" beside a wheel offering 20:00.
+ *
+ * The toggle in the popover writes through to it, so flipping the format here changes it
+ * everywhere, and the settings screen and this control can never disagree.
  */
-const FMT_KEY = 'wt.timeWheel.hour12';
-const FMT_EVENT = 'wt-timewheel-format';
-const readFmt = () => { try { return localStorage.getItem(FMT_KEY) === '1'; } catch { return false; } };
-let fmtValue = readFmt();
-const getFmt = () => fmtValue;
-const subscribeFmt = (cb: () => void) => {
-    window.addEventListener(FMT_EVENT, cb);
-    return () => window.removeEventListener(FMT_EVENT, cb);
-};
-const setFmt = (v: boolean) => {
-    fmtValue = v;
-    try { localStorage.setItem(FMT_KEY, v ? '1' : '0'); } catch { /* storage unavailable — session-only */ }
-    window.dispatchEvent(new Event(FMT_EVENT));
-};
 // 32, not 40. Five rows plus two rows of padding meant the popover stood 360px tall before
 // its header and button — taller than most of the dialogs it opens inside. The touch target is
 // still 32px high and full column width, which clears the 24px minimum comfortably.
@@ -130,7 +122,7 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
     const [anchor, setAnchor] = useState<HTMLElement | null>(null);
     const open = Boolean(anchor);
     const theme = useTheme();
-    const hour12 = useSyncExternalStore(subscribeFmt, getFmt, getFmt);
+    const hour12 = useTimeFormat() === '12h';
     const m = /^(\d{2}):(\d{2})$/.exec(value || '');
     const h24 = m ? Number(m[1]) : 12;
     const mm = m ? m[2] : '00';
@@ -198,7 +190,7 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
                             {([['12h', true], ['24h', false]] as const).map(([label, is12]) => (
                                 <ButtonBase
                                     key={label}
-                                    onClick={() => setFmt(is12)}
+                                    onClick={() => writeTimeFormatPreference(is12 ? '12h' : '24h')}
                                     aria-pressed={hour12 === is12}
                                     sx={{
                                         px: 0.75, height: 20, borderRadius: '4px', fontSize: 10.5, fontWeight: 700,

@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { usePermission } from "@hooks/usePermission";
+import { getTimeTokens } from '@utils/timeFormat';
 
 interface DashboardTasksProps {
   onNewTaskClick: () => void;
@@ -263,7 +264,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
       header: "Start Date",
       Cell: ({ row }: any) =>
         row?.original?.startDate
-          ? dayjs(row.original.startDate).format("DD-MM-YYYY") + " " + dayjs(row.original.startTime).format("HH:mm")
+          ? dayjs(row.original.startDate).format("DD-MM-YYYY") + " " + dayjs(row.original.startTime).format(getTimeTokens().TIME)
           : "N/A",
     },
     {
@@ -271,7 +272,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
       header: "Due Date",
       Cell: ({ row }: any) =>
         row?.original?.dueDate
-          ? dayjs(row.original.dueDate).format("DD-MM-YYYY") + " " + dayjs(row.original.dueTime).format("HH:mm")
+          ? dayjs(row.original.dueDate).format("DD-MM-YYYY") + " " + dayjs(row.original.dueTime).format(getTimeTokens().TIME)
           : "N/A",
     },
     {
@@ -283,7 +284,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
 
         const completionDate = row?.original?.completionDate || row?.original?.updatedAt;
         return completionDate
-          ? dayjs(completionDate).format("DD-MM-YYYY") + " " + dayjs(completionDate).format("HH:mm")
+          ? dayjs(completionDate).format("DD-MM-YYYY") + " " + dayjs(completionDate).format(getTimeTokens().TIME)
           : "N/A";
       },
     },

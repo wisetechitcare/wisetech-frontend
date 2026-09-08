@@ -128,7 +128,7 @@ export const DayTooltip = memo(function DayTooltip({ day, overrides, modifierOve
       {day.canRaiseCorrection && (
         <footer className="mt-2.5 pt-2.5 border-t border-[#E6E9EE] dark:border-[#30363d]">
           <p className="m-0 text-[11.5px] font-semibold text-[#1E3A8A] dark:text-[#8AA3EC]">
-            Click to open · raise a correction
+            Click to open · Raise a Request
           </p>
         </footer>
       )}

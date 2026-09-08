@@ -20,7 +20,7 @@ import { saveEmployeesAttendance } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
 import { fetchAllEmployees, fetchAllEmployeesAttendance, fetchAllEmployeesAttendanceRange, fetchEmployeeLeaves, fetchEmployeesOnLeaveToday } from "@services/employee";
 import { employeeIdSet } from "@utils/activeEmployee";
-import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDifference, convertTo12HourFormat, MUMBAI_TZ } from "@utils/date";
+import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDifference, formatTimeString, MUMBAI_TZ } from "@utils/date";
 import dayjs, { Dayjs } from "dayjs";
 import { MRT_ColumnDef } from "material-react-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -38,6 +38,7 @@ import { saveFilteredLeaves, saveLeaves, savePublicHolidays } from "@redux/slice
 import { setFeatureConfiguration } from "@redux/slices/featureConfiguration";
 import { fetchColorAndStoreInSlice } from "@utils/file";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
+import { useTimeFormat } from '@hooks/useTimeFormat';
 
 interface IEmployeesAttendanceResponse {
     id: string;
@@ -280,7 +281,10 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
     const { filterIds } = useTeamFilter();
     const dispatch = useDispatch();
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
-    const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
+    // Subscribes this screen to the resolved 12/24h format so it re-renders when the
+    // preference changes. Replaces a selector that read the raw branch flag and was
+    // never actually used to decide anything. See utils/timeFormat.ts.
+    const timeFormat = useTimeFormat();
 
     const { employeesAttendance } = useSelector((state: RootState) => ({
         employeesAttendance: state.attendance.employeesAttendance
@@ -552,7 +556,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                     <AttendanceCheckCell
                         label="Check-In"
                         type="in"
-                        time={checkIn && checkIn !== '-NA-' ? convertTo12HourFormat(checkIn) : checkIn}
+                        time={checkIn && checkIn !== '-NA-' ? formatTimeString(checkIn) : checkIn}
                         method={typeof employee.workingMethod === 'object'
                             ? (employee.workingMethod as any)?.type
                             : employee.workingMethod}
@@ -582,7 +586,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 const checkOut = employee.checkOut;
                 const displayTime =
                     checkOut && checkOut !== '-NA-'
-                        ? convertTo12HourFormat(checkOut)
+                        ? formatTimeString(checkOut)
                         : checkOut;
 
                 const checkoutMethod = typeof employee.checkoutWorkingMethod === 'object'

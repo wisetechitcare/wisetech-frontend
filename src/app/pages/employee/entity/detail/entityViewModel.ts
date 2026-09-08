@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { formatCompactCurrency } from '../entityUtils';
+import { getTimeTokens } from '@utils/timeFormat';
 
 /**
  * Pure derivations for the 360° detail page. No React here — sections consume
@@ -10,7 +11,7 @@ import { formatCompactCurrency } from '../entityUtils';
 export const DASH = '—';
 
 export const fmtDate = (v?: string | Date | null) => (v ? dayjs(v).format('DD MMM YYYY') : DASH);
-export const fmtDateTime = (v?: string | Date | null) => (v ? dayjs(v).format('DD MMM YYYY, h:mm A') : DASH);
+export const fmtDateTime = (v?: string | Date | null) => (v ? dayjs(v).format(`DD MMM YYYY, ${getTimeTokens().TIME}`) : DASH);
 
 export const fmtMoney = (v?: any): string => {
   const n = parseFloat(v);
