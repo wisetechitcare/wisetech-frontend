@@ -92,6 +92,9 @@ export interface CalendarDay {
      */
     hasCheckIn: boolean;
     hasCheckOut: boolean;
+    /** The times being ASKED for, same `HH:mm` shape as `actual`. */
+    checkIn: string | null;
+    checkOut: string | null;
     kind: 'check_in' | 'check_out' | 'both';
     status: 'pending' | 'approved' | 'rejected';
     stage: string | null;

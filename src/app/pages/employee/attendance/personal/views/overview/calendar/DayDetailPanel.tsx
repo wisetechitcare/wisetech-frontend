@@ -163,6 +163,25 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
      * So the half that is pending is closed, and the OTHER half stays open —
      * which is the case that made merging worth having.
      */
+    /**
+     * The times a PENDING correction is asking for, shown beside the recorded
+     * ones. Only while pending: once approved they become the recorded time, and
+     * once rejected they are not what anyone should read off this row.
+     */
+    const requestedCheckIn = pending ? (day?.request?.checkIn ?? null) : null;
+    const requestedCheckOut = pending ? (day?.request?.checkOut ?? null) : null;
+
+    /**
+     * Nothing left to raise — both halves are already awaiting approval.
+     *
+     * Not the same as "a request exists": a pending check-in with no check-out
+     * still leaves the check-out worth raising, which is the case the server's
+     * merge exists for. Only when both are spoken for does the action have
+     * nothing to do, and then it says so rather than opening a form that would
+     * close every option.
+     */
+    const nothingLeftToRaise = pendingCheckInRequest && pendingCheckOutRequest;
+
     const kindBlocked = (k: RequestKind): string | null => {
         if (k === 'checkin' && pendingCheckInRequest) return 'A check-in correction for this day is already awaiting approval.';
         if (k === 'checkout' && pendingCheckOutRequest) return 'A check-out correction for this day is already awaiting approval.';
@@ -282,7 +301,7 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                 />
             }
         >
-            <div className="flex flex-col gap-4 p-1">
+            <div className="flex flex-col gap-4 p-4 sm:p-5">
                 {/* ── Record ─────────────────────────────────────────────── */}
                 <section className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -303,8 +322,32 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                     </div>
 
                     <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-2">
-                        <Field k="Check in" v={day.actual.checkIn ?? '—'} hint={day.expected.checkIn ? `expected ${day.expected.checkIn}` : undefined} />
-                        <Field k="Check out" v={day.actual.checkOut ?? '—'} hint={day.expected.checkOut ? `expected ${day.expected.checkOut}` : undefined} />
+                        {/* The recorded time, and — when a correction is in flight —
+                            what it is being asked to become. Showing only "—" beside
+                            "Approval pending" left the reader with no way to see what
+                            they had actually asked for without leaving the screen. */}
+                        <Field
+                            k="Check in"
+                            v={day.actual.checkIn ?? '—'}
+                            hint={
+                                requestedCheckIn
+                                    ? `requested ${requestedCheckIn}`
+                                    : day.expected.checkIn
+                                      ? `expected ${day.expected.checkIn}`
+                                      : undefined
+                            }
+                        />
+                        <Field
+                            k="Check out"
+                            v={day.actual.checkOut ?? '—'}
+                            hint={
+                                requestedCheckOut
+                                    ? `requested ${requestedCheckOut}`
+                                    : day.expected.checkOut
+                                      ? `expected ${day.expected.checkOut}`
+                                      : undefined
+                            }
+                        />
                         <Field k="Duration" v={formatMinutes(day.actual.minutesWorked)} />
                         <Field k="Work mode" v={day.workMode ?? '—'} />
                         {day.leave && (
@@ -345,7 +388,19 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                     <section className="border-t border-slate-200 pt-3 dark:border-[#30363d]">
                         {mode === 'read' && (
                             <div className="flex flex-wrap items-center gap-2">
-                                <WtButton onClick={startCorrection}>Raise a Request</WtButton>
+                                <WtButton onClick={startCorrection} disabled={nothingLeftToRaise}>
+                                    Raise a Request
+                                </WtButton>
+                                {/* The reason sits next to the disabled control, not
+                                    somewhere else on the screen — a greyed button with
+                                    no explanation is the thing people file a ticket
+                                    about. */}
+                                {nothingLeftToRaise && (
+                                    <span className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-2.5 py-[4px] text-[11.5px] font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+                                        <KTIcon iconName="time" className="fs-7" />
+                                        Both times awaiting approval
+                                    </span>
+                                )}
                                 {/* Carried over from the legacy calendar rather than lost with it:
                                     admins could raise a request on someone else's behalf from the
                                     day they clicked. Same permission gate, same modal. */}
