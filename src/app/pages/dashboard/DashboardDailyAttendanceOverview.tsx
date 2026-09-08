@@ -976,7 +976,15 @@ const DashboardDailyAttendanceOverview = () => {
       if (!silent) setIsLoading(true);
       setError(null);
 
-      const { data: { employees } } = await fetchAllEmployees();
+      // Scoped to the viewed day, server-side.
+      //
+      // This asked for EVERY employee and then treated the whole list as the
+      // roster, so anyone who had ever left was still counted — and shown
+      // absent — on this board. The server scopes by the employment TIMELINE
+      // (dates plus rejoin history), which is authoritative, rather than by the
+      // `isActive` flag, which is a manual switch that drifts whenever an exit
+      // is recorded without someone also unticking Active.
+      const { data: { employees } } = await fetchAllEmployees(true, dateString, dateString);
       const response = await fetchEmployeesOnLeaveToday(dateString);
       const employeesOnLeave = response?.data?.employeesOnLeave || [];
       const employesLeaveData = response?.data?.employeeLeaveDetails || [];

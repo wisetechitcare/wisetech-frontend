@@ -12,6 +12,9 @@ interface Designation {
 interface Branch {
     location: string,
     address: string,
+    // The API has always sent it (EmployeesRepository selects `branches.name`); the type just
+    // never said so, which made "Mumbai office — <address>" unspellable in TypeScript.
+    name?: string,
     latitude?: string,
     longitude?: string,
     workingAndOffDays?: string,

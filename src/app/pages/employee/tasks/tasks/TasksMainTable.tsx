@@ -4,7 +4,7 @@ import { KTIcon } from "@metronic/helpers";
 import { Button } from "@mui/material";
 import { getAllTasks, deleteTask, getTasksByProjectId, getAllTasksWithMetrics } from "@services/tasks";
 import React, { useEffect, useState, useCallback } from "react";
-import TaskForm from "./components/TaskForm";
+import TaskFormDialog, { taskRowToDialogTask } from "@pages/employee/tasks/components/TaskFormDialog";
 import { useLocation, useNavigate } from "react-router-dom";
 import { deleteConfirmation, successConfirmation } from "@utils/modal";
 import dayjs from "dayjs";
@@ -448,32 +448,19 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
                         }}
                     />
 
+                {/* The one task form. This screen used the older one, so a task opened from a
+                    project looked and behaved differently from the same task opened on the
+                    board — different fields, different validation, different everything. The row
+                    shape is the older one, which is what the adapter is for. */}
                 {showTaskModal && (
-                    <TaskForm
+                    <TaskFormDialog
                         open={showTaskModal}
                         onClose={handleTaskModalClose}
-                        onSubmit={handleTaskSubmitSuccess}
-                        isEdit={isEdit}
-                        selectedTask={selectedTask}
-                        title={isEdit ? "Edit Task" : "Add New Task"}
-                        // headerName={isEdit ? "Edit Task" : "Create New Task"}
-                        taskType={selectedTask?.taskType || 'PRESETS'}
-                        taskName={selectedTask?.taskName || ''}
-                        taskDescription={selectedTask?.taskDescription || ''}
-                        chooseProject={selectedTask?.project?.id || ''}
-                        assignTo={selectedTask?.assignedTo?.id || ''}
-                        status={selectedTask?.status?.id || ''}
-                        priority={selectedTask?.priority?.id || ''}
-                        billable={selectedTask?.billingType ?? "BILLABLE"}
-                        startDate={selectedTask?.startDate ? new Date(selectedTask.startDate).toISOString().split('T')[0] : ''}
-                        dueDate={selectedTask?.dueDate ? new Date(selectedTask.dueDate).toISOString().split('T')[0] : ''}
-                        startTime={selectedTask?.startTime ? new Date(selectedTask.startTime).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}
-                        dueTime={selectedTask?.dueTime ? new Date(selectedTask.dueTime).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}
-                        logTime={
-                            selectedTask
-                                ? `${String(selectedTask.logTimeHours || 0).padStart(2, '0')}:${String(selectedTask.logTimeMinutes || 0).padStart(2, '0')}:${String(selectedTask.logTimeSeconds || 0).padStart(2, '0')}`
-                                : undefined
-                        }
+                        onSaved={() => handleTaskSubmitSuccess(null)}
+                        task={isEdit ? taskRowToDialogTask(selectedTask) : null}
+                        // Creating from inside a project: it is already decided, so the picker
+                        // opens on it instead of asking a question the screen answers.
+                        defaultProjectId={projectId}
                     />
                 )}
             </div>

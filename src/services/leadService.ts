@@ -39,8 +39,17 @@ export const getAllLeads = (params?: LeadListParams) =>
         ...(params?.endDate      && { endDate:      params.endDate }),
     });
 
+/**
+ * One lead, always FRESH.
+ *
+ * `_t` is a cache-buster, matching what EntityDetailPage already does for the same resource.
+ * Without it a browser-cached response wins, so a project edited in another screen — an
+ * address added, a stakeholder linked — reads as unchanged until a reload. That is exactly
+ * what this is read for: the meeting form asks for a project's roster and addresses the moment
+ * somebody picks it, and stale is the one answer that is no use.
+ */
 export const getLeadById = (id: string) =>
-    api.get(CLIENT_COMPANIES.GET_LEAD_BY_ID.replace(':id', id));
+    api.get(CLIENT_COMPANIES.GET_LEAD_BY_ID.replace(':id', id), { params: { _t: Date.now() } });
 
 export const createLead = (data: any) =>
     api.post(CLIENT_COMPANIES.CREATE_LEAD, data);

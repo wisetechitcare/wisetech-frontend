@@ -5,6 +5,7 @@ import {checkIsActive, KTIcon, WithChildren} from '../../../helpers'
 import {useLayout} from '../../core'
 import {useSidebarCollapse} from '../../core/SidebarCollapseContext'
 import SVG from 'react-inlinesvg'
+import {navIcon} from '@components/navigation/NavContainers/navIcons'
 
 type Props = {
   to: string
@@ -12,6 +13,13 @@ type Props = {
   icon?: string | React.ReactElement 
   fontIcon?: string
   hasBullet?: boolean
+  /** `wt-sec-<accent>` — the section's accent, applied by AsideMenuMain. */
+  accentClass?: string
+}
+
+const groupIcon = (fontIcon: string) => {
+  const Icon = navIcon(fontIcon)
+  return <Icon fontSize='inherit' />
 }
 
 const AsideMenuItemWithSub: FC<Props & WithChildren> = ({
@@ -21,6 +29,7 @@ const AsideMenuItemWithSub: FC<Props & WithChildren> = ({
   icon,
   fontIcon,
   hasBullet,
+  accentClass,
 }) => {
   const {pathname} = useLocation()
   const isActive = checkIsActive(pathname, to)
@@ -33,7 +42,7 @@ const AsideMenuItemWithSub: FC<Props & WithChildren> = ({
     // `data-kt-menu-trigger` unbinds KTMenu so nothing can collapse the group —
     // `.menu-sub-accordion` is `display:none` until the parent carries `.show`
     // (see assets/sass/core/components/menu/_base.scss), so the class pins it open.
-    <div className={clsx('menu-item menu-accordion menu-tree-group show', {here: isActive})}>
+    <div className={clsx('menu-item menu-accordion menu-tree-group show', accentClass, {here: isActive})}>
       <span
         className='menu-link'
         title={title}
@@ -57,7 +66,10 @@ const AsideMenuItemWithSub: FC<Props & WithChildren> = ({
             )}
           </span>
         )}
-        {fontIcon && aside.menuIcon === 'font' && <i className={clsx('bi fs-5 menu-font-icon', fontIcon)}></i>}
+        {/* Same glyph + chip as a leaf row — see AsideMenuItem. */}
+        {fontIcon && aside.menuIcon === 'font' && (
+          <span className='menu-font-icon'>{groupIcon(fontIcon)}</span>
+        )}
         {/* No `menu-arrow` — there is nothing to expand or collapse. */}
         <span className='menu-title'>{title}</span>
       </span>

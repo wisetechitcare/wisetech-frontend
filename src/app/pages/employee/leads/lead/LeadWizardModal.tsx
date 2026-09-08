@@ -1317,6 +1317,9 @@ const LeadWizardModal = ({
       receivedDate: leadData.project?.poDate
         ? new Date(leadData.project.poDate).toISOString().split("T")[0]
         : leadData.receivedDate || "",
+      // Total Area shown on the Lead Status step — seeded from the commercial rows
+      // when blank, but an edited value is persisted, so load it back on edit.
+      projectArea: leadData.additionalDetails?.projectArea || "",
       projectMeta: {
         projectManagerId:
           leadData.execution?.projectManagerId || leadData.project?.projectManagerId || leadData.project?.assignedToId || "",
@@ -3163,6 +3166,15 @@ const LeadWizardModal = ({
                 // Auto-add a default handledBy entry when status becomes "Received"
                 useEffect(() => {
                   if (!values.statusId) return;
+                  // Only react to a status the USER moved. The form is
+                  // `enableReinitialize`, so opening an existing lead replays this
+                  // effect with the saved status — and `leadStatuses` may still be
+                  // loading, making every status look "not Received". Without this
+                  // gate, merely opening a received lead stamped receivedDate = now
+                  // (which the mirror effect below then wrote into startDate,
+                  // rewriting a saved project start date to today) and wiped
+                  // poNumber/poDate/handledBy on the statuses-load race.
+                  if (values.statusId === initialValues.statusId) return;
                   const selectedStatus = leadStatuses.find(
                     (s: any) => s.id === values.statusId,
                   );
@@ -3200,14 +3212,18 @@ const LeadWizardModal = ({
                     setFieldValue("poDate", "");
                     setFieldValue("poFile", "");
                   }
-                  // Auto-fill Received Date with today's date the moment the status
-                  // becomes Received — only if it isn't already set, so it never
-                  // overwrites a value the user has since edited. Fully editable after.
+                  // Auto-fill Received Date the moment the status becomes Received —
+                  // only if it isn't already set, so it never overwrites a value the
+                  // user has since edited. Fully editable after.
+                  //
+                  // The full instant, not just the day: two leads received on the same
+                  // date are otherwise both midnight, and nothing downstream can tell
+                  // which came first. `received_date` is a plain DateTime column, so it
+                  // has always had room for the time — we just weren't sending it.
+                  // (`.split("T")[0]` also truncated a UTC ISO, so an evening receipt in
+                  // IST was stored as the previous day.)
                   if (isReceived && !values.receivedDate) {
-                    setFieldValue(
-                      "receivedDate",
-                      new Date().toISOString().split("T")[0],
-                    );
+                    setFieldValue("receivedDate", new Date().toISOString());
                   }
                   // Clear receivedDate when status is no longer Received
                   if (!isReceived && values.receivedDate) {
@@ -3237,11 +3253,14 @@ const LeadWizardModal = ({
                   }
                 }, [values.statusId, leadStatuses]);
 
-                // Received Date IS the project's Start Date — whenever it's set or
-                // changed (auto-filled on receipt, or edited later), mirror it into
-                // Start Date so the two never drift apart.
+                // Received Date SEEDS the project's Start Date — it fills an empty
+                // Start Date on first receipt, and nothing more. Once Start Date has
+                // a value the two are independent: editing either one later must
+                // never move the other. (This used to mirror on every change, which
+                // on form hydration rewrote a saved start date — a 2022 project
+                // jumped to today just from someone editing its address and saving.)
                 useEffect(() => {
-                  if (values.receivedDate && values.receivedDate !== values.startDate) {
+                  if (values.receivedDate && !values.startDate) {
                     setFieldValue("startDate", values.receivedDate);
                   }
                 }, [values.receivedDate]);

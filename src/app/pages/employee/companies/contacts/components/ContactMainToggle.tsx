@@ -45,6 +45,10 @@ const ContactMainToggle = () => {
     fetchCompanyDetails();
   }, [contactId]);
   useEventBus("companyCreated", () => fetchCompanyDetails());
+  // The edit modal saves and emits this; without it the page (and the modal's
+  // `initialData`) keeps showing the pre-save contact — a saved birth date /
+  // anniversary looked like it never saved, and a cleared one came back.
+  useEventBus("clientContactUpdated", () => fetchCompanyDetails());
 
   const handleBackClick = () => {
     navigate(-1);

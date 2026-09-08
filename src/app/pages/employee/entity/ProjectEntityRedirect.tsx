@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { getAllProjectDataForOverviewById } from '@services/projects';
 
 /**
- * Legacy URL bridge: /projects/:projectId → /leads/:leadId.
+ * Legacy URL bridge: /projects/:projectId → /project/:leadId.
  *
  * Under the unified entity model the detail page is always the lead's page.
  * Old bookmarks, notifications and in-app links that still point at a project
@@ -32,10 +32,9 @@ const ProjectEntityRedirect = () => {
         }
         const leadId = project?.leads?.[0]?.id;
         if (leadId) {
-          // Arriving via a project URL = project context: the detail page lands
-          // on the Projects tab with the full project tab set (same state flag
-          // the Projects table passes).
-          navigate(`/leads/${leadId}`, { replace: true, state: { isProject: true } });
+          // Arriving via a project URL = project context, so land on the project
+          // path: the detail page reads the view off the path segment.
+          navigate(`/project/${leadId}`, { replace: true });
         } else if (!cancelled) {
           setState('orphan');
         }

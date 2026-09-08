@@ -57,6 +57,7 @@ import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { getPresetChildren, getPresetPath, PATH_SEPARATOR } from "@utils/presetTaskHierarchy";
 import { DropdownOption } from "./../../../../../types/deleteConfirmation";
+import PaymentPlansSection from "../../leads/configuration/components/PaymentPlansSection";
 import {
   ConfigPageLayout,
   ConfigSectionCard,
@@ -75,6 +76,8 @@ const STAGE_VIEW_OPTIONS = [
   { value: 'grid' as const, icon: 'bi-grid-3x3-gap-fill', label: 'Grid view' },
   { value: 'list' as const, icon: 'bi-list-ul', label: 'List view' },
 ];
+
+import BillingRateCard from './BillingRateCard';
 
 const TasksConfigure = () => {
   // Deletes here must reach the React Query cache the board and the New Task dialog read from,
@@ -640,13 +643,16 @@ const TasksConfigure = () => {
       <style>{KEYFRAMES}</style>
       <ConfigPageLayout
         title="Tasks Configuration"
-        subtitle="Manage task statuses, priorities, project tasks and stages"
+        subtitle="Manage task statuses, priorities, project tasks, stages and deliverables"
         icon="bi-list-check"
         tabs={[
           { id: 'settings', label: 'Settings', icon: 'bi-gear', badge: projectCategories.length + projectSubcategories.length },
           { id: 'tasks', label: 'Project Tasks', icon: 'bi-clipboard-check', badge: projectServices.length },
           { id: 'general', label: 'General Tasks', icon: 'bi-house-door', badge: generalTasks.length },
           { id: 'stages', label: 'Stages', icon: 'bi-diagram-3', badge: stages.length },
+          // No badge: the count belongs to the section, which fetches its own plans —
+          // reading it here would mean this page fetching them a second time to label a tab.
+          { id: 'deliverables', label: 'Deliverables', icon: 'bi-cash-stack' },
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -729,6 +735,10 @@ const TasksConfigure = () => {
                 </div>
               </div>
             </ConfigSectionCard>
+
+            {/* Last of the three: statuses and priorities are the vocabulary the boards are
+                written in, and this is what the hours logged against them are worth. */}
+            <BillingRateCard />
             </>
           )}
 
@@ -865,6 +875,12 @@ const TasksConfigure = () => {
             </ConfigSectionCard>
             </>
           )}
+
+          {/* Deliverables — the SAME component Projects → Configure mounts, not a copy of it.
+              A deliverable belongs to a stage and a stage belongs to a payment plan, so the
+              plans ARE the deliverables surface: open one and its stage tree is where they are
+              written. Added here, it appears there, because there is only one of it. */}
+          {activeTab === 'deliverables' && <PaymentPlansSection />}
         </div>
       </ConfigPageLayout>
 

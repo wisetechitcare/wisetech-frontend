@@ -32,7 +32,6 @@ import { ErrorState } from "@app/modules/common/components/ui/tw";
 
 import DailyAttendance from "./views/overview/DailyAttendance";
 import { countWorkingDays, isMultiDay } from "@utils/periodRange";
-import { filterActiveEmployees } from "@utils/activeEmployee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { formatWorkedMinutes, parseHoursMinutes } from "./views/overview/attendancePeriodSummary";
@@ -204,7 +203,9 @@ function OverviewView() {
         const [leaveRequestRes, employeesRes, configRes, lunchTimeRes] =
           await Promise.all([
             fetchLeaveRequest(),
-            fetchAllEmployees(),
+            // Scoped server-side to today — this board is a "now" view
+            // (fetchEmpDailyStatistics below asks for today too).
+            fetchAllEmployees(true, dayjs().format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')),
             fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY),
             fetchConfiguration(LEAVE_MANAGEMENT),
             dispatch(fetchRolesAndPermissions() as any),
@@ -221,7 +222,11 @@ function OverviewView() {
         // Process employees. Inactive staff are excluded FIRST, so the Working Time
         // chart's axis carries the same people the stat cards count — a leaver used to
         // sit in the chart forever as a permanent 0h bar.
-        const allFetched = filterActiveEmployees(employeesRes.data.employees || []);
+        // No flag filter: the server already scoped this roster by the
+        // employment TIMELINE (dates + rejoin history). Re-filtering on
+        // `isActive` would drop anyone whose flag is stale-off — two people
+        // employed today were in exactly that state when this was measured.
+        const allFetched = employeesRes.data.employees || [];
         const employees = filterIds
           ? allFetched.filter((e: any) => filterIds.includes(e.id))
           : allFetched;

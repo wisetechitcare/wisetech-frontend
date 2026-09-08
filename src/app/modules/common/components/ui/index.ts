@@ -27,7 +27,7 @@ export { BI_TO_KEENICON, keeniconFor } from './iconMap';
 export type { BrandIconProps } from './brandIcons';
 export type { ToneChipProps } from './chips';
 export {
-  glassSx, GlassSurface, GlassDialog, GlassHeader, GlassCard, GlassTransition,
+  glassSx, GlassSurface, GlassDialog, GlassHeader, PlainDialogHeader, GlassCard, GlassTransition,
 } from './glass';
 export type {
   GlassSurfaceProps, GlassDialogProps, GlassHeaderProps, GlassCardProps,

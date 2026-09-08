@@ -128,6 +128,16 @@ export interface MigrationRun {
   completedAt: string | null;
 }
 
+/** A saved upload on the picker: a run plus how far through it the admin is. */
+export interface SavedMigrationRun extends MigrationRun {
+  /** Rows already approved, skipped or executed — the "12 of 340 reviewed" figure. */
+  decidedRows: number;
+  /** Rows still to decide, queued, or failed. Zero means the run is genuinely done. */
+  openRows: number;
+  /** Work remains and the run wasn't cancelled — reopening continues the review. */
+  resumable: boolean;
+}
+
 export interface MigrationSummary {
   totalRows: number;
   high: number;

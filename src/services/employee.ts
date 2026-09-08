@@ -105,7 +105,15 @@ export const fetchAllEmployees = async (isActive?: boolean, from?: string, to?: 
 
         const params = new URLSearchParams();
         if (isActive !== undefined) params.set('isActive', String(isActive));
-        if (from && to) { params.set('from', from); params.set('to', to); }
+        // `startDate`/`endDate`, NOT `from`/`to`.
+        //
+        // The server parses this window with the shared `parseOptionalDateRange`,
+        // which reads those two names — every other ranged endpoint uses them.
+        // Sent as from/to it matched nothing, so the period was silently dropped
+        // and "active" fell back to meaning active TODAY. That is why a
+        // historical month still hid people who had since left, and why the
+        // caller in admin Overview that already passed a range had no effect.
+        if (from && to) { params.set('startDate', from); params.set('endDate', to); }
         if ([...params].length) endpoint += `?${params.toString()}`;
 
         const { data } = await axios.get(endpoint);
@@ -197,6 +205,89 @@ export const createMeetings = async (payload: any) => {
 export const getMeetings = async (employeeId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/api/employee/meetings?employeeId=${employeeId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Who was on a meeting, who has said they attended, and whose time is in. */
+export const getMeetingAttendance = async (meetingId: string, employeeId?: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/attendance?meetingId=${meetingId}`
+            + (employeeId ? `&employeeId=${employeeId}` : '');
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Record whether somebody attended. Returns the refreshed roster. */
+export const setMeetingAttendance = async (
+    meetingId: string, employeeId: string, attended: boolean, actorId: string,
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/attendance`;
+        const response = await axios.put(endpoint, { meetingId, employeeId, attended, actorId });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** MY reminders on a meeting. Reminders are per person — this only ever answers for me. */
+export const getMyMeetingReminders = async (meetingId: string, employeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/reminders?meetingId=${meetingId}&employeeId=${employeeId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Replace MY reminders on a meeting. An empty array turns them off. */
+export const setMyMeetingReminders = async (meetingId: string, employeeId: string, minutes: number[]) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/reminders`;
+        const response = await axios.put(endpoint, { meetingId, employeeId, minutes });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Projects this person may schedule a meeting on: their internal-team and managed ones. */
+export const getMeetingProjects = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/projects`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Cancel a meeting, or restore one. A status write — the row stays in the project record. */
+export const setMeetingCancelled = async (
+    meetingId: string, employeeId: string, cancelled: boolean, reason?: string,
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/cancel`;
+        const response = await axios.patch(endpoint, { meetingId, employeeId, cancelled, reason });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Cost + attendance analysis of a project's meetings. Cost fields come back null when the
+ *  caller lacks finance.view at an aggregate scope — the counts still arrive. */
+export const getProjectMeetingAnalytics = async (projectId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/project-analytics?projectId=${projectId}`;
         const response = await axios.get(endpoint);
         return response.data;
     } catch (error) {
@@ -3164,3 +3255,22 @@ export const fetchUnsettledLeavers = async (params?: { branchId?: string; lookba
         };
     };
 };
+
+/**
+ * The employee attendance calendar for one month — days already resolved by
+ * the server (status + modifiers, late verdicts, leave fractions, holidays).
+ *
+ * Replaces the five-call fan-out the Overview used to run per month
+ * (attendance + leaves + holidays + company overview + requests) and the
+ * client-side rule engine that combined them.
+ */
+export const fetchAttendanceCalendar = async (employeeId: string, month: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_CALENDAR}?employeeId=${employeeId}&month=${month}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}

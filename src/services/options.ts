@@ -51,6 +51,27 @@ export const updatePrefixSetting = async (id: string, payload: any) => {
 };
 
 /**
+ * Share this organization's numbering with another organization's counter, so
+ * the two run one continuous series while each keeps its own prefix string.
+ * Pass null to make it independent again.
+ *
+ * Rejects with the API message when the link is illegal (self-link, a chain, or
+ * a target with no prefix configured) — surface it, don't swallow it.
+ */
+export const setPrefixSequenceLink = async (
+    id: string,
+    sequenceSourceOrganizationId: string | null,
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.SET_PREFIX_SEQUENCE_LINK.replace(':id', id)}`;
+        const { data } = await axios.put(endpoint, { sequenceSourceOrganizationId });
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
+/**
  * Next inquiry number an organization would use. Read-only preview — the number
  * actually stored is issued by the server when the lead is created, so this can
  * be overtaken if someone else saves first.

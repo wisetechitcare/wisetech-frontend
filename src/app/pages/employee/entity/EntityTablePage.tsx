@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { projectManagerIds } from "@app/pages/employee/entity/detail/entityViewModel";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
+import { dateSortingFn } from "@app/modules/common/components/table/dateSort";
 import Loader from "@app/modules/common/utils/Loader";
 import LeadWizardModal from "@pages/employee/leads/lead/LeadWizardModal";
 import dayjs, { Dayjs } from "dayjs";
@@ -56,6 +57,7 @@ import {
   isProjectEntity,
   isProjectView,
   matchesView,
+  projectNumberOf,
 } from "./entityUtils";
 
 dayjs.extend(isSameOrBefore);
@@ -701,7 +703,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             // Lead-as-master: project-only fields live on the 1:1 execution
             // extension + lead scalars now; the legacy `project` row is a fallback.
             projectId: lead?.projectId || project?.id || "",
-            projectPrefix: lead?.originalProjectPrefix || project?.prefix || "",
+            projectPrefix: projectNumberOf(lead) || "",
             projectStatus: exec?.projectStatus || project?.status || null,
             projectStartDate: lead?.startDate || project?.startDate || "",
             projectEndDate: lead?.endDate || project?.endDate || "",
@@ -835,6 +837,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         accessorKey: "inquiryDate",
         header: "Inquiry Date",
         size: 150,
+        sortingFn: dateSortingFn,
         Cell: ({ cell }: { cell: any }) => {
           const v = cell.getValue();
           return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
@@ -966,6 +969,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           accessorKey: "receivedDate",
           header: "Received Date",
           size: 150,
+          sortingFn: dateSortingFn,
           Cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
@@ -1034,6 +1038,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           accessorKey: "projectStartDate",
           header: "Start Date",
           size: 140,
+          sortingFn: dateSortingFn,
           Cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
@@ -1043,6 +1048,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           accessorKey: "projectEndDate",
           header: "Expected Closure",
           size: 150,
+          sortingFn: dateSortingFn,
           Cell: ({ row }: { row: any }) => {
             const v = row.original.projectEndDate;
             if (!v) return "N/A";
@@ -2341,10 +2347,16 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                 }),
               },
             },
-            onClick: () =>
-              navigate(`/leads/${row.original.id}`, {
-                state: { leadData: row.original.id },
-              }),
+            onClick: () => {
+              // The path IS the entry context (see the /project/:id route). The
+              // project views open the project lens; the Leads view opens the
+              // lead lens; in "All" the row itself decides, since that view
+              // deliberately mixes the two. Previously every view navigated to
+              // /leads/:id, so a project opened from the Projects view showed
+              // the lead page with the project tabs stripped out.
+              const asProject = projectColumnsActive || (view === "all" && isProjectEntity(row.original));
+              navigate(`${asProject ? "/project" : "/leads"}/${row.original.id}`);
+            },
             };
           },
         }}

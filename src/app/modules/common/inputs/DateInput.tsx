@@ -42,8 +42,20 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
   // Handle date change with proper formatting and validation
   const handleDateChange = (newValue: Dayjs | null) => {
     if (newValue && newValue.isValid()) {
-      // Store in ISO format (YYYY-MM-DD) to avoid timezone issues
-      const isoDate = newValue.format('YYYY-MM-DD');
+      // Store in ISO format (YYYY-MM-DD) to avoid timezone issues.
+      //
+      // Except when the DAY hasn't actually changed: this picker only ever chooses
+      // a day, so rewriting the value would flatten a stored time-of-day to
+      // midnight. Some fields (receivedDate) are auto-filled with the real instant
+      // precisely so same-day records can be ordered — merely reopening the form
+      // and re-confirming the date must not wipe that. A genuinely different day
+      // has no time to preserve, so it stays date-only.
+      const stored = get(values, formikField);
+      const previous = stored ? dayjs(stored) : null;
+      const isoDate =
+        previous?.isValid() && previous.isSame(newValue, 'day')
+          ? previous.toISOString()
+          : newValue.format('YYYY-MM-DD');
 
       // The picker disables out-of-range days, but the field is still typeable.
       if (minDate && newValue.isBefore(minDate, 'day')) {
@@ -136,6 +148,8 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
                   "& .MuiOutlinedInput-root": { height: "44px" },
                 }
               },
+              // Without this there is no visible way to empty a filled date.
+              actionBar: { actions: ['clear', 'cancel', 'accept'] },
               mobilePaper:{
                 sx:{
                    "& .MuiPickersCalendarHeader-label": { fontSize: "1.2rem" },
@@ -184,6 +198,8 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
                   "& .MuiOutlinedInput-root": { height: "44px" },
                 }
               },
+              // Without this there is no visible way to empty a filled date.
+              field: { clearable: true },
               desktopPaper: {
                 sx: {
                   "& .MuiPickersCalendarHeader-label": { fontSize: "1.2rem" },

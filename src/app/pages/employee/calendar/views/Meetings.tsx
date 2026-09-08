@@ -1,64 +1,120 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Button, Modal } from 'react-bootstrap';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
-import { dateColumn } from '@app/modules/common/components/table/columns';
-import { MRT_ColumnDef } from 'material-react-table';
-import { getMeetings, deleteMeeting } from '@services/employee';
+import React, { useState } from 'react';
+import { deleteMeeting, setMeetingCancelled, updateMeeting } from '@services/employee';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import dayjs from 'dayjs';
 import Swal from 'sweetalert2';
-import MeetingsForm from '../../attendance/personal/views/my-leaves/MeetingsForm';
-import PremiumButton from '@app/modules/common/components/PremiumButton';
+import MeetingDialog from '../../MeetingDialog';
+// The SAME form the timesheet uses. There were two, writing the same Timesheet row
+// through different endpoints, so what logging an hour asked you depended on which
+// screen you started from.
+import NewTimeLogForm from '@app/pages/employee/timesheet/employeetimesheet/component/NewTimeLogForm';
+import MeetingRemindersDialog from '../../MeetingRemindersDialog';
+import MeetingsList, { toEditableMeeting } from '@app/modules/common/components/MeetingsList';
+// The server states WHY it refused; repeating a guess here is how a validation failure ends up
+// reported as a permission problem.
+import { apiErrorMessage } from '@app/pages/employee/tasks/taskDomain';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
-interface Meeting {
-  _id: string;
-  title: string;
-  description: string;
-  startDate: string;
-  endDate: string;
-  isOnline: boolean;
-  meetingLink?: string;
-  location?: string;
-  participants: any[];
-}
-
+/**
+ * The Calendar module's Meetings tab.
+ *
+ * The list itself is `MeetingsList` — the SAME component the project, contact and employee
+ * pages render. This screen used to carry its own MaterialTable over the same rows, which
+ * meant the month view had to be built here and again there, and the two would have drifted
+ * the first time either was touched. What is left on this page is what is genuinely local to
+ * it: who may create, who may delete, and the dialog.
+ *
+ * `mode="employee"` with the signed-in employee is what makes it personal — the API answers
+ * with the meetings they organize OR are a participant on, and nothing else.
+ */
 const Meetings = () => {
   const currentEmployeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [showMeetingForm, setShowMeetingForm] = useState(false);
-  
+  // Bumped after a create or a delete: the list owns its own fetch, and this is how a parent
+  // that changed the data tells it to read again.
+  const [reloadToken, setReloadToken] = useState(0);
+  // The meeting being edited. null → the dialog opens on a blank new meeting.
+  const [editing, setEditing] = useState<ReturnType<typeof toEditableMeeting> | null>(null);
+  // The meeting whose time is being logged. null → the dialog is closed.
+  const [logging, setLogging] = useState<any>(null);
+  // Not gated on canCreate: a reminder is the reader's own, like logging their own time.
+  const [reminding, setReminding] = useState<any>(null);
+
   const canCreate = hasPermission(resourceNameMapWithCamelCase.meeting, permissionConstToUseWithHasPermission.create);
   const canDelete = hasPermission(resourceNameMapWithCamelCase.meeting, permissionConstToUseWithHasPermission.deleteOwn);
 
-  const fetchMeetings = async () => {
-    if (!currentEmployeeId) return;
-    setIsLoading(true);
+  const reload = () => setReloadToken((n) => n + 1);
+
+  /**
+   * Cancel is the normal thing; delete is the rare one.
+   *
+   * Cancelling keeps the row, so the project it was booked on still shows it was booked — the
+   * reason is optional because making it mandatory just produces a field full of ".". Only the
+   * organizer may do either, and the API refuses anyone else.
+   */
+  const handleCancel = async ({ id, cancelled }: { id: string; cancelled: boolean }) => {
+    if (!cancelled) {
+      await setMeetingCancelled(id, currentEmployeeId, false)
+        .then(() => { successConfirmation('Meeting restored'); reload(); })
+        .catch((error) => errorConfirmation(apiErrorMessage(error, 'Could not restore the meeting.')));
+      return;
+    }
+    const result = await Swal.fire({
+      title: 'Cancel this meeting?',
+      text: 'It leaves your calendar, and stays on the project record as a cancelled meeting.',
+      icon: 'question',
+      input: 'text',
+      inputPlaceholder: 'Reason (optional)',
+      showCancelButton: true,
+      confirmButtonColor: '#B45309',
+      cancelButtonColor: '#64748B',
+      confirmButtonText: 'Cancel meeting',
+      cancelButtonText: 'Keep it',
+    });
+    if (!result.isConfirmed) return;
     try {
-      const response = await getMeetings(currentEmployeeId);
-      // Assuming response.data contains the list, or response itself is the list. Let's handle both.
-      const data = response?.data?.meetings || response?.meetings || response?.data || response || [];
-      if (Array.isArray(data)) {
-        setMeetings(data);
-      } else {
-        setMeetings([]);
-      }
+      await setMeetingCancelled(id, currentEmployeeId, true, result.value || undefined);
+      successConfirmation('Meeting cancelled');
+      reload();
     } catch (error) {
-      console.error('Error fetching meetings', error);
-      errorConfirmation('Failed to fetch meetings');
-    } finally {
-      setIsLoading(false);
+      console.error('Error cancelling meeting', error);
+      errorConfirmation(apiErrorMessage(error, 'Could not cancel the meeting.'));
     }
   };
 
-  useEffect(() => {
-    fetchMeetings();
-  }, [currentEmployeeId]);
+  /**
+   * Drag-to-reschedule. The grid has already worked out the new start/end — day shifted, clock
+   * untouched — so this only has to persist it.
+   *
+   * `notifyIds: []` deliberately: a drag is a quick correction, and mailing everyone on every
+   * nudge is how people learn to ignore meeting mail. Open the meeting and save if the change
+   * is worth announcing.
+   */
+  const handleReschedule = async (m: any, next: { startDate: string; endDate: string }) => {
+    try {
+      await updateMeeting(m.id, currentEmployeeId, {
+        title: m.title,
+        description: m.description || '',
+        startDate: next.startDate,
+        endDate: next.endDate,
+        isOnline: m.isOnline,
+        meetingLink: m.isOnline ? (m.meetingLink || undefined) : undefined,
+        location: m.isOnline ? undefined : (m.location || undefined),
+        participants: m.participants || undefined,
+        externalParticipants: m.externalParticipants || undefined,
+        projectId: m.projectId || undefined,
+        notifyIds: [],
+      });
+      successConfirmation(`Moved to ${dayjs(next.startDate).format('DD MMM')}`);
+      reload();
+    } catch (error) {
+      console.error('Error rescheduling meeting', error);
+      errorConfirmation(apiErrorMessage(error, 'Could not move the meeting.'));
+    }
+  };
 
   const handleDelete = async (meetingId: string) => {
     const result = await Swal.fire({
@@ -68,14 +124,14 @@ const Meetings = () => {
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, delete it!'
+      confirmButtonText: 'Yes, delete it!',
     });
 
     if (result.isConfirmed) {
       try {
         await deleteMeeting(meetingId, currentEmployeeId);
         successConfirmation('Meeting deleted successfully');
-        fetchMeetings();
+        reload();
       } catch (error) {
         console.error('Error deleting meeting', error);
         errorConfirmation('Failed to delete meeting');
@@ -83,99 +139,47 @@ const Meetings = () => {
     }
   };
 
-  const columns = useMemo<MRT_ColumnDef<Meeting>[]>(
-    () => [
-      {
-        accessorKey: 'title',
-        header: 'Title',
-      },
-      // accessorKey (not a bare accessorFn) so these columns have a stable id:
-      // without one they were dropped from columnOrder and rendered last.
-      dateColumn({ accessorKey: 'startDate', header: 'Start Date', withTime: true }),
-      dateColumn({ accessorKey: 'endDate', header: 'End Date', withTime: true }),
-      {
-        accessorKey: 'isOnline',
-        header: 'Type',
-        Cell: ({ cell }) => (
-          <span className={`badge badge-light-${cell.getValue<boolean>() ? 'primary' : 'success'}`}>
-            {cell.getValue<boolean>() ? 'Online' : 'In-Person'}
-          </span>
-        ),
-      },
-      {
-        id: 'locationOrLink',
-        accessorFn: (row) => row.isOnline ? row.meetingLink : row.location,
-        header: 'Location / Link',
-        Cell: ({ cell, row }) => (
-          row.original.isOnline && cell.getValue<string>() ? (
-            <a href={cell.getValue<string>()} target="_blank" rel="noopener noreferrer" className="text-primary text-hover-primary text-truncate d-inline-block" style={{maxWidth: '150px'}}>
-              {cell.getValue<string>()}
-            </a>
-          ) : (
-            <span>{cell.getValue<string>() || 'N/A'}</span>
-          )
-        )
-      },
-      {
-        id: 'actions',
-        header: 'Actions',
-        Cell: ({ row }) => (
-          <div className="d-flex gap-2">
-            {canDelete && (
-              <button
-                className="btn btn-sm btn-icon btn-light-danger"
-                onClick={() => handleDelete(row.original._id)}
-                title="Delete Meeting"
-              >
-                <AppIcon name="bi-trash" className="fs-4" />
-              </button>
-            )}
-          </div>
-        ),
-      },
-    ],
-    [canDelete]
-  );
-
   return (
     <div className="px-lg-0 px-2 pt-4">
-      <div className="d-flex justify-content-between align-items-center mb-6">
-        <h2 className="mb-0">Meetings</h2>
-        {canCreate && (
-          <PremiumButton
-            icon="bi-plus"
-            onClick={() => setShowMeetingForm(true)}
-          >
-            Create Meeting
-          </PremiumButton>
-        )}
-      </div>
+      <MeetingsList
+        mode="employee"
+        targetId={currentEmployeeId}
+        reloadToken={reloadToken}
+        onCreate={canCreate ? () => { setEditing(null); setShowMeetingForm(true); } : undefined}
+        onEdit={canCreate ? (m) => { setEditing(toEditableMeeting(m)); setShowMeetingForm(true); } : undefined}
+        onReschedule={canCreate ? handleReschedule : undefined}
+        onLogTime={(m) => setLogging(m)}
+        onRemind={(m) => setReminding(m)}
+        onCancel={canCreate ? handleCancel : undefined}
+        onDelete={canDelete ? handleDelete : undefined}
+      />
 
-      <div className="card">
-        <div className="card-body p-0">
-          <MaterialTable
-            tableName="Meetings"
-            columns={columns}
-            data={meetings}
-            isLoading={isLoading}
-          />
-        </div>
-      </div>
+      {/* The same dialog the calendar and the task form open — the third and last copy of
+          this modal. */}
+      <NewTimeLogForm
+        key={logging?.id ?? 'none'}
+        show={!!logging}
+        prefilledMeetingId={logging?.id}
+        onClose={() => { setLogging(null); reload(); }}
+      />
 
-      <Modal show={showMeetingForm} onHide={() => setShowMeetingForm(false)} centered size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>Create New Meeting</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <MeetingsForm 
-            onClose={() => {
-              setShowMeetingForm(false);
-              fetchMeetings();
-            }} 
-            selectedDateTimeInfo={{ startStr: dayjs().toISOString() }} 
-          />
-        </Modal.Body>
-      </Modal>
+      <MeetingRemindersDialog
+        open={!!reminding}
+        meeting={reminding}
+        employeeId={currentEmployeeId}
+        onClose={() => setReminding(null)}
+      />
+
+      <MeetingDialog
+        // Remounted per meeting: the form prefills from `editing` on mount, and reusing one
+        // instance across two different meetings would show the first one's values.
+        key={editing?.id ?? 'new'}
+        open={showMeetingForm}
+        editing={editing}
+        onClose={() => setShowMeetingForm(false)}
+        onSaved={reload}
+        selectedDateTimeInfo={{ startStr: dayjs().toISOString() }}
+      />
     </div>
   );
 };

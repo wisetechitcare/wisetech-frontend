@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -8,6 +9,7 @@ import {
   TILE_BADGE,
 } from '../shellTokens';
 import { cardHover, moduleTileVariants } from '../motion';
+import { recordModuleUse, sortClusters, sortModules, useModuleSort } from '../moduleSort';
 import type { WorkspaceApp, WorkspaceModule } from '../types';
 
 const MotionLink = motion.create(Link);
@@ -56,6 +58,7 @@ function ModuleCard({
       initial="hidden"
       animate="visible"
       whileHover={cardHover}
+      onClick={() => recordModuleUse(module.to)}
       to={module.to}
       title={module.title}
       className={MODULE_CELL}
@@ -80,6 +83,13 @@ function ModuleCard({
 
 export function ModuleGrid({ app }: { app: WorkspaceApp }) {
   const accent = sectionAccent(app.id);
+  // The control itself lives in WorkspaceHeader — chrome — and reaches this through the
+  // store in moduleSort.ts. See the note there for why not context.
+  const sort = useModuleSort();
+  // Read once per ordering change rather than per card — usage only changes on a click,
+  // and a click leaves this page.
+  const modules = useMemo(() => sortModules(app.modules, sort), [app.modules, sort]);
+  const clusters = useMemo(() => sortClusters(app.clusters, sort), [app.clusters, sort]);
   // One continuous sequence across the whole grid — clusters continue the count rather than
   // restarting it, so the reveal reads as one wave instead of several starting at once.
   let order = 0;
@@ -104,9 +114,9 @@ export function ModuleGrid({ app }: { app: WorkspaceApp }) {
 
   return (
     <div className="flex flex-col gap-9">
-      {app.modules.length > 0 && (
+      {modules.length > 0 && (
         <div className={MODULE_GRID}>
-          {app.modules.map((module) => (
+          {modules.map((module) => (
             <ModuleCard
               key={module.id}
               module={module}
@@ -117,7 +127,7 @@ export function ModuleGrid({ app }: { app: WorkspaceApp }) {
         </div>
       )}
 
-      {app.clusters.map((cluster) => (
+      {clusters.map((cluster) => (
         <section key={cluster.id} className={CLUSTER_WRAP} aria-labelledby={`cluster-${cluster.id}`}>
           {/* role="heading" rather than <h2>: Metronic styles h2 unlayered and beats
               Tailwind's layered utilities, so an <h2> rendered at 19.5px however small the

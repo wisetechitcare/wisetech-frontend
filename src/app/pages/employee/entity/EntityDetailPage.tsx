@@ -16,7 +16,7 @@ import LeadWizardModal from '@pages/employee/leads/lead/LeadWizardModal';
 import ProposalTemplatePage from '@pages/employee/leads/lead/components/ProposalTemplatePage';
 import { DMSProvider } from '@pages/employee/leads/lead/components/dms/store/DmsContext';
 
-import { isProjectEntity, getProjectPhase, PHASE_THEMES } from './entityUtils';
+import { isProjectEntity, getProjectPhase, projectNumberOf, PHASE_THEMES } from './entityUtils';
 import { DensityProvider } from './detail/density';
 import { buildEntityVM, ENTITY_TABS } from './detail/facets';
 
@@ -27,9 +27,10 @@ import AuditSection from './detail/sections/AuditSection';
 import TeamsSection from './detail/sections/TeamsSection';
 import BillingSection from './detail/sections/BillingSection';
 import ExecutionSection from './detail/sections/ExecutionSection';
-import MeetingsList from '@app/modules/common/components/MeetingsList';
+import ProjectMeetings from './detail/sections/ProjectMeetings';
 import ProjectStatusControl from './detail/ProjectStatusControl';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import MeetingsList from '@/app/modules/common/components/MeetingsList';
 
 /**
  * Unified Entity detail page. ONE entity, ONE page. The Lead is the master; the
@@ -45,17 +46,18 @@ const EntityDetailPage: React.FC = () => {
   const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
 
-  // ── Entry context — the SAME page behaves differently by origin. The Projects
-  //    table (and legacy /projects/:id links) navigate with state.isProject, the
-  //    Leads tables pass only state.leadData. From Projects: land on the Projects
-  //    tab with the full project tab set. From Leads: land on Leads and hide the
-  //    project-only tabs entirely (Projects/Tasks/Timesheet/…), even for a
-  //    received lead. Direct URLs / notifications carry no state and keep the
-  //    full data-driven view. history.state survives refresh, so the context
-  //    sticks until the user navigates in from the other table. ────────────────
-  const navState = (location.state ?? {}) as { isProject?: boolean; leadData?: unknown };
-  const fromProjects = navState.isProject === true;
-  const fromLeads = !fromProjects && navState.leadData != null;
+  // ── Entry context lives in the PATH, not in history.state. ─────────────────
+  //    /project/:id  → project view: land on the Projects tab, full project tab set.
+  //    /leads/:id    → lead view: land on Leads, project-only tabs hidden entirely
+  //                    (Projects/Tasks/Timesheet/…), even for a received lead.
+  //
+  //    It used to ride on location.state, which broke twice over: writing the
+  //    ?tab= param navigated without carrying state forward, so the first tab
+  //    click silently turned a lead into a project; and the choice was invisible
+  //    in the URL, so it could not be shared or bookmarked. A path segment has
+  //    neither problem — it survives refresh, copy-paste and every navigation.
+  const fromProjects = location.pathname.startsWith('/project/');
+  const fromLeads = !fromProjects;
 
   // ── Tab lives in the URL (?tab=billing) ─────────────────────────────────────
   //    Not cosmetic: a tab held only in component state cannot be linked to,
@@ -79,10 +81,16 @@ const EntityDetailPage: React.FC = () => {
           next.set('tab', key);
           return next;
         },
-        { replace: true },
+        // `state` MUST be carried through. setSearchParams navigates, and a
+        // navigation with no `state` writes a history entry whose state is
+        // undefined — so the first tab click erased the entry context above and
+        // `fromLeads` flipped to false, which made every project-only tab appear
+        // on a lead the user had opened from the Leads table. Same reason it has
+        // to survive a refresh: the context lives in history.state, not the URL.
+        { replace: true, state: location.state },
       );
     },
-    [setSearchParams],
+    [setSearchParams, location.state],
   );
   const [lead, setLead] = useState<any | null>(null);
   const [company, setCompany] = useState<any | null>(null);
@@ -161,7 +169,20 @@ const EntityDetailPage: React.FC = () => {
     fetchLeadDetails();
   }, [fetchLeadDetails]);
 
-  useEventBus(EVENT_KEYS.leadUpdated, () => {
+  useEventBus(EVENT_KEYS.leadUpdated, (payload) => {
+    // A saver that already holds the updated lead hands it over and the page takes it as
+    // given: the PATCH read it back AFTER its own transaction committed, so there is nothing
+    // fresher to fetch. Every save used to wait 150ms and then re-fetch the whole lead behind
+    // this page's loading spinner — a second round-trip whose only job was to see what the
+    // first had already returned.
+    //
+    // Only when company/contact are unmoved: those two drive side fetches this page also
+    // holds, so a save that changes either still takes the full path.
+    const next = (payload as any)?.lead;
+    if (next?.id && lead?.companyId === next.companyId && lead?.contactId === next.contactId) {
+      setLead(next);
+      return;
+    }
     // Small delay to ensure backend has persisted the change
     setTimeout(fetchLeadDetails, 150);
   });
@@ -243,8 +264,13 @@ const EntityDetailPage: React.FC = () => {
               <div className="d-flex flex-column flex-grow-1" style={{ minWidth: 0 }}>
                 {/* Meta string */}
                 <div className="d-flex align-items-center flex-wrap gap-2 mb-1" style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 600, letterSpacing: '0.5px' }}>
-                  {isProject && activeTab !== 'leads' ? (
-                    <span style={{ color: '#059669' }}>{`#${lead?.originalProjectPrefix || lead?.project?.prefix || 'N/A'}`}</span>
+                  {/* Which number identifies this record follows the VIEW, not just
+                      the tab: in the lead view every tab is looking at the lead, so
+                      it stays the lead/OFFER number throughout. Showing the project
+                      number on the lead view's Commercial tab was the same
+                      lead-vs-project mix-up as the Project No. tile. */}
+                  {isProject && !fromLeads && activeTab !== 'leads' ? (
+                    <span style={{ color: '#059669' }}>{`#${projectNumberOf(lead) || 'N/A'}`}</span>
                   ) : (
                     <span style={{ color: '#64748B' }}>{`#${lead?.prefix || 'N/A'}`}</span>
                   )}
@@ -308,6 +334,21 @@ const EntityDetailPage: React.FC = () => {
                 </div>
               )}
               
+              {/* The lead view hides every project tab by design, so a lead that
+                  IS a project needs a door through to the project view — without
+                  it an old /leads/:id link to a project is a dead end. Only this
+                  direction needs one: the Leads tab is present in both views. */}
+              {isProject && fromLeads && (
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => navigate(`/project/${leadId}`)}
+                  style={{ backgroundColor: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
+                >
+                  <AppIcon name="bi-kanban" className="fs-7" /> Project view
+                </button>
+              )}
+
               {activeTab === 'leads' && (
                 <>
                   <button

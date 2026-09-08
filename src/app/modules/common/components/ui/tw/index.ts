@@ -19,3 +19,12 @@ export { ErrorState } from './ErrorState';
 export type { ErrorStateProps } from './ErrorState';
 export { GlassSurface, GlassCard, GlassHeader, GlassDialog } from './Glass';
 export type { GlassSurfaceProps, GlassCardProps, GlassHeaderProps, GlassDialogProps, GlassVariant, DialogMaxWidth } from './Glass';
+export { MonthGrid } from './MonthGrid';
+export type {
+  MonthGridProps,
+  MonthGridSelection,
+  MonthDayContext,
+  SelectionMode,
+  SelectionValue,
+  WeekStart,
+} from './MonthGrid';

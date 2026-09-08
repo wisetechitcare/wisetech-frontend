@@ -59,31 +59,6 @@ body {
 	}
 }
 
-.calendar-light {
-	--calendar-bg-color: white;
-	--calendar-text-color: black;
-  }
-  
-.calendar-dark {
-	--calendar-bg-color: #333;
-	--calendar-text-color: white;
-  }
-  
-.react-calendar {
-	background: var(--calendar-bg-color);
-	color: var(--calendar-text-color);
-	width: 100%;
-  	max-width: 600px;
-}
-  
-.react-calendar__tile {
-	color: var(--calendar-text-color);
-}
-  
-.react-calendar__navigation button {
-	color: var(--calendar-text-color);
-}
-
 .signature-container {
 	max-width: 600px;
 	margin: 0;

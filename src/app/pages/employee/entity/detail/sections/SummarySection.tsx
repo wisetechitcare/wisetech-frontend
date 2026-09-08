@@ -21,7 +21,8 @@ import {
   conversionProbability,
   DASH,
 } from '../entityViewModel';
-import { getTimelineProgress, isDelayedProject } from '../../entityUtils';
+import { getTimelineProgress, isDelayedProject, projectNumberOf } from '../../entityUtils';
+import FileLocationCard, { hasFileLocation } from './FileLocationCard';
 
 interface Stat {
   label: string;
@@ -198,8 +199,15 @@ const SummarySection: React.FC<{
         </div>
       )}
 
-      {/* File Location moved to the Documents tab (single source of truth) to avoid
-          duplicating it here. See DocumentsSection. */}
+      {/* Where the files live on the drive. Also on the Documents tab, but people
+          open a lead to find the folder, so it earns its place here too — the SAME
+          component renders in both, so the two can't disagree. Renders nothing
+          when the record has no location. */}
+      {hasFileLocation(vm) && (
+        <div className="mt-5">
+          <FileLocationCard vm={vm} />
+        </div>
+      )}
 
       {lead?.isCancelled && (
         <div className="mt-5">
@@ -225,7 +233,7 @@ const SummarySection: React.FC<{
       <SectionHeading icon="bi bi-kanban" title="Project Snapshot" color={ICON_COLORS.green.color} />
       <StatGrid
         items={[
-          { label: 'Project No.', value: lead?.prefix || DASH, icon: 'bi bi-hash', accent: 'primary' },
+          { label: 'Project No.', value: projectNumberOf(lead) || DASH, icon: 'bi bi-hash', accent: 'primary' },
           { label: 'Project Status', value: <DetailStatusBadge status={execStatus?.name || DASH} color={execStatus?.color} />, icon: 'bi bi-kanban', accent: 'blue' },
           { label: 'Execution Team', value: exec?.team?.name || DASH, icon: 'bi bi-people', accent: 'purple' },
           { label: 'Project Manager', value: pmName, icon: 'bi bi-person-workspace', accent: 'primary' },

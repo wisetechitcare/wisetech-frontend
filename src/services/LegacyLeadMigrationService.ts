@@ -9,6 +9,7 @@ import type {
   MigrationRun,
   MigrationSummary,
   RecordDecision,
+  SavedMigrationRun,
 } from '@/types/legacyMigration';
 
 /**
@@ -145,6 +146,25 @@ export const executeMigrationBatch = async (
     return unwrap<ExecuteBatchResult>(response.data);
   } catch (error) {
     throw toError(error, 'Migration batch failed');
+  }
+};
+
+/** Saved uploads for the org, newest first — the picker on the upload step. */
+export const fetchSavedRuns = async (organizationId: string): Promise<SavedMigrationRun[]> => {
+  try {
+    const response = await axios.get(`${BASE}/runs`, { params: { organizationId } });
+    return unwrap<{ runs: SavedMigrationRun[] }>(response.data).runs;
+  } catch (error) {
+    throw toError(error, 'Failed to load saved uploads');
+  }
+};
+
+/** Permanent. Deletes the review workspace, never the leads it already wrote. */
+export const deleteSavedRun = async (runId: string, organizationId: string): Promise<void> => {
+  try {
+    await axios.delete(`${BASE}/runs/${runId}`, { params: { organizationId } });
+  } catch (error) {
+    throw toError(error, 'Failed to delete the upload');
   }
 };
 

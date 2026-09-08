@@ -15,7 +15,8 @@ import { useTeamFilter } from "@/contexts/TeamFilterContext";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import Loader from "@app/modules/common/utils/Loader";
 import { countWorkingDays } from "@utils/periodRange";
-import { filterActiveEmployees, activeEmployeeIdSet } from "@utils/activeEmployee";
+import { getEmployeeStatus } from "@utils/employeeStatus";
+import { employeeIdSet } from "@utils/activeEmployee";
 import { saveEmployeesAttendance } from "@redux/slices/attendance";
 import type { PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import type { IEmployeesAttendance } from "@models/employee";
@@ -88,14 +89,29 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
             // them would make the section's time-to-content the sum rather than the max.
             const [attendance, employeesRes, leaveResp] = await Promise.all([
                 fetchEmpsAttendanceRange(startWire, endWire),
-                fetchAllEmployees(),
+                // Scoped to the SAME window as the attendance and leave calls.
+                // A summary for August must cover whoever was employed during
+                // August — including someone who left on the 14th, for the days
+                // they were there — which is how payroll already reads a period.
+                fetchAllEmployees(true, startWire, endWire),
                 fetchEmployeesOnLeaveRange(startWire, endWire),
             ]);
             if (!isMountedRef.current) return;
             setRows(attendance || []);
-            // Inactive staff are dropped at the source, so they cannot be seeded into a
-            // summary row and cannot be sent to the classification batch either.
-            setRoster(filterActiveEmployees(employeesRes?.data?.employees || []));
+            /**
+             * No `filterActiveEmployees` here any more.
+             *
+             * The server has already scoped this roster by the employment
+             * TIMELINE for the window. Re-filtering on `isActive` would undo
+             * that in both directions: it drops someone employed during the
+             * period who has since left (the whole point of a historical
+             * summary), and it drops anyone whose flag is stale-off — the
+             * backfill found two people employed today flagged inactive, who
+             * were therefore missing from boards entirely.
+             *
+             * The flag is a manual suspend switch. The dates are the authority.
+             */
+            setRoster(employeesRes?.data?.employees || []);
             setLeaveRecords(leaveResp?.data?.leaveRecords || []);
         } catch (error) {
             console.error('Error loading period attendance summary:', error);
@@ -159,6 +175,39 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
     const workingDays = useMemo(() => countWorkingDays(range, weekends), [range, weekends]);
 
     /**
+     * Per-employee working-day denominator, clipped to their own employment
+     * inside the period.
+     *
+     * The period figure above is the right number for a heading ("22 working
+     * days in August") and the wrong one for an individual: someone who left on
+     * the 14th had 10, and charging them 22 invented twelve absences for days
+     * they were not employed. That is what the Absent drill-in was showing.
+     *
+     * Memoised as a Map rather than computed per row: the summary calls this
+     * once per employee, and re-walking the month for each of ~210 people on
+     * every render would be ~4,600 date steps per keystroke elsewhere on the page.
+     *
+     * `getEmployeeStatus` is the shared frontend twin of the backend's
+     * employment-window predicate, and is rejoin-aware.
+     */
+    const workingDaysByEmployee = useMemo(() => {
+        const map = new Map<string, number>();
+        for (const e of roster as any[]) {
+            if (!e?.id) continue;
+            map.set(e.id, countWorkingDays(range, weekends, (day) => getEmployeeStatus(e, day) === 1));
+        }
+        return map;
+    }, [roster, range, weekends]);
+
+    const workingDaysFor = useCallback(
+        // Falls back to the period figure only for someone absent from the roster
+        // entirely (a row for a person the roster query did not return), where no
+        // employment dates are available to clip with.
+        (employeeId: string) => workingDaysByEmployee.get(employeeId) ?? workingDays,
+        [workingDaysByEmployee, workingDays],
+    );
+
+    /**
      * employeeId → weighted leave days inside the window. A leave row is a SPAN, so it is
      * expanded day by day and clipped to the window and to working days — counting the
      * whole span would credit June days to a July total.
@@ -197,7 +246,10 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
      */
     const transformedRows = useMemo(() => {
         const transformed = transformAttendance(rows as any, weekends);
-        const activeIds = activeEmployeeIdSet(roster as any);
+        // The roster is already server-scoped to this period, so take its ids as-is.
+        // Re-applying the isActive flag here would drop exactly the leavers a
+        // historical summary exists to include.
+        const activeIds = employeeIdSet(roster as any);
         // No roster yet (first paint) — don't blank the table, the filter applies once it lands.
         if (!activeIds.size) return transformed;
         return transformed.filter((row) => !row.employeeId || activeIds.has(row.employeeId));
@@ -223,14 +275,14 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
                 employeeCode: e.employeeCode,
                 avatar: e.avatar ?? e.users?.avatar ?? null,
             })),
-            workingDays,
+            workingDaysFor,
             leaveDaysByEmployee,
             classificationByEmployee: classifications,
         });
         // Most absences first — the reason an admin opens a month at all. Name breaks ties
         // so the order is deterministic across refetches.
         return result.sort((a, b) => b.absent - a.absent || a.name.localeCompare(b.name));
-    }, [transformedRows, roster, workingDays, leaveDaysByEmployee, classifications, filterIds]);
+    }, [transformedRows, roster, workingDaysFor, leaveDaysByEmployee, classifications, filterIds]);
 
     const openSummary = useMemo(
         () => summaries.find((s) => s.employeeId === openEmployee) ?? null,

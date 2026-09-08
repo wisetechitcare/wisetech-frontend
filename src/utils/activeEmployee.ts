@@ -51,3 +51,33 @@ export function activeEmployeeIdSet<T extends MaybeActiveEmployee & { _id?: stri
     }
     return ids;
 }
+
+/**
+ * Ids of an ALREADY-SCOPED roster — no flag filtering.
+ *
+ * ── Prefer this one ───────────────────────────────────────────────────────
+ * `fetchAllEmployees(isActive, startDate, endDate)` now scopes server-side by
+ * the employment TIMELINE (joining/exit dates plus rejoin history), which is
+ * derived and needs no human step. When a roster came back from that call, it
+ * is already correct — and re-filtering it through {@link activeEmployeeIdSet}
+ * actively breaks it in both directions:
+ *
+ *  · it drops someone employed DURING a historical period who has since left,
+ *    which is the entire point of a historical report; and
+ *  · it drops anyone whose `isActive` is stale-off. Two people employed today
+ *    were flagged inactive when this was measured, and were consequently
+ *    missing from the attendance boards altogether.
+ *
+ * Use this to restrict rows that carry an `employeeId` but no flag of their
+ * own — attendance rows, leave rows — to a roster you already trust.
+ */
+export function employeeIdSet<T extends { _id?: string; id?: string }>(
+    employees: readonly T[],
+): Set<string> {
+    const ids = new Set<string>();
+    for (const employee of employees) {
+        const id = employee._id || employee.id;
+        if (id) ids.add(id);
+    }
+    return ids;
+}

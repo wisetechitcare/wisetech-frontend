@@ -28,6 +28,21 @@ export const isProjectEntity = (lead: any): boolean =>
   lead?.isProject === true || // precomputed on transformed table rows
   lead?.status?.isProjectTrigger === true || !!lead?.projectId || !!lead?.project;
 
+/**
+ * The PROJECT number (e.g. WT/PROJECT/26-27/758), never the lead's own prefix.
+ *
+ * `lead.prefix` is the OFFER/lead number and is a different identifier — showing
+ * it under a "Project No." label is how the detail page's snapshot came to print
+ * WT/OFFER/26-27/120 next to a header reading WT/PROJECT/26-27/758. Every
+ * project surface derived this inline, so the one that got it wrong looked
+ * exactly like the ones that got it right; this is the single expression now.
+ *
+ * Returns null when the lead has no project number, so each caller keeps its own
+ * fallback ("—", "N/A", "").
+ */
+export const projectNumberOf = (lead: any): string | null =>
+  lead?.originalProjectPrefix || lead?.project?.prefix || null;
+
 export type ProjectPhase = 'ongoing' | 'completed' | 'onhold' | 'none';
 
 /**

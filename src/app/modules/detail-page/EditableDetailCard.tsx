@@ -245,6 +245,33 @@ const searchableSelectStyles: any = {
   }),
 };
 
+/**
+ * react-select renders EVERY matching option — it does not virtualise. On a picker fed the
+ * whole contact master (thousands of rows; that endpoint is unpaginated) that is thousands
+ * of DOM nodes built on open and rebuilt on each keystroke, which is felt as the menu
+ * hanging.
+ *
+ * Rendering a capped window costs nothing and loses nothing: type-ahead is right there, and
+ * nobody scrolls past a hundred names anyway. The footer says the list is cut, so a name
+ * that is not visible reads as "narrow the search" rather than "the record is gone".
+ */
+const MAX_RENDERED_OPTIONS = 100;
+
+const CappedMenuList = (props: any) => {
+  const children = props.children;
+  if (!Array.isArray(children) || children.length <= MAX_RENDERED_OPTIONS) {
+    return <components.MenuList {...props}>{children}</components.MenuList>;
+  }
+  return (
+    <components.MenuList {...props}>
+      {children.slice(0, MAX_RENDERED_OPTIONS)}
+      <div style={{ padding: '6px 12px', fontSize: 11, color: C.textMuted, borderTop: `1px solid ${C.border}` }}>
+        Showing {MAX_RENDERED_OPTIONS} of {children.length} — type to narrow the list
+      </div>
+    </components.MenuList>
+  );
+};
+
 export const SearchableSelectEditor: React.FC<{
   value: any;
   onChange: (v: string) => void;
@@ -253,7 +280,8 @@ export const SearchableSelectEditor: React.FC<{
   showColor?: boolean;
   formatOptionLabel?: (option: any, context: any) => React.ReactNode;
 }> = ({ value, onChange, options, placeholder = 'Select…', showColor, formatOptionLabel }) => (
-  <Select{...FLOATING_MENU_BEHAVIOUR}
+  <Select
+{...FLOATING_MENU_BEHAVIOUR}
     options={options}
     value={options.find(o => String(o.value) === String(value ?? '')) ?? null}
     onChange={(opt: any) => onChange(opt?.value ?? '')}
@@ -268,7 +296,8 @@ export const SearchableSelectEditor: React.FC<{
       Option: ColourOption,
       SingleValue,
       DropdownIndicator,
-    } : {}}
+      MenuList: CappedMenuList,
+    } : { MenuList: CappedMenuList }}
     formatOptionLabel={formatOptionLabel}
   />
 );
