@@ -94,7 +94,9 @@ const ContactsOverview: React.FC = () => {
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
       <Box sx={{ minWidth: 150 }}>
         <StatTile
-          label={activeLabel ? `${activeLabel} contacts` : "Contacts"}
+          // "Not specified contacts" reads as contacts that are unspecified; parenthesising
+          // the bucket keeps the noun first and the qualifier obviously a filter.
+          label={activeLabel ? `Contacts (${activeLabel})` : "Contacts"}
           value={(totals[gender] ?? 0).toLocaleString("en-IN")}
           trio={TRIO.blue}
           icon="profile-user"
@@ -140,10 +142,13 @@ const ContactsOverview: React.FC = () => {
         />
       </div>
 
+      {/* The drill-down inherits the active gender, so the list it opens matches the
+          count on the bar that was clicked instead of showing every gender. */}
       <CompanyDialogModal
         open={openModal}
         onClose={() => setOpenModal(false)}
         contactByRolesId={contactByRolesId}
+        gender={gender === "ALL" ? undefined : gender}
       />
     </div>
   );
