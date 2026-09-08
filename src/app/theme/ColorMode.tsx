@@ -17,9 +17,33 @@ import { ghDarkCssVars, ghDarkCssVarNames } from './githubDark';
  */
 
 type Mode = 'light' | 'dark';
+
+/**
+ * What the USER chose. `system` defers to the OS and keeps following it, which
+ * is different from having picked whatever the OS happens to say right now.
+ *
+ * Kept separate from `mode` — the RESOLVED light/dark that everything paints
+ * from — because the two answer different questions and collapsing them is how
+ * "follow my system" quietly becomes "pinned to light".
+ */
+export type ColorPreference = Mode | 'system';
 const STORAGE_KEY = 'wt-mui-color-mode';
 
-interface ColorModeCtx { mode: Mode; setMode: (m: Mode) => void; toggle: () => void }
+const prefersDark = (): boolean => {
+  try { return window.matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; }
+};
+
+const resolve = (pref: ColorPreference): Mode => (pref === 'system' ? (prefersDark() ? 'dark' : 'light') : pref);
+
+interface ColorModeCtx {
+  /** The resolved mode everything paints from. */
+  mode: Mode;
+  /** What the user actually chose, `system` included. */
+  preference: ColorPreference;
+  setPreference: (p: ColorPreference) => void;
+  setMode: (m: Mode) => void;
+  toggle: () => void;
+}
 const ColorModeContext = createContext<ColorModeCtx | null>(null);
 
 export function useColorMode(): ColorModeCtx {
@@ -28,25 +52,47 @@ export function useColorMode(): ColorModeCtx {
   return ctx;
 }
 
-export function ColorModeProvider({ children, defaultMode = 'light' }: { children: React.ReactNode; defaultMode?: Mode }) {
-  const [mode, setModeState] = useState<Mode>(() => {
+export function ColorModeProvider({ children, defaultMode = 'light' }: { children: React.ReactNode; defaultMode?: ColorPreference }) {
+  const [preference, setPreferenceState] = useState<ColorPreference>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === 'light' || stored === 'dark') return stored;
+      if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
     } catch { /* SSR / privacy mode */ }
     return defaultMode;
   });
 
-  const setMode = useCallback((m: Mode) => {
-    setModeState(m);
-    try { localStorage.setItem(STORAGE_KEY, m); } catch { /* ignore */ }
+  const [systemDark, setSystemDark] = useState(prefersDark);
+
+  // Follow the OS while — and only while — the user asked us to. Registered
+  // unconditionally so the answer is already current the moment they switch to
+  // `system`, rather than lagging until the next OS change.
+  useLayoutEffect(() => {
+    let mq: MediaQueryList;
+    try { mq = window.matchMedia('(prefers-color-scheme: dark)'); } catch { return; }
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
   }, []);
 
-  const toggle = useCallback(() => setModeState((prev) => {
-    const next = prev === 'dark' ? 'light' : 'dark';
-    try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
-    return next;
-  }), []);
+  const mode: Mode = preference === 'system' ? (systemDark ? 'dark' : 'light') : preference;
+
+  const setPreference = useCallback((p: ColorPreference) => {
+    setPreferenceState(p);
+    try { localStorage.setItem(STORAGE_KEY, p); } catch { /* ignore */ }
+  }, []);
+
+  // Unchanged for existing callers: setting an explicit mode pins it.
+  const setMode = useCallback((m: Mode) => setPreference(m), [setPreference]);
+
+  // Flips the RESOLVED mode and pins the result, so one tap from `system` lands
+  // on the opposite of what you are looking at — never on the same shade again.
+  const toggle = useCallback(() => {
+    setPreferenceState((prev) => {
+      const next: Mode = resolve(prev) === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
 
   // Single source of truth for the whole app's theme. Broadcast the mode to every styling system
   // so there is no split-brain: MUI reads `palette.mode` (via ThemeProvider below), Bootstrap/
@@ -79,7 +125,10 @@ export function ColorModeProvider({ children, defaultMode = 'light' }: { childre
   }, [mode]);
 
   const theme = useMemo(() => makeWisetechTheme(mode), [mode]);
-  const ctx = useMemo(() => ({ mode, setMode, toggle }), [mode, setMode, toggle]);
+  const ctx = useMemo(
+    () => ({ mode, preference, setPreference, setMode, toggle }),
+    [mode, preference, setPreference, setMode, toggle],
+  );
 
   return (
     <ColorModeContext.Provider value={ctx}>
