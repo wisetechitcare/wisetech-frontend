@@ -182,6 +182,27 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
      */
     const nothingLeftToRaise = pendingCheckInRequest && pendingCheckOutRequest;
 
+    /**
+     * Why the raise action is unavailable, or null when it is available.
+     *
+     * Decided at the ENTRY POINT. The restriction window used to be checked only
+     * when a kind was clicked, so someone opened the day, pressed Raise a
+     * Request, chose Check-in, and only then met "you are not allowed to raise
+     * an attendance request for this date" — three steps in before being told
+     * no. That is precisely the failure this panel was built to remove: the
+     * legacy calendar's primary affordance was a form that says no.
+     *
+     * The window is stated as a rule rather than as "contact admin", because
+     * the rule is knowable and the admin cannot change it per-request anyway.
+     */
+    const raiseBlockedReason: string | null = nothingLeftToRaise
+        ? 'Both times awaiting approval'
+        : !withinRestriction
+          ? restrictionDays === 1
+              ? 'Corrections can only be raised on the day itself'
+              : `Corrections close ${restrictionDays} days after the date`
+          : null;
+
     const kindBlocked = (k: RequestKind): string | null => {
         if (k === 'checkin' && pendingCheckInRequest) return 'A check-in correction for this day is already awaiting approval.';
         if (k === 'checkout' && pendingCheckOutRequest) return 'A check-out correction for this day is already awaiting approval.';
@@ -222,8 +243,15 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
     };
 
     const pickKind = (k: RequestKind) => {
+        // Belt and braces. The read step no longer offers the action at all when
+        // the window has closed, so this should be unreachable — it stays because
+        // the window can lapse while the panel sits open at midnight.
         if (!withinRestriction) {
-            errorConfirmation('You are not allowed to raise an attendance request for this date. Contact admin for assistance.');
+            errorConfirmation(
+                restrictionDays === 1
+                    ? 'Corrections can only be raised on the day itself.'
+                    : `Corrections close ${restrictionDays} days after the date.`,
+            );
             return;
         }
         setDraft(applyKind({ ...draft, checkIn: '', checkOut: '' }, k));
@@ -395,10 +423,10 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                                     So the action goes and the state speaks for itself,
                                     which also stops the eye landing on a grey rectangle
                                     before reading why. */}
-                                {nothingLeftToRaise ? (
+                                {raiseBlockedReason ? (
                                     <span className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-2.5 py-[5px] text-[11.5px] font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
                                         <KTIcon iconName="time" className="fs-7" />
-                                        Both times awaiting approval
+                                        {raiseBlockedReason}
                                     </span>
                                 ) : (
                                     <WtButton onClick={startCorrection}>Raise a Request</WtButton>
