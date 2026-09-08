@@ -7,6 +7,8 @@ import {
   getAllProjects,
 } from "@services/projects";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import AnalyticsTab from "@app/modules/common/components/AnalyticsTab";
+import { projectRow } from "../../companies/components/CompaniesProject";
 import {
   getAllClientCompanies,
   getAllClientContacts,
@@ -425,9 +427,17 @@ const ContactProject = ({ contact }: { contact: any }) => {
   }
 
   return (
-    <div>
+    <AnalyticsTab
+      items={allProjects}
+      toRow={projectRow}
+      title="Projects — Business"
+      icon="bi-briefcase"
+      noun="project"
+      storageKey="contactProjectsPeriodMode"
+    >
+      {(filtered) => (
       <MaterialTable
-        data={allProjects}
+        data={filtered}
         columns={columns}
         tableName="ContactProjects"
         employeeId={employeeId}
@@ -486,7 +496,8 @@ const ContactProject = ({ contact }: { contact: any }) => {
           },
         }}
       />
-    </div>
+      )}
+    </AnalyticsTab>
   );
 };
 

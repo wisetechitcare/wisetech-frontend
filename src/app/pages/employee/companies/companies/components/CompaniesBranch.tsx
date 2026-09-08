@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, Table, Spinner } from "react-bootstrap";
 import { deleteClientBranch, getAllClientBranches, getClientBranchesByCompanyId } from "@services/lead";
 import CompaniesBranchForm from "./CompaniesBranchForm";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -29,7 +28,17 @@ interface Branch {
   phone: string;
 }
 
-const CompaniesBranch = ({companyId}: {companyId: string}) => {
+const CompaniesBranch = ({
+  companyId,
+  addRequested,
+  onAddHandled,
+}: {
+  companyId: string;
+  /** Raised by the page header's create button. */
+  addRequested?: boolean;
+  /** Called once the form is open, so the header can lower the request. */
+  onAddHandled?: () => void;
+}) => {
   const [showModal, setShowModal] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,6 +83,15 @@ const CompaniesBranch = ({companyId}: {companyId: string}) => {
     fetchBranches();
     handleCloseModal();
   };
+
+  // The create button lives in the page header (beside Add New), so the request to open
+  // this tab's form arrives as a prop rather than a click in here.
+  useEffect(() => {
+    if (!addRequested) return;
+    setEditingBranchId(null);
+    setShowModal(true);
+    onAddHandled?.();
+  }, [addRequested]);
 
   const handleDelete = async (branch: Branch) => {
     try {
@@ -176,12 +194,6 @@ const CompaniesBranch = ({companyId}: {companyId: string}) => {
 
   return (
     <div className="p-4">
-      <div className="d-flex justify-content-end align-items-center mb-4">
-        <Button variant="primary" onClick={() => setShowModal(true)}>
-          Add New Branch
-        </Button>
-      </div>
-
       <MaterialTable
         columns={columns}
         data={branches}
