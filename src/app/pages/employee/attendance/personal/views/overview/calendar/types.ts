@@ -84,7 +84,15 @@ export interface CalendarDay {
   holiday?: { name: string; observedIn: string | null };
   request?: {
     id: string;
-    kind: 'check_in' | 'check_out';
+    /**
+     * WHICH halves the request carries. One request routinely carries both, and
+     * `kind` alone could not say so — a request with a check-in AND a check-out
+     * reported as `check_in`, so the client saw no pending check-out and offered
+     * to raise one, which the server then merged over the top of the real one.
+     */
+    hasCheckIn: boolean;
+    hasCheckOut: boolean;
+    kind: 'check_in' | 'check_out' | 'both';
     status: 'pending' | 'approved' | 'rejected';
     stage: string | null;
   };

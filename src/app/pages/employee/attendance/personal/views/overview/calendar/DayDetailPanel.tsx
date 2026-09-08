@@ -144,8 +144,11 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
      * so the second raise completes the pending correction rather than
      * competing with it.
      */
-    const pendingCheckInRequest = day?.request?.kind === 'check_in' && day.request.status === 'pending';
-    const pendingCheckOutRequest = day?.request?.kind === 'check_out' && day.request.status === 'pending';
+    // Read the HALVES, not the label: a request carrying both used to report
+    // `check_in`, so the check-out half looked free and could be overwritten.
+    const pending = day?.request?.status === 'pending';
+    const pendingCheckInRequest = Boolean(pending && day?.request?.hasCheckIn);
+    const pendingCheckOutRequest = Boolean(pending && day?.request?.hasCheckOut);
     const hasCheckIn = Boolean(day?.actual.checkIn) || pendingCheckInRequest;
 
     /**
@@ -311,8 +314,20 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                             />
                         )}
                         {day.holiday && <Field k="Holiday" v={day.holiday.name} />}
+                        {/* Names both halves when the request carries both — calling a
+                            check-in-and-check-out request "Check-in" is what made it look
+                            like the check-out was still free to raise. */}
                         {day.request && (
-                            <Field k="Correction" v={`${day.request.kind === 'check_in' ? 'Check-in' : 'Check-out'} · ${day.request.status}`} />
+                            <Field
+                                k="Correction"
+                                v={`${
+                                    day.request.kind === 'both'
+                                        ? 'Check-in & check-out'
+                                        : day.request.kind === 'check_in'
+                                          ? 'Check-in'
+                                          : 'Check-out'
+                                } · ${day.request.status}`}
+                            />
                         )}
                     </dl>
 
