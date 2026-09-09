@@ -64,7 +64,9 @@ export type AppEventMap = {
     meetingDeleted: { id: string };
 
     leadCreated: { id: string };
-    leadUpdated: { id: string };
+    // `lead` rides along when the saver already has the server's fresh copy, so the
+    // detail page can skip a refetch. Optional — emitters that only know the id still work.
+    leadUpdated: { id: string; lead?: any };
     leadDeleted: { id: string };
 
     projectCreated: { id: string };

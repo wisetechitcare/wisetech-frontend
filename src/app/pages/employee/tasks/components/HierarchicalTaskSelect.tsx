@@ -51,7 +51,13 @@ const usePickerColors = () => {
         text: theme.palette.text.primary,
         headerHover: alpha(theme.palette.primary.main, dark ? 0.16 : 0.06),
         optionHover: alpha(theme.palette.primary.main, dark ? 0.2 : 0.08),
-        optionSelected: alpha(theme.palette.primary.main, dark ? 0.3 : 0.14),
+        optionSelected: alpha(theme.palette.primary.main, dark ? 0.34 : 0.13),
+        // The selected row states itself in the accent INK as well as behind it. A tint alone
+        // at 13% behind unchanged near-black text is a difference you have to hunt for.
+        optionSelectedText: dark ? theme.palette.primary.light : theme.palette.primary.dark,
+        // 8px, the radius every MUI `size="small"` field on these forms uses. react-select
+        // ships 4px, so the one nested picker sat square-ish among rounded neighbours.
+        radius: 8,
     };
 };
 
@@ -185,7 +191,7 @@ const FlyoutPanel = ({ parent }: { parent: HierarchicalTaskOption }) => {
                 overflowY: 'auto',
                 background: C.paper,
                 border: `1px solid ${C.border}`,
-                borderRadius: 4,
+                borderRadius: 10,
                 boxShadow: '0 8px 24px rgba(0,0,0,.16)',
                 padding: '4px 0',
                 zIndex: 2,
@@ -606,6 +612,10 @@ export const HierarchicalTaskPicker: React.FC<HierarchicalTaskPickerProps> = ({
                     menu: (base) => ({
                         ...base, zIndex: 9999, backgroundColor: C.paper,
                         border: `1px solid ${C.border}`,
+                        borderRadius: C.radius + 2,
+                        overflowY: 'visible',
+                        paddingTop: 4,
+                        paddingBottom: 4,
                         // The flyout is a child of the menu positioned at `left: 100%`, so the
                         // menu must not clip it.
                         overflow: 'visible',
@@ -619,6 +629,8 @@ export const HierarchicalTaskPicker: React.FC<HierarchicalTaskPickerProps> = ({
                     control: (base, state) => ({
                         ...base,
                         backgroundColor: C.paper,
+                        borderRadius: C.radius,
+                        minHeight: 40,
                         borderColor: state.isFocused ? C.accent : C.border,
                         boxShadow: state.isFocused ? `0 0 0 1px ${C.accent}` : base.boxShadow,
                         '&:hover': { borderColor: C.accent },
@@ -627,7 +639,12 @@ export const HierarchicalTaskPicker: React.FC<HierarchicalTaskPickerProps> = ({
                         ...base,
                         paddingTop: 6,
                         paddingBottom: 6,
-                        color: C.text,
+                        marginLeft: 4,
+                        marginRight: 4,
+                        width: 'auto',
+                        borderRadius: C.radius - 2,
+                        fontWeight: state.isSelected ? 600 : 400,
+                        color: state.isSelected ? C.optionSelectedText : C.text,
                         backgroundColor: state.isSelected
                             ? C.optionSelected
                             : state.isFocused ? C.optionHover : 'transparent',

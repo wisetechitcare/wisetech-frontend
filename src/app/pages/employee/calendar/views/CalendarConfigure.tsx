@@ -16,9 +16,15 @@ import {
   SHOW_SATURDAY_ON_CALENDAR,
   SHOW_SUNDAY_ON_CALENDAR,
   SHOW_MEETINGS_ON_CALENDAR,
-  SHOW_HOLIDAYS_ON_CALENDAR
+  SHOW_HOLIDAYS_ON_CALENDAR,
+  MEETING_HALF_FREE_COLOR,
+  MEETING_HALF_AM,
+  MEETING_HALF_PM
 } from '@constants/configurations-key'
-import { fetchConfiguration } from '@services/company'
+import { fetchConfiguration, createNewConfiguration, updateConfigurationById } from '@services/company'
+// The calendar's own tint helpers, not a second copy: a preview derived independently is a
+// preview that can disagree with the grid it is previewing.
+import { rowTone, readableOn } from '@app/modules/common/components/MeetingsList'
 import { safeJsonParse } from '@utils/safeJson'
 import Loader from '@app/modules/common/utils/Loader'
 import CalendarConfigForm, { CalendarConfigItem } from './CalendarConfigForm'
@@ -26,11 +32,14 @@ import { KTIcon } from '@metronic/helpers'
 import { ConfigPageLayout, C } from '@app/modules/configuration'
 import type { ConfigTab } from '@app/modules/configuration'
 import {
-  AutoGrid, GlassCard, SettingsSection, StatusBadge, TRIO, type Trio,
+  AutoGrid, GlassCard, SettingsSection, StatusBadge, TRIO, WtButton, type Trio,
 } from '@app/modules/common/components/ui'
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon'
+import { errorConfirmation, successConfirmation } from '@utils/modal'
 
 const TABS: ConfigTab[] = [
   { id: 'display', label: 'Event Display', icon: 'bi-palette' },
+  { id: 'meetings', label: 'Meetings', icon: 'bi-camera-video' },
   { id: 'holidays', label: 'Public Holidays', icon: 'bi-calendar-heart' },
   { id: 'weekends', label: 'Weekends & Working Days', icon: 'bi-calendar-week' },
 ]
@@ -51,10 +60,27 @@ interface EventItem {
   defaultColor: string
   /** Public holidays always showed historically, so they start on. */
   defaultEnabled?: boolean
+  /**
+   * Half-day settings preview as the PILL they paint plus a meeting row beneath it, because
+   * that is the pair the calendar draws and the pair the choice affects — the pill takes the
+   * colour as picked, the row a light mix of it.
+   *
+   * `free` has no editable name (an empty half still wears its half's name), so a name field
+   * appears only for `am` and `pm`.
+   */
+  half?: 'free' | 'am' | 'pm'
+  /** The pill's text when nobody has renamed it. */
+  defaultLabel?: string
 }
 
 interface EventSection {
   id: string
+  /**
+   * "N of 3 on calendar" answers a visibility question. A section of COLOURS has no such
+   * question — all three steps are always painted, so the badge only ever read "3 of 3" and
+   * said nothing. Sections like that ask for the reset instead.
+   */
+  showCount?: boolean
   tone: Trio
   icon: string
   title: string
@@ -99,13 +125,6 @@ const SECTIONS: EventSection[] = [
     ],
   },
   {
-    id: 'meetings', tone: TRIO.blue, icon: 'people',
-    title: 'Meetings', desc: 'Whether scheduled meetings show as calendar events.',
-    items: [
-      { key: SHOW_MEETINGS_ON_CALENDAR, label: 'Team meetings', desc: 'Meetings you organise or are invited to.', sample: '[Meeting title]', defaultColor: '#2196F3' },
-    ],
-  },
-  {
     id: 'holidays', tone: TRIO.green, icon: 'flag',
     title: 'Public Holidays', desc: 'How public holidays appear on the workspace calendar.',
     items: [
@@ -114,11 +133,41 @@ const SECTIONS: EventSection[] = [
   },
 ]
 
-const ALL_ITEMS = SECTIONS.flatMap((s) => s.items)
+/**
+ * The Meetings tab — every meeting setting in one place, instead of one card stranded among
+ * the birthdays.
+ *
+ * The second section is the AVAILABILITY SCALE the meetings calendar paints its half-days
+ * with. It reads as a scale, so it is configured as one: three steps in the order they
+ * appear, each using the same colour editor as every other calendar setting. `enabled` means
+ * "use my colour" here — switching a step off falls back to the built-in default, which is
+ * the honest way to undo a colour choice without inventing a reset button for it.
+ */
+const MEETING_SECTIONS: EventSection[] = [
+  {
+    id: 'meetings', tone: TRIO.blue, icon: 'people',
+    title: 'Meetings on the calendar', desc: 'Whether scheduled meetings show as calendar events.',
+    items: [
+      { key: SHOW_MEETINGS_ON_CALENDAR, label: 'Team meetings', desc: 'Meetings you organise or are invited to.', sample: '[Meeting title]', defaultColor: '#2196F3' },
+    ],
+  },
+  {
+    id: 'availability', tone: TRIO.purple, icon: 'time', showCount: false,
+    title: 'Half-day colours',
+    desc: 'What each half of a day is called, and how it is coloured on the meetings calendar.',
+    items: [
+      { key: MEETING_HALF_FREE_COLOR, half: 'free', label: 'Nothing booked', desc: 'A half of the day with no meetings in it.', sample: 'No meetings', defaultColor: '#F8FAFC', defaultEnabled: true },
+      { key: MEETING_HALF_AM, half: 'am', defaultLabel: 'AM', label: 'First half', desc: 'Meetings that start before noon.', sample: '10:00 AM Design review', defaultColor: '#1E3A8A', defaultEnabled: true },
+      { key: MEETING_HALF_PM, half: 'pm', defaultLabel: 'PM', label: 'Second half', desc: 'Meetings that start from noon onwards.', sample: '4:30 PM Client call', defaultColor: '#B45309', defaultEnabled: true },
+    ],
+  },
+]
+
+const ALL_ITEMS = [...SECTIONS, ...MEETING_SECTIONS].flatMap((s) => s.items)
 
 const defaultSettings = (): Record<string, CalendarConfigItem> =>
   Object.fromEntries(ALL_ITEMS.map((i) => [i.key, {
-    id: null, enabled: i.defaultEnabled ?? false, color: i.defaultColor, icon: '',
+    id: null, enabled: i.defaultEnabled ?? false, color: i.defaultColor, icon: '', label: '',
   }]))
 
 /** Modal + toast title, e.g. "Birthdays — Former employees". */
@@ -148,6 +197,46 @@ function EventGlyph({ icon, color }: { icon?: string; color: string }) {
  * as a 20px swatch in a corner they were the least visible thing on the card —
  * here they ARE the card, rendered as the event chip they produce.
  */
+/**
+ * A half-day setting, previewed as the two things it actually paints.
+ *
+ * Colour alone in a swatch says nothing about whether the result is readable; the pill and the
+ * row shown together do, and they are lifted from the calendar's own helpers rather than
+ * re-derived here, so what is approved on this card is what appears on the grid.
+ */
+function HalfPreview({ setting, item }: { setting: CalendarConfigItem; item: EventItem }) {
+  const color = setting.enabled ? setting.color : item.defaultColor
+  const free = item.half === 'free'
+  const tone = rowTone(color)
+  // A free half is an outline, exactly as on the calendar — it is the one state that recedes.
+  const pillInk = free ? '#94A3B8' : readableOn(color)
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, minWidth: 0 }}>
+      <Box sx={{
+        alignSelf: 'flex-start', px: 1.25, py: 0.25, borderRadius: '6px',
+        bgcolor: color, color: pillInk,
+        border: free ? '1px dashed #CBD5E1' : `1px solid ${color}`,
+        fontSize: 10, fontWeight: 800, letterSpacing: 0.4,
+      }}>
+        {(setting.label || item.defaultLabel || 'AM')}{free ? '' : ' 2'}
+      </Box>
+      <Box sx={{
+        display: 'flex', alignItems: 'center', gap: 0.875, px: 1, py: 0.625, minWidth: 0,
+        borderRadius: '6px',
+        bgcolor: free ? 'transparent' : tone.bg,
+        color: free ? 'text.disabled' : tone.fg,
+        border: free ? '1px dashed' : '1px solid transparent',
+        borderColor: free ? 'divider' : 'transparent',
+        borderLeft: free ? undefined : `3px solid ${color}`,
+      }}>
+        <Typography component="span" noWrap sx={{ fontSize: 11.5, fontWeight: 600, color: 'inherit' }}>
+          {item.sample}
+        </Typography>
+      </Box>
+    </Box>
+  )
+}
+
 function EventPreview({ setting, sample }: { setting: CalendarConfigItem; sample: string }) {
   const dark = useTheme().palette.mode === 'dark'
   const base = {
@@ -206,7 +295,9 @@ function EventSettingCard({ item, setting, tone, onOpen }: {
         </Typography>
       </Box>
 
-      <EventPreview setting={setting} sample={item.sample} />
+      {item.half
+        ? <HalfPreview setting={setting} item={item} />
+        : <EventPreview setting={setting} sample={item.sample} />}
 
       {/* mt:auto pins the affordance so cards in a row end level regardless of copy length. */}
       <Box className="cfg-go" sx={{
@@ -263,10 +354,15 @@ function CalendarConfigure() {
     loadConfigs();
   }, []);
 
+  const [editingTextLabel, setEditingTextLabel] = useState<{ caption: string; fallback: string } | undefined>();
+
   const openEditModal = (section: EventSection, item: EventItem) => {
     setEditingModuleKey(item.key);
     setModalTitle(settingTitle(section, item));
     setEditingSetting(settings[item.key]);
+    setEditingTextLabel(item.defaultLabel
+      ? { caption: 'What this half is called', fallback: item.defaultLabel }
+      : undefined);
     setShowModal(true);
   };
 
@@ -274,6 +370,87 @@ function CalendarConfigure() {
     setSettings((prev) => ({ ...prev, [editingModuleKey]: updatedSetting }));
     setShowModal(false);
   };
+
+  const [resetting, setResetting] = useState<string | null>(null);
+
+  /**
+   * Put a section's colours back to the ones the calendar shipped with.
+   *
+   * Writes the defaults rather than deleting the saved rows: a colour picker with no way back
+   * is a one-way door, and "delete your configuration" is a scarier thing to offer than "put
+   * it back how it was". Disabled while already at defaults, so the button states the fact.
+   */
+  const resetSection = async (section: EventSection) => {
+    setResetting(section.id);
+    try {
+      const restored = await Promise.all(section.items.map(async (item) => {
+        const current = settings[item.key];
+        // The name goes back with the colour. "Back to default" that restored the palette
+        // and left a rename in place would be a half-reset, and the pill would still be
+        // wearing somebody's word for it.
+        const configuration = { enabled: true, color: item.defaultColor, icon: '', label: '' };
+        const id = current?.id
+          ? (await updateConfigurationById(current.id, { module: item.key, configuration }), current.id)
+          : (await createNewConfiguration({ module: item.key, configuration }))?.data?.configuration?.id || null;
+        return [item.key, { id, ...configuration }] as const;
+      }));
+      setSettings((prev) => ({ ...prev, ...Object.fromEntries(restored) }));
+      successConfirmation(`${section.title} restored to defaults`);
+    } catch (error) {
+      console.error('Error restoring defaults:', error);
+      errorConfirmation('Could not restore the defaults. Please try again.');
+    } finally {
+      setResetting(null);
+    }
+  };
+
+  /** One tab's worth of setting cards. Two tabs render the same shape, so they share it. */
+  const renderSections = (key: string, list: EventSection[]) => (
+    <Box key={key} className="cfg-fade-in" sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+      {list.map((section) => {
+                const shown = section.items.filter((i) => settings[i.key]?.enabled).length;
+                // The count is the section's own state, so it is worth the header slot:
+                // "1 of 3 on calendar" answers the question the cards below are there to answer.
+                const summary = section.items.length === 1
+                  ? (shown ? 'On calendar' : 'Hidden')
+                  : `${shown} of ${section.items.length} on calendar`;
+                const atDefaults = section.items.every((i) => settings[i.key]?.color === i.defaultColor);
+                return (
+                  <SettingsSection
+                    key={section.id}
+                    tone={section.tone}
+                    icon={section.icon}
+                    title={section.title}
+                    description={section.desc}
+                    action={section.showCount === false
+                      ? (
+                        <WtButton
+                          ghost
+                          disabled={atDefaults || resetting === section.id}
+                          onClick={() => resetSection(section)}
+                          startIcon={<AppIcon name="bi-arrow-counterclockwise" />}
+                        >
+                          {resetting === section.id ? 'restoring…' : atDefaults ? 'at defaults' : 'reset to defaults'}
+                        </WtButton>
+                      )
+                      : <StatusBadge trio={shown ? TRIO.green : TRIO.slate} label={summary} />}
+                  >
+                    <AutoGrid min={264} gap={12}>
+                      {section.items.map((item) => (
+                        <EventSettingCard
+                          key={item.key}
+                          item={item}
+                          tone={section.tone}
+                          setting={settings[item.key]}
+                          onOpen={() => openEditModal(section, item)}
+                        />
+                      ))}
+                    </AutoGrid>
+                  </SettingsSection>
+                );
+      })}
+    </Box>
+  );
 
   if (isLoading) {
     return <Loader />;
@@ -293,40 +470,12 @@ function CalendarConfigure() {
           {/* ══════════════════════════════════════════════════════ */}
           {/* TAB: Event Display */}
           {/* ══════════════════════════════════════════════════════ */}
-          {activeTab === 'display' && (
-            <Box key="display" className="cfg-fade-in" sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              {SECTIONS.map((section) => {
-                const shown = section.items.filter((i) => settings[i.key]?.enabled).length;
-                // The count is the section's own state, so it is worth the header slot:
-                // "1 of 3 on calendar" answers the question the cards below are there to answer.
-                const summary = section.items.length === 1
-                  ? (shown ? 'On calendar' : 'Hidden')
-                  : `${shown} of ${section.items.length} on calendar`;
-                return (
-                  <SettingsSection
-                    key={section.id}
-                    tone={section.tone}
-                    icon={section.icon}
-                    title={section.title}
-                    description={section.desc}
-                    action={<StatusBadge trio={shown ? TRIO.green : TRIO.slate} label={summary} />}
-                  >
-                    <AutoGrid min={264} gap={12}>
-                      {section.items.map((item) => (
-                        <EventSettingCard
-                          key={item.key}
-                          item={item}
-                          tone={section.tone}
-                          setting={settings[item.key]}
-                          onOpen={() => openEditModal(section, item)}
-                        />
-                      ))}
-                    </AutoGrid>
-                  </SettingsSection>
-                );
-              })}
-            </Box>
-          )}
+          {activeTab === 'display' && renderSections('display', SECTIONS)}
+
+          {/* ══════════════════════════════════════════════════════ */}
+          {/* TAB: Meetings */}
+          {/* ══════════════════════════════════════════════════════ */}
+          {activeTab === 'meetings' && renderSections('meetings', MEETING_SECTIONS)}
 
           {/* ══════════════════════════════════════════════════════ */}
           {/* TAB: Public Holidays */}
@@ -359,6 +508,7 @@ function CalendarConfigure() {
         initialData={editingSetting}
         moduleKey={editingModuleKey}
         title={modalTitle}
+        textLabel={editingTextLabel}
         onSuccess={handleSaveSuccess}
       />
     </>

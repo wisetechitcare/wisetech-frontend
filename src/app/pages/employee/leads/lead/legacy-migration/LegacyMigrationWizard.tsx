@@ -7,24 +7,27 @@ import {
   WtButton,
   WtStepper,
 } from '@app/modules/common/components/ui';
-import { toast } from '@app/modules/common/components/ui/feedback';
+import { confirmDialog, toast } from '@app/modules/common/components/ui/feedback';
 import {
   useAnalyzeLegacyCsv,
   useBulkDecision,
+  useDeleteSavedRun,
   useExecuteMigration,
   useLegacyColumns,
   useMigrationRecords,
   useMigrationRun,
   useSaveDecision,
+  useSavedRuns,
 } from '@hooks/useLegacyMigration';
 import CsvUploadStep from '../CsvUploadStep';
+import SavedRunsPanel from './SavedRunsPanel';
 import AnalysisSummary from './AnalysisSummary';
 import MatchReviewTable, { filterLabel } from './MatchReviewTable';
 import ReconciliationPanel from './ReconciliationPanel';
 import BulkDecisionBar from './BulkDecisionBar';
 import MigrationSummaryStep from './MigrationSummary';
 import MigrationResult from './MigrationResult';
-import type { MigrationRecord, RecordDecision } from '@/types/legacyMigration';
+import type { MigrationRecord, RecordDecision, SavedMigrationRun } from '@/types/legacyMigration';
 
 /**
  * Legacy Data Migration wizard.
@@ -75,6 +78,8 @@ export function LegacyMigrationWizard({
 
   const { data: columns = [] } = useLegacyColumns();
   const analyze = useAnalyzeLegacyCsv();
+  const { data: savedRuns = [], isLoading: savedRunsLoading } = useSavedRuns(organizationId);
+  const deleteRun = useDeleteSavedRun(organizationId);
   const { data: runData, isLoading: runLoading } = useMigrationRun(runId, organizationId);
   const recordsQuery = useMigrationRecords(runId, organizationId, { filter, search, page, pageSize: 25 });
   const saveDecision = useSaveDecision(runId, organizationId);
@@ -104,7 +109,41 @@ export function LegacyMigrationWizard({
     onHide();
   };
 
+  /**
+   * Reopens a saved run. Lands on the review list rather than the summary: the
+   * admin came back to keep deciding rows, and every decision already made is
+   * still on the record, so there is nothing to re-read first.
+   */
+  const handleResume = (run: SavedMigrationRun) => {
+    setRunId(run.id);
+    setMigrationCode(run.migrationCode);
+    setReviewing(null);
+    setFilter('needs_review');
+    setSearch('');
+    setPage(1);
+    setStep('review');
+  };
+
   const handleAnalyze = async (file: File) => {
+    // Uploading a file that already has an open run is almost always "let me get
+    // back into that", not "compare this again from scratch" — and analyzing
+    // afresh stages every row PENDING, losing the skips and approvals already
+    // saved. Ask rather than silently making a second run for the same file.
+    const open = savedRuns.find((run) => run.resumable && run.fileName === file.name);
+    if (open) {
+      const resume = await confirmDialog({
+        icon: 'question',
+        title: `${open.migrationCode} is still open`,
+        text: `You already have an upload of "${open.fileName}" in review — ${open.decidedRows} of ${open.totalRows} rows decided. Resume it, or start a fresh comparison? Starting fresh leaves those decisions behind.`,
+        confirmText: 'Resume',
+        cancelText: 'Start fresh',
+      });
+      if (resume) {
+        handleResume(open);
+        return;
+      }
+    }
+
     setStep('analyzing');
     try {
       const result = await analyze.mutateAsync({ file, organizationId });
@@ -197,6 +236,16 @@ export function LegacyMigrationWizard({
           />
         ) : (
           <>
+            {step === 'upload' && (
+              <SavedRunsPanel
+                runs={savedRuns}
+                loading={savedRunsLoading}
+                deletingId={deleteRun.isPending ? deleteRun.variables ?? null : null}
+                onResume={handleResume}
+                onDelete={(run) => deleteRun.mutateAsync(run.id).then(() => undefined)}
+              />
+            )}
+
             {step === 'upload' && (
               <CsvUploadStep
                 columns={columns}

@@ -88,5 +88,12 @@ jobs:
       # Mirrors the backend gate. Blocks on high/critical only; moderate and low are
       # reported without blocking a merge. When a fix isn't published yet, pin the floor
       # in pnpm-workspace.yaml `overrides` rather than deleting this step.
+      # A registry we can't reach is not a vulnerability — only an actual advisory
+      # fails this step. Mirrors the backend gate.
       - name: 🛡️ Audit dependencies
-        run: pnpm audit --audit-level high
+        run: |
+          if out=$(pnpm audit --audit-level high 2>&1); then echo "$out"; exit 0; fi
+          echo "$out"
+          grep -qE 'TimeoutError|aborted due to timeout|ERR_PNPM_(AUDIT|FETCH)|ENOTFOUND|ECONNRESET|socket hang up' <<<"$out" \
+            || exit 1
+          echo "::warning::Advisory registry unreachable — dependency audit skipped."

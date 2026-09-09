@@ -1,48 +1,65 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { useTimeFormat } from '@hooks/useTimeFormat';
+import { writeTimeFormatPreference } from '@utils/timeFormat';
 import { KTIcon } from '@metronic/helpers';
 import { Box, ButtonBase, Popover, Typography, useTheme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { TRIO, type Trio } from '@app/modules/common/components/ui/tw';
-import { useTimeFormat } from '@hooks/useTimeFormat';
-import { formatTimeString } from '@utils/date';
-import { to12, to24 } from '@utils/timeFormat';
 
 /**
  * TimeWheelField — the app's canonical time picker.
  *
- * Snap-scrolling columns in a popover: big touch targets, no clock-face fiddling,
- * identical on phone and desktop. Reuse this everywhere a time is picked instead of a
- * native `<input type="time">` or a bespoke picker. (Originally lived inside
- * LeavePolicyModal.)
- *
- * ── 12h / 24h ─────────────────────────────────────────────────────────────
- *
- * The WHEELS follow the viewer's app-wide time format: 24-hour shows one 00–23
- * column, 12-hour shows 12/01–11 plus an AM·PM column. Reading `8:00 AM` in a
- * table and then being asked to pick `20:00` is the mismatch this removes.
- *
- * `value` and `onChange` are UNCHANGED and always speak 24h "HH:MM". This is a
- * display/interaction concern only — every caller, form value and payload keeps
- * the one shape it already had, and nothing downstream has to know which wheels
- * the user saw. See utils/timeFormat.ts.
+ * Two snap-scrolling columns (hours / minutes) in a popover: big touch targets, no
+ * clock-face fiddling, identical on phone and desktop. Controlled — `value` is always a
+ * 24h "HH:MM" string on the wire, whichever way it is displayed. Reuse this everywhere a
+ * time is picked instead of a native `<input type="time">` or a bespoke picker.
+ * (Originally lived inside LeavePolicyModal.)
  */
 
-const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-/** 12-hour clock order — 12 leads, as it does on a clock face. */
-const HOURS_12 = ['12', ...Array.from({ length: 11 }, (_, i) => String(i + 1).padStart(2, '0'))];
+const HOURS_24 = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+const HOURS_12 = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
-const MERIDIEM = ['AM', 'PM'];
-const ITEM_H = 40;
+const to12 = (h: number) => String(h % 12 || 12).padStart(2, '0');
+
+
+/**
+ * 12h/24h is a reader's preference, not a property of any one field: somebody who thinks in
+ * "5:30 PM" thinks that way in every form. It is therefore the APP-WIDE preference — the same
+ * one the tables and `getTimeTokens` read — not a setting private to this picker. Two stores
+ * would mean a table showing "8:00 AM" beside a wheel offering 20:00.
+ *
+ * The toggle in the popover writes through to it, so flipping the format here changes it
+ * everywhere, and the settings screen and this control can never disagree.
+ */
+// 32, not 40. Five rows plus two rows of padding meant the popover stood 360px tall before
+// its header and button — taller than most of the dialogs it opens inside. The touch target is
+// still 32px high and full column width, which clears the 24px minimum comfortably.
+const ITEM_H = 32;
 
 function WheelColumn({ items, selected, onSelect, tone }: {
     items: string[]; selected: string; onSelect: (v: string) => void; tone: Trio;
 }) {
     const boxRef = useRef<HTMLDivElement>(null);
-    // Center the selected value once, when the popover mounts.
-    useEffect(() => {
-        const idx = items.indexOf(selected);
+    /**
+     * Centre the selected value, once, when the popover mounts.
+     *
+     * MEASURED, not computed. It used to be `idx * ITEM_H - (clientHeight/2 - ITEM_H/2)`, which
+     * is wrong twice: rows are not `ITEM_H` apart (each carries a 1px margin top and bottom, so
+     * the pitch is ITEM_H + 2), and the column's own `ITEM_H * 2` top padding was never added.
+     * The two errors compound down the list — by 12:00 the selected row sat most of a row below
+     * the centre line, which is exactly where a wheel must not put it.
+     *
+     * Reading the row's real `offsetTop` cannot drift, and it keeps working if the padding, the
+     * margin or the row height is ever tuned again.
+     *
+     * `useLayoutEffect`, so the scroll is set before the browser paints — computing it after
+     * paint shows one frame scrolled to the top and then jumps.
+     */
+    useLayoutEffect(() => {
         const el = boxRef.current;
-        if (el && idx >= 0) el.scrollTop = idx * ITEM_H - (el.clientHeight / 2 - ITEM_H / 2);
+        const row = el?.querySelector<HTMLElement>(`[data-wheel-value="${selected}"]`);
+        if (!el || !row) return;
+        el.scrollTop = row.offsetTop - (el.clientHeight - row.offsetHeight) / 2;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     return (
@@ -64,13 +81,14 @@ function WheelColumn({ items, selected, onSelect, tone }: {
                 return (
                     <ButtonBase
                         key={it}
+                        data-wheel-value={it}
                         onClick={() => onSelect(it)}
                         sx={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            width: '100%', height: ITEM_H, my: 0.25, borderRadius: 2,
+                            width: '100%', height: ITEM_H, my: 0.125, borderRadius: 1.5,
                             scrollSnapAlign: 'center',
                             fontWeight: on ? 800 : 600,
-                            fontSize: on ? 21 : 16.5,
+                            fontSize: on ? 16 : 14,
                             letterSpacing: 0.5,
                             color: on ? '#fff' : 'text.secondary',
                             bgcolor: on ? tone.c : 'transparent',
@@ -104,16 +122,18 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
     const [anchor, setAnchor] = useState<HTMLElement | null>(null);
     const open = Boolean(anchor);
     const theme = useTheme();
+    const hour12 = useTimeFormat() === '12h';
     const m = /^(\d{2}):(\d{2})$/.exec(value || '');
-    const hh = m ? m[1] : '12';
+    const h24 = m ? Number(m[1]) : 12;
     const mm = m ? m[2] : '00';
+    const meridiem = h24 >= 12 ? 'PM' : 'AM';
+    const hh = hour12 ? to12(h24) : String(h24).padStart(2, '0');
+    // Every write goes back out as 24h "HH:MM" — the display format is a view over the value,
+    // never part of it, so no caller has to know which way the picker happens to be showing.
+    const emit = (h: number) => onChange(`${String(h).padStart(2, '0')}:${mm}`);
+    const pickHour = (label: string) =>
+        emit(hour12 ? (Number(label) % 12) + (meridiem === 'PM' ? 12 : 0) : Number(label));
     const borderColor = invalid ? '#e11d48' : open ? tone.c : theme.palette.divider;
-
-    const is12h = useTimeFormat() === '12h';
-    const { h12, meridiem } = to12(hh);
-    // Rendered from the same helper the rest of the app uses, so the field reads
-    // exactly like the value it will sit beside in a table.
-    const display = formatTimeString(`${hh}:${mm}`, `${hh}:${mm}`);
 
     return (
         <>
@@ -121,7 +141,12 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
                 disabled={disabled}
                 onClick={(e) => setAnchor(e.currentTarget)}
                 sx={{
-                    width: fullWidth ? '100%' : 132, height: 40, px: 1.5, borderRadius: '8px',
+                    // 40px, pinned: this sits in a row beside MUI `size="small"` fields, and a
+                    // control that is two pixels taller than its neighbours reads as misaligned
+                    // even when nobody can say why. `boxSizing` so the border is inside the 40.
+                    width: fullWidth ? '100%' : 132,
+                    height: 40, minHeight: 40, maxHeight: 40, boxSizing: 'border-box',
+                    px: 1.5, borderRadius: '8px',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     border: `1px solid ${borderColor}`,
                     bgcolor: disabled ? theme.palette.action.disabledBackground : theme.palette.background.paper,
@@ -130,10 +155,16 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
                     '&:hover': { borderColor: disabled ? theme.palette.divider : tone.c },
                 }}
             >
-                <Typography component="span" sx={{ fontSize: 16.5, fontWeight: 700, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
-                    {display}
+                <Typography component="span" sx={{ fontSize: 14, fontWeight: 600, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
+                    {hh}<Box component="span" sx={{ color: tone.c, mx: 0.5 }}>:</Box>{mm}
+                    {hour12 && <Box component="span" sx={{ ml: 0.75, fontSize: 11, fontWeight: 700, color: 'text.secondary' }}>{meridiem}</Box>}
                 </Typography>
-                <KTIcon iconName="time" className="fs-3" />
+                {/* Tinted to the field's own accent rather than left at body grey: it is the one
+                    mark that says "this opens a clock", and it should read as part of the control,
+                    matching the colon and the wheel's selected row. */}
+                <Box component="span" sx={{ display: 'flex', color: disabled ? 'text.disabled' : tone.c }}>
+                    <KTIcon iconName="time" className="fs-5" />
+                </Box>
             </ButtonBase>
 
             <Popover
@@ -144,36 +175,77 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
                 slotProps={{ paper: { sx: { mt: 1, borderRadius: 3, overflow: 'hidden', boxShadow: '0 24px 64px -12px rgba(0,0,0,0.35)', border: `1px solid ${theme.palette.divider}`, zIndex: 1500 } } }}
             >
-                {/* The 12h layout carries a third (AM/PM) column, so it needs the extra room. */}
-                <Box sx={{ width: is12h ? 268 : 220 }}>
-                    <Box sx={{ px: 2, py: 1.25, borderBottom: `1px solid ${theme.palette.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>
-                            Cutoff Time
+                <Box sx={{ width: hour12 ? 236 : 184 }}>
+                    {/* The header said "Cutoff Time" — the label of the ONE leave-policy field
+                        this picker was lifted out of. It is the app's time picker now, so it
+                        states the value it is editing and nothing about who is editing it. */}
+                    <Box sx={{ px: 1.25, py: 0.75, borderBottom: `1px solid ${theme.palette.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                        <Typography sx={{ fontSize: 15, fontWeight: 800, color: tone.c, fontVariantNumeric: 'tabular-nums' }}>
+                            {hh}:{mm}{hour12 ? ` ${meridiem}` : ''}
                         </Typography>
-                        <Typography sx={{ fontSize: 17, fontWeight: 800, color: tone.c, fontVariantNumeric: 'tabular-nums' }}>{display}</Typography>
+                        {/* Not the shared SegmentedControl: that one is hardwired to a light track
+                            and a navy label, which is a pale blob on this popover in dark mode and
+                            ignores the field's tone. Two pills, themed like the wheel itself. */}
+                        <Box sx={{ display: 'flex', gap: '2px', p: '2px', borderRadius: '6px', bgcolor: alpha(theme.palette.text.primary, 0.07) }}>
+                            {([['12h', true], ['24h', false]] as const).map(([label, is12]) => (
+                                <ButtonBase
+                                    key={label}
+                                    onClick={() => writeTimeFormatPreference(is12 ? '12h' : '24h')}
+                                    aria-pressed={hour12 === is12}
+                                    sx={{
+                                        px: 0.75, height: 20, borderRadius: '4px', fontSize: 10.5, fontWeight: 700,
+                                        color: hour12 === is12 ? '#fff' : 'text.secondary',
+                                        bgcolor: hour12 === is12 ? tone.c : 'transparent',
+                                        transition: 'background-color .14s, color .14s',
+                                        '&:hover': { bgcolor: hour12 === is12 ? tone.c : alpha(tone.c, 0.15) },
+                                    }}
+                                >
+                                    {label}
+                                </ButtonBase>
+                            ))}
+                        </Box>
                     </Box>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: is12h ? '1fr auto 1fr 1fr' : '1fr auto 1fr', alignItems: 'stretch' }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: hour12 ? '1fr auto 1fr auto' : '1fr auto 1fr', alignItems: 'stretch' }}>
+                        {/* Keyed on the format: a column centres its selection on mount only, so
+                            flipping 24h→12h under it would leave 17 scrolled to where 05 now is. */}
                         <WheelColumn
-                            items={is12h ? HOURS_12 : HOURS}
-                            selected={is12h ? h12 : hh}
-                            tone={tone}
-                            onSelect={(h) => onChange(`${is12h ? to24(h, meridiem) : h}:${mm}`)}
+                            key={hour12 ? 'h12' : 'h24'}
+                            items={hour12 ? HOURS_12 : HOURS_24}
+                            selected={hh} tone={tone} onSelect={pickHour}
                         />
-                        <Box sx={{ display: 'grid', placeItems: 'center', fontSize: 20, fontWeight: 800, color: 'text.disabled' }}>:</Box>
-                        <WheelColumn items={MINUTES} selected={mm} tone={tone} onSelect={(mi) => onChange(`${hh}:${mi}`)} />
-                        {is12h && (
-                            <WheelColumn
-                                items={MERIDIEM}
-                                selected={meridiem}
-                                tone={tone}
-                                onSelect={(md) => onChange(`${to24(h12, md)}:${mm}`)}
-                            />
+                        <Box sx={{ display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 800, color: 'text.disabled' }}>:</Box>
+                        <WheelColumn items={MINUTES} selected={mm} tone={tone} onSelect={(mi) => onChange(`${String(h24).padStart(2, '0')}:${mi}`)} />
+                        {/* Two choices, so buttons — a scroll wheel of two rows is a wheel that
+                            cannot centre and has to be dragged before it can be read. */}
+                        {hour12 && (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 0.5, pl: 0.5, pr: 1 }}>
+                                {(['AM', 'PM'] as const).map((ap) => {
+                                    const on = meridiem === ap;
+                                    return (
+                                        <ButtonBase
+                                            key={ap}
+                                            onClick={() => emit((h24 % 12) + (ap === 'PM' ? 12 : 0))}
+                                            sx={{
+                                                width: 42, height: ITEM_H, borderRadius: 1.5,
+                                                fontSize: 13, fontWeight: on ? 800 : 600, letterSpacing: 0.5,
+                                                color: on ? '#fff' : 'text.secondary',
+                                                bgcolor: on ? tone.c : 'transparent',
+                                                boxShadow: on ? `0 6px 14px -4px ${tone.c}66` : 'none',
+                                                transition: 'background-color .14s, color .14s',
+                                                '&:hover': { bgcolor: on ? tone.c : alpha(tone.c, 0.15) },
+                                            }}
+                                        >
+                                            {ap}
+                                        </ButtonBase>
+                                    );
+                                })}
+                            </Box>
                         )}
                     </Box>
-                    <Box sx={{ px: 1.25, pb: 1.25, pt: 0.5 }}>
+                    <Box sx={{ px: 1, pb: 1, pt: 0.25 }}>
                         <ButtonBase
                             onClick={() => setAnchor(null)}
-                            sx={{ width: '100%', height: 38, borderRadius: 2, fontSize: 14.5, fontWeight: 700, color: '#fff', bgcolor: tone.c,
+                            sx={{ width: '100%', height: 30, borderRadius: 1.5, fontSize: 13, fontWeight: 700, color: '#fff', bgcolor: tone.c,
                                 boxShadow: `0 8px 18px -6px ${tone.c}80`, transition: 'filter .15s', '&:hover': { filter: 'brightness(1.06)' } }}
                         >
                             Done

@@ -4,7 +4,12 @@ import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { Avatar, Box, Stack, Typography } from "@mui/material";
 import { RootState } from "@redux/store";
 import { fetchConfiguration } from "@services/company";
-import { calculateProjectTotalTime, formatStringINR } from "@utils/statistics";
+import { formatStringINR } from "@utils/statistics";
+// One rule for what an entry's duration is, mirroring the backend's. The four
+// hand-rolled copies this replaces all derived it from the clock while the money
+// followed the logged figure, so the table and the invoice disagreed.
+import { entryHours, entrySeconds, formatSpan, logSubject, totalSpan, describeSplit, billingMultiplierOf } from "../../timesheetDuration";
+import { SubjectCell, DurationCell } from "../../components/TimeLogCells";
 import dayjs, { Dayjs } from "dayjs";
 import { memo, useCallback, useEffect, useState, useMemo } from "react";
 import { useSelector } from "react-redux";
@@ -41,6 +46,8 @@ const MyEmployeesTimeSheetPorject = ({
   const [configuration, setConfiguration] = useState<any>([]);
   const [workingTime, setWorkingTime] = useState("");
   const [data, setData] = useState<any>({ timeSheets: [] });
+  /** The company-wide billing multiplier, for rows whose project has none of its own. */
+  const [defaultMultiplier, setDefaultMultiplier] = useState(1);
   const [hourlySalaryMap, setHourlySalaryMap] = useState<
     Record<string, number>
   >({});
@@ -66,16 +73,6 @@ const MyEmployeesTimeSheetPorject = ({
   // its own: it is a detail OF this list, and reading one used to mean leaving.
   const [openLogId, setOpenLogId] = useState<string | null>(null);
 
-  const formatDuration = useCallback((start: string, end: string) => {
-    if (!start || !end) return "-";
-    const diff = new Date(end).getTime() - new Date(start).getTime();
-    if (diff <= 0) return "-";
-    const hrs = Math.floor(diff / (1000 * 60 * 60));
-    const mins = Math.floor((diff / (1000 * 60)) % 60);
-    const secs = Math.floor((diff / 1000) % 60);
-    return `${hrs}h ${mins}m ${secs}s`;
-  }, []);
-
   const calculateCostOfTimesheet = useCallback(
     (timesheet: any) => {
       const employeeId = timesheet.employee?.id;
@@ -84,23 +81,26 @@ const MyEmployeesTimeSheetPorject = ({
       if (!employeeHourlySalary) {
         return "-NA-";
       }
-      const startTime = new Date(timesheet.startTime);
-      const endTime = new Date(timesheet.endTime);
       const isBillable = timesheet.billable;
-      const diffInHours =
-        (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-      const cost = diffInHours * employeeHourlySalary;
+      // The LOGGED hours, not the clock window. Billing the window charged for a slot rather
+      // than for the work in it — an hour-long meeting somebody left after twenty minutes
+      // cost the project three times what it should have.
+      // ...times what THIS project bills an hour at. The employee's salary is unchanged;
+      // this is the difference between what an hour costs and what it is charged at.
+      const cost = entryHours(timesheet)
+        * employeeHourlySalary
+        * billingMultiplierOf(timesheet, defaultMultiplier);
       return isBillable ? formatStringINR(cost) : "-";
     },
-    [hourlySalaryMap]
+    [hourlySalaryMap, defaultMultiplier]
   );
 
   const prepareTableData = useCallback(
     (timeSheets: any[]) => {
       return timeSheets.map((sheet) => ({
         id: sheet.id,
-        taskName: sheet.task?.taskName || "-",
-        totalLogTime: formatDuration(sheet.startTime, sheet.endTime),
+        subjectName: logSubject(sheet).name,
+        totalLogTime: formatSpan(entrySeconds(sheet)),
         startTime: sheet.startTime,
         endTime: sheet.endTime,
         billable: sheet.billable,
@@ -116,7 +116,7 @@ const MyEmployeesTimeSheetPorject = ({
         employeeAvatar: sheet.employee?.avatar || null,
       }));
     },
-    [formatDuration, calculateCostOfTimesheet]
+    [calculateCostOfTimesheet]
   );
 
   const fetchTimesheets = useCallback(
@@ -190,23 +190,17 @@ const MyEmployeesTimeSheetPorject = ({
         Cell: ({ row }: any) => row.index + 1,
       },
       {
-        header: "Task Name",
-        accessorKey: "taskName",
-        size: 200,
-        Cell: ({ row }: any) => {
-          const taskId = row.original;
-          return (
-            <div
-              style={{ cursor: "pointer" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpenLogId(taskId?.id ?? null);
-              }}
-            >
-              {taskId?.taskName}
-            </div>
-          );
-        },
+        // "Task Name" was the wrong question: a day is tasks AND meetings, and every meeting
+        // entry answered it with a blank.
+        header: "Logged against",
+        accessorKey: "subjectName",
+        size: 220,
+        Cell: ({ row }: any) => (
+          <SubjectCell
+            entry={row.original?.original}
+            onOpen={() => setOpenLogId(row.original?.id ?? null)}
+          />
+        ),
       },
       {
         header: "Employee",
@@ -227,14 +221,10 @@ const MyEmployeesTimeSheetPorject = ({
         ),
       },
       {
-        header: "Total Log Time",
+        header: "Time logged",
         accessorKey: "totalLogTime",
         size: 150,
-        Cell: ({ cell }: any) => (
-          <div style={{ color: "#1D5DE1" }}>
-            {cell.getValue() ? cell.getValue() : "-"}
-          </div>
-        ),
+        Cell: ({ row }: any) => <DurationCell entry={row.original?.original} />,
       },
       {
         header: "Start Time",
@@ -330,7 +320,7 @@ const MyEmployeesTimeSheetPorject = ({
    */
   const TimesheetCard = memo(({ timeSheets }: { timeSheets: any[] }) => {
     const totalTime = useMemo(
-      () => calculateProjectTotalTime(timeSheets),
+      () => totalSpan(timeSheets),
       [timeSheets]
     );
 
@@ -374,9 +364,17 @@ const MyEmployeesTimeSheetPorject = ({
               <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2, color: "text.primary" }}>
                 {totalTime}
               </Typography>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                 logged in this period
               </Typography>
+              {/* What the total is made of. "How much of this week went to meetings" is the
+                  question this page is opened with, and the single figure above could not
+                  answer it. */}
+              {describeSplit(timeSheets) && (
+                <Typography variant="caption" sx={{ color: "text.disabled", display: "block", fontSize: 11 }}>
+                  {describeSplit(timeSheets)}
+                </Typography>
+              )}
             </Box>
           </Stack>
             <MaterialTable
@@ -457,6 +455,7 @@ const MyEmployeesTimeSheetPorject = ({
           }
         });
         setHourlySalaryMap(salaryMap);
+        setDefaultMultiplier(Number(res?.defaultBillingMultiplier) || 1);
       })
       .catch((err) => {
         console.error("Error fetching employee salaries:", err);

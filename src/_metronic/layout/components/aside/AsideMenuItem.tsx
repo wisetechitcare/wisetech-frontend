@@ -5,6 +5,7 @@ import {checkIsActive, WithChildren} from '../../../helpers'
 import {useLayout} from '../../core'
 import {usePinnedMenu} from '../../core/PinnedMenuContext'
 import SVG from 'react-inlinesvg'
+import {navIcon} from '@components/navigation/NavContainers/navIcons'
 
 type Props = {
   to: string
@@ -16,6 +17,14 @@ type Props = {
   badgeCount?: number
   /** Hide the pin toggle (e.g. for links without a real route). Defaults to on. */
   pinnable?: boolean
+  /** `wt-sec-<accent>` — the section's accent, applied by AsideMenuMain. */
+  accentClass?: string
+}
+
+/** Bootstrap-icon name -> the shell's Material glyph, sized by the chip. */
+const renderFontIcon = (fontIcon: string) => {
+  const Icon = navIcon(fontIcon)
+  return <Icon fontSize='inherit' />
 }
 
 const AsideMenuItem: FC<Props & WithChildren> = ({
@@ -28,6 +37,7 @@ const AsideMenuItem: FC<Props & WithChildren> = ({
   hasBullet = false,
   badgeCount,
   pinnable = true,
+  accentClass,
 }) => {
   const {pathname} = useLocation()
   const isActive = checkIsActive(pathname, to)
@@ -38,7 +48,7 @@ const AsideMenuItem: FC<Props & WithChildren> = ({
   const pinned = isPinned(to)
 
   return (
-    <div className={clsx('menu-item', {'menu-item-pinnable': canPin})}>
+    <div className={clsx('menu-item', accentClass, {'menu-item-pinnable': canPin})}>
       <Link className={clsx('menu-link without-sub', {active: isActive})} to={to} title={title}>
         {hasBullet && (
           <span className='menu-bullet'>
@@ -57,7 +67,12 @@ const AsideMenuItem: FC<Props & WithChildren> = ({
           </span>
         )}
         {fontIcon && aside.menuIcon === 'font' && (
-          <i className={clsx('bi fs-5 menu-font-icon', fontIcon)}></i>
+          // The same Material glyph the workspace shell renders for this item
+          // (navIcon maps the nav tree's bi-* name), so a module looks identical
+          // in the rail and on its application's page. Wrapped rather than
+          // classed directly: `.menu-font-icon` is the 34px chip, the glyph
+          // inherits its 18px font-size and accent colour from it.
+          <span className='menu-font-icon'>{renderFontIcon(fontIcon)}</span>
         )}
         <span className='menu-title flex-grow-1 d-flex align-items-center justify-content-between' style={{ width: '100%' }}>
           <span className='fw-500'>{title}</span>

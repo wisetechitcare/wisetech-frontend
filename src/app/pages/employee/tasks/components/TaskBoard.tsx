@@ -29,7 +29,9 @@ import {
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { confirmDialog, toast } from '@app/modules/common/components/ui';
-import { TaskRow, TaskStatusRef, apiErrorMessage } from '../taskDomain';
+import {
+    TaskRow, TaskStatusRef, apiErrorMessage, orderCards, DEFAULT_CARD_ORDER, type CardOrder,
+} from '../taskDomain';
 import {
     SortableProvider, SortableContainer, SortableItem, type SortableDrop,
 } from '@components/dnd/SortableList';
@@ -46,7 +48,12 @@ export interface BoardColumn {
 export interface TaskBoardProps {
     columns: BoardColumn[];
     now: Date;
-    onOpenTask: (taskId: string) => void;
+    /** The row comes with the id: a meeting card opens somewhere else entirely. */
+    onOpenTask: (taskId: string, task: TaskRow) => void;
+    /** Log my time in a finished meeting, straight from its card in the Meeting lane. */
+    onLogMeetingTime?: (task: TaskRow) => void;
+    /** Open the attendee list for a meeting card. */
+    onOpenMeetingAttendees?: (task: TaskRow) => void;
     onMoveTask: (taskId: string, statusId: string) => Promise<unknown>;
     /** "+" on a column header — creates a task already in that stage. */
     onAddInStage?: (statusId: string) => void;
@@ -85,6 +92,8 @@ export interface TaskBoardProps {
      * rearrangement it cannot remember.
      */
     onReorderLanes?: (statusIds: string[]) => Promise<unknown>;
+    /** How cards read inside a lane. Defaults to earliest-first. */
+    cardOrder?: CardOrder;
     isLoading?: boolean;
     /**
      * How to draw the few marks that sit on the BACKDROP rather than on a card — currently the
@@ -118,6 +127,8 @@ const SCOPE_CHOICES = [
 
 /** Tasks with no stage live in a synthetic column the server emits; it cannot receive drops. */
 const UNASSIGNED = '__unassigned__';
+/** The server's synthetic meetings lane. A meeting has no stage, so it cannot be dragged. */
+const MEETINGS = '__meetings__';
 
 /** The single container the LANES live in — a board has one row of them. */
 const LANE_ROW = 'board-lane-row';
@@ -126,8 +137,8 @@ const CARD_SURFACE = 'board-cards';
 const LANE_SURFACE = 'board-lanes';
 
 export const TaskBoard = ({
-    columns, now, onOpenTask, onMoveTask, onAddInStage, onCreateList, onDeleteList, onReorder,
-    onReorderLanes, canCreateGlobalList = false, isLoading, ink = 'light',
+    columns, now, onOpenTask, onLogMeetingTime, onOpenMeetingAttendees, onMoveTask, onAddInStage, onCreateList, onDeleteList, onReorder,
+    onReorderLanes, cardOrder = DEFAULT_CARD_ORDER, canCreateGlobalList = false, isLoading, ink = 'light',
 }: TaskBoardProps) => {
     const theme = useTheme();
     /** Optimistic overrides: taskId → statusId. Cleared once the server answers. */
@@ -177,7 +188,13 @@ export const TaskBoard = ({
     const view = useMemo(() => {
         const hasMoves = Object.keys(pending).length > 0;
         const hasOrders = Object.keys(pendingOrder).length > 0;
-        if (!hasMoves && !hasOrders) return columns;
+        // Sorting happens LAST in this function, so it also applies on the quiet path where
+        // nothing is in flight — which is most of the time.
+        if (!hasMoves && !hasOrders) {
+            return cardOrder === 'manual'
+                ? columns
+                : columns.map((col) => ({ ...col, tasks: orderCards(col.tasks, cardOrder) }));
+        }
 
         const moved = new Map<string, TaskRow>();
         for (const col of columns) {
@@ -208,9 +225,13 @@ export const TaskBoard = ({
                     (a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
                 );
             }
-            return { ...col, tasks, total: Math.max(0, col.total + delta) };
+            // A drag the user JUST made outranks the sort until the refetch lands; after that
+            // the chosen order takes over again. Without this the card would snap back under
+            // the cursor, which reads as the drop having failed.
+            const ordered = order ? tasks : orderCards(tasks, cardOrder);
+            return { ...col, tasks: ordered, total: Math.max(0, col.total + delta) };
         });
-    }, [columns, pending, pendingOrder]);
+    }, [columns, pending, pendingOrder, cardOrder]);
 
     const move = useCallback(
         async (task: TaskRow, statusId: string) => {
@@ -354,6 +375,8 @@ export const TaskBoard = ({
     }, [orderedView]);
 
     const laneRow = useMemo(
+        // The Meeting lane IS in this row (only the catch-all Unassigned lane is not): it is
+        // draggable, and the workspace decides how to remember where it landed.
         () => ({ [LANE_ROW]: orderedView.map((c) => c.status.id).filter((id) => id !== UNASSIGNED) }),
         [orderedView],
     );
@@ -464,7 +487,11 @@ export const TaskBoard = ({
                 }}
             >
                 {orderedView.map((column) => {
-                    const droppable = column.status.id !== UNASSIGNED;
+                    // Two questions, and they used to share one answer. A meeting has no stage,
+                    // so no card may be dropped into its lane — but the LANE is a column like
+                    // any other and there is no reason it should be nailed to the left edge.
+                    const droppable = column.status.id !== UNASSIGNED && column.status.id !== MEETINGS;
+                    const laneMovable = column.status.id !== UNASSIGNED;
                     return (
                         // TWO roles on one lane: a sortable ITEM on the lane surface (so the
                         // whole column can be carried), and a sortable CONTAINER on the card
@@ -476,7 +503,7 @@ export const TaskBoard = ({
                             surface={LANE_SURFACE}
                             id={column.status.id}
                             containerId={LANE_ROW}
-                            disabled={!onReorderLanes || !droppable}
+                            disabled={!onReorderLanes || !laneMovable}
                             // The lane's SAFE AREA: only its header starts a lane drag. Without
                             // it, a press on a card bubbled up and moved the whole column — two
                             // gestures from one press. The cards below are their own draggables
@@ -511,7 +538,7 @@ export const TaskBoard = ({
                                 alignItems="center"
                                 spacing={1}
                                 className="shrink-0"
-                                {...(onReorderLanes && droppable ? { 'data-lane-handle': 'true' } : {})}
+                                {...(onReorderLanes && laneMovable ? { 'data-lane-handle': 'true' } : {})}
                                 sx={{
                                     px: 1.25, py: 1,
                                     borderBottom: '1px solid',
@@ -522,7 +549,7 @@ export const TaskBoard = ({
                                     '&:hover .lane-grip': { opacity: 1 },
                                 }}
                             >
-                                {!!onReorderLanes && droppable && (
+                                {!!onReorderLanes && laneMovable && (
                                     <Tooltip title="Drag to reorder this list">
                                         <Box
                                             className="lane-grip"
@@ -640,8 +667,14 @@ export const TaskBoard = ({
                                         <TaskCard
                                             task={task}
                                             now={now}
-                                            onOpen={onOpenTask}
-                                            onRequestMove={(t, anchor) => setMenu({ task: t, anchor })}
+                                            onOpen={(id) => onOpenTask(id, task)}
+                                            onLogTime={onLogMeetingTime}
+                                            onOpenAttendees={onOpenMeetingAttendees}
+                                            // No stage menu in a lane nothing can be moved out
+                                            // of — it offered a move the API has no row for.
+                                            onRequestMove={droppable
+                                                ? (t, anchor) => setMenu({ task: t, anchor })
+                                                : undefined}
                                         />
                                     </SortableItem>
                                 ))}

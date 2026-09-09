@@ -1,9 +1,10 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import HomeRounded from '@mui/icons-material/HomeRounded';
 import {
-  DOCK_DIVIDER, DOCK_HOME_GLYPH, DOCK_HOME_LABEL, DOCK_HOME_LINK, TILE_ICON_SIZE_DOCKED,
+  DOCK_DIVIDER, DOCK_HOME_GLYPH, DOCK_HOME_LABEL, DOCK_HOME_LINK, DOCK_HOME_ROW,
+  TILE_ICON_SIZE_DOCKED,
 } from '../shellTokens';
 import { contentRevealTransition, fadeAnimation } from '../motion';
 
@@ -25,22 +26,31 @@ const MotionLink = motion.create(Link);
  * attention during the one moment the tiles should own. Opacity only — it must not add a
  * layout animation inside a container that is already reflowing around it.
  */
-function DockHomeLinkBase({ to }: { to: string }) {
+function DockHomeLinkBase({ to, trailing }: { to: string; trailing?: ReactNode }) {
   return (
     <>
-      <MotionLink
-        to={to}
-        className={DOCK_HOME_LINK}
-        title="All applications"
-        initial={fadeAnimation.initial}
-        animate={fadeAnimation.animate}
-        transition={contentRevealTransition}
-      >
-        <span className={DOCK_HOME_GLYPH}>
-          <HomeRounded sx={{ fontSize: TILE_ICON_SIZE_DOCKED }} />
-        </span>
-        <span data-dock-text className={DOCK_HOME_LABEL}>Home</span>
-      </MotionLink>
+      {/* `trailing` is a SLOT, same arrangement as AppDock's `leading`: the row is the top
+          of the rail and the natural home for a rail-wide control, but this component does
+          not get to decide what that control is. It must sit BESIDE the link, never inside
+          it — an interactive element nested in an anchor is unreachable by keyboard.
+          `data-dock-text` so the collapsed rail drops it with the labels; there is no room
+          for a second glyph beside Home at 84px. */}
+      <div className={DOCK_HOME_ROW}>
+        <MotionLink
+          to={to}
+          className={DOCK_HOME_LINK}
+          title="All applications"
+          initial={fadeAnimation.initial}
+          animate={fadeAnimation.animate}
+          transition={contentRevealTransition}
+        >
+          <span className={DOCK_HOME_GLYPH}>
+            <HomeRounded sx={{ fontSize: TILE_ICON_SIZE_DOCKED }} />
+          </span>
+          <span data-dock-text className={DOCK_HOME_LABEL}>Home</span>
+        </MotionLink>
+        {trailing && <span data-dock-text className="shrink-0">{trailing}</span>}
+      </div>
       <span className={DOCK_DIVIDER} aria-hidden="true" />
     </>
   );

@@ -2,6 +2,7 @@
 // This barrel is the one import surface for the shared UI kit:
 //   - tokens: single source of truth for brand colors + glass tokens (also feeds the MUI theme)
 //   - buttons: WtButton / WtIconButton + sx helpers (calendar-derived CTA physics)
+//     plus WT_CONTROL_HEIGHT / controlHeightSx — the one height a control row shares
 //   - glass: reusable glassmorphism primitives (GlassSurface / GlassDialog / GlassHeader / GlassCard)
 //   - feedback: branded Swal helpers (toast / alertDialog / confirmDialog)
 export { T, tonePair, label, glassTokens } from './tokens';
@@ -20,14 +21,30 @@ export type { ActionIconButtonProps, ActionTone } from './ActionIconButton';
 export { WhatsAppIcon } from './brandIcons';
 // The one icon element: resolves legacy `bi-*` names to keenicons and renders KTIcon.
 export { AppIcon, type AppIconProps } from './AppIcon';
-// The one select ENGINE. Wrappers (DropdownInput / SelectInput / ToolbarFilterSelect)
-// delegate to this so menu behaviour and theming are defined once, not per screen.
+// THE labelled control. One frame — label, field, hint/error — for text, number,
+// textarea and select alike, in two placements: `above` for forms, `inline` for
+// toolbars. It deliberately does NOT use MUI's floating label: that pattern sizes
+// the gap in the border from the field's typography rather than the label's, so a
+// bold or uppercase label overflows its own notch and lands on the border line.
+// WtField cuts no gap, so that cannot happen at any size or weight.
+// Reach for this before building an InputLabel + control pairing by hand.
+export { WtField } from './WtField';
+export type { WtFieldProps, WtFieldOption, WtFieldSize } from './WtField';
+// The rich select: react-select underneath, so it is the one to reach for when a control
+// needs search, multi-select, creatable or async options. DropdownInput / SelectInput
+// delegate to it.
+//
+// ToolbarFilterSelect is a thin adapter over WtField (not over this) — a compact
+// labelled filter, where WtSelect is the engine for choosing from many. Two engines
+// on purpose, for two jobs. WtField's `searchable` prop renders THIS one inside the
+// standard frame, which is how a searchable field still gets the same label, hint and
+// error treatment as every other field on a form.
 export { WtSelect, type WtSelectProps, type WtSelectOption, type WtSelectGroup } from './WtSelect';
 export { BI_TO_KEENICON, keeniconFor } from './iconMap';
 export type { BrandIconProps } from './brandIcons';
 export type { ToneChipProps } from './chips';
 export {
-  glassSx, GlassSurface, GlassDialog, GlassHeader, GlassCard, GlassTransition,
+  glassSx, GlassSurface, GlassDialog, GlassHeader, PlainDialogHeader, GlassCard, GlassTransition,
 } from './glass';
 export type {
   GlassSurfaceProps, GlassDialogProps, GlassHeaderProps, GlassCardProps,
@@ -37,9 +54,9 @@ export type {
 // grid/toolbar breakpoints so every collection view fills wide screens and stacks cleanly on mobile.
 export {
   TRIO, EASE_200, SHADOW_REST, SHADOW_HOVER, IconBox, StatusBadge, StatTile, Eyebrow, SectionHead,
-  AutoGrid, ListHeader, ViewModeSwitch, StatusCyclePill,
+  AutoGrid, ListHeader, ViewModeSwitch, StatusCyclePill, UnderlineTabs,
 } from './patterns';
-export type { Trio, ViewModeOption, StatusCycleOption } from './patterns';
+export type { Trio, ViewModeOption, StatusCycleOption, UnderlineTabItem } from './patterns';
 // Choose-one-from-a-visual-set controls, for any feature that lets an admin
 // brand a record (section icon/colour, status colour, category icon).
 export { IconPicker, TONE_NAMES } from './SwatchPicker';

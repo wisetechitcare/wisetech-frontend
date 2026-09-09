@@ -51,6 +51,9 @@ interface CustomBarChartProps {
   onChartClick?: (selectedLabel: string) => void;
   // "budget" (default) sorts/labels by cost; "count" sorts by the bar value (e.g. # of contacts).
   sortMode?: "budget" | "count";
+  /** Rendered as a full-width strip under the title — stat tiles, a filter, whatever the
+   *  surface needs. Kept a slot so the shared chart stays ignorant of any one page. */
+  headerExtra?: React.ReactNode;
   // When false, hides the value label drawn above each bar (e.g. the ₹0 on count-only charts).
   showValueAnnotation?: boolean;
   // When set, the Sort By selection is remembered in localStorage under this key — it stays
@@ -82,6 +85,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
   isThisProjectToolTip = false,
   onChartClick = () => {},
   sortMode = "budget",
+  headerExtra,
   showValueAnnotation = true,
   persistKey,
 }) => {
@@ -657,6 +661,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
             </div>
           </div>
         )}
+        {headerExtra && <div className="px-5 mt-3 mb-2">{headerExtra}</div>}
         {
           !sortedData || sortedData.length === 0 || sortedData.every(item => {
             const value = item[dataKey] || item.value;

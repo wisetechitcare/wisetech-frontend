@@ -4115,30 +4115,6 @@ export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeeken
 }
 
 // Calculate total time for a project
-export const calculateProjectTotalTime = (timesheets: any = []) => {
-    // Ensure it's always an array
-    const normalizedTimesheets = Array.isArray(timesheets)
-        ? timesheets
-        : timesheets
-            ? [timesheets]
-            : [];
-
-    let totalMs = 0;
-    normalizedTimesheets.forEach((timesheet) => {
-        if (timesheet?.startTime && timesheet?.endTime) {
-            const diff =
-                new Date(timesheet.endTime).getTime() -
-                new Date(timesheet.startTime).getTime();
-            if (diff > 0) totalMs += diff;
-        }
-    });
-
-    const hrs = Math.floor(totalMs / (1000 * 60 * 60));
-    const mins = Math.floor((totalMs / (1000 * 60)) % 60);
-    const secs = Math.floor((totalMs / 1000) % 60);
-    return `${hrs}h ${mins}m ${secs}s`;
-};
-
 export const handleSendEmailForResetAttendanceRequestLimit = async (
     employeeId: string,
     setLoading: (v: boolean) => void,

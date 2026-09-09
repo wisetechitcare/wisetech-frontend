@@ -228,6 +228,23 @@ export const TaskFilterDrawer = ({
                         />
                     </Section>
 
+                    {/* Card order, not a filter — it narrows nothing, it decides what you read
+                        first. It lives here because this is the drawer people open when the board
+                        is not showing them what they want, and a second control elsewhere would
+                        be a second place to look. */}
+                    <Section title="Card order">
+                        <TextField
+                            select size="small" fullWidth sx={selectSx}
+                            value={filters.cardOrder ?? 'earliest'}
+                            onChange={(e) => set({ cardOrder: e.target.value as TaskFilterState['cardOrder'] })}
+                            helperText="Applies inside each column."
+                        >
+                            <MenuItem value="earliest">Earliest first</MenuItem>
+                            <MenuItem value="latest">Latest first</MenuItem>
+                            <MenuItem value="manual">As arranged</MenuItem>
+                        </TextField>
+                    </Section>
+
                     <Section title="Scope">
                         <TextField
                             select size="small" fullWidth sx={selectSx}

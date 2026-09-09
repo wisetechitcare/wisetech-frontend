@@ -47,7 +47,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
-import { formatCompactCurrency, getProjectPhase, isDelayedProject, PHASE_THEMES } from "../../entity/entityUtils";
+import { formatCompactCurrency, getProjectPhase, isDelayedProject, projectNumberOf, PHASE_THEMES } from "../../entity/entityUtils";
 import PeriodNavigationButtons from "@pages/employee/leads/table/PeriodNavigationButtons";
 import "./ProjectTablePage.css";
 
@@ -375,7 +375,7 @@ const ProjectTablePage = () => {
             // Project-specific fields — sourced from lead.execution (lead-as-master)
             // with lead scalars and the transitional lead.project as fallbacks.
             projectId: lead?.projectId || project?.id || "N/A",
-            projectPrefix: lead?.originalProjectPrefix || project?.prefix || "N/A",
+            projectPrefix: projectNumberOf(lead) || "N/A",
             projectStatus: exec?.projectStatus || project?.status || null,
             projectStartDate: startVal || "N/A",
             projectEndDate: endVal || "N/A",
@@ -1185,10 +1185,8 @@ const ProjectTablePage = () => {
                 },
               },
             },
-            onClick: () =>
-              navigate(`/leads/${row.original.id}`, {
-                state: { leadData: row.original.id, isProject: true },
-              }),
+            // The path carries the project context — see the /project/:id route.
+            onClick: () => navigate(`/project/${row.original.id}`),
           }),
         }}
       />

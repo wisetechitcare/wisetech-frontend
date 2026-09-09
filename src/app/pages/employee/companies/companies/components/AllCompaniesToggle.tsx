@@ -21,6 +21,7 @@ import Loader from "@app/modules/common/utils/Loader";
 import { getRatingByCompanyId } from "@services/projects";
 import SubCompanies from "./SubCompanies";
 import CompanyReferences from "./CompanyReferences";
+import { UnderlineTabs } from "@app/modules/common/components/ui";
 import LeadReferenceTab from "./LeadReferenceTab";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 
@@ -132,15 +133,28 @@ const CompanyDetails = () => {
     setShowNewLeadModal(false);
   };
 
-  const tabs = [
-    { key: "overview", label: "Overview" },
-    { key: "lead-reference", label: "Lead Reference" },
-    { key: "references", label: "Company References" },
-    { key: "projects", label: "Projects" },
-    { key: "contacts", label: "Contacts" },
-    { key: "subcompanies", label: "Subcompanies" },
-    { key: "branches", label: "Branches" },
-    { key: "rating", label: "Rating" },
+  /**
+   * Tabs whose content owns a "create" flow surface their button HERE, in the page's
+   * action row beside Add New — not floating over their own table, which left a stranded
+   * button and a band of empty space above the grid.
+   */
+  const TAB_ADD_LABEL: Partial<Record<TabType, string>> = {
+    subcompanies: "Add New Sub-Company",
+    branches: "Add New Branch",
+  };
+  // Raised by the button above, lowered by the tab once it has opened its form.
+  const [addRequested, setAddRequested] = useState(false);
+  const addLabel = TAB_ADD_LABEL[activeTab];
+
+  const tabs: Array<{ key: TabType; label: string; icon: string }> = [
+    { key: "overview", label: "Overview", icon: "bi bi-building" },
+    { key: "lead-reference", label: "Lead Reference", icon: "bi bi-signpost-split" },
+    { key: "references", label: "Company References", icon: "bi bi-buildings" },
+    { key: "projects", label: "Projects", icon: "bi bi-kanban" },
+    { key: "contacts", label: "Contacts", icon: "bi bi-person-lines-fill" },
+    { key: "subcompanies", label: "Subcompanies", icon: "bi bi-diagram-3" },
+    { key: "branches", label: "Branches", icon: "bi bi-geo-alt" },
+    { key: "rating", label: "Rating", icon: "bi bi-star" },
   ];
 
   const templateDataForLeads = [
@@ -169,9 +183,9 @@ const CompanyDetails = () => {
       case "contacts":
         return <ClientContacts companyId={company.id} />;
       case "branches":
-        return <CompaniesBranchForm companyId={company.id} />;
+        return <CompaniesBranchForm companyId={company.id} addRequested={addRequested} onAddHandled={() => setAddRequested(false)} />;
       case "subcompanies":
-        return <SubCompanies companyId={company.id} companyTypeId={company.companyTypeId} />;
+        return <SubCompanies companyId={company.id} companyTypeId={company.companyTypeId} addRequested={addRequested} onAddHandled={() => setAddRequested(false)} />;
       case "rating":
         return <CompaniesRating companyId={company.id} companyName={company.companyName} onRatingChange={setRating} toggleMounted={true} />
       case "references":
@@ -185,9 +199,6 @@ const CompanyDetails = () => {
         return <Overview company={company} />;
     }
   };
-
-  // Get current tab label for mobile dropdown
-  const currentTabLabel = tabs.find(tab => tab.key === activeTab)?.label || "Overview";
 
   if (isLoading) {
     return <Loader/>
@@ -246,7 +257,7 @@ const CompanyDetails = () => {
             name={company?.companyName}
             id={company?.id}
             imageUrl={company?.logo}
-            size={84}
+            size={104}
             imageFit="cover"
             status={company?.status === "ACTIVE" ? "active" : "inactive"}
             enablePreview
@@ -258,79 +269,39 @@ const CompanyDetails = () => {
                 className="mb-0 text-truncate"
                 style={{
                   fontFamily: "Barlow",
-                  fontWeight: "600",
-                  fontSize: "16px",
+                  fontWeight: "700",
+                  fontSize: "24px",
+                  lineHeight: 1.2,
                 }}
               >
                 {company.companyName}
               </h2>
               <div className="d-flex align-items-center gap-1">
-                <KTIcon iconName="star" className="fs-6 text-warning" />
-                <span className="text-muted small">{ company?.overallRating || rating?.toFixed(1)  || companyRatings?.overallRating || 0}</span>
+                <KTIcon iconName="star" className="fs-4 text-warning" />
+                <span className="text-muted">{ company?.overallRating || rating?.toFixed(1)  || companyRatings?.overallRating || 0}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Mobile Header Update */}
-      <style jsx>{`
-        @media (max-width: 767px) {
-          .mobile-header h2 {
-            font-size: 18px !important;
-          }
-          .mobile-header .text-muted {
-            font-size: 12px !important;
-          }
-        }
-        
-        @media (min-width: 768px) {
-          .desktop-header h2 {
-            font-size: 24px !important;
-          }
-        }
-      `}</style>
-
       {/* Navigation Tabs + Buttons Row */}
       <div className="mb-4 mb-md-8 pt-3">
         {/* Mobile Tab Dropdown */}
         <div className="d-block d-md-none mb-3">
-          <div className="d-flex justify-content-between align-items-center gap-2">
-            <div className="dropdown flex-grow-1">
-              <div
-                className="dropdown-toggle ps-4 text-start"
-                data-bs-toggle="dropdown"
-                style={{
-                  fontFamily: "Barlow",
-                  fontWeight: "500",
-                  fontSize: "14px",
-                  borderColor: "#172554",
-                  color: "#172554",
-                }}
-              >
-                {currentTabLabel}
-              </div>
-              <ul className="dropdown-menu">
-                {tabs.map((tab) => (
-                  <li key={tab.key}>
-                    <button
-                      className={`dropdown-item ${activeTab === tab.key ? 'active' : ''}`}
-                      onClick={() => setActiveTab(tab.key as TabType)}
-                      style={{
-                        fontFamily: "Inter",
-                        fontWeight: "500",
-                        fontSize: "14px",
-                      }}
-                    >
-                      {tab.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
+          <div className="d-flex justify-content-end align-items-center gap-2">
             {/* Mobile Action Buttons */}
             <div className="d-flex align-items-center gap-1">
+              {addLabel && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setAddRequested(true)}
+                  style={{ fontFamily: "Inter", fontWeight: "600", fontSize: "12px", whiteSpace: "nowrap" }}
+                >
+                  {addLabel}
+                </Button>
+              )}
               <div className="dropdown">
                 <Button
                   variant="primary"
@@ -398,56 +369,21 @@ const CompanyDetails = () => {
           </div>
         </div>
 
-        {/* Desktop Tabs */}
-        <div className="d-none d-md-flex justify-content-between align-items-center">
+        {/* Desktop actions — the tab bar below spans the full width, as on the lead page. */}
+        <div className="d-none d-md-flex justify-content-end align-items-center">
           {/* Tabs */}
-          <ul className="nav nav-tabs nav-line-tabs nav-line-tabs-2x fs-4 fw-bold mb-0">
-            {tabs.map((tab) => (
-              <li className="nav-item" key={tab.key}>
-                {/* <button
-                  className={`nav-link text-active-primary pb-4 ${
-                    activeTab === tab.key ? "active" : ""
-                  }`}
-                  onClick={() => setActiveTab(tab.key as TabType)}
-                  style={{
-                    border: "1px solid #172554",
-                    color: "black",
-                    borderRadius: "20px",
-                    fontFamily: "Inter",
-                    fontWeight: "500",
-                    fontSize: "14px",
-                    padding: "0px 15px",
-                    marginRight: "10px",
-                  }}
-                > */}
-                <a
-                  className={`
-                                  nav-link
-                                  px-6 py-2
-                                  rounded-pill
-                                  border
-                                  ${activeTab === tab.key
-                      ? 'border-primary text-primary'
-                      : 'border-black text-black'}
-                                  hover:bg-gray-100
-                                  transition
-                                  me-0
-                                  cursor-pointer
-                                `}
-                  onClick={() => setActiveTab(tab.key as TabType)}
-                  style={{ fontFamily: 'Inter, sans-serif', }}
-                >
-                  {tab.label}
-                </a>
-
-                {/* </button> */}
-              </li>
-            ))}
-          </ul>
-
           {/* Desktop Action Buttons */}
           <div className="d-flex align-items-center gap-2">
-            <div className="dropdown">
+            {addLabel && (
+                <Button
+                  variant="primary"
+                  onClick={() => setAddRequested(true)}
+                  style={{ fontFamily: "Inter", fontWeight: "600", fontSize: "14px", whiteSpace: "nowrap" }}
+                >
+                  {addLabel}
+                </Button>
+              )}
+              <div className="dropdown">
               <Button
                 variant="primary"
                 className="dropdown-toggle"
@@ -511,6 +447,13 @@ const CompanyDetails = () => {
             )}
           </div>
         </div>
+
+        <UnderlineTabs
+          tabs={tabs}
+          value={activeTab}
+          onChange={setActiveTab}
+          ariaLabel="Company sections"
+        />
       </div>
 
       {/* Tab Content */}
