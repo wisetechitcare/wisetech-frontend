@@ -17,7 +17,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import dayjs from 'dayjs';
 import { KTIcon } from '@metronic/helpers';
 import { SegmentedControl, SettingsSection, toast } from '@app/modules/common/components/ui';
@@ -27,6 +27,7 @@ import { useTimeFormatSetting } from '@hooks/useTimeFormat';
 import { saveCurrentCompanyInfo } from '@redux/slices/company';
 import type { RootState } from '@redux/store';
 import { updateCompanyOverview } from '@services/company';
+import { ensureCurrentCompanyLoaded } from '@utils/file';
 import {
     TIME_FORMAT_OPTIONS,
     TIME_TOKENS,
@@ -87,14 +88,35 @@ export function DateTimePanel() {
 
     const [orgFormat, setOrgFormat] = useState<TimeFormat>(storedOrgFormat);
     const [saving, setSaving] = useState(false);
+    const [loadingOrg, setLoadingOrg] = useState(!companyId);
 
-    // The company slice hydrates lazily, so the stored value can arrive after
-    // this mounts. Follow it until the admin touches the control themselves.
+    /**
+     * Nothing fills `company.currentCompany` on login — only the org switcher, the
+     * profile form's save, and a lazy call inside generateFiscalYearFromGivenYear. Log
+     * in, come straight here, and the slice is empty: saving failed with "No
+     * organisation selected", and, worse, `orgFlag` was null so this screen rendered the
+     * 12-hour FALLBACK as if it were the stored value. An admin could be shown a format
+     * the database does not hold.
+     */
+    useEffect(() => {
+        if (companyId) { setLoadingOrg(false); return; }
+        let cancelled = false;
+        setLoadingOrg(true);
+        ensureCurrentCompanyLoaded()
+            .catch(() => { /* leave the section disabled; the toast on save explains it */ })
+            .finally(() => { if (!cancelled) setLoadingOrg(false); });
+        return () => { cancelled = true; };
+    }, [companyId]);
+
+    // The slice can arrive after this mounts, so follow the stored value until the
+    // admin touches the control themselves.
     useEffect(() => { setOrgFormat(storedOrgFormat); }, [storedOrgFormat]);
 
     const saveOrgFormat = useCallback(async (next: TimeFormat) => {
         if (!companyId) {
-            toast({ icon: 'error', title: 'No organisation selected', text: 'There is nothing to save this to.' });
+            // Only reachable if the hydration above failed outright — the control is
+            // inert while it is in flight, so this is a real error, not a race.
+            toast({ icon: 'error', title: 'Could not load your organisation', text: 'Reload the page and try again.' });
             return;
         }
         const previous = orgFormat;
@@ -162,15 +184,23 @@ export function DateTimePanel() {
                     description="What everyone who hasn't picked their own format sees."
                 >
                     <Stack spacing={1.75}>
-                        <SegmentedControl<TimeFormat>
-                            options={ORG_OPTIONS}
-                            value={orgFormat}
-                            onChange={saveOrgFormat}
-                            ariaLabel="Organisation time format"
-                            fullWidth
-                            sx={{ maxWidth: { sm: 320 }, opacity: saving ? 0.6 : 1 }}
-                        />
-                        <Preview format={orgFormat} />
+                        {/* Inert until the org has actually loaded. Before that `orgFlag` is
+                            null and `storedOrgFormat` falls back to 12-hour, so an enabled
+                            control would be showing a guess — and an admin who agreed with the
+                            guess would write it to an org that had never chosen it. */}
+                        <Box sx={{ opacity: loadingOrg || saving ? 0.5 : 1, pointerEvents: loadingOrg ? 'none' : 'auto' }}>
+                            <SegmentedControl<TimeFormat>
+                                options={ORG_OPTIONS}
+                                value={orgFormat}
+                                onChange={saveOrgFormat}
+                                ariaLabel="Organisation time format"
+                                fullWidth
+                                sx={{ maxWidth: { sm: 320 } }}
+                            />
+                        </Box>
+                        {loadingOrg
+                            ? <Typography variant="body2" sx={{ color: 'text.secondary' }}>Loading your organisation…</Typography>
+                            : <Preview format={orgFormat} />}
                         {preference !== 'inherit' && (
                             <Stack direction="row" spacing={1} alignItems="flex-start">
                                 <KTIcon iconName="information-2" className="fs-5 text-warning mt-1" />
