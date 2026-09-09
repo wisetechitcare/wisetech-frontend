@@ -412,7 +412,6 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
                         subtitle={`${formatDateLong(range.start)} → ${formatDateLong(range.end)}`}
                         onClose={() => setOpenEmployee(null)}
                         icon={<KTIcon iconName="people" className="fs-2 text-white" />}
-                        closeIcon={<KTIcon iconName="cross" className="fs-3" />}
                     />
                 }
             >

@@ -144,7 +144,6 @@ const MeetingRemindersDialog: React.FC<MeetingRemindersDialogProps> = ({
                     ? `${meeting.title} · ${dayjs(meeting.startDate).format('ddd DD MMM, h:mm A')}`
                     : undefined}
                 onClose={saving ? undefined : onClose}
-                closeIcon={<KTIcon iconName="cross" className="fs-3" />}
             />
 
             <DialogContent sx={{ p: 2.5 }}>
