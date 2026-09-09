@@ -15,6 +15,7 @@ import { KTIcon } from '@metronic/helpers';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { TRIO, type Trio } from '@app/modules/common/components/ui/tw/tokens';
+import { formatTimeString } from '@utils/date';
 import { legendLabel, lateBandOf, resolveDayVisual, type DayLabelOverrides, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import type { CalendarDay } from './types';
 
@@ -73,9 +74,14 @@ export const DayTooltip = memo(function DayTooltip({ day, overrides, modifierOve
         {hasPunch && (
           <>
             {/* Actual against expected. The threshold is what turns a time into a judgement,
-                and `expected` costs no extra query — the shift is already resolved server-side. */}
-            <Row k="In" v={actual.checkIn ?? '—'} hint={expected.checkIn ? `exp. ${expected.checkIn}` : undefined} warn={lateMark?.isLate} />
-            <Row k="Out" v={actual.checkOut ?? '—'} hint={expected.checkOut ? `exp. ${expected.checkOut}` : undefined} warn={day.modifiers.includes('missing_check_out')} />
+                and `expected` costs no extra query — the shift is already resolved server-side.
+
+                Every time goes through the app-wide 12/24h resolver, like every
+                other time a person reads. The server always sends 24h, so
+                printing it raw showed "18:51" here and "6:51 PM" in the
+                correction form the same card opens. */}
+            <Row k="In" v={formatTimeString(actual.checkIn, '—')} hint={expected.checkIn ? `exp. ${formatTimeString(expected.checkIn)}` : undefined} warn={lateMark?.isLate} />
+            <Row k="Out" v={formatTimeString(actual.checkOut, '—')} hint={expected.checkOut ? `exp. ${formatTimeString(expected.checkOut)}` : undefined} warn={day.modifiers.includes('missing_check_out')} />
             <Row k="Duration" v={formatMinutes(actual.minutesWorked)} />
             {day.workMode && <Row k="Mode" v={day.workMode} />}
           </>

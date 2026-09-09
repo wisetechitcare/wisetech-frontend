@@ -10,25 +10,30 @@
  * only when the server said the day permits one (`canRaiseCorrection`), so the
  * UI cannot offer an action its own endpoint would reject.
  *
+ * ONE correction screen, not two. Choosing what to correct used to be a step of
+ * its own, so switching from "Check-in" to "Both" after seeing the times meant
+ * going backwards. The choice now sits at the top of the form itself, which is
+ * how the admin's raise-for-someone modal has always worked.
+ *
  * Guards carried over verbatim from the legacy modal — deliberately, since
  * dropping one silently would be a behaviour regression:
  *   · check-out requires an existing check-in
  *   · the restriction-days window (`restrictAttendanceTo7Days`)
  *   · `validatePreviousDaysAttendance` — earlier gaps must be filled first
  *
- * The last of those costs three requests, so it runs on OPEN, never on paint.
- * Moving it server-side belongs with the rest of the gate work; it is noted,
- * not quietly skipped.
+ * The last of those costs three requests, so it runs on ENTERING the form,
+ * never on paint. Moving it server-side belongs with the rest of the gate work;
+ * it is noted, not quietly skipped.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
+import { Box, CircularProgress, Divider, Stack, Typography } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui/tw/Glass';
-import { WtButton } from '@app/modules/common/components/ui/tw/Buttons';
-import { Spinner } from '@app/modules/common/components/ui/tw/Spinner';
+import { GlassDialog, PlainDialogHeader } from '@app/modules/common/components/ui/glass';
+import { WtButton } from '@app/modules/common/components/ui/buttons';
+import { ToneChip } from '@app/modules/common/components/ui/chips';
 import { TRIO } from '@app/modules/common/components/ui/tw/tokens';
-import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
 import type { RootState } from '@redux/store';
 import { createUpdateAttendanceRequest } from '@services/employee';
@@ -42,14 +47,16 @@ import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import RaiseRequestForEmployee from '../RaiseRequestForEmployee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
-import { MUMBAI_TZ } from '@utils/date';
+import { MUMBAI_TZ, formatTimeString } from '@utils/date';
 import { legendLabel, resolveDayVisual, type DayLabelOverrides, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import type { CalendarDay } from './types';
 import { AttendanceRequestFields } from '@app/modules/common/components/attendance/AttendanceRequestFields';
 import {
-    applyKind,
     emptyDraft,
+    seedDraft,
     validateAttendanceRequest,
+    wantsCheckIn,
+    wantsCheckOut,
     type AttendanceRequestDraft,
     type RequestKind,
 } from '@app/modules/common/components/attendance/attendanceRequest';
@@ -65,7 +72,11 @@ export interface DayDetailPanelProps {
     onSubmitted?: () => void;
 }
 
-type Mode = 'read' | 'pick' | 'form';
+type Mode = 'read' | 'form';
+
+/** Offered in this order: correcting ONE punch is the common case. */
+const KINDS = ['checkin', 'checkout', 'both'] as const;
+
 // The kind union and the field rules are shared with the admin raise-for-someone
 // modal — see modules/common/components/attendance/attendanceRequest.
 
@@ -76,7 +87,19 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
     const kind = draft.kind;
     const time = kind === 'checkin' ? draft.checkIn : draft.checkOut;
     const [methods, setMethods] = useState<Array<{ value: string; label: string }>>([]);
-    const [restrictionDays, setRestrictionDays] = useState(1);
+    /**
+     * 0 = any day. The window RESTRICTS only when an admin has set one.
+     *
+     * This started at 1 — today only — which closed the gate before the config
+     * had even loaded, so opening a day quickly enough refused a correction
+     * whatever the policy said. Combined with the parse fallback below it meant
+     * an unconfigured company could not correct yesterday at all.
+     *
+     * The server accepts a correction for ANY date, so defaulting closed also
+     * made the browser stricter than the API it talks to — a rule with no
+     * enforcement behind it, applied only to the people using the UI.
+     */
+    const [restrictionDays, setRestrictionDays] = useState(0);
     const [gate, setGate] = useState<{ checking: boolean; blocked: boolean; blockingDate: string }>({
         checking: false, blocked: false, blockingDate: '',
     });
@@ -117,8 +140,12 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                 const res = await fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY);
                 const parsed = safeJsonParse(res?.data?.configuration?.configuration || '{}');
                 const raw = parsed?.[RESTRICT_ATTENDANCE_TO_7_DAYS_KEY];
-                // The value migrated from boolean to number; both shapes are still in the wild.
-                setRestrictionDays(typeof raw === 'boolean' ? (raw ? 7 : 0) : typeof raw === 'number' && raw >= 0 ? raw : 1);
+                // The value migrated from boolean to number; both shapes are still
+                // in the wild. Anything else means "not configured" and allows any
+                // day — the same answer the `catch` below already gave, which is
+                // the contradiction this fixes: a fetch ERROR failed open while an
+                // unrecognised VALUE failed closed.
+                setRestrictionDays(typeof raw === 'boolean' ? (raw ? 7 : 0) : typeof raw === 'number' && raw >= 0 ? raw : 0);
             } catch {
                 setRestrictionDays(0); // fail open, matching the legacy fallback
             }
@@ -151,18 +178,6 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
     const pendingCheckOutRequest = Boolean(pending && day?.request?.hasCheckOut);
     const hasCheckIn = Boolean(day?.actual.checkIn) || pendingCheckInRequest;
 
-    /**
-     * A half that is already awaiting approval cannot be raised again.
-     *
-     * The server merges a second request for the same date into the first, so
-     * raising the SAME half twice does not create a duplicate — it silently
-     * overwrites the pending one. That is worse than a duplicate: the employee
-     * thinks they have filed a second correction and the approver sees only the
-     * newer time, with no sign the first was replaced.
-     *
-     * So the half that is pending is closed, and the OTHER half stays open —
-     * which is the case that made merging worth having.
-     */
     /**
      * The times a PENDING correction is asking for, shown beside the recorded
      * ones. Only while pending: once approved they become the recorded time, and
@@ -203,12 +218,24 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
               : `Corrections close ${restrictionDays} days after the date`
           : null;
 
-    const kindBlocked = (k: RequestKind): string | null => {
+    /**
+     * Why a kind is closed, or null when it is open.
+     *
+     * Handed to the shared fields as-is, so the segment that is greyed and the
+     * sentence explaining it come from one predicate rather than two.
+     */
+    const kindBlocked = useCallback((k: RequestKind): string | null => {
         if (k === 'checkin' && pendingCheckInRequest) return 'A check-in correction for this day is already awaiting approval.';
         if (k === 'checkout' && pendingCheckOutRequest) return 'A check-out correction for this day is already awaiting approval.';
         if (k === 'checkout' && !hasCheckIn) return 'There is no check-in yet, so raise that first.';
+        // `both` supplies its own check-in, so the "raise that first" rule does
+        // not apply to it — but either half already awaiting approval means one
+        // of the two times it carries would land on top of a pending one.
+        if (k === 'both' && (pendingCheckInRequest || pendingCheckOutRequest)) {
+            return 'Part of this day is already awaiting approval, so raise the other half on its own.';
+        }
         return null;
-    };
+    }, [pendingCheckInRequest, pendingCheckOutRequest, hasCheckIn]);
 
     // The same gate the legacy calendar used for its "Raise Request for Another
     // Employee" button, carried over so the admin path survives its deletion.
@@ -237,26 +264,39 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
         }
     }, [day, employeeId, employee?.dateOfJoining, employee?.branches?.workingAndOffDays]);
 
+    /**
+     * Open on what is being CORRECTED, not on an empty field.
+     *
+     * The rule itself is `seedDraft`, shared with the admin's raise-for-someone
+     * modal — this only supplies the record it reads. Re-run on every kind
+     * change, not just on entry: switching to "Both" has to fill in the half the
+     * previous kind had cleared.
+     */
+    const seed = useCallback(
+        (base: AttendanceRequestDraft, k: RequestKind): AttendanceRequestDraft =>
+            seedDraft(base, k, day ? { ...day.actual, workMode: day.workMode } : null, methods),
+        [day, methods],
+    );
+
     const startCorrection = () => {
-        setMode('pick');
+        // Open on a kind that can actually be chosen. Landing on a closed
+        // segment would show a form whose own selector says it is unavailable.
+        const first = KINDS.find((k) => !kindBlocked(k)) ?? 'checkin';
+        setDraft((d) => seed(d, first));
+        setAttempted(false);
+        setMode('form');
         void runGate();
     };
 
-    const pickKind = (k: RequestKind) => {
-        // Belt and braces. The read step no longer offers the action at all when
-        // the window has closed, so this should be unreachable — it stays because
-        // the window can lapse while the panel sits open at midnight.
-        if (!withinRestriction) {
-            errorConfirmation(
-                restrictionDays === 1
-                    ? 'Corrections can only be raised on the day itself.'
-                    : `Corrections close ${restrictionDays} days after the date.`,
-            );
-            return;
-        }
-        setDraft(applyKind({ ...draft, checkIn: '', checkOut: '' }, k));
-        setAttempted(false);
-        setMode('form');
+    /**
+     * Kind changes re-seed; every other edit passes straight through.
+     *
+     * The shared fields already call `applyKind`, which clears the times the new
+     * kind does not want. What it cannot do is REFILL from the day's record —
+     * that is state it has never been given — so the caller finishes the job.
+     */
+    const onDraftChange = (next: AttendanceRequestDraft) => {
+        setDraft(next.kind === draft.kind ? next : seed(next, next.kind));
     };
 
     const submit = async () => {
@@ -268,17 +308,29 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
         const problem = validateAttendanceRequest(draft);
         if (problem) return errorConfirmation(problem);
 
-        // This guard stays HERE: it compares against the punch already on the
-        // day, which is state the shared validator has no access to.
-        const other = kind === 'checkin' ? day.actual.checkOut : day.actual.checkIn;
+        /**
+         * This guard stays HERE: it compares against the punch already on the
+         * day, which is state the shared validator has no access to.
+         *
+         * Skipped for `both`, which carries its own pair — the shared validator
+         * already orders those two against each other, and there is no third
+         * time on the day to sit them beside.
+         */
+        const other = kind === 'both' ? null : kind === 'checkin' ? day.actual.checkOut : day.actual.checkIn;
         if (other) {
             const proposed = dayjs(`${day.date} ${time}`);
             const existing = dayjs(`${day.date} ${other}`);
+            // Read back in the viewer's own 12/24h setting — quoting a 24h time
+            // at someone whose screen is showing 12h reads as a third value.
             if (kind === 'checkin' && proposed.isAfter(existing)) {
-                return errorConfirmation(`Check-in (${time}) cannot be after the existing check-out (${other})`);
+                return errorConfirmation(
+                    `Check-in (${formatTimeString(time)}) cannot be after the existing check-out (${formatTimeString(other)})`,
+                );
             }
             if (kind === 'checkout' && proposed.isBefore(existing)) {
-                return errorConfirmation(`Check-out (${time}) cannot be before the existing check-in (${other})`);
+                return errorConfirmation(
+                    `Check-out (${formatTimeString(time)}) cannot be before the existing check-in (${formatTimeString(other)})`,
+                );
             }
         }
 
@@ -286,7 +338,8 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
         try {
             // Composed in the employee's OWN branch timezone, matching how the
             // server buckets the business day.
-            const iso = dayjs.tz(`${day.date} ${time}`, 'YYYY-MM-DD HH:mm', tz).toISOString();
+            const at = (hhmm: string) =>
+                dayjs.tz(`${day.date} ${hhmm}`, 'YYYY-MM-DD HH:mm', tz).toISOString();
             await createUpdateAttendanceRequest({
                 employeeId,
                 // REQUIRED. `AttendanceRequests.companyId` is non-nullable with a
@@ -301,7 +354,11 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                 latitude: 0,
                 longitude: 0,
                 status: 0,
-                ...(kind === 'checkin' ? { checkIn: iso, checkOut: null } : { checkOut: iso }),
+                // Driven by the kind, so `both` sends two times and each of the
+                // one-sided kinds sends only its own — the half it omits is left
+                // untouched by the server's same-date merge rather than nulled.
+                ...(wantsCheckIn(draft.kind) ? { checkIn: at(draft.checkIn) } : {}),
+                ...(wantsCheckOut(draft.kind) ? { checkOut: at(draft.checkOut) } : {}),
             } as never);
             successConfirmation('Attendance request saved successfully');
             onSubmitted?.();
@@ -315,241 +372,239 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
 
     if (!day || !visual || !tone) return null;
 
+    const amber = toneSurface(TRIO.amber, dark);
+
     return (
         <>
-        <GlassDialog
-            open={open}
-            onClose={onClose}
-            maxWidth="sm"
-            header={
-                <GlassHeader
-                    title={dayjs(day.date).format('dddd, D MMMM YYYY')}
-                    subtitle={legendLabel(day.status, labels)}
-                    onClose={onClose}
-                />
-            }
-        >
-            <div className="flex flex-col gap-4 p-4 sm:p-5">
-                {/* ── Record ─────────────────────────────────────────────── */}
-                <section className="flex flex-col gap-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                        <span
-                            className="rounded-2xl border px-2.5 py-[4px] text-[11.5px] font-bold"
-                            style={{ backgroundColor: tone.bg, borderColor: tone.bd, color: tone.fg }}
+            {/**
+             * `plain`, not frosted. Glass reads well over a dashboard; over a
+             * column of inputs it shows the calendar through the surface a
+             * person is trying to read. Same dialog, same scroll region and
+             * phone full-screen — the blur turned off.
+             */}
+            <GlassDialog
+                open={open}
+                onClose={onClose}
+                maxWidth="sm"
+                plain
+                header={
+                    <PlainDialogHeader
+                        title={dayjs(day.date).format('dddd, D MMMM YYYY')}
+                        subtitle={legendLabel(day.status, labels)}
+                        onClose={onClose}
+                    />
+                }
+            >
+                <Box sx={{ p: { xs: 2, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {/* ── Record ─────────────────────────────────────────── */}
+                    <Stack spacing={1.25}>
+                        <Stack direction="row" flexWrap="wrap" gap={0.75} alignItems="center">
+                            <ToneChip color={visual.trio.c} label={legendLabel(day.status, labels)} />
+                            {day.modifiers.map((m) => (
+                                <ToneChip key={m} tone="neutral" label={legendLabel(m, labels)} />
+                            ))}
+                        </Stack>
+
+                        <Box
+                            component="dl"
+                            sx={{
+                                m: 0,
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+                                columnGap: 2,
+                                rowGap: 1.25,
+                            }}
                         >
-                            {legendLabel(day.status, labels)}
-                        </span>
-                        {day.modifiers.map((m) => (
-                            <span
-                                key={m}
-                                className="rounded-2xl border border-slate-200 px-2 py-[3px] text-[11px] font-semibold text-slate-600 dark:border-[#30363d] dark:text-slate-400"
-                            >
-                                {legendLabel(m, labels)}
-                            </span>
-                        ))}
-                    </div>
+                            {/* The recorded time, and — when a correction is in flight —
+                                what it is being asked to become. Showing only "—" beside
+                                "Approval pending" left the reader with no way to see what
+                                they had actually asked for without leaving the screen.
 
-                    <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-2">
-                        {/* The recorded time, and — when a correction is in flight —
-                            what it is being asked to become. Showing only "—" beside
-                            "Approval pending" left the reader with no way to see what
-                            they had actually asked for without leaving the screen. */}
-                        <Field
-                            k="Check in"
-                            v={day.actual.checkIn ?? '—'}
-                            hint={
-                                requestedCheckIn
-                                    ? `requested ${requestedCheckIn}`
-                                    : day.expected.checkIn
-                                      ? `expected ${day.expected.checkIn}`
-                                      : undefined
-                            }
-                        />
-                        <Field
-                            k="Check out"
-                            v={day.actual.checkOut ?? '—'}
-                            hint={
-                                requestedCheckOut
-                                    ? `requested ${requestedCheckOut}`
-                                    : day.expected.checkOut
-                                      ? `expected ${day.expected.checkOut}`
-                                      : undefined
-                            }
-                        />
-                        <Field k="Duration" v={formatMinutes(day.actual.minutesWorked)} />
-                        <Field k="Work mode" v={day.workMode ?? '—'} />
-                        {day.leave && (
+                                Every time on this row goes through `formatTimeString`, so
+                                it follows the app-wide 12/24h setting. The server always
+                                sends 24h, and printing that raw put "18:51" beside a
+                                picker showing "6:51 PM" — the same instant, twice, in two
+                                notations. */}
                             <Field
-                                k="Leave"
-                                v={`${day.leave.type} · ${day.leave.fraction === 0.5 ? 'half day' : 'full day'}`}
+                                k="Check in"
+                                v={formatTimeString(day.actual.checkIn, '—')}
+                                hint={
+                                    requestedCheckIn
+                                        ? `requested ${formatTimeString(requestedCheckIn)}`
+                                        : day.expected.checkIn
+                                          ? `expected ${formatTimeString(day.expected.checkIn)}`
+                                          : undefined
+                                }
                             />
-                        )}
-                        {day.holiday && <Field k="Holiday" v={day.holiday.name} />}
-                        {/* Names both halves when the request carries both — calling a
-                            check-in-and-check-out request "Check-in" is what made it look
-                            like the check-out was still free to raise. */}
-                        {day.request && (
                             <Field
-                                k="Correction"
-                                v={`${
-                                    day.request.kind === 'both'
-                                        ? 'Check-in & check-out'
-                                        : day.request.kind === 'check_in'
-                                          ? 'Check-in'
-                                          : 'Check-out'
-                                } · ${day.request.status}`}
+                                k="Check out"
+                                v={formatTimeString(day.actual.checkOut, '—')}
+                                hint={
+                                    requestedCheckOut
+                                        ? `requested ${formatTimeString(requestedCheckOut)}`
+                                        : day.expected.checkOut
+                                          ? `expected ${formatTimeString(day.expected.checkOut)}`
+                                          : undefined
+                                }
                             />
-                        )}
-                    </dl>
-
-                    {day.lateMark?.isLate && (
-                        <p className="m-0 rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold"
-                           style={{ backgroundColor: toneSurface(TRIO.amber, dark).bg, borderColor: toneSurface(TRIO.amber, dark).bd, color: toneSurface(TRIO.amber, dark).fg }}>
-                            {day.lateMark.reason}
-                            {day.lateMark.lateMinutes > 0 && ` · ${day.lateMark.lateMinutes} min late`}
-                        </p>
-                    )}
-                </section>
-
-                {/* ── Correction ─────────────────────────────────────────── */}
-                {day.canRaiseCorrection && (
-                    <section className="border-t border-slate-200 pt-3 dark:border-[#30363d]">
-                        {mode === 'read' && (
-                            <div className="flex flex-wrap items-center gap-2">
-                                {/* Hidden rather than disabled once both halves are
-                                    spoken for. A disabled control implies "not yet" —
-                                    that something you could do would enable it. Nothing
-                                    on this screen can: it takes an approver, elsewhere.
-                                    So the action goes and the state speaks for itself,
-                                    which also stops the eye landing on a grey rectangle
-                                    before reading why. */}
-                                {raiseBlockedReason ? (
-                                    <span className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-2.5 py-[5px] text-[11.5px] font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
-                                        <KTIcon iconName="time" className="fs-7" />
-                                        {raiseBlockedReason}
-                                    </span>
-                                ) : (
-                                    <WtButton onClick={startCorrection}>Raise a Request</WtButton>
-                                )}
-                                {/* Carried over from the legacy calendar rather than lost with it:
-                                    admins could raise a request on someone else's behalf from the
-                                    day they clicked. Same permission gate, same modal. */}
-                                {canRaiseForOthers && (
-                                    <WtButton inverted onClick={() => setAdminOpen(true)}>
-                                        Raise for another employee
-                                    </WtButton>
-                                )}
-                            </div>
-                        )}
-
-                        {gate.checking && (
-                            <p className="m-0 flex items-center gap-2 text-[12px] text-slate-500 dark:text-slate-400">
-                                <Spinner size={14} /> Checking earlier days…
-                            </p>
-                        )}
-
-                        {gate.blocked && !gate.checking && (
-                            <p className="m-0 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-[12px] font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
-                                No attendance or request found for {dayjs(gate.blockingDate).format('DD-MM-YYYY')}. Mark
-                                attendance or raise a request for that day first.
-                            </p>
-                        )}
-
-                        {mode === 'pick' && !gate.checking && !gate.blocked && (
-                            <div className="flex flex-col gap-2">
-                                <p className="m-0 text-[12px] font-bold text-slate-700 dark:text-slate-300">
-                                    What would you like to correct?
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                    {(['checkin', 'checkout'] as const).map((k) => (
-                                        <WtButton
-                                            key={k}
-                                            inverted
-                                            disabled={Boolean(kindBlocked(k))}
-                                            onClick={() => pickKind(k)}
-                                        >
-                                            {k === 'checkin' ? 'Check-in' : 'Check-out'}
-                                        </WtButton>
-                                    ))}
-                                </div>
-
-                                {/* One reason per closed option, from the same
-                                    predicate that closed it — so a disabled button
-                                    can never sit there unexplained. */}
-                                {(['checkin', 'checkout'] as const)
-                                    .map((k) => kindBlocked(k))
-                                    .filter((reason, i, all): reason is string => Boolean(reason) && all.indexOf(reason) === i)
-                                    .map((reason) => (
-                                        <p
-                                            key={reason}
-                                            className="m-0 flex items-center gap-1.5 text-[11.5px] text-slate-500 dark:text-slate-400"
-                                        >
-                                            <KTIcon iconName="information-2" className="fs-7" />
-                                            {reason}
-                                        </p>
-                                    ))}
-
-                                {/* Says what will happen, because "it merged into
-                                    the one I already raised" is surprising if you
-                                    were expecting a second request. */}
-                                {pendingCheckInRequest && !pendingCheckOutRequest && (
-                                    <p className="m-0 flex items-center gap-1.5 text-[11.5px] text-slate-500 dark:text-slate-400">
-                                        <KTIcon iconName="information-2" className="fs-7" />
-                                        A check-out will be added to that same pending request.
-                                    </p>
-                                )}
-                            </div>
-                        )}
-
-                        {/**
-                         * One way back for the WHOLE pick step, not just the branch that
-                         * offers the two buttons.
-                         *
-                         * The form had a Back and this step had none, so choosing to
-                         * correct a day left closing the entire dialog as the only exit,
-                         * taking the record you opened it to read with it. The blocked
-                         * branch was worse: it explains that an earlier day needs fixing
-                         * first and then stranded you on that message.
-                         *
-                         * Outside the gate conditions on purpose — a step you can enter
-                         * is a step you can leave, whatever it happens to be showing.
-                         */}
-                        {mode === 'pick' && (
-                            <div className="flex">
-                                <WtButton inverted onClick={() => setMode('read')} startIcon={<KTIcon iconName="arrow-left" className="fs-5" />}>Back</WtButton>
-                            </div>
-                        )}
-
-                        {mode === 'form' && !gate.blocked && (
-                            <div className="flex flex-col gap-3">
-                                <p className="m-0 text-[12px] font-bold text-slate-700 dark:text-slate-300">
-                                    {kind === 'checkin' ? 'Check-in' : 'Check-out'} correction
-                                </p>
-
-                                {/* The SAME fields the admin's raise-for-someone modal
-                                    renders. No kind selector here — this flow picks the
-                                    kind in the step before, so offering it again would
-                                    be a second way to change the same thing. */}
-                                <AttendanceRequestFields
-                                    value={draft}
-                                    onChange={setDraft}
-                                    methods={methods}
-                                    showErrors={attempted}
-                                    disabled={saving}
+                            <Field k="Duration" v={formatMinutes(day.actual.minutesWorked)} />
+                            <Field k="Work mode" v={day.workMode ?? '—'} />
+                            {day.leave && (
+                                <Field
+                                    k="Leave"
+                                    v={`${day.leave.type} · ${day.leave.fraction === 0.5 ? 'half day' : 'full day'}`}
                                 />
+                            )}
+                            {day.holiday && <Field k="Holiday" v={day.holiday.name} />}
+                            {/* Names both halves when the request carries both — calling a
+                                check-in-and-check-out request "Check-in" is what made it look
+                                like the check-out was still free to raise. */}
+                            {day.request && (
+                                <Field
+                                    k="Correction"
+                                    v={`${
+                                        day.request.kind === 'both'
+                                            ? 'Check-in & check-out'
+                                            : day.request.kind === 'check_in'
+                                              ? 'Check-in'
+                                              : 'Check-out'
+                                    } · ${day.request.status}`}
+                                />
+                            )}
+                        </Box>
 
-                                <div className="flex flex-wrap justify-between gap-2">
-                                    <WtButton inverted onClick={() => setMode('pick')} startIcon={<KTIcon iconName="arrow-left" className="fs-5" />}>Back</WtButton>
-                                    <WtButton onClick={submit} disabled={saving}>
-                                        {saving ? 'Saving…' : 'Submit request'}
-                                    </WtButton>
-                                </div>
-                            </div>
+                        {day.lateMark?.isLate && (
+                            <Notice tone={amber}>
+                                {day.lateMark.reason}
+                                {day.lateMark.lateMinutes > 0 && ` · ${day.lateMark.lateMinutes} min late`}
+                            </Notice>
                         )}
-                    </section>
-                )}
-            </div>
-        </GlassDialog>
+                    </Stack>
+
+                    {/* ── Correction ─────────────────────────────────────── */}
+                    {day.canRaiseCorrection && (
+                        <>
+                            <Divider />
+
+                            {mode === 'read' && (
+                                <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center">
+                                    {/* Hidden rather than disabled once both halves are
+                                        spoken for. A disabled control implies "not yet" —
+                                        that something you could do would enable it. Nothing
+                                        on this screen can: it takes an approver, elsewhere.
+                                        So the action goes and the state speaks for itself,
+                                        which also stops the eye landing on a grey rectangle
+                                        before reading why. */}
+                                    {raiseBlockedReason ? (
+                                        <ToneChip
+                                            tone="warning"
+                                            icon={<KTIcon iconName="time" className="fs-7" />}
+                                            label={raiseBlockedReason}
+                                        />
+                                    ) : (
+                                        <WtButton onClick={startCorrection}>Raise a Request</WtButton>
+                                    )}
+                                    {/* Carried over from the legacy calendar rather than lost with it:
+                                        admins could raise a request on someone else's behalf from the
+                                        day they clicked. Same permission gate, same modal. */}
+                                    {canRaiseForOthers && (
+                                        <WtButton inverted onClick={() => setAdminOpen(true)}>
+                                            Raise for another employee
+                                        </WtButton>
+                                    )}
+                                </Stack>
+                            )}
+
+                            {mode === 'form' && (
+                                <Stack spacing={1.5}>
+                                    {gate.checking && (
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                            <CircularProgress size={14} />
+                                            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                                                Checking earlier days…
+                                            </Typography>
+                                        </Stack>
+                                    )}
+
+                                    {gate.blocked && !gate.checking && (
+                                        <Notice tone={amber}>
+                                            No attendance or request found for{' '}
+                                            {dayjs(gate.blockingDate).format('DD-MM-YYYY')}. Mark attendance or
+                                            raise a request for that day first.
+                                        </Notice>
+                                    )}
+
+                                    {!gate.blocked && (
+                                        <>
+                                            {/* The SAME fields the admin's raise-for-someone modal
+                                                renders, now including the kind selector — one screen,
+                                                so changing your mind about what you are correcting
+                                                does not mean going back a step. */}
+                                            <AttendanceRequestFields
+                                                value={draft}
+                                                onChange={onDraftChange}
+                                                methods={methods}
+                                                kinds={KINDS}
+                                                kindDisabled={kindBlocked}
+                                                showErrors={attempted}
+                                                disabled={saving}
+                                            />
+
+                                            {/* One reason per closed option, from the same
+                                                predicate that closed it — so a greyed segment
+                                                can never sit there unexplained.
+
+                                                `both` is left out on purpose. It only ever
+                                                closes because one of the halves is pending,
+                                                which the half's own line already says, so
+                                                listing it too would state the same fact
+                                                twice. Its segment still carries the reason
+                                                on hover. */}
+                                            {(['checkin', 'checkout'] as const)
+                                                .map((k) => kindBlocked(k))
+                                                .filter((r, i, all): r is string => Boolean(r) && all.indexOf(r) === i)
+                                                .map((reason) => (
+                                                    <Hint key={reason}>{reason}</Hint>
+                                                ))}
+
+                                            {/* Says what will happen, because "it merged into
+                                                the one I already raised" is surprising if you
+                                                were expecting a second request. */}
+                                            {pendingCheckInRequest && !pendingCheckOutRequest && (
+                                                <Hint>A check-out will be added to that same pending request.</Hint>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/**
+                                     * One way back, whatever the form happens to be showing.
+                                     *
+                                     * Outside the gate conditions on purpose: the blocked
+                                     * branch explains that an earlier day needs fixing first,
+                                     * and without this it stranded you on that message with
+                                     * closing the whole dialog as the only exit — taking the
+                                     * record you opened it to read with it.
+                                     */}
+                                    <Stack direction="row" flexWrap="wrap" justifyContent="space-between" gap={1}>
+                                        <WtButton
+                                            inverted
+                                            onClick={() => setMode('read')}
+                                            startIcon={<KTIcon iconName="arrow-left" className="fs-5" />}
+                                        >
+                                            Back
+                                        </WtButton>
+                                        {!gate.blocked && (
+                                            <WtButton onClick={submit} disabled={saving}>
+                                                {saving ? 'Saving…' : 'Submit request'}
+                                            </WtButton>
+                                        )}
+                                    </Stack>
+                                </Stack>
+                            )}
+                        </>
+                    )}
+                </Box>
+            </GlassDialog>
 
             {/* Admin path, preserved from the legacy calendar. A sibling of the
                 dialog rather than a child, so closing the day panel does not
@@ -565,13 +620,62 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
 
 function Field({ k, v, hint }: { k: string; v: string; hint?: string }) {
     return (
-        <div className="min-w-0">
-            <dt className="m-0 text-[10.5px] font-bold uppercase tracking-[0.04em] text-slate-400 dark:text-slate-500">{k}</dt>
-            <dd className="m-0 truncate text-[13px] font-bold tabular-nums text-slate-900 dark:text-slate-100">
+        <Box sx={{ minWidth: 0 }}>
+            <Box component="dt" sx={{ m: 0, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.disabled' }}>
+                {k}
+            </Box>
+            <Box
+                component="dd"
+                sx={{
+                    m: 0,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    fontVariantNumeric: 'tabular-nums',
+                    color: 'text.primary',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                }}
+            >
                 {v}
-                {hint && <span className="ml-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">{hint}</span>}
-            </dd>
-        </div>
+                {hint && (
+                    <Box component="span" sx={{ ml: 0.75, fontSize: 11, fontWeight: 500, color: 'text.disabled' }}>
+                        {hint}
+                    </Box>
+                )}
+            </Box>
+        </Box>
+    );
+}
+
+/** A tinted line of explanation. One shape for every warning on this screen. */
+function Notice({ tone, children }: { tone: { bg: string; bd: string; fg: string }; children: React.ReactNode }) {
+    return (
+        <Typography
+            sx={{
+                m: 0,
+                px: 1.25,
+                py: 1,
+                borderRadius: 1.5,
+                border: `1px solid ${tone.bd}`,
+                bgcolor: tone.bg,
+                color: tone.fg,
+                fontSize: 12,
+                fontWeight: 600,
+            }}
+        >
+            {children}
+        </Typography>
+    );
+}
+
+/** Quiet guidance — never an error, so it never borrows the error colour. */
+function Hint({ children }: { children: React.ReactNode }) {
+    return (
+        <Stack direction="row" spacing={0.75} alignItems="flex-start">
+            <KTIcon iconName="information-2" className="fs-7" />
+            <Typography sx={{ fontSize: 11.5, lineHeight: 1.45, color: 'text.secondary' }}>{children}</Typography>
+        </Stack>
     );
 }
 

@@ -7,8 +7,8 @@
  *    which nobody should have to get by counting circles.
  *  - It FILTERS. Isolating "Absent" is the most common thing anyone does with
  *    an attendance calendar after opening it.
- *  - Entries with a zero count are rendered disabled rather than hidden, so the
- *    row does not reflow as you page between months.
+ *  - Entries with a zero count COLLAPSE behind a "+N unused" pill rather than
+ *    filling a second row with nothing. They are one click away, not gone.
  *
  * Counts come from the server alongside the days, so the legend, the summary
  * and the tiles cannot disagree.
@@ -16,7 +16,7 @@
  * Each swatch is drawn by the SAME resolver the tiles use — a chip can never
  * drift from the thing it describes.
  */
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/useIsDark';
 import { legendLabel, resolveLegendVisual, shouldPulse, type DayLabelOverrides, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
@@ -45,6 +45,7 @@ export const CalendarLegend = memo(function CalendarLegend({
   onClear,
 }: CalendarLegendProps) {
   const filtering = active.size > 0;
+  const [showUnused, setShowUnused] = useState(false);
 
   /**
    * The rows come from the REGISTRY; the server only supplies the numbers.
@@ -55,8 +56,7 @@ export const CalendarLegend = memo(function CalendarLegend({
    * `remote` / `on_site` were painted on tiles with no chip to explain them.
    *
    * Anything the server counts but the registry does not name is dropped rather
-   * than rendered raw, and anything named but not counted shows a zero, which
-   * the chip already renders dimmed.
+   * than rendered raw.
    */
   const rows = useMemo(() => {
     const counts = new Map(legend.map((e) => [e.key, e.count]));
@@ -66,6 +66,26 @@ export const CalendarLegend = memo(function CalendarLegend({
       count: counts.get(spec.key as LegendKey) ?? 0,
     }));
   }, [legend, labels]);
+
+  /**
+   * Zero-count entries COLLAPSE rather than disappear.
+   *
+   * They used to sit dimmed in the row, on the grounds that the legend was the
+   * only place to learn what "Regularised" meant — hiding it taught less the
+   * emptier the month was. Appearance Settings now names every key with its own
+   * hint and a shape preview, so that argument no longer pays for the second
+   * row of mostly-nothing it was buying.
+   *
+   * Collapsed, not deleted: the number hidden stays on screen and one click
+   * brings them back, so "what else can a day be?" is still answerable without
+   * leaving the calendar. That is the half worth keeping.
+   */
+  const present = useMemo(() => rows.filter((r) => r.count > 0), [rows]);
+  const unusedCount = rows.length - present.length;
+
+  // A month with nothing in it at all — a future month — would otherwise render
+  // an empty strip under a lone toggle, which reads as broken rather than empty.
+  const shown = showUnused || present.length === 0 ? rows : present;
 
   return (
     <div className="flex flex-col gap-2">
@@ -95,7 +115,7 @@ export const CalendarLegend = memo(function CalendarLegend({
           'sm:flex-wrap',
         )}
       >
-        {rows.map((entry) => (
+        {shown.map((entry) => (
           <LegendChip
             key={entry.key}
             entry={entry}
@@ -107,6 +127,29 @@ export const CalendarLegend = memo(function CalendarLegend({
             onToggle={onToggle}
           />
         ))}
+
+        {/* The count is the point: "+5 unused" says something is there without
+            spending a row on five zeros. Rendered inside the same strip so it
+            scrolls with the chips on a phone rather than stranding above them. */}
+        {unusedCount > 0 && present.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowUnused((v) => !v)}
+            aria-expanded={showUnused}
+            className={cn(
+              'inline-flex shrink-0 snap-start items-center gap-1 border border-dashed px-2.5 py-[4px]',
+              'text-[11.5px] font-bold text-slate-500 dark:text-slate-400',
+              'border-slate-300 hover:border-slate-400 hover:text-slate-700',
+              'dark:border-[#30363d] dark:hover:text-slate-200',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A8A] dark:focus-visible:ring-[#8AA3EC]',
+            )}
+            // Bootstrap Reboot's unlayered `button { border-radius: 0 }` outranks
+            // every rounded-* utility, so the pill shape has to be inline.
+            style={{ borderRadius: 9999 }}
+          >
+            {showUnused ? 'Hide unused' : `+${unusedCount} unused`}
+          </button>
+        )}
       </div>
     </div>
   );

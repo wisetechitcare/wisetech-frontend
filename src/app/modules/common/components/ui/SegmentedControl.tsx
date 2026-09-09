@@ -1,4 +1,4 @@
-import { Box } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
 
 export interface SegmentedOption<T extends string> {
@@ -6,6 +6,18 @@ export interface SegmentedOption<T extends string> {
   label: string;
   /** Trailing count, e.g. `Active (37)`. Rendered dimmer than the label. */
   count?: number;
+  /**
+   * A choice that exists but cannot be taken right now.
+   *
+   * Dimmed and unclickable rather than removed, because a segmented control is
+   * read as the complete set of options — dropping one silently changes what
+   * the reader believes the choice IS. Pair it with `disabledReason` so the
+   * segment can say why on hover, and state the reason in the surrounding copy
+   * too: a tooltip is a hint, not an explanation.
+   */
+  disabled?: boolean;
+  /** Hover/assistive text for a disabled segment. */
+  disabledReason?: string;
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -38,6 +50,16 @@ export interface SegmentedControlProps<T extends string> {
 export function SegmentedControl<T extends string>({
   options, value, onChange, ariaLabel, fullWidth = false, sx,
 }: SegmentedControlProps<T>) {
+  /**
+   * The palette was three hardcoded light-mode greys, so the track stayed pale
+   * and the labels stayed dark on any screen that offers dark mode. Light values
+   * are unchanged — every existing consumer looks exactly as it did.
+   */
+  const dark = useTheme().palette.mode === 'dark';
+  const C = dark
+    ? { track: '#161b22', pill: '#21262d', idle: '#8b949e', on: '#8AA3EC', caret: '#8AA3EC' }
+    : { track: '#F1F5F9', pill: '#ffffff', idle: '#64748B', on: '#1E3A8A', caret: '#1E3A8A' };
+
   return (
     <Box
       role="tablist"
@@ -48,7 +70,7 @@ export function SegmentedControl<T extends string>({
         gap: '2px',
         p: '2px',
         borderRadius: '6px',
-        bgcolor: '#F1F5F9',
+        bgcolor: C.track,
         width: fullWidth ? '100%' : 'fit-content',
         // The caret sits above the track, so the track must not clip it.
         overflow: 'visible',
@@ -56,6 +78,7 @@ export function SegmentedControl<T extends string>({
     >
       {options.map((option) => {
         const active = option.value === value;
+        const off = Boolean(option.disabled);
         return (
           <Box
             key={option.value}
@@ -63,7 +86,9 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="tab"
             aria-selected={active}
-            onClick={() => onChange(option.value)}
+            disabled={off}
+            title={off ? option.disabledReason : undefined}
+            onClick={() => { if (!off) onChange(option.value); }}
             sx={{
               position: 'relative',
               // Not `hidden`: the caret is positioned outside the button's box.
@@ -79,12 +104,15 @@ export function SegmentedControl<T extends string>({
               fontSize: 12,
               fontWeight: active ? 600 : 500,
               whiteSpace: 'nowrap',
-              cursor: 'pointer',
+              cursor: off ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s ease',
-              bgcolor: active ? '#ffffff' : 'transparent',
-              color: active ? '#1E3A8A' : '#64748B',
+              bgcolor: active ? C.pill : 'transparent',
+              color: active ? C.on : C.idle,
+              // Dimmed rather than greyed to a fourth colour: the segment keeps
+              // its own colour so it still reads as one of the set.
+              opacity: off ? 0.42 : 1,
               boxShadow: active ? '0 1px 2px rgba(16, 24, 40, 0.06)' : 'none',
-              '&:hover': { color: '#1E3A8A' },
+              '&:hover': { color: off ? undefined : C.on },
             }}
           >
             {option.label}
@@ -116,7 +144,7 @@ export function SegmentedControl<T extends string>({
                   height: 0,
                   borderLeft: '5px solid transparent',
                   borderRight: '5px solid transparent',
-                  borderTop: '5px solid #1E3A8A',
+                  borderTop: `5px solid ${C.caret}`,
                   pointerEvents: 'none',
                 }}
               />

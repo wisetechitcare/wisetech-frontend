@@ -41,7 +41,6 @@ const initialValues: ICompanyOverview = {
     salaryStamp: "", // Updated field name to match database column
     // workingDays: "", // Commented out - not being used in the app
     // workingHrs: "", // Commented out - not being used in the app
-    showDateIn12HourFormat: "0",
     contactNumber: "",
     foundedIn: "",
     gstNumber: "",
@@ -120,6 +119,8 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
     }
 
     const allEmployees = useSelector((state: RootState) => state.allEmployees?.list.length || 0);
+    // Preserved verbatim on save — see the dispatch below.
+    const storedCompany = useSelector((state: RootState) => (state as any)?.company?.currentCompany);
 
     // Handler for logo file upload
     const handleLogoChange = async (event: ChangeEvent<HTMLInputElement>, setFieldValue: (field: string, value: any) => void) => {
@@ -288,12 +289,15 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                     setSchemaDirty(false);
                                     setCompanyData(values);
 
-                                    // Update Redux store with new showDateIn12HourFormat value
+                                    // This REPLACES currentCompany rather than merging, so anything
+                                    // this form does not own has to be carried through explicitly.
+                                    // The 12/24h flag is owned by Settings > Date & Time now — read it
+                                    // back off the store instead of writing a stale form value over it.
                                     const currentCompanyInfo = {
+                                        ...storedCompany,
                                         id: companyId,
                                         name: values.name,
                                         fiscalYear: values.fiscalYear,
-                                        showDateIn12HourFormat: values.showDateIn12HourFormat
                                     };
                                     dispatch(saveCurrentCompanyInfo(currentCompanyInfo) as any);
 
@@ -335,10 +339,7 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                         // Create new initial values object with fetched data
                                         const newInitialValues: ICompanyOverview = { ...initialValues };
                                         (Object.keys(newInitialValues) as Array<keyof ICompanyOverview>).forEach((key) => {
-                                            if(key?.toString()=="showDateIn12HourFormat"){
-                                                newInitialValues[key] = (resolveActiveOrg(companyOverview)[key] ? "1" : "0") as any;
-                                            }
-                                            else if (resolveActiveOrg(companyOverview).hasOwnProperty(key) && key !== 'numberOfEmployees') {
+                                            if (resolveActiveOrg(companyOverview).hasOwnProperty(key) && key !== 'numberOfEmployees') {
                                                 newInitialValues[key] = (resolveActiveOrg(companyOverview)[key] || '') as any;
                                                 // Fall back to the default Super Admin Email if this org has none configured.
                                                 if (key === 'superAdminEmail' && !newInitialValues[key]) {
