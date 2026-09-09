@@ -47,9 +47,12 @@ import { legendLabel, resolveDayVisual, type DayLabelOverrides, type DayToneOver
 import type { CalendarDay } from './types';
 import { AttendanceRequestFields } from '@app/modules/common/components/attendance/AttendanceRequestFields';
 import {
+    KIND_LABEL,
     applyKind,
     emptyDraft,
     validateAttendanceRequest,
+    wantsCheckIn,
+    wantsCheckOut,
     type AttendanceRequestDraft,
     type RequestKind,
 } from '@app/modules/common/components/attendance/attendanceRequest';
@@ -207,6 +210,12 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
         if (k === 'checkin' && pendingCheckInRequest) return 'A check-in correction for this day is already awaiting approval.';
         if (k === 'checkout' && pendingCheckOutRequest) return 'A check-out correction for this day is already awaiting approval.';
         if (k === 'checkout' && !hasCheckIn) return 'There is no check-in yet, so raise that first.';
+        // `both` supplies its own check-in, so the "raise that first" rule does
+        // not apply to it — but either half already awaiting approval means one
+        // of the two times it carries would land on top of a pending one.
+        if (k === 'both' && (pendingCheckInRequest || pendingCheckOutRequest)) {
+            return 'Part of this day is already awaiting approval, so raise the other half on its own.';
+        }
         return null;
     };
 
@@ -254,7 +263,40 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
             );
             return;
         }
-        setDraft(applyKind({ ...draft, checkIn: '', checkOut: '' }, k));
+        /**
+         * Open on what is being CORRECTED, not on an empty field.
+         *
+         * This used to clear both times unconditionally. Right for the raise
+         * case — an absent day with nothing recorded — but the same path serves
+         * "fix the time that is already there", and it left the wheel on its
+         * 12:00 default while the row two lines above read 07:13, so the user
+         * had to re-enter a value the screen was already showing.
+         *
+         * Seeded from the RECORDED time only, never from `expected`: pre-filling
+         * a correction with the policy threshold would quietly invite everyone
+         * to claim they arrived exactly on it.
+         *
+         * The working method is seeded the same way — the day already says
+         * Office, so asking again is a question the record answers. Matched on
+         * the LABEL, because `workMode` is the method's type, not its id.
+         */
+        const seedIn = wantsCheckIn(k) ? day?.actual.checkIn ?? '' : '';
+        const seedOut = wantsCheckOut(k) ? day?.actual.checkOut ?? '' : '';
+        const currentMethod = day?.workMode
+            ? methods.find((m) => m.label.toLowerCase() === day.workMode!.toLowerCase())?.value
+            : undefined;
+
+        setDraft(
+            applyKind(
+                {
+                    ...draft,
+                    checkIn: seedIn,
+                    checkOut: seedOut,
+                    workingMethodId: draft.workingMethodId || currentMethod || '',
+                },
+                k,
+            ),
+        );
         setAttempted(false);
         setMode('form');
     };
@@ -268,9 +310,15 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
         const problem = validateAttendanceRequest(draft);
         if (problem) return errorConfirmation(problem);
 
-        // This guard stays HERE: it compares against the punch already on the
-        // day, which is state the shared validator has no access to.
-        const other = kind === 'checkin' ? day.actual.checkOut : day.actual.checkIn;
+        /**
+         * This guard stays HERE: it compares against the punch already on the
+         * day, which is state the shared validator has no access to.
+         *
+         * Skipped for `both`, which carries its own pair — the shared validator
+         * already orders those two against each other, and there is no third
+         * time on the day to sit them beside.
+         */
+        const other = kind === 'both' ? null : kind === 'checkin' ? day.actual.checkOut : day.actual.checkIn;
         if (other) {
             const proposed = dayjs(`${day.date} ${time}`);
             const existing = dayjs(`${day.date} ${other}`);
@@ -286,7 +334,8 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
         try {
             // Composed in the employee's OWN branch timezone, matching how the
             // server buckets the business day.
-            const iso = dayjs.tz(`${day.date} ${time}`, 'YYYY-MM-DD HH:mm', tz).toISOString();
+            const at = (hhmm: string) =>
+                dayjs.tz(`${day.date} ${hhmm}`, 'YYYY-MM-DD HH:mm', tz).toISOString();
             await createUpdateAttendanceRequest({
                 employeeId,
                 // REQUIRED. `AttendanceRequests.companyId` is non-nullable with a
@@ -301,7 +350,11 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                 latitude: 0,
                 longitude: 0,
                 status: 0,
-                ...(kind === 'checkin' ? { checkIn: iso, checkOut: null } : { checkOut: iso }),
+                // Driven by the kind, so `both` sends two times and each of the
+                // one-sided kinds sends only its own — the half it omits is left
+                // untouched by the server's same-date merge rather than nulled.
+                ...(wantsCheckIn(draft.kind) ? { checkIn: at(draft.checkIn) } : {}),
+                ...(wantsCheckOut(draft.kind) ? { checkOut: at(draft.checkOut) } : {}),
             } as never);
             successConfirmation('Attendance request saved successfully');
             onSubmitted?.();
@@ -461,14 +514,20 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                                     What would you like to correct?
                                 </p>
                                 <div className="flex flex-wrap gap-2">
-                                    {(['checkin', 'checkout'] as const).map((k) => (
+                                    {/* `both` last: correcting ONE punch is the common
+                                        case, and a day with neither recorded is the one
+                                        that benefits from filing them together. The
+                                        server merges same-date halves anyway, so this
+                                        only saves the employee a second round trip —
+                                        the admin modal has offered it all along. */}
+                                    {(['checkin', 'checkout', 'both'] as const).map((k) => (
                                         <WtButton
                                             key={k}
                                             inverted
                                             disabled={Boolean(kindBlocked(k))}
                                             onClick={() => pickKind(k)}
                                         >
-                                            {k === 'checkin' ? 'Check-in' : 'Check-out'}
+                                            {KIND_LABEL[k]}
                                         </WtButton>
                                     ))}
                                 </div>
@@ -523,7 +582,7 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                         {mode === 'form' && !gate.blocked && (
                             <div className="flex flex-col gap-3">
                                 <p className="m-0 text-[12px] font-bold text-slate-700 dark:text-slate-300">
-                                    {kind === 'checkin' ? 'Check-in' : 'Check-out'} correction
+                                    {KIND_LABEL[kind]} correction
                                 </p>
 
                                 {/* The SAME fields the admin's raise-for-someone modal

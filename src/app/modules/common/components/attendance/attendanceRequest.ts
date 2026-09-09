@@ -19,6 +19,17 @@ export type RequestKind = 'checkin' | 'checkout' | 'both';
 export const wantsCheckIn = (k: RequestKind): boolean => k === 'both' || k === 'checkin';
 export const wantsCheckOut = (k: RequestKind): boolean => k === 'both' || k === 'checkout';
 
+/**
+ * What each kind is CALLED. Lives with the kind model, not with a form, because
+ * both flows name the same three things and a second copy is how the admin
+ * modal and the day panel would come to disagree about the word "Both".
+ */
+export const KIND_LABEL: Record<RequestKind, string> = {
+    both: 'Both',
+    checkin: 'Check-in',
+    checkout: 'Check-out',
+};
+
 /** 24-hour `HH:mm`. Anchored, so "9:00" and "24:00" are both rejected. */
 export const TIME_24H = /^([01]\d|2[0-3]):([0-5]\d)$/;
 

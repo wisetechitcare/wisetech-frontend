@@ -3,6 +3,7 @@ import { WtSelect } from '@app/modules/common/components/ui/WtSelect';
 import { WtButton } from '@app/modules/common/components/ui/tw/Buttons';
 import { cn } from '@app/modules/common/components/ui/tw/cn';
 import {
+  KIND_LABEL,
   applyKind,
   wantsCheckIn,
   wantsCheckOut,
@@ -41,10 +42,18 @@ export interface AttendanceRequestFieldsProps {
   disabled?: boolean;
 }
 
-const KIND_LABEL: Record<RequestKind, string> = {
-  both: 'Both',
-  checkin: 'Check-in only',
-  checkout: 'Check-out only',
+/**
+ * "only" is added HERE, not in the shared label.
+ *
+ * In this selector the three sit side by side, so "Check-in only" is what
+ * distinguishes it from "Both". Elsewhere — a heading, a chip — the same kind is
+ * just "Check-in", and carrying "only" into those would read as a qualifier
+ * nothing is qualifying.
+ */
+const SELECTOR_LABEL: Record<RequestKind, string> = {
+  both: KIND_LABEL.both,
+  checkin: `${KIND_LABEL.checkin} only`,
+  checkout: `${KIND_LABEL.checkout} only`,
 };
 
 export function AttendanceRequestFields({
@@ -73,7 +82,7 @@ export function AttendanceRequestFields({
                 onClick={() => onChange(applyKind(value, k))}
                 aria-pressed={value.kind === k}
               >
-                {KIND_LABEL[k]}
+                {SELECTOR_LABEL[k]}
               </WtButton>
             ))}
           </div>
