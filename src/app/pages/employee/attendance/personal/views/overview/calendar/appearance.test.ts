@@ -120,10 +120,11 @@ describe('the settings screen and the legend list the same things', () => {
    * categories the product already shipped — an expansion to every paintable
    * key made it a three-row wall that taught less, not more.
    */
-  it('keeps the legend to the eleven day categories', () => {
+  it('keeps the legend to the twelve day categories', () => {
     expect(LEGEND_TONES.map((t) => t.key)).toEqual([
       'present', 'absent', 'leave', 'half_day', 'holiday', 'weekly_off',
-      'regularized', 'worked_on_off_day', 'late_in', 'request_pending', 'missing_check_out',
+      'regularized', 'worked_on_off_day', 'late_in', 'early_in', 'request_pending',
+      'missing_check_out',
     ]);
   });
 
@@ -146,7 +147,7 @@ describe('the settings screen and the legend list the same things', () => {
    * same dead control the seven flat fields used to be.
    */
   it('lists nothing the server never emits', () => {
-    const neverEmitted = ['early_in', 'early_out', 'late_out', 'overtime'];
+    const neverEmitted = ['early_out', 'late_out', 'overtime'];
     const keys = CALENDAR_TONES.map((t) => String(t.key));
     neverEmitted.forEach((k) => expect(keys).not.toContain(k));
   });
