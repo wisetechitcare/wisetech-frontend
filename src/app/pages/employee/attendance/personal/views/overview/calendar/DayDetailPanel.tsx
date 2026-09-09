@@ -79,7 +79,19 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
     const kind = draft.kind;
     const time = kind === 'checkin' ? draft.checkIn : draft.checkOut;
     const [methods, setMethods] = useState<Array<{ value: string; label: string }>>([]);
-    const [restrictionDays, setRestrictionDays] = useState(1);
+    /**
+     * 0 = any day. The window RESTRICTS only when an admin has set one.
+     *
+     * This started at 1 — today only — which closed the gate before the config
+     * had even loaded, so opening a day quickly enough refused a correction
+     * whatever the policy said. Combined with the parse fallback below it meant
+     * an unconfigured company could not correct yesterday at all.
+     *
+     * The server accepts a correction for ANY date, so defaulting closed also
+     * made the browser stricter than the API it talks to — a rule with no
+     * enforcement behind it, applied only to the people using the UI.
+     */
+    const [restrictionDays, setRestrictionDays] = useState(0);
     const [gate, setGate] = useState<{ checking: boolean; blocked: boolean; blockingDate: string }>({
         checking: false, blocked: false, blockingDate: '',
     });
@@ -120,8 +132,12 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
                 const res = await fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY);
                 const parsed = safeJsonParse(res?.data?.configuration?.configuration || '{}');
                 const raw = parsed?.[RESTRICT_ATTENDANCE_TO_7_DAYS_KEY];
-                // The value migrated from boolean to number; both shapes are still in the wild.
-                setRestrictionDays(typeof raw === 'boolean' ? (raw ? 7 : 0) : typeof raw === 'number' && raw >= 0 ? raw : 1);
+                // The value migrated from boolean to number; both shapes are still
+                // in the wild. Anything else means "not configured" and allows any
+                // day — the same answer the `catch` below already gave, which is
+                // the contradiction this fixes: a fetch ERROR failed open while an
+                // unrecognised VALUE failed closed.
+                setRestrictionDays(typeof raw === 'boolean' ? (raw ? 7 : 0) : typeof raw === 'number' && raw >= 0 ? raw : 0);
             } catch {
                 setRestrictionDays(0); // fail open, matching the legacy fallback
             }
