@@ -149,7 +149,7 @@ let initialState = {
   // dateFormat: '',
   companyId: '',
   isActive: false,
-  showDateIn12HourFormat: '1',
+  showDateIn12HourFormat: 'inherit',
   timezone: '',
 }
 
@@ -179,6 +179,17 @@ interface BranchesProps {
   /** Hide the "Branches" heading (e.g. when the host modal already shows a title). */
   hideHeading?: boolean;
 }
+
+/**
+ * The branch's slice of the 12/24h cascade, as the DB must store it.
+ *
+ * `null` is the important return: it means "this branch has no opinion", which is what
+ * lets the organisation setting through. Returning `false` for anything that is not '1'
+ * is the bug this replaces — it made every branch assert 24-hour, and a branch that
+ * asserts anything permanently shadows its organisation. See utils/timeFormat.ts.
+ */
+const toBranchTimeFormat = (value: string): boolean | null =>
+  value === '1' ? true : value === '0' ? false : null;
 
 function Branches({ companyId, embedded = false, hideHeading = false }: BranchesProps = {}) {
   const dispatch = useDispatch()
@@ -359,7 +370,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       // dateFormat: '',
       companyId: '',
       isActive: false,
-      showDateIn12HourFormat: '1',
+      showDateIn12HourFormat: 'inherit',
       timezone: '',
     }
 
@@ -425,7 +436,9 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       isActive,
       longitude,
       postalCode,
-      showDateIn12HourFormat: branch.showDateIn12HourFormat === false ? '0' : '1',
+      showDateIn12HourFormat: branch.showDateIn12HourFormat === true ? '1'
+        : branch.showDateIn12HourFormat === false ? '0'
+        : 'inherit',
       timezone: timezone || '',
     }
 
@@ -448,7 +461,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
           ...values,
           latitude: Number(values.latitude),
           longitude: Number(values.longitude),
-          showDateIn12HourFormat: values.showDateIn12HourFormat === '1',
+          showDateIn12HourFormat: toBranchTimeFormat(values.showDateIn12HourFormat),
         })
         setLoading(false)
         successConfirmation('Branch updated successfully')
@@ -461,7 +474,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
           ...values,
           latitude: Number(values.latitude),
           longitude: Number(values.longitude),
-          showDateIn12HourFormat: values.showDateIn12HourFormat === '1',
+          showDateIn12HourFormat: toBranchTimeFormat(values.showDateIn12HourFormat),
           isActive: true,
         },
       ]
@@ -1075,12 +1088,18 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                         </Typography>
                       </div>
                     </div>
+                    {/* Three choices, not two. The format is a cascade
+                        (personal -> branch -> org -> 12h) and each layer only applies when
+                        the one above it has no opinion. A Yes/No control cannot say "no
+                        opinion", so every save asserted one and the branch permanently
+                        shadowed the organisation. See utils/timeFormat.ts. */}
                     <RadioInput
                       isRequired={false}
-                      inputLabel='Show Time In 12 Hour Format'
+                      inputLabel='Time Format'
                       radioBtns={[
-                        { label: 'Yes', value: '1' },
-                        { label: 'No', value: '0' },
+                        { label: 'Organisation default', value: 'inherit' },
+                        { label: '12-hour', value: '1' },
+                        { label: '24-hour', value: '0' },
                       ]}
                       formikField='showDateIn12HourFormat'
                     />
