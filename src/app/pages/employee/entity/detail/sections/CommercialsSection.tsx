@@ -98,7 +98,9 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
           { label: project ? 'Contract Value' : 'Estimated Value', value: fmtMoney(contractValue), icon: 'bi bi-currency-rupee', accentColor: 'green' },
           { label: 'Total Area', value: contractArea ? `${contractArea.toLocaleString('en-IN')} sqft` : DASH, icon: 'bi bi-rulers', accentColor: 'teal' },
           { label: 'Quoted (Lead)', value: fmtMoney(lead.totals.totalCost), icon: 'bi bi-tag', accentColor: 'blue' },
-          { label: 'Avg / sqft', value: contractArea ? fmtMoney(Math.round(contractValue / contractArea)) : DASH, icon: 'bi bi-graph-up', accentColor: 'purple' },
+          // Rounding to the rupee hid the real rate: 22,50,000 over 23,399 sqft read
+          // as 96, not 96.16. Two decimals; a whole number renders without any.
+          { label: 'Avg / sqft', value: contractArea ? fmtMoney(+(contractValue / contractArea).toFixed(2)) : DASH, icon: 'bi bi-graph-up', accentColor: 'purple' },
         ]}
       />
 

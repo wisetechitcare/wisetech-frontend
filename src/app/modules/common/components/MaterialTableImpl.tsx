@@ -109,6 +109,8 @@ export interface MaterialTableProps {
   enableFilters?: boolean;
   enableSorting?: boolean;
   enableGrouping?: boolean;
+  /** Off by default: its grab handle sat next to the sort arrow wearing an
+   *  up-down arrow of its own, so every header read as two sort buttons. */
   enableColumnDragging?: boolean;
   enableColumnResizing?: boolean;
   enableColumnPinning?: boolean;
@@ -307,7 +309,7 @@ function MaterialTable({
   enableFilters = true,
   enableSorting = true,
   enableGrouping = true,
-  enableColumnDragging = true,
+  enableColumnDragging = false,
   enableColumnResizing = false,
   enableColumnPinning = true,
   enableExpandAll = true,
@@ -1495,7 +1497,7 @@ function MaterialTable({
           manualPagination={manualPagination}
           rowCount={manualPagination ? rowCount : undefined}
           enablePagination={paginationDisabled ? false : undefined}
-          enableColumnDragging={enableColumnDragging ?? true}
+          enableColumnDragging={enableColumnDragging}
           enableColumnResizing={enableColumnResizing ?? false}
           enableColumnPinning={isMobile ? false : (enableColumnPinning ?? true)}
           enableGrouping={enableGrouping ?? true}

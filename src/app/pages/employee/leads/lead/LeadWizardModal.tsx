@@ -1314,9 +1314,10 @@ const LeadWizardModal = ({
       // ─── Project Execution (wizard) — pre-fill from the linked project ────────
       // The wizard's ProjectExecutionSection binds to projectMeta.* + the date fields
       // below. Mapped back to Project columns in handleSubmit's projectDelta.
-      receivedDate: leadData.project?.poDate
-        ? new Date(leadData.project.poDate).toISOString().split("T")[0]
-        : leadData.receivedDate || "",
+      // The stored receipt instant, and nothing else. It is never derived from
+      // another date (PO date, inquiry date): blank on a received lead stays
+      // blank until the user sets it or moves the status.
+      receivedDate: leadData.receivedDate || "",
       // Total Area shown on the Lead Status step — seeded from the commercial rows
       // when blank, but an edited value is persisted, so load it back on edit.
       projectArea: leadData.additionalDetails?.projectArea || "",
@@ -3175,6 +3176,10 @@ const LeadWizardModal = ({
                   // rewriting a saved project start date to today) and wiped
                   // poNumber/poDate/handledBy on the statuses-load race.
                   if (values.statusId === initialValues.statusId) return;
+                  // …and only once the statuses are loaded. Before they arrive
+                  // every status looks "not Received", which clears receivedDate
+                  // and the PO block on a lead that is in fact Received.
+                  if (leadStatuses.length === 0) return;
                   const selectedStatus = leadStatuses.find(
                     (s: any) => s.id === values.statusId,
                   );
