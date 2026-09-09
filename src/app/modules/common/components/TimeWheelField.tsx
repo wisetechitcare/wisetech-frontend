@@ -188,7 +188,7 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
                         states the value it is editing and nothing about who is editing it. */}
                     <Box sx={{ px: 1.25, py: 0.75, borderBottom: `1px solid ${theme.palette.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                         <Typography sx={{ fontSize: 15, fontWeight: 800, color: tone.c, fontVariantNumeric: 'tabular-nums' }}>
-                            {hh}:{mm}{hour12 ? ` ${meridiem}` : ''}
+                            {displayHour}:{mm}{hour12 ? ` ${meridiem}` : ''}
                         </Typography>
                         {/* A LABEL, not a switch.
                             It was two pills that wrote the app-wide preference. That is a global
