@@ -1,4 +1,4 @@
-import { Box, Stack, Typography } from '@mui/material';
+import { Stack } from '@mui/material';
 import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
 import { WtField } from '@app/modules/common/components/ui/WtField';
 import { SegmentedControl } from '@app/modules/common/components/ui/SegmentedControl';
@@ -62,6 +62,12 @@ export interface AttendanceRequestFieldsProps {
  * just "Check-in", and carrying "only" into those would read as a qualifier
  * nothing is qualifying.
  */
+/**
+ * The child controls below own their own value, so `WtField`'s onChange has
+ * nothing to do for them. It is required by the frame, not by the control.
+ */
+const noop = () => undefined;
+
 const SELECTOR_LABEL: Record<RequestKind, string> = {
   both: KIND_LABEL.both,
   checkin: `${KIND_LABEL.checkin} only`,
@@ -95,23 +101,25 @@ export function AttendanceRequestFields({
           needs — and asked HERE rather than on a step of its own, so switching
           to "Both" after seeing the times is one click, not a trip backwards. */}
       {segments.length > 1 && (
-        <LabelledRow label="What are you correcting?">
+        <WtField label="What are you correcting?" required value={value.kind} onChange={noop}>
           <SegmentedControl
             options={segments}
             value={value.kind}
             onChange={(k) => onChange(applyKind(value, k))}
             ariaLabel="What are you correcting"
           />
-        </LabelledRow>
+        </WtField>
       )}
 
-      {/* The wheel brings its own frame, so it sits under a matching label
-          rather than inside `WtField`'s — nesting the two would draw a border
-          around a border. */}
+      {/* The wheel brings its own frame. `WtField` styles the controls it
+          renders itself but leaves `children` untouched, so it contributes the
+          label and the message here without drawing a second border. */}
       {wantsCheckIn(value.kind) && (
-        <LabelledRow
+        <WtField
           label="Check-in time"
           required
+          value={value.checkIn}
+          onChange={(t: string) => set({ checkIn: t })}
           error={showErrors && !value.checkIn ? 'Pick a check-in time' : undefined}
         >
           <TimeWheelField
@@ -120,13 +128,15 @@ export function AttendanceRequestFields({
             disabled={disabled}
             invalid={showErrors && !value.checkIn}
           />
-        </LabelledRow>
+        </WtField>
       )}
 
       {wantsCheckOut(value.kind) && (
-        <LabelledRow
+        <WtField
           label="Check-out time"
           required
+          value={value.checkOut}
+          onChange={(t: string) => set({ checkOut: t })}
           error={showErrors && !value.checkOut ? 'Pick a check-out time' : undefined}
         >
           <TimeWheelField
@@ -135,7 +145,7 @@ export function AttendanceRequestFields({
             disabled={disabled}
             invalid={showErrors && !value.checkOut}
           />
-        </LabelledRow>
+        </WtField>
       )}
 
       <WtField
@@ -161,55 +171,6 @@ export function AttendanceRequestFields({
         disabled={disabled}
       />
     </Stack>
-  );
-}
-
-/**
- * Label + control + message for the two controls `WtField` does not model — a
- * tablist and a popover time wheel, neither of which is an input in its frame.
- *
- * The typography is `WtField`'s, restated rather than re-invented: two label
- * styles in one form is exactly the drift that component exists to end, and the
- * fields here sit directly beside ones it renders.
- */
-function LabelledRow({
-  label,
-  required,
-  error,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
-      <Typography
-        component="span"
-        sx={{
-          fontSize: 12,
-          fontWeight: 600,
-          letterSpacing: '0.01em',
-          lineHeight: 1.3,
-          color: error ? 'error.main' : 'text.secondary',
-          userSelect: 'none',
-        }}
-      >
-        {label}
-        {required && (
-          <Box component="span" aria-hidden="true" sx={{ color: 'error.main', ml: 0.25 }}>*</Box>
-        )}
-      </Typography>
-
-      {children}
-
-      {error && (
-        <Typography role="alert" sx={{ fontSize: 11.5, lineHeight: 1.4, color: 'error.main' }}>
-          {error}
-        </Typography>
-      )}
-    </Box>
   );
 }
 

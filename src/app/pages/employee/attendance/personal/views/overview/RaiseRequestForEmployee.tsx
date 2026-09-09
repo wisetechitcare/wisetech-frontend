@@ -449,7 +449,9 @@ import { KTIcon } from "@metronic/helpers";
 import { GlassDialog, PlainDialogHeader } from "@app/modules/common/components/ui/glass";
 import { WtButton } from "@app/modules/common/components/ui/buttons";
 import { WtField } from "@app/modules/common/components/ui/WtField";
-import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
+import { useEmployeeDirectory } from "@app/modules/common/components/EmployeePickerField";
+import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
+import type { WtSelectOption } from "@app/modules/common/components/ui/WtSelect";
 import { AttendanceRequestFields } from "@app/modules/common/components/attendance/AttendanceRequestFields";
 import { RootState } from "@redux/store";
 import { createUpdateAttendanceRequest, getAllKpiFactors, createKpiScore } from "@services/employee";
@@ -519,6 +521,20 @@ const RaiseRequestForEmployee = ({
   const [status, setStatus] = useState("0");
   const [attempted, setAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  /**
+   * The company directory, from the hook every other picker in the app shares —
+   * one React Query entry, cached five minutes, so opening this modal usually
+   * costs nothing. Only the DIALOG that hook normally opens is wrong here:
+   * it is a multi-select built for choosing a team, and this field takes one
+   * person. A checkbox grid of 38 people stacked on an open modal asks a
+   * yes/no question 38 times to collect a single answer.
+   */
+  const { data: directory = [], isLoading: loadingEmployees } = useEmployeeDirectory();
+  const employeeOptions = useMemo<WtSelectOption[]>(
+    () => directory.map((e) => ({ value: e.id, label: e.name, avatar: e.avatar, description: e.designation })),
+    [directory],
+  );
 
   const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
   const currentCompanyId = useSelector((state: RootState) => state?.employee?.currentEmployee?.companyId);
@@ -704,22 +720,39 @@ const RaiseRequestForEmployee = ({
       }
     >
       <Box sx={{ p: { xs: 2, sm: 2.5 }, display: "flex", flexDirection: "column", gap: 2 }}>
-        <EmployeePickerField
+        {/* `WtField` frames its own inputs but leaves `children` unframed, so a
+            control that brings its own border sits under the same label and
+            message as the Status select below without drawing two. */}
+        <WtField
           label="Employee"
           required
           value={employeeId}
-          onChange={(ids) => setEmployeeId(ids[0] ?? "")}
-          placeholder="Search and select employee…"
-          helperText={
-            attempted && !employeeId
-              ? "Select who this request is for"
-              : employeeId && !loadingDay && !record?.actual.checkIn && !record?.actual.checkOut
-                ? "Nothing is recorded for this employee on this date."
-                : undefined
+          // The dropdown owns its own value; this exists to satisfy the frame.
+          onChange={setEmployeeId}
+          error={attempted && !employeeId ? "Select who this request is for" : undefined}
+          hint={
+            employeeId && !loadingDay && !record?.actual.checkIn && !record?.actual.checkOut
+              ? "Nothing is recorded for this employee on this date."
+              : undefined
           }
-          dialogTitle="Select employee"
-          dialogSubtitle="Who is this attendance request for?"
-        />
+        >
+          <WtSelect
+            options={employeeOptions}
+            value={employeeOptions.find((o) => o.value === employeeId) ?? null}
+            onChange={(opt: WtSelectOption | null) => setEmployeeId(opt?.value ?? "")}
+            // Same face and designation the picker dialog showed, in a row
+            // instead of a grid — recognising a colleague by name alone is
+            // the part a plain dropdown would have cost.
+            optionVariant="avatar"
+            isSearchable
+            isClearable
+            isLoading={loadingEmployees}
+            isDisabled={saving}
+            placeholder="Search by name or designation…"
+            ariaLabel="Employee"
+            error={attempted && !employeeId}
+          />
+        </WtField>
 
         {/* The SAME fields the employee's own correction renders — one selector,
             one order, one time control. */}
