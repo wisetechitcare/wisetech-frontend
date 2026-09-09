@@ -1370,7 +1370,7 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
                     isRequired={false}
                   />
                   <p className="text-muted fs-8 mt-2 mb-0">
-                    Auto-filled with today's date when the status is set to Received. Adjust if needed.
+                    Auto-filled with the current date and time when you move the status to Received. Left as-is otherwise — clear it and it stays cleared.
                   </p>
                 </Grid>
                 <Grid item xs={12} md={5}>
