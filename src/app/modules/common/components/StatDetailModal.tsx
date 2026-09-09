@@ -125,7 +125,6 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
                     onBack={onBack}
                     backLabel={backLabel}
                     icon={<KTIcon iconName={icon} className="fs-2 text-white" />}
-                    closeIcon={<KTIcon iconName="cross" className="fs-3" />}
                 />
             }
         >

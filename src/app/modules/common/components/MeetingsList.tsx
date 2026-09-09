@@ -6,10 +6,11 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { fetchConfiguration } from '@services/company';
 import { safeJsonParse } from '@utils/safeJson';
+import { mapsUrl } from '@app/pages/employee/meetingAddress';
 import {
     MEETING_HALF_PM, MEETING_HALF_FREE_COLOR, MEETING_HALF_AM,
 } from '@constants/configurations-key';
-import { Dialog, DialogContent } from '@mui/material';
+import { Dialog, DialogContent, useMediaQuery } from '@mui/material';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -149,6 +150,33 @@ export interface HalfLabels { am: string; pm: string }
 
 const DEFAULT_HALF_COLORS: HalfColors = { free: '#F8FAFC', am: '#1E3A8A', pm: '#B45309' };
 const DEFAULT_HALF_LABELS: HalfLabels = { am: 'AM', pm: 'PM' };
+
+/**
+ * A phone. The same query MaterialTable already uses, so the two agree about where the
+ * layout changes rather than each picking its own idea of "small".
+ */
+const PHONE = '(max-width:600px)';
+
+/**
+ * A meeting chip is a FIXED box, not a box the size of its title.
+ *
+ * The month grid is seven `1fr` columns, and a grid item's default `min-width: auto` means a
+ * long meeting title sets the column's minimum — so one meeting called "Quarterly planning
+ * review with the vendor" widened its column and squeezed the other six. The cell is given
+ * `minWidth: 0` to stop that, and each chip a fixed height with an ellipsis, so a cell holding
+ * four meetings is exactly as tall as a cell holding four other meetings.
+ */
+const CHIP_H = 15;
+const CHIP_H_PHONE = 13;
+
+/**
+ * The clock a "new meeting on this day" opens at.
+ *
+ * 9 for the morning, 14 for the afternoon — the hour someone would have typed anyway. The form
+ * still moves it forward if that moment has already passed today, so this is a starting point
+ * and never a booking in the past.
+ */
+const HALF_OPENING_HOUR = { am: 9, pm: 14 } as const;
 
 const isCancelled = (m: MeetingRow) => m.lifecycle === 'CANCELLED';
 const isHeld = (m: MeetingRow) => m.lifecycle === 'COMPLETED';
@@ -358,8 +386,15 @@ const useHalfConfig = (): { colors: HalfColors; labels: HalfLabels } => {
 };
 
 /** `AM` when free, `AM 2` when not — the count belongs on the block it describes. */
-const HalfPill = ({ half, count, colors, labels = DEFAULT_HALF_LABELS }: {
+const HalfPill = ({ half, count, colors, labels = DEFAULT_HALF_LABELS, showCount = true }: {
     half: 'am' | 'pm'; count: number; colors?: HalfColors; labels?: HalfLabels;
+    /**
+     * The LEGEND turns this off. There it is a swatch, not a reading: a "1" beside it is a
+     * count of nothing — the sample is not describing a real day — and it invited the pill to
+     * be read as "AM means one meeting". A day cell keeps it, because there the number IS the
+     * information.
+     */
+    showCount?: boolean;
 }) => {
     const st = halfStyle(half, count, colors);
     const label = labels[half];
@@ -373,10 +408,16 @@ const HalfPill = ({ half, count, colors, labels = DEFAULT_HALF_LABELS }: {
             }}
         >
             {label}
-            {count > 0 && <span style={{ fontWeight: 700, opacity: 0.85 }}>{count}</span>}
+            {showCount && count > 0 && <span style={{ fontWeight: 700, opacity: 0.85 }}>{count}</span>}
         </span>
     );
 };
+
+/**
+ * How wide the table's Mode column gets. Wide enough for the first useful stretch of a street
+ * address, narrow enough that it cannot crowd out the columns people actually sort by.
+ */
+const MODE_COL_W = 220;
 
 const dayKey = (d: Dayjs | string) => dayjs(d).format('YYYY-MM-DD');
 
@@ -712,14 +753,24 @@ const DayDetail: React.FC<{
     onCancel?: (meeting: { id: string; cancelled: boolean }) => void;
     onLogTime?: (meeting: MeetingRow) => void;
     onRemind?: (meeting: MeetingRow) => void;
+    /**
+     * Book a meeting ON THIS DAY. Given the ISO instant the form should open at, so the date
+     * the reader is looking at is the date the form is already holding — retyping it under a
+     * dialog that just told you the day is free is the step this removes.
+     */
+    onCreate?: (startIso: string) => void;
     /** The same palette the month grid painted, so the modal is not a second opinion. */
     colors?: HalfColors;
     labels?: HalfLabels;
 }> = ({
     dayKeyValue, halves, open, onClose, timeRange, modeCell, onDelete, onEdit, onCancel,
-    onLogTime, onRemind, colors = DEFAULT_HALF_COLORS, labels = DEFAULT_HALF_LABELS,
+    onLogTime, onRemind, onCreate, colors = DEFAULT_HALF_COLORS, labels = DEFAULT_HALF_LABELS,
 }) => {
     const openProject = useOpenProject();
+    const isPhone = useMediaQuery(PHONE);
+    /** This day at the half's opening hour — what "new meeting here" means. */
+    const startOfHalf = (half: 'am' | 'pm') =>
+        dayjs(dayKeyValue).startOf('day').hour(HALF_OPENING_HOUR[half]).toISOString();
     const total = halves.am.length + halves.pm.length;
     const summary = !total
         ? 'nothing booked — free all day'
@@ -729,18 +780,35 @@ const DayDetail: React.FC<{
                 ? 'afternoon is free'
                 : 'both halves booked';
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth
-            PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}>
-            <div style={{ background: '#1E3A8A', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div>
-                    <div style={{ fontFamily: 'Inter', fontSize: 17, fontWeight: 800, color: '#fff' }}>
-                        {dayjs(dayKeyValue).format('dddd, DD MMM YYYY')}
+        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isPhone}
+            PaperProps={{ sx: { borderRadius: isPhone ? 0 : 3, overflow: 'hidden' } }}>
+            <div style={{ background: '#1E3A8A', padding: isPhone ? '12px 14px' : '16px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: 'Inter', fontSize: isPhone ? 15 : 17, fontWeight: 800, color: '#fff' }}>
+                        {dayjs(dayKeyValue).format(isPhone ? 'ddd, DD MMM YYYY' : 'dddd, DD MMM YYYY')}
                     </div>
                     <div style={{ fontFamily: 'Inter', fontSize: 12.5, color: '#BFD2F5', marginTop: 2 }}>{summary}</div>
                 </div>
                 <div style={{ flex: 1 }} />
+                {/* Booking the day you are looking at. The morning hour is the default because
+                    a day opened from the grid is usually being filled from the top. */}
+                {onCreate && (
+                    <button
+                        type="button"
+                        onClick={() => onCreate(startOfHalf('am'))}
+                        title={`New meeting on ${dayjs(dayKeyValue).format('DD MMM')}`}
+                        style={{
+                            border: '1px solid #ffffff55', borderRadius: 8, background: '#ffffff1f', color: '#fff',
+                            padding: isPhone ? '6px 9px' : '7px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
+                            fontFamily: 'Inter', fontSize: 12.5, fontWeight: 700, flexShrink: 0,
+                        }}
+                    >
+                        <AppIcon name="bi-plus" className={isPhone ? '' : 'me-1'} />
+                        {!isPhone && 'New meeting'}
+                    </button>
+                )}
                 <button type="button" onClick={onClose} aria-label="Close"
-                    style={{ border: 0, background: 'transparent', color: '#BFD2F5', cursor: 'pointer', lineHeight: 1 }}>
+                    style={{ border: 0, background: 'transparent', color: '#BFD2F5', cursor: 'pointer', lineHeight: 1, flexShrink: 0 }}>
                     <AppIcon name="bi-x-lg" className="fs-4" />
                 </button>
             </div>
@@ -749,7 +817,7 @@ const DayDetail: React.FC<{
             {/* Two sections, always both shown — a free half has to be VISIBLE to be
                 bookable, so the empty one states itself rather than being left out.
                 A meeting straddling noon appears under both, because it blocks both. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
             {([
                 { key: 'am', label: 'First half', hint: 'before 12:00', list: halves.am },
                 { key: 'pm', label: 'Second half', hint: 'from 12:00', list: halves.pm },
@@ -763,9 +831,28 @@ const DayDetail: React.FC<{
                     <span style={{ fontSize: 11.5, color: '#94A3B8' }}>{half.hint}</span>
                 </div>
             {half.list.length === 0 ? (
-                <div style={{ background: '#F1F5F9', border: '1px dashed #CBD5E1', borderRadius: 9, padding: '16px 14px', fontSize: 12.5, color: '#64748B' }}>
+                // A free half is the one place on this screen where the next action is obvious,
+                // so the box that reports it IS the button — with the half's own opening hour,
+                // which is the difference between "the afternoon is free" and an afternoon
+                // meeting already half filled in.
+                <button
+                    type="button"
+                    disabled={!onCreate}
+                    onClick={onCreate ? () => onCreate(startOfHalf(half.key)) : undefined}
+                    style={{
+                        width: '100%', textAlign: 'left', background: '#F1F5F9', border: '1px dashed #CBD5E1',
+                        borderRadius: 9, padding: '16px 14px', fontSize: 12.5, color: '#64748B',
+                        cursor: onCreate ? 'pointer' : 'default', fontFamily: 'Inter',
+                    }}
+                >
                     Free — any time in this half works.
-                </div>
+                    {onCreate && (
+                        <span style={{ display: 'block', marginTop: 6, color: '#1E3A8A', fontWeight: 700 }}>
+                            <AppIcon name="bi-plus-circle" className="me-1" />
+                            Book {labels[half.key]} on {dayjs(dayKeyValue).format('DD MMM')}
+                        </span>
+                    )}
+                </button>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {half.list.map((m) => (
@@ -779,7 +866,30 @@ const DayDetail: React.FC<{
                             } : undefined}
                             title={onEdit ? 'Open this meeting' : undefined}
                             style={{
-                                display: 'flex', alignItems: 'flex-start', gap: 12,
+                                /**
+                                 * TIME AND ACTIONS SHARE THE TOP LINE; the text gets the row.
+                                 *
+                                 * These were three side-by-side columns, and the two fixed ones
+                                 * ate the row: 118px reserved for the clock and about 120 for
+                                 * five icon buttons, out of the ~400px a half-column gets inside
+                                 * this dialog. That left roughly 140px for the title, the
+                                 * project and the address — so a venue like "Sector 30A, Vashi,
+                                 * Navi Mumbai, Maharashtra 400703" wrapped into a ten-line
+                                 * column and the card ran off the bottom of the panel.
+                                 *
+                                 * Neither fixed column NEEDS to be beside the text. The clock is
+                                 * eight characters and the buttons are icons, so both fit on one
+                                 * line together with room to spare, and the text below gets the
+                                 * full width — the same address now takes two lines.
+                                 *
+                                 * Grid areas rather than reordering the markup: the buttons stay
+                                 * last in the DOM, which is the order they should be read and
+                                 * tabbed in, and only where they are PAINTED changes.
+                                 */
+                                display: 'grid',
+                                gridTemplateColumns: '1fr auto',
+                                gridTemplateAreas: '"time actions" "body body"',
+                                columnGap: 8, rowGap: 4, alignItems: 'center',
                                 // The half's own colour, tinted. Under a heading that already
                                 // names the half, this is confirmation rather than the only
                                 // clue — which is why it can afford to be quiet.
@@ -790,10 +900,10 @@ const DayDetail: React.FC<{
                                 cursor: onEdit ? 'pointer' : 'default',
                             }}
                         >
-                            <div style={{ minWidth: 118, fontSize: 12, fontWeight: 700, color: rowTone(colors[half.key]).fg, whiteSpace: 'nowrap' }}>
+                            <div style={{ gridArea: 'time', fontSize: 12, fontWeight: 700, color: rowTone(colors[half.key]).fg, whiteSpace: 'nowrap' }}>
                                 {timeRange(m)}
                             </div>
-                            <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ gridArea: 'body', minWidth: 0 }}>
                                 <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B' }}>
                                     {m.title}
                                     {isAwaitingTime(m) && <AwaitingTag />}
@@ -803,7 +913,19 @@ const DayDetail: React.FC<{
                                         <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId)} />
                                     </div>
                                 )}
-                                <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                                <div
+                                    // A ceiling, not a routine trim: at full width this line is
+                                    // one or two lines already, and the clamp is only there so a
+                                    // pasted paragraph in the location field cannot do to the
+                                    // card what the address used to. The whole line stays on the
+                                    // tooltip either way.
+                                    title={`${m.isOnline ? 'Online' : (m.location || 'Offline')}${m.organizerName ? ` · ${m.organizerName}` : ''}`}
+                                    style={{
+                                        fontSize: 12, color: '#64748B', marginTop: 2,
+                                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden',
+                                    }}
+                                >
                                     {modeCell(m)}
                                     {m.organizerName && <span style={{ marginLeft: 10 }}>· {m.organizerName}</span>}
                                 </div>
@@ -812,7 +934,7 @@ const DayDetail: React.FC<{
                                 the table, so which of them existed depended on which view you
                                 happened to be in — and the day modal is the view people are in
                                 when they want them. */}
-                            <div style={{ display: 'flex', gap: 2, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                            <div style={{ gridArea: 'actions', display: 'flex', gap: 2, justifySelf: 'end' }} onClick={(e) => e.stopPropagation()}>
                                 {onRemind && !isHeld(m) && !isCancelled(m) && (
                                     <button
                                         type="button"
@@ -879,8 +1001,15 @@ const DayDetail: React.FC<{
 export interface MeetingsListProps {
     mode: 'project' | 'contact' | 'employee';
     targetId: string;
-    /** Shows a create button in the header. Omitted → the list is read-only, as on detail pages. */
-    onCreate?: () => void;
+    /**
+     * Shows a create button in the header, and in the day dialog. Omitted → the list is
+     * read-only, as on detail pages.
+     *
+     * The argument is the instant the form should open at, present ONLY when the create came
+     * from a particular day. The header button passes nothing, because the header is not
+     * standing on a date.
+     */
+    onCreate?: (startIso?: string) => void;
     /** Shows a row action in the table. Omitted → no delete column. */
     onDelete?: (meetingId: string) => void;
     /**
@@ -932,6 +1061,19 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     const { colors: halfColors, labels: halfLabels } = useHalfConfig();
     // The day a dragged meeting is currently over, so the grid can show where it would land.
     const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+    /**
+     * Phone layout.
+     *
+     * Seven columns have to stay seven columns — a month that reflows into a list stops being a
+     * month — so what gives instead is everything sharing the cell with the meetings: the AM/PM
+     * pills go (two 10px labels in a 45px column are a smear, and the half is still readable
+     * from the chip colours), fewer chips are listed, and the spacing tightens. Drag-to-move
+     * goes too: there is no drag gesture on a touch screen that is not also a scroll.
+     */
+    const isPhone = useMediaQuery(PHONE);
+    const chipH = isPhone ? CHIP_H_PHONE : CHIP_H;
+    const maxChips = isPhone ? 2 : 4;
+    const dragEnabled = !!onReschedule && !isPhone;
 
     /**
      * Move a meeting to another day, keeping its time of day and its duration.
@@ -1012,12 +1154,19 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     const monthStats = useMemo(() => {
         const inMonth = gridDays.filter((d) => d.month() === cursor.month());
         const today = dayjs().startOf('day');
+        const now = dayjs();
         let total = 0;
+        let upcoming = 0;
         let clearDays = 0;
         let partFreeDays = 0;
         for (const d of inMonth) {
             const list = byDay.get(dayKey(d)) ?? [];
             total += list.length;
+            // Still to come, and still ON: a cancelled meeting is not something you are due at,
+            // and counting it would promise a week busier than it is. Measured from NOW rather
+            // than from midnight, so this morning's finished meetings stop being "upcoming" the
+            // moment they end instead of at the end of the day.
+            upcoming += list.filter((m) => !isCancelled(m) && dayjs(m.startDate).isAfter(now)).length;
             if (!list.length) { clearDays += 1; continue; }
             // A day with any meeting has at most ONE free half — the meeting has to land in
             // the morning or the afternoon — so counting free halves here is the same as
@@ -1031,22 +1180,49 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
         // NOT "free half-days" across the month: that was clear days doubled, so it restated
         // the number beside it instead of adding one. This is the thing Clear days cannot
         // say — where a half-day still fits on a day already partly committed.
-        return { total, clearDays, partFreeDays };
+        return { total, upcoming, clearDays, partFreeDays };
     }, [gridDays, byDay, cursor]);
 
-    const modeCell = (m: MeetingRow) => (
-        m.isOnline ? (
-            m.meetingLink ? (
-                <a href={m.meetingLink} target="_blank" rel="noreferrer" style={{ color: '#1E3A8A', fontWeight: 600 }}>
+    /**
+     * Where the meeting is, as somewhere you can GO.
+     *
+     * An in-person address was plain text, so the only way to act on it was to select it, copy
+     * it, and paste it into Maps — from a row that already knew the whole string. It is a link
+     * now, on the same footing the online meeting's join link has always been.
+     *
+     * `stopPropagation` on both: the day panel's rows open the edit form when clicked, and
+     * without it following the address ALSO opened a form over the tab that was launching. That
+     * was already true of the join link and is the same one-line fix, so both get it here
+     * rather than only the one that was reported.
+     */
+    const modeCell = (m: MeetingRow) => {
+        const stop = (e: React.MouseEvent) => e.stopPropagation();
+        if (m.isOnline) {
+            return m.meetingLink ? (
+                <a href={m.meetingLink} target="_blank" rel="noreferrer" onClick={stop} style={{ color: '#1E3A8A', fontWeight: 600 }}>
                     <AppIcon name="bi-camera-video" className="me-1" />Online · Join
                 </a>
             ) : (
                 <span><AppIcon name="bi-camera-video" className="me-1" />Online</span>
-            )
-        ) : (
-            <span title={m.location || ''}><AppIcon name="bi-geo-alt" className="me-1" />{m.location || 'Offline'}</span>
-        )
-    );
+            );
+        }
+        const maps = mapsUrl(m.location);
+        // No address, no link: a maps search for an empty string lands on nowhere, which is a
+        // worse answer than saying the meeting is simply in person.
+        if (!maps) return <span><AppIcon name="bi-geo-alt" className="me-1" />Offline</span>;
+        return (
+            <a
+                href={maps}
+                target="_blank"
+                rel="noreferrer"
+                onClick={stop}
+                title={`Open in Google Maps — ${m.location}`}
+                style={{ color: '#1E3A8A', fontWeight: 600 }}
+            >
+                <AppIcon name="bi-geo-alt" className="me-1" />{m.location}
+            </a>
+        );
+    };
 
     /**
      * DATE and TIME lead: this list is read chronologically, so the columns that place a
@@ -1131,7 +1307,31 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             id: 'mode',
             accessorFn: (m: MeetingRow) => (m.isOnline ? 'Online' : m.location || 'In person'),
             header: 'Mode',
-            Cell: ({ row }: any) => modeCell(row.original as MeetingRow),
+            /**
+             * ONE LINE, ellipsised — and still a link.
+             *
+             * A full postal address wrapped to six lines here and set the height of the whole
+             * row, so one in-person meeting made every row beside it three times taller than it
+             * needed to be. The column sizer is why it was never wide enough to hold it: that
+             * helper deliberately ignores values over 60 characters, because sizing a column to
+             * its longest string is how one address blows out a table, and it leaves wrapping as
+             * the safety net. Wrapping is the wrong net for an address — this is the column that
+             * opts out of it.
+             *
+             * Clipped, not shortened: the anchor still carries the whole address, so the link
+             * still goes to the real place and the tooltip still reads it out in full. The day
+             * panel keeps two lines, because there the row is as wide as the dialog.
+             */
+            size: MODE_COL_W,
+            Cell: ({ row }: any) => (
+                // The max-width is doing the work, not the column width. This table lays out
+                // semantically, and in an auto-layout table a cell's width is a suggestion that
+                // un-wrappable content overrides — so the ellipsis needs a real bound on the
+                // block inside the cell, not just a size on the column.
+                <div style={{ maxWidth: MODE_COL_W, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {modeCell(row.original as MeetingRow)}
+                </div>
+            ),
         },
         { accessorKey: 'organizerName', header: 'Organizer' },
         {
@@ -1232,8 +1432,8 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     return (
         <div style={{ background: '#fff', border: '1px solid #EEF2F6', borderRadius: 12, overflow: 'hidden' }}>
             {/* Header strip */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderBottom: '1px solid #EEF2F6', flexWrap: 'wrap' }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: '#1E3A8A14', color: '#1E3A8A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: isPhone ? 8 : 12, padding: isPhone ? '10px 10px' : '14px 16px', borderBottom: '1px solid #EEF2F6', flexWrap: 'wrap' }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: '#1E3A8A14', color: '#1E3A8A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <AppIcon name="bi-camera-video" className="fs-3" />
                 </div>
                 <div>
@@ -1261,10 +1461,13 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                 {onCreate && (
                     <button
                         type="button"
-                        onClick={onCreate}
+                        // No argument: the header is not standing on a date, so the form opens
+                        // where it always did rather than on whichever day happens to be picked.
+                        onClick={() => onCreate()}
                         style={{
-                            border: 0, borderRadius: 8, padding: '8px 14px', cursor: 'pointer',
+                            border: 0, borderRadius: 8, padding: isPhone ? '8px 10px' : '8px 14px', cursor: 'pointer',
                             background: '#1E3A8A', color: '#fff', fontFamily: 'Inter', fontSize: 13, fontWeight: 600,
+                            whiteSpace: 'nowrap', flexShrink: 0,
                         }}
                     >
                         <AppIcon name="bi-plus" className="me-1" />New meeting
@@ -1309,14 +1512,14 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                     searchPlaceholder="Search meeting, project, organizer or attendee…"
                 />
             ) : (
-                <div style={{ padding: 16, fontFamily: 'Inter' }}>
+                <div style={{ padding: isPhone ? 8 : 16, fontFamily: 'Inter' }}>
                     {/* ── month bar ── */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
                         <button type="button" onClick={() => setCursor(cursor.subtract(1, 'month'))} style={navBtn} aria-label="Previous month">
                             <AppIcon name="bi-chevron-left" />
                         </button>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#1E293B', minWidth: 150 }}>
-                            {cursor.format('MMMM YYYY')}
+                        <div style={{ fontSize: 15, fontWeight: 700, color: '#1E293B', minWidth: isPhone ? 0 : 150 }}>
+                            {cursor.format(isPhone ? 'MMM YYYY' : 'MMMM YYYY')}
                         </div>
                         <button type="button" onClick={() => setCursor(cursor.add(1, 'month'))} style={navBtn} aria-label="Next month">
                             <AppIcon name="bi-chevron-right" />
@@ -1332,24 +1535,28 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                         <div style={{ flex: 1 }} />
 
                         {/* The three numbers somebody actually schedules against. */}
-                        <div style={{ display: 'flex', gap: 16 }}>
+                        <div style={{ display: 'flex', gap: isPhone ? 12 : 16 }}>
                             <Stat label="Meetings" value={monthStats.total} color="#1E3A8A" />
+                            {/* What is still to come, which is the figure this row was missing:
+                                "8 meetings" in a month that is nearly over says nothing about
+                                what is left to sit through. */}
+                            <Stat label="Upcoming" value={monthStats.upcoming} color="#B45309" />
                             <Stat label="Clear days" value={monthStats.clearDays} color="#2563EB" />
                             <Stat label="Part-free days" value={monthStats.partFreeDays} color="#16A34A" />
                         </div>
                     </div>
 
                     {/* ── weekday header ── */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: isPhone ? 3 : 6, marginBottom: 6 }}>
                         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-                            <div key={d} style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>
-                                {d}
+                            <div key={d} style={{ fontSize: isPhone ? 9.5 : 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', overflow: 'hidden' }}>
+                                {isPhone ? d.slice(0, 1) : d}
                             </div>
                         ))}
                     </div>
 
                     {/* ── the grid ── */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: isPhone ? 3 : 6 }}>
                         {gridDays.map((d) => {
                             const k = dayKey(d);
                             const list = byDay.get(k) ?? [];
@@ -1368,15 +1575,15 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                     // Native HTML5 DnD: the gesture is "put this card on that
                                     // day", which is exactly what dragover/drop model. Guarded on
                                     // onReschedule so read-only surfaces stay read-only.
-                                    onDragOver={onReschedule ? (e) => {
+                                    onDragOver={dragEnabled ? (e) => {
                                         e.preventDefault();
                                         e.dataTransfer.dropEffect = 'move';
                                         if (dragOverDay !== k) setDragOverDay(k);
                                     } : undefined}
-                                    onDragLeave={onReschedule ? () => {
+                                    onDragLeave={dragEnabled ? () => {
                                         setDragOverDay((cur) => (cur === k ? null : cur));
                                     } : undefined}
-                                    onDrop={onReschedule ? (e) => {
+                                    onDrop={dragEnabled ? (e) => {
                                         e.preventDefault();
                                         setDragOverDay(null);
                                         const id = e.dataTransfer.getData('text/meeting-id');
@@ -1385,7 +1592,24 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                     } : undefined}
                                     title={`${halfWord(am.length, 'Morning')} · ${halfWord(pm.length, 'Afternoon')}`}
                                     style={{
-                                        textAlign: 'left', cursor: 'pointer', minHeight: 96, padding: '6px 7px',
+                                        textAlign: 'left', cursor: 'pointer',
+                                        // Fixed, not minimum. A cell that grows for a busy day
+                                        // makes its whole ROW grow, and a month whose weeks are
+                                        // different heights is read as a list rather than a grid.
+                                        // What overflows is said as "+n more" instead.
+                                        //
+                                        // The number is the sum of what a full cell holds, not a
+                                        // round one: padding, the pill row, four chips with their
+                                        // gaps, and the "+n more" line. Guessing it low is how the
+                                        // fourth meeting ends up cropped by the overflow below.
+                                        height: isPhone ? 74 : 118,
+                                        padding: isPhone ? '4px 4px' : '6px 7px',
+                                        // THE fix for chips that stretched their column: a grid
+                                        // item's default `min-width: auto` is its content, so one
+                                        // long meeting title set the width of the whole column and
+                                        // squeezed the other six. Zero lets the column be 1/7th and
+                                        // makes the chips' own ellipsis actually reachable.
+                                        minWidth: 0, overflow: 'hidden',
                                         borderRadius: 9,
                                         // A wholly clear day still reads grey at a glance; once either
                                         // half is taken the cell goes white and the two bars carry the
@@ -1410,24 +1634,30 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                         it going spare, so the pills sit in it.
                                         Left is the morning, right the afternoon: the order a day is
                                         lived in, so the pair reads without a key once seen. */}
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                                         <span style={{
                                             fontSize: 12, fontWeight: 800, minWidth: 15,
                                             color: clear ? '#94A3B8' : '#1E293B',
                                         }}>
                                             {d.format('D')}
                                         </span>
-                                        <span style={{ display: 'flex', gap: 4, flex: 1, minWidth: 0 }} aria-hidden>
-                                            <HalfPill half="am" count={am.length} colors={halfColors} labels={halfLabels} />
-                                            <HalfPill half="pm" count={pm.length} colors={halfColors} labels={halfLabels} />
-                                        </span>
+                                        {/* No pills on a phone. A 45px column cannot hold two
+                                            labelled blocks and still be read, and the halves are
+                                            already carried by the chip colours below — a pill
+                                            squeezed to three pixels is noise, not information. */}
+                                        {!isPhone && (
+                                            <span style={{ display: 'flex', gap: 4, flex: 1, minWidth: 0 }} aria-hidden>
+                                                <HalfPill half="am" count={am.length} colors={halfColors} labels={halfLabels} />
+                                                <HalfPill half="pm" count={pm.length} colors={halfColors} labels={halfLabels} />
+                                            </span>
+                                        )}
                                     </span>
 
-                                    {list.slice(0, 4).map((m) => (
+                                    {list.slice(0, maxChips).map((m) => (
                                         <span
                                             key={m.id}
-                                            draggable={!!onReschedule && !isCancelled(m)}
-                                            onDragStart={onReschedule ? (e) => {
+                                            draggable={dragEnabled && !isCancelled(m)}
+                                            onDragStart={dragEnabled ? (e) => {
                                                 e.stopPropagation();
                                                 e.dataTransfer.setData('text/meeting-id', m.id);
                                                 e.dataTransfer.effectAllowed = 'move';
@@ -1436,11 +1666,16 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                             // hold time, title AND project without clipping, and the
                                             // clipped part is often the project. The time is named
                                             // because dragging changes the DAY and never the clock.
-                                            title={onReschedule
+                                            title={dragEnabled
                                                 ? `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}\nDrag to another day — the time stays ${dayjs(m.startDate).format('h:mm A')}`
                                                 : `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}`}
                                             style={{
-                                                fontSize: 9.5, fontWeight: 600, lineHeight: 1.3,
+                                                // One fixed box per meeting, whatever it is
+                                                // called. Height and line-height are set rather
+                                                // than left to the text, so four chips stack to a
+                                                // known height and the cell never has to grow.
+                                                height: chipH, lineHeight: `${chipH - 2}px`, flexShrink: 0,
+                                                fontSize: isPhone ? 8.5 : 9.5, fontWeight: 600,
                                                 // Morning meetings and afternoon meetings are
                                                 // told apart in the LIST too, not only by the
                                                 // pills above it — the cell shows four rows in
@@ -1452,25 +1687,37 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                                 // 2px, not 3: a month cell is ~120px wide and
                                                 // every pixel of it is title.
                                                 borderLeft: `2px solid ${halfColors[startHalf(m)]}`,
-                                                borderRadius: 4, padding: '1px 4px',
+                                                borderRadius: 4, padding: isPhone ? '0 3px' : '0 4px',
+                                                // The three that make an ellipsis happen, and the
+                                                // display that makes it apply to a span.
+                                                display: 'block', minWidth: 0,
                                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                                cursor: onReschedule && !isCancelled(m) ? 'grab' : 'inherit',
+                                                cursor: dragEnabled && !isCancelled(m) ? 'grab' : 'inherit',
                                             }}
                                         >
                                             {/* Time, then what it is, then whose it is — and the
                                                 project is toned back so the title still wins the
                                                 glance. On a project's own tab it is dropped: every
                                                 meeting there belongs to that project. */}
-                                            <span style={{ fontWeight: 800 }}>{dayjs(m.startDate).format('h:mm A')}</span>
-                                            {' '}{m.title}
-                                            {mode !== 'project' && m.projectName && (
+                                            {/* On a phone the clock goes. A 45px column shows
+                                                about eight characters, and spending them on
+                                                "9:00 AM" leaves the meeting itself as an
+                                                ellipsis — the time is one tap away in the day
+                                                dialog, the title is what has to be scannable. */}
+                                            {!isPhone && (
+                                                <>
+                                                    <span style={{ fontWeight: 800 }}>{dayjs(m.startDate).format('h:mm A')}</span>{' '}
+                                                </>
+                                            )}
+                                            {m.title}
+                                            {!isPhone && mode !== 'project' && m.projectName && (
                                                 <span style={{ opacity: 0.62, fontWeight: 600 }}> {m.projectName}</span>
                                             )}
                                         </span>
                                     ))}
-                                    {list.length > 4 && (
-                                        <span style={{ fontSize: 10, fontWeight: 700, color: '#64748B' }}>
-                                            +{list.length - 4} more
+                                    {list.length > maxChips && (
+                                        <span style={{ fontSize: isPhone ? 8.5 : 10, fontWeight: 700, color: '#64748B', flexShrink: 0 }}>
+                                            +{list.length - maxChips} more
                                         </span>
                                     )}
                                 </button>
@@ -1490,6 +1737,10 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                         onLogTime={onLogTime ? (m) => { setDayOpen(false); onLogTime(m); } : undefined}
                         onRemind={onRemind ? (m) => { setDayOpen(false); onRemind(m); } : undefined}
                         onEdit={onEdit ? (m) => { setDayOpen(false); onEdit(m); } : undefined}
+                        // Closes first: the create form is the thing being answered now, and two
+                        // stacked dialogs leave the day sitting behind it saying the slot is free
+                        // while the form is busy filling it.
+                        onCreate={onCreate ? (iso) => { setDayOpen(false); onCreate(iso); } : undefined}
                         colors={halfColors}
                         labels={halfLabels}
                     />
@@ -1498,14 +1749,19 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                     {/* One sample per colour, and there are exactly three. It used to name
                         counts, which is what the colours no longer mean. */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
+                        {/* The words the DAY PANEL uses — "First half", "Second half" — rather
+                            than a second way of saying the same thing. The panel that opens
+                            when you click a day names the halves exactly like this, and the
+                            legend teaching one vocabulary for a screen that then speaks another
+                            is a key you have to translate twice. */}
                         {([
                             { half: 'am', count: 0, label: 'Nothing booked' },
-                            { half: 'am', count: 1, label: `${halfLabels.am} — before noon` },
-                            { half: 'pm', count: 1, label: `${halfLabels.pm} — from noon` },
+                            { half: 'am', count: 1, label: 'First half' },
+                            { half: 'pm', count: 1, label: 'Second half' },
                         ] as const).map((sample) => (
                             <span key={sample.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: '#64748B' }}>
                                 <span style={{ display: 'inline-flex', width: 30 }}>
-                                    <HalfPill half={sample.half} count={sample.count} colors={halfColors} labels={halfLabels} />
+                                    <HalfPill half={sample.half} count={sample.count} colors={halfColors} labels={halfLabels} showCount={false} />
                                 </span>
                                 {sample.label}
                             </span>

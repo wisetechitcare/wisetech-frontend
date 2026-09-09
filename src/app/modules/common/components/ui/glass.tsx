@@ -142,8 +142,6 @@ export interface GlassHeaderProps {
   icon?: React.ReactNode;
   onClose?: () => void;
   action?: React.ReactNode;
-  /** Custom close glyph (e.g. `<KTIcon iconName="cross" className="fs-3" />`); defaults to `×`. */
-  closeIcon?: React.ReactNode;
   /**
    * Drill-in navigation: when set, a back control replaces the icon tile and the
    * dialog reads as a second level rather than a different dialog. Prefer this over
@@ -161,7 +159,7 @@ export interface GlassHeaderProps {
 }
 
 export function GlassHeader({
-  title, subtitle, icon, onClose, action, closeIcon,
+  title, subtitle, icon, onClose, action,
   onBack, backLabel = 'Back', backIcon, variant = 'gradient',
 }: GlassHeaderProps) {
   const gradient = variant === 'gradient';
@@ -219,11 +217,14 @@ export function GlassHeader({
           // rendering a `&times;` text glyph, while the Tailwind GlassHeader used
           // WtCloseButton. Two dialog systems, two different close controls —
           // which is why the × looked round on some dialogs and square on others.
-          // Both now render the same component. `closeIcon` is still honoured for
-          // the rare header that needs a different glyph.
-          closeIcon
-            ? <IconButton onClick={onClose} aria-label="Close" sx={{ width: 38, height: 38 }}>{closeIcon}</IconButton>
-            : <WtCloseButton variant={gradient ? 'dark' : 'light'} onClick={onClose} size={38} />
+          //
+          // A `closeIcon` prop used to reopen that gap. It swapped in a bare
+          // IconButton carrying nothing but a width and a height — no chip, no
+          // hover, no press — so any dialog that passed one got a naked glyph where
+          // its neighbours got a button. All nine callers passed the SAME cross
+          // this component already draws, so the prop bought a regression and
+          // nothing else. It is gone; this is the close control, everywhere.
+          <WtCloseButton variant={gradient ? 'dark' : 'light'} onClick={onClose} size={38} />
         )}
       </Stack>
     </Box>
@@ -238,10 +239,10 @@ export function GlassHeader({
  * tinted glyph, a title, and a hairline.
  */
 export function PlainDialogHeader({
-  icon, title, subtitle, onClose, closeIcon,
+  icon, title, subtitle, onClose,
 }: {
   icon?: React.ReactNode; title: string; subtitle?: string;
-  onClose?: () => void; closeIcon?: React.ReactNode;
+  onClose?: () => void;
 }) {
   return (
     <Stack
@@ -279,21 +280,10 @@ export function PlainDialogHeader({
           </Typography>
         ) : null}
       </Box>
-      {onClose ? (
-        <IconButton
-          onClick={onClose}
-          aria-label="Close"
-          size="small"
-          sx={{
-            flexShrink: 0, color: '#fff',
-            bgcolor: 'rgba(255,255,255,0.14)',
-            border: '1px solid rgba(255,255,255,0.22)',
-            '&:hover': { bgcolor: 'rgba(255,255,255,0.24)' },
-          }}
-        >
-          {closeIcon ?? <Box component="span" sx={{ fontSize: 20, lineHeight: 1 }}>×</Box>}
-        </IconButton>
-      ) : null}
+      {/* The same control GlassHeader uses, on the same navy — this had hand-rolled a
+          third variant of the close button, which is how two headers sitting on the
+          identical gradient ended up with visibly different × controls. */}
+      {onClose ? <WtCloseButton variant="dark" onClick={onClose} size={38} /> : null}
     </Stack>
   );
 }
