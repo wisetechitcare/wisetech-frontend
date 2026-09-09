@@ -441,32 +441,35 @@
 // };
 
 // export default RaiseRequestForEmployee;
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import { WtButton } from "@app/modules/common/components/ui/tw/Buttons";
-import TextInput from "@app/modules/common/inputs/TextInput";
-import TimePickerInput from "@app/modules/common/inputs/TimeInput";
+import { useEffect, useMemo, useRef, useState } from "react";
+import dayjs from "dayjs";
+import { useSelector } from "react-redux";
+import { Box, Stack } from "@mui/material";
+import { KTIcon } from "@metronic/helpers";
+import { GlassDialog, PlainDialogHeader } from "@app/modules/common/components/ui/glass";
+import { WtButton } from "@app/modules/common/components/ui/buttons";
+import { WtField } from "@app/modules/common/components/ui/WtField";
+import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
+import { AttendanceRequestFields } from "@app/modules/common/components/attendance/AttendanceRequestFields";
 import { RootState } from "@redux/store";
-import { createUpdateAttendanceRequest, fetchAllEmployees, getAllKpiFactors, createKpiScore } from "@services/employee";
+import { createUpdateAttendanceRequest, getAllKpiFactors, createKpiScore } from "@services/employee";
 import { fetchWorkingMethods } from "@services/options";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
+import { formatDate, DATE_FORMATS } from "@utils/dateFormats";
 // The ONE rule set for what makes a correction request valid — shared with the
 // employee's own correction form in the attendance calendar.
 import {
-  TIME_24H,
+  emptyDraft,
+  seedDraft,
   validateAttendanceRequest,
   wantsCheckIn,
   wantsCheckOut,
+  type AttendanceRequestDraft,
   type RequestKind,
 } from "@app/modules/common/components/attendance/attendanceRequest";
-import dayjs from "dayjs";
-import { Formik, useField } from "formik";
-import { useState, useEffect, useMemo } from "react";
-import { Dialog, DialogTitle, DialogContent, Box, IconButton, Typography } from "@mui/material";
-import { useSelector } from "react-redux";
-import * as Yup from "yup";
+import { useAttendanceCalendar } from "./calendar/useAttendanceCalendar";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import Select, { components } from "react-select";
 
 interface RaiseRequestForEmployeeProps {
   show: boolean;
@@ -474,512 +477,282 @@ interface RaiseRequestForEmployeeProps {
   selectedDate: string; // YYYY-MM-DD format
 }
 
-interface EmployeeOption {
-  value: string;
-  label: string;
-  avatar?: string;
-}
+/** Offered in the order the employee's own form offers them, because it is the same question. */
+const KINDS: readonly RequestKind[] = ["checkin", "checkout", "both"];
 
-// Custom Option component with avatar
-const EmployeeOptionComponent = (props: any) => {
-  const { data } = props;
-  const avatarUrl = data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.label)}&background=eeeeee&color=888888&size=20&rounded=true`;
+const STATUS_OPTIONS = [
+  { value: "0", label: "Pending" },
+  { value: "1", label: "Approved" },
+  { value: "2", label: "Rejected" },
+];
 
-  return (
-    <components.Option {...props}>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <img
-          src={avatarUrl}
-          alt={data.label}
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            objectFit: "cover",
-            marginRight: 10,
-          }}
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(data.label)}&background=eeeeee&color=888888&size=20&rounded=true`;
-          }}
-        />
-        <span>{data.label}</span>
-      </div>
-    </components.Option>
-  );
-};
-
-// Custom SingleValue component with avatar (shown when selected)
-const EmployeeSingleValue = (props: any) => {
-  const { data } = props;
-  const avatarUrl = data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.label)}&background=eeeeee&color=888888&size=20&rounded=true`;
-
-  return (
-    <components.SingleValue {...props}>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <img
-          src={avatarUrl}
-          alt={data.label}
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: "50%",
-            objectFit: "cover",
-            marginRight: 8,
-          }}
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(data.label)}&background=eeeeee&color=888888&size=20&rounded=true`;
-          }}
-        />
-        <span>{data.label}</span>
-      </div>
-    </components.SingleValue>
-  );
-};
-
+/**
+ * Raise an attendance correction on someone else's behalf.
+ *
+ * This form and the employee's own correction in the day panel ask the same
+ * question, so they render the SAME control: `AttendanceRequestFields`, over the
+ * shared `attendanceRequest` rules. It used to hand-roll all of it — its own row
+ * of pill buttons with inline hex, its own 24-hour text inputs, its own Yup
+ * schema — which is why the two screens showed a different selector, in a
+ * different order, next to a different time control, and why the schema could
+ * disagree with its own submit handler.
+ *
+ * What is genuinely different stays here: an admin picks WHO the request is for
+ * and what STATUS it lands in. An employee never does either.
+ *
+ * The record it opens on comes from `useAttendanceCalendar` — the same query the
+ * calendar itself runs, so picking an employee shows their real recorded times
+ * instead of an empty field, and does it off a cache that is usually already
+ * warm rather than a second endpoint.
+ */
 const RaiseRequestForEmployee = ({
   show,
   onHide,
   selectedDate,
 }: RaiseRequestForEmployeeProps) => {
-  const [workingMethodOptions, setWorkingMethodOptions] = useState<any[]>([]);
-  const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
-  const [loadingEmployees, setLoadingEmployees] = useState(false);
-  const [allTheFactorDetails, setAllTheFactorDetails] = useState<any>([]);
+  const [methods, setMethods] = useState<Array<{ value: string; label: string }>>([]);
+  const [factors, setFactors] = useState<any[]>([]);
+  const [employeeId, setEmployeeId] = useState("");
+  // `both` stays the default: an admin filling in a whole missing day should
+  // still file one request rather than two.
+  const [draft, setDraft] = useState<AttendanceRequestDraft>(() => emptyDraft("both"));
+  const [status, setStatus] = useState("0");
+  const [attempted, setAttempted] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const currentEmployeeId = useSelector(
-    (state: any) => state.employee?.currentEmployee?.id
-  );
+  const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
+  const currentCompanyId = useSelector((state: RootState) => state?.employee?.currentEmployee?.companyId);
 
-  const currentCompanyId = useSelector(
-    (state: RootState) => state?.employee?.currentEmployee?.companyId
-  );
+  const dateISO = useMemo(() => dayjs(selectedDate).format(DATE_FORMATS.WIRE), [selectedDate]);
 
-  // Fetch working methods
+  /* Working methods and KPI factors — loaded once, on first open. */
   useEffect(() => {
-    const getWorkingMethods = async () => {
+    if (!show) return;
+    (async () => {
       try {
-        const {
-          data: { workingMethods },
-        } = await fetchWorkingMethods();
-        const options = workingMethods.map((wm: any) => ({
-          value: wm.id,
-          label: wm.type,
-        }));
-        setWorkingMethodOptions(options);
-      } catch (err) {
-        console.error("Failed to load working methods", err);
+        const { data: { workingMethods } } = await fetchWorkingMethods();
+        setMethods((workingMethods ?? []).map((wm: { id: string; type: string }) => ({ value: wm.id, label: wm.type })));
+      } catch {
+        /* The dropdown stays empty and the form blocks on it — better than a silent wrong value. */
       }
-    };
-    getWorkingMethods();
-  }, []);
-
-  // Fetch KPI factors
-  useEffect(() => {
-    const fetchFactorDetails = async () => {
       try {
-        const { data: { factors } } = await getAllKpiFactors();
-        setAllTheFactorDetails(factors);
-      } catch (error) {
-        console.error('Error fetching KPI factors:', error);
+        const { data: { factors: list } } = await getAllKpiFactors();
+        setFactors(list ?? []);
+      } catch {
+        /* Only affects the KPI score written on approval, never the request itself. */
       }
-    };
-    fetchFactorDetails();
-  }, []);
-
-  // Fetch employees when modal opens
-  useEffect(() => {
-    const getEmployees = async () => {
-      if (!show) return;
-
-      setLoadingEmployees(true);
-      try {
-        const response = await fetchAllEmployees(true); // Only active employees
-        const employees = response.data.employees || [];
-
-        const options: EmployeeOption[] = employees.map((emp: any) => ({
-          value: emp.id,
-          label: `${emp?.users?.firstName || ''} ${emp?.users?.lastName || ''}`.trim() || emp?.users?.email || 'Unknown',
-          avatar: emp?.avatar || emp?.users?.avatar || '',
-        }));
-
-        setEmployeeOptions(options);
-      } catch (err) {
-        console.error("Failed to load employees", err);
-        errorConfirmation("Failed to load employees. Please try again.");
-      } finally {
-        setLoadingEmployees(false);
-      }
-    };
-
-    getEmployees();
+    })();
   }, [show]);
 
-  // Initial form values
-  const initialValues = useMemo(() => {
-    return {
-      employeeId: "",
-      // Which punch(es) this request is for. `both` keeps the existing
-      // behaviour as the default — an admin adding a whole missing day should
-      // still file one request, not two.
-      kind: "both",
-      checkIn: "",
-      checkOut: "",
-      workingMethodId: "",
-      remarks: "",
-      status: "0", // Default to Pending
-    };
-  }, []);
+  /* A fresh sheet each time it opens — an admin raising two in a row must not
+     inherit the previous person's times. */
+  useEffect(() => {
+    if (!show) return;
+    setEmployeeId("");
+    setDraft(emptyDraft("both"));
+    setStatus("0");
+    setAttempted(false);
+  }, [show, dateISO]);
 
   /**
-   * The schema required BOTH times while `handleSubmit` below is written
-   * end-to-end for either-or — it has an "at least one" guard, formats each
-   * time only `if` present, and sends `checkIn: ... || null`. The schema won,
-   * so that guard could never run and an admin simply could not raise a
-   * check-in-only correction: the form refused before the handler was reached.
-   *
-   * What is required now follows the chosen kind, which is what the handler
-   * always assumed. `both` stays the default, so an admin filling in a whole
-   * missing day still does it in one request rather than two.
+   * The chosen employee's record for this date, from the calendar's own query.
    */
-  // Sourced from the shared module, not restated here. Three local copies of
-  // "what does this kind want" is exactly how this form's schema came to
-  // disagree with its own submit handler.
-  const TIME_FORMAT = TIME_24H;
+  const { data: calendar, isLoading: loadingDay } = useAttendanceCalendar(
+    employeeId,
+    dayjs(selectedDate).format("YYYY-MM"),
+  );
+  const record = useMemo(
+    () => calendar?.days?.find((d) => d.date === dateISO) ?? null,
+    [calendar, dateISO],
+  );
 
-  const validationSchema = Yup.object({
-    employeeId: Yup.string().required("Employee is required"),
-    kind: Yup.string().oneOf(["both", "checkin", "checkout"]).required(),
-    checkIn: Yup.string().matches(TIME_FORMAT, {
-      message: "Time must be in 24h format HH:mm",
-      excludeEmptyString: true,
-    }).when("kind", {
-      is: wantsCheckIn,
-      then: (s) => s.required("Check In Time is required"),
-    }),
-    checkOut: Yup.string().matches(TIME_FORMAT, {
-      message: "Time must be in 24h format HH:mm",
-      excludeEmptyString: true,
-    }).when("kind", {
-      is: wantsCheckOut,
-      then: (s) => s.required("Check Out Time is required"),
-    }),
-    workingMethodId: Yup.string().required("Working Method is required"),
-    remarks: Yup.string().required("Remarks are required"),
-    status: Yup.string().required("Status is required"),
-  });
+  /**
+   * Seed ONCE per employee+date, and only once both the record and the working
+   * methods have arrived.
+   *
+   * Seeding again later would overwrite a time the admin had already typed, so
+   * the guard is a key rather than a dependency list — the effect re-runs on
+   * every query settle, and does nothing after the first.
+   */
+  const seededFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!show) { seededFor.current = null; return; }
+    if (!employeeId || loadingDay || !methods.length) return;
+    const key = `${employeeId}:${dateISO}`;
+    if (seededFor.current === key) return;
+    seededFor.current = key;
+    setDraft((d) =>
+      seedDraft(d, d.kind, record ? { ...record.actual, workMode: record.workMode } : null, methods),
+    );
+  }, [show, employeeId, dateISO, loadingDay, methods, record]);
 
-  // Handle form submission
-  const handleSubmit = async (values: any, { setSubmitting, resetForm }: any) => {
+  /**
+   * Kind changes re-seed; every other edit passes straight through — the same
+   * handler the day panel uses, for the same reason: the shared fields clear the
+   * half a kind does not want but cannot refill it from a record they have never
+   * been given.
+   */
+  const onDraftChange = (next: AttendanceRequestDraft) => {
+    setDraft(
+      next.kind === draft.kind
+        ? next
+        : seedDraft(next, next.kind, record ? { ...record.actual, workMode: record.workMode } : null, methods),
+    );
+  };
+
+  /** The KPI credit for a raised request, written only when it lands approved. */
+  const writeKpiScore = async (targetEmployeeId: string) => {
+    const requestRaised = factors.find((el: any) => el?.name?.toLowerCase() === "request raised");
+    if (!requestRaised) return;
+
+    // Enforce sign using -Math.abs() instead of mutable conditional negation.
+    const weight =
+      requestRaised?.type === "NEGATIVE"
+        ? -Math.abs(Number(requestRaised?.weightage || 0))
+        : Math.abs(Number(requestRaised?.weightage || 0));
+
+    // Cap rawValue by the factor's maxValue; fall back to 30 if missing.
+    const maxValue = Number(requestRaised?.maxValue) || 30;
+    const normalized = Math.min(1, maxValue);
+
     try {
-      // Validate company ID exists
-      if (!currentCompanyId) {
-        errorConfirmation("Company ID is missing. Please refresh and try again.");
-        return;
-      }
-
-      // Validate employee ID exists
-      if (!values.employeeId) {
-        errorConfirmation("Please select an employee.");
-        return;
-      }
-
-      // The SHARED rules — the same call the employee's correction form makes,
-      // so the two cannot disagree about what a valid request is. The Yup
-      // schema above still drives the inline per-field messages; this is the
-      // authority that decides whether the payload is built.
-      const problem = validateAttendanceRequest({
-        kind: values.kind as RequestKind,
-        checkIn: values.checkIn ?? "",
-        checkOut: values.checkOut ?? "",
-        workingMethodId: values.workingMethodId ?? "",
-        remarks: values.remarks ?? "",
+      await createKpiScore({
+        employeeId: targetEmployeeId,
+        factorId: requestRaised?.id,
+        value: normalized,
+        score: (normalized * weight).toString(),
       });
-      if (problem) {
-        errorConfirmation(problem);
-        return;
-      }
+    } catch (error) {
+      console.error("Error creating KPI score:", error);
+    }
+  };
 
-      const formattedDate = dayjs(selectedDate).format("YYYY-MM-DD");
-      const updatedValues = { ...values };
+  const submit = async () => {
+    setAttempted(true);
 
-      // Format only — the shared validator above has already established that
-      // any time present here is a well-formed HH:mm and correctly ordered.
-      if (values.checkIn) {
-        const checkInUTC = dayjs(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm").toISOString();
-        updatedValues.checkIn = checkInUTC;
-      }
+    if (!currentCompanyId) {
+      errorConfirmation("Company ID is missing. Please refresh and try again.");
+      return;
+    }
+    if (!employeeId) {
+      errorConfirmation("Please select an employee.");
+      return;
+    }
 
-      if (values.checkOut) {
-        const checkOutUTC = dayjs(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm").toISOString();
-        updatedValues.checkOut = checkOutUTC;
-      }
+    // The SHARED rules — the same call the employee's correction form makes, so
+    // the two cannot disagree about what a valid request is.
+    const problem = validateAttendanceRequest(draft);
+    if (problem) {
+      errorConfirmation(problem);
+      return;
+    }
 
-      // Final payload
-      const finalPayload: any = {
-        employeeId: updatedValues.employeeId,
-        workingMethodId: updatedValues.workingMethodId,
-        companyId: currentCompanyId,
-        checkIn: updatedValues.checkIn || null,
-        checkOut: updatedValues.checkOut || null,
-        remarks: updatedValues.remarks || "",
-        latitude: 0.0,
-        longitude: 0.0,
-        status: Number(updatedValues.status) || 0,
-        updatedById: currentEmployeeId, // Track who raised the request
-      };
+    setSaving(true);
+    try {
+      // Format only — the shared validator has already established that any time
+      // present here is a well-formed HH:mm and correctly ordered.
+      const at = (hhmm: string) => dayjs(`${dateISO} ${hhmm}`, "YYYY-MM-DD HH:mm").toISOString();
 
-      const response = await createUpdateAttendanceRequest(finalPayload, true);
+      const response = await createUpdateAttendanceRequest(
+        {
+          employeeId,
+          workingMethodId: draft.workingMethodId,
+          companyId: currentCompanyId,
+          // Driven by the kind, so each one-sided kind sends only its own half
+          // and leaves the other untouched by the server's same-date merge.
+          checkIn: wantsCheckIn(draft.kind) ? at(draft.checkIn) : null,
+          checkOut: wantsCheckOut(draft.kind) ? at(draft.checkOut) : null,
+          remarks: draft.remarks.trim(),
+          latitude: 0.0,
+          longitude: 0.0,
+          status: Number(status) || 0,
+          updatedById: currentEmployeeId, // Track who raised the request
+        } as never,
+        true,
+      );
 
-      // Create KPI score for "Request Raised" only when status is Approved (1)
-      if (updatedValues.status === "1") {
-        const requestRaised = allTheFactorDetails.find((el: any) => el?.name?.toLowerCase() === 'request raised');
-        if (requestRaised) {
-          // FIX: Enforce sign using -Math.abs() instead of mutable conditional negation
-          const requestRaisedWeightageType = requestRaised?.type;
-          const requestRaisedWeight =
-            requestRaisedWeightageType === 'NEGATIVE'
-              ? -Math.abs(Number(requestRaised?.weightage || 0))
-              : Math.abs(Number(requestRaised?.weightage || 0));
-
-          const requestRaisedFactorId = requestRaised?.id;
-
-          // FIX: Use factor.maxValue to cap rawValue; fallback to 30 if missing
-          const requestRaisedMaxValue = Number(requestRaised?.maxValue) || 30;
-          const requestRaisedRawValue = 1;
-          const requestRaisedNormalized = Math.min(requestRaisedRawValue, requestRaisedMaxValue);
-          const requestRaisedScore = requestRaisedNormalized * requestRaisedWeight;
-
-          const requestRaisedPayload = {
-            employeeId: updatedValues.employeeId,
-            factorId: requestRaisedFactorId,
-            value: requestRaisedNormalized,        // FIX: was hardcoded 1, now normalized
-            score: requestRaisedScore.toString(),  // FIX: score uses normalized value × correct-sign weight
-          };
-
-          try {
-            await createKpiScore(requestRaisedPayload);
-          } catch (error) {
-            console.error('Error creating KPI score:', error);
-          }
-        }
-      }
+      if (status === "1") await writeKpiScore(employeeId);
 
       // Emit event to refresh tables
       eventBus.emit(EVENT_KEYS.attendanceRequestCreated, {
-        id: response?.data?.id || "",
-        employeeId: updatedValues.employeeId
+        id: (response as any)?.data?.id || "",
+        employeeId,
       });
 
       successConfirmation("Attendance Request created successfully for the employee");
-      resetForm();
       onHide();
     } catch (err) {
       console.error(err);
       errorConfirmation("Attendance Request failed. Try again later.");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
 
   return (
-    <Dialog
+    <GlassDialog
       open={show}
       onClose={onHide}
       maxWidth="sm"
-      fullWidth
-      PaperProps={{ sx: { borderRadius: 2 } }}
+      header={
+        <PlainDialogHeader
+          icon={<KTIcon iconName="calendar-add" className="fs-2" />}
+          title="Raise Attendance Request for Employee"
+          subtitle={formatDate(selectedDate)}
+          onClose={onHide}
+        />
+      }
     >
-      <DialogTitle
-        sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
-      >
-        <Typography component="span" variant="h6">
-          Raise Attendance Request for Employee
-        </Typography>
-        <IconButton aria-label="close" onClick={onHide} size="small">
-          <i className="bi bi-x-lg" />
-        </IconButton>
-      </DialogTitle>
+      <Box sx={{ p: { xs: 2, sm: 2.5 }, display: "flex", flexDirection: "column", gap: 2 }}>
+        <EmployeePickerField
+          label="Employee"
+          required
+          value={employeeId}
+          onChange={(ids) => setEmployeeId(ids[0] ?? "")}
+          placeholder="Search and select employee…"
+          helperText={
+            attempted && !employeeId
+              ? "Select who this request is for"
+              : employeeId && !loadingDay && !record?.actual.checkIn && !record?.actual.checkOut
+                ? "Nothing is recorded for this employee on this date."
+                : undefined
+          }
+          dialogTitle="Select employee"
+          dialogSubtitle="Who is this attendance request for?"
+        />
 
-      <DialogContent>
-        {loadingEmployees ? (
-          <div className="d-flex justify-content-center align-items-center py-5">
-            <div className="spinner-border text-primary" role="status">
-              <span className="visually-hidden">Loading employees...</span>
-            </div>
-          </div>
-        ) : (
-          <Formik
-            initialValues={initialValues}
-            validationSchema={validationSchema}
-            enableReinitialize
-            onSubmit={handleSubmit}
-          >
-            {(formikProps) => (
-              <Box
-                component="form"
-                className="d-flex flex-column"
-                noValidate
-                id="raise_request_for_employee_form"
-                onSubmit={formikProps.handleSubmit}
-              >
-                {/* Date Display */}
-                <div className="col-lg mb-5">
-                  <label className="form-label fw-bold">Date</label>
-                  <div className="form-control bg-light">
-                    {dayjs(selectedDate).format("DD MMM YYYY")}
-                  </div>
-                </div>
+        {/* The SAME fields the employee's own correction renders — one selector,
+            one order, one time control. */}
+        <AttendanceRequestFields
+          value={draft}
+          onChange={onDraftChange}
+          methods={methods}
+          kinds={KINDS}
+          showErrors={attempted}
+          disabled={saving}
+        />
 
-                {/* Employee Selection with Avatar */}
-                <div className="col-lg mb-5">
-                  <label className="form-label required">Select Employee</label>
-                  <Select
-                    name="employeeId"
-                    options={employeeOptions}
-                    onChange={(selectedOption: any) => {
-                      formikProps.setFieldValue("employeeId", selectedOption?.value || "");
-                    }}
-                    value={employeeOptions.find((opt) => opt.value === formikProps.values.employeeId) || null}
-                    placeholder="Search and select employee..."
-                    isClearable
-                    isSearchable
-                    classNamePrefix="react-select"
-                    className="react-select-styled"
-                    components={{
-                      Option: EmployeeOptionComponent,
-                      SingleValue: EmployeeSingleValue,
-                    }}
-                  />
-                  {formikProps.touched.employeeId && formikProps.errors.employeeId && (
-                    <div className="text-danger mt-1" style={{ fontSize: "0.875rem" }}>
-                      {formikProps.errors.employeeId}
-                    </div>
-                  )}
-                </div>
+        {/* An admin decides where the request lands. An employee never does,
+            which is why this stays here rather than in the shared fields. */}
+        <WtField
+          label="Status"
+          required
+          value={status}
+          onChange={setStatus}
+          options={STATUS_OPTIONS}
+          disabled={saving}
+        />
 
-                {/* What is being corrected. Asked BEFORE the times, because it
-                    decides which of them the form needs — the same order the
-                    employee's own correction flow uses. Switching clears the
-                    field that is no longer part of the request, so a value typed
-                    and then excluded can never be submitted. */}
-                <div className="col-lg mb-5">
-                  <label className="form-label required">What are you correcting?</label>
-                  <div className="d-flex flex-wrap gap-2">
-                    {([
-                      { value: "both", label: "Both" },
-                      { value: "checkin", label: "Check-in only" },
-                      { value: "checkout", label: "Check-out only" },
-                    ] as const).map((opt) => {
-                      const active = formikProps.values.kind === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          aria-pressed={active}
-                          onClick={() => {
-                            formikProps.setFieldValue("kind", opt.value);
-                            if (!wantsCheckIn(opt.value as RequestKind)) formikProps.setFieldValue("checkIn", "");
-                            if (!wantsCheckOut(opt.value as RequestKind)) formikProps.setFieldValue("checkOut", "");
-                          }}
-                          style={{
-                            border: `1px solid ${active ? "#1E3A8A" : "#E5E7EB"}`,
-                            background: active ? "#1E3A8A" : "#ffffff",
-                            color: active ? "#ffffff" : "#334155",
-                            fontSize: "13px",
-                            fontWeight: 600,
-                            padding: "7px 14px",
-                            cursor: "pointer",
-                            // Bootstrap Reboot's unlayered `button { border-radius: 0 }`
-                            // outranks any class, so the radius has to be inline.
-                            borderRadius: 8,
-                          }}
-                        >
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Check In Time */}
-                {wantsCheckIn(formikProps.values.kind as RequestKind) && (
-                  <div className="col-lg mb-5">
-                    <TimePickerInput
-                      isRequired={true}
-                      label="Check In (24 hr HH:MM)"
-                      formikField="checkIn"
-                      placeholder="HH MM"
-                    />
-                  </div>
-                )}
-
-                {/* Check Out Time */}
-                {wantsCheckOut(formikProps.values.kind as RequestKind) && (
-                  <div className="col-lg mb-5">
-                    <TimePickerInput
-                      isRequired={true}
-                      label="Check Out (24 hr HH:MM)"
-                      formikField="checkOut"
-                      placeholder="HH MM"
-                    />
-                  </div>
-                )}
-
-                {/* Working Method */}
-                <div className="col-lg mb-5">
-                  <DropDownInput
-                    isRequired={true}
-                    formikField="workingMethodId"
-                    inputLabel="Working Method"
-                    options={workingMethodOptions}
-                  />
-                </div>
-
-                {/* Status */}
-                <div className="col-lg mb-5">
-                  <DropDownInput
-                    isRequired={true}
-                    formikField="status"
-                    inputLabel="Status"
-                    options={[
-                      { label: "Pending", value: "0" },
-                      { label: "Approved", value: "1" },
-                      { label: "Rejected", value: "2" },
-                    ]}
-                  />
-                </div>
-
-                {/* Remarks */}
-                <div className="col-lg mb-5">
-                  <TextInput
-                    isRequired={true}
-                    label="Remarks"
-                    formikField="remarks"
-                  />
-                </div>
-
-                {/* Both actions come from the kit now. `btn btn-secondary` is
-                    Bootstrap's grey-blue, which sat beside the navy primary
-                    looking like a third, unrelated colour — and the primary was
-                    a Bootstrap button with the brand hex hand-painted onto it,
-                    so neither followed the theme. */}
-                <div className="d-flex justify-content-end gap-2 mt-4">
-                  <WtButton ghost onClick={onHide}>
-                    Cancel
-                  </WtButton>
-                  <WtButton
-                    type="submit"
-                    disabled={formikProps.isSubmitting}
-                  >
-                    {formikProps.isSubmitting ? "Saving..." : "Raise Request"}
-                  </WtButton>
-                </div>
-              </Box>
-            )}
-          </Formik>
-        )}
-      </DialogContent>
-    </Dialog>
+        <Stack direction="row" justifyContent="flex-end" spacing={1}>
+          <WtButton ghost onClick={onHide} disabled={saving}>
+            Cancel
+          </WtButton>
+          <WtButton onClick={submit} disabled={saving}>
+            {saving ? "Saving…" : "Raise Request"}
+          </WtButton>
+        </Stack>
+      </Box>
+    </GlassDialog>
   );
 };
 

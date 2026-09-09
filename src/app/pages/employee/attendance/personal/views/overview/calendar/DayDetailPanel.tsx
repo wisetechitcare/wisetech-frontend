@@ -52,8 +52,8 @@ import { legendLabel, resolveDayVisual, type DayLabelOverrides, type DayToneOver
 import type { CalendarDay } from './types';
 import { AttendanceRequestFields } from '@app/modules/common/components/attendance/AttendanceRequestFields';
 import {
-    applyKind,
     emptyDraft,
+    seedDraft,
     validateAttendanceRequest,
     wantsCheckIn,
     wantsCheckOut,
@@ -267,37 +267,16 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
     /**
      * Open on what is being CORRECTED, not on an empty field.
      *
-     * The form used to clear both times unconditionally. Right for the raise
-     * case — an absent day with nothing recorded — but the same path serves
-     * "fix the time that is already there", and it left the wheel on its 12:00
-     * default while the row two lines above read 07:13, so the user had to
-     * re-enter a value the screen was already showing.
-     *
-     * Seeded from the RECORDED time only, never from `expected`: pre-filling a
-     * correction with the policy threshold would quietly invite everyone to
-     * claim they arrived exactly on it.
-     *
-     * The working method is seeded the same way — the day already says Office,
-     * so asking again is a question the record answers. Matched on the LABEL,
-     * because `workMode` is the method's type, not its id.
-     *
-     * Re-run on every kind change, not just on entry: switching to "Both" has
-     * to fill in the half the previous kind had cleared.
+     * The rule itself is `seedDraft`, shared with the admin's raise-for-someone
+     * modal — this only supplies the record it reads. Re-run on every kind
+     * change, not just on entry: switching to "Both" has to fill in the half the
+     * previous kind had cleared.
      */
-    const seed = useCallback((base: AttendanceRequestDraft, k: RequestKind): AttendanceRequestDraft => {
-        const currentMethod = day?.workMode
-            ? methods.find((m) => m.label.toLowerCase() === day.workMode!.toLowerCase())?.value
-            : undefined;
-        return applyKind(
-            {
-                ...base,
-                checkIn: wantsCheckIn(k) ? day?.actual.checkIn ?? '' : '',
-                checkOut: wantsCheckOut(k) ? day?.actual.checkOut ?? '' : '',
-                workingMethodId: base.workingMethodId || currentMethod || '',
-            },
-            k,
-        );
-    }, [day, methods]);
+    const seed = useCallback(
+        (base: AttendanceRequestDraft, k: RequestKind): AttendanceRequestDraft =>
+            seedDraft(base, k, day ? { ...day.actual, workMode: day.workMode } : null, methods),
+        [day, methods],
+    );
 
     const startCorrection = () => {
         // Open on a kind that can actually be chosen. Landing on a closed
