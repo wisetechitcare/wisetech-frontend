@@ -14,12 +14,14 @@ import { getAllProjects } from '@services/projects';
 // permissions and offered ones they are not really on.
 import { getMeetingProjects } from '@services/employee';
 import { getLeadById } from '@services/leadService';
+import { openingRange, type SelectedDateTimeInfo } from './meetingOpening';
 import { WtDateField, WtSwitch } from '@app/modules/common/components/ui';
 import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
 import { KTIcon } from '@metronic/helpers';
 import { TRIO, menuOptionSx, type Trio } from '@app/modules/common/components/ui/patterns';
 import { ReminderChips } from './MeetingRemindersDialog';
 import { joinAddress } from './meetingAddress';
+import { TITLE_MAX_CHARS, AGENDA_MAX_WORDS, countWords } from './meetingLimits';
 
 /**
  * The meeting form's FIELDS, with no shell of its own.
@@ -78,10 +80,7 @@ export interface MeetingFormBodyProps {
      * object, which carries `startStr`/`endStr` alongside the Date pair. Both spellings are
      * accepted here rather than making the caller reshape it at every call site.
      */
-    selectedDateTimeInfo?: {
-        start?: string | Date; end?: string | Date; allDay?: boolean;
-        startStr?: string; endStr?: string;
-    } | null;
+    selectedDateTimeInfo?: SelectedDateTimeInfo | null;
     onSaved?: () => void;
     /**
      * Publishes the fields the availability panel reads — times, the internal roster, and the
@@ -110,21 +109,6 @@ const combineDateTime = (date: string, time: string) =>
 
 const initialsOf = (name: string) =>
     name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
-
-/** Opening times. A meeting drawn on the calendar keeps its slot; anything else starts in an
- *  hour, because a meeting scheduled for the moment it was created is nobody's intent. */
-const openingRange = (info?: MeetingFormBodyProps['selectedDateTimeInfo']) => {
-    const now = dayjs();
-    const rawStart = info?.start ?? info?.startStr;
-    const rawEnd = info?.end ?? info?.endStr;
-    let start = rawStart ? dayjs(rawStart) : null;
-    if (!start || start.isBefore(now)) start = now.add(1, 'hour');
-    else if (info?.allDay) start = start.isSame(now, 'day') ? now.add(1, 'hour') : start.hour(9).minute(0);
-
-    let end = rawEnd && !info?.allDay ? dayjs(rawEnd) : null;
-    if (!end || end.isBefore(start)) end = start.add(1, 'hour');
-    return { start: start.toISOString(), end: end.toISOString() };
-};
 
 export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBodyProps>(
     ({ editing, defaultProjectId, lockProject = false, selectedDateTimeInfo, onSaved, onScheduleChange }, ref) => {
@@ -477,10 +461,28 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         }, [projectDetail]);
 
         const filteredCompanies = companies.filter((c: any) => !companyTypeId || c.companyTypeId === companyTypeId);
-        // Never the id: a project with no title is "Untitled project", not a uuid. Same rule as
-        // the people pickers — a database key is not a name, whatever is missing.
-        const projectLabelOf = (p: any): string =>
-            (p.projectNumber ? `${p.projectNumber} — ${p.title || ''}`.trim() : (p.title || 'Untitled project'));
+        /**
+         * The project's CODE and its name — "WT/OFFER/24-25/515 — Tunga Hotel at Vashi".
+         *
+         * The code was meant to be here all along and never appeared, because this read
+         * `projectNumber` and the rows it is given carry it as `prefix`. Two other endpoints
+         * rename that column to `projectNumber` on the way out because that is what it means to
+         * a user; the list this picker is fed spreads the lead row untouched, so the field kept
+         * its database name and the lookup quietly missed every time. So the picker showed nine
+         * projects called "Baggit @ …" with nothing to tell them apart.
+         *
+         * Both spellings are accepted rather than one being picked, because both shapes really
+         * do reach this function depending on which list resolved the project.
+         *
+         * Never the uuid: a project with no title is "Untitled project", not a database key.
+         * Same rule as the people pickers.
+         */
+        const projectLabelOf = (p: any): string => {
+            const code = String(p.projectNumber ?? p.prefix ?? '').trim();
+            const title = String(p.title ?? '').trim();
+            if (code && title) return `${code} — ${title}`;
+            return code || title || 'Untitled project';
+        };
 
         /**
          * The projects offerable here — and, always, the one already chosen.
@@ -544,6 +546,9 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
 
         const endsBeforeStart = !!startDate && !!endDate && !dayjs(endDate).isAfter(dayjs(startDate));
 
+        /** Recomputed per render — the agenda is short and this is cheaper than memoising it. */
+        const agendaWords = countWords(description);
+
         /** e.g. "Asia/Calcutta (UTC+5:30)" — resolved, never assumed. */
         const timeZoneLabel = useMemo(() => {
             const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -554,27 +559,41 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         }, []);
 
         /**
-         * Mirrors the schema the previous form validated with, minus one rule: a meeting no
-         * longer NEEDS a project.
+         * What the form insists on before it will save.
          *
-         * Plenty of real meetings have no project — an internal catch-up, a vendor call, an
-         * interview. Requiring one made those unrecordable, and the workaround is somebody
-         * filing them against an unrelated project, which is worse than not filing them at all.
-         * `projectId` is still sent when there is one, so the project's Meetings tab is
-         * unaffected.
+         * A project IS required — every meeting belongs to one. This was briefly relaxed on
+         * the reasoning that an internal catch-up or a vendor call has no project and the
+         * workaround would be filing it against an unrelated one; the call since has been
+         * that a meeting nobody can attribute is worth less than that risk, because the
+         * project's cost is built from meetings and one filed nowhere is invisible to it.
+         *
+         * The live consequence to know about: the picker offers only the projects you are on,
+         * so somebody on none cannot book at all. The field says that rather than repeating
+         * "required" at a person who has nothing to choose from.
          */
         const validate = (): string | null => {
             if (!title.trim()) return 'Title is required';
-            if (title.trim().length < 10) return 'Title must be at least 10 characters';
-            if (title.trim().length > 100) return 'Title cannot exceed 100 characters';
-            if (isOnline && !meetingLink.trim()) return 'Meeting link is required for online meetings';
-            if (!isOnline && !location.trim()) return 'Location is required for offline meetings';
-            if (!internal.length) return 'At least one team member is required';
+            // Every meeting belongs to a project. This reverses an earlier decision that let
+            // a meeting stand alone — see the note above `projectOptions` for the cases that
+            // choice was protecting, which are now expected to be filed against a project
+            // like everything else.
+            if (!projectId) return 'Project is required';
+            if (title.trim().length > TITLE_MAX_CHARS) {
+                return `Title cannot exceed ${TITLE_MAX_CHARS} characters`;
+            }
+            // A ten-character MINIMUM asked people to pad a name that was already clear —
+            // "Standup" and "1:1" are both perfectly good titles and neither could be saved.
+            if (countWords(description) > AGENDA_MAX_WORDS) {
+                return `Agenda cannot exceed ${AGENDA_MAX_WORDS} words`;
+            }
             if (!startDate) return 'Start date is required';
             if (!endDate) return 'End date is required';
             if (!dayjs(startDate).isAfter(dayjs().subtract(1, 'minute'))) return 'Meeting cannot be scheduled in the past';
             if (!dayjs(endDate).isAfter(dayjs(startDate))) return 'End date must be after start date';
-            if (!description.trim()) return 'Description is required';
+            // Link, location, participants and the agenda are all optional — see the note on
+            // TITLE_MAX_CHARS. Each was a wall between somebody and a booked slot for a
+            // detail they routinely do not have yet, and none of them is a thing the record
+            // is meaningless without.
             return null;
         };
 
@@ -738,9 +757,15 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     placeholder="Meeting title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    error={touched && title.trim().length > 0 && title.trim().length < 10}
-                    helperText={title.trim() && title.trim().length < 10 ? 'At least 10 characters' : ' '}
-                    inputProps={{ 'aria-label': 'Meeting title' }}
+                    error={touched && !title.trim()}
+                    // The count only appears once it is worth knowing about. A counter sitting
+                    // under an empty field is a limit announced before anyone has approached
+                    // it, and `maxLength` means most people never see this at all — typing
+                    // simply stops, which is a kinder ceiling than an error after the fact.
+                    helperText={title.length >= TITLE_MAX_CHARS - 5
+                        ? `${title.length} / ${TITLE_MAX_CHARS} characters`
+                        : ' '}
+                    inputProps={{ 'aria-label': 'Meeting title', maxLength: TITLE_MAX_CHARS }}
                     sx={{ '& .MuiInputBase-input': { fontSize: 15, fontWeight: 600, py: 1.25 } }}
                 />
 
@@ -756,7 +781,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     </Stack>
                 ) : (
                     <Box sx={{ mb: 2 }}>
-                        <L text="Project" icon="briefcase" trio={TRIO.purple} />
+                        <L text="Project *" icon="briefcase" trio={TRIO.purple} />
                         <Autocomplete
                             size="small" fullWidth
                             options={projectOptions}
@@ -765,7 +790,22 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                             getOptionLabel={(o) => o.label}
                             isOptionEqualToValue={(o, v) => o.value === v.value}
                             ListboxProps={{ sx: menuOptionSx }}
-                            renderInput={(params) => <TextField {...params} placeholder="Search project" />}
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    placeholder="Search project"
+                                    error={touched && !projectId}
+                                    // Named rather than left to the banner: the picker only
+                                    // offers projects you are ON, so "required" and "empty"
+                                    // can mean you have nothing to pick, which is a different
+                                    // problem from not having picked.
+                                    helperText={touched && !projectId
+                                        ? (projectOptions.length
+                                            ? 'Choose the project this meeting belongs to'
+                                            : 'You are not on any project yet — ask to be added to one')
+                                        : ' '}
+                                />
+                            )}
                         />
                     </Box>
                 )}
@@ -920,7 +960,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 </Stack>
                 <Grid container spacing={1.5} sx={{ mb: 2 }}>
                     <Grid item xs={12} sm={6}>
-                        {peoplePicker('Internal Team', internalOptions, internal, setInternal, '', true)}
+                        {peoplePicker('Internal Team', internalOptions, internal, setInternal, '', false)}
                     </Grid>
                     <Grid item xs={12} sm={6}>
                         {peoplePicker('External Team', externalOptions, external, setExternal, '', false)}
@@ -933,6 +973,14 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     placeholder="Optional"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
+                    error={agendaWords > AGENDA_MAX_WORDS}
+                    // Words cannot be capped by `maxLength` the way characters can — you would
+                    // be cutting somebody off mid-word — so this one is counted and refused at
+                    // save, and the count appears in the last quarter so the wall is visible
+                    // before it is hit.
+                    helperText={agendaWords > AGENDA_MAX_WORDS * 0.75
+                        ? `${agendaWords} / ${AGENDA_MAX_WORDS} words`
+                        : ' '}
                     inputProps={{ 'aria-label': 'Agenda' }}
                 />
 

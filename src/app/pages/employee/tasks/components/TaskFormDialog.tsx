@@ -630,7 +630,6 @@ export const TaskFormDialog = ({
                         : isEdit ? 'Scope and project are fixed once a task exists'
                         : undefined}
                     onClose={saving ? undefined : onClose}
-                    closeIcon={<KTIcon iconName="cross" className="fs-3" />}
                 />
             }
         >
