@@ -358,9 +358,38 @@ const SettingsSection = () => {
                     <Typography sx={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: "text.secondary", pt: 0.5 }}>
                         Automation rules
                     </Typography>
-                    <WtSwitchField title="Auto-advance on threshold" description="Move a candidate to the next stage when their score clears the stage threshold." checked={settings.autoRules.autoAdvanceEnabled} onChange={(e) => setRule("autoAdvanceEnabled", e.target.checked)} />
-                    <WtSwitchField title="Auto-reject below floor" description="Off by default — keeps a human in the loop." checked={settings.autoRules.autoRejectEnabled} onChange={(e) => setRule("autoRejectEnabled", e.target.checked)} />
-                    <WtSwitchField title="AI screening (Claude)" description="Per-company opt-in. Also requires the server AI key to be configured." checked={settings.autoRules.aiScreeningEnabled} onChange={(e) => setRule("aiScreeningEnabled", e.target.checked)} />
+                    {/*
+                      * DISABLED ON PURPOSE. All three flags are stored, validated and read
+                      * back, and NO code acts on any of them — `autoRules` is written by the
+                      * settings handler and the only consumer of these settings destructures
+                      * `{ weights }`. They were rendering as ON beside live candidate data,
+                      * which reads as "this system is auto-rejecting people" when it is not.
+                      *
+                      * A control that lies is worse than a missing feature, so they stay
+                      * disabled until something acts on them. Re-enable in the same commit
+                      * that wires them, never before.
+                      */}
+                    <WtSwitchField
+                        title="Auto-advance on threshold"
+                        description="Not wired yet. Would move a candidate to the next stage when their score clears the stage threshold."
+                        checked={settings.autoRules.autoAdvanceEnabled}
+                        onChange={(e) => setRule("autoAdvanceEnabled", e.target.checked)}
+                        disabled
+                    />
+                    <WtSwitchField
+                        title="Auto-reject below floor"
+                        description="Not wired yet. Would reject a candidate scoring under the floor without a human looking."
+                        checked={settings.autoRules.autoRejectEnabled}
+                        onChange={(e) => setRule("autoRejectEnabled", e.target.checked)}
+                        disabled
+                    />
+                    <WtSwitchField
+                        title="AI screening (Claude)"
+                        description="Not wired yet. The scoring you see is the deterministic four-factor rule score, not a model."
+                        checked={settings.autoRules.aiScreeningEnabled}
+                        onChange={(e) => setRule("aiScreeningEnabled", e.target.checked)}
+                        disabled
+                    />
                 </Stack>
             )}
         </GlassCard>
