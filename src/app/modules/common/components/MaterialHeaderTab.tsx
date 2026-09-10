@@ -204,7 +204,10 @@ const tabsSx: SxProps<Theme> = {
 };
 
 const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hideScrollButtons, headerAction }: MaterialTabProps) => {
-    const [value, setValue] = useState(0);
+    // Seeded from the prop, not 0. Pages that keep the active tab in the URL
+    // remount on every back-navigation, and starting at 0 painted — and mounted,
+    // and fetched — the first tab for a frame before the effect corrected it.
+    const [value, setValue] = useState(activeTab ?? 0);
     useEffect(() => {
         if (typeof activeTab === 'number') {
             setValue(activeTab);

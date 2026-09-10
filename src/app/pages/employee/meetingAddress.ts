@@ -23,3 +23,19 @@ export const joinAddress = (parts: Array<string | null | undefined>): string => 
     }
     return kept.join(', ').trim();
 };
+
+/**
+ * A Google Maps link for an address we only have as TEXT.
+ *
+ * The meeting location is a string — what the picker wrote, and what somebody standing outside
+ * needs their phone to navigate to. Every other maps link in this app is built from a lat/lng
+ * pair, which meetings do not store, so this uses Maps' documented text-query form instead of
+ * inventing coordinates it does not have.
+ *
+ * Empty in, null out: the caller renders plain text rather than a link to a search for nothing.
+ */
+export const mapsUrl = (address?: string | null): string | null => {
+    const q = String(address ?? '').trim();
+    if (!q) return null;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+};

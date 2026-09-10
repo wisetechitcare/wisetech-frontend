@@ -53,7 +53,6 @@ export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: 
                     // detail that makes people close a dialog to check.
                     title={bodyProps.editing ? 'Edit meeting' : 'New meeting'}
                     onClose={saving ? undefined : onClose}
-                    closeIcon={<KTIcon iconName="cross" className="fs-3" />}
                 />
             }
         >
