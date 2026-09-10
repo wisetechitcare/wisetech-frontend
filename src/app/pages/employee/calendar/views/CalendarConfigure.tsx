@@ -28,6 +28,7 @@ import { rowTone, readableOn } from '@app/modules/common/components/MeetingsList
 import { safeJsonParse } from '@utils/safeJson'
 import Loader from '@app/modules/common/utils/Loader'
 import CalendarConfigForm, { CalendarConfigItem } from './CalendarConfigForm'
+import GreetingsSettings from './GreetingsSettings'
 import { KTIcon } from '@metronic/helpers'
 import { ConfigPageLayout, C } from '@app/modules/configuration'
 import type { ConfigTab } from '@app/modules/configuration'
@@ -39,6 +40,9 @@ import { errorConfirmation, successConfirmation } from '@utils/modal'
 
 const TABS: ConfigTab[] = [
   { id: 'display', label: 'Event Display', icon: 'bi-palette' },
+  // Its own tab, next to the settings that decide what the calendar DRAWS rather than
+  // among them: this one sends email, and email cannot be unticked.
+  { id: 'greetings', label: 'Greetings', icon: 'bi-envelope-paper-heart-fill' },
   { id: 'meetings', label: 'Meetings', icon: 'bi-camera-video' },
   { id: 'holidays', label: 'Public Holidays', icon: 'bi-calendar-heart' },
   { id: 'weekends', label: 'Weekends & Working Days', icon: 'bi-calendar-week' },
@@ -471,6 +475,15 @@ function CalendarConfigure() {
           {/* TAB: Event Display */}
           {/* ══════════════════════════════════════════════════════ */}
           {activeTab === 'display' && renderSections('display', SECTIONS)}
+
+          {/* ══════════════════════════════════════════════════════ */}
+          {/* TAB: Greetings */}
+          {/* ══════════════════════════════════════════════════════ */}
+          {activeTab === 'greetings' && (
+            <div key="greetings" className="cfg-fade-in">
+              <GreetingsSettings />
+            </div>
+          )}
 
           {/* ══════════════════════════════════════════════════════ */}
           {/* TAB: Meetings */}

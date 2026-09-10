@@ -1034,6 +1034,43 @@ export const fetchBirthdayCard = async (kind: BirthdayCardKind, id: string): Pro
     }
 };
 
+export type BirthdayCardOrientation = 'portrait' | 'landscape';
+
+/**
+ * The card as a finished PNG, drawn by the server.
+ *
+ * Fetched as a blob rather than pointed at with an `<img src>` because the API is behind
+ * a bearer token and an image element sends no Authorization header.
+ *
+ * `scale` 1 is the artboard's own size — 1080 x 1350 portrait — and is what the preview
+ * and the greeting email use. `scale` 2 is for a download, which gets zoomed into.
+ */
+export const fetchBirthdayCardImage = async (
+    kind: BirthdayCardKind,
+    id: string,
+    orientation: BirthdayCardOrientation = 'portrait',
+    scale: 1 | 2 = 1,
+): Promise<Blob> => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_BIRTHDAY_CARD}/${kind}/${encodeURIComponent(id)}/image`;
+    const { data } = await axios.get(endpoint, {
+        params: { orientation, scale },
+        responseType: 'blob',
+    });
+    return data as Blob;
+};
+
+/**
+ * Send the birthday card to yourself, to see the real email before anyone else does.
+ *
+ * Resolves to the address it was sent to, which is not always the one the caller expects:
+ * the job prefers a company address over a personal one.
+ */
+export const sendBirthdayCardTest = async (): Promise<string> => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_BIRTHDAY_CARD}/test-send`;
+    const { data } = await axios.post(endpoint);
+    return data?.data?.sentTo as string;
+};
+
 /**
  * Every document for one employee as a single zip.
  *
