@@ -81,6 +81,20 @@ jobs:
             echo "$files" | xargs pnpm exec eslint --quiet
           fi
 
+      # This repo had 30 test files and a configured vitest, and CI ran none of them.
+      # Placed before the build deliberately: the suite finishes in about 25s and the
+      # bundle takes minutes, so a broken test should not wait on a webpack-sized build
+      # to be reported.
+      - name: 🧪 Run tests
+        run: pnpm run test
+
+      # taskDomain.test.ts is written against node:test rather than vitest, so it is
+      # excluded in vitest.config.ts and runs here through its own esbuild + node --test
+      # script. Two runners is not ideal, but the alternative was rewriting 45 passing
+      # assertions to change nothing about what they check.
+      - name: 🧩 Run task-domain tests
+        run: pnpm run test:tasks
+
       # `build` is `tsc && vite build`, so this IS the typecheck gate.
       - name: 🏗️ Build
         run: pnpm run build

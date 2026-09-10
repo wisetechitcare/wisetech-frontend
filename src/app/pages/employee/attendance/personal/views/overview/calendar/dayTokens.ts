@@ -138,6 +138,7 @@ export const STATUS_LABEL: Record<DayStatus, string> = {
 
 const MODIFIER_TRIO: Partial<Record<DayModifier, Trio>> = {
   late_in: TRIO.amber,
+  early_in: TRIO.cyan,
   early_out: TRIO.amber,
   remote: TRIO.blue,
   on_site: TRIO.cyan,
@@ -195,6 +196,10 @@ const RING_MODIFIERS: DayModifier[] = ['request_pending', 'request_rejected', 'm
  */
 const DOT_MODIFIERS: DayModifier[] = [
   'late_in',
+  // Next to `late_in` because they are the same measurement in opposite
+  // directions — both compared against the shift start, one before it, one past
+  // it plus the grace window.
+  'early_in',
   'late_night_waiver',
   'early_out',
   'worked_on_off_day',

@@ -5,7 +5,7 @@ import { KTIcon } from '@metronic/helpers';
 import { cn } from './cn';
 import { BRAND } from './tokens';
 import { WtCloseButton } from './WtCloseButton';
-import { currentSurface, subscribeSurface, type SurfaceStyle } from '@app/theme/appearance';
+import { useSurfaceStyle, type SurfaceStyle } from '@app/theme/appearance';
 
 /**
  * Tailwind glass primitives — GlassSurface / GlassCard / GlassHeader /
@@ -51,10 +51,15 @@ const SURFACE_MATERIAL: Record<GlassVariant, string> = {
     'dark:bg-[#1c2128] dark:border-[#30363d]',
 };
 
-/** Re-renders both kits together when the surface switches. */
-export function useSurfaceStyle(): SurfaceStyle {
-  return useSyncExternalStore(subscribeSurface, currentSurface, () => 'glass' as SurfaceStyle);
-}
+/**
+ * Re-renders both kits together when the surface switches.
+ *
+ * Re-exported, not defined here. It used to live in this file because the twin
+ * hit the problem first; the MUI kit then needed the same subscription, and two
+ * copies of one store is how the two kits would come to disagree about which
+ * treatment is current.
+ */
+export { useSurfaceStyle };
 
 const surfaceClass = (variant: GlassVariant, surface: SurfaceStyle) =>
   (surface === 'material' ? SURFACE_MATERIAL : SURFACE)[variant];
