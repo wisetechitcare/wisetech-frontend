@@ -18,6 +18,7 @@ import {
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
 import CandidateDrawer from "./CandidateDrawer";
+import { formatDate } from "@utils/dateFormats";
 
 interface PendingMove {
     application: Application;
@@ -27,6 +28,12 @@ interface PendingMove {
 const emptyCreate = (): ApplicationCreatePayload & { firstName: string; lastName: string; email: string } => ({
     firstName: "", lastName: "", email: "", requisitionId: "", statusId: null,
 });
+
+/**
+ * Short enough for a chip, and singular where it should be — "1 days" is the kind of
+ * detail that makes people stop trusting the numbers next to it.
+ */
+const stageAgeLabel = (days: number): string => (days === 1 ? "1 day" : `${days} days`);
 
 const scoreLabel = (a: Application): string | null => {
     const s = a.aiScore ?? a.ruleScore;
@@ -218,7 +225,21 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                                             <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
                                                 {a.requisition?.title ?? "No requisition"}
                                             </Typography>
-                                            {scoreLabel(a) && <Chip size="small" sx={{ mt: 0.5 }} label={`Score ${scoreLabel(a)}`} color="info" variant="outlined" />}
+                                            <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: "wrap", gap: 0.5 }}>
+                                                {scoreLabel(a) && <Chip size="small" label={`Score ${scoreLabel(a)}`} color="info" variant="outlined" />}
+                                                {/* Only shown once it matters. A "0 days" badge on every
+                                                    card is noise, and noise is how a colour stops being
+                                                    read at all. */}
+                                                {a.stageAgeBand && a.stageAgeBand !== "fresh" && (
+                                                    <Chip
+                                                        size="small"
+                                                        variant="outlined"
+                                                        color={a.stageAgeBand === "stalled" ? "error" : "warning"}
+                                                        label={stageAgeLabel(a.daysInStage ?? 0)}
+                                                        title={`In ${a.status?.name ?? "this stage"} since ${a.enteredStageAt ? formatDate(a.enteredStageAt) : "unknown"}`}
+                                                    />
+                                                )}
+                                            </Stack>
                                         </Box>
                                     ))}
                                     {cards.length === 0 && <Typography sx={{ fontSize: 12, color: "text.disabled", px: 0.5, py: 1 }}>Drop here</Typography>}

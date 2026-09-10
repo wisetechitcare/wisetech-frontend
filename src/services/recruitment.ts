@@ -176,7 +176,18 @@ export interface Application {
     coverLetter?: string | null; appliedDate?: string | null; lastStageChangeAt?: string | null; hiredDate?: string | null;
     convertedEmployeeId?: string | null;
     isActive: boolean; revisionCount: number; createdAt: string;
+    /**
+     * How long this application has sat in its CURRENT stage. Server-computed, because the
+     * amber/red thresholds are tenant configuration and the band must mean the same thing
+     * here as it does in the nightly stale-application nudge.
+     */
+    enteredStageAt?: string | null;
+    daysInStage?: number;
+    stageAgeBand?: StageAgeBand;
 }
+
+/** fresh → nothing to do · ageing → worth a look · stalled → someone is going cold. */
+export type StageAgeBand = "fresh" | "ageing" | "stalled";
 
 export interface ApplicantPayload {
     firstName: string;
