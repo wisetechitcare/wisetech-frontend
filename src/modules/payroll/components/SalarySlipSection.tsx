@@ -68,7 +68,13 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
     // Raw month data (Excel / CSV) is an admin tool — everyone else gets the PDF slip only.
     const isAdmin = isAdminRole(currentUser as any);
 
-    const isContractEmployee = !!employee?.professionalFeesEnabled;
+    // The flag lives on the employee record. The admin payroll dialog reads its
+    // employee from `selectedEmployee`, which comes off the payroll list and does
+    // not carry it, so Download Bill vanished there for people who plainly have a
+    // bill. Fall back to the payroll itself: `hasTDS` is true exactly when the
+    // month charged professional fees. Same rule as SalaryTableFilters.
+    const isContractEmployee =
+        !!employee?.professionalFeesEnabled || !!summaryData?.hasTDS;
 
     // Single source for the slip PDF — always the backend template.
     // Finalised months are fetched by salary id; a month with no salary record yet
