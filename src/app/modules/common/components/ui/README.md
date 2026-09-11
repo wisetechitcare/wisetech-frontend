@@ -34,6 +34,7 @@ are built from.
 | Close (×) | `WtCloseButton` (`ui/tw/WtCloseButton`) | a `&times;` in an `IconButton` |
 | **Any labelled input** (text, number, textarea, select) | **`WtField`** | `InputLabel` + `Select`/`TextField` assembled by hand |
 | Toolbar filter | `ToolbarFilterSelect` + `FILTER_TONES` (a `WtField` adapter) | a bespoke `<select>` or `FormControl` |
+| Currency glyph / code / formatter | `CurrencySymbol` + `useCurrency()` (`hooks/useCurrency`) | `KTIcon iconName="dollar"`, a typed-in `₹`, or `{ style: 'currency', currency: 'INR' }` inline |
 | Dropdown ENGINE | `WtSelect` | react-select directly, or a new wrapper |
 | Dropdown (in a form) | `DropdownInput` (Formik) | react-select directly |
 | Dropdown (standalone) | `SelectInput` | a new select component |

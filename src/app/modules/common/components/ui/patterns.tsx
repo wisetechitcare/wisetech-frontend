@@ -79,15 +79,25 @@ export const EASE_200 = 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)';
 export const SHADOW_REST = '0 1px 2px rgba(15,23,42,0.04), 0 8px 16px rgba(15,23,42,0.035)';
 export const SHADOW_HOVER = '0 2px 4px rgba(15,23,42,0.04), 0 14px 22px rgba(15,23,42,0.055)';
 
-/** Tinted leading glyph tile. `fs` is a Metronic icon-font size class (fs-1..fs-5). */
-export function IconBox({ icon, trio, size = 40, fs = 'fs-2' }: { icon: string; trio: Trio; size?: number; fs?: string }) {
+/**
+ * Tinted leading glyph tile. `fs` is a Metronic icon-font size class (fs-1..fs-5).
+ *
+ * A string `icon` is a KTIcon name, which is the usual case. Anything else is rendered as
+ * given — for the glyphs the icon font simply does not have. A currency symbol is the one
+ * that forced this: the font ships a `dollar` icon and nothing else, so every money tile in
+ * the app showed a `$` regardless of what the branch actually bills in. Pass
+ * `<CurrencySymbol />` (see `hooks/useCurrency`) and the tile states the real currency.
+ */
+export function IconBox({ icon, trio, size = 40, fs = 'fs-2' }: { icon: React.ReactNode; trio: Trio; size?: number; fs?: string }) {
   const t = toneSurface(trio, useTheme().palette.mode === 'dark');
   return (
     <Box sx={{
       width: size, height: size, borderRadius: '11px', display: 'grid', placeItems: 'center',
       bgcolor: t.bg, color: t.fg, border: `1px solid ${t.bd}`, flexShrink: 0,
+      // Sized for a text glyph; a KTIcon carries its own `fs-*` class and ignores this.
+      fontSize: Math.round(size * 0.45), fontWeight: 700, lineHeight: 1,
     }}>
-      <KTIcon iconName={icon} className={fs} />
+      {typeof icon === 'string' ? <KTIcon iconName={icon} className={fs} /> : icon}
     </Box>
   );
 }
@@ -141,7 +151,7 @@ export function StatusBadge({ trio, label, pulse, title, onClick, disabled }: {
 
 /** KPI stat tile (icon + uppercase eyebrow + big value) on a thin glass surface.
  * Value font is responsive ({xs:16, sm:19}) so it doesn't truncate in 2-up mobile grids. */
-export function StatTile({ label, value, trio, icon }: { label: string; value: React.ReactNode; trio: Trio; icon: string }) {
+export function StatTile({ label, value, trio, icon }: { label: string; value: React.ReactNode; trio: Trio; icon: React.ReactNode }) {
   const hoverBd = toneSurface(trio, useTheme().palette.mode === 'dark').bd;
   return (
     <GlassSurface variant="thin" sx={{

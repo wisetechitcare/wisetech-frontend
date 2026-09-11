@@ -214,3 +214,38 @@ export const getCurrencySymbol = (currencyCode: string = 'INR'): string => {
     return '₹'; // Default to INR symbol
   }
 };
+
+/** The currency assumed when neither the branch nor its country can say. */
+export const DEFAULT_CURRENCY = 'INR';
+
+/**
+ * Which currency to actually use: what was explicitly set, else what the country uses,
+ * else rupees.
+ *
+ * THE MISSING HALF OF THIS FILE. Everything above can format ~70 currencies and resolve a
+ * symbol for each, but nothing ever told it WHICH — practically every `formatCurrency()`
+ * call site omits the argument, so the support exists and every screen silently prints
+ * rupees. This is the piece that answers the question; `hooks/useCurrency` is the React
+ * binding that feeds it.
+ *
+ * An explicit setting always wins. A branch in the UAE billing in dollars is a real
+ * arrangement, and deriving from the country would quietly overrule whoever chose it.
+ *
+ * Both arguments are plain values on purpose — no lookup, no fetch, no clock — so the rule
+ * is testable on its own and cannot drift from wherever the data happens to come from.
+ * `countryCurrency` is the ISO 4217 code off the country record (the geo directory carries
+ * one for all 250 countries); do not hand-maintain a country-to-currency map, it would be a
+ * smaller, staler copy of data the app already has.
+ */
+export const resolveCurrency = (
+  explicit?: string | null,
+  countryCurrency?: string | null,
+): string => {
+  const set = String(explicit ?? '').trim().toUpperCase();
+  if (set.length === 3) return set;
+
+  const derived = String(countryCurrency ?? '').trim().toUpperCase();
+  if (derived.length === 3) return derived;
+
+  return DEFAULT_CURRENCY;
+};

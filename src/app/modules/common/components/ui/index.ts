@@ -22,13 +22,18 @@ export { WhatsAppIcon } from './brandIcons';
 // The one icon element: resolves legacy `bi-*` names to keenicons and renders KTIcon.
 export { AppIcon, type AppIconProps } from './AppIcon';
 // THE labelled control. One frame — label, field, hint/error — for text, number,
-// textarea and select alike, in two placements: `above` for forms, `inline` for
-// toolbars. It deliberately does NOT use MUI's floating label: that pattern sizes
-// the gap in the border from the field's typography rather than the label's, so a
-// bold or uppercase label overflows its own notch and lands on the border line.
-// WtField cuts no gap, so that cannot happen at any size or weight.
+// textarea and select alike. It renders MUI's outlined field with its floating
+// label, the same control the "Add Rule" dialog in SandwhichLeave uses, so the kit
+// and the rest of the app agree on what a labelled input looks like.
+// NEVER style its label: MUI cuts the gap with a <legend> that keeps the DEFAULT
+// label metrics, so a bold or uppercase label outgrows its own notch and lands on
+// the border line. That is the bug this control was rebuilt to end.
 // Reach for this before building an InputLabel + control pairing by hand.
 export { WtField } from './WtField';
+// The active currency's glyph, resolved from the branch — never a typed-in `$`.
+// Pair it with `useCurrency()` (hooks/useCurrency), which also hands back the ISO
+// code and a `format()` already bound to it.
+export { CurrencySymbol } from './CurrencySymbol';
 // The one empty state. An empty screen is a QUESTION — 'No candidates yet' restates what the
 // user can already see; this says what to do next and puts the way out where the eye already is.
 // variant='no-match' for a search that found nothing: the remedy is a different search, not a

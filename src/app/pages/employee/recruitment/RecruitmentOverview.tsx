@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Box, Stack, Typography, Tooltip, CircularProgress } from "@mui/material";
 import {
     AutoGrid, ListHeader, GlassCard, StatTile, ToneChip, Eyebrow, TRIO, SectionHead,
+    CurrencySymbol,
     type Trio, type SemanticTone,
 } from "@app/modules/common/components/ui";
 import PeriodFilter, { type PeriodRange } from "@app/modules/common/components/PeriodFilter";
@@ -160,11 +161,14 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
     const sourceMax = Math.max(1, ...candidatesBySource.map((s) => s.count));
     const conversion = kpis.totalApplications > 0 ? Math.round((kpis.hires / kpis.totalApplications) * 100) : 0;
 
-    const kpiTiles: Array<{ label: string; value: number | string; trio: Trio; icon: string }> = [
+    const kpiTiles: Array<{ label: string; value: number | string; trio: Trio; icon: React.ReactNode }> = [
         { label: "Open Roles", value: kpis.openRequisitions, trio: TRIO.blue, icon: "questionnaire-tablet" },
         { label: "In Process", value: kpis.activeCandidates, trio: TRIO.purple, icon: "profile-circle" },
         { label: "Interviews", value: kpis.interviewsScheduled, trio: TRIO.cyan, icon: "message-text-2" },
-        { label: "Offers Out", value: kpis.offersOutstanding, trio: TRIO.amber, icon: "dollar" },
+        // The branch's own currency, not the icon font's `dollar` — that glyph was showing a
+        // `$` to an office that pays in rupees purely because it is the only money shape the
+        // font ships.
+        { label: "Offers Out", value: kpis.offersOutstanding, trio: TRIO.amber, icon: <CurrencySymbol /> },
         { label: "Hired", value: kpis.hires, trio: TRIO.green, icon: "user-tick" },
         // The median, not the average: one long-running role drags an average away from
         // reality, so "typical" is both the plainer word and the accurate one.
