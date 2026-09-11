@@ -29,6 +29,12 @@ export { AppIcon, type AppIconProps } from './AppIcon';
 // WtField cuts no gap, so that cannot happen at any size or weight.
 // Reach for this before building an InputLabel + control pairing by hand.
 export { WtField } from './WtField';
+// The one empty state. An empty screen is a QUESTION — 'No candidates yet' restates what the
+// user can already see; this says what to do next and puts the way out where the eye already is.
+// variant='no-match' for a search that found nothing: the remedy is a different search, not a
+// new record, so it deliberately drops the create action.
+export { WtEmptyState } from './WtEmptyState';
+export type { WtEmptyStateProps, WtEmptyStateVariant } from './WtEmptyState';
 export type { WtFieldProps, WtFieldOption, WtFieldSize } from './WtField';
 // The rich select: react-select underneath, so it is the one to reach for when a control
 // needs search, multi-select, creatable or async options. DropdownInput / SelectInput

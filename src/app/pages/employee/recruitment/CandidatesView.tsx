@@ -7,8 +7,10 @@ import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip,
     WtSwitchField, toast, confirmDialog, controlHeightSx,
+    WtEmptyState,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
+import { COPY } from "./terms";
 import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
 import { formatDate } from "@utils/dateFormats";
 import {
@@ -254,14 +256,20 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
             {isLoading ? (
                 <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress size={28} /></Stack>
             ) : applicants.length === 0 ? (
-                <Box sx={{ py: 5, px: 2, borderRadius: "14px", textAlign: "center", border: "1px dashed", borderColor: "divider" }}>
-                    <Typography sx={{ color: "text.secondary", fontSize: 14, fontWeight: 600 }}>
-                        {search ? `No candidates match “${search}”` : "No candidates yet"}
-                    </Typography>
-                    <Typography sx={{ color: "text.disabled", fontSize: 12.5, mt: 0.25 }}>
-                        {search ? "Try a different name, email or employer." : "Add one manually, or they'll appear as applications arrive."}
-                    </Typography>
-                </Box>
+                // A failed search and an empty list are different problems with different
+                // remedies, so they get different states — offering "Add a candidate" to
+                // someone who mistyped a name answers a question they did not ask.
+                search ? (
+                    <WtEmptyState variant="no-match" {...COPY.noSearchMatch(search)} />
+                ) : (
+                    <WtEmptyState
+                        icon="people"
+                        title={COPY.noCandidates.title}
+                        hint={COPY.noCandidates.hint}
+                        actionLabel={COPY.noCandidates.action}
+                        onAction={openNew}
+                    />
+                )
             ) : (
                 <AutoGrid min={320}>
                     {applicants.map((a: Applicant) => {

@@ -8,9 +8,11 @@ import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip,
     WtDateField, toast, confirmDialog, type SemanticTone,
+    WtEmptyState,
 } from "@app/modules/common/components/ui";
 import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
 import { queryKeys } from "@/lib/queryKeys";
+import { COPY } from "./terms";
 import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
 import {
     getRequisitions, createRequisition, updateRequisition, archiveRequisition, submitRequisitionApproval,
@@ -179,8 +181,12 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                         "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
                     }}
                 >
-                    <Typography sx={{ color: "text.secondary", fontSize: 14, fontWeight: 600 }}>No requisitions yet</Typography>
-                    <Typography sx={{ color: "text.disabled", fontSize: 12.5, mt: 0.25 }}>Click to create one and start the hiring pipeline.</Typography>
+                    <WtEmptyState
+                        icon="briefcase"
+                        title={COPY.noRequisitions.title}
+                        hint={COPY.noRequisitions.hint}
+                        dense
+                    />
                 </Box>
             ) : (
                 <AutoGrid min={320}>

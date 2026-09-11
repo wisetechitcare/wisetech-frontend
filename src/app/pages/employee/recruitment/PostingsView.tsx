@@ -7,8 +7,10 @@ import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip, WtSwitch, WtSwitchField,
     toast, confirmDialog,
+    WtEmptyState,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
+import { COPY } from "./terms";
 import {
     getPostings, createPosting, updatePosting, deletePosting, getRequisitions,
     type JobPosting, type PostingPayload, type JobRequisition, type OrgScoped,
@@ -84,8 +86,12 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                     py: 5, px: 2, borderRadius: "14px", textAlign: "center",
                     border: "1px dashed", borderColor: "divider",
                 }}>
-                    <Typography sx={{ color: "text.secondary", fontSize: 14, fontWeight: 600 }}>No postings yet</Typography>
-                    <Typography sx={{ color: "text.disabled", fontSize: 12.5, mt: 0.25 }}>Publish an approved requisition to the careers page.</Typography>
+                    <WtEmptyState
+                        icon="megaphone"
+                        title={COPY.noPostings.title}
+                        hint={COPY.noPostings.hint}
+                        dense
+                    />
                 </Box>
             ) : (
                 <AutoGrid min={320}>

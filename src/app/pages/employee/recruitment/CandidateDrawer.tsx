@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Box, Stack, Typography, Divider, TextField, CircularProgress, LinearProgress, Link as MuiLink } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, WtButton, ToneChip, toast, confirmDialog } from "@app/modules/common/components/ui";
+import { GlassDialog, GlassHeader, WtButton, ToneChip, toast, confirmDialog, WtEmptyState } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
+import { COPY } from "./terms";
 import {
     getApplicationById, getApplicationNotes, createApplicationNote, deleteApplicationNote,
     SCORE_BAND_META, SCORE_FACTORS,
@@ -230,7 +231,12 @@ const CandidateDrawer = ({ application, statuses, onClose }: Props) => {
                     {notesLoading ? (
                         <Box sx={{ py: 2, textAlign: "center" }}><CircularProgress size={20} /></Box>
                     ) : notes.length === 0 ? (
-                        <Typography variant="body2" sx={{ mt: 2, opacity: 0.6 }}>No notes yet.</Typography>
+                        <WtEmptyState
+                            icon="notepad"
+                            title={COPY.noNotes.title}
+                            hint={COPY.noNotes.hint}
+                            dense
+                        />
                     ) : (
                         <Stack spacing={1.5} sx={{ mt: 2 }}>
                             {notes.map((n) => (

@@ -4,9 +4,11 @@ import {
     Box, Stack, Typography, TextField, MenuItem, Chip, CircularProgress, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, GlassCard, WtButton, WtIconButton, ToneChip, WtDateTimeField, WtField, toast } from "@app/modules/common/components/ui";
+import { GlassDialog, GlassHeader, GlassCard, WtButton, WtIconButton, ToneChip, WtDateTimeField, WtField, toast, WtEmptyState,
+} from "@app/modules/common/components/ui";
 import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
 import { queryKeys } from "@/lib/queryKeys";
+import { COPY } from "./terms";
 import {
     getApplicationInterviews, createInterview, updateInterview, submitScorecard, getApplicationEvaluation,
     type Interview, type InterviewPayload, type ScorecardPayload,
@@ -202,7 +204,12 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
             {isLoading ? (
                 <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={22} /></Stack>
             ) : interviews.length === 0 ? (
-                <Typography sx={{ color: "text.secondary", fontSize: 13 }}>No interviews scheduled yet.</Typography>
+                <WtEmptyState
+                    icon="calendar-add"
+                    title={COPY.noInterviews.title}
+                    hint={COPY.noInterviews.hint}
+                    dense
+                />
             ) : (
                 <Stack spacing={1}>
                     {interviews.map((iv) => (
