@@ -7,6 +7,7 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 import { EmptyState } from '../widgets';
 import { fmtMoney, fmtDate, DASH, type CommercialTotals } from '../entityViewModel';
 import type { CommercialLineVM, EntityVM } from '../facets';
+import { getCurrencySymbol } from '@utils/currency';
 
 const poStatusOptions = [
   { value: 'Pending', label: 'Pending' },
@@ -139,8 +140,8 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
                 {({ editing, draft, set }) => (
                   editing ? (
                     <>
-                      <FieldRow label="Contract Rate"><NumberEditor value={draft.rate} prefix="₹" onChange={v => set({ rate: v })} placeholder="0" /></FieldRow>
-                      <FieldRow label="Final Cost" isLast><NumberEditor value={draft.cost} prefix="₹" onChange={v => set({ cost: v })} placeholder="0" /></FieldRow>
+                      <FieldRow label="Contract Rate"><NumberEditor value={draft.rate} prefix={getCurrencySymbol()} onChange={v => set({ rate: v })} placeholder="0" /></FieldRow>
+                      <FieldRow label="Final Cost" isLast><NumberEditor value={draft.cost} prefix={getCurrencySymbol()} onChange={v => set({ cost: v })} placeholder="0" /></FieldRow>
                     </>
                   ) : (
                     <>

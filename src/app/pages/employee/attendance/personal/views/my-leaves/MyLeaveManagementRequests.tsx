@@ -11,6 +11,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { LEAVE_MANAGEMENT_TYPE, LEAVE_MANAGEMENT_TYPE_NAMES } from "@constants/statistics";
 import { getTimeTokens } from '@utils/timeFormat';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface LeaveManagementRequest {
   id: string;
@@ -136,7 +137,7 @@ function MyLeaveManagementRequests({ startDateNew, endDateNew }: { startDateNew:
       header: "Amount",
       Cell: ({ row }: any) => (
         <span style={{ fontWeight: row.original.totalAmount ? '600' : 'normal' }}>
-          {row.original.totalAmount ? `₹${Number(row.original.totalAmount).toLocaleString()}` : '-NA-'}
+          {row.original.totalAmount ? `${getCurrencySymbol()}${Number(row.original.totalAmount).toLocaleString()}` : '-NA-'}
         </span>
       ),
     },

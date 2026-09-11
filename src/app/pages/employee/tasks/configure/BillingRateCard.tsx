@@ -7,6 +7,7 @@ import { fetchConfiguration, createNewConfiguration, updateConfigurationById } f
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { apiErrorMessage } from '@app/pages/employee/tasks/taskDomain';
 import { safeJsonParse } from '@utils/safeJson';
+import { getCurrencySymbol } from '@utils/currency';
 
 /** Matches BILLING_RATE_KEY on the server. */
 const MODULE = 'taskBillingRate';
@@ -132,7 +133,7 @@ const BillingRateCard = () => {
                 }}>
                     <Typography sx={{ fontFamily: FONT.body, fontSize: 13, color: C.textPrimary }}>
                         An hour that costs <strong>₹83.33</strong> is billed at{' '}
-                        <strong>₹{valid ? (83.3333 * parsed).toFixed(2) : '—'}</strong>.
+                        <strong>{getCurrencySymbol()}{valid ? (83.3333 * parsed).toFixed(2) : '—'}</strong>.
                     </Typography>
                     <Typography sx={{ fontFamily: FONT.body, fontSize: 12, color: C.textMuted, marginTop: SP.xs }}>
                         Salaries are unaffected.

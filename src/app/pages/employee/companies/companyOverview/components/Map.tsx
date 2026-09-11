@@ -34,6 +34,7 @@ import { Modal, Form, Button } from "react-bootstrap";
 import { successConfirmation } from "@utils/modal";
 import { mapStyles } from "./mapTheme";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getCurrencySymbol } from '@utils/currency';
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -797,7 +798,7 @@ const LocationMarker = React.memo(({
                 {isProject && loc.item?.cost && (
                   <div className="info-item">
                     <RupeeIcon className="info-icon" />
-                    <span className="info-text highlight">₹{loc.item.cost.toLocaleString()}</span>
+                    <span className="info-text highlight">{getCurrencySymbol()}{loc.item.cost.toLocaleString()}</span>
                   </div>
                 )}
 

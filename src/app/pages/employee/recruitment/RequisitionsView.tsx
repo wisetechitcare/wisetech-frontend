@@ -19,6 +19,7 @@ import {
     getRequisitionStages,
     type JobRequisition, type RequisitionPayload, type OrgScoped,
 } from "@services/recruitment";
+import { getCurrencySymbol } from '@utils/currency';
 
 const STATUS_META: Record<number, { label: string; tone: SemanticTone }> = {
     0: { label: "Pending", tone: "warning" },
@@ -50,8 +51,8 @@ const ctcLabel = (min?: number | string | null, max?: number | string | null) =>
     const lo = min == null || min === "" ? null : Number(min);
     const hi = max == null || max === "" ? null : Number(max);
     if (lo == null && hi == null) return null;
-    if (lo != null && hi != null) return `₹${lo}–${hi} LPA`;
-    return `₹${lo ?? hi} LPA`;
+    if (lo != null && hi != null) return `${getCurrencySymbol()}${lo}–${hi} LPA`;
+    return `${getCurrencySymbol()}${lo ?? hi} LPA`;
 };
 
 /** Compact, muted meta chip — packs identity/metrics into the card without stretched gaps. */

@@ -7,6 +7,7 @@ import { formatDate, formatDateRange, formatTime } from '@utils/dateFormats';
 import EmployeeIdentityCell from '@app/modules/common/components/EmployeeIdentityCell';
 import { getApprovalDomain } from './domains/registry';
 import type { ApprovalStep } from './domains/types';
+import { getCurrencySymbol } from '@utils/currency';
 
 export interface Ageing {
     days: number;
@@ -83,7 +84,7 @@ export interface ItemSummary {
 }
 
 const money = (v: unknown) =>
-    `₹${Number(v ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `${getCurrencySymbol()}${Number(v ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** Worked span between two punches, `7h 14m`. Null unless both exist and run forwards. */
 const workedSpan = (from?: string | null, to?: string | null): string | null => {
@@ -303,7 +304,7 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         const facts: string[] = [];
         if (shownRequests) facts.push(`${shownRequests} expense${shownRequests === 1 ? '' : 's'}`);
         if (d.totalAmount != null) {
-            facts.push(`₹${money(shownAmount).replace('₹', '')}`);
+            facts.push(`${getCurrencySymbol()}${money(shownAmount).replace('₹', '')}`);
         }
 
         let statusFlow: string | null = null;

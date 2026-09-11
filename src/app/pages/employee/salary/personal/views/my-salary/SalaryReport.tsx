@@ -60,6 +60,7 @@ type SalaryStructure = {
 import { IBreakdownItem, IBreakdownData, IMonthlyApiResponse } from '@redux/slices/salaryData';
 import { IconButton } from '@mui/material';
 import { Close } from '@mui/icons-material';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface SalaryReportProps {
     stats: Attendance[];
@@ -79,13 +80,13 @@ interface SalaryReportProps {
 }
 
 const formatINRDecimal = (n: number) =>
-    `₹${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+    `${getCurrencySymbol()}${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;
 
 const formatINRRounded = (n: number) =>
-    `₹${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+    `${getCurrencySymbol()}${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;
@@ -474,16 +475,16 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     // Parse amounts from API data
     const apiTotalGrossPayAmount = parseFloat(
-        apiSalaryData?.totalGrossPayAmount?.replace(/[₹,]/g, '') || '0'
+        apiSalaryData?.totalGrossPayAmount?.replace(/[^0-9.-]/g, '') || '0'
     );
     const apiTotalDeductionsAmount = parseFloat(
-        apiSalaryData?.totalDeductedAmount?.replace(/[₹,]/g, '') || '0'
+        apiSalaryData?.totalDeductedAmount?.replace(/[^0-9.-]/g, '') || '0'
     );
     const apiNetAmount = parseFloat(
-        apiSalaryData?.netAmount?.replace(/[₹,]/g, '') || '0'
+        apiSalaryData?.netAmount?.replace(/[^0-9.-]/g, '') || '0'
     );
     const apiDueAmount = parseFloat(
-        apiSalaryData?.dueAmount?.replace(/[₹,]/g, '') || '0'
+        apiSalaryData?.dueAmount?.replace(/[^0-9.-]/g, '') || '0'
     );
 
     // NEW: Dynamic Breakdown Table Component
@@ -499,7 +500,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         // console.log("grossBreakdownTable:: ",data);
 
         const formatCurrency = (amount: number) => {
-            return `₹${Math.round(amount).toLocaleString('en-IN', {
+            return `${getCurrencySymbol()}${Math.round(amount).toLocaleString('en-IN', {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0
             })}`;
@@ -662,10 +663,10 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         let totalPaid = 0;
 
         salaryData.forEach(item => {
-            const salary = parseFloat(item.totalGrossPayAmount?.replace(/[₹,]/g, '') || '0');
+            const salary = parseFloat(item.totalGrossPayAmount?.replace(/[^0-9.-]/g, '') || '0');
             const variable = Object.values(item.deductionBreakdown?.variable || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
             const fixed = Object.values(item.deductionBreakdown?.fixed || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
-            const paid = parseFloat(item.amountPaid?.replace(/[₹,]/g, '') || '0');
+            const paid = parseFloat(item.amountPaid?.replace(/[^0-9.-]/g, '') || '0');
 
             totalGrossPay += (salary - variable);
             totalVariableDeduction += variable;
@@ -687,10 +688,10 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const tableRows = useMemo(() => {
         const salaryData = monthlyApiData?.salaryData || [];
         return salaryData.map(item => {
-            const salary = parseFloat(item.totalGrossPayAmount?.replace(/[₹,]/g, '') || '0');
+            const salary = parseFloat(item.totalGrossPayAmount?.replace(/[^0-9.-]/g, '') || '0');
             const variable = Object.values(item.deductionBreakdown?.variable || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
             const fixed = Object.values(item.deductionBreakdown?.fixed || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
-            const paid = parseFloat(item.amountPaid?.replace(/[₹,]/g, '') || '0');
+            const paid = parseFloat(item.amountPaid?.replace(/[^0-9.-]/g, '') || '0');
 
             const grossPay = salary - variable;
             const totalDeduction = variable + fixed;
@@ -795,7 +796,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         console.log("totalGrossPayFixed:: ", totalGrossPayFixed);
         totalGrossPayFixed?.map((fixed, index) => {
             if (fixed?.name && fixed?.name.toLowerCase() !== "basic salary" && fixed?.earned) {
-                finalAmount += Number((fixed.earned).replace(/[₹,]/g, ""))
+                finalAmount += Number((fixed.earned).replace(/[^0-9.-]/g, ''))
             }
         })
         setTotalGrossPayEarned2(finalAmount);
@@ -975,7 +976,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     // COMMENTED: Legacy grossPayFixed calculation - now using API breakdown data
     /*
     const grossPayFixed = salaryCalculationsForDays(totalDaysOfMonthOrYear, allDaysForMonthOrYear, allowances, parseFloat(employee?.ctcInLpa)/12);
-    let totalGrossPayFixedAmount = grossPayFixed.reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[₹,]/g, "")), 0);
+    let totalGrossPayFixedAmount = grossPayFixed.reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[^0-9.-]/g, '')), 0);
 
     useEffect(() => {
         let grossPayFixed = salaryCalculationsForDays(totalDaysOfMonthOrYear, allDaysForMonthOrYear, allowances, parseFloat(employee?.ctcInLpa) / 12);
@@ -996,7 +997,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     // NEW: Fallback grossPayFixed for legacy compatibility (PDF generation, etc.)
     const grossPayFixed = isApiDataLoaded ? [] : salaryCalculationsForDays(totalDaysOfMonthOrYear, allDaysForMonthOrYear, allowances, parseFloat(employee?.ctcInLpa || '0') / 12);
-    const totalGrossPayFixedAmount = isApiDataLoaded ? 0 : (grossPayFixed as any[]).reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[₹,]/g, "")), 0);
+    const totalGrossPayFixedAmount = isApiDataLoaded ? 0 : (grossPayFixed as any[]).reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[^0-9.-]/g, '')), 0);
 
     // --------------------deductions (Variable)------------------
     const lateAttendance = multipleRadialBarData(stats, dayWiseShifts).get(LATE_CHECKIN);
@@ -1020,7 +1021,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         totalListOfMonthsPresent.size
     );
 
-    const totalTaxes = taxes.reduce((acc, tax) => acc + parseFloat((tax.earned).replace(/[₹,]/g, "")), 0);
+    const totalTaxes = taxes.reduce((acc, tax) => acc + parseFloat((tax.earned).replace(/[^0-9.-]/g, '')), 0);
 
     const totalDeductionsEarned =
         multipleLateCheckinEarned +

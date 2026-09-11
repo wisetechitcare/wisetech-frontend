@@ -50,6 +50,7 @@ import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { formatCompactCurrency, getProjectPhase, isDelayedProject, projectNumberOf, PHASE_THEMES } from "../../entity/entityUtils";
 import PeriodNavigationButtons from "@pages/employee/leads/table/PeriodNavigationButtons";
 import "./ProjectTablePage.css";
+import { getCurrencySymbol } from '@utils/currency';
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -616,7 +617,7 @@ const ProjectTablePage = () => {
         meta: { defaultVisible: false },
         size: 130,
         Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
+          cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : "₹0",
       },
       {
         accessorKey: "totalCost",
@@ -624,7 +625,7 @@ const ProjectTablePage = () => {
         meta: { defaultVisible: false },
         size: 130,
         Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
+          cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : "₹0",
       },
       {
         accessorKey: "projectArea",
@@ -641,7 +642,7 @@ const ProjectTablePage = () => {
         size: 110,
         Cell: ({ cell }: { cell: any }) => {
           const v = Number(cell.getValue());
-          return v ? `₹${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "N/A";
+          return v ? `${getCurrencySymbol()}${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "N/A";
         },
       },
       {

@@ -21,6 +21,7 @@ import { MeetingScheduleSelector } from "./MeetingScheduleSelector";
 import { SectionWrapper } from "./SectionWrapper";
 import { WtSwitch, TRIO, AppIcon } from "@app/modules/common/components/ui";
 import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
+import { getCurrencySymbol } from '@utils/currency';
 
 interface LeadSectionsProps {
   // ── Organization (drives the lead's prefix and inquiry-number series) ──────
@@ -1916,7 +1917,7 @@ export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
               className="wt-review-value"
               style={{ color: "var(--wt-primary)", fontWeight: 700 }}
             >
-              ₹{" "}
+              {getCurrencySymbol()}{" "}
               {commercialsTotal.toLocaleString("en-IN", {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,

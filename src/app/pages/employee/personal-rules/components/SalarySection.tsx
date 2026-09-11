@@ -5,6 +5,7 @@ import { fetchConfiguration } from '@services/company';
 import { GROSS_PAY, DEDUCTIONS } from '@constants/configurations-key';
 import Loader from '@app/modules/common/utils/Loader';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface SalarySectionProps {
   sectionRef?: (el: HTMLDivElement | null) => void;
@@ -80,7 +81,7 @@ const SalarySection: React.FC<SalarySectionProps> = ({ sectionRef }) => {
           'number';
         if (pfeesRaw !== undefined && pfeesRaw !== null && pfeesRaw !== '') {
           setProfessionalFees(
-            pfeesType === 'percentage' ? `${pfeesRaw}%` : `₹${pfeesRaw}`
+            pfeesType === 'percentage' ? `${pfeesRaw}%` : `${getCurrencySymbol()}${pfeesRaw}`
           );
         } else {
           setProfessionalFees('₹0');

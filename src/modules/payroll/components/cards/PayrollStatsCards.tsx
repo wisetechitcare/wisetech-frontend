@@ -10,6 +10,7 @@ import YearlyKpiCard, { YearlyKpiCardProps } from '@pages/employee/salary/person
 import KpiCompactList from '@pages/employee/salary/personal/views/my-salary/Toggle/components/salary/KpiCompactList';
 import { PayrollSummary } from '../../types/payroll.types';
 import { formatINRDecimal } from '../../utils/payrollFormatters';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface PayrollStatsCardsProps {
     summaryData: PayrollSummary;
@@ -20,7 +21,7 @@ interface PayrollStatsCardsProps {
 }
 
 const fmtAbs = (n: number) =>
-    `₹${Math.trunc(Math.abs(n)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    `${getCurrencySymbol()}${Math.trunc(Math.abs(n)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 const pendingFooter = (amount: number): { label: string; value: string } => {
     const rounded = Math.trunc(amount);

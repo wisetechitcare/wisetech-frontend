@@ -12,6 +12,7 @@ import { toast } from 'react-toastify';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { getTimeTokens } from '@utils/timeFormat';
+import { getCurrencySymbol } from '@utils/currency';
 
 // Extend dayjs with duration plugin
 dayjs.extend(duration);
@@ -135,7 +136,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
 
         const result = {
             totalLogTime: formatDuration(totalHours, remainingMinutes, remainingSeconds),
-            totalCost: `₹${totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            totalCost: `${getCurrencySymbol()}${totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             totalLogs: logs.length,
             billableLogs,
             nonBillableLogs: logs.length - billableLogs
@@ -462,7 +463,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                                             <td className="text-center"> {log.billable ? 'Yes' : 'No'}</td>
                                             <td>
                                                 <span className="" style={{color:'#1D5DE1'}}>
-                                                    {log.costFormatted || `₹${(log.cost || 0).toFixed(2)}`}
+                                                    {log.costFormatted || `${getCurrencySymbol()}${(log.cost || 0).toFixed(2)}`}
                                                 </span>
                                             </td>
                                             <td className="text-nowrap">

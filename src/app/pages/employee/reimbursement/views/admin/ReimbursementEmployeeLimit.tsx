@@ -12,6 +12,7 @@ import { RootState } from "@redux/store";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getCurrencySymbol } from '@utils/currency';
 
 // ─── Small icon-only action button, matches the hover-tint pattern used by ──
 // the other configuration pages' chip edit/delete controls.
@@ -245,7 +246,7 @@ function ReimbursementEmployeeLimit() {
               }}
             >
               {rowData.reimbursementLimitPerRequest != null
-                ? `₹${Number(rowData.reimbursementLimitPerRequest).toLocaleString("en-IN")}`
+                ? `${getCurrencySymbol()}${Number(rowData.reimbursementLimitPerRequest).toLocaleString("en-IN")}`
                 : "No limit set"}
             </span>
           );

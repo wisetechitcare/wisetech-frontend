@@ -9,6 +9,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import { saveAs } from 'file-saver';
 import { DRILLDOWN_Z_INDEX } from '@app/modules/common/components/DrillDownDialog';
+import { formatCurrencyDecimal, getCurrencySymbol, usesIndianGrouping } from '@utils/currency';
 
 // ─── Column definition ─────────────────────────────────────────────────────────
 
@@ -88,11 +89,11 @@ const DEFAULT_STATUS_CONFIG: Record<string, { bg: string; text: string }> = {
     Inactive:{ bg: '#f1f5f9', text: '#475569' },
 };
 
+// Two decimals, in whatever currency the app is showing. The hand-built version this
+// replaced pasted a rupee sign in front of an en-IN number, so an export from a branch
+// that bills in anything else was mislabelled in a file people keep.
 function fmtCurrency(n: number): string {
-    if (n === 0) return '₹0.00';
-    const abs = Math.abs(n);
-    const sign = n < 0 ? '-' : '';
-    return sign + '₹' + abs.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return formatCurrencyDecimal(n);
 }
 
 function fmtNumber(n: number): string {
@@ -119,7 +120,11 @@ function getCellDisplay<T>(row: T, col: ExportColumn<T>): string {
 
 function getNumericValue<T>(row: T, col: ExportColumn<T>): number {
     if (col.format) {
-        const s = col.format(getRawValue(row, col), row).replace(/[₹,]/g, '');
+        // Strip everything that is not part of a number rather than naming the characters
+        // to remove. The old version stripped a rupee sign and a comma specifically, so a
+        // column formatted as "AED 1,234.00" parsed to 0 and silently vanished from the
+        // totals row.
+        const s = col.format(getRawValue(row, col), row).replace(/[^0-9.-]/g, '');
         return Number(s) || 0;
     }
     const raw = getRawValue(row, col);
@@ -187,9 +192,24 @@ export function exportCsv<T>(
 
 const argb = (hex: string) => 'FF' + hex.replace('#', '').toUpperCase();
 
-// Indian-grouped rupee format (₹1,23,45,678.90). Negatives fall through to the
-// last section and render as -₹48,079.00.
-const INR_FORMAT = '[>=10000000]"₹"##\\,##\\,##\\,##0.00;[>=100000]"₹"##\\,##\\,##0.00;"₹"#,##0.00';
+/**
+ * Excel's number format for a money column, in the app's active currency.
+ *
+ * It has to be built rather than chosen, because a numFmt pattern carries its own digit
+ * grouping — Excel will not infer lakh/crore from a locale. Indian-grouped currencies get
+ * the three-section pattern (₹1,23,45,678.90, negatives falling through to the last
+ * section as -₹48,079.00); everything else gets plain thousands.
+ *
+ * Called once per export, not per cell: resolving the symbol builds an Intl formatter, and
+ * a sheet can run to thousands of rows.
+ */
+const currencyNumFmt = (): string => {
+    // A double quote inside the symbol would end the literal and corrupt the pattern.
+    const sym = getCurrencySymbol().replace(/"/g, '');
+    return usesIndianGrouping()
+        ? `[>=10000000]"${sym}"##\\,##\\,##\\,##0.00;[>=100000]"${sym}"##\\,##\\,##0.00;"${sym}"#,##0.00`
+        : `"${sym}"#,##0.00`;
+};
 
 const thinBorder = (hex: string) => {
     const side = { style: 'thin' as const, color: { argb: argb(hex) } };
@@ -220,6 +240,7 @@ export async function exportXlsx<T>(
 
     const cols = columns.filter(c => !c.xlsSkip);
     const colCount = cols.length;
+    const moneyFmt = currencyNumFmt();
 
     // Column widths (ExcelJS width ≈ character count; old widths were px)
     ws.columns = cols.map(col => {
@@ -300,7 +321,7 @@ export async function exportXlsx<T>(
                 // strings only when a custom formatter or non-numeric value.
                 if (!col.format && raw !== null && raw !== undefined && raw !== '' && raw !== '-' && !isNaN(n)) {
                     cell.value = n;
-                    if (col.type === 'currency') cell.numFmt = INR_FORMAT;
+                    if (col.type === 'currency') cell.numFmt = moneyFmt;
                 } else {
                     cell.value = display;
                 }
@@ -330,7 +351,7 @@ export async function exportXlsx<T>(
             } else if (col.showTotal && (col.type === 'currency' || col.type === 'number')) {
                 const sum = data.reduce((acc, row) => acc + getNumericValue(row, col), 0);
                 cell.value = sum;
-                if (col.type === 'currency') cell.numFmt = INR_FORMAT;
+                if (col.type === 'currency') cell.numFmt = moneyFmt;
                 if (typeof col.color === 'string') textColor = col.color;
                 align = 'right';
             }

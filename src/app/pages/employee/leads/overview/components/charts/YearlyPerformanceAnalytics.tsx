@@ -15,6 +15,7 @@ import { getMonthlyLeadAnalytics, getMonthlyTargets } from "@services/lead";
 import ManageTargetModal from "../modals/ManageTargetModal";
 import dayjs from "dayjs";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface YearlyPerformanceAnalyticsProps {
   startDate: dayjs.Dayjs;
@@ -50,7 +51,7 @@ const formatLeadCount = (num: any) => {
   else if (absVal >= 1000)
     short = (val / 1000).toFixed(2).replace(/\.00$/, "") + " K";
 
-  return short ? `₹${fullValue} (${short})` : `₹${fullValue}`;
+  return short ? `${getCurrencySymbol()}${fullValue} (${short})` : `${getCurrencySymbol()}${fullValue}`;
 };
 
 const YearlyPerformanceAnalytics: React.FC<YearlyPerformanceAnalyticsProps> = ({

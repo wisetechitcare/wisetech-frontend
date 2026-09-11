@@ -22,6 +22,7 @@ import eventBus from "@utils/EventBus";
 import { LEAVE_MANAGEMENT_TYPE, LEAVE_MANAGEMENT_TYPE_NAMES, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
 import { getTimeTokens } from '@utils/timeFormat';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface LeaveManagementRequest {
   id: string;
@@ -259,7 +260,7 @@ function LeaveManagementRequests() {
       header: "Amount",
       Cell: ({ row }: any) => (
         <span style={{ fontWeight: row.original.totalAmount ? '600' : 'normal' }}>
-          {row.original.totalAmount ? `₹${Number(row.original.totalAmount).toLocaleString()}` : '-NA-'}
+          {row.original.totalAmount ? `${getCurrencySymbol()}${Number(row.original.totalAmount).toLocaleString()}` : '-NA-'}
         </span>
       ),
     },

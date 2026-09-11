@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '@utils/currency';
 export const roundPayrollAmount = (n: number) => Math.round(Number.isFinite(n) ? n : 0);
 
 export const truncatePayrollAmount = (n: number, fractionDigits = 2) => {
@@ -13,7 +14,7 @@ const formatINR = (n: number, fractionDigits: number) => {
     const factor = 10 ** fractionDigits;
     value = Math.trunc(value * factor) / factor;
     
-    return `₹${value.toLocaleString('en-IN', {
+    return `${getCurrencySymbol()}${value.toLocaleString('en-IN', {
         minimumFractionDigits: fractionDigits,
         maximumFractionDigits: fractionDigits,
     })}`;

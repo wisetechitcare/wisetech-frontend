@@ -17,7 +17,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { incrementService, IncrementRecord } from '@services/incrementService';
-import { formatCurrencyRounded } from '@utils/currency';
+import { formatCurrencyRounded, getCurrencySymbol } from '@utils/currency';
 import { T } from '@app/modules/common/components/ui/tokens';
 import { toast, alertDialog } from '@app/modules/common/components/ui/feedback';
 
@@ -116,7 +116,7 @@ const AddEditIncrementDialog: React.FC<AddEditIncrementDialogProps> = ({
         !newSalary || isNaN(salaryNum) || salaryNum <= 0
             ? 'Enter a valid positive salary'
             : salaryNum * 12 < MIN_ANNUAL_CTC
-                ? `Monthly salary must be at least ₹${MIN_MONTHLY_SALARY}`
+                ? `Monthly salary must be at least ${getCurrencySymbol()}${MIN_MONTHLY_SALARY}`
                 : null;
     const salaryError = touched && !!salaryProblem;
     const dateError = touched && (!selectedDate || !selectedDate.isValid());

@@ -8,6 +8,7 @@ import {
     TableRow,
     Paper,
 } from '@mui/material';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface DetailedReportsProps {
     data: any[];
@@ -98,7 +99,7 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
 
     const formatCurrencyDecimal = (val: any) => {
         if (val === null || val === undefined || val === '-') return '-';
-        const cleaned = String(val).trim().replace(/[₹,]/g, '');
+        const cleaned = String(val).trim().replace(/[^0-9.-]/g, '');
         const num = Number(cleaned);
         if (!Number.isFinite(num)) return String(val);
         return num.toLocaleString('en-IN', {
@@ -111,7 +112,7 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
 
     const formatCurrencyRounded = (val: any) => {
         if (val === null || val === undefined || val === '-') return '-';
-        const cleaned = String(val).trim().replace(/[₹,]/g, '');
+        const cleaned = String(val).trim().replace(/[^0-9.-]/g, '');
         const num = Number(cleaned);
         if (!Number.isFinite(num)) return String(val);
         const truncated = Math.trunc(num * 100) / 100;
@@ -137,7 +138,7 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
 
         const grossAmt = typeof row.totalGrossPayAmountInNumber === 'number'
             ? row.totalGrossPayAmountInNumber
-            : (Number(String(row.totalGrossPayAmount ?? row.totalGrossPay ?? '0').replace(/[₹,]/g, '')) || 0);
+            : (Number(String(row.totalGrossPayAmount ?? row.totalGrossPay ?? '0').replace(/[^0-9.-]/g, '')) || 0);
 
         const lateCheckinDeduction = getAttendanceDeductionAmount(row);
         return grossAmt - lateCheckinDeduction;
@@ -384,7 +385,7 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
                                     <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontSize: '13.5px', color: '#2d3748', whiteSpace: 'nowrap' }}>
                                         {formatCurrencyRounded(paidAmtVal)}
                                     </TableCell>
-                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', color: row.due && parseFloat(String(row.due).replace(/[₹,]/g, '')) > 0 ? '#C62828' : '#2d3748', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', color: row.due && parseFloat(String(row.due).replace(/[^0-9.-]/g, '')) > 0 ? '#C62828' : '#2d3748', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
                                         {formatCurrencyRounded(row.due)}
                                     </TableCell>
                                     <TableCell style={{ padding: '6px 12px', textAlign: 'center', fontSize: '13.5px', whiteSpace: 'nowrap' }}>

@@ -7,6 +7,7 @@ import InstallmentPayments from "./InstallmentPayments";
 import { fetchEmpMonthlyInstallmentsStatistics } from "@services/company";
 import DateSelector from "@components/DateSelector";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
+import { getCurrencySymbol } from '@utils/currency';
 
 const Installments: React.FC = () => {
   const [month, setMonth] = useState<Dayjs>(dayjs());
@@ -69,7 +70,7 @@ const Installments: React.FC = () => {
           <div className="mb-6">
             <h5>Total Due This Month</h5>
             <h3 style={{ fontSize: "19px", fontWeight: "600" }}>
-              ₹{" "}
+              {getCurrencySymbol()}{" "}
               {loanStats?.activeLoansOverview?.totalDueThisMonth
                 ? Math.round(
                     loanStats.activeLoansOverview.totalDueThisMonth

@@ -12,6 +12,7 @@ import TextInput from "@app/modules/common/inputs/TextInput";
 import DropdownInput from "@app/modules/common/inputs/DropdownInput";
 import { WtSwitch } from "@app/modules/common/components/ui";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getCurrencySymbol } from '@utils/currency';
 
 // Interfaces matching the specific JSON structure
 interface IRuleTill {
@@ -520,34 +521,34 @@ function DeductionRules() {
                   {professionalTax.male.till.isActive && (
                     <div className="sc-rule-row sc-rule-male" style={styles.ruleRow}>
                       <span className="sc-rule-condition" style={styles.ruleCondition}>
-                        Till ₹{professionalTax.male.till.maxValue}
+                        Till {getCurrencySymbol()}{professionalTax.male.till.maxValue}
                       </span>
                       <span className={`sc-rule-value ${professionalTax.male.till.monthlyTax === 0 ? 'sc-val-nil' : 'sc-val-amount'}`}>
-                        {professionalTax.male.till.monthlyTax === 0 ? 'NIL' : `₹${professionalTax.male.till.monthlyTax} / month`}
+                        {professionalTax.male.till.monthlyTax === 0 ? 'NIL' : `${getCurrencySymbol()}${professionalTax.male.till.monthlyTax} / month`}
                       </span>
                     </div>
                   )}
                   {professionalTax.male.range.isActive && (
                     <div className="sc-rule-row sc-rule-male" style={styles.ruleRow}>
                       <span className="sc-rule-condition" style={styles.ruleCondition}>
-                        ₹{professionalTax.male.range.minValue} – ₹{professionalTax.male.range.maxValue}
+                        {getCurrencySymbol()}{professionalTax.male.range.minValue} – {getCurrencySymbol()}{professionalTax.male.range.maxValue}
                       </span>
                       <span className="sc-rule-value sc-val-amount">
-                        ₹{professionalTax.male.range.monthlyTax} / month
+                        {getCurrencySymbol()}{professionalTax.male.range.monthlyTax} / month
                       </span>
                     </div>
                   )}
                   {professionalTax.male.moreThan.isActive && (
                     <div className="sc-rule-row sc-rule-male" style={styles.ruleRow}>
                       <span className="sc-rule-condition" style={styles.ruleCondition}>
-                        Above ₹{professionalTax.male.moreThan.minValue}
+                        Above {getCurrencySymbol()}{professionalTax.male.moreThan.minValue}
                       </span>
                       <span className="sc-val-group">
                         <span className="sc-rule-value sc-val-amount">
-                          ₹{professionalTax.male.moreThan.monthlyTax} / month
+                          {getCurrencySymbol()}{professionalTax.male.moreThan.monthlyTax} / month
                         </span>
                         <span className="sc-except-text">
-                          Except {getMonthName(professionalTax.male.lastMonth.month)}: ₹{professionalTax.male.lastMonth.monthlyTax}
+                          Except {getMonthName(professionalTax.male.lastMonth.month)}: {getCurrencySymbol()}{professionalTax.male.lastMonth.monthlyTax}
                         </span>
                       </span>
                     </div>
@@ -581,34 +582,34 @@ function DeductionRules() {
                   {professionalTax.female.till.isActive && (
                     <div className="sc-rule-row sc-rule-female" style={styles.ruleRow}>
                       <span className="sc-rule-condition" style={styles.ruleCondition}>
-                        Till ₹{professionalTax.female.till.maxValue}
+                        Till {getCurrencySymbol()}{professionalTax.female.till.maxValue}
                       </span>
                       <span className={`sc-rule-value ${professionalTax.female.till.monthlyTax === 0 ? 'sc-val-nil' : 'sc-val-amount'}`}>
-                        {professionalTax.female.till.monthlyTax === 0 ? 'NIL' : `₹${professionalTax.female.till.monthlyTax} / month`}
+                        {professionalTax.female.till.monthlyTax === 0 ? 'NIL' : `${getCurrencySymbol()}${professionalTax.female.till.monthlyTax} / month`}
                       </span>
                     </div>
                   )}
                   {professionalTax.female.range.isActive && (
                     <div className="sc-rule-row sc-rule-female" style={styles.ruleRow}>
                       <span className="sc-rule-condition" style={styles.ruleCondition}>
-                        ₹{professionalTax.female.range.minValue} – ₹{professionalTax.female.range.maxValue}
+                        {getCurrencySymbol()}{professionalTax.female.range.minValue} – {getCurrencySymbol()}{professionalTax.female.range.maxValue}
                       </span>
                       <span className={`sc-rule-value ${professionalTax.female.range.monthlyTax === 0 ? 'sc-val-nil' : 'sc-val-amount'}`}>
-                        {professionalTax.female.range.monthlyTax === 0 ? 'NIL' : `₹${professionalTax.female.range.monthlyTax} / month`}
+                        {professionalTax.female.range.monthlyTax === 0 ? 'NIL' : `${getCurrencySymbol()}${professionalTax.female.range.monthlyTax} / month`}
                       </span>
                     </div>
                   )}
                   {professionalTax.female.moreThan.isActive && (
                     <div className="sc-rule-row sc-rule-female" style={styles.ruleRow}>
                       <span className="sc-rule-condition" style={styles.ruleCondition}>
-                        Above ₹{professionalTax.female.moreThan.minValue}
+                        Above {getCurrencySymbol()}{professionalTax.female.moreThan.minValue}
                       </span>
                       <span className="sc-val-group">
                         <span className="sc-rule-value sc-val-amount">
-                          ₹{professionalTax.female.moreThan.monthlyTax} / month
+                          {getCurrencySymbol()}{professionalTax.female.moreThan.monthlyTax} / month
                         </span>
                         <span className="sc-except-text">
-                          Except {getMonthName(professionalTax.female.lastMonth.month)}: ₹{professionalTax.female.lastMonth.monthlyTax}
+                          Except {getMonthName(professionalTax.female.lastMonth.month)}: {getCurrencySymbol()}{professionalTax.female.lastMonth.monthlyTax}
                         </span>
                       </span>
                     </div>

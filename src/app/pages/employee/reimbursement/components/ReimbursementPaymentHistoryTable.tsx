@@ -15,6 +15,7 @@ import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { useMediaQuery, useTheme } from '@mui/material';
+import { getCurrencySymbol } from '@utils/currency';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
 
@@ -272,7 +273,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 size: 200,
                 Cell: ({ renderedCellValue }: any) => (
                     <span className={`fw-bold fs-7 ${sensitiveCls}`} style={{ color: '#475569' }}>
-                        ₹{fmtAmount(Number(renderedCellValue))}
+                        {getCurrencySymbol()}{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
                 Footer: () => (
@@ -287,7 +288,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 size: 185,
                 Cell: ({ renderedCellValue }: any) => (
                     <span className={`fw-bolder fs-6 ${sensitiveCls}`} style={{ color: '#16a34a' }}>
-                        ₹{fmtAmount(Number(renderedCellValue))}
+                        {getCurrencySymbol()}{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
                 Footer: () => (
@@ -307,7 +308,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                             color: Number(renderedCellValue) > 0 ? '#1E3A8A' : '#16a34a',
                         }}
                     >
-                        ₹{fmtAmount(Number(renderedCellValue))}
+                        {getCurrencySymbol()}{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
                 Footer: () => (
@@ -370,16 +371,16 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                                   </div>
                                   <div>
                                     <span style={{ color: '#64748b' }}>Amount Paid</span>
-                                    <div className={`fw-bold ${sensitiveCls}`} style={{ color: '#16a34a' }}>₹{fmtAmount(row.original.totalAmountPaid)}</div>
+                                    <div className={`fw-bold ${sensitiveCls}`} style={{ color: '#16a34a' }}>{getCurrencySymbol()}{fmtAmount(row.original.totalAmountPaid)}</div>
                                   </div>
                                   <div>
                                     <span style={{ color: '#64748b' }}>Request Amount</span>
-                                    <div className={`fw-bold ${sensitiveCls}`}>₹{fmtAmount(row.original.totalRequestAmount)}</div>
+                                    <div className={`fw-bold ${sensitiveCls}`}>{getCurrencySymbol()}{fmtAmount(row.original.totalRequestAmount)}</div>
                                   </div>
                                   <div>
                                     <span style={{ color: '#64748b' }}>Remaining</span>
                                     <div className={`fw-bold ${sensitiveCls}`} style={{ color: row.original.totalRemainingAmount > 0 ? '#1E3A8A' : '#16a34a' }}>
-                                      ₹{fmtAmount(row.original.totalRemainingAmount)}
+                                      {getCurrencySymbol()}{fmtAmount(row.original.totalRemainingAmount)}
                                     </div>
                                   </div>
                                 </div>

@@ -13,6 +13,7 @@ import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { ANNUAL_LEAVES, CASUAL_LEAVES, FLOATER_LEAVES, MATERNAL_LEAVES, SICK_LEAVES, LEAVE_MANAGEMENT_TYPE } from '@constants/statistics';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface EncashTransferLeavesModalProps {
     show: boolean;
@@ -838,7 +839,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                 color: '#2b9725',
                                 fontFamily: 'Inter, sans-serif',
                             }}>
-                                ₹{transferableAmount.toLocaleString()}
+                                {getCurrencySymbol()}{transferableAmount.toLocaleString()}
                             </div>
                         </div>
                     )}
@@ -864,7 +865,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                 }}>
                                     <strong>Important:</strong> {selectedOption === 'encash' ? (
                                         <>
-                                            Once submitted, <strong>{getTotalEncashLeaves()} {getTotalEncashLeaves() === 1 ? 'leave' : 'leaves'}</strong> will be deducted from your available balance. You will receive <strong>₹{transferableAmount.toLocaleString()}</strong> for these leaves after admin approval. If rejected or revoked, the leaves will be restored to your balance.
+                                            Once submitted, <strong>{getTotalEncashLeaves()} {getTotalEncashLeaves() === 1 ? 'leave' : 'leaves'}</strong> will be deducted from your available balance. You will receive <strong>{getCurrencySymbol()}{transferableAmount.toLocaleString()}</strong> for these leaves after admin approval. If rejected or revoked, the leaves will be restored to your balance.
                                         </>
                                     ) : (
                                         <>

@@ -7,6 +7,7 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 import ExportButton from "@app/modules/common/components/ExportButton";
 import { useSalaryFilters, SalaryFilterToolbar, StatusFilter } from "./SalaryTableFilters";
 import { useSalaryMaster } from "@modules/payroll/hooks/useSalaryComponentNames";
+import { getCurrencySymbol } from '@utils/currency';
 
 interface YearlySalaryProps {
   year?: Dayjs;
@@ -117,7 +118,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
   }, [filteredEmployeeSummaries]);
 
   // Column totals across ALL filtered rows
-  const fmtINR = (n: number) => `₹${Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const fmtINR = (n: number) => `${getCurrencySymbol()}${Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   const columnTotals = useMemo(() => {
     const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
     return tableData.reduce(
@@ -223,7 +224,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               header: "Basic Salary",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtINR(columnTotals.basicSalary),
             },
@@ -232,7 +233,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               header: "Over Time Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtINR(columnTotals.overTimeAmount),
             },
@@ -242,7 +243,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               Cell: ({ renderedCellValue }: any) => {
                 const val = Math.round(Number(renderedCellValue));
                 if (!val || val === 0) return "-";
-                return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtINR(columnTotals.professionalFees),
             },
@@ -252,7 +253,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               Cell: ({ renderedCellValue }: any) => {
                 const val = Math.round(Number(renderedCellValue));
                 if (!val || val === 0) return "-";
-                return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtINR(columnTotals.tds2),
             },
@@ -262,7 +263,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               Cell: ({ renderedCellValue }: any) => {
                 const val = Math.round(Number(renderedCellValue));
                 if (!val || val === 0) return "-";
-                return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtINR(columnTotals.professionalTax),
             },
@@ -272,7 +273,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               Cell: ({ renderedCellValue }: any) => {
                 const val = Math.round(Number(renderedCellValue));
                 if (!val || val === 0) return "-";
-                return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtINR(columnTotals.retention),
             },
@@ -281,7 +282,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               header: "Net Payable",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtINR(columnTotals.netAmount),
             },
@@ -290,7 +291,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               header: "Paid",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => <span style={{ color: '#1d4ed8' }}>{fmtINR(columnTotals.amountPaid)}</span>,
             },
@@ -301,9 +302,9 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
                 if (renderedCellValue === "-" || renderedCellValue === null || renderedCellValue === undefined) return "-";
                 const amount = Math.round(Number(renderedCellValue));
                 if (amount < 0) {
-                    return <span className="text-info fw-bold">Paid Extra (₹{Math.abs(amount).toLocaleString('en-IN')})</span>;
+                    return <span className="text-info fw-bold">Paid Extra ({getCurrencySymbol()}{Math.abs(amount).toLocaleString('en-IN')})</span>;
                 } else if (amount > 0) {
-                    return <span className="text-danger fw-bold">₹{amount.toLocaleString('en-IN')}</span>;
+                    return <span className="text-danger fw-bold">{getCurrencySymbol()}{amount.toLocaleString('en-IN')}</span>;
                 } else {
                     return <span className="text-success fw-bold">₹0</span>;
                 }

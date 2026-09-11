@@ -219,10 +219,24 @@ export const formatCurrencyCompact = (
  * getCurrencySymbol('INR') // "₹"
  * getCurrencySymbol('USD') // "$"
  */
+/**
+ * Resolved symbols, keyed by ISO code.
+ *
+ * Every lookup below builds an Intl.NumberFormat, formats a zero and throws the digits
+ * away. Cheap once; not cheap inside a cell renderer running down a thousand-row table,
+ * which is where most callers now are. A session has one active currency, so this map holds
+ * one or two entries for its whole life.
+ */
+const symbolCache = new Map<string, string>();
+
 export const getCurrencySymbol = (currencyCode?: string): string => {
   const code = currencyCode || getActiveCurrency();
+  const cached = symbolCache.get(code);
+  if (cached !== undefined) return cached;
+
+  let symbol: string;
   try {
-    return new Intl.NumberFormat('en', {
+    symbol = new Intl.NumberFormat('en', {
       style: 'currency',
       currency: code,
       minimumFractionDigits: 0,
@@ -232,9 +246,14 @@ export const getCurrencySymbol = (currencyCode?: string): string => {
       .replace(/\d/g, '')
       .trim();
   } catch (error) {
+    // An unknown ISO code from the database. Cached like any other answer, so it cannot
+    // throw once per rendered cell.
     console.error('Error getting currency symbol:', error);
-    return '₹'; // Default to INR symbol
+    symbol = '₹';
   }
+
+  symbolCache.set(code, symbol);
+  return symbol;
 };
 
 /** The currency assumed when neither the branch nor its country can say. */
@@ -307,3 +326,13 @@ export const getActiveCurrency = (): string => {
   const explicit = (store.getState() as any)?.employee?.currentEmployee?.branches?.currency;
   return resolveCurrency(explicit);
 };
+
+/**
+ * Does this currency group in lakh and crore rather than thousand and million?
+ *
+ * Exported for the places that must build their OWN number format and cannot call
+ * formatCurrency — Excel's numFmt on an exported sheet being the one that matters, since
+ * the grouping is baked into the pattern string rather than chosen by a locale.
+ */
+export const usesIndianGrouping = (code?: string): boolean =>
+  INDIAN_GROUPED.has(code || getActiveCurrency());

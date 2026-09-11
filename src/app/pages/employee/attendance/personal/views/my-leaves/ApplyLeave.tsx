@@ -21,7 +21,7 @@ import { useApplyLeave, type ApplyLeaveState } from './useApplyLeave';
 import { fetchSandwichPreview } from '@services/sandwichRule';
 import { getSocket } from '@utils/socketClient';
 import { parseWorkingDays } from '@utils/workingDays';
-import { formatCurrencyDecimal } from '@utils/currency';
+import { formatCurrencyDecimal, getCurrencySymbol } from '@utils/currency';
 import { rgba, tintOf, borderOf, resolveLeaveTypeColor } from '@utils/leaveTypeColors';
 import { accrualWindowAsOf, fiscalStartYearOfDay, unlockedTillNow } from '@utils/balanceProgressUtils';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
@@ -1052,7 +1052,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                                         ? `${penaltyDayWord} salary deduction (Loss of Pay)`
                                         : sameDayPenalty.penaltyType === 'halfPaidLeave'
                                         ? `${penaltyDayWord} paid leave deduction`
-                                        : `₹${(sameDayPenalty.fixedDeductionAmount ?? 0).toLocaleString('en-IN')} salary deduction`}
+                                        : `${getCurrencySymbol()}${(sameDayPenalty.fixedDeductionAmount ?? 0).toLocaleString('en-IN')} salary deduction`}
                                 </strong>{' '}
                                 will be automatically applied to this request.
                             </p>
@@ -1137,7 +1137,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                                         ? `${penaltyDayWord} salary deduction (Loss of Pay)`
                                         : sameDayPenalty.penaltyType === 'halfPaidLeave'
                                         ? `${penaltyDayWord} paid leave deduction`
-                                        : `₹${(sameDayPenalty.fixedDeductionAmount ?? 0).toLocaleString('en-IN')} salary deduction`}
+                                        : `${getCurrencySymbol()}${(sameDayPenalty.fixedDeductionAmount ?? 0).toLocaleString('en-IN')} salary deduction`}
                                 </strong>{' '}
                                 will be automatically applied to this request.
                             </p>

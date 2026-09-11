@@ -7,6 +7,7 @@ import DateInput from '@app/modules/common/inputs/DateInput';
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { KTIcon } from '@metronic/helpers';
 import { formatINR2 } from '../../utils/payrollFormatters';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface PaymentModalProps {
     show: boolean;
@@ -471,8 +472,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                         const paid = isDeductionFullyPaid(d.value, d.amount);
                                                                         return {
                                                                             label: paid
-                                                                                ? `${d.label} (₹${Math.trunc(d.amount).toLocaleString('en-IN')}) — ✓ Paid`
-                                                                                : `${d.label} (₹${Math.trunc(d.amount).toLocaleString('en-IN')})`,
+                                                                                ? `${d.label} (${getCurrencySymbol()}${Math.trunc(d.amount).toLocaleString('en-IN')}) — ✓ Paid`
+                                                                                : `${d.label} (${getCurrencySymbol()}${Math.trunc(d.amount).toLocaleString('en-IN')})`,
                                                                             value: d.value,
                                                                             color: paid ? '#22c55e' : '#FFB700',
                                                                             isDisabled: paid,
@@ -537,8 +538,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                         const paid = isDeductionFullyPaid(d.value, d.amount);
                                                                         return {
                                                                             label: paid
-                                                                                ? `${d.label} (₹${Math.trunc(d.amount).toLocaleString('en-IN')}) — ✓ Paid`
-                                                                                : `${d.label} (₹${Math.trunc(d.amount).toLocaleString('en-IN')})`,
+                                                                                ? `${d.label} (${getCurrencySymbol()}${Math.trunc(d.amount).toLocaleString('en-IN')}) — ✓ Paid`
+                                                                                : `${d.label} (${getCurrencySymbol()}${Math.trunc(d.amount).toLocaleString('en-IN')})`,
                                                                             value: d.value,
                                                                             color: paid ? '#22c55e' : '#FFB700',
                                                                             isDisabled: paid,
