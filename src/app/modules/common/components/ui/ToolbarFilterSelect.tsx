@@ -16,17 +16,11 @@ import { WtField } from './WtField';
  * WHAT IT IS NOW: a thin adapter over `WtField`, which owns the label, the frame,
  * the focus ring and the error treatment for every labelled control in the app.
  *
- * It used to be MUI's outlined Select with a floating `InputLabel`, and it carried
- * a hand-maintained copy of the notch's font metrics — because MUI sizes the gap
- * in the border from the FIELD's typography rather than the label's, so a bold
- * uppercase label rendered wider than its own gap and sat on the border line.
- * That whole class of bug is gone: `WtField` cuts no gap.
- *
- * The label sits ABOVE the control. An inline prefix was tried first, to keep a
- * filter row one control tall — but it reads as part of the value: the eye meets
- * "ORGANIZATION All organizations" as a single string and has to work out where
- * the label stops and the answer starts. A row of height is a cheap price for a
- * label that is plainly a label, which is the entire point of a labelled field.
+ * It used to carry a hand-maintained copy of the notch's font metrics, because it
+ * styled its label bold and uppercase — and MUI's legend, which cuts the gap, keeps
+ * the DEFAULT metrics whatever you do to the label. The label was therefore wider
+ * than its own gap and sat on the border line. `WtField` fixes that by never styling
+ * the label at all, so the floating label this control always had now works.
  *
  * The public API is unchanged, deliberately — every existing call site keeps
  * working, and no screen had to be touched to get the fix.
@@ -72,12 +66,6 @@ export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
 }) => (
     <WtField
         label={label}
-        // Label ABOVE the control, not as a prefix inside it. The inline form was chosen to
-        // keep a filter row one control tall, but it reads as part of the value — the eye
-        // meets "ORGANIZATION All organizations" as one string and has to separate the label
-        // from the answer. Above, the two are plainly different things, which is the whole
-        // point of a labelled field.
-        labelPlacement="above"
         icon={icon}
         value={value}
         onChange={onChange}

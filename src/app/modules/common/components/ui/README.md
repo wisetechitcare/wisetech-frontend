@@ -66,21 +66,28 @@ row cannot disagree about height, radius, focus ring or error colour.
 <WtField label="Rating scale" value={scale} onChange={setScale}
          options={scales} hint="How each criterion is rated" />
 
-<WtField label="Organization" labelPlacement="inline" icon="bank" size="sm"
-         value={org} onChange={setOrg} options={orgs} tone={FILTER_TONES.blue.icon} />
+<WtField label="Organization" icon="bank" value={org} onChange={setOrg}
+         options={orgs} tone={FILTER_TONES.blue.icon} />
 ```
 
-**It does not use MUI's floating label, on purpose.** That pattern puts the label in
-a gap cut by a `<legend>` in the border, and MUI sizes that gap from the text in the
-FIELD's typography — not the label's. So any label that is bold, uppercase or
-resized is wider than its own gap and sits on the border line. The codebase paid for
-that one file at a time: `ToolbarFilterSelect` restated the legend metrics by hand,
-and `ProjectTablePage` nudged its label with `top: '-3px'`, a number arrived at by
-eye and wrong at any other font size.
+**It renders MUI's outlined field with its floating label** — the same control the
+"Add Rule" dialog in `pages/company/settings/SandwhichLeave.tsx` uses, which is the
+app's reference for a labelled input. There is no second look to choose between.
 
-`WtField` cuts no gap, so the bug cannot occur — at any size, weight or language.
-Use `labelPlacement="inline"` when a toolbar must stay one control tall; the label
-becomes a small uppercase prefix inside the field, still with no notch.
+⚠️ **Never style the label.** MUI cuts the gap with a `<legend><span>` inside the
+outline, and that legend renders in the DEFAULT label metrics — it does not see CSS
+aimed at `.MuiInputLabel-root`. Make a label bold, uppercase, letter-spaced or
+resized and it grows while its gap does not, so it lands on the border line. That is
+exactly the bug this codebase paid for one file at a time: `ToolbarFilterSelect`
+restated the legend metrics by hand, and `ProjectTablePage` nudged its label with
+`top: '-3px'`, a number arrived at by eye and wrong at any other font size.
+
+Uppercase label *text* is fine — MUI measures the characters you pass. Uppercasing
+in CSS is not. Everything else on the control may be themed; the label may not.
+
+`labelPlacement="above"` exists only for controls that cannot carry a notch — a
+searchable react-select, or a control passed as `children`. Those switch to it
+themselves, so passing it by hand is rarely right.
 
 Searchable / multi / creatable stays `WtSelect` — pass `searchable` and it renders
 inside the same frame. Dates stay `WtDateField`. `WtField` owns the frame, not every
