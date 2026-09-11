@@ -112,6 +112,15 @@ export interface MaterialTableProps {
   enableFilters?: boolean;
   enableSorting?: boolean;
   enableGrouping?: boolean;
+  /**
+   * Column drag-and-drop, ON by default.
+   *
+   * main turned this OFF for a specific defect: MRT's own grab handle sat beside the sort
+   * arrow wearing an up-down arrow of its own, so every header read as two sort buttons.
+   * That handle is gone — this table drives columns through the shared Sortable engine and
+   * passes `enableColumnDragging={false}` to MRT below — so the defect cannot occur and the
+   * feature does not need switching off to avoid it.
+   */
   enableColumnDragging?: boolean;
   enableColumnResizing?: boolean;
   enableColumnPinning?: boolean;

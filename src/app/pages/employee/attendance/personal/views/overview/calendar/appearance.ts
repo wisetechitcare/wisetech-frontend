@@ -127,10 +127,11 @@ export interface CalendarToneSpec {
  * them a swatch would invite someone to paint "nothing has happened yet", and
  * the grid would start reading as noise again.
  *
- * So are `early_in`, `early_out`, `late_out` and `overtime`. They exist in the
- * `DayModifier` union at both ends, but `composeDay` never emits any of them —
- * a settings row for a colour that can never appear is the same drift this file
- * exists to end. They come back the day the server starts producing them.
+ * So are `early_out`, `late_out` and `overtime`. They exist in the `DayModifier`
+ * union at both ends, but `composeDay` never emits any of them — a settings row
+ * for a colour that can never appear is the same drift this file exists to end.
+ * They come back the day the server starts producing them, which is exactly how
+ * `early_in` earned its row below.
  */
 export const CALENDAR_TONES: readonly CalendarToneSpec[] = [
   // ── What the day IS ──────────────────────────────────────────────────────
@@ -217,6 +218,14 @@ export const CALENDAR_TONES: readonly CalendarToneSpec[] = [
     label: 'Late check-in',
     hint: 'Past the grace window. The dot also GROWS with severity, so this stays readable in greyscale.',
     trio: TRIO.amber,
+    channel: 'dot',
+    group: 'mark',
+  },
+  {
+    key: 'early_in',
+    label: 'Early check-in',
+    hint: 'Arrived before the shift started — the mirror of Late check-in.',
+    trio: TRIO.cyan,
     channel: 'dot',
     group: 'mark',
   },

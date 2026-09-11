@@ -21,7 +21,8 @@ import { getMeetingLeadIds } from "@services/employee";
 import { saveLeadPeriodPreference, getLeadPeriodPreference, getUserTablePreferences } from "@services/users";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SelectLeadOrganizationDialog from "./SelectLeadOrganizationDialog";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
 import {
@@ -206,14 +207,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // New leads pick their organization before the wizard opens — it decides the
   // lead's prefix and number series.
   const [showOrgPicker, setShowOrgPicker] = useState(false);
-  const [tableData, setTableData] = useState<any[]>([]);
-  const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const [formValues, setFormValues] = useState<any>(null);
-  const [projectServices, setProjectServices] = useState<any[]>([]);
-  const [projectSubcategories, setProjectSubcategories] = useState<any[]>([]);
-  const [projectCategories, setProjectCategories] = useState<any[]>([]);
-  const [rawLeadsDatas, setRawLeadsDatas] = useState<any[]>([]);
   // Lookup maps to resolve the File Location columns (which store company / company-type
   // IDs) into human-readable names.
   const [fileLocCompanyMap, setFileLocCompanyMap] = useState<Map<string, string>>(new Map());
@@ -231,22 +225,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   /** The lead whose `+` was pressed with BOTH actions still missing. */
   const [pickerLead, setPickerLead] = useState<any>(null);
 
-  /**
-   * Fold a saved reminder back into the row it belongs to.
-   *
-   * In place rather than a refetch: the note is the only thing that changed, and
-   * `fetchAllData` pulls every lead plus its country/state/city lookups — a full reload of
-   * the screen to show one edited sentence, with the table's scroll position lost.
-   *
-   * Functional `setTableData` and a stable identity, so the memoised column definitions can
-   * close over this without going stale and without rebuilding the column model.
-   */
-  const patchRowNote = useCallback(
-    (leadId: string, patch: { reminder: string; reminderColor?: string }) => {
-      setTableData((rows) => rows.map((r) => (r.id === leadId ? { ...r, ...patch } : r)));
-    },
-    [],
-  );
 
   // ── Date mode ────────────────────────────────────────────────────────────────
   const [alignment, setAlignment] = useState<DateMode>("monthly");
@@ -289,14 +267,36 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   );
 
   // ── Status & assigned filters ────────────────────────────────────────────────
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  // The URL holds them, so opening a lead and coming back restores the list you
+  // left instead of resetting to "all". The URL is the only copy: no useState
+  // mirror and no syncing effect, which is the loop useTableFilters documents.
+  // Written with replace so filtering never stacks history entries.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusFilter = searchParams.get("status") || "";
   // Empty = all organizations; UNASSIGNED_ORG_VALUE = leads that predate them.
-  const [organizationFilter, setOrganizationFilter] = useState<string>("");
+  const organizationFilter = searchParams.get("org") || "";
+  const assignedToFilter = searchParams.get("assignee") || "";
+  const setFilterParam = useCallback(
+    (key: string, value: string) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (value) next.set(key, value);
+          else next.delete(key);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+  const setStatusFilter = useCallback((v: string) => setFilterParam("status", v), [setFilterParam]);
+  const setOrganizationFilter = useCallback((v: string) => setFilterParam("org", v), [setFilterParam]);
+  const setAssignedToFilter = useCallback((v: string) => setFilterParam("assignee", v), [setFilterParam]);
   const { organizations: leadOrganizations } = useOrgScope({
     includeAll: false,
     initialScopeId: "",
   });
-  const [assignedToFilter, setAssignedToFilter] = useState<string>("");
 
   // ── Redux ────────────────────────────────────────────────────────────────────
   const allemployees = useSelector(
@@ -305,6 +305,55 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   const currentEmployeeId = useSelector(
     (state: RootState) => state.employee?.currentEmployee?.id,
   );
+
+  // ── Screen data ──────────────────────────────────────────────────────────────
+  // One cached query instead of six pieces of state filled by a mount effect.
+  // Returning from a lead detail page re-renders straight from the cache: no
+  // spinner, no request storm, the rows are simply still there.
+  // `loadLeadsScreen` is a hoisted function declaration further down — the rows
+  // it returns are read all over the body above it.
+  // Named once and reused by the two in-place row patches below. A second literal spelling
+  // of this key would be a patch that writes to a cache entry nothing reads.
+  const leadsScreenKey = ["leads-screen", currentEmployeeId];
+  const queryClient = useQueryClient();
+  const { data: leadsScreen, isPending, refetch } = useQuery({
+    queryKey: leadsScreenKey,
+    queryFn: loadLeadsScreen,
+  });
+
+  /**
+   * Change one field on one row, without going back to the server.
+   *
+   * Folds a saved reminder, or a newly booked meeting, back into the row it belongs to.
+   * A stable identity, so the memoised column definitions can close over it without going
+   * stale and without rebuilding the column model.
+   *
+   * The rows live in the query cache now rather than in component state, so this writes
+   * there — same intent as the `setTableData` it replaces, same reason: `refetch` pulls every
+   * lead plus its country/state/city lookups, which is a full reload of the screen to show
+   * one edited sentence, and it loses the table's scroll position doing it.
+   */
+  const patchCachedRow = useCallback(
+    (leadId: string, patch: Record<string, any>) => {
+      queryClient.setQueryData(leadsScreenKey, (prev: any) => (prev ? {
+        ...prev,
+        leads: prev.leads.map((r: any) => (r.id === leadId ? { ...r, ...patch } : r)),
+      } : prev));
+    },
+    // The key is rebuilt each render; its CONTENT is what matters, so depend on that.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queryClient, currentEmployeeId],
+  );
+  const fetchAllData = refetch;
+  const tableData: any[] = leadsScreen?.leads || [];
+  const rawLeadsDatas: any[] = leadsScreen?.rawLeads || [];
+  const projectServices: any[] = leadsScreen?.projectServices || [];
+  const projectSubcategories: any[] = leadsScreen?.projectSubcategories || [];
+  const projectCategories: any[] = leadsScreen?.projectCategories || [];
+  const leadStatuses: any[] = leadsScreen?.leadStatuses || [];
+  // Only the first ever load blanks the screen. A background revalidation keeps
+  // the rows up, which is the whole point of coming back to a warm cache.
+  const loading = isPending;
   const rawLeadsData = rawLeadsDatas;
 
   // Derive assigned-to employees directly from lead data so new assignees appear automatically.
@@ -459,22 +508,25 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     loadPreference();
   }, []);
 
-  const fetchAllData = useCallback(async () => {
-    try {
-      setLoading(true);
-      // MY reminders, fetched beside the leads rather than joined onto them. The leads list
-      // is the heaviest read in the app and is shared by the dashboard, the drill-downs and
-      // the exports — making it viewer-dependent to serve one column would cost all of them.
-      // A failure here is not a failure of the page: the table still lists every lead, with
-      // the Reminder column simply empty.
+  // Returns the whole screen's payload instead of writing six pieces of state, so
+  // React Query can cache it. Declared as a function so the useQuery call near the
+  // top of the component — above every reader of its rows — can name it.
+  async function loadLeadsScreen() {
+      // MY reminders and which leads have a meeting, fetched BESIDE the leads rather than
+      // joined onto them. The leads list is the heaviest read in the app and is shared by the
+      // dashboard, the drill-downs and the exports — making it viewer-dependent to serve one
+      // column would cost all of them. Safe to cache because the query key carries
+      // currentEmployeeId, so one person's reminders can never be served to another.
+      //
+      // Both are best-effort. A failure in either is not a failure of the page: the table
+      // still lists every lead, with the Reminder column simply empty and the Action column
+      // offering `+` everywhere — wrong, but not broken.
       const [leadsResponse, remindersResponse, meetingLeadsResponse] = await Promise.all([
         getAllLeadsComplete(),
         getMyLeadReminders().catch((e) => {
           console.warn("Could not load your reminders", e);
           return null;
         }),
-        // Which leads have a meeting at all. Best-effort like the reminders: without it the
-        // Action column simply offers `+` everywhere, which is wrong but not broken.
         getMeetingLeadIds().catch((e) => {
           console.warn("Could not load which leads have meetings", e);
           return null;
@@ -498,7 +550,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           (r: any) => [String(r.leadId), { note: r.note, color: r.color }] as const,
         ),
       );
-      setRawLeadsDatas(leadsData);
 
       const [servicesRes, subcatRes, catRes, statusRes, countriesData] =
         await Promise.all([
@@ -508,10 +559,13 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           getAllLeadStatus(),
           fetchAllCountries(),
         ]);
-      setProjectServices(servicesRes?.services || []);
-      setProjectSubcategories(subcatRes?.projectSubCategories || []);
-      setProjectCategories(catRes?.projectCategories || []);
-      setLeadStatuses(statusRes?.leadStatuses || []);
+      const lookups = {
+        rawLeads: leadsData,
+        projectServices: servicesRes?.services || [],
+        projectSubcategories: subcatRes?.projectSubCategories || [],
+        projectCategories: catRes?.projectCategories || [],
+        leadStatuses: statusRes?.leadStatuses || [],
+      };
 
       if (leadsData.length > 0) {
         const uniqueCountryIds = new Set<any>();
@@ -688,18 +742,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           };
         });
 
-        setTableData(transformedLeads);
+        return { ...lookups, leads: transformedLeads };
       }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentEmployeeId]);
-
-  useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData, pagination]);
+      return { ...lookups, leads: [] as any[] };
+  }
 
   // Debounce search input (300ms delay before filtering)
   useEffect(() => {
@@ -874,7 +920,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       Cell: ({ row }: { row: any }) => (
         <ReminderCell
           lead={row.original}
-          onSaved={(reminder) => patchRowNote(row.original.id, { reminder })}
+          onSaved={(reminder) => patchCachedRow(row.original.id, { reminder })}
         />
       ),
     },
@@ -1185,6 +1231,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     rawLeadsData,
     fileLocCompanyMap,
     fileLocTypeMap,
+    // Stable via useCallback, so listing it never rebuilds the column model — it only stops
+    // the reminder cell closing over a stale writer if that ever changes.
+    patchCachedRow,
   ]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -2196,7 +2245,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           open
           lead={noteLead}
           onClose={() => setNoteLead(null)}
-          onSaved={(reminder, reminderColor) => patchRowNote(noteLead.id, { reminder, reminderColor })}
+          onSaved={(reminder, reminderColor) => patchCachedRow(noteLead.id, { reminder, reminderColor })}
         />
       )}
 
@@ -2218,9 +2267,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           onSaved={() => {
             // The row's Action column reads this: without it the lead keeps offering `+` for
             // a meeting that now exists, until the next full reload.
-            setTableData((rows) =>
-              rows.map((r) => (r.id === meetingLead.id ? { ...r, hasMeeting: true } : r)),
-            );
+            patchCachedRow(meetingLead.id, { hasMeeting: true });
             toast({ icon: "success", title: "Meeting scheduled" });
           }}
         />
