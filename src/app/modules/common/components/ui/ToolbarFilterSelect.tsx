@@ -20,10 +20,13 @@ import { WtField } from './WtField';
  * a hand-maintained copy of the notch's font metrics — because MUI sizes the gap
  * in the border from the FIELD's typography rather than the label's, so a bold
  * uppercase label rendered wider than its own gap and sat on the border line.
- * That whole class of bug is gone: `WtField` cuts no gap. The label is a small
- * uppercase prefix INSIDE the control (`labelPlacement="inline"`), so the toolbar
- * stays exactly one control tall, which is what the notched pattern was bought
- * for in the first place.
+ * That whole class of bug is gone: `WtField` cuts no gap.
+ *
+ * The label sits ABOVE the control. An inline prefix was tried first, to keep a
+ * filter row one control tall — but it reads as part of the value: the eye meets
+ * "ORGANIZATION All organizations" as a single string and has to work out where
+ * the label stops and the answer starts. A row of height is a cheap price for a
+ * label that is plainly a label, which is the entire point of a labelled field.
  *
  * The public API is unchanged, deliberately — every existing call site keeps
  * working, and no screen had to be touched to get the fix.
@@ -69,7 +72,12 @@ export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
 }) => (
     <WtField
         label={label}
-        labelPlacement="inline"
+        // Label ABOVE the control, not as a prefix inside it. The inline form was chosen to
+        // keep a filter row one control tall, but it reads as part of the value — the eye
+        // meets "ORGANIZATION All organizations" as one string and has to separate the label
+        // from the answer. Above, the two are plainly different things, which is the whole
+        // point of a labelled field.
+        labelPlacement="above"
         icon={icon}
         value={value}
         onChange={onChange}

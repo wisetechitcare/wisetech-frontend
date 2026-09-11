@@ -105,6 +105,16 @@ export interface WtFieldProps {
     /** Renders react-select inside this frame, for search / multi / creatable. */
     searchable?: boolean;
 
+    /**
+     * Shows a clear button once there is something to clear, and empties the field.
+     *
+     * Encoded here rather than exposed as a raw adornment slot, because every caller that
+     * needed one would otherwise rebuild the same button — and they would disagree about its
+     * size, its icon and whether it announces itself. A search box you cannot empty in one
+     * click is the most common small frustration in a list screen.
+     */
+    clearable?: boolean;
+
     id?: string;
     name?: string;
     autoFocus?: boolean;
@@ -181,7 +191,7 @@ export const WtField: React.FC<WtFieldProps> = ({
     label, labelPlacement = 'above', value, onChange, options, hint, error, required, disabled, placeholder,
     size = 'md', fullWidth = true, minWidth, icon, tone,
     type = 'text', multiline, minRows = 3, inputMode, min, max, step,
-    searchable, id, name, autoFocus, sx, children,
+    searchable, clearable, id, name, autoFocus, sx, children,
 }) => {
     const reactId = useId();
     const fieldId = id ?? `wtf-${reactId}`;
@@ -194,6 +204,31 @@ export const WtField: React.FC<WtFieldProps> = ({
     const activeTone = tone && String(value ?? '').length ? tone : undefined;
 
     const inlineLabel = labelPlacement === 'inline' && label;
+
+    /**
+     * Shown only once there is something to clear — a permanently visible × on an empty box
+     * is a control that does nothing, and the eye learns to ignore it.
+     *
+     * `type="button"` matters: inside a form, a button with no type submits it, so clearing a
+     * search would save the record.
+     */
+    const clearButton = clearable && !disabled && String(value ?? '').length ? (
+        <Box
+            component="button"
+            type="button"
+            aria-label="Clear"
+            onClick={() => onChange('')}
+            sx={{
+                display: 'grid', placeItems: 'center', flexShrink: 0,
+                width: 24, height: 24, ml: 0.5, p: 0,
+                border: 0, borderRadius: '7px', cursor: 'pointer',
+                bgcolor: 'transparent', color: 'text.secondary',
+                '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+            }}
+        >
+            <KTIcon iconName="cross" className="fs-7" />
+        </Box>
+    ) : null;
 
     const startIcon = (icon || inlineLabel) ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0, mr: 0.25 }}>
@@ -327,6 +362,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                 multiline={multiline}
                 minRows={multiline ? minRows : undefined}
                 startAdornment={startIcon}
+                endAdornment={clearButton}
                 inputProps={{
                     inputMode, min, max, step,
                     'aria-invalid': invalid || undefined,

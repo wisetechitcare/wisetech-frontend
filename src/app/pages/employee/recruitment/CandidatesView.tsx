@@ -7,7 +7,7 @@ import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip,
     WtSwitchField, toast, confirmDialog, controlHeightSx,
-    WtEmptyState,
+    WtEmptyState, WtField,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { COPY } from "./terms";
@@ -362,72 +362,75 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField label="First name" required size="small" sx={{ flex: 1 }} value={form.firstName} onChange={(e) => set("firstName", e.target.value)} />
-                            <TextField label="Last name" size="small" sx={{ flex: 1 }} value={form.lastName ?? ""} onChange={(e) => set("lastName", e.target.value)} />
+                            <WtField label="First name" required value={form.firstName} onChange={(v) => set("firstName", v)} />
+                            <WtField label="Last name" value={form.lastName ?? ""} onChange={(v) => set("lastName", v)} />
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField
-                                label="Email" type="email" size="small" sx={{ flex: 1 }}
-                                value={form.email} onChange={(e) => set("email", e.target.value)}
-                                error={!hasIdentity}
-                                helperText={hasIdentity ? "Either an email or a phone number is enough." : "Enter an email or a phone number."}
+                            <WtField
+                                label="Email"
+                                type="email"
+                                value={form.email}
+                                onChange={(v) => set("email", v)}
+                                error={hasIdentity ? undefined : "Enter an email or a phone number."}
+                                hint="Either one is enough."
                             />
-                            <TextField
-                                label="Phone" size="small" sx={{ flex: 1 }}
-                                value={form.phone ?? ""} onChange={(e) => set("phone", e.target.value)}
-                                error={!hasIdentity}
-                                helperText="Used to de-duplicate — re-applying updates the same candidate."
+                            <WtField
+                                label="Phone"
+                                type="tel"
+                                inputMode="tel"
+                                value={form.phone ?? ""}
+                                onChange={(v) => set("phone", v)}
+                                error={hasIdentity ? undefined : "Enter an email or a phone number."}
+                                hint="Re-applying with this number updates the same candidate."
                             />
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField label="Current title" size="small" sx={{ flex: 1 }} value={form.currentTitle ?? ""} onChange={(e) => set("currentTitle", e.target.value)} />
-                            <TextField label="Current employer" size="small" sx={{ flex: 1 }} value={form.currentEmployer ?? ""} onChange={(e) => set("currentEmployer", e.target.value)} />
+                            <WtField label="Current title" value={form.currentTitle ?? ""} onChange={(v) => set("currentTitle", v)} />
+                            <WtField label="Current employer" value={form.currentEmployer ?? ""} onChange={(v) => set("currentEmployer", v)} />
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField label="Current location" size="small" sx={{ flex: 1 }} value={form.currentLocation ?? ""} onChange={(e) => set("currentLocation", e.target.value)} />
-                            <TextField label="Qualification" size="small" sx={{ flex: 1 }} value={form.qualification ?? ""} onChange={(e) => set("qualification", e.target.value)} />
+                            <WtField label="Current location" value={form.currentLocation ?? ""} onChange={(v) => set("currentLocation", v)} />
+                            <WtField label="Qualification" value={form.qualification ?? ""} onChange={(v) => set("qualification", v)} />
                             {/* Same ladder the requisition picks from — a level comparison only
                                 means something if both sides chose from one list. */}
                             {!noLevels && (
-                                <TextField
-                                    select label="Seniority" size="small" sx={{ flex: 1 }}
+                                <WtField
+                                    label="Seniority"
                                     value={form.employeeLevelId ?? ""}
-                                    onChange={(e) => set("employeeLevelId", e.target.value || null)}
-                                >
-                                    <MenuItem value="">— Not set —</MenuItem>
-                                    {levels.map((l) => <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>)}
-                                </TextField>
+                                    onChange={(v) => set("employeeLevelId", v || null)}
+                                    options={[{ value: "", label: "Not set" }, ...levels.map((l) => ({ value: l.id, label: l.name }))]}
+                                />
                             )}
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField
-                                label="Experience (months)" type="number" size="small" sx={{ flex: 1 }}
-                                inputProps={{ min: 0 }}
-                                value={form.totalExperienceMonths ?? ""} onChange={(e) => setNum("totalExperienceMonths", e.target.value)}
+                            <WtField
+                                label="Experience" type="number" min={0} inputMode="numeric"
+                                hint="In months"
+                                value={form.totalExperienceMonths ?? ""} onChange={(v) => setNum("totalExperienceMonths", v)}
                             />
-                            <TextField
-                                label="Current CTC (LPA)" type="number" size="small" sx={{ flex: 1 }}
-                                inputProps={{ min: 0, step: 0.5 }}
-                                value={form.currentCtcInLpa ?? ""} onChange={(e) => setNum("currentCtcInLpa", e.target.value)}
+                            <WtField
+                                label="Current salary" type="number" min={0} step={0.5} inputMode="decimal"
+                                hint="Lakhs per year"
+                                value={form.currentCtcInLpa ?? ""} onChange={(v) => setNum("currentCtcInLpa", v)}
                             />
-                            <TextField
-                                label="Expected CTC (LPA)" type="number" size="small" sx={{ flex: 1 }}
-                                inputProps={{ min: 0, step: 0.5 }}
-                                value={form.expectedCtcInLpa ?? ""} onChange={(e) => setNum("expectedCtcInLpa", e.target.value)}
+                            <WtField
+                                label="Expected salary" type="number" min={0} step={0.5} inputMode="decimal"
+                                hint="Lakhs per year"
+                                value={form.expectedCtcInLpa ?? ""} onChange={(v) => setNum("expectedCtcInLpa", v)}
                             />
-                            <TextField
-                                label="Notice (days)" type="number" size="small" sx={{ flex: 1 }}
-                                inputProps={{ min: 0 }}
-                                value={form.noticePeriodDays ?? ""} onChange={(e) => setNum("noticePeriodDays", e.target.value)}
+                            <WtField
+                                label="Notice period" type="number" min={0} inputMode="numeric"
+                                hint="In days"
+                                value={form.noticePeriodDays ?? ""} onChange={(v) => setNum("noticePeriodDays", v)}
                             />
                         </Stack>
-                        <TextField
-                            select label="Source" size="small" fullWidth
-                            value={form.sourceId ?? ""} onChange={(e) => set("sourceId", e.target.value || null)}
-                        >
-                            <MenuItem value="">— None —</MenuItem>
-                            {sources.map((s: ApplicantSource) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
-                        </TextField>
+                        <WtField
+                            label="Where they came from"
+                            value={form.sourceId ?? ""}
+                            onChange={(v) => set("sourceId", v || null)}
+                            options={[{ value: "", label: "Not recorded" }, ...sources.map((s: ApplicantSource) => ({ value: s.id, label: s.name }))]}
+                            hint="Referral, WhatsApp, the careers page — this is what tells you which channel is worth the budget."
+                        />
                         <Stack direction="row" alignItems="center" spacing={1.5}>
                             <input
                                 ref={formFileRef}
