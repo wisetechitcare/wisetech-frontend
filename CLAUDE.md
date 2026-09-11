@@ -16,6 +16,32 @@ HRMS web client (Metronic-based admin theme). React 18 + TypeScript + Vite. Pair
 - API calls go through `src/services/` (axios). Don't call axios directly from components — add/extend a service.
 - Path aliases (in `vite.config.ts` + tsconfig): `@ @app @pages @components @hooks @services @utils @redux @models @constants @metronic`.
 
+## Rule zero — reuse before you write. This applies to everyone, every task.
+
+**1. Cross-check the codebase before writing anything.** Not just UI — services, hooks, utils,
+schemas, queries, scripts. Grep for the concept, for similar names, for the canonical pattern.
+If the search is wide, map it properly before typing.
+
+**2. If it does not exist, build it GLOBAL and reusable FIRST, then consume it.** Never inline a
+one-off in a page intending to extract it later. Later does not come, and the second copy is
+written by someone who never knew the first existed.
+
+**3. If a shared thing is missing what you need, add it to the shared thing.** Do not work around
+it locally — that is precisely how the second implementation gets written.
+
+**4. No messy code, and nothing done blindly.** Verify against the tree. A claim in a doc, a
+comment, or a green typecheck is not proof; check the thing itself.
+
+> **This has been got wrong, and it is worth knowing how.** A recruitment drill-down was built on
+> a hand-written `<Table>`. The search that should have prevented it *did* return
+> `MaterialTableImpl` — the shared engine, used by 84 files — and it was read past. That screen's
+> users silently lost sorting, per-column search, column show/hide, export and saved column
+> preferences that every other table in the app has. Searching is not enough; you have to act on
+> what the search returns.
+>
+> The root cause was an index gap: the kit README covered `ui/` only, while the engine lives one
+> level up in `components/`. **When a search fails, fix the index too, not just the code.**
+
 ## UI standard — READ THIS BEFORE WRITING ANY UI
 
 **The standard is MUI + Tailwind, composed from the shared kit. This is not a preference to weigh against what a file already does — it is the target for all new and edited UI.** Ant Design, Mantine, react-bootstrap and raw Bootstrap markup are legacy; never reach for them, and convert what you touch.
