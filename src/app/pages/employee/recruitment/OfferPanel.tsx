@@ -95,14 +95,23 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
                             onChange={(v) => setForm({ ...form, proposedJoiningDate: v || null })}
                         />
                     </Stack>
+                    {/* Department first: you pick the team, then the role within it. The reverse
+                        order asks which job before saying which part of the company it sits in.
+
+                        The designation list is NOT narrowed by the chosen department, and that is
+                        not an oversight. `Designations` carries no departmentId — only a
+                        self-hierarchy via parentId — so there is nothing to filter on, and the
+                        live data says the two genuinely cross: 5 of the 17 designations actually
+                        held by employees appear in more than one department. Narrowing the list
+                        today would hide valid choices. Linking them is a schema change. */}
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                        <TextField label="Designation" select size="small" sx={{ flex: 1 }} value={form.offeredDesignationId ?? ""} onChange={(e) => setForm({ ...form, offeredDesignationId: e.target.value || null })}>
-                            <MenuItem value="">— None —</MenuItem>
-                            {designations.map((d: { id: string; role: string }) => <MenuItem key={d.id} value={d.id}>{d.role}</MenuItem>)}
-                        </TextField>
                         <TextField label="Department" select size="small" sx={{ flex: 1 }} value={form.offeredDepartmentId ?? ""} onChange={(e) => setForm({ ...form, offeredDepartmentId: e.target.value || null })}>
                             <MenuItem value="">— None —</MenuItem>
                             {departments.map((d: { id: string; name: string }) => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}
+                        </TextField>
+                        <TextField label="Designation" select size="small" sx={{ flex: 1 }} value={form.offeredDesignationId ?? ""} onChange={(e) => setForm({ ...form, offeredDesignationId: e.target.value || null })}>
+                            <MenuItem value="">— None —</MenuItem>
+                            {designations.map((d: { id: string; role: string }) => <MenuItem key={d.id} value={d.id}>{d.role}</MenuItem>)}
                         </TextField>
                     </Stack>
                     <TextField label="Notes" size="small" fullWidth multiline minRows={2} value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value || null })} />
