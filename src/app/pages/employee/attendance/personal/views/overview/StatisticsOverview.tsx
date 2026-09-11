@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-import { convertToTimeZone, formatTime, convertTo12HourFormat, MUMBAI_TZ as mumbaiTz } from '@utils/date';
+import { convertToTimeZone, formatTime, formatTimeString, MUMBAI_TZ as mumbaiTz } from '@utils/date';
 import { parseWorkingDays } from '@utils/workingDays';
 import { allStreaksIndicator, donutaDataLabel, getWorkingDaysInYear, handleDatesChange, todayProgressPercent, totalProgressPercent,currentDayWorkingHours, fetchEmpYearlyStatistics, getWorkingDaysInRange, formatDisplay } from '@utils/statistics';
 import { Card, Grid } from '@mui/material';
@@ -65,8 +65,8 @@ const OverviewProgessBar: React.FC = React.memo(() => {
     const checkOutRaw = dailyStats && dailyStats.length > 0 && dailyStats[0]?.checkOut != null ? formatTime(convertToTimeZone(dailyStats[0]?.checkOut, mumbaiTz)) : 'N/A';
 
      // Always show in 12-hour IST format
-    const checkIn = checkInRaw && checkInRaw !== 'N/A' ? convertTo12HourFormat(checkInRaw) : 'N/A';
-    const checkOut = checkOutRaw && checkOutRaw !== 'N/A' ? convertTo12HourFormat(checkOutRaw) : 'N/A';
+    const checkIn = checkInRaw && checkInRaw !== 'N/A' ? formatTimeString(checkInRaw) : 'N/A';
+    const checkOut = checkOutRaw && checkOutRaw !== 'N/A' ? formatTimeString(checkOutRaw) : 'N/A';
 
 
      // Fetch configuration

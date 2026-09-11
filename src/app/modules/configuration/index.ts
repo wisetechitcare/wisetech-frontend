@@ -17,6 +17,8 @@ export type { ConfigSectionCardProps, ConfigSectionCardAction } from './ConfigSe
 export { default as ConfigSettingsRow } from './ConfigSettingsRow';
 export type { ConfigSettingsRowProps } from './ConfigSettingsRow';
 
+export { ChipGrid, EmptyState } from './ConfigChipGrid';
+
 export { default as ConfigStatsCards } from './ConfigStatsCards';
 export type { ConfigStatsCardsProps, ConfigStatCard } from './ConfigStatsCards';
 

@@ -15,6 +15,7 @@ import Tooltip from "react-bootstrap/Tooltip";
 // Audit (change history)
 import { VersionHistory } from "@modules/audit/VersionHistory";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getTimeTokens } from '@utils/timeFormat';
 
 const ProjectOverviewById = ({
   projectId,
@@ -892,7 +893,7 @@ const ProjectOverviewById = ({
                       fontWeight: "400",
                     }}
                   >
-                    {dayjs(projectData?.createdAt).format("DD/M/YYYY, h:mmA") ??
+                    {dayjs(projectData?.createdAt).format(`DD/M/YYYY, ${getTimeTokens().TIME}`) ??
                       "-"}
                   </div>
                 </div>
@@ -936,7 +937,7 @@ const ProjectOverviewById = ({
                       fontWeight: "400",
                     }}
                   >
-                    {dayjs(projectData?.updatedAt).format("DD/M/YYYY, h:mmA") ??
+                    {dayjs(projectData?.updatedAt).format(`DD/M/YYYY, ${getTimeTokens().TIME}`) ??
                       "-"}
                   </div>
                 </div>

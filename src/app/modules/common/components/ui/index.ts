@@ -44,7 +44,7 @@ export { BI_TO_KEENICON, keeniconFor } from './iconMap';
 export type { BrandIconProps } from './brandIcons';
 export type { ToneChipProps } from './chips';
 export {
-  glassSx, GlassSurface, GlassDialog, GlassHeader, GlassCard, GlassTransition,
+  glassSx, GlassSurface, GlassDialog, GlassHeader, PlainDialogHeader, GlassCard, GlassTransition,
 } from './glass';
 export type {
   GlassSurfaceProps, GlassDialogProps, GlassHeaderProps, GlassCardProps,
@@ -54,9 +54,9 @@ export type {
 // grid/toolbar breakpoints so every collection view fills wide screens and stacks cleanly on mobile.
 export {
   TRIO, EASE_200, SHADOW_REST, SHADOW_HOVER, IconBox, StatusBadge, StatTile, Eyebrow, SectionHead,
-  AutoGrid, ListHeader, ViewModeSwitch, StatusCyclePill,
+  AutoGrid, ListHeader, ViewModeSwitch, StatusCyclePill, UnderlineTabs,
 } from './patterns';
-export type { Trio, ViewModeOption, StatusCycleOption } from './patterns';
+export type { Trio, ViewModeOption, StatusCycleOption, UnderlineTabItem } from './patterns';
 // Choose-one-from-a-visual-set controls, for any feature that lets an admin
 // brand a record (section icon/colour, status colour, category icon).
 export { IconPicker, TONE_NAMES } from './SwatchPicker';
@@ -74,6 +74,8 @@ export { SettingsSection } from './SettingsSection';
 export type { SettingsSectionProps } from './SettingsSection';
 // The app-wide toolbar filter (SUB ORGANIZATION / BRANCH / STATUS). Previously
 // defined inside a payroll page that three other features imported across.
+export { NavCard } from './NavCard';
+export type { NavCardProps } from './NavCard';
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
 export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';

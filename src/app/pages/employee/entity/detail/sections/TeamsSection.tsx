@@ -199,9 +199,14 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
 
   // After a save, ask the detail page to refetch the lead (it listens on this bus)
   // so read-mode values + a fresh revisionCount reflect the change.
+  // The PATCH responds with the fully-populated lead, read AFTER its transaction
+  // committed — so it rides along in the event rather than being thrown away. The page used
+  // to answer this event with a 150ms timer and a second full fetch behind its loading
+  // spinner, which is most of what "saving takes forever" was. The `id` still ships, so any
+  // listener without the fast path refetches exactly as before.
   const saveSection = (section: 'internalTeam' | 'externalTeam' | 'executionTeam' | 'projectManager', data: any) =>
-    updateLeadSection(leadId, section, data, rev).then(() => {
-      if (leadId) eventBus.emit(EVENT_KEYS.leadUpdated, { id: leadId });
+    updateLeadSection(leadId, section, data, rev).then((res: any) => {
+      if (leadId) eventBus.emit(EVENT_KEYS.leadUpdated, { id: leadId, lead: res?.data?.data?.lead ?? null });
     });
 
   // ── Execution team picker (also settable from Summary → Ownership). A button
@@ -545,35 +550,94 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       .map((t: any) => ({ value: t.id, label: t.name }))
       .sort(byLabel);
   }, [companyTypes]);
-  const companyOptionsFor = (typeId?: string) => companies
-    .filter((c: any) => !typeId || c.companyTypeId === typeId)
-    .map((c: any) => ({ 
-      value: c.id, 
-      label: c.companyName,
-      avatar: c.companyLogo || c.logo || null 
-    }))
-    .sort(byLabel);
+  /**
+   * Option lists, GROUPED ONCE per master load instead of rebuilt per row per render.
+   *
+   * These four pickers are rendered for every stakeholder row, and each of the three
+   * builders below used to run filter + map + sort over the whole master on every single
+   * render of the card — and `allContacts` is every contact in the system (the endpoint is
+   * unpaginated; the comment on the handler puts the full payload at ~4.5 MB). Every
+   * keystroke in a date box, every status toggle, every pick paid for a `localeCompare`
+   * sort of thousands of rows, four times per row.
+   *
+   * Worse than the CPU: each call returned a NEW array, so react-select saw a fresh
+   * `options` identity on every render and rebuilt its menu from scratch. That is what made
+   * choosing a name feel like it hung.
+   *
+   * Now each list is built once and cached by key, so a row lookup is a Map hit returning a
+   * STABLE array — no work and no new identity until the masters themselves change.
+   */
+  const EMPTY_OPTIONS: any[] = useMemo(() => [], []);
+
+  const companyOptionsAll = useMemo(
+    () => companies
+      .map((c: any) => ({ value: c.id, label: c.companyName, avatar: c.companyLogo || c.logo || null }))
+      .sort(byLabel),
+    [companies],
+  );
+  const companyOptionsByType = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const o of companyOptionsAll) {
+      const typeId = String(companyById.get(String(o.value))?.companyTypeId ?? '');
+      if (!typeId) continue;
+      if (!m.has(typeId)) m.set(typeId, []);
+      m.get(typeId)!.push(o);
+    }
+    return m;
+  }, [companyOptionsAll, companyById]);
+  const companyOptionsFor = (typeId?: string) =>
+    (typeId ? companyOptionsByType.get(String(typeId)) ?? EMPTY_OPTIONS : companyOptionsAll);
+
   // Sub-companies/contacts are filtered to the chosen company when one is set,
   // but list EVERYTHING when it isn't — so the user can pick one first and let
   // it back-fill the company (sub-companies stay tagged with their company).
-  const subCompanyOptionsFor = (companyId?: string) => (companyId
-    ? allSubCompanies.filter((s: any) => String(s.mainCompanyId) === String(companyId))
-    : allSubCompanies)
-    .map((s: any) => {
-      const base = s.subCompanyName || s.name;
-      const cn = companyNameById.get(String(s.mainCompanyId));
-      return { value: s.id, label: (!companyId && cn) ? `${base} — ${cn}` : base };
-    })
-    .sort(byLabel);
-  const contactOptionsFor = (companyId?: string) => (companyId
-    ? allContacts.filter((c: any) => String(c.companyId) === String(companyId))
-    : allContacts)
-    .map((c: any) => ({
-      value: c.id,
-      label: c.fullName || c.name || 'Unnamed Contact',
-      avatar: c.profilePhoto || c.avatar || c.users?.avatar || null,
-    }))
-    .sort(byLabel);
+  // Two variants, because the unfiltered list tags each entry with its company.
+  const subCompanyOptionsAll = useMemo(
+    () => allSubCompanies
+      .map((s: any) => {
+        const base = s.subCompanyName || s.name;
+        const cn = companyNameById.get(String(s.mainCompanyId));
+        return { value: s.id, label: cn ? `${base} — ${cn}` : base };
+      })
+      .sort(byLabel),
+    [allSubCompanies, companyNameById],
+  );
+  const subCompanyOptionsByCompany = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const s of allSubCompanies) {
+      const key = String(s.mainCompanyId ?? '');
+      if (!key) continue;
+      if (!m.has(key)) m.set(key, []);
+      m.get(key)!.push({ value: s.id, label: s.subCompanyName || s.name });
+    }
+    m.forEach((list) => list.sort(byLabel));
+    return m;
+  }, [allSubCompanies]);
+  const subCompanyOptionsFor = (companyId?: string) =>
+    (companyId ? subCompanyOptionsByCompany.get(String(companyId)) ?? EMPTY_OPTIONS : subCompanyOptionsAll);
+
+  const contactOption = (c: any) => ({
+    value: c.id,
+    label: c.fullName || c.name || 'Unnamed Contact',
+    avatar: c.profilePhoto || c.avatar || c.users?.avatar || null,
+  });
+  const contactOptionsAll = useMemo(
+    () => allContacts.map(contactOption).sort(byLabel),
+    [allContacts],
+  );
+  const contactOptionsByCompany = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const c of allContacts) {
+      const key = String(c.companyId ?? '');
+      if (!key) continue;
+      if (!m.has(key)) m.set(key, []);
+      m.get(key)!.push(contactOption(c));
+    }
+    m.forEach((list) => list.sort(byLabel));
+    return m;
+  }, [allContacts]);
+  const contactOptionsFor = (companyId?: string) =>
+    (companyId ? contactOptionsByCompany.get(String(companyId)) ?? EMPTY_OPTIONS : contactOptionsAll);
 
   return (
     <div>

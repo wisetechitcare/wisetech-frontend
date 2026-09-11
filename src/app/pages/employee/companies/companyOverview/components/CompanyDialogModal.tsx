@@ -12,6 +12,7 @@ export const CompanyDialogModal = ({
   subServiceId,
   locationId,
   contactByRolesId,
+  gender,
   startDate,
   endDate,
   isOthersView,
@@ -25,6 +26,8 @@ export const CompanyDialogModal = ({
   subServiceId?: string;
   locationId?: string;
   contactByRolesId?: string;
+  /** Passed straight through when the chart that opened this is gender-filtered. */
+  gender?: string;
   startDate?: Dayjs;
   endDate?: Dayjs;
   isOthersView?: boolean;
@@ -34,6 +37,7 @@ export const CompanyDialogModal = ({
     {contactByRolesId ? (
       <ClientContactsMain
         contactByRolesId={contactByRolesId}
+        gender={gender}
         startDate={startDate}
         endDate={endDate}
       />

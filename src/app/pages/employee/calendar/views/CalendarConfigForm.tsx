@@ -14,6 +14,14 @@ export interface CalendarConfigItem {
   enabled: boolean;
   color: string;
   icon?: string;
+  /**
+   * The text this setting paints, where a setting HAS text of its own.
+   *
+   * Only the half-day pills use it: "AM" and "PM" are an assumption about how an office talks
+   * about its day, and offices that say "Morning" or run a night shift were stuck with it.
+   * Absent everywhere else, because most calendar settings label themselves from their data.
+   */
+  label?: string;
 }
 
 function IconPreview({ icon }: { icon: string }) {
@@ -68,6 +76,8 @@ interface CalendarConfigFormProps {
   initialData: CalendarConfigItem | null;
   moduleKey: string;
   title: string;
+  /** Present only for settings whose text is editable; supplies the caption and the default. */
+  textLabel?: { caption: string; fallback: string };
 }
 
 const validationSchema = Yup.object().shape({
@@ -75,7 +85,7 @@ const validationSchema = Yup.object().shape({
   color: Yup.string().required('Color is required'),
 });
 
-const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, onSuccess, initialData, moduleKey, title }) => {
+const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, onSuccess, initialData, moduleKey, title, textLabel }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showIconPicker, setShowIconPicker] = useState(false);
@@ -84,6 +94,7 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
     enabled: initialData?.enabled ?? false,
     color: initialData?.color || "#0288D1",
     icon: initialData?.icon || "",
+    label: initialData?.label ?? "",
   };
 
   const handleSubmit = async (values: typeof initialValues) => {
@@ -94,7 +105,11 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
       const payload = {
         enabled: values.enabled,
         color: values.color,
-        icon: values.icon
+        icon: values.icon,
+        // Blank is stored as blank, and read back as the default. Saving the fallback instead
+        // would freeze today's wording into the row, so a later change to the default would
+        // not reach anyone who had opened this form once.
+        ...(textLabel ? { label: values.label.trim() } : {}),
       };
 
       let updatedId = initialData?.id || null;
@@ -119,7 +134,8 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
           id: updatedId,
           enabled: values.enabled,
           color: values.color,
-          icon: values.icon
+          icon: values.icon,
+          ...(textLabel ? { label: values.label.trim() } : {}),
         });
       }
       onClose();
@@ -158,6 +174,35 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
                 </label>
                 <WtSwitch checked={values.enabled} onChange={(e) => setFieldValue("enabled", e.target.checked)} />
               </div>
+
+              {/* The pill's own text. Above the colour because it is what the pill SAYS,
+                  and reading comes before decoration. Shown whether or not the colour is
+                  overridden: a half is still called something when it is wearing the
+                  built-in colour. */}
+              {textLabel && (
+                <div style={{ marginBottom: SP.lg }}>
+                  <label
+                    className="form-label"
+                    htmlFor="cfg-label"
+                    style={{ fontFamily: FONT.body, fontWeight: 600, color: C.textPrimary, fontSize: '14px', marginBottom: SP.sm }}
+                  >
+                    {textLabel.caption}
+                  </label>
+                  <input
+                    id="cfg-label"
+                    type="text"
+                    className="form-control"
+                    maxLength={12}
+                    value={values.label}
+                    placeholder={textLabel.fallback}
+                    onChange={(e) => setFieldValue("label", e.target.value)}
+                    style={{ fontFamily: FONT.body, fontSize: '14px' }}
+                  />
+                  <div style={{ fontFamily: FONT.body, fontSize: '12px', color: C.textMuted, marginTop: SP.xs }}>
+                    Leave it empty to keep &ldquo;{textLabel.fallback}&rdquo;. It sits in a small pill, so short wins.
+                  </div>
+                </div>
+              )}
 
               {/* Color Picker */}
               {values.enabled && (

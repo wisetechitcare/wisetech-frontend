@@ -20,6 +20,7 @@ import FolderRounded from '@mui/icons-material/FolderRounded';
 import GroupsRounded from '@mui/icons-material/GroupsRounded';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import InboxRounded from '@mui/icons-material/InboxRounded';
+import LayersRounded from '@mui/icons-material/LayersRounded';
 import PaymentsRounded from '@mui/icons-material/PaymentsRounded';
 import PermMediaRounded from '@mui/icons-material/PermMediaRounded';
 import ReceiptRounded from '@mui/icons-material/ReceiptRounded';
@@ -79,6 +80,9 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-cart3': ShoppingCartRounded,
   'bi-folder': FolderRounded,
   'bi-record-circle': CircleRounded,
+  // Pinned rows in the sidebar (AsideMenuMain) — no shell equivalent, but they render
+  // through the same map so a pin does not fall back to the neutral folder glyph.
+  'bi-layers': LayersRounded,
 };
 
 /**

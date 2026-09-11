@@ -1314,9 +1314,10 @@ const LeadWizardModal = ({
       // ─── Project Execution (wizard) — pre-fill from the linked project ────────
       // The wizard's ProjectExecutionSection binds to projectMeta.* + the date fields
       // below. Mapped back to Project columns in handleSubmit's projectDelta.
-      receivedDate: leadData.project?.poDate
-        ? new Date(leadData.project.poDate).toISOString().split("T")[0]
-        : leadData.receivedDate || "",
+      // The stored receipt instant, and nothing else. It is never derived from
+      // another date (PO date, inquiry date): blank on a received lead stays
+      // blank until the user sets it or moves the status.
+      receivedDate: leadData.receivedDate || "",
       // Total Area shown on the Lead Status step — seeded from the commercial rows
       // when blank, but an edited value is persisted, so load it back on edit.
       projectArea: leadData.additionalDetails?.projectArea || "",
@@ -3175,6 +3176,10 @@ const LeadWizardModal = ({
                   // rewriting a saved project start date to today) and wiped
                   // poNumber/poDate/handledBy on the statuses-load race.
                   if (values.statusId === initialValues.statusId) return;
+                  // …and only once the statuses are loaded. Before they arrive
+                  // every status looks "not Received", which clears receivedDate
+                  // and the PO block on a lead that is in fact Received.
+                  if (leadStatuses.length === 0) return;
                   const selectedStatus = leadStatuses.find(
                     (s: any) => s.id === values.statusId,
                   );
@@ -3212,9 +3217,14 @@ const LeadWizardModal = ({
                     setFieldValue("poDate", "");
                     setFieldValue("poFile", "");
                   }
-                  // Auto-fill Received Date the moment the status becomes Received —
-                  // only if it isn't already set, so it never overwrites a value the
-                  // user has since edited. Fully editable after.
+                  // Stamp Received Date the moment the USER moves the status to
+                  // Received. Not "only when empty": 1391 of 1393 existing leads were
+                  // imported with receivedDate already set equal to inquiryDate, so an
+                  // only-when-empty rule never fired on a real lead — it looked like the
+                  // feature was missing. The guards above mean this runs only on a
+                  // deliberate status change (never on open/hydration), so the value it
+                  // replaces is the stale imported one, not something just typed. Fully
+                  // editable afterwards.
                   //
                   // The full instant, not just the day: two leads received on the same
                   // date are otherwise both midnight, and nothing downstream can tell
@@ -3222,7 +3232,7 @@ const LeadWizardModal = ({
                   // has always had room for the time — we just weren't sending it.
                   // (`.split("T")[0]` also truncated a UTC ISO, so an evening receipt in
                   // IST was stored as the previous day.)
-                  if (isReceived && !values.receivedDate) {
+                  if (isReceived) {
                     setFieldValue("receivedDate", new Date().toISOString());
                   }
                   // Clear receivedDate when status is no longer Received

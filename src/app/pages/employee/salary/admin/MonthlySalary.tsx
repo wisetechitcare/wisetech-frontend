@@ -332,11 +332,9 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
             {
               accessorKey: "name",
               header: "Name",
-              Cell: ({ renderedCellValue, row }: any) => (
-                <span style={{ color: row.original.employeeId ? '#0369a1' : 'inherit', fontWeight: row.original.employeeId ? 500 : 400 }}>
-                  {renderedCellValue || "N/A"}
-                </span>
-              ),
+              // Plain text, like every other cell. It used to be link-blue, which
+              // promised a target of its own; the whole row opens the payroll dialog.
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A",
             },
             {
               accessorKey: "subOrganization",

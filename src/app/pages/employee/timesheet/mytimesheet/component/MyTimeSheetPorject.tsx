@@ -4,7 +4,11 @@ import { KTIcon } from "@metronic/helpers";
 import { Avatar, Box, Stack, Typography } from "@mui/material";
 import { RootState } from "@redux/store";
 import { fetchConfiguration } from "@services/company";
-import { calculateProjectTotalTime, formatStringINR } from "@utils/statistics";
+import { formatStringINR } from "@utils/statistics";
+// The same duration rule the admin table and the backend use. See timesheetDuration.ts
+// for why there is exactly one of these now.
+import { entryHours, entrySeconds, formatSpan, logSubject, totalSpan, describeSplit, billingMultiplierOf } from "../../timesheetDuration";
+import { SubjectCell, DurationCell, AttendeeAvatars } from "../../components/TimeLogCells";
 import dayjs, { Dayjs } from "dayjs";
 import { memo, useCallback, useEffect, useState, useMemo } from "react";
 import { useSelector } from "react-redux";
@@ -24,6 +28,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import TimeLogDetailDialog from "../../components/TimeLogDetailDialog";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
+import { getTimeTokens } from '@utils/timeFormat';
 
 const MyTimeSheetProject = ({
   startDate,
@@ -50,6 +55,8 @@ const MyTimeSheetProject = ({
   const [workingTime, setWorkingTime] = useState("");
   const [data, setData] = useState<any>({ timeSheets: [] });
   const [hourlySalary, setHourlySalary] = useState();
+  /** The company-wide billing multiplier, for rows whose project has none of its own. */
+  const [defaultMultiplier, setDefaultMultiplier] = useState(1);
   const [openTimeSheet, setOpenTimeSheet] = useState(false);
   const [selectedTimeSheet, setSelectedTimeSheet] = useState<any>(null);
 
@@ -73,16 +80,6 @@ const MyTimeSheetProject = ({
   const [openLogId, setOpenLogId] = useState<string | null>(null);
 
   // Memoized utility functions
-  const formatDuration = useCallback((start: string, end: string) => {
-    if (!start || !end) return "-";
-    const diff = new Date(end).getTime() - new Date(start).getTime();
-    if (diff <= 0) return "-";
-    const hrs = Math.floor(diff / (1000 * 60 * 60));
-    const mins = Math.floor((diff / (1000 * 60)) % 60);
-    const secs = Math.floor((diff / 1000) % 60);
-    return `${hrs}h ${mins}m ${secs}s`;
-  }, []);
-
   const calculateCostOfTimesheet = useCallback(
     (timesheet: any) => {
 
@@ -94,21 +91,16 @@ const MyTimeSheetProject = ({
           return "-NA-";
         }
 
-        const startTime = new Date(timesheet.startTime);
-
-        const endTime = new Date(timesheet.endTime);
-
         const isBillable = timesheet.billable;
-
-        const diffInHours =
-          (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-
-        const cost = diffInHours * hourlySalary;
+        // The LOGGED hours, not the clock window — the window bills for a slot rather than
+        // for the work done in it.
+        // ...times what this project bills an hour at. See billingMultiplierOf.
+        const cost = entryHours(timesheet) * hourlySalary * billingMultiplierOf(timesheet, defaultMultiplier);
 
         return isBillable ? formatStringINR(cost) : "-";
       }
     },
-    [hourlySalary]
+    [hourlySalary, defaultMultiplier]
   );
 
   const findEmployeeName = useCallback(
@@ -124,8 +116,8 @@ const MyTimeSheetProject = ({
     (timeSheets: any[]) => {
       return timeSheets.map((sheet) => ({
         id: sheet.id,
-        taskName: sheet.task?.taskName || sheet.taskName || "-",
-        totalLogTime: formatDuration(sheet.startTime, sheet.endTime),
+        subjectName: logSubject(sheet).name,
+        totalLogTime: formatSpan(entrySeconds(sheet)),
         startTime: sheet.startTime,
         endTime: sheet.endTime,
         billable: sheet.billable,
@@ -137,7 +129,7 @@ const MyTimeSheetProject = ({
         original: sheet,
       }));
     },
-    [formatDuration, calculateCostOfTimesheet]
+    [calculateCostOfTimesheet]
   );
 
   // Memoized fetch function
@@ -226,29 +218,27 @@ const MyTimeSheetProject = ({
         },
       },
       {
-        header: "Task Name",
-        accessorKey: "taskName",
-        size: 200,
-        Cell: ({ row }: any) => {
-          const taskId = row.original;
-          return (
-            <div
-              style={{ cursor: "pointer" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpenLogId(taskId?.id ?? null);
-              }}
-            >
-              {taskId?.taskName}
-            </div>
-          );
-        },
+        // Tasks AND meetings — a day contains both, and the old column could only name one.
+        header: "Logged against",
+        accessorKey: "subjectName",
+        size: 220,
+        Cell: ({ row }: any) => (
+          <SubjectCell
+            entry={row.original?.original}
+            onOpen={() => setOpenLogId(row.original?.id ?? null)}
+          />
+        ),
       },
       {
-        header: "Task assigned to",
+        // "Task assigned to" was only ever half the question: a meeting entry has no assignee
+        // and printed a dash, on the very row where whose-work-was-this is least obvious.
+        header: "People",
         accessorKey: "taskOwner",
         size: 180,
         Cell: ({ row }: any) => {
+          const attendees = row.original?.original?.meeting?.attendees;
+          // A meeting belongs to its roster, not to one owner.
+          if (attendees?.length) return <AttendeeAvatars attendees={attendees} />;
           const name = row.original?.taskOwner;
           // Your own task needs no attribution — this column exists to explain the rows that
           // are somebody else's work, which you logged time against.
@@ -267,26 +257,10 @@ const MyTimeSheetProject = ({
         },
       },
       {
-        header: "Total Log Time",
+        header: "Time logged",
         accessorKey: "totalLogTime",
         size: 150,
-        Cell: ({ cell }: any) => {
-          const value = cell.getValue();
-          return (
-            <div
-              style={{
-                fontFamily: "Inter",
-                fontWeight: 400,
-                fontStyle: "normal",
-                lineHeight: "100%",
-                letterSpacing: "0%",
-                color: "#1D5DE1",
-              }}
-            >
-              {value ? value : "-"}
-            </div>
-          );
-        },
+        Cell: ({ row }: any) => <DurationCell entry={row.original?.original} />,
       },
       {
         header: "Start Time",
@@ -294,7 +268,7 @@ const MyTimeSheetProject = ({
         size: 150,
         Cell: ({ cell }: any) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format("DD-MM-YYYY hh:mm A")
+            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
@@ -303,7 +277,7 @@ const MyTimeSheetProject = ({
         size: 150,
         Cell: ({ cell }: any) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format("DD-MM-YYYY hh:mm A")
+            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
@@ -334,7 +308,7 @@ const MyTimeSheetProject = ({
         size: 150,
         Cell: ({ cell }: any) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format("DD-MM-YYYY hh:mm A")
+            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
@@ -343,7 +317,7 @@ const MyTimeSheetProject = ({
         size: 150,
         Cell: ({ cell }: any) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format("DD-MM-YYYY hh:mm A")
+            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
@@ -396,7 +370,7 @@ const MyTimeSheetProject = ({
    */
   const TimesheetCard = memo(({ timeSheets }: { timeSheets: any[] }) => {
     const totalTime = useMemo(
-      () => calculateProjectTotalTime(timeSheets),
+      () => totalSpan(timeSheets),
       [timeSheets]
     );
 
@@ -439,9 +413,17 @@ const MyTimeSheetProject = ({
               <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2, color: "text.primary" }}>
                 {totalTime}
               </Typography>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                 logged in this period
               </Typography>
+              {/* What the total is made of. "How much of this week went to meetings" is the
+                  question this page is opened with, and the single figure above could not
+                  answer it. */}
+              {describeSplit(timeSheets) && (
+                <Typography variant="caption" sx={{ color: "text.disabled", display: "block", fontSize: 11 }}>
+                  {describeSplit(timeSheets)}
+                </Typography>
+              )}
             </Box>
           </Stack>
             <MaterialTable
@@ -517,6 +499,7 @@ const MyTimeSheetProject = ({
     )
       .then((res) => {
         setHourlySalary(res?.salaries[0]?.hourlySalary);
+        setDefaultMultiplier(Number(res?.defaultBillingMultiplier) || 1);
       })
       .catch((err) => {
         console.error("Error fetching timesheets:", err);

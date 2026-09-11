@@ -45,7 +45,7 @@ import TimePickerInput from '../inputs/TimeInput';
 import { fetchAddressDetails } from '@services/location';
 import { getGraceBasedThresholds } from '@utils/getGraceBasedThresholds';
 import { fetchAttendanceClassification } from '@services/employee';
-import { convertTo12HourFormat } from '@utils/date';
+import { formatTimeString } from '@utils/date';
 import { UAParser } from 'ua-parser-js';
 import { Form as BootstrapForm } from "react-bootstrap";
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
@@ -53,6 +53,8 @@ import { fetchAppSettings } from '@redux/slices/appSettings';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { validatePreviousDaysAttendance } from '@utils/attendanceValidation';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { useTimeFormat } from '@hooks/useTimeFormat';
+import { getTimeTokens } from '@utils/timeFormat';
 
 // Attendance records carry `formattedDate` as "DD/MM/YYYY" (IST). Convert to ISO "YYYY-MM-DD"
 // so it can be matched against the backend's authoritative late-check-in dates.
@@ -69,8 +71,8 @@ const ddmmyyyyToISO = (s: any): string | null => {
 export const ProgessBar = ({ progessBarSeries, checkIn, checkOut, totalWorkingHours = "0h : 0m", totalAllowedHours = "0h : 0m" }: { progessBarSeries: any, checkIn?: string, checkOut?: string, totalWorkingHours?: string, totalAllowedHours?: string }) => {
     const pct = progessBarSeries[0] || 0;
     const r = 58, circ = 2 * Math.PI * r, filled = (pct / 100) * circ;
-    const checkInFmt = checkIn && checkIn !== 'N/A' ? convertTo12HourFormat(checkIn) : 'N/A';
-    const checkOutFmt = checkOut && checkOut !== 'N/A' ? convertTo12HourFormat(checkOut) : 'N/A';
+    const checkInFmt = checkIn && checkIn !== 'N/A' ? formatTimeString(checkIn) : 'N/A';
+    const checkOutFmt = checkOut && checkOut !== 'N/A' ? formatTimeString(checkOut) : 'N/A';
 
     return (
         <Col md={4} className="mb-4" style={{ display: 'flex' }}>
@@ -1435,7 +1437,10 @@ export const StatisticsTable = ({
     // it can never disagree with the rest of the system due to a stale/empty Redux scope.
     const [backendLateDates, setBackendLateDates] = useState<Set<string>>(new Set());
     const [backendDatesReady, setBackendDatesReady] = useState(false);
-    const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
+    // Subscribes this screen to the resolved 12/24h format so it re-renders when the
+    // preference changes. Replaces a selector that read the raw branch flag and was
+    // never actually used to decide anything. See utils/timeFormat.ts.
+    const timeFormat = useTimeFormat();
     const leaveTypesColor = useSelector((state: RootState) => state?.customColors?.leaveTypes);
     const [leaveConfiguration, setLeaveConfiguration] = useState<any>()
     const [workingMethodOptions, setWorkingMethodOptions] = useState([]);
@@ -1871,7 +1876,7 @@ export const StatisticsTable = ({
                 const employee = row.original;
                 const checkIn = employee.checkIn;
                 const displayTime =
-                    checkIn && checkIn !== '-NA-' ? convertTo12HourFormat(checkIn) : checkIn;
+                    checkIn && checkIn !== '-NA-' ? formatTimeString(checkIn) : checkIn;
 
                 const employeeThreshold = allEmployeeThresholds?.find(
                     (emp: any) => emp.id === employee.id
@@ -1944,7 +1949,7 @@ export const StatisticsTable = ({
 
                 let displayTime = checkOut;
                 if (checkOut && checkOut !== '-NA-') {
-                    displayTime = convertTo12HourFormat(checkOut);
+                    displayTime = formatTimeString(checkOut);
                 }
 
                 const coords = resolveAttendanceCoordinates(
@@ -2476,7 +2481,10 @@ export const ReportsTable = ({
     const curCfgBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
     const selCfgCompanyId = useSelector((state: RootState) => state.employee?.selectedEmployee?.companyId);
     const selCfgBranchId = useSelector((state: RootState) => state.employee?.selectedEmployee?.branchId);
-    const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
+    // Subscribes this screen to the resolved 12/24h format so it re-renders when the
+    // preference changes. Replaces a selector that read the raw branch flag and was
+    // never actually used to decide anything. See utils/timeFormat.ts.
+    const timeFormat = useTimeFormat();
     const attendanceRequestWithIsHolidayorWeekend = markWeekendOrHoliday(attendanceRequests, allWeekends, allHolidays);
     const allEmployees = useSelector((state: RootState) => state.allEmployees?.list);
 
@@ -2666,7 +2674,7 @@ export const ReportsTable = ({
                 const employee = row.original;
                 const checkIn = employee.checkIn;
                 const displayTime =
-                    checkIn && checkIn !== '-NA-' ? convertTo12HourFormat(checkIn) : checkIn || '—';
+                    checkIn && checkIn !== '-NA-' ? formatTimeString(checkIn) : checkIn || '—';
 
                 const employeeData = employeeThresholds?.find(
                     (emp: any) => emp.id === employee.id
@@ -2710,7 +2718,7 @@ export const ReportsTable = ({
                 const checkOut = row.original.checkOut;
                 const displayTime =
                     checkOut && checkOut !== '-NA-'
-                        ? convertTo12HourFormat(checkOut)
+                        ? formatTimeString(checkOut)
                         : checkOut || '—';
                 const checkOutColor = resolveCheckOutColor(checkOut);
                 return (
@@ -2776,7 +2784,7 @@ export const ReportsTable = ({
                 const actorId = isApproved ? approvedById : isRejected ? rejectedById : null;
                 const name = actorId ? allEmployees?.find((emp: any) => emp.employeeId === actorId)?.employeeName : null;
                 const date = row.original.approvedOrRejectedDate
-                    ? dayjs(row.original.approvedOrRejectedDate).format('DD MMM YYYY hh:mm A')
+                    ? dayjs(row.original.approvedOrRejectedDate).format(`DD MMM YYYY ${getTimeTokens().TIME}`)
                     : null;
 
                 if (!name) return <span className='text-muted fs-7'>-NA-</span>;

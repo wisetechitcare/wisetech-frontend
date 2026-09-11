@@ -55,8 +55,9 @@ export interface NavContainer {
   badgeTotal: number;
 }
 
-/** Sections are pure text headers in the nav tree, so identity is assigned here. */
-const SECTION_ICON: Record<string, string> = {
+/** Sections are pure text headers in the nav tree, so identity is assigned here.
+ *  Exported because the sidebar renders the same glyph on its section headings. */
+export const SECTION_ICON: Record<string, string> = {
   'general-section': 'bi-grid-1x2',
   'hr-section': 'bi-people',
   'crm-section': 'bi-person-rolodex',

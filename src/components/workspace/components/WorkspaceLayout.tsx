@@ -6,6 +6,7 @@ import { BackgroundEngine } from '@components/background';
 import { SHELL_DOCKED, SHELL_HOME } from '../shellTokens';
 import { AppDock } from './AppDock';
 import { DockHomeLink } from './DockHomeLink';
+import { ModuleSortMenu } from './ModuleSortMenu';
 import { Workspace } from './Workspace';
 
 /**
@@ -45,7 +46,12 @@ export function WorkspaceLayout() {
   const dockApps = useMemo(() => apps.map(toDockApp), [apps]);
 
   // Stable element, so passing a slot cannot defeat AppDock's memoisation.
-  const homeLink = useMemo(() => <DockHomeLink to={homePath} />, [homePath]);
+  // The sort control gates and styles itself from shell state, so this stays a stable
+  // element and AppDock's memo still holds.
+  const homeLink = useMemo(
+    () => <DockHomeLink to={homePath} trailing={<ModuleSortMenu />} />,
+    [homePath],
+  );
 
   // Below 992px the aside is a drawer and BottomNav owns navigation, so a rail must not
   // render once an application is chosen — two navigation systems at once is exactly what

@@ -7,6 +7,7 @@ import {
   getAllTeams,
 } from "@services/projects";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import AnalyticsTab from "@app/modules/common/components/AnalyticsTab";
 import {
   getAllClientCompanies,
   getAllClientContacts,
@@ -23,6 +24,24 @@ import { formatNumber } from "@utils/statistics";
 import { getAllCompanyTypes } from "@services/companies";
 import Loader from "@app/modules/common/utils/Loader";
 import { useNavigate } from "react-router-dom";
+
+/**
+ * How a project lands on the chart, shared with the Contact Projects tab so both
+ * report the same thing.
+ *
+ * Charted on the INQUIRY date — when the work was asked for — because that is the
+ * date the rest of the CRM reasons about; startDate and createdAt only stand in for
+ * rows that never got one. `projectValue` is resolved server-side (fee line items,
+ * falling back to the agreed cost) so the money here matches the Lead Reference tab.
+ */
+export const projectRow = (p: any) => ({
+  date: p?.inquiryDate || p?.startDate || p?.createdAt,
+  value: Number(p?.projectValue) || 0,
+  series: p?.status?.name || "No status",
+  color: p?.status?.color,
+  label: p?.title,
+  href: p?.id ? `/projects/${p.id}` : undefined,
+});
 
 const CompaniesProject = ({ companyId }: { companyId: string }) => {
   const employeeId = useSelector(
@@ -410,9 +429,17 @@ const CompaniesProject = ({ companyId }: { companyId: string }) => {
   }
 
   return (
-    <div>
+    <AnalyticsTab
+      items={allProjects}
+      toRow={projectRow}
+      title="Projects — Business"
+      icon="bi-briefcase"
+      noun="project"
+      storageKey="companyProjectsPeriodMode"
+    >
+      {(filtered) => (
       <MaterialTable
-        data={allProjects}
+        data={filtered}
         columns={columns}
         tableName="CompanyProjects"
         employeeId={employeeId}
@@ -429,7 +456,8 @@ const CompaniesProject = ({ companyId }: { companyId: string }) => {
           },
         }}
       />
-    </div>
+      )}
+    </AnalyticsTab>
   );
 };
 

@@ -212,6 +212,89 @@ export const getMeetings = async (employeeId: string) => {
     }
 };
 
+/** Who was on a meeting, who has said they attended, and whose time is in. */
+export const getMeetingAttendance = async (meetingId: string, employeeId?: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/attendance?meetingId=${meetingId}`
+            + (employeeId ? `&employeeId=${employeeId}` : '');
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Record whether somebody attended. Returns the refreshed roster. */
+export const setMeetingAttendance = async (
+    meetingId: string, employeeId: string, attended: boolean, actorId: string,
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/attendance`;
+        const response = await axios.put(endpoint, { meetingId, employeeId, attended, actorId });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** MY reminders on a meeting. Reminders are per person — this only ever answers for me. */
+export const getMyMeetingReminders = async (meetingId: string, employeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/reminders?meetingId=${meetingId}&employeeId=${employeeId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Replace MY reminders on a meeting. An empty array turns them off. */
+export const setMyMeetingReminders = async (meetingId: string, employeeId: string, minutes: number[]) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/reminders`;
+        const response = await axios.put(endpoint, { meetingId, employeeId, minutes });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Projects this person may schedule a meeting on: their internal-team and managed ones. */
+export const getMeetingProjects = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/projects`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Cancel a meeting, or restore one. A status write — the row stays in the project record. */
+export const setMeetingCancelled = async (
+    meetingId: string, employeeId: string, cancelled: boolean, reason?: string,
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/cancel`;
+        const response = await axios.patch(endpoint, { meetingId, employeeId, cancelled, reason });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/** Cost + attendance analysis of a project's meetings. Cost fields come back null when the
+ *  caller lacks finance.view at an aggregate scope — the counts still arrive. */
+export const getProjectMeetingAnalytics = async (projectId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/project-analytics?projectId=${projectId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 // Meetings linked to a project (lead) — names come pre-resolved from the backend
 export const getMeetingsByProject = async (projectId: string) => {
     try {

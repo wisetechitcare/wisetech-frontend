@@ -148,6 +148,8 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
                   "& .MuiOutlinedInput-root": { height: "44px" },
                 }
               },
+              // Without this there is no visible way to empty a filled date.
+              actionBar: { actions: ['clear', 'cancel', 'accept'] },
               mobilePaper:{
                 sx:{
                    "& .MuiPickersCalendarHeader-label": { fontSize: "1.2rem" },
@@ -196,6 +198,8 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
                   "& .MuiOutlinedInput-root": { height: "44px" },
                 }
               },
+              // Without this there is no visible way to empty a filled date.
+              field: { clearable: true },
               desktopPaper: {
                 sx: {
                   "& .MuiPickersCalendarHeader-label": { fontSize: "1.2rem" },

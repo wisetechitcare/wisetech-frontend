@@ -55,6 +55,7 @@ import {
 import type { EmployeeStatGroup } from '@app/modules/common/components/employeeStatGrouping';
 import { computeAbsentEntries, computeLeaveDaysByDate } from "./absentDays";
 import { getEmployeeStatus } from "@utils/employeeStatus";
+import { getTimeTokens } from '@utils/timeFormat';
 
 // Sort/search/close modal shell and the employee card grid are shared with the
 // Dashboard daily overview — see the two components above, not a local copy.
@@ -829,7 +830,7 @@ function Overview({ date, range }: OverviewProps) {
                             const lateByMinutes = actualCheckIn.diff(expectedCheckIn, 'minute');
                             const lateHours = Math.floor(lateByMinutes / 60);
                             const lateMins = lateByMinutes % 60;
-                            additionalInfo[emp._id] = `Late by ${lateHours > 0 ? lateHours + 'h ' : ''}${lateMins}m (Checked in at ${actualCheckIn.format('h:mm A')})`;
+                            additionalInfo[emp._id] = `Late by ${lateHours > 0 ? lateHours + 'h ' : ''}${lateMins}m (Checked in at ${actualCheckIn.format(getTimeTokens().TIME)})`;
                         }
 
                         return isLate;
@@ -876,7 +877,7 @@ function Overview({ date, range }: OverviewProps) {
                             const earlyByMinutes = expectedCheckOut.diff(actualCheckOut, 'minute');
                             const earlyHours = Math.floor(earlyByMinutes / 60);
                             const earlyMins = earlyByMinutes % 60;
-                            additionalInfo[emp._id] = `Early by ${earlyHours > 0 ? earlyHours + 'h ' : ''}${earlyMins}m (Checked out at ${actualCheckOut.format('h:mm A')})`;
+                            additionalInfo[emp._id] = `Early by ${earlyHours > 0 ? earlyHours + 'h ' : ''}${earlyMins}m (Checked out at ${actualCheckOut.format(getTimeTokens().TIME)})`;
                         }
 
                         return isEarly;
@@ -957,7 +958,7 @@ function Overview({ date, range }: OverviewProps) {
                                         date on all 30 cards was noise no other stat modal had. */}
                                     <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
                                         {att?.checkIn && (
-                                            <span className="text-gray-700"><AppIcon name="bi-clock" className="me-1" />{dayjs(att.checkIn).format('h:mm A')}</span>
+                                            <span className="text-gray-700"><AppIcon name="bi-clock" className="me-1" />{dayjs(att.checkIn).format(getTimeTokens().TIME)}</span>
                                         )}
                                         {workingMethod && (
                                             <ToneChip tone="cyan" dense label={workingMethod} />
@@ -1096,13 +1097,13 @@ function Overview({ date, range }: OverviewProps) {
 
                                                 return (
                                                     <>
-                                                        <span className={isLateCheckIn ? "text-danger" : "text-success"} title={isLateCheckIn ? "Late check-in" : "On-time check-in"} aria-label={`${isLateCheckIn ? "Late" : "On-time"} check-in at ${dayjs(emp.attendance.checkIn).format('h:mm A')}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                        <span className={isLateCheckIn ? "text-danger" : "text-success"} title={isLateCheckIn ? "Late check-in" : "On-time check-in"} aria-label={`${isLateCheckIn ? "Late" : "On-time"} check-in at ${dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
                                                             <i className={`bi ${isLateCheckIn ? 'bi-exclamation-triangle-fill' : 'bi-clock'} me-1`}></i>
-                                                            {dayjs(emp.attendance.checkIn).format('h:mm A')}
+                                                            {dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}
                                                         </span>
-                                                        <span className={isEarlyCheckOut ? "text-danger" : "text-success"} title={isEarlyCheckOut ? "Early check-out" : "On-time check-out"} aria-label={`${isEarlyCheckOut ? "Early" : "On-time"} check-out at ${dayjs(emp.attendance.checkOut).format('h:mm A')}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                        <span className={isEarlyCheckOut ? "text-danger" : "text-success"} title={isEarlyCheckOut ? "Early check-out" : "On-time check-out"} aria-label={`${isEarlyCheckOut ? "Early" : "On-time"} check-out at ${dayjs(emp.attendance.checkOut).format(getTimeTokens().TIME)}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
                                                             <i className={`bi ${isEarlyCheckOut ? 'bi-exclamation-triangle-fill' : 'bi-clock-fill'} me-1`}></i>
-                                                            {dayjs(emp.attendance.checkOut).format('h:mm A')}
+                                                            {dayjs(emp.attendance.checkOut).format(getTimeTokens().TIME)}
                                                         </span>
                                                     </>
                                                 );
@@ -1145,9 +1146,9 @@ function Overview({ date, range }: OverviewProps) {
                                                 }
 
                                                 return (
-                                                    <span className={isLateCheckIn ? "text-danger" : "text-success"} title={isLateCheckIn ? "Late check-in" : "On-time check-in"} aria-label={`${isLateCheckIn ? "Late" : "On-time"} check-in at ${dayjs(emp.attendance.checkIn).format('h:mm A')}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                    <span className={isLateCheckIn ? "text-danger" : "text-success"} title={isLateCheckIn ? "Late check-in" : "On-time check-in"} aria-label={`${isLateCheckIn ? "Late" : "On-time"} check-in at ${dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
                                                         <i className={`bi ${isLateCheckIn ? 'bi-exclamation-triangle-fill' : 'bi-clock'} me-1`}></i>
-                                                        {dayjs(emp.attendance.checkIn).format('h:mm A')}
+                                                        {dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}
                                                     </span>
                                                 );
                                             })()}

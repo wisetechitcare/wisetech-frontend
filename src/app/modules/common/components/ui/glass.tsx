@@ -4,8 +4,10 @@ import {
   Stack, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
+import { alpha } from '@mui/material/styles';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { T, GlassVariant, VividTone, ThemeMode, label } from './tokens';
+import { isMaterial, useSurfaceStyle } from '@app/theme/appearance';
 import { toTitleCase } from './text';
 import { GH_DARK } from '@app/theme/githubDark';
 import { MRD_EASE } from './buttons';
@@ -58,17 +60,34 @@ export function glassSx(
   const g = T.glass[opts?.mode ?? 'light'][variant];
   const radius = opts?.radius ?? g.radius;
   const tone = opts?.tone ? T.color.vivid[opts.tone] : undefined;
+  /**
+   * MATERIAL turns the frost off for the whole app.
+   *
+   * It is the same surface with translucency removed — opaque background, a
+   * hairline border, a flat elevation — not a second component tree. That is
+   * the only version of "choose a UI style" that does not fork the kit and then
+   * drift, and it is why the switch is one read here rather than a prop
+   * threaded through every call site.
+   *
+   * Read from the root attribute the appearance provider stamps, so a change
+   * reaches surfaces that never re-render through React state.
+   */
+  const material = isMaterial();
   // Only `regular` surfaces (shell / header / dialog Paper) apply a real backdrop-filter. `thin`
   // surfaces (cards/rows/tiles) are translucent tint ONLY — they're designed to sit on an
   // already-frosted `regular` surface, so blurring them again would stack GPU cost for no gain.
-  const useBlur = variant === 'regular' && !opts?.disableBlur;
+  const useBlur = variant === 'regular' && !opts?.disableBlur && !material;
 
   const sx: Record<string, unknown> = {
     borderRadius: `${radius}px`,
     border: g.border,
-    boxShadow: `${g.shadow}, ${g.highlight}`,
+    // Material drops the inner highlight — that specular line is what reads as
+    // "glass"; keeping it on an opaque card just looks like a stray border.
+    boxShadow: material ? g.shadow : `${g.shadow}, ${g.highlight}`,
     // regular+blur and thin both use the translucent tint; regular+disableBlur goes opaque.
-    backgroundColor: variant === 'thin' || useBlur ? g.bg : g.fallbackBg,
+    // Material is opaque at every level, including `thin`, so cards do not sit
+    // as a translucent tint over a surface that is no longer frosted.
+    backgroundColor: material ? g.fallbackBg : variant === 'thin' || useBlur ? g.bg : g.fallbackBg,
     // A subtle tone wash (~8% alpha) layered over the glass tint for accented surfaces.
     ...(tone ? { backgroundImage: `linear-gradient(0deg, ${tone}14, ${tone}14)` } : null),
   };
@@ -123,8 +142,6 @@ export interface GlassHeaderProps {
   icon?: React.ReactNode;
   onClose?: () => void;
   action?: React.ReactNode;
-  /** Custom close glyph (e.g. `<KTIcon iconName="cross" className="fs-3" />`); defaults to `×`. */
-  closeIcon?: React.ReactNode;
   /**
    * Drill-in navigation: when set, a back control replaces the icon tile and the
    * dialog reads as a second level rather than a different dialog. Prefer this over
@@ -142,7 +159,7 @@ export interface GlassHeaderProps {
 }
 
 export function GlassHeader({
-  title, subtitle, icon, onClose, action, closeIcon,
+  title, subtitle, icon, onClose, action,
   onBack, backLabel = 'Back', backIcon, variant = 'gradient',
 }: GlassHeaderProps) {
   const gradient = variant === 'gradient';
@@ -200,14 +217,74 @@ export function GlassHeader({
           // rendering a `&times;` text glyph, while the Tailwind GlassHeader used
           // WtCloseButton. Two dialog systems, two different close controls —
           // which is why the × looked round on some dialogs and square on others.
-          // Both now render the same component. `closeIcon` is still honoured for
-          // the rare header that needs a different glyph.
-          closeIcon
-            ? <IconButton onClick={onClose} aria-label="Close" sx={{ width: 38, height: 38 }}>{closeIcon}</IconButton>
-            : <WtCloseButton variant={gradient ? 'dark' : 'light'} onClick={onClose} size={38} />
+          //
+          // A `closeIcon` prop used to reopen that gap. It swapped in a bare
+          // IconButton carrying nothing but a width and a height — no chip, no
+          // hover, no press — so any dialog that passed one got a naked glyph where
+          // its neighbours got a button. All nine callers passed the SAME cross
+          // this component already draws, so the prop bought a regression and
+          // nothing else. It is gone; this is the close control, everywhere.
+          <WtCloseButton variant={gradient ? 'dark' : 'light'} onClick={onClose} size={38} />
         )}
       </Stack>
     </Box>
+  );
+}
+
+/**
+ * The header for a `plain` dialog: a line of chrome, not a banner.
+ *
+ * `GlassHeader` paints an 88px navy gradient — the right weight above a glass sheet, far too
+ * much above a white form, where it reads as a different product bolted to the top. This is a
+ * tinted glyph, a title, and a hairline.
+ */
+export function PlainDialogHeader({
+  icon, title, subtitle, onClose,
+}: {
+  icon?: React.ReactNode; title: string; subtitle?: string;
+  onClose?: () => void;
+}) {
+  return (
+    <Stack
+      direction="row"
+      alignItems="center"
+      spacing={1.25}
+      // The brand band GlassHeader already uses — same gradient, same accent rule underneath —
+      // just at dialog-chrome height rather than banner height. A 4.5% tint read as "almost
+      // white", which is not a header; this is unmistakably one, and the body stays plain.
+      sx={{
+        px: 2.5, py: 1.5,
+        background: `linear-gradient(135deg, ${T.color.brandHover} 0%, ${T.color.brand} 100%)`,
+        color: '#fff',
+        borderBottom: `3px solid ${T.color.accent}`,
+      }}
+    >
+      {icon ? (
+        <Box sx={{
+          width: 38, height: 38, borderRadius: 2, flexShrink: 0,
+          display: 'grid', placeItems: 'center',
+          bgcolor: 'rgba(255,255,255,0.14)',
+          border: '1px solid rgba(255,255,255,0.22)',
+          color: '#fff',
+        }}>
+          {icon}
+        </Box>
+      ) : null}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontWeight: 700, fontSize: 16, lineHeight: 1.25, color: '#fff' }}>
+          {title}
+        </Typography>
+        {subtitle ? (
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.72)', display: 'block' }}>
+            {subtitle}
+          </Typography>
+        ) : null}
+      </Box>
+      {/* The same control GlassHeader uses, on the same navy — this had hand-rolled a
+          third variant of the close button, which is how two headers sitting on the
+          identical gradient ended up with visibly different × controls. */}
+      {onClose ? <WtCloseButton variant="dark" onClick={onClose} size={38} /> : null}
+    </Stack>
   );
 }
 
@@ -219,19 +296,40 @@ export interface GlassDialogProps extends Omit<DialogProps, 'title'> {
   mobileFullScreen?: boolean;
   /** Skip the Paper's backdrop-filter (perf). */
   disableBlur?: boolean;
+  /**
+   * A PLAIN white sheet instead of the frosted one: opaque Paper, hairline border, and a dimmed
+   * but UNBLURRED scrim.
+   *
+   * Glass reads well over a dashboard. Over a dense form — a scheduling grid, a column of
+   * inputs — whatever is behind the modal shows through the surface a person is trying to read,
+   * and the blurred backdrop smears it further. This is the same dialog with that turned off,
+   * rather than a second dialog component: the scroll region, the phone full-screen and the
+   * transition are all still wanted.
+   */
+  plain?: boolean;
 }
 
 export function GlassDialog({
-  header, mobileFullScreen = true, disableBlur, children,
+  header, mobileFullScreen = true, disableBlur, plain = false, children,
   PaperProps, slotProps, disableEnforceFocus = true, maxWidth = 'md', fullWidth = true,
   TransitionComponent, ...rest
 }: GlassDialogProps) {
   const theme = useTheme();
   const mode = (theme.palette.mode as ThemeMode) ?? 'light';
+  // Subscribed, not read: a plain read would keep painting whichever treatment
+  // was current when the dialog mounted.
+  const surface = useSurfaceStyle();
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
   const fullScreen = mobileFullScreen && isPhone;
   const scrim = T.glass[mode].scrim;
   const scrimBlur = `blur(${T.glass[mode].scrimBlur}px)`;
+  /**
+   * Flat = the caller asked for it, OR the app-wide UI Design setting says
+   * Material. `plain` stays an override rather than becoming the default, so a
+   * dialog that must be flat over a dense form is still flat under either
+   * setting — it just no longer has to be the only way to get there.
+   */
+  const flat = plain || surface === 'material';
 
   // Does the caller use MUI's own dialog scaffolding? `DialogContent` is already a
   // flex-1 scroll region and `DialogActions` is already a pinned footer, so those
@@ -259,7 +357,23 @@ export function GlassDialog({
       PaperProps={{
         ...PaperProps,
         sx: [
-          glassSx('regular', { mode, disableBlur }),
+          // `flat`, not `plain`: Material is an app-wide choice, so it has to
+          // reach every kit dialog, not only the ones whose author happened to
+          // pass the prop. `glassSx` alone would have turned the frost off and
+          // left the glass recipe's tint and highlight behind — close to flat,
+          // but not the same sheet the explicitly-plain dialogs render, which
+          // is how one setting produced two looks.
+          flat
+            ? {
+                backgroundColor: 'background.paper',
+                backgroundImage: 'none',
+                backdropFilter: 'none',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: '14px',
+                boxShadow: '0 24px 64px -12px rgba(15,23,42,0.28)',
+              }
+            : glassSx('regular', { mode, disableBlur }),
           { fontFamily: T.font.family, overflow: 'hidden', ...(fullScreen ? { borderRadius: 0 } : null) },
           ...(PaperProps?.sx ? (Array.isArray(PaperProps.sx) ? PaperProps.sx : [PaperProps.sx]) : []),
         ] as SxProps<Theme>,
@@ -270,8 +384,15 @@ export function GlassDialog({
           ...(slotProps?.backdrop as object),
           sx: {
             backgroundColor: scrim,
-            backdropFilter: scrimBlur,
-            WebkitBackdropFilter: scrimBlur,
+            // Dimmed but not smeared in plain mode — the blur is half of what reads as "glass",
+            // and leaving it on made the Paper override look like it had not worked.
+            //
+            // The app-wide Material setting counts as plain here. `glassSx`
+            // already drops the frost from the Paper when Material is chosen,
+            // but the scrim went on blurring behind it — so picking Material
+            // gave a flat sheet over a smeared page, half of each treatment.
+            backdropFilter: flat ? 'none' : scrimBlur,
+            WebkitBackdropFilter: flat ? 'none' : scrimBlur,
           },
         },
       }}

@@ -311,7 +311,6 @@ function DialogHeader({ title, subtitle, icon, onClose, action }: {
       onClose={onClose}
       action={action}
       icon={<KTIcon iconName={icon} className="fs-1" />}
-      closeIcon={<KTIcon iconName="cross" className="fs-3" />}
     />
   );
 }

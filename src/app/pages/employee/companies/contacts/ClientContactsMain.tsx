@@ -39,12 +39,19 @@ interface Props {
   contactByRolesId?: string;
   startDate?: Dayjs;
   endDate?: Dayjs;
+  /**
+   * Gender bucket to narrow the list to — MALE / FEMALE / OTHER, or UNSPECIFIED for
+   * contacts saved without one. Set when a drill-down arrives from a chart that is
+   * itself filtered by gender, so the list matches the count on the bar that opened it.
+   */
+  gender?: string;
 }
 
 const ClientContactsMain = ({
   contactByRolesId,
   startDate,
   endDate,
+  gender,
 }: Props) => {
   // Use the same id source as the (working) Companies table so table preferences
   // (column visibility, sorting, page size, …) persist across reloads/login.
@@ -497,8 +504,14 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
           return item.contactRoleId === contactByRolesId;
         }
         return true;
+      })
+      ?.filter((item: any) => {
+        if (!gender) return true;
+        // A contact with no gender on record answers to UNSPECIFIED, matching how the
+        // overview counts them — otherwise they would vanish from every bucket.
+        return gender === "UNSPECIFIED" ? !item.gender : item.gender === gender;
       });
-  }, [allContacts, startDates, endDates, contactByRolesId]);
+  }, [allContacts, startDates, endDates, contactByRolesId, gender]);
 
   return (
     <div>

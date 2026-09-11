@@ -1,4 +1,5 @@
 import dayjs, { Dayjs } from "dayjs";
+import { getTimeTokens } from "./timeFormat";
 
 /**
  * ============================================================================
@@ -17,6 +18,13 @@ import dayjs, { Dayjs } from "dayjs";
  *     MUI pickers use internally, and what every existing API payload/query param already
  *     sends. Reformatting wire values to dots would break date parsing server-side.
  * Rule of thumb: if a human reads it, DISPLAY; if a machine parses it, WIRE.
+ *
+ * TIME is the one part of DISPLAY that is not fixed: whether a user reads `2:30 PM` or
+ * `14:30` is their (or their org's) choice, resolved by `utils/timeFormat.ts`. So the
+ * time-bearing helpers below — `formatTime`, `formatTimeWithSeconds`, `formatDateTime`,
+ * `formatDateTimeLong` — read that preference instead of a fixed token, and are the ONLY
+ * supported way to render a time. The fixed `DISPLAY_TIME` / `DISPLAY_DATETIME` tokens
+ * remain for the places that genuinely must not move (see their notes).
  */
 export const DATE_FORMATS = {
   /** ✅ The company standard. Use for every user-visible date. */
@@ -30,9 +38,15 @@ export const DATE_FORMATS = {
   DISPLAY_LONG: "D MMMM YYYY",
   /** Long month + year — `August 2026`. The readable form of MONTH_YEAR. */
   MONTH_YEAR_LONG: "MMMM YYYY",
-  /** User-visible date + 24h time. */
+  /**
+   * Date + time, pinned to 24h.
+   *
+   * ⚠️ Not the default choice any more — `formatDateTime()` follows the user's 12/24h
+   * preference. Reach for this token only where the string must be stable regardless of
+   * who is looking: a filename, a sort key, a value another system parses back.
+   */
   DISPLAY_DATETIME: "YYYY.MM.DD HH:mm",
-  /** User-visible time only. */
+  /** Time only, pinned to 24h. Same warning as DISPLAY_DATETIME — prefer `formatTime()`. */
   DISPLAY_TIME: "HH:mm",
   /** ISO — network/DB only, never shown to a user. */
   WIRE: "YYYY-MM-DD",
@@ -67,18 +81,44 @@ export const formatDateLong = (value: DateLike, fallback = "—"): string => {
   return d.isValid() ? d.format(DATE_FORMATS.DISPLAY_LONG) : fallback;
 };
 
-/** Format a date + 24h time for DISPLAY (`2025.12.03 14:30`). */
+/**
+ * Format a date + time for DISPLAY — `2025.12.03 2:30 PM` or `2025.12.03 14:30`,
+ * following the viewer's 12/24h preference.
+ */
 export const formatDateTime = (value: DateLike, fallback = "—"): string => {
   if (value === null || value === undefined || value === "") return fallback;
   const d = dayjs(value);
-  return d.isValid() ? d.format(DATE_FORMATS.DISPLAY_DATETIME) : fallback;
+  return d.isValid() ? d.format(getTimeTokens().DATETIME) : fallback;
 };
 
-/** Format the time only, 24h (`14:30`). See DISPLAY_TIME. */
+/**
+ * Long, spelled-out date + time — `3 December 2025, 2:30 PM`. The DISPLAY_LONG
+ * counterpart of {@link formatDateTime}, for headings and notification lines.
+ */
+export const formatDateTimeLong = (value: DateLike, fallback = "—"): string => {
+  if (value === null || value === undefined || value === "") return fallback;
+  const d = dayjs(value);
+  return d.isValid() ? d.format(getTimeTokens().DATETIME_LONG) : fallback;
+};
+
+/**
+ * Format the time only — `2:30 PM` or `14:30`, following the viewer's preference.
+ *
+ * DISPLAY ONLY. Anything that will be parsed, compared or summed must use
+ * `formatTime24Hour()` from `utils/date.ts` instead — see the warning at the top
+ * of `utils/timeFormat.ts`.
+ */
 export const formatTime = (value: DateLike, fallback = "—"): string => {
   if (value === null || value === undefined || value === "") return fallback;
   const d = dayjs(value);
-  return d.isValid() ? d.format(DATE_FORMATS.DISPLAY_TIME) : fallback;
+  return d.isValid() ? d.format(getTimeTokens().TIME) : fallback;
+};
+
+/** Time with seconds — `2:30:45 PM` or `14:30:45`. For live clocks and audit trails. */
+export const formatTimeWithSeconds = (value: DateLike, fallback = "—"): string => {
+  if (value === null || value === undefined || value === "") return fallback;
+  const d = dayjs(value);
+  return d.isValid() ? d.format(getTimeTokens().TIME_WITH_SECONDS) : fallback;
 };
 
 /**
