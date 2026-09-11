@@ -63,9 +63,14 @@ export type {
 // Shared UI pattern atoms — app-wide primitives (single source of truth; use across every feature).
 // AutoGrid + ListHeader are the standard responsive list-page layout — prefer them over per-feature
 // grid/toolbar breakpoints so every collection view fills wide screens and stacks cleanly on mobile.
+// hoverTileSx is THE hover for a tinted tile or card: the aside menu's language, which is the
+// surface everyone sees most — the wash and border warm, the IconBox lifts a pixel and deepens,
+// the caption sharpens, and the card itself stays put. Spread it instead of writing another
+// `&:hover` with a transform in it.
 export {
   TRIO, EASE_200, SHADOW_REST, SHADOW_HOVER, IconBox, StatusBadge, StatTile, Eyebrow, SectionHead,
   AutoGrid, ListHeader, ViewModeSwitch, StatusCyclePill, UnderlineTabs,
+  hoverTileSx, ICON_BOX_CLASS, TILE_LABEL_CLASS,
 } from './patterns';
 export type { Trio, ViewModeOption, StatusCycleOption, UnderlineTabItem } from './patterns';
 // Choose-one-from-a-visual-set controls, for any feature that lets an admin
