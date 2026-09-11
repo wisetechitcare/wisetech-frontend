@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Box, Stack, Typography, ToggleButton, ToggleButtonGroup, Chip, CircularProgress,
-    Table, TableHead, TableBody, TableRow, TableCell, TextField, MenuItem, DialogContent, DialogActions,
+    TextField, MenuItem, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import { ListHeader, GlassDialog, GlassHeader, WtButton, ToneChip, toast, AppIcon } from "@app/modules/common/components/ui";
@@ -19,6 +19,8 @@ import {
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
 import CandidateDrawer from "./CandidateDrawer";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { applicationColumns } from "./applicationColumns";
 import { formatDate } from "@utils/dateFormats";
 
 interface PendingMove {
@@ -81,6 +83,43 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         onSuccess: () => { toast({ icon: "success", title: "Moved" }); invalidate(); },
         onError: () => { toast({ icon: "error", title: "Could not move — refresh and retry" }); invalidate(); },
     });
+
+    /**
+     * The list view is the SAME records the overview drill-downs show, so it uses the same
+     * column definition and adds only what is unique to this screen: the row actions.
+     * Two hand-written tables were how "Score" came to mean a bare number here and a band
+     * there, with neither able to sort on what it displayed.
+     */
+    const listColumns = useMemo(
+        () => applicationColumns({
+            actions: (a) => (
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                    <WtButton size="small" ghost startIcon={<KTIcon iconName="profile-circle" className="fs-6" />} onClick={() => setOpenCandidate(a)}>
+                        Open
+                    </WtButton>
+                    <WtButton size="small" ghost startIcon={<KTIcon iconName="message-text-2" className="fs-6" />} onClick={() => setInterviewsFor(a)}>
+                        Interviews
+                    </WtButton>
+                    <WtButton size="small" ghost startIcon={<KTIcon iconName="dollar" className="fs-6" />} onClick={() => setOfferFor(a)}>
+                        Offer
+                    </WtButton>
+                    {a.status?.isHiredOutcome && (
+                        a.convertedEmployeeId
+                            ? <ToneChip tone="success" label="Converted" dense />
+                            : (
+                                <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => convertToEmployee(a)}>
+                                    Convert
+                                </WtButton>
+                            )
+                    )}
+                </Stack>
+            ),
+        }),
+        // convertToEmployee is stable for the life of the component; the setters are
+        // React state setters, which never change identity.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [],
+    );
 
     const byStatus = useMemo(() => {
         const map = new Map<string, Application[]>();
@@ -263,54 +302,17 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     })}
                 </Box>
             ) : (
-                <Box sx={{ overflowX: "auto", border: "1px solid", borderColor: "divider", borderRadius: "14px" }}>
-                <Table size="small" sx={{ minWidth: 680 }}>
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>Ref</TableCell><TableCell>Candidate</TableCell><TableCell>Requisition</TableCell>
-                            <TableCell>Stage</TableCell><TableCell align="center">Score</TableCell><TableCell align="right">Actions</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {applications.map((a) => (
-                            <TableRow key={a.id} hover>
-                                <TableCell>{a.prefix ?? "—"}</TableCell>
-                                <TableCell>{a.applicant?.firstName} {a.applicant?.lastName ?? ""}</TableCell>
-                                <TableCell>{a.requisition?.title ?? "—"}</TableCell>
-                                <TableCell>
-                                    <ToneChip tone="brand" color={a.status?.color ?? undefined} label={a.status?.name ?? "—"} dense />
-                                </TableCell>
-                                <TableCell align="center">{scoreLabel(a) ?? "—"}</TableCell>
-                                <TableCell align="right">
-                                    <Stack direction="row" spacing={0.5} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
-                                        <WtButton size="small" ghost startIcon={<KTIcon iconName="profile-circle" className="fs-6" />} onClick={() => setOpenCandidate(a)}>
-                                            Open
-                                        </WtButton>
-                                        <WtButton size="small" ghost startIcon={<KTIcon iconName="message-text-2" className="fs-6" />} onClick={() => setInterviewsFor(a)}>
-                                            Interviews
-                                        </WtButton>
-                                        <WtButton size="small" ghost startIcon={<KTIcon iconName="dollar" className="fs-6" />} onClick={() => setOfferFor(a)}>
-                                            Offer
-                                        </WtButton>
-                                        {a.status?.isHiredOutcome && (
-                                            a.convertedEmployeeId ? (
-                                                <ToneChip tone="success" label="Converted" dense />
-                                            ) : (
-                                                <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => convertToEmployee(a)}>
-                                                    Convert
-                                                </WtButton>
-                                            )
-                                        )}
-                                    </Stack>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                        {applications.length === 0 && (
-                            <TableRow><TableCell colSpan={6} align="center" sx={{ color: "text.secondary", py: 4 }}>No applications yet.</TableCell></TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-                </Box>
+                /* The shared table engine, not a hand-written table. It brings sorting,
+                       per-column search, column show/hide, export and per-user column
+                       preferences — none of which the previous markup had — and the columns
+                       are the SAME definition the overview drill-downs use, so two views of
+                       the same records cannot drift apart. */
+                <MaterialTable
+                    columns={listColumns}
+                    data={applications}
+                    isLoading={isLoading}
+                    tableName="RecruitmentPipelineList"
+                />
             )}
 
             {/* Create application */}

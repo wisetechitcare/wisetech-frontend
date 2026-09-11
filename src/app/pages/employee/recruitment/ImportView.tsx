@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    Box, Stack, Typography, TextField, MenuItem, CircularProgress, Table, TableBody,
-    TableCell, TableHead, TableRow,
+    Box, Stack, Typography, TextField, MenuItem, CircularProgress,
 } from "@mui/material";
+import type { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import {
     GlassCard, ListHeader, WtButton, ToneChip, toast, confirmDialog,
 } from "@app/modules/common/components/ui";
@@ -36,6 +37,76 @@ const rowName = (row: ImportPreview["preview"]["rows"][number]): string => {
     if (a) return [a.firstName, a.lastName].filter(Boolean).join(" ") || "(unnamed)";
     return row.mapped.positionName || "(no position)";
 };
+
+/**
+ * What a preview row looks like in the table. Defined once here rather than inline so the
+ * candidate sheet and the requisition sheet are read the same way — they share this screen
+ * and differ only in which fields are populated.
+ */
+type PreviewRow = ImportPreview["preview"]["rows"][number];
+
+const previewColumns: MRT_ColumnDef<PreviewRow>[] = [
+    {
+        // Sorts on the BOOLEAN, so one click brings every blocked row together — which is
+        // the question a preview exists to answer.
+        accessorFn: (r) => (r.importable ? "Will import" : "Blocked"),
+        id: "state",
+        header: "State",
+        size: 130,
+        Cell: ({ row }) => (
+            <Stack direction="row" spacing={0.75} alignItems="center">
+                <KTIcon
+                    iconName={row.original.importable ? "check-circle" : "cross-circle"}
+                    className={`fs-4 ${row.original.importable ? "text-success" : "text-danger"}`}
+                />
+                <Typography sx={{ fontSize: 12.5 }}>{row.original.importable ? "Will import" : "Blocked"}</Typography>
+            </Stack>
+        ),
+    },
+    {
+        accessorFn: (r) => rowName(r),
+        id: "row",
+        header: "Row",
+        size: 220,
+        Cell: ({ row }) => (
+            <Box>
+                <Typography sx={{ fontWeight: 600, fontSize: 13 }}>{rowName(row.original)}</Typography>
+                {row.original.mapped.sourceRef && (
+                    <Typography sx={{ fontSize: 11.5, color: "text.disabled" }}>{row.original.mapped.sourceRef}</Typography>
+                )}
+            </Box>
+        ),
+    },
+    {
+        accessorFn: (r) => {
+            const position = r.mapped.application?.positionName ?? r.mapped.positionName ?? "—";
+            const status = r.mapped.application?.statusName;
+            return status ? `${position} · ${status}` : position;
+        },
+        id: "detail",
+        header: "Detail",
+        size: 220,
+    },
+    {
+        // Searchable as text, so "not an email" finds every row with that problem.
+        accessorFn: (r) => r.issues.map((i) => `${i.field}: ${i.message}`).join(" · ") || "—",
+        id: "issues",
+        header: "Issues",
+        size: 420,
+        Cell: ({ row }) =>
+            row.original.issues.length === 0 ? (
+                <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>
+            ) : (
+                <Stack spacing={0.4}>
+                    {row.original.issues.map((issue, j) => (
+                        <Typography key={j} sx={{ fontSize: 12.5, color: issue.level === "error" ? "error.main" : "warning.main" }}>
+                            {issue.field}: {issue.message}
+                        </Typography>
+                    ))}
+                </Stack>
+            ),
+    },
+];
 
 const ImportView = () => {
     const qc = useQueryClient();
@@ -246,56 +317,15 @@ const ImportView = () => {
 
                     <GlassCard preset="section" sx={{ p: 0, overflow: "hidden" }}>
                         <Box sx={{ overflowX: "auto" }}>
-                            <Table size="small" sx={{ minWidth: 720 }}>
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell sx={{ width: 44 }} />
-                                        <TableCell>Row</TableCell>
-                                        <TableCell>Detail</TableCell>
-                                        <TableCell>Issues</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {p.rows.map((row, i) => (
-                                        <TableRow key={i} sx={{ opacity: row.importable ? 1 : 0.65 }}>
-                                            <TableCell>
-                                                <KTIcon
-                                                    iconName={row.importable ? "check-circle" : "cross-circle"}
-                                                    className={`fs-4 ${row.importable ? "text-success" : "text-danger"}`}
-                                                />
-                                            </TableCell>
-                                            <TableCell sx={{ fontWeight: 600, fontSize: 13 }}>
-                                                {rowName(row)}
-                                                {row.mapped.sourceRef && (
-                                                    <Typography component="span" sx={{ ml: 0.75, fontSize: 11.5, color: "text.disabled" }}>
-                                                        {row.mapped.sourceRef}
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
-                                            <TableCell sx={{ fontSize: 12.5, color: "text.secondary" }}>
-                                                {row.mapped.application?.positionName ?? row.mapped.positionName ?? "—"}
-                                                {row.mapped.application?.statusName ? ` · ${row.mapped.application.statusName}` : ""}
-                                            </TableCell>
-                                            <TableCell sx={{ fontSize: 12.5 }}>
-                                                {row.issues.length === 0 ? (
-                                                    <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>
-                                                ) : (
-                                                    <Stack spacing={0.4}>
-                                                        {row.issues.map((issue, j) => (
-                                                            <Typography
-                                                                key={j}
-                                                                sx={{ fontSize: 12.5, color: issue.level === "error" ? "error.main" : "warning.main" }}
-                                                            >
-                                                                {issue.field}: {issue.message}
-                                                            </Typography>
-                                                        ))}
-                                                    </Stack>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                            {/* The shared engine, so HR can search sixty rows and filter to just the
+                                blocked ones instead of scrolling. A preview is exactly where
+                                that matters: the point of it is finding what will fail. */}
+                            <MaterialTable
+                                columns={previewColumns}
+                                data={p.rows}
+                                tableName={`RecruitmentImportPreview-${sheet}`}
+                                muiTableContainerProps={{ sx: { maxHeight: 420 } }}
+                            />
                         </Box>
                     </GlassCard>
                 </>

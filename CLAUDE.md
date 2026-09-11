@@ -56,6 +56,8 @@ Canonical primitives — use these, don't reinvent or fork:
 | Card / surface | `GlassCard` / `GlassSurface` | `<div className="card">` |
 | List / collection layout | `AutoGrid` (auto-fit tile grid) | stretched single-column rows, hand-rolled `gridTemplateColumns` breakpoints |
 | List / page header | `ListHeader` (title + subtitle + actions) | copy-pasted `Stack direction="row" justifyContent="space-between"` toolbars |
+| **Any data table** | **`MaterialTable`** (`components/MaterialTable`, 84 call sites) | a hand-written `<Table>` — you lose sorting, per-column search, column show/hide, export and saved column preferences |
+| Chart drill-down modal | `DrillDownDialog` | a raw `<Dialog>` (it also fixes z-index against fullscreen charts) |
 | Chip / badge | `ToneChip` | `<span className="badge">` |
 | Single-select modal | `OptionPickerDialog` | bespoke option lists |
 | Drag-to-reorder | `ReorderableGroup` + `DragHandle` | up/down arrow buttons |

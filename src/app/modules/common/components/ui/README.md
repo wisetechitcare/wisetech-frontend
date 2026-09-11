@@ -86,6 +86,45 @@ Searchable / multi / creatable stays `WtSelect` — pass `searchable` and it ren
 inside the same frame. Dates stay `WtDateField`. `WtField` owns the frame, not every
 engine that can sit in it.
 
+## Shared components OUTSIDE this folder — check here too
+
+This index used to cover only `ui/`, and the most-used shared component in the entire
+codebase is not in `ui/`. A recruitment drill-down was built on a hand-written `<Table>`
+while `MaterialTable` sat one directory up, imported by 84 other files. Searching the index
+and finding nothing is exactly the failure this file exists to prevent, so the neighbours
+are listed here.
+
+They live in `@app/modules/common/components/` (one level up from `ui/`).
+
+| Need | Use | Imported by | Never |
+|---|---|---|---|
+| **Any data table** | **`MaterialTable`** | **84 files** | a hand-written `<Table>`/`<TableHead>`/`<TableRow>` |
+| Tabbed page shell | `MaterialHeaderTab` | 21 | a bespoke `<Tabs>` row |
+| Date-period tabs / nav / filter | `PeriodTabs`, `PeriodNavigator`, `PeriodFilter` | 16 / 16 / 11 | a hand-rolled month stepper |
+| Export to Excel/CSV | `ExportButton` | 12 | a bespoke download handler |
+| Loading placeholder | `Skeleton` | 11 | a bare `<CircularProgress>` for list content |
+| Avatar with fallback initials | `SmartAvatar` | 10 | `<Avatar>` plus your own initials logic |
+| Summary card | `CommonCard` | 10 | a `GlassCard` with a hand-built header |
+| Employee name + avatar in a cell | `EmployeeIdentityCell` | 8 | re-assembling name and avatar per table |
+| Chart drill-down modal | `DrillDownDialog` | 5 | a raw `<Dialog>` (it also fixes the z-index against fullscreen charts) |
+| Lazy-mounted section | `LazySection` | 5 | rendering an expensive panel eagerly |
+
+**`MaterialTable` is the one to remember.** It is a lazy boundary over a 2,500-line engine
+and brings sorting, per-column search, column show/hide, export, full-screen, and column
+preferences persisted per user. Any table written by hand starts without all of it, and the
+users of that screen quietly get a worse product than everyone else.
+
+Columns are `MRT_ColumnDef[]` in a `useMemo`. Two rules worth stating, because both have
+been got wrong:
+
+- **Sort on the value, render what you like.** Give `accessorFn` the number or date and put
+  the chip in `Cell`. Sorting a rendered label orders `"9d"` after `"40d"`.
+- **An actions column is not data.** Set `enableSorting`, `enableColumnFilter` and
+  `enableGlobalFilter` to `false` on it, or you offer three controls that do nothing.
+
+**If the engine is missing something you need, add it to the engine.** Do not work around
+it in a page — that is how the second table gets written.
+
 Icons are **KTIcon** (keenicons duotone). Verify a name exists before using it —
 an unknown name renders as an empty box:
 
