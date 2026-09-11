@@ -20,7 +20,7 @@ import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
 import CandidateDrawer from "./CandidateDrawer";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { applicationColumns } from "./applicationColumns";
+import { applicationColumns, daysLabel } from "./applicationColumns";
 import { formatDate } from "@utils/dateFormats";
 
 interface PendingMove {
@@ -32,11 +32,6 @@ const emptyCreate = (): ApplicationCreatePayload & { firstName: string; lastName
     firstName: "", lastName: "", email: "", requisitionId: "", statusId: null,
 });
 
-/**
- * Short enough for a chip, and singular where it should be — "1 days" is the kind of
- * detail that makes people stop trusting the numbers next to it.
- */
-const stageAgeLabel = (days: number): string => (days === 1 ? "1 day" : `${days} days`);
 
 const scoreLabel = (a: Application): string | null => {
     const s = a.aiScore ?? a.ruleScore;
@@ -288,7 +283,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                                                         size="small"
                                                         variant="outlined"
                                                         color={a.stageAgeBand === "stalled" ? "error" : "warning"}
-                                                        label={stageAgeLabel(a.daysInStage ?? 0)}
+                                                        label={daysLabel(a.daysInStage ?? 0)}
                                                         title={`In ${a.status?.name ?? "this stage"} since ${a.enteredStageAt ? formatDate(a.enteredStageAt) : "unknown"}`}
                                                     />
                                                 )}

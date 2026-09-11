@@ -22,6 +22,15 @@ import { formatDate } from "@utils/dateFormats";
 export const applicantName = (a: Application): string =>
     `${a.applicant?.firstName ?? ""} ${a.applicant?.lastName ?? ""}`.trim() || "—";
 
+/**
+ * A number of days, said in full.
+ *
+ * "42d" saves four characters and costs the reader a translation. The column is wide enough
+ * for the word, and the same wording is already used in the tooltips on this page — so the
+ * abbreviation was the odd one out rather than the norm.
+ */
+export const daysLabel = (days: number): string => (days === 1 ? "1 day" : `${days} days`);
+
 export interface ApplicationColumnOptions {
     /** Adds a trailing actions column. Omitted where the table is read-only. */
     actions?: (application: Application) => ReactNode;
@@ -74,7 +83,7 @@ export function applicationColumns(opts: ApplicationColumnOptions = {}): MRT_Col
             accessorFn: (a) => a.daysInStage ?? 0,
             id: "waiting",
             header: "Waiting",
-            size: 110,
+            size: 130,
             Cell: ({ row }) => {
                 const a = row.original;
                 // A hired or rejected application carries no band: it is finished, not waiting.
@@ -84,7 +93,7 @@ export function applicationColumns(opts: ApplicationColumnOptions = {}): MRT_Col
                         size="small"
                         variant="outlined"
                         color={a.stageAgeBand === "stalled" ? "error" : a.stageAgeBand === "ageing" ? "warning" : "default"}
-                        label={`${a.daysInStage ?? 0}d`}
+                        label={daysLabel(a.daysInStage ?? 0)}
                     />
                 );
             },
