@@ -87,6 +87,31 @@ export const updateLeadSection = (
         expectedRevisionCount: expectedRevisionCount ?? null,
     });
 
+/**
+ * Per-person follow-up notes on leads.
+ *
+ * MINE, always: the employee is taken from the session server-side, so neither call carries
+ * an employee id and there is no request shape that reads or writes somebody else's note.
+ *
+ * The whole set comes back in ONE call rather than joining onto the leads list. That list is
+ * the heaviest read in the app and is shared by the dashboard, the drill-downs and the
+ * exports — making it viewer-dependent to serve one column would cost all of them.
+ */
+export const getMyLeadReminders = () =>
+    api.get(CLIENT_COMPANIES.GET_MY_LEAD_REMINDERS);
+
+/**
+ * Write my reminder on a lead. An empty `note` deletes it.
+ *
+ * `color` OMITTED means "leave the tone alone" — which is what the inline cell editor wants:
+ * a quick text fix must not reset a colour picked in the dialog.
+ */
+export const setMyLeadReminder = (leadId: string, note: string, color?: string) =>
+    api.put(CLIENT_COMPANIES.SET_MY_LEAD_REMINDER.replace(':id', leadId), {
+        note,
+        ...(color !== undefined ? { color } : {}),
+    });
+
 export const deleteLead = (id: string) =>
     api.delete(CLIENT_COMPANIES.DELETE_LEAD.replace(':id', id));
 

@@ -819,6 +819,10 @@ export const CLIENT_COMPANIES = {
     CREATE_LEAD: "api/lead-project-companies/client-companies/leads",
     UPDATE_LEAD: "api/lead-project-companies/client-companies/leads/:id",
     UPDATE_LEAD_SECTION: "api/lead-project-companies/client-companies/leads/:id/section",
+    // Per-person follow-up notes. "Mine" is the session, not a parameter — neither path
+    // names whose reminder it is.
+    GET_MY_LEAD_REMINDERS: "api/lead-project-companies/client-companies/lead-reminders/mine",
+    SET_MY_LEAD_REMINDER: "api/lead-project-companies/client-companies/leads/:id/reminder",
     DELETE_LEAD: "api/lead-project-companies/client-companies/leads/:id",
 
     GET_ALL_CLIENT_COMPANIES: "api/lead-project-companies/client-companies",

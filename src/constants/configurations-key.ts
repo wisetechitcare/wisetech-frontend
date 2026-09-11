@@ -52,6 +52,16 @@ export const SHOW_ANNIVERSARIES_EXTERNAL='showAnniversariesExternal';
 export const SHOW_MARRIAGE_ANNIVERSARY_INTERNAL='showMarriageAnniversaryInternal';
 export const SHOW_MARRIAGE_ANNIVERSARY_INTERNAL_INACTIVE='showMarriageAnniversaryInternalInactive';
 export const SHOW_MARRIAGE_ANNIVERSARY_EXTERNAL='showMarriageAnniversaryExternal';
+
+/**
+ * Automated greeting emails. ONE row for the whole feature, unlike the calendar display
+ * settings above which are one row per toggle — those are edited one at a time through a
+ * shared modal, this is a single form saved together.
+ *
+ * Shape: { enabled, sendTime: 'HH:mm', includeEmployees, includeContacts }.
+ * Must match GREETINGS_KEY in the backend services/greetings/greetingConfig.ts.
+ */
+export const GREETINGS_KEY = 'greetings';
 export const SHOW_SATURDAY_ON_CALENDAR='showSaturdayOnCalendar';
 export const SHOW_SUNDAY_ON_CALENDAR='showSundayOnCalendar';
 export const SHOW_MEETINGS_ON_CALENDAR='showMeetingsOnCalendar';
@@ -65,6 +75,13 @@ export const MEETING_HALF_FREE_COLOR='meetingHalfFreeColor';
 // without touching the code.
 export const MEETING_HALF_AM='meetingHalfAm';
 export const MEETING_HALF_PM='meetingHalfPm';
+// What a meeting's OUTCOME looks like in the meetings table — one key per state.
+// The saved colour is the row's left edge; the tint behind the row and the ink on the badge
+// are both derived from it, so one picked colour cannot produce a row and a badge that
+// disagree, and a dark pick cannot leave the badge unreadable.
+export const MEETING_STATUS_CANCELLED='meetingStatusCancelled';
+export const MEETING_STATUS_AWAITING='meetingStatusAwaiting';
+export const MEETING_STATUS_HELD='meetingStatusHeld';
 // Public-holiday appearance on the workspace calendar ({enabled, color, icon}).
 // enabled defaults to TRUE when unset — holidays always showed historically.
 export const SHOW_HOLIDAYS_ON_CALENDAR='showHolidaysOnCalendar';

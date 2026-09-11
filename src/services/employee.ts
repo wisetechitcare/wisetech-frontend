@@ -270,6 +270,23 @@ export const getMeetingProjects = async () => {
     }
 };
 
+/**
+ * The ids of every lead that has at least one live meeting.
+ *
+ * One call for a whole table: the Leads list only needs to know WHETHER a lead has a meeting,
+ * and asking per row would be a request per lead. Cancelled meetings are excluded server-side —
+ * a cancelled meeting is the state of having nothing booked.
+ */
+export const getMeetingLeadIds = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/lead-ids`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 /** Cancel a meeting, or restore one. A status write — the row stays in the project record. */
 export const setMeetingCancelled = async (
     meetingId: string, employeeId: string, cancelled: boolean, reason?: string,
@@ -1032,6 +1049,81 @@ export const fetchBirthdayCard = async (kind: BirthdayCardKind, id: string): Pro
     } catch (err) {
         throw err;
     }
+};
+
+export type BirthdayCardOrientation = 'portrait' | 'landscape';
+
+/**
+ * The card as a finished PNG, drawn by the server.
+ *
+ * Fetched as a blob rather than pointed at with an `<img src>` because the API is behind
+ * a bearer token and an image element sends no Authorization header.
+ *
+ * `scale` 1 is the artboard's own size — 1080 x 1350 portrait — and is what the preview
+ * and the greeting email use. `scale` 2 is for a download, which gets zoomed into.
+ */
+export const fetchBirthdayCardImage = async (
+    kind: BirthdayCardKind,
+    id: string,
+    orientation: BirthdayCardOrientation = 'portrait',
+    scale: 1 | 2 = 1,
+): Promise<Blob> => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_BIRTHDAY_CARD}/${kind}/${encodeURIComponent(id)}/image`;
+    const { data } = await axios.get(endpoint, {
+        params: { orientation, scale },
+        responseType: 'blob',
+    });
+    return data as Blob;
+};
+
+/**
+ * Send the birthday card to yourself, to see the real email before anyone else does.
+ *
+ * Resolves to the address it was sent to, which is not always the one the caller expects:
+ * the job prefers a company address over a personal one.
+ */
+export const sendBirthdayCardTest = async (): Promise<string> => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_BIRTHDAY_CARD}/test-send`;
+    const { data } = await axios.post(endpoint);
+    return data?.data?.sentTo as string;
+};
+
+/** One recorded pass of the greeting job. */
+export interface GreetingRun {
+    id: string;
+    ranAt: string;
+    trigger: 'cron' | 'manual';
+    /**
+     * How many people the job looked at before matching birthdays.
+     *
+     * The number that matters most when something is wrong. Zero considered means the
+     * roster query matched nobody, which looks identical to a quiet day from every other
+     * column.
+     */
+    considered: number;
+    matched: number;
+    sent: number;
+    skipped: number;
+    failed: number;
+    error: string | null;
+}
+
+export const fetchGreetingRuns = async (): Promise<GreetingRun[]> => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_BIRTHDAY_CARD}/runs`;
+    const { data } = await axios.get(endpoint);
+    return (data?.data?.runs ?? []) as GreetingRun[];
+};
+
+/**
+ * Run the job now, without waiting for the configured time.
+ *
+ * Skips the clock only. The feature switch, the birthday match and the once-a-year claim
+ * all still apply, so this cannot send anyone a second card.
+ */
+export const runGreetingsNow = async (): Promise<Omit<GreetingRun, 'id' | 'ranAt' | 'error'>> => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_BIRTHDAY_CARD}/run-now`;
+    const { data } = await axios.post(endpoint);
+    return data?.data?.result;
 };
 
 /**

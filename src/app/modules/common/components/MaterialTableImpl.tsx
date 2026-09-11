@@ -27,6 +27,9 @@ import { RootState } from "@redux/store";
 import { useThemeMode } from "@metronic/partials";
 import { Box } from "@mui/material";
 import { KTIcon, PAGE_SIZE_OPTIONS, PageSizeOption } from "@metronic/helpers";
+// The task board's drag engine. Columns get the same physics as cards rather than MRT's own
+// native-HTML5 column drag, whose preview the browser owns and cannot be tilted.
+import { SortableProvider, mergeVisibleOrder, type SortableProps } from "@components/dnd/SortableList";
 import SelectInput from "@app/modules/common/inputs/SelectInput";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, Status } from "@constants/statistics";
@@ -109,8 +112,15 @@ export interface MaterialTableProps {
   enableFilters?: boolean;
   enableSorting?: boolean;
   enableGrouping?: boolean;
-  /** Off by default: its grab handle sat next to the sort arrow wearing an
-   *  up-down arrow of its own, so every header read as two sort buttons. */
+  /**
+   * Column drag-and-drop, ON by default.
+   *
+   * main turned this OFF for a specific defect: MRT's own grab handle sat beside the sort
+   * arrow wearing an up-down arrow of its own, so every header read as two sort buttons.
+   * That handle is gone — this table drives columns through the shared Sortable engine and
+   * passes `enableColumnDragging={false}` to MRT below — so the defect cannot occur and the
+   * feature does not need switching off to avoid it.
+   */
   enableColumnDragging?: boolean;
   enableColumnResizing?: boolean;
   enableColumnPinning?: boolean;
@@ -199,6 +209,30 @@ export interface MaterialTableProps {
    *  ephemeral tables such as chart drill-down modals, where a persisted per-instance bucket
    *  would otherwise stick and override the curated default column set. Defaults to true. */
   persistPreferences?: boolean;
+  /**
+   * Props for the `<tbody>` element. Opt-in passthrough to MRT.
+   *
+   * Exists for surfaces that need to mark the row container itself — row drag-and-drop hangs
+   * its container attributes here, because nothing may sit between `<tbody>` and `<tr>` for a
+   * wrapper component to be.
+   */
+  muiTableBodyProps?: any;
+  /**
+   * Hands the page the few controls only it can decide to use.
+   *
+   * Currently one: `clearSorting`, for a table with a MANUAL row order. Such an order is
+   * invisible under any sort — the sort re-derives the order on every render — so the surface
+   * that lets a user drag a row has to be able to say "stop sorting, this is the order now".
+   *
+   * The table's own sorting stays preference-driven for everyone else; this only exists
+   * because the alternative was making sorting a controlled prop on all 88 tables.
+   */
+  apiRef?: React.MutableRefObject<MaterialTableApi | null>;
+}
+
+export interface MaterialTableApi {
+  /** Drop the sort, so the order of `data` is the order on screen. Persisted like any sort. */
+  clearSorting: () => void;
 }
 
 const defaultColumnSizes = {
@@ -309,7 +343,7 @@ function MaterialTable({
   enableFilters = true,
   enableSorting = true,
   enableGrouping = true,
-  enableColumnDragging = false,
+  enableColumnDragging = true,
   enableColumnResizing = false,
   enableColumnPinning = true,
   enableExpandAll = true,
@@ -342,6 +376,8 @@ function MaterialTable({
   onSelectedRowsChange,
   renderSelectionActions,
   persistPreferences = true,
+  muiTableBodyProps,
+  apiRef,
 }: MaterialTableProps) {
   // Selection is NOT persisted to preferences: it is transient intent ("act on these
   // now"), not layout. Restoring a stale selection after a reload and then firing a bulk
@@ -628,6 +664,51 @@ function MaterialTable({
     updateExpanded,
     resetPreferences,
   } = useTablePreferences(tableName, finalColumns, prefsEmployeeId, defaultSorting, persistPreferences);
+
+  // Published every render rather than once on mount: `updateSorting` closes over preference
+  // state, so a handle captured at mount would go stale and clear a sort that no longer exists.
+  if (apiRef) apiRef.current = { clearSorting: () => updateSorting([]) };
+
+  // ── Column drag-and-drop ────────────────────────────────────────────────────
+  /** Honours the same prop MRT's own column dragging used to. */
+  const columnDragEnabled = (enableColumnDragging ?? true) && !isMobile;
+  /** One surface per table, so two tables on a page are never droppable into each other. */
+  const colSurface = `cols:${tableName}`;
+  /**
+   * The column ids the header has RENDERED, in DOM order.
+   *
+   * A stable object that is refreshed in place: the provider copies this reference on every
+   * render and reads it when a drop lands, so updating its contents is visible to the engine
+   * without a re-render — where putting it in state would mean re-rendering the table from an
+   * effect that reads the table.
+   */
+  const colItems = useRef<Record<string, string[]>>({ cols: [] }).current;
+
+  // Deliberately no dependency array. Which columns are on screen changes with visibility,
+  // pinning and the preferences load, and none of those are values this component can watch.
+  useEffect(() => {
+    const head = document.querySelector(`[data-sortable-container="cols"][data-sortable-list="${colSurface}"]`);
+    colItems.cols = head
+      ? Array.from(head.querySelectorAll("[data-sortable-id]")).map(
+          (n) => n.getAttribute("data-sortable-id") as string,
+        )
+      : [];
+  });
+
+  /**
+   * A dropped column, folded back into the saved order.
+   *
+   * `drop.order` names only the VISIBLE columns; the stored order also holds every hidden one,
+   * and those have to keep their places or unhiding a column later would put it somewhere the
+   * user never left it.
+   */
+  const handleColumnDrop = useCallback((drop: { order: string[]; unchanged: boolean }) => {
+    if (drop.unchanged) return;
+    const full = preferences.columnOrder?.length
+      ? preferences.columnOrder
+      : (finalColumns.map((c: any) => c.accessorKey ?? c.id).filter(Boolean) as string[]);
+    updateColumnOrder(mergeVisibleOrder(full, drop.order));
+  }, [preferences.columnOrder, finalColumns, updateColumnOrder]);
 
   // Surface the visible column keys to the parent once preferences resolve and on every
   // toggle. A column is visible unless its visibility flag is explicitly false.
@@ -1441,1141 +1522,1190 @@ function MaterialTable({
               }`}
         </div>
 
-        <MaterialReactTable
-          key={`${tableName}-${prefsEmployeeId}-${isInitialized}-${selectedSearchColumn}`}
-          getRowId={rowId}
-          enableRowSelection={enableRowSelection}
-          onRowSelectionChange={setRowSelection}
-          // Let the selection checkbox column be hidden like any other column. MRT's
-          // built-in display columns are not hideable by default, so the checkbox was
-          // permanent for every user on a table that opts into selection — a fixed cost
-          // whether or not they ever select anything. In the Columns panel now, and the
-          // choice persists through the usual preferences (keyed on 'mrt-row-select').
-          displayColumnDefOptions={{
-            'mrt-row-select': { enableHiding: true, header: 'Select' },
-          }}
-          renderDetailPanel={renderDetailPanel}
-          state={{
-            columnVisibility: preferences.columnVisibility,
-            columnOrder: preferences.columnOrder,
-            columnSizing: preferences.columnSizing,
-            columnPinning: preferences.columnPinning,
-            sorting: preferences.sorting,
-            pagination: paginationState || preferences.pagination,
-            density: preferences.density,
-            expanded: preferences.expanded,
-            globalFilter: enableColumnSpecificSearch ? undefined : debouncedFilterValue,
-            // Skeletons ONLY when there is genuinely nothing to show (first load, or an empty
-            // result). MRT's `isLoading` discards the rendered rows and replaces them with grey
-            // skeleton placeholders (see material-react-table dist: "if loading, generate blank
-            // rows to show skeleton loaders"). Passing a plain "fetch in flight" flag here made
-            // every server-side sort/page click blank the table and refill it — read by the user
-            // as "sorting is slow" even though the query itself is ~10ms. The rows were never
-            // actually gone; useServerPagination keeps the previous page in state until the new
-            // one lands. Now they stay put and `showProgressBars` carries the pending signal.
-            isLoading: isLoading && tableData.length === 0,
-            showProgressBars: isLoading,
-            rowSelection,
-          }}
-          onColumnVisibilityChange={updateColumnVisibility}
-          onColumnOrderChange={updateColumnOrder}
-          onColumnSizingChange={updateColumnSizing}
-          onColumnPinningChange={updateColumnPinning}
-          manualSorting={manualSorting}
-          onSortingChange={(updater: any) => {
-            // Persist first (unchanged behaviour), then hand the page the
-            // resolved value. MRT passes either a value or an updater fn.
-            updateSorting(updater);
-            if (onSortingChangeProp) {
-              const next = typeof updater === "function" ? updater(preferences.sorting) : updater;
-              onSortingChangeProp(next ?? []);
-            }
-          }}
-          onPaginationChange={onPaginationChange || updatePagination}
-          onDensityChange={updateDensity}
-          onExpandedChange={updateExpanded}
-          manualPagination={manualPagination}
-          rowCount={manualPagination ? rowCount : undefined}
-          enablePagination={paginationDisabled ? false : undefined}
-          enableColumnDragging={enableColumnDragging}
-          enableColumnResizing={enableColumnResizing ?? false}
-          enableColumnPinning={isMobile ? false : (enableColumnPinning ?? true)}
-          enableGrouping={enableGrouping ?? true}
-          enableSorting={enableSorting ?? true}
-          enableExpandAll={enableExpandAll ?? true}
-          enableRowVirtualization={enableRowVirtualization}
-          enableStickyHeader
-          enableStickyFooter={showColumnFooter}
-          enableBottomToolbar={enableBottomToolbar ?? true}
-          enableTableHead={enableTableHead ?? true}
-          enableColumnFilters={enableFilters ?? true}
-          enableGlobalFilter={!enableColumnSpecificSearch}
-          onGlobalFilterChange={handleGlobalFilterChange}
-          globalFilterFn={intelligentSearchFilterFn as any}
-          enableColumnActions={enableColumnActions ?? true}
-          enableHiding={enableHiding ?? true}
-          enableFullScreenToggle={enableFullScreenToggle ?? true}
-          // Rebuild the built-in icon strip so a "Reset layout" button can sit
-          // beside the column show/hide toggle. Mirrors the default buttons and
-          // their enable-flags (density toggle is globally off for this table).
-          renderToolbarInternalActions={({ table }) => (
-            <Box sx={{ display: "flex", alignItems: "center" }}>
-              {!enableColumnSpecificSearch && <MRT_ToggleGlobalFilterButton table={table} />}
-              {(enableFilters ?? true) && <MRT_ToggleFiltersButton table={table} />}
-              {(enableHiding ?? true) && <ShowHideColumnsButton table={table} />}
-              <Tooltip title="Reset columns to default layout">
-                <IconButton
-                  aria-label="Reset columns to default layout"
-                  onClick={() => resetPreferences()}
-                >
-                  <KTIcon iconName="arrows-circle" className="fs-2" />
-                </IconButton>
-              </Tooltip>
-              {(enableFullScreenToggle ?? true) && <MRT_ToggleFullScreenButton table={table} />}
-            </Box>
-          )}
-          muiTableHeadCellProps={{
-            sx: {
-              backgroundColor: "#FAFBFC",
-              color: "#667085",
-              fontWeight: 600,
-              fontSize: "12px",
-              letterSpacing: "0.03em",
-              textTransform: "uppercase",
-
-              // Padding, not a fixed height: a fixed height clips wrapped headers in grid
-              // layout mode, and min-height is ignored on <th> in table layout mode.
-              padding: "16px",
-              minHeight: "48px",
-
-              borderBottom: "2px solid #EAECF0",
-              borderRight: "1px solid #F2F4F7",
-
-              // Header labels wrap onto a second line instead of truncating to "SUB …".
-              whiteSpace: "normal",
-              verticalAlign: "middle",
-              boxSizing: "border-box",
-              userSelect: "none",
-
-              "& .Mui-TableHeadCell-Content": {
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                width: "100%",
-                height: "100%",
-                minWidth: 0,
-                // Containing block for the actions button. Deliberately on this inner
-                // div and NOT on the <th> — MRT gives pinned header cells
-                // `position: sticky`, and overriding that would unpin them.
-                position: "relative",
-              },
-
-              "& .Mui-TableHeadCell-Content-Labels": {
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                overflow: "visible",
-              },
-
-              // MRT floors the label wrapper at `min-width: 4ch` and lets flex shrink it there,
-              // which chops "SUB ORGANIZATION" into "SUB / ORGA / NIZATI / ON". Raising the floor
-              // to min-content means it wraps on word boundaries and never mid-word.
-              "& .Mui-TableHeadCell-Content-Wrapper": {
-                minWidth: "min-content",
-                overflow: "visible",
-                textOverflow: "clip",
-                whiteSpace: "normal",
-                lineHeight: 1.3,
-              },
-
-              "& .MuiTableSortLabel-root": {
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                flexShrink: 0,
-              },
-
-              "&:last-child": {
-                borderRight: "none",
-              },
-
-              "&:hover": {
-                backgroundColor: "#F3F4F6",
-                color: "#4B5563",
-              },
-
-              // `opacity: 0` hides the column-actions button but it still occupies its
-              // full width in EVERY header, permanently narrowing the label. Taking it
-              // out of flow means the label gets the whole cell; on hover it fades in
-              // over the label's tail rather than shoving the text sideways.
-              "& .Mui-TableHeadCell-Content-Actions": {
-                position: "absolute",
-                right: "4px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                opacity: 0,
-                pointerEvents: "none",
-                transition: "opacity 0.15s ease",
-              },
-
-              "&:hover .Mui-TableHeadCell-Content-Actions": {
-                opacity: 1,
-                pointerEvents: "auto",
-              },
-
-              ...pinnedCellSx(mode),
-              "&[data-pinned='true']": {
-                zIndex: 3,
-              },
-              "&:not([data-pinned='true'])": {
-                scrollSnapAlign: "start",
-              },
-
-
-              ...muiTableHeadCellStyle,
-            },
-          }}
-          muiTableHeadProps={{
-            // MRT hardcodes opacity 0.97 on <thead>; body rows ghost through the sticky header.
-            sx: { opacity: 1 },
-          }}
-          muiTableBodyCellProps={{
-            sx: {
-              padding: "16px",
-              minHeight: "52px",
-              fontSize: "13px",
-              color: "#374151",
-              borderBottom: "1px solid #F3F4F6",
-              borderRight: "1px solid #F9FAFB",
-              verticalAlign: "middle",
-              boxSizing: "border-box",
-              // Grid layout mode (column pinning) clips body cells to one nowrap line, which
-              // chopped "Shashi Prabhu and Associates" mid-word. Wrap instead of truncating.
-              whiteSpace: "normal",
-              overflow: "visible",
-              textOverflow: "clip",
-              overflowWrap: "anywhere",
-              transition: "background-color 0.15s ease",
-              "&:last-child": {
-                borderRight: "none",
-              },
-              ...pinnedCellSx(mode),
-              "&[data-pinned='true']": {
-                zIndex: 1,
-              },
-            },
-          }}
-          muiTableContainerProps={{
-            ref: tableContainerRef,
-            ...customMuiTableContainerProps,
-            sx: {
-              overflowX: "auto",
-              // Sticky footer/header only bite inside a height-bounded scroller.
-              ...(showColumnFooter ? { maxHeight: "70vh" } : {}),
-              scrollSnapType: "x proximity",
-              scrollPaddingLeft: `${leftPinnedWidth}px`,
-
-              ...(customMuiTableContainerProps?.sx || {}),
-            },
-          }}
-          layoutMode={layoutMode}
-          {...muiTableProps}
-          muiTableBodyRowProps={(rowArgs: any) => {
-            const { row } = rowArgs;
-            // Status-based row color coding — computed here so it ALWAYS applies, even when the
-            // caller supplies custom row props (e.g. an onClick). The two are merged below.
-            let rowStatus: 'approved' | 'rejected' | 'pending' | null = null;
-            if (enableStatusColorCoding) {
-              // Accept a numeric `status` (e.g. grouped leave rows use status: 0|1|2) as the status
-              // number too — otherwise it stringifies to "1" and never matches the labels below.
-              const sn = row.original?.statusNumber ?? (typeof row.original?.status === 'number' ? row.original.status : undefined);
-              const statusStr = String(row.original?.status || '').toLowerCase();
-              if (sn !== undefined && sn !== null) {
-                if (sn === Status.Approved) rowStatus = 'approved';
-                else if (sn === Status.Rejected) rowStatus = 'rejected';
-                else if (sn === Status.ApprovalNeeded) rowStatus = 'pending';
-              } else if (statusStr) {
-                if (statusStr === 'approved' || statusStr === 'active') rowStatus = 'approved';
-                else if (statusStr === 'rejected' || statusStr === 'declined' || statusStr === 'inactive') rowStatus = 'rejected';
-                else if (statusStr === 'pending' || statusStr === 'waiting' || statusStr === 'under review') rowStatus = 'pending';
+        {/* Column drag-and-drop, on the SAME engine as the task board — the tilted ghost, the
+            shimmering slot, the FLIP reflow and the settle pop.
+            MRT ships its own column dragging; it is switched off below in favour of this, so a
+            column and a card are dragged with one set of physics instead of two. `axis="x"`
+            because columns reorder sideways, and the surface is keyed by table so two tables on
+            a page can never be droppable into each other. */}
+        <SortableProvider
+          surface={colSurface}
+          axis="x"
+          itemsByContainer={colItems}
+          onDrop={handleColumnDrop}
+        >
+          {({ listProps: colListProps, itemProps: colItemProps }: SortableProps) => (
+          <MaterialReactTable
+            key={`${tableName}-${prefsEmployeeId}-${isInitialized}-${selectedSearchColumn}`}
+            getRowId={rowId}
+            enableRowSelection={enableRowSelection}
+            onRowSelectionChange={setRowSelection}
+            // Let the selection checkbox column be hidden like any other column. MRT's
+            // built-in display columns are not hideable by default, so the checkbox was
+            // permanent for every user on a table that opts into selection — a fixed cost
+            // whether or not they ever select anything. In the Columns panel now, and the
+            // choice persists through the usual preferences (keyed on 'mrt-row-select').
+            displayColumnDefOptions={{
+              'mrt-row-select': { enableHiding: true, header: 'Select' },
+            }}
+            renderDetailPanel={renderDetailPanel}
+            state={{
+              columnVisibility: preferences.columnVisibility,
+              columnOrder: preferences.columnOrder,
+              columnSizing: preferences.columnSizing,
+              columnPinning: preferences.columnPinning,
+              sorting: preferences.sorting,
+              pagination: paginationState || preferences.pagination,
+              density: preferences.density,
+              expanded: preferences.expanded,
+              globalFilter: enableColumnSpecificSearch ? undefined : debouncedFilterValue,
+              // Skeletons ONLY when there is genuinely nothing to show (first load, or an empty
+              // result). MRT's `isLoading` discards the rendered rows and replaces them with grey
+              // skeleton placeholders (see material-react-table dist: "if loading, generate blank
+              // rows to show skeleton loaders"). Passing a plain "fetch in flight" flag here made
+              // every server-side sort/page click blank the table and refill it — read by the user
+              // as "sorting is slow" even though the query itself is ~10ms. The rows were never
+              // actually gone; useServerPagination keeps the previous page in state until the new
+              // one lands. Now they stay put and `showProgressBars` carries the pending signal.
+              isLoading: isLoading && tableData.length === 0,
+              showProgressBars: isLoading,
+              rowSelection,
+            }}
+            onColumnVisibilityChange={updateColumnVisibility}
+            onColumnOrderChange={updateColumnOrder}
+            onColumnSizingChange={updateColumnSizing}
+            onColumnPinningChange={updateColumnPinning}
+            manualSorting={manualSorting}
+            onSortingChange={(updater: any) => {
+              // Persist first (unchanged behaviour), then hand the page the
+              // resolved value. MRT passes either a value or an updater fn.
+              updateSorting(updater);
+              if (onSortingChangeProp) {
+                const next = typeof updater === "function" ? updater(preferences.sorting) : updater;
+                onSortingChangeProp(next ?? []);
               }
-            }
-
-            const colorMap = {
-              approved: { bg: 'rgba(16, 185, 129, 0.04)', border: '#10b981', hover: 'rgba(16, 185, 129, 0.08)' },
-              rejected: { bg: 'rgba(239, 68, 68, 0.04)', border: '#ef4444', hover: 'rgba(239, 68, 68, 0.08)' },
-              pending: { bg: 'rgba(245, 158, 11, 0.04)', border: '#f59e0b', hover: 'rgba(245, 158, 11, 0.08)' },
-            };
-            const c = rowStatus ? colorMap[rowStatus] : null;
-            const statusSx = {
-              backgroundColor: c ? c.bg : undefined,
-              '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
-              transition: 'background-color 0.12s ease',
-              '&:hover td': {
-                backgroundColor: c ? `${c.hover} !important` : '#F8FAFC',
-              },
-            };
-
-            // Merge caller-supplied row props (onClick, cursor, etc.) ON TOP of the status styling.
-            const custom = muiTableProps?.muiTableBodyRowProps ? (muiTableProps.muiTableBodyRowProps(rowArgs) as any) : {};
-            const { sx: customSx, ...customRest } = custom || {};
-            // 14 legacy pages force `nowrap + overflow:hidden + ellipsis` on every cell
-            // through this same selector, which outranks muiTableBodyCellProps and clipped
-            // values like "abdul.tawwab@mcdonaldsindia.com". Re-assert wrapping last while
-            // keeping the rest of their cell styling (font, borders, radius).
-            const customCellSx = (customSx as any)?.["& .MuiTableCell-root"] || {};
-            return {
-              ...customRest,
+            }}
+            muiTableBodyProps={muiTableBodyProps}
+            onPaginationChange={onPaginationChange || updatePagination}
+            onDensityChange={updateDensity}
+            onExpandedChange={updateExpanded}
+            manualPagination={manualPagination}
+            rowCount={manualPagination ? rowCount : undefined}
+            enablePagination={paginationDisabled ? false : undefined}
+            // OFF, always: ours replaces it. MRT's is native HTML5 drag, so the BROWSER owns
+            // the preview — it cannot be tilted, moved per frame, or offset from the cursor,
+            // which is the whole reason the board stopped using native drag too.
+            enableColumnDragging={false}
+            enableColumnResizing={enableColumnResizing ?? false}
+            enableColumnPinning={isMobile ? false : (enableColumnPinning ?? true)}
+            enableGrouping={enableGrouping ?? true}
+            enableSorting={enableSorting ?? true}
+            enableExpandAll={enableExpandAll ?? true}
+            enableRowVirtualization={enableRowVirtualization}
+            enableStickyHeader
+            enableStickyFooter={showColumnFooter}
+            enableBottomToolbar={enableBottomToolbar ?? true}
+            enableTableHead={enableTableHead ?? true}
+            enableColumnFilters={enableFilters ?? true}
+            enableGlobalFilter={!enableColumnSpecificSearch}
+            onGlobalFilterChange={handleGlobalFilterChange}
+            globalFilterFn={intelligentSearchFilterFn as any}
+            enableColumnActions={enableColumnActions ?? true}
+            enableHiding={enableHiding ?? true}
+            enableFullScreenToggle={enableFullScreenToggle ?? true}
+            // Rebuild the built-in icon strip so a "Reset layout" button can sit
+            // beside the column show/hide toggle. Mirrors the default buttons and
+            // their enable-flags (density toggle is globally off for this table).
+            renderToolbarInternalActions={({ table }) => (
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                {!enableColumnSpecificSearch && <MRT_ToggleGlobalFilterButton table={table} />}
+                {(enableFilters ?? true) && <MRT_ToggleFiltersButton table={table} />}
+                {(enableHiding ?? true) && <ShowHideColumnsButton table={table} />}
+                <Tooltip title="Reset columns to default layout">
+                  <IconButton
+                    aria-label="Reset columns to default layout"
+                    onClick={() => resetPreferences()}
+                  >
+                    <KTIcon iconName="arrows-circle" className="fs-2" />
+                  </IconButton>
+                </Tooltip>
+                {(enableFullScreenToggle ?? true) && <MRT_ToggleFullScreenButton table={table} />}
+              </Box>
+            )}
+            // The header row is the container; each header cell is a draggable.
+            //
+            // THE HANDLE IS THE WHOLE CONTENT ROW, not the label inside it. `-Content-Labels`
+            // is a flex box only as wide as the header text, so using it left a grabbable strip
+            // of a few characters with dead space either side — the column read as undraggable
+            // unless you happened to press the word itself. `-Content` spans the cell.
+            //
+            // AND THE RESIZE GRIP IS CUT BACK OUT OF IT. The grip renders inside that same
+            // content box, so the handle alone handed its pixels to the drag and resizing
+            // stopped working — two gestures over one strip, with the wrong one winning. The
+            // actions menu is a real <button>, which the engine already refuses to drag from.
+            muiTableHeadRowProps={colListProps("cols", !columnDragEnabled)}
+            muiTableHeadCellProps={({ column }: any) => ({
+              ...(columnDragEnabled
+                ? colItemProps(column.id, "cols", {
+                    handle: ".Mui-TableHeadCell-Content",
+                    exclude: ".Mui-TableHeadCell-ResizeHandle-Wrapper",
+                  })
+                : {}),
               sx: {
-                ...statusSx,
-                ...(customSx || {}),
-                "& .MuiTableCell-root": {
-                  ...customCellSx,
-                  whiteSpace: "normal",
+                backgroundColor: "#FAFBFC",
+                color: "#667085",
+                fontWeight: 600,
+                fontSize: "12px",
+                letterSpacing: "0.03em",
+                textTransform: "uppercase",
+
+                ...(columnDragEnabled
+                  ? {
+                      // The cursor is the only thing that says a column can be moved, now that
+                      // MRT's grab-handle icon is gone with its drag implementation.
+                      "& .Mui-TableHeadCell-Content": { cursor: "grab" },
+                      "& .Mui-TableHeadCell-Content:active": { cursor: "grabbing" },
+                      // The grip is inside that box and means something else entirely. It has
+                      // to say so, or the only clue that resizing still exists is trying it.
+                      "& .Mui-TableHeadCell-ResizeHandle-Wrapper": { cursor: "col-resize" },
+                    }
+                  : {}),
+
+                // Padding, not a fixed height: a fixed height clips wrapped headers in grid
+                // layout mode, and min-height is ignored on <th> in table layout mode.
+                padding: "16px",
+                minHeight: "48px",
+
+                borderBottom: "2px solid #EAECF0",
+                borderRight: "1px solid #F2F4F7",
+
+                // Header labels wrap onto a second line instead of truncating to "SUB …".
+                whiteSpace: "normal",
+                verticalAlign: "middle",
+                boxSizing: "border-box",
+                userSelect: "none",
+
+                "& .Mui-TableHeadCell-Content": {
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  width: "100%",
+                  height: "100%",
+                  minWidth: 0,
+                  // Containing block for the actions button. Deliberately on this inner
+                  // div and NOT on the <th> — MRT gives pinned header cells
+                  // `position: sticky`, and overriding that would unpin them.
+                  position: "relative",
+                },
+
+                "& .Mui-TableHeadCell-Content-Labels": {
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  overflow: "visible",
+                },
+
+                // MRT floors the label wrapper at `min-width: 4ch` and lets flex shrink it there,
+                // which chops "SUB ORGANIZATION" into "SUB / ORGA / NIZATI / ON". Raising the floor
+                // to min-content means it wraps on word boundaries and never mid-word.
+                "& .Mui-TableHeadCell-Content-Wrapper": {
+                  minWidth: "min-content",
                   overflow: "visible",
                   textOverflow: "clip",
-                  overflowWrap: "anywhere",
+                  whiteSpace: "normal",
+                  lineHeight: 1.3,
+                },
+
+                "& .MuiTableSortLabel-root": {
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  flexShrink: 0,
+                },
+
+                "&:last-child": {
+                  borderRight: "none",
+                },
+
+                "&:hover": {
+                  backgroundColor: "#F3F4F6",
+                  color: "#4B5563",
+                },
+
+                // `opacity: 0` hides the column-actions button but it still occupies its
+                // full width in EVERY header, permanently narrowing the label. Taking it
+                // out of flow means the label gets the whole cell; on hover it fades in
+                // over the label's tail rather than shoving the text sideways.
+                "& .Mui-TableHeadCell-Content-Actions": {
+                  position: "absolute",
+                  right: "4px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  opacity: 0,
+                  pointerEvents: "none",
+                  transition: "opacity 0.15s ease",
+                },
+
+                "&:hover .Mui-TableHeadCell-Content-Actions": {
+                  opacity: 1,
+                  pointerEvents: "auto",
+                },
+
+                ...pinnedCellSx(mode),
+                "&[data-pinned='true']": {
+                  zIndex: 3,
+                },
+                "&:not([data-pinned='true'])": {
+                  scrollSnapAlign: "start",
+                },
+
+
+                ...muiTableHeadCellStyle,
+              },
+            })}
+            muiTableHeadProps={{
+              // MRT hardcodes opacity 0.97 on <thead>; body rows ghost through the sticky header.
+              sx: { opacity: 1 },
+            }}
+            muiTableBodyCellProps={{
+              sx: {
+                padding: "16px",
+                minHeight: "52px",
+                fontSize: "13px",
+                color: "#374151",
+                borderBottom: "1px solid #F3F4F6",
+                borderRight: "1px solid #F9FAFB",
+                verticalAlign: "middle",
+                boxSizing: "border-box",
+                // Grid layout mode (column pinning) clips body cells to one nowrap line, which
+                // chopped "Shashi Prabhu and Associates" mid-word. Wrap instead of truncating.
+                whiteSpace: "normal",
+                overflow: "visible",
+                textOverflow: "clip",
+                overflowWrap: "anywhere",
+                transition: "background-color 0.15s ease",
+                "&:last-child": {
+                  borderRight: "none",
+                },
+                ...pinnedCellSx(mode),
+                "&[data-pinned='true']": {
+                  zIndex: 1,
                 },
               },
-            };
-          }}
-          renderEmptyRowsFallback={() => (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "56px 24px",
-                gap: "12px",
-              }}
-            >
+            }}
+            muiTableContainerProps={{
+              ref: tableContainerRef,
+              ...customMuiTableContainerProps,
+              sx: {
+                overflowX: "auto",
+                // Sticky footer/header only bite inside a height-bounded scroller.
+                ...(showColumnFooter ? { maxHeight: "70vh" } : {}),
+                scrollSnapType: "x proximity",
+                scrollPaddingLeft: `${leftPinnedWidth}px`,
+
+                ...(customMuiTableContainerProps?.sx || {}),
+              },
+            }}
+            layoutMode={layoutMode}
+            {...muiTableProps}
+            muiTableBodyRowProps={(rowArgs: any) => {
+              const { row } = rowArgs;
+              // Status-based row color coding — computed here so it ALWAYS applies, even when the
+              // caller supplies custom row props (e.g. an onClick). The two are merged below.
+              let rowStatus: 'approved' | 'rejected' | 'pending' | null = null;
+              if (enableStatusColorCoding) {
+                // Accept a numeric `status` (e.g. grouped leave rows use status: 0|1|2) as the status
+                // number too — otherwise it stringifies to "1" and never matches the labels below.
+                const sn = row.original?.statusNumber ?? (typeof row.original?.status === 'number' ? row.original.status : undefined);
+                const statusStr = String(row.original?.status || '').toLowerCase();
+                if (sn !== undefined && sn !== null) {
+                  if (sn === Status.Approved) rowStatus = 'approved';
+                  else if (sn === Status.Rejected) rowStatus = 'rejected';
+                  else if (sn === Status.ApprovalNeeded) rowStatus = 'pending';
+                } else if (statusStr) {
+                  if (statusStr === 'approved' || statusStr === 'active') rowStatus = 'approved';
+                  else if (statusStr === 'rejected' || statusStr === 'declined' || statusStr === 'inactive') rowStatus = 'rejected';
+                  else if (statusStr === 'pending' || statusStr === 'waiting' || statusStr === 'under review') rowStatus = 'pending';
+                }
+              }
+
+              const colorMap = {
+                approved: { bg: 'rgba(16, 185, 129, 0.04)', border: '#10b981', hover: 'rgba(16, 185, 129, 0.08)' },
+                rejected: { bg: 'rgba(239, 68, 68, 0.04)', border: '#ef4444', hover: 'rgba(239, 68, 68, 0.08)' },
+                pending: { bg: 'rgba(245, 158, 11, 0.04)', border: '#f59e0b', hover: 'rgba(245, 158, 11, 0.08)' },
+              };
+              const c = rowStatus ? colorMap[rowStatus] : null;
+              const statusSx = {
+                backgroundColor: c ? c.bg : undefined,
+                '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
+                transition: 'background-color 0.12s ease',
+                '&:hover td': {
+                  backgroundColor: c ? `${c.hover} !important` : '#F8FAFC',
+                },
+              };
+
+              // Merge caller-supplied row props (onClick, cursor, etc.) ON TOP of the status styling.
+              const custom = muiTableProps?.muiTableBodyRowProps ? (muiTableProps.muiTableBodyRowProps(rowArgs) as any) : {};
+              const { sx: customSx, ...customRest } = custom || {};
+              // 14 legacy pages force `nowrap + overflow:hidden + ellipsis` on every cell
+              // through this same selector, which outranks muiTableBodyCellProps and clipped
+              // values like "abdul.tawwab@mcdonaldsindia.com". Re-assert wrapping last while
+              // keeping the rest of their cell styling (font, borders, radius).
+              const customCellSx = (customSx as any)?.["& .MuiTableCell-root"] || {};
+              return {
+                ...customRest,
+                sx: {
+                  ...statusSx,
+                  ...(customSx || {}),
+                  "& .MuiTableCell-root": {
+                    ...customCellSx,
+                    whiteSpace: "normal",
+                    overflow: "visible",
+                    textOverflow: "clip",
+                    overflowWrap: "anywhere",
+                  },
+                },
+              };
+            }}
+            renderEmptyRowsFallback={() => (
               <div
                 style={{
-                  width: "56px",
-                  height: "56px",
-                  borderRadius: "16px",
-                  backgroundColor: "#F9FAFB",
-                  border: "1px solid #E5E7EB",
                   display: "flex",
+                  flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
+                  padding: "56px 24px",
+                  gap: "12px",
                 }}
               >
-                <KTIcon iconName="search-list" className="fs-1 text-gray-400" />
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <p style={{ fontSize: "14px", fontWeight: 600, color: "#374151", margin: "0 0 4px" }}>
-                  No records found
-                </p>
-                <p style={{ fontSize: "13px", color: "#9CA3AF", margin: 0 }}>
-                  Try adjusting your search or filters
-                </p>
-              </div>
-            </div>
-          )}
-          enableDensityToggle={false}
-          initialState={{
-            density: "comfortable",
-          }}
-          data={tableData}
-          columns={sizedColumns}
-          muiTableFooterProps={{
-            sx: showColumnFooter
-              ? {
-                opacity: 1, // MRT dims sticky footers to 0.97; rows must not bleed through
-                "& .MuiTableCell-footer": {
-                  ...pinnedCellSx(mode),
-                  backgroundColor: "#f8f9fa",
-                  color: "#0f172a",
-                  fontWeight: 800,
-                  borderTop: "2.5px solid #1E3A8A",
-                  fontSize: "1rem",
-                  letterSpacing: "0.01em",
-                  paddingTop: "14px",
-                  paddingBottom: "14px",
-                },
-                "& .MuiTableCell-footer:first-of-type": {
-                  borderBottomLeftRadius: "8px",
-                },
-                "& .MuiTableCell-footer:last-of-type": {
-                  borderBottomRightRadius: "8px",
-                },
-              }
-              : {
-                display: "none",
-              },
-          }}
-          muiTopToolbarProps={{
-            sx: {
-              display: `${hideFilters ? "none" : ""}`,
-            },
-          }}
-          renderTopToolbarCustomActions={({ table }) => {
-            if (
-              !enableColumnSpecificSearch ||
-              !effectiveSearchableColumns ||
-              effectiveSearchableColumns.length === 0
-            ) {
-              return null;
-            }
-
-            // Mobile view: Search interface is now handled outside, so return null
-            if (isMobile) {
-              return null;
-            }
-
-            // Desktop view: Show both dropdowns normally
-            const columnSelectOptions = [
-              { label: "All Columns", value: "all" },
-              ...effectiveSearchableColumns
-                .filter((col: any) => col.value !== "all")
-                .map((col: any) => ({
-                  label: col.label,
-                  value: col.value,
-                })),
-            ];
-
-            const currentValue = columnSelectOptions.find(
-              (opt) => opt.value === selectedSearchColumn,
-            );
-
-            return (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "10px 16px",
-                  flexWrap: "wrap",
-                  position: "relative",
-                  zIndex: 1000,
-                }}
-              >
-                {/* Column selector */}
-                <Box
-                  sx={{
-                    minWidth: "150px",
-                    maxWidth: "200px",
-                    position: "relative",
-                    zIndex: 1001,
+                <div
+                  style={{
+                    width: "56px",
+                    height: "56px",
+                    borderRadius: "16px",
+                    backgroundColor: "#F9FAFB",
+                    border: "1px solid #E5E7EB",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  <SelectInput
-                    options={columnSelectOptions}
-                    placeholder="Search Column"
-                    value={currentValue}
-                    dropdown="search_column_select"
-                    passData={handleSearchColumnChange}
-                  />
-                </Box>
-
-                {/* Search input with icon */}
-                <Box sx={{ position: "relative", minWidth: "220px", maxWidth: "320px" }}>
-                  <span
-                    style={{
-                      position: "absolute",
-                      left: "10px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      display: "flex",
-                      alignItems: "center",
-                      pointerEvents: "none",
-                      color: "#9CA3AF",
-                    }}
-                  >
-                    <KTIcon iconName="magnifier" className="fs-5" />
-                  </span>
-                  <input
-                    type="text"
-                    placeholder={
-                      searchPlaceholder && (!currentValue || currentValue.value === "all")
-                        ? searchPlaceholder
-                        : `Search in ${currentValue?.label || "All Columns"}…`
-                    }
-                    value={globalFilterValue}
-                    onChange={(e) => handleGlobalFilterChange(e.target.value)}
-                    className="et-search-input"
-                    style={{
-                      width: "100%",
-                      paddingLeft: "34px",
-                      paddingRight: globalFilterValue ? "32px" : "12px",
-                      paddingTop: "8px",
-                      paddingBottom: "8px",
-                      fontSize: "13px",
-                      border: "1px solid #E5E7EB",
-                      borderRadius: "8px",
-                      outline: "none",
-                      backgroundColor: "#FAFAFA",
-                      color: "#374151",
-                      transition: "border-color 0.15s ease, box-shadow 0.15s ease",
-                    }}
-                  />
-                  {globalFilterValue && (
-                    <Tooltip title="Clear search">
-                      <span>
-                      <button
-                        onClick={() => handleGlobalFilterChange("")}
-                        style={{
-                          position: "absolute",
-                          right: "8px",
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: "18px",
-                          height: "18px",
-                          borderRadius: "50%",
-                          border: "none",
-                          backgroundColor: "#D1D5DB",
-                          cursor: "pointer",
-                          padding: 0,
-                          color: "#6B7280",
-                          fontSize: "10px",
-                          lineHeight: 1,
-                          transition: "background-color 0.15s ease",
-                        }}
-                        aria-label="Clear search"
-                      >
-                        ✕
-                      </button>
-                      </span>
-                    </Tooltip>
-                  )}
-                </Box>
-
-                {renderTopToolbarRightActions?.()}
-
-                {/* Result count pill */}
-                {globalFilterValue && (
-                  <Box
-                    sx={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      padding: "4px 10px",
-                      borderRadius: "20px",
-                      backgroundColor: "#FEF2F2",
-                      border: "1px solid #FECACA",
-                    }}
-                  >
-                    <span style={{ fontSize: "12px", color: "#6B7280" }}>
-                      in <strong style={{ color: "#374151" }}>{currentValue?.label || "All Columns"}</strong>
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "12px",
-                        fontWeight: 700,
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
-                    </span>
-                  </Box>
-                )}
-              </Box>
-            );
-          }}
-          muiTablePaperProps={{
-            sx: {
-              ...muiTablePaperStyle,
-            },
-          }}
-          muiBottomToolbarProps={{
-            sx: {
-              "& .MuiTablePagination-root": {
-                display: "none",
+                  <KTIcon iconName="search-list" className="fs-1 text-gray-400" />
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: "14px", fontWeight: 600, color: "#374151", margin: "0 0 4px" }}>
+                    No records found
+                  </p>
+                  <p style={{ fontSize: "13px", color: "#9CA3AF", margin: 0 }}>
+                    Try adjusting your search or filters
+                  </p>
+                </div>
+              </div>
+            )}
+            enableDensityToggle={false}
+            initialState={{
+              density: "comfortable",
+            }}
+            data={tableData}
+            columns={sizedColumns}
+            muiTableFooterProps={{
+              sx: showColumnFooter
+                ? {
+                  opacity: 1, // MRT dims sticky footers to 0.97; rows must not bleed through
+                  "& .MuiTableCell-footer": {
+                    ...pinnedCellSx(mode),
+                    backgroundColor: "#f8f9fa",
+                    color: "#0f172a",
+                    fontWeight: 800,
+                    borderTop: "2.5px solid #1E3A8A",
+                    fontSize: "1rem",
+                    letterSpacing: "0.01em",
+                    paddingTop: "14px",
+                    paddingBottom: "14px",
+                  },
+                  "& .MuiTableCell-footer:first-of-type": {
+                    borderBottomLeftRadius: "8px",
+                  },
+                  "& .MuiTableCell-footer:last-of-type": {
+                    borderBottomRightRadius: "8px",
+                  },
+                }
+                : {
+                  display: "none",
+                },
+            }}
+            muiTopToolbarProps={{
+              sx: {
+                display: `${hideFilters ? "none" : ""}`,
               },
-            },
-          }}
-          renderBottomToolbarCustomActions={({ table }) => {
-            // Hide pagination when disabled or when there is no data
-            if (!finalData || finalData.length === 0) {
-              return null;
-            }
-
-            const pageIndex = table.getState().pagination.pageIndex;
-            const pageSize = table.getState().pagination.pageSize;
-            const totalPages = table.getPageCount();
-            const totalRows = manualPagination
-              ? rowCount || 0
-              : finalData.length;
-
-            const getPageNumbers = () => {
-              const pages: number[] = [];
-              const maxVisible = isMobile ? 5 : 7; // Show 7 on desktop, 5 on mobile
-              const siblingCount = isMobile ? 1 : 2; // Pages on each side of current
-
-              if (totalPages <= maxVisible) {
-                // Show all pages if total is small
-                for (let i = 0; i < totalPages; i++) {
-                  pages.push(i);
-                }
-              } else {
-                // Always show first page
-                pages.push(0);
-
-                // Calculate range around current page
-                const leftSiblingIndex = Math.max(pageIndex - siblingCount, 1);
-                const rightSiblingIndex = Math.min(
-                  pageIndex + siblingCount,
-                  totalPages - 2,
-                );
-
-                const showLeftEllipsis = leftSiblingIndex > 1;
-                const showRightEllipsis = rightSiblingIndex < totalPages - 2;
-
-                // Add left ellipsis
-                if (showLeftEllipsis) {
-                  pages.push(-1);
-                }
-
-                // Add pages around current page
-                for (let i = leftSiblingIndex; i <= rightSiblingIndex; i++) {
-                  pages.push(i);
-                }
-
-                // Add right ellipsis
-                if (showRightEllipsis) {
-                  pages.push(-2);
-                }
-
-                // Always show last page
-                pages.push(totalPages - 1);
+            }}
+            renderTopToolbarCustomActions={({ table }) => {
+              if (
+                !enableColumnSpecificSearch ||
+                !effectiveSearchableColumns ||
+                effectiveSearchableColumns.length === 0
+              ) {
+                return null;
               }
 
-              return pages;
-            };
+              // Mobile view: Search interface is now handled outside, so return null
+              if (isMobile) {
+                return null;
+              }
 
-            return (
-              <Box sx={{ width: "100%" }}>
-                {/* Custom horizontal scrollbar — its own row above the pagination so it
-                    never overlaps the footer text (esp. inside narrow modals). Collapsed
-                    to display:none by syncThumb when the table doesn't overflow. */}
-                {!hideExportCenter && (
-                  <div
-                    ref={scrollBarWrapRef}
-                    style={{
-                      display: "none",
-                      alignItems: "center",
-                      gap: "10px",
-                      width: "100%",
-                      maxWidth: "560px",
-                      margin: "8px auto 0",
-                      padding: "0 16px",
-                      boxSizing: "border-box",
-                    }}
-                  >
-                    {/* Track */}
-                    <div
-                      ref={scrollTrackRef}
-                      onClick={(e) => {
-                        const track = scrollTrackRef.current;
-                        const el = tableContainerRef.current;
-                        if (!track || !el || isDraggingHScroll.current) return;
-                        const rect = track.getBoundingClientRect();
-                        const ratio = (e.clientX - rect.left) / rect.width;
-                        el.scrollLeft = ratio * (el.scrollWidth - el.clientWidth);
-                      }}
-                      style={{
-                        flex: 1,
-                        height: '6px',
-                        borderRadius: '99px',
-                        backgroundColor: '#d1d5db',
-                        position: 'relative',
-                        cursor: 'pointer',
-                        transition: 'height 0.18s ease',
-                      }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.height = '8px'; }}
-                      onMouseLeave={e => { if (!isDraggingHScroll.current) (e.currentTarget as HTMLDivElement).style.height = '6px'; }}
-                    >
-                      {/* Thumb */}
-                      <div
-                        ref={scrollThumbRef}
-                        onPointerDown={onThumbPointerDown}
-                        onPointerMove={onThumbPointerMove}
-                        onPointerUp={onThumbPointerUp}
-                        onPointerCancel={onThumbPointerUp}
-                        onMouseEnter={e => {
-                          if (!isDraggingHScroll.current) {
-                            (e.currentTarget as HTMLDivElement).style.backgroundColor = '#6b7280';
-                            (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 0 3px rgba(107,114,128,0.2)';
-                          }
-                        }}
-                        onMouseLeave={e => {
-                          if (!isDraggingHScroll.current) {
-                            (e.currentTarget as HTMLDivElement).style.backgroundColor = '#9ca3af';
-                            (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
-                          }
-                        }}
-                        style={{
-                          position: 'absolute',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          /* left + width intentionally omitted — owned by syncThumb via direct DOM */
-                          height: '140%',
-                          minWidth: '24px',
-                          borderRadius: '99px',
-                          backgroundColor: '#9ca3af',
-                          cursor: 'grab',
-                          transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
-                          userSelect: 'none',
-                          touchAction: 'none',
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
+              // Desktop view: Show both dropdowns normally
+              const columnSelectOptions = [
+                { label: "All Columns", value: "all" },
+                ...effectiveSearchableColumns
+                  .filter((col: any) => col.value !== "all")
+                  .map((col: any) => ({
+                    label: col.label,
+                    value: col.value,
+                  })),
+              ];
+
+              const currentValue = columnSelectOptions.find(
+                (opt) => opt.value === selectedSearchColumn,
+              );
+
+              return (
                 <Box
                   sx={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: { xs: "8px", md: "16px" },
-                    padding: { xs: "12px", md: "16px" },
+                    gap: "10px",
+                    padding: "10px 16px",
                     flexWrap: "wrap",
                     position: "relative",
+                    zIndex: 1000,
                   }}
                 >
-                  {/* Left Side: Export */}
+                  {/* Column selector */}
+                  <Box
+                    sx={{
+                      minWidth: "150px",
+                      maxWidth: "200px",
+                      position: "relative",
+                      zIndex: 1001,
+                    }}
+                  >
+                    <SelectInput
+                      options={columnSelectOptions}
+                      placeholder="Search Column"
+                      value={currentValue}
+                      dropdown="search_column_select"
+                      passData={handleSearchColumnChange}
+                    />
+                  </Box>
+
+                  {/* Search input with icon */}
+                  <Box sx={{ position: "relative", minWidth: "220px", maxWidth: "320px" }}>
+                    <span
+                      style={{
+                        position: "absolute",
+                        left: "10px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        display: "flex",
+                        alignItems: "center",
+                        pointerEvents: "none",
+                        color: "#9CA3AF",
+                      }}
+                    >
+                      <KTIcon iconName="magnifier" className="fs-5" />
+                    </span>
+                    <input
+                      type="text"
+                      placeholder={
+                        searchPlaceholder && (!currentValue || currentValue.value === "all")
+                          ? searchPlaceholder
+                          : `Search in ${currentValue?.label || "All Columns"}…`
+                      }
+                      value={globalFilterValue}
+                      onChange={(e) => handleGlobalFilterChange(e.target.value)}
+                      className="et-search-input"
+                      style={{
+                        width: "100%",
+                        paddingLeft: "34px",
+                        paddingRight: globalFilterValue ? "32px" : "12px",
+                        paddingTop: "8px",
+                        paddingBottom: "8px",
+                        fontSize: "13px",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "8px",
+                        outline: "none",
+                        backgroundColor: "#FAFAFA",
+                        color: "#374151",
+                        transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+                      }}
+                    />
+                    {globalFilterValue && (
+                      <Tooltip title="Clear search">
+                        <span>
+                        <button
+                          onClick={() => handleGlobalFilterChange("")}
+                          style={{
+                            position: "absolute",
+                            right: "8px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "18px",
+                            height: "18px",
+                            borderRadius: "50%",
+                            border: "none",
+                            backgroundColor: "#D1D5DB",
+                            cursor: "pointer",
+                            padding: 0,
+                            color: "#6B7280",
+                            fontSize: "10px",
+                            lineHeight: 1,
+                            transition: "background-color 0.15s ease",
+                          }}
+                          aria-label="Clear search"
+                        >
+                          ✕
+                        </button>
+                        </span>
+                      </Tooltip>
+                    )}
+                  </Box>
+
+                  {renderTopToolbarRightActions?.()}
+
+                  {/* Result count pill */}
+                  {globalFilterValue && (
+                    <Box
+                      sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        padding: "4px 10px",
+                        borderRadius: "20px",
+                        backgroundColor: "#FEF2F2",
+                        border: "1px solid #FECACA",
+                      }}
+                    >
+                      <span style={{ fontSize: "12px", color: "#6B7280" }}>
+                        in <strong style={{ color: "#374151" }}>{currentValue?.label || "All Columns"}</strong>
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          color: "#1E3A8A",
+                        }}
+                      >
+                        {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
+                      </span>
+                    </Box>
+                  )}
+                </Box>
+              );
+            }}
+            muiTablePaperProps={{
+              sx: {
+                ...muiTablePaperStyle,
+              },
+            }}
+            muiBottomToolbarProps={{
+              sx: {
+                "& .MuiTablePagination-root": {
+                  display: "none",
+                },
+              },
+            }}
+            renderBottomToolbarCustomActions={({ table }) => {
+              // Hide pagination when disabled or when there is no data
+              if (!finalData || finalData.length === 0) {
+                return null;
+              }
+
+              const pageIndex = table.getState().pagination.pageIndex;
+              const pageSize = table.getState().pagination.pageSize;
+              const totalPages = table.getPageCount();
+              const totalRows = manualPagination
+                ? rowCount || 0
+                : finalData.length;
+
+              const getPageNumbers = () => {
+                const pages: number[] = [];
+                const maxVisible = isMobile ? 5 : 7; // Show 7 on desktop, 5 on mobile
+                const siblingCount = isMobile ? 1 : 2; // Pages on each side of current
+
+                if (totalPages <= maxVisible) {
+                  // Show all pages if total is small
+                  for (let i = 0; i < totalPages; i++) {
+                    pages.push(i);
+                  }
+                } else {
+                  // Always show first page
+                  pages.push(0);
+
+                  // Calculate range around current page
+                  const leftSiblingIndex = Math.max(pageIndex - siblingCount, 1);
+                  const rightSiblingIndex = Math.min(
+                    pageIndex + siblingCount,
+                    totalPages - 2,
+                  );
+
+                  const showLeftEllipsis = leftSiblingIndex > 1;
+                  const showRightEllipsis = rightSiblingIndex < totalPages - 2;
+
+                  // Add left ellipsis
+                  if (showLeftEllipsis) {
+                    pages.push(-1);
+                  }
+
+                  // Add pages around current page
+                  for (let i = leftSiblingIndex; i <= rightSiblingIndex; i++) {
+                    pages.push(i);
+                  }
+
+                  // Add right ellipsis
+                  if (showRightEllipsis) {
+                    pages.push(-2);
+                  }
+
+                  // Always show last page
+                  pages.push(totalPages - 1);
+                }
+
+                return pages;
+              };
+
+              return (
+                <Box sx={{ width: "100%" }}>
+                  {/* Custom horizontal scrollbar — its own row above the pagination so it
+                      never overlaps the footer text (esp. inside narrow modals). Collapsed
+                      to display:none by syncThumb when the table doesn't overflow. */}
+                  {!hideExportCenter && (
+                    <div
+                      ref={scrollBarWrapRef}
+                      style={{
+                        display: "none",
+                        alignItems: "center",
+                        gap: "10px",
+                        width: "100%",
+                        maxWidth: "560px",
+                        margin: "8px auto 0",
+                        padding: "0 16px",
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      {/* Track */}
+                      <div
+                        ref={scrollTrackRef}
+                        onClick={(e) => {
+                          const track = scrollTrackRef.current;
+                          const el = tableContainerRef.current;
+                          if (!track || !el || isDraggingHScroll.current) return;
+                          const rect = track.getBoundingClientRect();
+                          const ratio = (e.clientX - rect.left) / rect.width;
+                          el.scrollLeft = ratio * (el.scrollWidth - el.clientWidth);
+                        }}
+                        style={{
+                          flex: 1,
+                          height: '6px',
+                          borderRadius: '99px',
+                          backgroundColor: '#d1d5db',
+                          position: 'relative',
+                          cursor: 'pointer',
+                          transition: 'height 0.18s ease',
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.height = '8px'; }}
+                        onMouseLeave={e => { if (!isDraggingHScroll.current) (e.currentTarget as HTMLDivElement).style.height = '6px'; }}
+                      >
+                        {/* Thumb */}
+                        <div
+                          ref={scrollThumbRef}
+                          onPointerDown={onThumbPointerDown}
+                          onPointerMove={onThumbPointerMove}
+                          onPointerUp={onThumbPointerUp}
+                          onPointerCancel={onThumbPointerUp}
+                          onMouseEnter={e => {
+                            if (!isDraggingHScroll.current) {
+                              (e.currentTarget as HTMLDivElement).style.backgroundColor = '#6b7280';
+                              (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 0 3px rgba(107,114,128,0.2)';
+                            }
+                          }}
+                          onMouseLeave={e => {
+                            if (!isDraggingHScroll.current) {
+                              (e.currentTarget as HTMLDivElement).style.backgroundColor = '#9ca3af';
+                              (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+                            }
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            /* left + width intentionally omitted — owned by syncThumb via direct DOM */
+                            height: '140%',
+                            minWidth: '24px',
+                            borderRadius: '99px',
+                            backgroundColor: '#9ca3af',
+                            cursor: 'grab',
+                            transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
+                            userSelect: 'none',
+                            touchAction: 'none',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                   <Box
                     sx={{
                       display: "flex",
                       alignItems: "center",
-                      gap: { xs: "6px", md: "12px" },
-                      flexWrap: { xs: "nowrap", lg: "wrap" },
-                      width: { xs: "100%", lg: "auto" },
+                      justifyContent: "space-between",
+                      gap: { xs: "8px", md: "16px" },
+                      padding: { xs: "12px", md: "16px" },
+                      flexWrap: "wrap",
+                      position: "relative",
                     }}
                   >
-                    {/* Bulk actions for the current selection. Rendered only while rows are
-                        selected, so the toolbar is unchanged for every table that has not
-                        opted into selection. */}
-                    {enableRowSelection && selectedRows.length > 0 && renderSelectionActions
-                      ? renderSelectionActions(selectedRows)
-                      : null}
+                    {/* Left Side: Export */}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: { xs: "6px", md: "12px" },
+                        flexWrap: { xs: "nowrap", lg: "wrap" },
+                        width: { xs: "100%", lg: "auto" },
+                      }}
+                    >
+                      {/* Bulk actions for the current selection. Rendered only while rows are
+                          selected, so the toolbar is unchanged for every table that has not
+                          opted into selection. */}
+                      {enableRowSelection && selectedRows.length > 0 && renderSelectionActions
+                        ? renderSelectionActions(selectedRows)
+                        : null}
 
-                    {/* Pages that supply their own ExportButton via renderExportActions pass a
-                        static column list, which would otherwise export columns the user has
-                        toggled off. The provider lets ExportButton drop them wherever it sits. */}
-                    <ExportVisibilityContext.Provider value={preferences.columnVisibility || {}}>
-                    {renderExportActions ? (
-                      renderExportActions()
-                    ) : !hideExportCenter ? (
-                      <ExportButton
-                        // Export the SELECTION when there is one — "export" after ticking
-                        // rows means those rows, not the whole table. Falls back to
-                        // everything when nothing is selected, which is the old behaviour.
-                        data={selectedRows.length > 0 ? selectedRows : tableData}
-                        columns={autoExportCols}
-                        filename={tableName}
-                        title={autoExportTitle}
-                        sheetName={tableName.slice(0, 31)}
-                        disabled={tableData.length === 0}
-                      />
-                    ) : null}
-                    </ExportVisibilityContext.Provider>
+                      {/* Pages that supply their own ExportButton via renderExportActions pass a
+                          static column list, which would otherwise export columns the user has
+                          toggled off. The provider lets ExportButton drop them wherever it sits. */}
+                      <ExportVisibilityContext.Provider value={preferences.columnVisibility || {}}>
+                      {renderExportActions ? (
+                        renderExportActions()
+                      ) : !hideExportCenter ? (
+                        <ExportButton
+                          // Export the SELECTION when there is one — "export" after ticking
+                          // rows means those rows, not the whole table. Falls back to
+                          // everything when nothing is selected, which is the old behaviour.
+                          data={selectedRows.length > 0 ? selectedRows : tableData}
+                          columns={autoExportCols}
+                          filename={tableName}
+                          title={autoExportTitle}
+                          sheetName={tableName.slice(0, 31)}
+                          disabled={tableData.length === 0}
+                        />
+                      ) : null}
+                      </ExportVisibilityContext.Provider>
 
-                    {/* Rows per page — hidden when pagination is disabled (all rows shown) */}
-                    {!paginationDisabled && (
+                      {/* Rows per page — hidden when pagination is disabled (all rows shown) */}
+                      {!paginationDisabled && (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: { xs: "6px", md: "8px" },
+                            ml: { xs: 0, lg: 1 },
+                            flexShrink: 0,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: "13px",
+                              fontWeight: 500,
+                              color: "#6B7280",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {isMobile ? "Rows:" : "Rows per page:"}
+                          </span>
+                          <ButtonGroup
+                            variant="outlined"
+                            size="small"
+                            sx={{
+                              borderRadius: '10px',
+                              overflow: 'hidden',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                            }}
+                          >
+                            <Button
+                              onClick={(e) => setRowsAnchorEl(e.currentTarget)}
+                              sx={{
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                fontSize: isMobile ? 12 : 13,
+                                borderColor: '#e5e7eb',
+                                color: '#374151',
+                                borderRadius: '10px 0 0 10px',
+                                px: isMobile ? 1 : 1.5,
+                                py: 0.6,
+                                minWidth: 'unset',
+                                '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+                              }}
+                            >
+                              {pageSize}
+                            </Button>
+                            <Button
+                              onClick={(e) => setRowsAnchorEl(e.currentTarget)}
+                              sx={{
+                                borderColor: '#e5e7eb',
+                                color: '#9ca3af',
+                                borderRadius: '0 10px 10px 0',
+                                px: 0.4,
+                                minWidth: 'unset',
+                                '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+                              }}
+                            >
+                              <KTIcon iconName="down" className="fs-6" />
+                            </Button>
+                          </ButtonGroup>
+                          <Menu
+                            anchorEl={rowsAnchorEl}
+                            open={Boolean(rowsAnchorEl)}
+                            onClose={() => setRowsAnchorEl(null)}
+                            slotProps={{
+                              paper: {
+                                elevation: 3,
+                                sx: {
+                                  mt: 0.5,
+                                  minWidth: 100,
+                                  borderRadius: '12px',
+                                  border: '1px solid #e2e8f0',
+                                  overflow: 'hidden',
+                                  '& .MuiMenuItem-root': {
+                                    px: 2,
+                                    py: 0.9,
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: '#1e293b',
+                                    '&:hover': { bgcolor: '#f8fafc' },
+                                    '&.Mui-selected': { bgcolor: '#fef2f2', color: '#1E3A8A', '&:hover': { bgcolor: '#fee2e2' } },
+                                  },
+                                },
+                              },
+                            }}
+                            transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+                            anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+                          >
+                            {PAGE_SIZE_OPTIONS.map((size) => (
+                              <MenuItem
+                                key={size}
+                                selected={size === pageSize}
+                                onClick={() => {
+                                  table.setPageSize(Number(size) as PageSizeOption);
+                                  table.setPageIndex(0);
+                                  setRowsAnchorEl(null);
+                                }}
+                              >
+                                {size}
+                              </MenuItem>
+                            ))}
+                          </Menu>
+                          {!isMobile && totalRows > 0 && (
+                            <span
+                              style={{
+                                fontSize: "13px",
+                                color: "#9CA3AF",
+                                whiteSpace: "nowrap",
+                                marginLeft: "4px",
+                              }}
+                            >
+                              {pageIndex * pageSize + 1}–{Math.min((pageIndex + 1) * pageSize, totalRows)}
+                              {" "}of{" "}
+                              <strong style={{ color: "#374151" }}>{totalRows}</strong>
+                            </span>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+
+                    {/* Right: Custom Pagination buttons */}
+                    {!hidePagination && (
                       <Box
                         sx={{
                           display: "flex",
+                          gap: { xs: "4px", md: "6px" },
                           alignItems: "center",
-                          gap: { xs: "6px", md: "8px" },
-                          ml: { xs: 0, lg: 1 },
-                          flexShrink: 0,
+                          flexWrap: "wrap",
+                          justifyContent: { xs: "center", lg: "flex-end" },
+                          width: { xs: "100%", lg: "auto" },
                         }}
                       >
-                        <span
-                          style={{
-                            fontSize: "13px",
-                            fontWeight: 500,
-                            color: "#6B7280",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {isMobile ? "Rows:" : "Rows per page:"}
-                        </span>
-                        <ButtonGroup
-                          variant="outlined"
-                          size="small"
-                          sx={{
-                            borderRadius: '10px',
-                            overflow: 'hidden',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                          }}
-                        >
-                          <Button
-                            onClick={(e) => setRowsAnchorEl(e.currentTarget)}
-                            sx={{
-                              textTransform: 'none',
-                              fontWeight: 700,
-                              fontSize: isMobile ? 12 : 13,
-                              borderColor: '#e5e7eb',
-                              color: '#374151',
-                              borderRadius: '10px 0 0 10px',
-                              px: isMobile ? 1 : 1.5,
-                              py: 0.6,
-                              minWidth: 'unset',
-                              '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
-                            }}
-                          >
-                            {pageSize}
-                          </Button>
-                          <Button
-                            onClick={(e) => setRowsAnchorEl(e.currentTarget)}
-                            sx={{
-                              borderColor: '#e5e7eb',
-                              color: '#9ca3af',
-                              borderRadius: '0 10px 10px 0',
-                              px: 0.4,
-                              minWidth: 'unset',
-                              '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
-                            }}
-                          >
-                            <KTIcon iconName="down" className="fs-6" />
-                          </Button>
-                        </ButtonGroup>
-                        <Menu
-                          anchorEl={rowsAnchorEl}
-                          open={Boolean(rowsAnchorEl)}
-                          onClose={() => setRowsAnchorEl(null)}
-                          slotProps={{
-                            paper: {
-                              elevation: 3,
-                              sx: {
-                                mt: 0.5,
-                                minWidth: 100,
-                                borderRadius: '12px',
-                                border: '1px solid #e2e8f0',
-                                overflow: 'hidden',
-                                '& .MuiMenuItem-root': {
-                                  px: 2,
-                                  py: 0.9,
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                  color: '#1e293b',
-                                  '&:hover': { bgcolor: '#f8fafc' },
-                                  '&.Mui-selected': { bgcolor: '#fef2f2', color: '#1E3A8A', '&:hover': { bgcolor: '#fee2e2' } },
-                                },
-                              },
-                            },
-                          }}
-                          transformOrigin={{ horizontal: 'left', vertical: 'top' }}
-                          anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
-                        >
-                          {PAGE_SIZE_OPTIONS.map((size) => (
-                            <MenuItem
-                              key={size}
-                              selected={size === pageSize}
-                              onClick={() => {
-                                table.setPageSize(Number(size) as PageSizeOption);
-                                table.setPageIndex(0);
-                                setRowsAnchorEl(null);
-                              }}
-                            >
-                              {size}
-                            </MenuItem>
-                          ))}
-                        </Menu>
-                        {!isMobile && totalRows > 0 && (
+                        {/* Page indicator */}
+                        {!isMobile && (
                           <span
                             style={{
                               fontSize: "13px",
                               color: "#9CA3AF",
+                              marginRight: "4px",
+                              fontWeight: 500,
                               whiteSpace: "nowrap",
-                              marginLeft: "4px",
                             }}
                           >
-                            {pageIndex * pageSize + 1}–{Math.min((pageIndex + 1) * pageSize, totalRows)}
-                            {" "}of{" "}
-                            <strong style={{ color: "#374151" }}>{totalRows}</strong>
+                            Page <strong style={{ color: "#374151" }}>{pageIndex + 1}</strong> of <strong style={{ color: "#374151" }}>{totalPages}</strong>
                           </span>
                         )}
-                      </Box>
-                    )}
-                  </Box>
 
-                  {/* Right: Custom Pagination buttons */}
-                  {!hidePagination && (
-                    <Box
-                      sx={{
-                        display: "flex",
-                        gap: { xs: "4px", md: "6px" },
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                        justifyContent: { xs: "center", lg: "flex-end" },
-                        width: { xs: "100%", lg: "auto" },
-                      }}
-                    >
-                      {/* Page indicator */}
-                      {!isMobile && (
-                        <span
-                          style={{
-                            fontSize: "13px",
-                            color: "#9CA3AF",
-                            marginRight: "4px",
-                            fontWeight: 500,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          Page <strong style={{ color: "#374151" }}>{pageIndex + 1}</strong> of <strong style={{ color: "#374151" }}>{totalPages}</strong>
-                        </span>
-                      )}
-
-                      {/* First page */}
-                      <Tooltip title="First page">
-                        <span>
-                        <button
-                          onClick={() => table.setPageIndex(0)}
-                          disabled={pageIndex === 0}
-                          className="et-page-nav-btn"
-                          aria-label="First page"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: isMobile ? "30px" : "34px",
-                            height: isMobile ? "30px" : "34px",
-                            border: "1px solid #E5E7EB",
-                            borderRadius: "8px",
-                            backgroundColor: pageIndex === 0 ? "#F9FAFB" : "#fff",
-                            cursor: pageIndex === 0 ? "not-allowed" : "pointer",
-                            opacity: pageIndex === 0 ? 0.45 : 1,
-                            transition: "all 0.15s ease",
-                            padding: 0,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <KTIcon iconName="double-left" className="fs-4 text-gray-600" />
-                        </button>
-                        </span>
-                      </Tooltip>
-
-                      {/* Previous page */}
-                      <Tooltip title="Previous page">
-                        <span>
-                        <button
-                          onClick={() => table.previousPage()}
-                          disabled={!table.getCanPreviousPage()}
-                          className="et-page-nav-btn"
-                          aria-label="Previous page"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: isMobile ? "30px" : "34px",
-                            height: isMobile ? "30px" : "34px",
-                            border: "1px solid #E5E7EB",
-                            borderRadius: "8px",
-                            backgroundColor: !table.getCanPreviousPage() ? "#F9FAFB" : "#fff",
-                            cursor: !table.getCanPreviousPage() ? "not-allowed" : "pointer",
-                            opacity: !table.getCanPreviousPage() ? 0.45 : 1,
-                            transition: "all 0.15s ease",
-                            padding: 0,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <KTIcon iconName="black-left" className="fs-4 text-gray-600" />
-                        </button>
-                        </span>
-                      </Tooltip>
-
-                      {/* Page number buttons */}
-                      {getPageNumbers().map((page, idx) => {
-                        if (page < 0) {
-                          return (
-                            <span
-                              key={`ellipsis-${idx}`}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: isMobile ? "30px" : "34px",
-                                height: isMobile ? "30px" : "34px",
-                                color: "#9CA3AF",
-                                fontSize: "13px",
-                                fontWeight: 600,
-                                letterSpacing: "0.05em",
-                              }}
-                            >
-                              ···
-                            </span>
-                          );
-                        }
-
-                        const isActive = pageIndex === page;
-                        return (
+                        {/* First page */}
+                        <Tooltip title="First page">
+                          <span>
                           <button
-                            key={page}
-                            onClick={() => table.setPageIndex(page)}
-                            className="et-page-num-btn"
-                            // The active page is signalled only by colour otherwise —
-                            // invisible to a screen reader, and to anyone who cannot
-                            // distinguish the navy fill.
-                            aria-label={`Page ${page + 1}`}
-                            aria-current={isActive ? "page" : undefined}
+                            onClick={() => table.setPageIndex(0)}
+                            disabled={pageIndex === 0}
+                            className="et-page-nav-btn"
+                            aria-label="First page"
                             style={{
                               display: "inline-flex",
                               alignItems: "center",
                               justifyContent: "center",
                               width: isMobile ? "30px" : "34px",
                               height: isMobile ? "30px" : "34px",
-                              border: isActive ? "1.5px solid #1E3A8A" : "1px solid #E5E7EB",
+                              border: "1px solid #E5E7EB",
                               borderRadius: "8px",
-                              backgroundColor: isActive ? "#1E3A8A" : "#fff",
-                              color: isActive ? "#fff" : "#374151",
-                              cursor: "pointer",
-                              fontSize: isMobile ? "12px" : "13px",
-                              fontWeight: isActive ? 700 : 500,
+                              backgroundColor: pageIndex === 0 ? "#F9FAFB" : "#fff",
+                              cursor: pageIndex === 0 ? "not-allowed" : "pointer",
+                              opacity: pageIndex === 0 ? 0.45 : 1,
                               transition: "all 0.15s ease",
                               padding: 0,
                               flexShrink: 0,
-                              boxShadow: isActive ? "0 2px 6px rgba(30, 58, 138,0.30)" : "none",
                             }}
                           >
-                            {page + 1}
+                            <KTIcon iconName="double-left" className="fs-4 text-gray-600" />
                           </button>
-                        );
-                      })}
+                          </span>
+                        </Tooltip>
 
-                      {/* Next page */}
-                      <Tooltip title="Next page">
-                        <span>
-                        <button
-                          onClick={() => table.nextPage()}
-                          disabled={!table.getCanNextPage()}
-                          className="et-page-nav-btn"
-                          aria-label="Next page"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: isMobile ? "30px" : "34px",
-                            height: isMobile ? "30px" : "34px",
-                            border: "1px solid #E5E7EB",
-                            borderRadius: "8px",
-                            backgroundColor: !table.getCanNextPage() ? "#F9FAFB" : "#fff",
-                            cursor: !table.getCanNextPage() ? "not-allowed" : "pointer",
-                            opacity: !table.getCanNextPage() ? 0.45 : 1,
-                            transition: "all 0.15s ease",
-                            padding: 0,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <KTIcon iconName="black-right" className="fs-4 text-gray-600" />
-                        </button>
-                        </span>
-                      </Tooltip>
+                        {/* Previous page */}
+                        <Tooltip title="Previous page">
+                          <span>
+                          <button
+                            onClick={() => table.previousPage()}
+                            disabled={!table.getCanPreviousPage()}
+                            className="et-page-nav-btn"
+                            aria-label="Previous page"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: isMobile ? "30px" : "34px",
+                              height: isMobile ? "30px" : "34px",
+                              border: "1px solid #E5E7EB",
+                              borderRadius: "8px",
+                              backgroundColor: !table.getCanPreviousPage() ? "#F9FAFB" : "#fff",
+                              cursor: !table.getCanPreviousPage() ? "not-allowed" : "pointer",
+                              opacity: !table.getCanPreviousPage() ? 0.45 : 1,
+                              transition: "all 0.15s ease",
+                              padding: 0,
+                              flexShrink: 0,
+                            }}
+                          >
+                            <KTIcon iconName="black-left" className="fs-4 text-gray-600" />
+                          </button>
+                          </span>
+                        </Tooltip>
 
-                      {/* Last page */}
-                      <Tooltip title="Last page">
-                        <span>
-                        <button
-                          onClick={() => table.setPageIndex(totalPages - 1)}
-                          disabled={pageIndex === totalPages - 1}
-                          className="et-page-nav-btn"
-                          aria-label="Last page"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: isMobile ? "30px" : "34px",
-                            height: isMobile ? "30px" : "34px",
-                            border: "1px solid #E5E7EB",
-                            borderRadius: "8px",
-                            backgroundColor: pageIndex === totalPages - 1 ? "#F9FAFB" : "#fff",
-                            cursor: pageIndex === totalPages - 1 ? "not-allowed" : "pointer",
-                            opacity: pageIndex === totalPages - 1 ? 0.45 : 1,
-                            transition: "all 0.15s ease",
-                            padding: 0,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <KTIcon iconName="double-right" className="fs-4 text-gray-600" />
-                        </button>
-                        </span>
-                      </Tooltip>
+                        {/* Page number buttons */}
+                        {getPageNumbers().map((page, idx) => {
+                          if (page < 0) {
+                            return (
+                              <span
+                                key={`ellipsis-${idx}`}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  width: isMobile ? "30px" : "34px",
+                                  height: isMobile ? "30px" : "34px",
+                                  color: "#9CA3AF",
+                                  fontSize: "13px",
+                                  fontWeight: 600,
+                                  letterSpacing: "0.05em",
+                                }}
+                              >
+                                ···
+                              </span>
+                            );
+                          }
 
-                      {/* Page jump input - only on desktop when many pages */}
-                      {/* {!isMobile && totalPages > 7 && (
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', ml: 1 }}>
-                                                <span style={{ fontSize: '13px', color: '#7A8597' }}>Go to:</span>
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    max={totalPages}
-                                                    defaultValue={pageIndex + 1}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            const page = Number(e.currentTarget.value);
-                                                            if (page >= 1 && page <= totalPages) {
-                                                                table.setPageIndex(page - 1);
-                                                            }
-                                                        }
-                                                    }}
-                                                    style={{
-                                                        width: '50px',
-                                                        padding: '6px 8px',
-                                                        fontSize: '13px',
-                                                        border: '1px solid #E1E8F0',
-                                                        borderRadius: '6px',
-                                                        textAlign: 'center',
-                                                    }}
-                                                />
-                                            </Box>
-                                        )} */}
-                    </Box>
-                  )}
+                          const isActive = pageIndex === page;
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => table.setPageIndex(page)}
+                              className="et-page-num-btn"
+                              // The active page is signalled only by colour otherwise —
+                              // invisible to a screen reader, and to anyone who cannot
+                              // distinguish the navy fill.
+                              aria-label={`Page ${page + 1}`}
+                              aria-current={isActive ? "page" : undefined}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: isMobile ? "30px" : "34px",
+                                height: isMobile ? "30px" : "34px",
+                                border: isActive ? "1.5px solid #1E3A8A" : "1px solid #E5E7EB",
+                                borderRadius: "8px",
+                                backgroundColor: isActive ? "#1E3A8A" : "#fff",
+                                color: isActive ? "#fff" : "#374151",
+                                cursor: "pointer",
+                                fontSize: isMobile ? "12px" : "13px",
+                                fontWeight: isActive ? 700 : 500,
+                                transition: "all 0.15s ease",
+                                padding: 0,
+                                flexShrink: 0,
+                                boxShadow: isActive ? "0 2px 6px rgba(30, 58, 138,0.30)" : "none",
+                              }}
+                            >
+                              {page + 1}
+                            </button>
+                          );
+                        })}
+
+                        {/* Next page */}
+                        <Tooltip title="Next page">
+                          <span>
+                          <button
+                            onClick={() => table.nextPage()}
+                            disabled={!table.getCanNextPage()}
+                            className="et-page-nav-btn"
+                            aria-label="Next page"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: isMobile ? "30px" : "34px",
+                              height: isMobile ? "30px" : "34px",
+                              border: "1px solid #E5E7EB",
+                              borderRadius: "8px",
+                              backgroundColor: !table.getCanNextPage() ? "#F9FAFB" : "#fff",
+                              cursor: !table.getCanNextPage() ? "not-allowed" : "pointer",
+                              opacity: !table.getCanNextPage() ? 0.45 : 1,
+                              transition: "all 0.15s ease",
+                              padding: 0,
+                              flexShrink: 0,
+                            }}
+                          >
+                            <KTIcon iconName="black-right" className="fs-4 text-gray-600" />
+                          </button>
+                          </span>
+                        </Tooltip>
+
+                        {/* Last page */}
+                        <Tooltip title="Last page">
+                          <span>
+                          <button
+                            onClick={() => table.setPageIndex(totalPages - 1)}
+                            disabled={pageIndex === totalPages - 1}
+                            className="et-page-nav-btn"
+                            aria-label="Last page"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: isMobile ? "30px" : "34px",
+                              height: isMobile ? "30px" : "34px",
+                              border: "1px solid #E5E7EB",
+                              borderRadius: "8px",
+                              backgroundColor: pageIndex === totalPages - 1 ? "#F9FAFB" : "#fff",
+                              cursor: pageIndex === totalPages - 1 ? "not-allowed" : "pointer",
+                              opacity: pageIndex === totalPages - 1 ? 0.45 : 1,
+                              transition: "all 0.15s ease",
+                              padding: 0,
+                              flexShrink: 0,
+                            }}
+                          >
+                            <KTIcon iconName="double-right" className="fs-4 text-gray-600" />
+                          </button>
+                          </span>
+                        </Tooltip>
+
+                        {/* Page jump input - only on desktop when many pages */}
+                        {/* {!isMobile && totalPages > 7 && (
+                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', ml: 1 }}>
+                                                  <span style={{ fontSize: '13px', color: '#7A8597' }}>Go to:</span>
+                                                  <input
+                                                      type="number"
+                                                      min="1"
+                                                      max={totalPages}
+                                                      defaultValue={pageIndex + 1}
+                                                      onKeyDown={(e) => {
+                                                          if (e.key === 'Enter') {
+                                                              const page = Number(e.currentTarget.value);
+                                                              if (page >= 1 && page <= totalPages) {
+                                                                  table.setPageIndex(page - 1);
+                                                              }
+                                                          }
+                                                      }}
+                                                      style={{
+                                                          width: '50px',
+                                                          padding: '6px 8px',
+                                                          fontSize: '13px',
+                                                          border: '1px solid #E1E8F0',
+                                                          borderRadius: '6px',
+                                                          textAlign: 'center',
+                                                      }}
+                                                  />
+                                              </Box>
+                                          )} */}
+                      </Box>
+                    )}
+                  </Box>
                 </Box>
-              </Box>
-            );
-          }}
-          icons={{
-            ArrowDownwardIcon: (props: any) => (
-              <KTIcon
-                iconName={"arrow-down"}
-                className="fs-1 text-danger"
-                {...props}
-              />
-            ),
-            SortIcon: (props: any) => (
-              <KTIcon iconName="arrow-up-down" className="fs-1" {...props} />
-            ),
-            FilterListIcon: (props: any) => (
-              <KTIcon iconName="filter" className="fs-2" {...props} />
-            ),
-            FullscreenIcon: (props: any) => (
-              <KTIcon
-                iconName="arrow-two-diagonals"
-                className="fs-2"
-                {...props}
-              />
-            ),
-            FullscreenExitIcon: (props: any) => (
-              <KTIcon iconName="cross" className="fs-2" {...props} />
-            ),
-            SearchIcon: (props: any) => (
-              <KTIcon iconName="magnifier" className="fs-2" {...props} />
-            ),
-            ViewColumnIcon: (props: any) => (
-              <KTIcon iconName="eye" className="fs-2" {...props} />
-            ),
-            ChevronLeftIcon: (props: any) => (
-              <KTIcon iconName="black-left" className="fs-2" {...props} />
-            ),
-            ChevronRightIcon: (props: any) => (
-              <KTIcon iconName="black-right" className="fs-2" {...props} />
-            ),
-            VisibilityOffIcon: (props: any) => (
-              <KTIcon iconName="eye-slash" className="fs-2" {...props} />
-            ),
-            DragHandleIcon: (props: any) => (
-              <KTIcon iconName="sort" className="fs-2" {...props} />
-            ),
-          }}
-        />
+              );
+            }}
+            icons={{
+              ArrowDownwardIcon: (props: any) => (
+                <KTIcon
+                  iconName={"arrow-down"}
+                  className="fs-1 text-danger"
+                  {...props}
+                />
+              ),
+              SortIcon: (props: any) => (
+                <KTIcon iconName="arrow-up-down" className="fs-1" {...props} />
+              ),
+              FilterListIcon: (props: any) => (
+                <KTIcon iconName="filter" className="fs-2" {...props} />
+              ),
+              FullscreenIcon: (props: any) => (
+                <KTIcon
+                  iconName="arrow-two-diagonals"
+                  className="fs-2"
+                  {...props}
+                />
+              ),
+              FullscreenExitIcon: (props: any) => (
+                <KTIcon iconName="cross" className="fs-2" {...props} />
+              ),
+              SearchIcon: (props: any) => (
+                <KTIcon iconName="magnifier" className="fs-2" {...props} />
+              ),
+              ViewColumnIcon: (props: any) => (
+                <KTIcon iconName="eye" className="fs-2" {...props} />
+              ),
+              ChevronLeftIcon: (props: any) => (
+                <KTIcon iconName="black-left" className="fs-2" {...props} />
+              ),
+              ChevronRightIcon: (props: any) => (
+                <KTIcon iconName="black-right" className="fs-2" {...props} />
+              ),
+              VisibilityOffIcon: (props: any) => (
+                <KTIcon iconName="eye-slash" className="fs-2" {...props} />
+              ),
+              DragHandleIcon: (props: any) => (
+                <KTIcon iconName="sort" className="fs-2" {...props} />
+              ),
+            }}
+          />
+          )}
+        </SortableProvider>
       </div>
      </SearchQueryContext.Provider>
     </ThemeProvider>
