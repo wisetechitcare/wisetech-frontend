@@ -19,12 +19,17 @@ import {
   SHOW_HOLIDAYS_ON_CALENDAR,
   MEETING_HALF_FREE_COLOR,
   MEETING_HALF_AM,
-  MEETING_HALF_PM
+  MEETING_HALF_PM,
+  MEETING_STATUS_CANCELLED,
+  MEETING_STATUS_AWAITING,
+  MEETING_STATUS_HELD
 } from '@constants/configurations-key'
 import { fetchConfiguration, createNewConfiguration, updateConfigurationById } from '@services/company'
 // The calendar's own tint helpers, not a second copy: a preview derived independently is a
 // preview that can disagree with the grid it is previewing.
-import { rowTone, readableOn } from '@app/modules/common/components/MeetingsList'
+import {
+  rowTone, readableOn, lifecycleTone, LIFECYCLE_DEFAULT_COLORS,
+} from '@app/modules/common/components/MeetingsList'
 import { safeJsonParse } from '@utils/safeJson'
 import Loader from '@app/modules/common/utils/Loader'
 import CalendarConfigForm, { CalendarConfigItem } from './CalendarConfigForm'
@@ -75,6 +80,12 @@ interface EventItem {
   half?: 'free' | 'am' | 'pm'
   /** The pill's text when nobody has renamed it. */
   defaultLabel?: string
+  /**
+   * Previews as a TABLE ROW rather than a calendar chip, because that is the only place this
+   * colour is ever seen. The string is the badge the row carries; an empty one means the state
+   * tints its row without labelling it.
+   */
+  rowBadge?: string
 }
 
 interface EventSection {
@@ -165,6 +176,16 @@ const MEETING_SECTIONS: EventSection[] = [
       { key: MEETING_HALF_PM, half: 'pm', defaultLabel: 'PM', label: 'Second half', desc: 'Meetings that start from noon onwards.', sample: '4:30 PM Client call', defaultColor: '#B45309', defaultEnabled: true },
     ],
   },
+  {
+    id: 'status', tone: TRIO.rose, icon: 'check-circle', showCount: false,
+    title: 'Meeting status colours',
+    desc: 'How each outcome is coloured in the meetings table. A scheduled meeting has no outcome yet, so its row stays plain.',
+    items: [
+      { key: MEETING_STATUS_CANCELLED, rowBadge: 'CANCELLED', label: 'Cancelled', desc: 'Called off, and kept on the project record.', sample: 'Site walkthrough', defaultColor: LIFECYCLE_DEFAULT_COLORS.cancelled, defaultEnabled: true },
+      { key: MEETING_STATUS_AWAITING, rowBadge: 'AWAITING TIMESHEETS', label: 'Awaiting timesheets', desc: 'Held, but nobody has logged their time against it yet.', sample: 'Design review', defaultColor: LIFECYCLE_DEFAULT_COLORS.awaiting, defaultEnabled: true },
+      { key: MEETING_STATUS_HELD, rowBadge: '', label: 'Held', desc: 'Went ahead, with time logged against it.', sample: 'Client call', defaultColor: LIFECYCLE_DEFAULT_COLORS.held, defaultEnabled: true },
+    ],
+  },
 ]
 
 const ALL_ITEMS = [...SECTIONS, ...MEETING_SECTIONS].flatMap((s) => s.items)
@@ -241,6 +262,40 @@ function HalfPreview({ setting, item }: { setting: CalendarConfigItem; item: Eve
   )
 }
 
+/**
+ * A meeting status, previewed as the table row it paints.
+ *
+ * Not a swatch and not a calendar chip: this colour only ever appears as a band behind a row
+ * with a solid edge down its left and a badge inside it, so that is what the card shows. The
+ * tint, edge and badge all come from the table's own `lifecycleTone`, which means the card
+ * cannot show one thing and the table another — including the automatic darkening that keeps
+ * badge text readable when somebody picks a pale colour.
+ */
+function StatusRowPreview({ setting, item }: { setting: CalendarConfigItem; item: EventItem }) {
+  const color = setting.enabled ? setting.color : item.defaultColor
+  const tone = lifecycleTone(color)
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 0.875, minWidth: 0,
+      px: 1, py: 0.875, borderRadius: '6px',
+      bgcolor: tone.row, borderLeft: `4px solid ${tone.edge}`,
+    }}>
+      <Typography component="span" noWrap sx={{ fontSize: 11.5, fontWeight: 700, color: '#1E293B' }}>
+        {item.sample}
+      </Typography>
+      {item.rowBadge && (
+        <Box component="span" sx={{
+          px: 0.75, py: '1px', borderRadius: 999, flexShrink: 0,
+          bgcolor: tone.fill, color: tone.ink, border: `1px solid ${tone.edge}44`,
+          fontSize: 9, fontWeight: 800, letterSpacing: 0.3, whiteSpace: 'nowrap',
+        }}>
+          {item.rowBadge}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 function EventPreview({ setting, sample }: { setting: CalendarConfigItem; sample: string }) {
   const dark = useTheme().palette.mode === 'dark'
   const base = {
@@ -301,7 +356,9 @@ function EventSettingCard({ item, setting, tone, onOpen }: {
 
       {item.half
         ? <HalfPreview setting={setting} item={item} />
-        : <EventPreview setting={setting} sample={item.sample} />}
+        : item.rowBadge !== undefined
+          ? <StatusRowPreview setting={setting} item={item} />
+          : <EventPreview setting={setting} sample={item.sample} />}
 
       {/* mt:auto pins the affordance so cards in a row end level regardless of copy length. */}
       <Box className="cfg-go" sx={{

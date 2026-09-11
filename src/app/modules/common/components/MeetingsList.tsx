@@ -9,6 +9,7 @@ import { safeJsonParse } from '@utils/safeJson';
 import { mapsUrl } from '@app/pages/employee/meetingAddress';
 import {
     MEETING_HALF_PM, MEETING_HALF_FREE_COLOR, MEETING_HALF_AM,
+    MEETING_STATUS_CANCELLED, MEETING_STATUS_AWAITING, MEETING_STATUS_HELD,
 } from '@constants/configurations-key';
 import { Dialog, DialogContent, useMediaQuery } from '@mui/material';
 import { MRT_ColumnDef } from 'material-react-table';
@@ -166,6 +167,15 @@ const DEFAULT_HALF_LABELS: HalfLabels = { am: 'AM', pm: 'PM' };
 const PHONE = '(max-width:600px)';
 
 /**
+ * Narrower than a laptop, wider than a phone.
+ *
+ * Only the stat grid reads this. Four cards need about 200px each before their labels start
+ * wrapping, and below roughly this width the page's own sidebar has already taken enough of
+ * the row that four would be cramped rather than dense.
+ */
+const NARROW = '(max-width:1180px)';
+
+/**
  * A meeting chip is a FIXED box, not a box the size of its title.
  *
  * The month grid is seven `1fr` columns, and a grid item's default `min-width: auto` means a
@@ -186,8 +196,16 @@ const CHIP_H_PHONE = 13;
  */
 const HALF_OPENING_HOUR = { am: 9, pm: 14 } as const;
 
-const isCancelled = (m: MeetingRow) => m.lifecycle === 'CANCELLED';
-const isHeld = (m: MeetingRow) => m.lifecycle === 'COMPLETED';
+/**
+ * The only two fields any of the state predicates below actually read.
+ *
+ * Narrower than MeetingRow on purpose: it lets the same functions answer for a half-built row
+ * in a test without inventing an id, a title and two dates that have no bearing on the answer.
+ */
+type MeetingState = Pick<MeetingRow, 'lifecycle' | 'loggedMinutes'>;
+
+const isCancelled = (m: MeetingState) => m.lifecycle === 'CANCELLED';
+const isHeld = (m: MeetingState) => m.lifecycle === 'COMPLETED';
 
 /**
  * A meeting that happened and that nobody has logged time against.
@@ -197,19 +215,131 @@ const isHeld = (m: MeetingRow) => m.lifecycle === 'COMPLETED';
  * has said what this took". The two need telling apart wherever a cost is shown, or the
  * project's total quietly understates itself and looks precise doing it.
  */
-const isAwaitingTime = (m: MeetingRow) => isHeld(m) && !(m.loggedMinutes ?? 0);
+const isAwaitingTime = (m: MeetingState) => isHeld(m) && !(m.loggedMinutes ?? 0);
 
-const AwaitingTag = () => (
-    <span
+/**
+ * The three states a meeting can be READ in — ONE colour each, and everything else derived.
+ *
+ * These used to be three hand-picked hexes per state (badge fill, badge ink, row edge). That
+ * is fine while the palette is fixed and impossible once it is not: somebody picks a deep
+ * colour in Calendar Configuration and two of the three stop matching it, with the badge ink
+ * the one that goes unreadable. So the SAVED value is the edge, and the badge fill and ink are
+ * computed from it — a pale mix of the colour behind a dark mix of the same colour, which
+ * holds its contrast at any hue somebody chooses.
+ *
+ * The defaults are the states' conventional colours, and they are what a step falls back to
+ * when its configuration row is absent or switched off.
+ */
+export const LIFECYCLE_DEFAULT_COLORS = {
+    cancelled: '#DC2626',
+    awaiting: '#D97706',
+    held: '#15803D',
+} as const;
+
+export type LifecycleState = keyof typeof LIFECYCLE_DEFAULT_COLORS;
+export type LifecycleColors = Record<LifecycleState, string>;
+
+/**
+ * How strongly a state's colour is mixed at each of the three places it appears.
+ *
+ * THIS IS THE CALIBRATION KNOB for "the rows are too pale". The row tint used to sit at 0.93
+ * — a 7% wash, which on a white table reads as a printing artefact rather than a state —
+ * and it is the number to move if the rows still read faint on a given monitor. Hover has to
+ * stay separated from rest by enough to be felt, so the two move together.
+ */
+const MIX = { row: 0.86, rowHover: 0.77, badge: 0.82, ink: 0.38 };
+
+/**
+ * One state's colour, expanded into the three values that paint it.
+ *
+ * Deriving rather than storing is what keeps a configured colour honest: the badge sitting on
+ * the row and the row's own left edge are provably the same hue, because they are the same
+ * number put through two different mixes.
+ */
+export const lifecycleTone = (color: string) => {
+    const fill = lightOf(color, MIX.badge);
+    return {
+        edge: color,
+        row: lightOf(color, MIX.row),
+        rowHover: lightOf(color, MIX.rowHover),
+        fill,
+        ink: inkOn(fill, color),
+    };
+};
+
+/**
+ * The state's own colour, darkened until it is READABLE on the badge — not merely darkened.
+ *
+ * A fixed mix is not enough, and the failing case is not exotic: somebody picks a pale colour,
+ * `darkOf` takes 38% off a value that was already near-white, and the badge ends up mid-grey
+ * on white. Anything a colour picker can return has to produce a legible badge, so the mix
+ * deepens in steps until it measures up, and falls back to the app's near-black in the corner
+ * where even that is not enough.
+ *
+ * Steps rather than a solve because the search space is one dimension over eight rungs — a
+ * closed form here would be more arithmetic to read and no more correct.
+ */
+function inkOn(fill: string, color: string) {
+    for (let weight = MIX.ink; weight <= 0.9; weight += 0.08) {
+        const ink = darkOf(color, weight);
+        if (contrastRatio(fill, ink) >= MIN_CONTRAST) return ink;
+    }
+    return INK_DARK;
+}
+
+/**
+ * Accent hues for the stat cards.
+ *
+ * The same five as the kit's `TRIO` palette, restated rather than imported: `TRIO` lives in
+ * `ui/patterns`, which pulls in GlassSurface and KTIcon, and this component is on the entity,
+ * contact, employee AND calendar routes — five hex values are cheaper than that dependency.
+ * The three LIFECYCLE_TONE hues are deliberately NOT in here: those mean a meeting's state and
+ * are shared with the badges and the row tint, where these only tint an icon.
+ */
+const STAT_TONE = {
+    blue: '#2563EB', green: '#16A34A', purple: '#7C3AED', amber: '#D97706', cyan: '#0891B2',
+} as const;
+
+/** Which of the three a row is, or null for one still to come. Cancelled wins: a meeting that
+ *  was called off never became a held meeting, whatever its clock says. */
+export const lifecycleOf = (m: MeetingState): LifecycleState | null => {
+    if (isCancelled(m)) return 'cancelled';
+    if (isAwaitingTime(m)) return 'awaiting';
+    if (isHeld(m)) return 'held';
+    return null;
+};
+
+/**
+ * The state badge, in the state's own colour.
+ *
+ * ONE component for both markers, because they were the same eleven lines of styling with a
+ * different word inside and a different pair of hardcoded hexes — and a configurable palette
+ * turns that duplication from untidy into wrong, since only one of the two copies would have
+ * been wired to the setting.
+ */
+const StateTag = ({ color, label, title }: { color: string; label: string; title?: string }) => {
+    const tone = lifecycleTone(color);
+    return (
+        <span
+            title={title}
+            style={{
+                display: 'inline-block', marginLeft: 6, padding: '1px 7px', borderRadius: 20,
+                background: tone.fill, color: tone.ink, border: `1px solid ${lightOf(color, 0.62)}`,
+                fontSize: 9.5, fontWeight: 800,
+                letterSpacing: 0.3, verticalAlign: 'middle', whiteSpace: 'nowrap',
+            }}
+        >
+            {label}
+        </span>
+    );
+};
+
+const AwaitingTag = ({ color }: { color: string }) => (
+    <StateTag
+        color={color}
+        label="AWAITING TIMESHEETS"
         title="This meeting has happened, but nobody has logged their time yet — so it has no cost recorded."
-        style={{
-            display: 'inline-block', marginLeft: 6, padding: '1px 7px', borderRadius: 20,
-            background: '#FEF3C7', color: '#92400E', fontSize: 9.5, fontWeight: 800,
-            letterSpacing: 0.3, verticalAlign: 'middle', whiteSpace: 'nowrap',
-        }}
-    >
-        AWAITING TIMESHEETS
-    </span>
+    />
 );
 
 /**
@@ -250,17 +380,8 @@ export const toEditableMeeting = (m: MeetingRow) => ({
  * and it has to be unmissable there: a cancelled meeting sitting unmarked among live ones is
  * worse than not showing it. Struck-through title, muted row, and the reason if one was given.
  */
-const CancelledTag = ({ reason }: { reason?: string | null }) => (
-    <span
-        title={reason || 'Cancelled'}
-        style={{
-            display: 'inline-block', marginLeft: 6, padding: '1px 7px', borderRadius: 20,
-            background: '#FEE2E2', color: '#B91C1C', fontSize: 9.5, fontWeight: 800, letterSpacing: 0.4,
-            verticalAlign: 'middle',
-        }}
-    >
-        CANCELLED
-    </span>
+const CancelledTag = ({ reason, color }: { reason?: string | null; color: string }) => (
+    <StateTag color={color} label="CANCELLED" title={reason || 'Cancelled'} />
 );
 
 const INK_DARK = '#1E293B';
@@ -288,14 +409,16 @@ const luminance = (hex: string) => {
  * the two candidates by actual contrast has no threshold to get wrong, and picks the better
  * ink for every colour rather than for most of them.
  */
-export const readableOn = (bg: string) => {
-    const l = luminance(bg);
-    const against = (ink: string) => {
-        const [hi, lo] = [l, luminance(ink)].sort((a, b) => b - a);
-        return (hi + 0.05) / (lo + 0.05);
-    };
-    return against(INK_DARK) >= against(INK_LIGHT) ? INK_DARK : INK_LIGHT;
+export const contrastRatio = (a: string, b: string) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
 };
+
+/** What WCAG asks of body-sized text. The badges are small and bold, so this is the floor. */
+export const MIN_CONTRAST = 4.5;
+
+export const readableOn = (bg: string) =>
+    (contrastRatio(bg, INK_DARK) >= contrastRatio(bg, INK_LIGHT) ? INK_DARK : INK_LIGHT);
 
 /**
  * The same hue, mixed toward white.
@@ -311,6 +434,24 @@ export const lightOf = (hex: string, weight = 0.88) => {
     const mix = [0, 2, 4]
         .map((i) => parseInt(full.slice(i, i + 2), 16) || 0)
         .map((v) => Math.round(v + (255 - v) * weight));
+    return `#${mix.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+};
+
+/**
+ * The same hue, mixed toward black — `lightOf`'s twin, and the badge ink's only job.
+ *
+ * Ink CANNOT be `readableOn` here. That picks between near-black and white by contrast, which
+ * is right for a solid pill and wrong for this: on a pale mix of red it returns slate, so a
+ * CANCELLED badge would read in grey on pink and lose the one thing the colour was chosen to
+ * say. A dark mix of the state's own colour stays legibly that colour, and is dark enough
+ * against a 0.82 mix of the same hue at every point on the wheel.
+ */
+export const darkOf = (hex: string, weight = 0.38) => {
+    const h = hex.replace('#', '');
+    const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+    const mix = [0, 2, 4]
+        .map((i) => parseInt(full.slice(i, i + 2), 16) || 0)
+        .map((v) => Math.round(v * (1 - weight)));
     return `#${mix.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 };
 
@@ -353,25 +494,60 @@ const startHalf = (m: MeetingRow): 'am' | 'pm' =>
  * question — what this half is called and what it looks like — and splitting them across two
  * modules would let a rename and a recolour disagree about which half they belong to.
  */
+/** A module with no saved row answers 400 — that is "not configured", not an error. */
+const readConfig = async (key: string) => {
+    const res = await fetchConfiguration(key).catch(() => null);
+    return safeJsonParse(res?.data?.configuration?.configuration || '{}');
+};
+
+/**
+ * `enabled: false` means "use the built-in one" — the honest way to undo a colour choice
+ * without inventing a second control that means the same thing.
+ */
+const configuredColor = (cfg: any, fallback: string) =>
+    (cfg?.enabled === false ? fallback : (cfg?.color || fallback));
+
+/**
+ * The configured colours for the three meeting states.
+ *
+ * A sibling of `useHalfConfig` rather than an extension of it: the half-day palette says when
+ * a day is free and this one says how a meeting turned out. They are read on the same screen
+ * and mean entirely different things, and a single hook returning both would have every caller
+ * of one fetching the other.
+ */
+const useLifecycleColors = (): LifecycleColors => {
+    const [colors, setColors] = useState<LifecycleColors>(LIFECYCLE_DEFAULT_COLORS);
+    useEffect(() => {
+        let cancelled = false;
+        Promise.all([
+            readConfig(MEETING_STATUS_CANCELLED),
+            readConfig(MEETING_STATUS_AWAITING),
+            readConfig(MEETING_STATUS_HELD),
+        ]).then(([cancel, awaiting, held]) => {
+            if (cancelled) return;
+            setColors({
+                cancelled: configuredColor(cancel, LIFECYCLE_DEFAULT_COLORS.cancelled),
+                awaiting: configuredColor(awaiting, LIFECYCLE_DEFAULT_COLORS.awaiting),
+                held: configuredColor(held, LIFECYCLE_DEFAULT_COLORS.held),
+            });
+        });
+        return () => { cancelled = true; };
+    }, []);
+    return colors;
+};
+
 const useHalfConfig = (): { colors: HalfColors; labels: HalfLabels } => {
     const [config, setConfig] = useState({ colors: DEFAULT_HALF_COLORS, labels: DEFAULT_HALF_LABELS });
     useEffect(() => {
         let cancelled = false;
-        const read = async (key: string) => {
-            // A module with no saved row answers 400 — that is "not configured", not an error.
-            const res = await fetchConfiguration(key).catch(() => null);
-            return safeJsonParse(res?.data?.configuration?.configuration || '{}');
-        };
+        const read = readConfig;
         Promise.all([
             read(MEETING_HALF_FREE_COLOR),
             read(MEETING_HALF_AM),
             read(MEETING_HALF_PM),
         ]).then(([free, am, pm]) => {
             if (cancelled) return;
-            // `enabled: false` means "use the built-in one" — the honest way to undo a colour
-            // choice without inventing a second control that means the same thing.
-            const colorOf = (cfg: any, fallback: string) =>
-                (cfg?.enabled === false ? fallback : (cfg?.color || fallback));
+            const colorOf = configuredColor;
             // A blank name is not a rename: falling back stops an empty field wiping the only
             // text the pill has.
             const nameOf = (cfg: any, fallback: string) =>
@@ -523,28 +699,157 @@ const hm = (mins: number) => {
 };
 
 /**
+ * A stat card: the icon on the left, the reading on the right.
+ *
+ * ONE component for all eight, because eight hand-written tiles is eight places for a padding
+ * value to drift. Everything that differs between them — the icon, its tone, the numbers, and
+ * whether the number is painted — arrives as data from the array below.
+ *
+ * ─── WHY THE ICON MOVED LEFT ─────────────────────────────────────────────────
+ * It used to sit above the value, sharing the top line with the label. That stacks three
+ * things down a narrow card and leaves the glyph competing with the label for the same row.
+ * Set beside the text at 44px it becomes the thing the eye lands on first and the label second,
+ * which is the order somebody scans eight cards in: find the one about cancellations, then read
+ * it. The chip is vertically centred against the whole block rather than aligned to the label,
+ * so a card whose label wraps to two lines still has its icon on the card's own axis.
+ */
+const STAT_ICON = 44;
+
+const StatCard: React.FC<{
+    label: string; value: string; sub: string; icon: string; tone: string;
+    /** Paints the VALUE only — a CSS gradient, clipped to the glyphs. */
+    valueGradient?: string;
+    onClick?: () => void;
+}> = ({ label, value, sub, icon, tone, valueGradient, onClick }) => (
+    <div
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onClick={onClick}
+        onKeyDown={onClick ? (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+        } : undefined}
+        style={{
+            borderRadius: 12,
+            padding: '14px 15px',
+            minHeight: 104,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 13,
+            textAlign: 'left',
+            background: '#F5F8FF',
+            border: '1px solid #E2E8F0',
+            cursor: onClick ? 'pointer' : 'default',
+        }}
+    >
+        <span
+            aria-hidden
+            style={{
+                width: STAT_ICON, height: STAT_ICON, borderRadius: 13, flexShrink: 0,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                background: `${tone}1A`, color: tone, border: `1px solid ${tone}33`,
+            }}
+        >
+            <AppIcon name={icon} className="fs-2" />
+        </span>
+        <div style={{ minWidth: 0 }}>
+            <div style={{
+                fontSize: 11.5, fontWeight: 600, lineHeight: 1.3, color: '#64748B',
+                display: 'flex', alignItems: 'center', gap: 4,
+            }}>
+                {label}
+                {onClick && <AppIcon name="bi-chevron-right" className="fs-8" />}
+            </div>
+            <div
+                style={{
+                    fontSize: 23, fontWeight: 800, lineHeight: 1.15, marginTop: 2,
+                    // The declared colour is the fallback and has to come FIRST: where
+                    // background-clip:text is unsupported the transparent fill is unsupported
+                    // with it, so the number lands in this colour instead of disappearing.
+                    color: '#1E293B',
+                    ...(valueGradient ? {
+                        // INLINE-BLOCK is load-bearing, not tidiness. A gradient is laid out
+                        // across the element's box, and clipping to the glyphs does not move
+                        // it — so on a full-width block the digits sample only its left end and
+                        // the ramp never shows. Shrunk to the text, the gradient spans exactly
+                        // the number it is painting.
+                        display: 'inline-block',
+                        backgroundImage: valueGradient,
+                        WebkitBackgroundClip: 'text',
+                        backgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                    } : {}),
+                }}
+            >
+                {value}
+            </div>
+            <div style={{ fontSize: 11.5, marginTop: 3, color: '#94A3B8' }}>
+                {sub}
+            </div>
+        </div>
+    </div>
+);
+
+/**
+ * Money, painted like money.
+ *
+ * The cost card used to be a solid navy block — a whole card shouting to make one number
+ * important, which cost the row its rhythm and made the other seven look like the small print.
+ * The number is what matters, so the number is what is treated: a green that deepens as it
+ * falls, clipped to the digits. Everything else about the card is identical to its seven
+ * neighbours, which is what lets a single painted figure carry the emphasis on its own.
+ *
+ * Green because this is a ledger figure and green is the colour a currency reads in; the ramp
+ * goes light-to-dark down the glyphs rather than across them so the digits stay legible at
+ * 23px instead of each one being a different shade.
+ */
+const MONEY_GRADIENT = 'linear-gradient(160deg, #34D399 0%, #10B981 38%, #047857 100%)';
+
+/**
  * What this project's meetings have cost, and the habit behind the number.
  *
- * ─── ONE LOUD CARD, THREE QUIET ONES ─────────────────────────────────────────
- * A row of four identically-weighted tiles is the default treatment and it makes every figure
- * equally important, which is the same as making none of them important. Cost is the thing
- * nobody currently knows and the thing that changes behaviour, so it takes the solid navy fill
- * and the others sit back on a pale ground. No shadows and no icon chips: the card is already
- * inside a bordered panel, and a circled glyph on each tile would be four more things to look
- * at before reaching a number.
+ * ─── EIGHT EQUAL CARDS, ONE PAINTED NUMBER ───────────────────────────────────
+ * Cost is the thing nobody currently knows and the thing that changes behaviour, so it is the
+ * one figure given any emphasis at all. That emphasis is now the NUMBER rather than the card:
+ * a solid navy tile made the other seven read as small print beside it and broke the row's
+ * rhythm, when all it needed to do was draw the eye to five digits.
+ *
+ * The extra four are not padding. Upcoming, awaiting, cancelled and attendees were all being
+ * reported — in a paragraph of prose under the cards, where a number has to be read out of a
+ * sentence before it can be compared to anything. They are figures, so they are now cards, and
+ * the prose below keeps only what is genuinely a sentence: WHY the awaiting ones are missing
+ * from the total, and which single meeting cost the most.
  *
  * Every card carries its DENOMINATOR on the second line — "across 4 held meetings", "3.2 people
  * average". A total with nothing to divide it by is a fact; a total with its denominator is an
  * argument someone can act on.
  */
-const CostSummary: React.FC<{ data: MeetingAnalytics; onOpenBreakdown: () => void }> = ({ data, onOpenBreakdown }) => {
+const CostSummary: React.FC<{
+    data: MeetingAnalytics;
+    onOpenBreakdown: () => void;
+    /** The configured state colours, so the two state cards match the rows they count. */
+    stateColors: LifecycleColors;
+}> = ({ data, onOpenBreakdown, stateColors }) => {
+    // Both queries run every render — a `useMediaQuery(PHONE) ? 1 : useMediaQuery(NARROW)`
+    // chain skips the second hook whenever the first is true, and React counts hooks by
+    // position, so crossing 600px would change the order and blow up mid-resize.
+    const isPhoneWidth = useMediaQuery(PHONE);
+    const isNarrowWidth = useMediaQuery(NARROW);
+    const statColumns = isPhoneWidth ? 1 : isNarrowWidth ? 2 : 4;
+    const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
+    // The cost card is the only one with somewhere to go, so it is the only one that behaves
+    // like a control — the others stay plain text and do not invite a click that does nothing.
+    const openBreakdown = data.costVisible ? onOpenBreakdown : undefined;
+
     const cards: Array<{
-        label: string; value: string; sub: string; loud?: boolean;
+        label: string; value: string; sub: string; icon: string; tone: string;
+        valueGradient?: string; onClick?: () => void;
     }> = [
         {
             label: 'Meetings held',
             value: String(data.heldCount),
-            sub: data.upcomingCount ? `${data.upcomingCount} still scheduled` : 'none upcoming',
+            sub: `of ${data.totalMeetings} booked in total`,
+            icon: 'bi-calendar2-check',
+            tone: STAT_TONE.blue,
         },
         {
             label: 'Total cost',
@@ -555,17 +860,22 @@ const CostSummary: React.FC<{ data: MeetingAnalytics; onOpenBreakdown: () => voi
                 ? 'needs finance access'
                 : data.awaitingTimesheets
                     ? `${data.heldCount - data.awaitingTimesheets} of ${data.heldCount} meetings logged`
-                    : `across ${data.heldCount} held meeting${data.heldCount === 1 ? '' : 's'}`,
-            loud: true,
+                    : `across ${data.heldCount} held ${plural(data.heldCount, 'meeting')}`,
+            icon: 'bi-currency-rupee',
+            tone: STAT_TONE.green,
+            // Only when there is a figure to paint. "Hidden" in money-green would dress a
+            // permission message up as an amount.
+            valueGradient: data.costVisible ? MONEY_GRADIENT : undefined,
+            onClick: openBreakdown,
         },
         {
             label: 'Time logged',
             // Claimed, not scheduled. The old figure multiplied a meeting's length by everyone
             // invited, so it counted hours nobody spent.
             value: hm(data.loggedMinutes ?? 0),
-            sub: data.awaitingTimesheets
-                ? `${hm(data.heldMinutes)} of meetings held`
-                : `across ${hm(data.heldMinutes)} of meetings`,
+            sub: `${hm(data.heldMinutes)} of meetings held`,
+            icon: 'bi-stopwatch',
+            tone: STAT_TONE.cyan,
         },
         {
             label: 'Average meeting',
@@ -573,67 +883,76 @@ const CostSummary: React.FC<{ data: MeetingAnalytics; onOpenBreakdown: () => voi
             sub: data.costVisible
                 ? `${hm(data.avgMinutes)} with about ${Math.round(data.avgAttendees)} people`
                 : `about ${Math.round(data.avgAttendees)} people in the room`,
+            icon: 'bi-graph-up',
+            tone: STAT_TONE.purple,
+        },
+        {
+            label: 'Still upcoming',
+            value: String(data.upcomingCount),
+            sub: data.upcomingCount
+                ? `${hm(data.upcomingMinutes)} already in the diary`
+                : 'nothing booked ahead',
+            icon: 'bi-calendar-event',
+            tone: STAT_TONE.amber,
+        },
+        {
+            label: 'Awaiting timesheets',
+            value: String(data.awaitingTimesheets),
+            sub: data.awaitingTimesheets
+                ? `held ${plural(data.awaitingTimesheets, 'meeting')} with no cost yet`
+                : 'every held meeting is logged',
+            icon: 'bi-hourglass-split',
+            // The same amber as the badge on the row and the tint behind it, so the count, the
+            // tag and the row are visibly one thing rather than three amber-ish decisions.
+            tone: stateColors.awaiting,
+        },
+        {
+            label: 'Cancelled',
+            value: String(data.cancelledCount),
+            sub: data.cancelledCount
+                ? 'called off, still on the record'
+                : 'none called off',
+            icon: 'bi-x-circle',
+            tone: stateColors.cancelled,
+        },
+        {
+            label: 'People involved',
+            value: String(data.internalAttendees + data.externalAttendees),
+            sub: data.externalAttendees
+                ? `${data.internalAttendees} from the team, ${data.externalAttendees} client-side`
+                : `${data.internalAttendees} from the team`,
+            icon: 'bi-people',
+            tone: STAT_TONE.green,
         },
     ];
 
     return (
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #EEF2F6', background: '#FCFDFF' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                {cards.map((c) => {
-                    // The cost card is the only one with somewhere to go, so it is the only one
-                    // that behaves like a control — the others stay plain text and do not invite
-                    // a click that would do nothing.
-                    const clickable = !!c.loud && data.costVisible;
-                    return (
-                    <div
-                        key={c.label}
-                        role={clickable ? 'button' : undefined}
-                        tabIndex={clickable ? 0 : undefined}
-                        onClick={clickable ? onOpenBreakdown : undefined}
-                        onKeyDown={clickable ? (e) => {
-                            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenBreakdown(); }
-                        } : undefined}
-                        style={{
-                            borderRadius: 12,
-                            padding: '14px 15px',
-                            minHeight: 104,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between',
-                            background: c.loud ? '#1E3A8A' : '#F5F8FF',
-                            border: `1px solid ${c.loud ? '#1E3A8A' : '#E2E8F0'}`,
-                            cursor: clickable ? 'pointer' : 'default',
-                        }}
-                    >
-                        <div style={{
-                            fontSize: 12, fontWeight: 600, color: c.loud ? '#BFD2F5' : '#64748B',
-                            display: 'flex', alignItems: 'center', gap: 6,
-                        }}>
-                            {c.label}
-                            {clickable && <AppIcon name="bi-chevron-right" className="fs-8" />}
-                        </div>
-                        <div>
-                            <div style={{
-                                fontSize: 24, fontWeight: 800, lineHeight: 1.1,
-                                color: c.loud ? '#FFFFFF' : '#1E293B',
-                            }}>
-                                {c.value}
-                            </div>
-                            <div style={{
-                                fontSize: 11.5, marginTop: 5,
-                                color: c.loud ? '#9DB6E8' : '#94A3B8',
-                            }}>
-                                {c.sub}
-                            </div>
-                        </div>
-                    </div>
-                    );
-                })}
+            {/*
+              * FOUR, TWO or ONE — never a number that leaves a card on its own.
+              *
+              * This was `auto-fit`, which packs in as many as will fit and on a wide screen fits
+              * seven, stranding the eighth under a row of empty space. With eight cards the
+              * column count has to be a divisor of eight or the block stops reading as a block.
+              *
+              * Four is also the count that makes the two rows mean something: the first row is
+              * what the meetings cost and how long they took, the second is the state of the
+              * record — what is still coming, what is unlogged, what was called off, who was
+              * there. The array below is ordered for that split, so it survives a reflow to two
+              * columns and only collapses on a phone, where a single column is the only honest
+              * option anyway.
+              */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${statColumns}, minmax(0, 1fr))`,
+                gap: 10,
+            }}>
+                {cards.map((c) => <StatCard key={c.label} {...c} />)}
             </div>
 
-            {/* Context for the totals above, written as sentences. Facts strung together with
-                middle dots read as machine output; these are the notes a colleague would add
-                under the numbers when handing them over. */}
+            {/* What the cards cannot say, written as sentences. The counts moved up into cards;
+                what is left here is the reasoning a colleague would add when handing the
+                numbers over — why a figure is missing, and which meeting to go and look at. */}
             <div style={{ marginTop: 10, fontSize: 12, color: '#64748B', lineHeight: 1.7 }}>
                 <div>
                     {data.onlineCount > 0 && data.inPersonCount > 0
@@ -641,14 +960,9 @@ const CostSummary: React.FC<{ data: MeetingAnalytics; onOpenBreakdown: () => voi
                         : data.onlineCount > 0
                             ? `All ${data.onlineCount} were held online.`
                             : `All ${data.inPersonCount} were held in person.`}
-                    {' '}
-                    {data.internalAttendees} {data.internalAttendees === 1 ? 'person' : 'people'} from the team took part
-                    {data.externalAttendees > 0
-                        ? `, along with ${data.externalAttendees} from the client side.`
-                        : '.'}
                 </div>
                 {data.awaitingTimesheets > 0 && (
-                    <div style={{ color: '#92400E' }}>
+                    <div style={{ color: darkOf(stateColors.awaiting) }}>
                         {data.awaitingTimesheets} held meeting{data.awaitingTimesheets === 1 ? ' has' : 's have'} no
                         time logged yet, so {data.awaitingTimesheets === 1 ? 'it is' : 'they are'} not in the total
                         above. Cost comes from the timesheets attendees file.
@@ -791,9 +1105,12 @@ const DayDetail: React.FC<{
     /** The same palette the month grid painted, so the modal is not a second opinion. */
     colors?: HalfColors;
     labels?: HalfLabels;
+    /** And the same three state colours the table rows wear, for the badges on each meeting. */
+    stateColors: LifecycleColors;
 }> = ({
     dayKeyValue, halves, open, onClose, timeRange, modeCell, onDelete, onEdit, onCancel,
     onLogTime, onRemind, onCreate, colors = DEFAULT_HALF_COLORS, labels = DEFAULT_HALF_LABELS,
+    stateColors,
 }) => {
     const openProject = useOpenProject();
     const isPhone = useMediaQuery(PHONE);
@@ -943,8 +1260,8 @@ const DayDetail: React.FC<{
                                     textDecoration: isCancelled(m) ? 'line-through' : 'none',
                                 }}>
                                     {m.title}
-                                    {isCancelled(m) && <CancelledTag reason={m.cancelReason} />}
-                                    {isAwaitingTime(m) && <AwaitingTag />}
+                                    {isCancelled(m) && <CancelledTag reason={m.cancelReason} color={stateColors.cancelled} />}
+                                    {isAwaitingTime(m) && <AwaitingTag color={stateColors.awaiting} />}
                                 </div>
                                 {m.projectName && (
                                     <div style={{ fontSize: 12, fontWeight: 600, color: '#1E3A8A', marginTop: 2 }}>
@@ -1123,6 +1440,9 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     const [breakdownOpen, setBreakdownOpen] = useState(false);
     const [dayOpen, setDayOpen] = useState(false);
     const { colors: halfColors, labels: halfLabels } = useHalfConfig();
+    // What cancelled, unlogged and held look like — configured on Calendar Configuration →
+    // Meetings, and applied identically to the badges and the table rows below.
+    const stateColors = useLifecycleColors();
     // The day a dragged meeting is currently over, so the grid can show where it would land.
     const [dragOverDay, setDragOverDay] = useState<string | null>(null);
     /**
@@ -1359,8 +1679,8 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                             textDecoration: isCancelled(m) ? 'line-through' : 'none',
                         }}>
                             {m.title}
-                            {isCancelled(m) && <CancelledTag reason={m.cancelReason} />}
-                            {isAwaitingTime(m) && <AwaitingTag />}
+                            {isCancelled(m) && <CancelledTag reason={m.cancelReason} color={stateColors.cancelled} />}
+                            {isAwaitingTime(m) && <AwaitingTag color={stateColors.awaiting} />}
                         </div>
                         {m.description && (
                             <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 3, maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={m.description}>
@@ -1479,6 +1799,34 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
         // eslint-disable-next-line react-hooks/exhaustive-deps
     ], [onDelete, onCancel, onEdit, onLogTime, onRemind, mode, openProject]);
 
+    /**
+     * A row that states its own outcome.
+     *
+     * The lifecycle was only ever readable from a badge beside the title — fine when you are
+     * already looking at that cell, useless when the question is "which of these forty went
+     * ahead". Tint plus a solid left edge is the treatment the rest of the product's tables
+     * already use for a status, so this list is scanned the same way the leads list is.
+     *
+     * Colour comes from the state's ONE configured value, through the same `lifecycleTone`
+     * the badge uses — so the tint behind an unlogged meeting is by construction the colour on
+     * its AWAITING TIMESHEETS tag, and recolouring the state in Calendar Configuration moves
+     * both. A SCHEDULED row returns nothing and stays white: it has no outcome yet, and
+     * tinting it would spend a colour saying "nothing has happened".
+     */
+    const rowTint = useCallback(({ row }: any) => {
+        const state = lifecycleOf(row.original as MeetingRow);
+        if (!state) return {};
+        const tone = lifecycleTone(stateColors[state]);
+        return {
+            sx: {
+                backgroundColor: tone.row,
+                '& td:first-of-type': { borderLeft: `4px solid ${tone.edge} !important` },
+                transition: 'background-color 0.12s ease',
+                '&:hover td': { backgroundColor: `${tone.rowHover} !important` },
+            },
+        };
+    }, [stateColors]);
+
     const pickedList = byDay.get(picked) ?? [];
     const pickedHalves = splitHalves(pickedList, dayjs(picked));
     const todayKey = dayKey(dayjs());
@@ -1545,7 +1893,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
 
             {analytics && analytics.totalMeetings > 0 && (
                 <>
-                    <CostSummary data={analytics} onOpenBreakdown={() => setBreakdownOpen(true)} />
+                    <CostSummary data={analytics} onOpenBreakdown={() => setBreakdownOpen(true)} stateColors={stateColors} />
                     <CostBreakdown data={analytics} open={breakdownOpen} onClose={() => setBreakdownOpen(false)} />
                 </>
             )}
@@ -1577,7 +1925,11 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                     columns={tableColumns}
                     data={meetings}
                     enableColumnSpecificSearch
-                    searchPlaceholder="Search meeting, project, organizer or attendee…"
+                    // The placeholder stays the app's own "Search in All Columns". A bespoke
+                    // sentence here named four fields and still searched all of them, so it
+                    // was both longer than every other search box in the product and less
+                    // accurate than the generic text it replaced.
+                    muiTableProps={{ muiTableBodyRowProps: rowTint }}
                 />
             ) : (
                 <div style={{ padding: isPhone ? 8 : 16, fontFamily: 'Inter' }}>
@@ -1805,6 +2157,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                     <DayDetail
                         dayKeyValue={picked}
                         halves={pickedHalves}
+                        stateColors={stateColors}
                         open={dayOpen}
                         onClose={() => setDayOpen(false)}
                         timeRange={timeRange}
