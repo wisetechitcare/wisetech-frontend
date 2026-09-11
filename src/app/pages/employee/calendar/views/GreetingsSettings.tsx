@@ -2,13 +2,20 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Stack, Typography } from '@mui/material'
 import { GREETINGS_KEY } from '@constants/configurations-key'
 import { fetchConfiguration, createNewConfiguration, updateConfigurationById } from '@services/company'
-import { sendBirthdayCardTest } from '@services/employee'
+import {
+  sendBirthdayCardTest, fetchGreetingRuns, runGreetingsNow, type GreetingRun,
+} from '@services/employee'
 import { safeJsonParse } from '@utils/safeJson'
 import Loader from '@app/modules/common/utils/Loader'
 import {
-  GlassCard, SettingsSection, StatusBadge, TRIO, WtButton, WtField, WtSwitchField,
+  GlassCard, SettingsSection, StatusBadge, TRIO, WtButton, WtField, WtSwitchField, type Trio,
 } from '@app/modules/common/components/ui'
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon'
+import { TimeWheelField } from '@app/modules/common/components/TimeWheelField'
+import { getTimeTokens } from '@utils/timeFormat'
+import dayjs from 'dayjs'
+// The app's own relative-time helper — it registers the dayjs plugin once, centrally.
+import { fromNow } from '@modules/audit/time'
 import { errorConfirmation, successConfirmation } from '@utils/modal'
 
 /**
@@ -26,7 +33,7 @@ import { errorConfirmation, successConfirmation } from '@utils/modal'
 
 interface GreetingSettings {
   enabled: boolean
-  /** `HH:mm`. Quarter hours only — see `TIME_OPTIONS`. */
+  /** 24-hour `HH:mm`, whatever the reader's clock shows. Quarter hours only. */
   sendTime: string
   includeEmployees: boolean
   includeContacts: boolean
@@ -65,22 +72,30 @@ const DEFAULTS: GreetingSettings = {
 const CARD_MESSAGE_COMFORTABLE = 70
 
 /**
- * Quarter-hour steps, and the reason is the job rather than taste: it wakes every fifteen
- * minutes and sends when the configured time has just passed. Offering minutes it can only
- * round would be offering a precision that does not exist.
+ * A stored `HH:mm` as the reader's own clock shows it.
  *
- * Labelled in 12-hour time because that is what this product shows dates and times in;
- * the value stored stays 24-hour `HH:mm`.
+ * Through the app's time tokens rather than a hand-written 12-hour conversion, so this
+ * follows the 12h/24h preference every other time in the product already follows.
  */
-const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
-  const h = Math.floor(i / 4)
-  const m = (i % 4) * 15
-  const value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-  const hour12 = h % 12 === 0 ? 12 : h % 12
-  return { value, label: `${hour12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}` }
-})
+const timeLabel = (value: string) =>
+  dayjs(`2000-01-01T${value}`).format(getTimeTokens().TIME)
 
-const timeLabel = (value: string) => TIME_OPTIONS.find((o) => o.value === value)?.label ?? value
+/**
+ * What a run actually amounted to, in a phrase and a colour.
+ *
+ * "Considered nobody" is called out separately from "nobody had a birthday", because they
+ * look identical in every other column and only one of them is a bug. That is precisely
+ * the failure this feature shipped with: the roster query matched zero rows, so the job
+ * fired on time and greeted no one, for weeks, with nothing to see.
+ */
+const runVerdict = (r: GreetingRun): { label: string; trio: Trio } => {
+  if (r.error) return { label: 'Failed', trio: TRIO.rose }
+  if (r.considered === 0) return { label: 'Checked nobody', trio: TRIO.rose }
+  if (r.failed > 0) return { label: `${r.sent} sent, ${r.failed} failed`, trio: TRIO.amber }
+  if (r.sent > 0) return { label: `${r.sent} sent`, trio: TRIO.green }
+  if (r.matched > 0) return { label: 'Already greeted', trio: TRIO.slate }
+  return { label: 'No birthdays', trio: TRIO.slate }
+}
 
 function GreetingsSettings() {
   const [isLoading, setIsLoading] = useState(true)
@@ -89,6 +104,8 @@ function GreetingsSettings() {
   const [configId, setConfigId] = useState<string | null>(null)
   const [saved, setSaved] = useState<GreetingSettings>(DEFAULTS)
   const [draft, setDraft] = useState<GreetingSettings>(DEFAULTS)
+  const [runs, setRuns] = useState<GreetingRun[]>([])
+  const [running, setRunning] = useState(false)
 
   const load = useCallback(async () => {
     setIsLoading(true)
@@ -112,6 +129,9 @@ function GreetingsSettings() {
       setConfigId(res?.data?.configuration?.id || null)
       setSaved(next)
       setDraft(next)
+      // Never fatal to the settings form: a missing audit table must not stop somebody
+      // configuring the feature.
+      setRuns(await fetchGreetingRuns().catch(() => []))
     } catch (error) {
       console.error('Error loading greeting settings:', error)
     } finally {
@@ -175,6 +195,32 @@ function GreetingsSettings() {
     }
   }
 
+  /**
+   * Run the job now rather than waiting for the configured time.
+   *
+   * The clock is the only thing skipped. Anyone already greeted this year is still
+   * skipped, so pressing this twice cannot send a second card.
+   */
+  const runNow = async () => {
+    setRunning(true)
+    try {
+      const r = await runGreetingsNow()
+      successConfirmation(
+        r.sent > 0
+          ? `Sent ${r.sent} card${r.sent === 1 ? '' : 's'}`
+          : r.matched > 0
+            ? `${r.matched} matched, all already greeted this year`
+            : `Nobody has a birthday today. ${r.considered} people checked.`,
+      )
+      setRuns(await fetchGreetingRuns().catch(() => []))
+    } catch (error: any) {
+      console.error('Error running greetings:', error)
+      errorConfirmation(error?.response?.data?.message || 'The run could not be started.')
+    } finally {
+      setRunning(false)
+    }
+  }
+
   if (isLoading) return <Loader />
 
   /**
@@ -215,15 +261,27 @@ function GreetingsSettings() {
             onChange={(e) => set('enabled', e.target.checked)}
           />
 
-          <Box sx={{ maxWidth: 260 }}>
-            <WtField
-              label="Send at"
+          <Box sx={{ maxWidth: 200 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+              Send at
+            </Typography>
+            {/* The app's own time control, so this follows the 12h/24h preference and
+                matches every other time field in the product.
+
+                Quarter hours only HERE, via the shared control's opt-in step — the job
+                wakes every fifteen minutes, and offering 4:37 would be promising a
+                precision it has to round away. Every other caller keeps all sixty
+                minutes; the prop defaults to 1. */}
+            <TimeWheelField
               value={draft.sendTime}
               onChange={(v) => set('sendTime', v)}
-              options={TIME_OPTIONS}
               disabled={!draft.enabled}
-              hint="On the India (IST) clock."
+              tone={TRIO.amber}
+              minuteStep={15}
             />
+            <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.75 }}>
+              On the India (IST) clock.
+            </Typography>
           </Box>
 
           <Stack spacing={1}>
@@ -301,11 +359,75 @@ function GreetingsSettings() {
             >
               {testing ? 'sending…' : 'send me a test'}
             </WtButton>
+            <WtButton
+              ghost
+              onClick={runNow}
+              disabled={running || !saved.enabled}
+              startIcon={<AppIcon name="bi-play-circle" />}
+            >
+              {running ? 'running…' : 'run now'}
+            </WtButton>
             <WtButton flat onClick={save} disabled={!dirty || saving}>
               {saving ? 'Saving…' : 'Save changes'}
             </WtButton>
           </Stack>
         </GlassCard>
+      </SettingsSection>
+
+      <SettingsSection
+        tone={TRIO.slate}
+        icon="time"
+        title="Recent runs"
+        description="Whether the job fired, and what it found when it did."
+        action={
+          <StatusBadge
+            trio={runs.length ? runVerdict(runs[0]).trio : TRIO.slate}
+            label={runs.length ? `Last run ${fromNow(runs[0].ranAt)}` : 'Never run'}
+          />
+        }
+      >
+        {runs.length === 0 ? (
+          <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
+            The job has not run since this was set up. It records every pass here, including
+            the ones that greet nobody.
+          </Typography>
+        ) : (
+          <Stack divider={<Box sx={{ height: '1px', bgcolor: 'divider' }} />}>
+            {runs.map((r) => {
+              const v = runVerdict(r)
+              return (
+                <Box
+                  key={r.id}
+                  sx={{
+                    py: 1.5, display: 'flex', gap: 2, alignItems: { xs: 'flex-start', sm: 'center' },
+                    flexDirection: { xs: 'column', sm: 'row' },
+                  }}
+                >
+                  <Box sx={{ minWidth: 150 }}>
+                    <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: 'text.primary' }}>
+                      {dayjs(r.ranAt).format(`D MMM, ${getTimeTokens().TIME}`)}
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                      {r.trigger === 'manual' ? 'Run by hand' : 'Scheduled'}
+                    </Typography>
+                  </Box>
+                  <StatusBadge trio={v.trio} label={v.label} />
+                  {/* Tabular figures so the counts line up down the column. */}
+                  <Typography sx={{
+                    fontSize: 12.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    {r.considered} checked · {r.matched} with a birthday · {r.skipped} already greeted
+                  </Typography>
+                  {r.error && (
+                    <Typography sx={{ fontSize: 12.5, color: 'error.main', wordBreak: 'break-word' }}>
+                      {r.error}
+                    </Typography>
+                  )}
+                </Box>
+              )
+            })}
+          </Stack>
+        )}
       </SettingsSection>
 
       <Typography sx={{ fontSize: 12.5, color: 'text.secondary', px: 0.5 }}>

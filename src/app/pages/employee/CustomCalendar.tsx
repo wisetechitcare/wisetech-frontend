@@ -1171,7 +1171,34 @@ function CustomCalendar() {
        `focusedEvent` is what separates them; anything that moves off the day
        clears it. */
     const showDay = (d: Date) => { setFocusedEvent(null); setPanelDate(d); if (isMobile) openDaySheet(); };
-    const showEvent = (e: any) => { setFocusedEvent(e); setPanelDate(new Date(evDateOf(e))); if (isMobile) openDaySheet(); };
+
+    /**
+     * A MEETING leaves this screen; everything else stays on it.
+     *
+     * The panel can describe a birthday or a holiday completely — a name and a date is the
+     * whole record. A meeting is not like that: it has a roster, an agenda, a link, time to
+     * log against it and an organizer who may need to move it, and none of that fits a chip.
+     * So a meeting chip goes to the Meetings tab, which is the screen that owns all of it.
+     *
+     * The date rides along because the tab opens on the current month by default, and a
+     * meeting clicked in November is not on it. Same route, only the query changes — the
+     * Meetings tab is a sibling of this one, not another page.
+     */
+    const openMeetingsTab = (startIso: string) => {
+        const params = new URLSearchParams(location.search);
+        params.set('tab', 'Meetings');
+        params.set('date', dayjs(startIso).format('YYYY-MM-DD'));
+        navigate({ pathname: location.pathname, search: params.toString() });
+    };
+
+    /** The meeting behind an event, or null when the event is not one. */
+    const meetingOf = (e: any) => (e?.extendedProps?.type === 'meeting' ? e.extendedProps.meeting : null);
+
+    const showEvent = (e: any) => {
+        const meeting = meetingOf(e);
+        if (meeting) { openMeetingsTab(meeting.startDate); return; }
+        setFocusedEvent(e); setPanelDate(new Date(evDateOf(e))); if (isMobile) openDaySheet();
+    };
     const panelItems = focusedEvent ? [focusedEvent] : panelEvents;
     const openFilters = () => { setShowOptionsModal(false); setMobileFilters(true); setPanelSheetOpen(true); };
     // Filters replace the day view on mobile; on tablet+ the rail shows both.
@@ -1427,11 +1454,29 @@ function CustomCalendar() {
                                     <div className="mrd-tl">
                                         {panelItems.map((e: any, i: number) => {
                                             const m = evMeta(e);
+                                            const meeting = meetingOf(e);
                                             return (
                                                 <div className="mrd-tl__item" key={i}>
                                                     <span className="mrd-tl__node" style={{ borderColor: m.color }} />
                                                     <div className="mrd-tl__time">{evTimeOf(e) || 'All day'}</div>
-                                                    <div className="mrd-tl__card">
+                                                    <div
+                                                        className="mrd-tl__card"
+                                                        // Only meetings become a control. The other kinds have nowhere
+                                                        // to go, and a cursor that changes over a birthday promises a
+                                                        // destination that does not exist.
+                                                        {...(meeting ? {
+                                                            role: 'button',
+                                                            tabIndex: 0,
+                                                            style: { cursor: 'pointer' },
+                                                            onClick: () => openMeetingsTab(meeting.startDate),
+                                                            onKeyDown: (ev: React.KeyboardEvent) => {
+                                                                if (ev.key === 'Enter' || ev.key === ' ') {
+                                                                    ev.preventDefault();
+                                                                    openMeetingsTab(meeting.startDate);
+                                                                }
+                                                            },
+                                                        } : {})}
+                                                    >
                                                         {renderProfileOrIcon(e, 36, "circle", "mrd-tl__ic")}
                                                         <div style={{ flex: 1, minWidth: 0 }}>
                                                             <div className="mrd-tl__title">{e.title}</div>
@@ -1729,8 +1774,24 @@ function CustomCalendar() {
                         <div className="mrd-card__body">
                             {todayEvents.length ? todayEvents.map((e: any, i: number) => {
                                 const m = evMeta(e);
+                                const meeting = meetingOf(e);
                                 return (
-                                    <div className="mrd-row" key={i}>
+                                    <div
+                                        className="mrd-row"
+                                        key={i}
+                                        {...(meeting ? {
+                                            role: 'button',
+                                            tabIndex: 0,
+                                            style: { cursor: 'pointer' },
+                                            onClick: () => openMeetingsTab(meeting.startDate),
+                                            onKeyDown: (ev: React.KeyboardEvent) => {
+                                                if (ev.key === 'Enter' || ev.key === ' ') {
+                                                    ev.preventDefault();
+                                                    openMeetingsTab(meeting.startDate);
+                                                }
+                                            },
+                                        } : {})}
+                                    >
                                         {renderProfileOrIcon(e, 34, "circle", "mrd-av")}
                                         <div className="mrd-row__main"><div className="mrd-row__t">{e.title}</div><div className="mrd-row__s">{(evTimeOf(e) || 'All day')} · {m.label}</div></div>
                                         <span className={`mrd-tag ${evTimeOf(e) ? 'mrd-tag--today' : 'mrd-tag--wk'}`}>{evTimeOf(e) || 'All day'}</span>
@@ -1748,8 +1809,22 @@ function CustomCalendar() {
                             <span className="mrd-card__meta">{upcomingMeetings.length} scheduled</span>
                         </div>
                         <div className="mrd-card__body">
+                            {/* Every row here IS a meeting, so the whole list is navigable. */}
                             {upcomingMeetings.length ? upcomingMeetings.map((mtg: any, i: number) => (
-                                <div className="mrd-row" key={i}>
+                                <div
+                                    className="mrd-row"
+                                    key={i}
+                                    role="button"
+                                    tabIndex={0}
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => openMeetingsTab(mtg.startDate)}
+                                    onKeyDown={(ev) => {
+                                        if (ev.key === 'Enter' || ev.key === ' ') {
+                                            ev.preventDefault();
+                                            openMeetingsTab(mtg.startDate);
+                                        }
+                                    }}
+                                >
                                     <span className="mrd-av" style={{ background: 'var(--mrd-violet-tint)', color: 'var(--mrd-violet)' }}><Ico n="video" cls="sm" /></span>
                                     <div className="mrd-row__main"><div className="mrd-row__t">{mtg.title || 'Meeting'}</div><div className="mrd-row__s">{dayjs(mtg.startDate).format(`MMM D · ${getTimeTokens().TIME}`)}</div></div>
                                     <span className="mrd-tag mrd-tag--wk">{relLabel(mtg.startDate)}</span>

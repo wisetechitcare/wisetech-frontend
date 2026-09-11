@@ -20,7 +20,7 @@ import MeetingFormBody, { type MeetingFormBodyHandle, type MeetingFormBodyProps 
  * in the tree — it is a self-contained reader of a start/end and a participant list, so it can
  * be dropped back in wherever that question does get asked.
  */
-export interface MeetingDialogProps extends Pick<MeetingFormBodyProps, 'selectedDateTimeInfo' | 'defaultProjectId' | 'lockProject' | 'editing'> {
+export interface MeetingDialogProps extends Pick<MeetingFormBodyProps, 'selectedDateTimeInfo' | 'defaultProjectId' | 'lockProject' | 'leadName' | 'editing'> {
     open: boolean;
     onClose: () => void;
     onSaved?: () => void;
@@ -51,7 +51,9 @@ export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: 
                     // The header says which of the two things this is. A form pre-filled with
                     // somebody's meeting under a heading that says "New meeting" is the kind of
                     // detail that makes people close a dialog to check.
-                    title={bodyProps.editing ? 'Edit meeting' : 'New meeting'}
+                    title={bodyProps.editing
+                        ? 'Edit meeting'
+                        : bodyProps.leadName ? 'New lead meeting' : 'New meeting'}
                     onClose={saving ? undefined : onClose}
                 />
             }

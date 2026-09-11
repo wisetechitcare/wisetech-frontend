@@ -66,6 +66,14 @@ interface MeetingRow {
     projectId?: string | null;
     projectName?: string | null;
     projectNumber?: string | null;
+    /**
+     * The linked row is still a LEAD — its status is not a project trigger. Server-derived,
+     * because "has this become a project" has exactly one definition and it lives there.
+     *
+     * Load-bearing twice over: it labels the row, and it decides the `isProject` nav state
+     * below, which the entity page uses to choose which tabs exist.
+     */
+    isLead?: boolean;
     organizerName?: string;
     participantNames?: string[];
     externalParticipantNames?: string[];
@@ -427,16 +435,37 @@ const dayKey = (d: Dayjs | string) => dayjs(d).format('YYYY-MM-DD');
  * `isProject` in the nav state is load-bearing, not decoration: the entity page hides its
  * project-only tabs (Meetings among them) unless it is told it was entered from a project, so
  * without it the link lands on the lead view and bounces off the tab it asked for.
+ *
+ * Which is exactly why a meeting booked from the Leads table must pass `isLead`: claiming
+ * `isProject` for a lead that has not become one opens the lead behind a set of project tabs
+ * it has nothing to fill.
  */
 const useOpenProject = () => {
     const navigate = useNavigate();
     // Stable: the column definitions memoise on it, and a fresh function each render would
     // rebuild every column on every render — which is the cost this table was moved off.
-    return useCallback((projectId?: string | null) => {
+    return useCallback((projectId?: string | null, isLead?: boolean) => {
         if (!projectId) return;
-        navigate(`/leads/${projectId}?tab=meetings`, { state: { leadData: projectId, isProject: true } });
+        navigate(
+            isLead ? `/leads/${projectId}` : `/leads/${projectId}?tab=meetings`,
+            { state: { leadData: projectId, isProject: !isLead } },
+        );
     }, [navigate]);
 };
+
+/** Says the linked row is a lead, not a project. Rendered only when it is. */
+const LeadTag = () => (
+    <span
+        style={{
+            marginLeft: 6, padding: '1px 6px', borderRadius: 999,
+            fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase',
+            color: '#B45309', background: 'rgba(217, 119, 6, 0.12)', border: '1px solid rgba(217, 119, 6, 0.28)',
+            whiteSpace: 'nowrap',
+        }}
+    >
+        Lead
+    </span>
+);
 
 /** A project name that goes to the project. Not a <button>: it renders inside one. */
 const ProjectLink: React.FC<{
@@ -904,13 +933,23 @@ const DayDetail: React.FC<{
                                 {timeRange(m)}
                             </div>
                             <div style={{ gridArea: 'body', minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B' }}>
+                                {/* Struck through and tagged, exactly as the table row reads it.
+                                    The row is kept — a cancelled meeting is still part of what
+                                    the day and the project had booked — but it has to be
+                                    unmistakable, and the tag carries the reason on hover. */}
+                                <div style={{
+                                    fontSize: 13, fontWeight: 700,
+                                    color: isCancelled(m) ? '#94A3B8' : '#1E293B',
+                                    textDecoration: isCancelled(m) ? 'line-through' : 'none',
+                                }}>
                                     {m.title}
+                                    {isCancelled(m) && <CancelledTag reason={m.cancelReason} />}
                                     {isAwaitingTime(m) && <AwaitingTag />}
                                 </div>
                                 {m.projectName && (
                                     <div style={{ fontSize: 12, fontWeight: 600, color: '#1E3A8A', marginTop: 2 }}>
-                                        <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId)} />
+                                        <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId, m.isLead)} />
+                                        {m.isLead && <LeadTag />}
                                     </div>
                                 )}
                                 <div
@@ -1044,14 +1083,39 @@ export interface MeetingsListProps {
     onRemind?: (meeting: MeetingRow) => void;
     /** Bump to refetch after the parent creates or deletes a meeting. */
     reloadToken?: number;
+    /**
+     * Open on this day (`YYYY-MM-DD`) instead of today — for arrivals that already know which
+     * meeting brought them, such as a chip clicked on the workspace Calendar.
+     *
+     * The month grid opens on the CURRENT month, so without this a meeting clicked in
+     * November lands the reader on a month it is not in — a navigation that goes nowhere is
+     * worse than no link.
+     */
+    focusDate?: string;
 }
 
-const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, onDelete, onCancel, onEdit, onReschedule, onLogTime, onRemind, reloadToken }) => {
+const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, onDelete, onCancel, onEdit, onReschedule, onLogTime, onRemind, reloadToken, focusDate }) => {
     const [meetings, setMeetings] = useState<MeetingRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [layout, setLayout] = useState<'month' | 'table'>('month');
-    const [cursor, setCursor] = useState<Dayjs>(dayjs().startOf('month'));
-    const [picked, setPicked] = useState<string>(dayKey(dayjs()));
+    const [cursor, setCursor] = useState<Dayjs>(dayjs(focusDate || undefined).startOf('month'));
+    const [picked, setPicked] = useState<string>(dayKey(focusDate || dayjs()));
+
+    /**
+     * Follow the caller when it names a NEW day.
+     *
+     * Not just the initial state: this list is mounted once inside a tab strip, so a second
+     * meeting clicked on the Calendar tab arrives at an instance that is already alive and
+     * would otherwise keep showing the first one's month.
+     *
+     * It does not fight the reader — this only runs when `focusDate` itself changes, so
+     * paging the month by hand afterwards sticks.
+     */
+    useEffect(() => {
+        if (!focusDate) return;
+        setCursor(dayjs(focusDate).startOf('month'));
+        setPicked(dayKey(focusDate));
+    }, [focusDate]);
     // Project tab only: cost is a project question. On a person's own Meetings screen it would
     // be a running total of what their calendar costs the company, which is not a number any
     // screen should put in front of the person it is about.
@@ -1262,14 +1326,18 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
         ...(mode !== 'project' ? [{
             id: 'project',
             accessorFn: (m: MeetingRow) => m.projectName || '',
-            header: 'Project',
+            // Both kinds land in this column now that a meeting can be booked from the Leads
+            // table, and a header that names only one of them is the sort of small lie that
+            // makes people distrust the rest of the row.
+            header: 'Project / Lead',
             Cell: ({ row }: any) => {
                 const m = row.original as MeetingRow;
                 if (!m.projectName) return <span style={{ color: '#94A3B8' }}>Not linked</span>;
                 return (
                     <div>
                         <div style={{ fontWeight: 600, color: '#1E3A8A' }}>
-                            <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId)} />
+                            <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId, m.isLead)} />
+                            {m.isLead && <LeadTag />}
                         </div>
                         {m.projectNumber && (
                             <div style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 2 }}>{m.projectNumber}</div>
@@ -1666,7 +1734,11 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                             // hold time, title AND project without clipping, and the
                                             // clipped part is often the project. The time is named
                                             // because dragging changes the DAY and never the clock.
-                                            title={dragEnabled
+                                            // Cancelled wins the tooltip: the chip is too narrow for a
+                                            // tag, so this is where the reason can be read.
+                                            title={isCancelled(m)
+                                                ? `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}\nCancelled${m.cancelReason ? ` — ${m.cancelReason}` : ''}`
+                                                : dragEnabled
                                                 ? `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}\nDrag to another day — the time stays ${dayjs(m.startDate).format('h:mm A')}`
                                                 : `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}`}
                                             style={{
@@ -1693,6 +1765,11 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                                 display: 'block', minWidth: 0,
                                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                                 cursor: dragEnabled && !isCancelled(m) ? 'grab' : 'inherit',
+                                                // A cancelled meeting stays in the month — the
+                                                // project's record is what was BOOKED — but it
+                                                // must not read as something still happening.
+                                                // Same treatment the table row already gives it.
+                                                ...(isCancelled(m) ? { textDecoration: 'line-through', opacity: 0.55 } : {}),
                                             }}
                                         >
                                             {/* Time, then what it is, then whose it is — and the
