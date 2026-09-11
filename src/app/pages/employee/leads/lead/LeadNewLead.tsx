@@ -784,7 +784,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
-        return v !== undefined ? `${getCurrencySymbol()}${Number(v).toLocaleString()}` : "₹0";
+        return v !== undefined ? `${getCurrencySymbol()}${Number(v).toLocaleString()}` : `${getCurrencySymbol()}0`;
       },
     },
     {
@@ -986,7 +986,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       size: 120,
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
-        cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : "₹0",
+        cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : `${getCurrencySymbol()}0`,
     },
     {
       accessorKey: "fileLocation",

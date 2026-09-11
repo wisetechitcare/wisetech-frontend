@@ -68,7 +68,7 @@ interface EmployeeSummary {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const fmtINR = (n: number) =>
+const fmtMoney = (n: number) =>
   `${getCurrencySymbol()}${Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 // Distinct, sorted values of one summary field ('N/A' and blanks dropped) — same rule the
@@ -558,9 +558,9 @@ function AllEmployee() {
               header: 'Total Requested Amount',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
-                return val > 0 ? fmtINR(val) : '₹0';
+                return val > 0 ? fmtMoney(val) : `${getCurrencySymbol()}0`;
               },
-              Footer: () => fmtINR(columnTotals.totalRequestAmount),
+              Footer: () => fmtMoney(columnTotals.totalRequestAmount),
             },
             {
               accessorKey: 'totalApprovedAmount',
@@ -568,18 +568,18 @@ function AllEmployee() {
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
-                return <span style={{ color: '#16a34a', fontWeight: 600 }}>{fmtINR(val)}</span>;
+                return <span style={{ color: '#16a34a', fontWeight: 600 }}>{fmtMoney(val)}</span>;
               },
-              Footer: () => <span style={{ color: '#16a34a' }}>{fmtINR(columnTotals.totalApprovedAmount)}</span>,
+              Footer: () => <span style={{ color: '#16a34a' }}>{fmtMoney(columnTotals.totalApprovedAmount)}</span>,
             },
             {
               accessorKey: 'totalPendingAmount',
               header: 'Total Pending Amount',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
-                return <span style={{ color: '#0891b2', fontWeight: 600 }}>{fmtINR(val)}</span>;
+                return <span style={{ color: '#0891b2', fontWeight: 600 }}>{fmtMoney(val)}</span>;
               },
-              Footer: () => <span style={{ color: '#0891b2' }}>{fmtINR(columnTotals.totalPendingAmount)}</span>,
+              Footer: () => <span style={{ color: '#0891b2' }}>{fmtMoney(columnTotals.totalPendingAmount)}</span>,
             },
             {
               accessorKey: 'totalPaidAmount',
@@ -587,9 +587,9 @@ function AllEmployee() {
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
-                return <span style={{ color: '#7c3aed', fontWeight: 600 }}>{fmtINR(val)}</span>;
+                return <span style={{ color: '#7c3aed', fontWeight: 600 }}>{fmtMoney(val)}</span>;
               },
-              Footer: () => <span style={{ color: '#7c3aed' }}>{fmtINR(columnTotals.totalPaidAmount)}</span>,
+              Footer: () => <span style={{ color: '#7c3aed' }}>{fmtMoney(columnTotals.totalPaidAmount)}</span>,
             },
             {
               accessorKey: 'totalRemainingAmount',
@@ -597,9 +597,9 @@ function AllEmployee() {
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
-                return <span style={{ color: '#ea580c', fontWeight: 600 }}>{fmtINR(val)}</span>;
+                return <span style={{ color: '#ea580c', fontWeight: 600 }}>{fmtMoney(val)}</span>;
               },
-              Footer: () => <span style={{ color: '#ea580c' }}>{fmtINR(columnTotals.totalRemainingAmount)}</span>,
+              Footer: () => <span style={{ color: '#ea580c' }}>{fmtMoney(columnTotals.totalRemainingAmount)}</span>,
             },
             {
               accessorKey: 'totalRejectedAmount',
@@ -607,9 +607,9 @@ function AllEmployee() {
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
-                return <span style={{ color: '#dc2626', fontWeight: 600 }}>{fmtINR(val)}</span>;
+                return <span style={{ color: '#dc2626', fontWeight: 600 }}>{fmtMoney(val)}</span>;
               },
-              Footer: () => <span style={{ color: '#dc2626' }}>{fmtINR(columnTotals.totalRejectedAmount)}</span>,
+              Footer: () => <span style={{ color: '#dc2626' }}>{fmtMoney(columnTotals.totalRejectedAmount)}</span>,
             },
             {
               accessorKey: 'totalRequests',

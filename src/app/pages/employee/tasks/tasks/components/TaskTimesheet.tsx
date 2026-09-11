@@ -111,7 +111,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
         if (!logs.length) {
             return {
                 totalLogTime: '0h 0m',
-                totalCost: '₹0',
+                totalCost: `${getCurrencySymbol()}0`,
                 totalLogs: 0,
                 billableLogs: 0,
                 nonBillableLogs: 0
@@ -231,7 +231,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
         if (apiResponse?.summary) {
             return {
                 totalLogTime: calculatedSummary.totalLogTime, // Use calculated time (more accurate)
-                totalCost: apiResponse.summary.totalCostFormatted || '₹0', // Use API cost
+                totalCost: apiResponse.summary.totalCostFormatted || `${getCurrencySymbol()}0`, // Use API cost
                 totalLogs: apiResponse.summary.totalEntries || 0 // Use API count
             };
         }

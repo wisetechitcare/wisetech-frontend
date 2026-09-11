@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom"
 import { getAllTimeSheetWithCostByProjectId } from "@services/tasks";
 import MyTimeSheetPorject from "@pages/employee/timesheet/mytimesheet/component/MyTimeSheetPorject";
 import { projectOverviewIcons } from "@metronic/assets/sidepanelicons";
+import { getCurrencySymbol } from '@utils/currency';
 
 const ProjectTimeSheets = ({id}: {id?: string}) => {
   console.log("id=====================>", id);
@@ -76,7 +77,7 @@ const ProjectTimeSheets = ({id}: {id?: string}) => {
               <span className="fw-semibold" style={{fontFamily:'Inter', fontWeight:'600', fontSize:'14px'}}>Total Cost</span>
             </div>
             <span className="fw-bold" style={{fontFamily:'Inter', fontWeight:'600', fontSize:'14px', color:'#1D5DE1'}}>
-              {timeSheets?.summary?.totalCostFormatted ?? "₹0"}
+              {timeSheets?.summary?.totalCostFormatted ?? `${getCurrencySymbol()}0`}
             </span>
           </div>
         </div>

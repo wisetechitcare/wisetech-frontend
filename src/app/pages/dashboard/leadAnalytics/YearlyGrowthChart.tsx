@@ -14,7 +14,7 @@ import {
 import AnalyticsCard from "./AnalyticsCard";
 import {
   YearlyMonthPoint,
-  formatINRShort,
+  formatMoneyShort,
   formatCountShort,
   sumSeries,
 } from "./yearlyAnalyticsUtils";
@@ -57,7 +57,7 @@ const TogglePill: React.FC<{
 
 const Tip: React.FC<any> = ({ active, payload, label, mode }) => {
   if (!active || !payload || !payload.length) return null;
-  const fmt = mode === "value" ? formatINRShort : (n: number) => `${n}`;
+  const fmt = mode === "value" ? formatMoneyShort : (n: number) => `${n}`;
   return (
     <div
       style={{
@@ -103,12 +103,12 @@ const YearlyGrowthChart: React.FC<YearlyGrowthChartProps> = ({ series, periodLab
   const converted = mode === "volume" ? "converted" : "receivedValue";
   const createdName = mode === "volume" ? "Leads Created" : "Inquiry Value";
   const convertedName = mode === "volume" ? "Leads Converted" : "Received Value";
-  const axisFmt = mode === "value" ? formatINRShort : formatCountShort;
+  const axisFmt = mode === "value" ? formatMoneyShort : formatCountShort;
 
   const subtitle =
     mode === "volume"
       ? `${totals.leads} created · ${totals.converted} converted${periodLabel ? ` · ${periodLabel}` : ""}`
-      : `${formatINRShort(totals.inquiryValue)} inquired · ${formatINRShort(totals.receivedValue)} realized${
+      : `${formatMoneyShort(totals.inquiryValue)} inquired · ${formatMoneyShort(totals.receivedValue)} realized${
           periodLabel ? ` · ${periodLabel}` : ""
         }`;
 

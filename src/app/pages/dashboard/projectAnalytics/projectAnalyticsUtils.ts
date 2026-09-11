@@ -219,7 +219,7 @@ export const calculateProjectHealthMetrics = (statusData: ProjectStatus[]): Proj
 /**
  * Format Indian currency for display.
  */
-export const formatINRShort = (value: number): string => {
+export const formatMoneyShort = (value: number): string => {
   if (value >= 10000000) return `${getCurrencySymbol()}${(value / 10000000).toFixed(1)}Cr`;
   if (value >= 100000) return `${getCurrencySymbol()}${(value / 100000).toFixed(1)}L`;
   if (value >= 1000) return `${getCurrencySymbol()}${(value / 1000).toFixed(1)}K`;

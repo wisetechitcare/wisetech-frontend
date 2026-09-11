@@ -1,7 +1,7 @@
 import React from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { BreakdownTableProps } from '../../types/payroll.types';
-import { formatINRDecimal, formatValue, sumBreakdownEarnings } from '../../utils/payrollFormatters';
+import { formatMoneyDecimal, formatValue, sumBreakdownEarnings } from '../../utils/payrollFormatters';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
@@ -138,7 +138,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                             </td>
                                             <td className="text-end">
                                                 <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>
-                                                    {formatINRDecimal(item.earned)}
+                                                    {formatMoneyDecimal(item.earned)}
                                                 </span>
                                             </td>
                                         </tr>
@@ -150,7 +150,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                     </td>
                                     <td className="text-end py-4 pe-6" style={totalHighlightRightCellStyle}>
                                         <span className={`fw-bolder fs-6 text-nowrap ${subtotalColorClass} ${sensitiveCls}`}>
-                                            {subtotalPrefix}{formatINRDecimal(variableSubtotal)}
+                                            {subtotalPrefix}{formatMoneyDecimal(variableSubtotal)}
                                         </span>
                                     </td>
                                 </tr>
@@ -199,7 +199,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                         </td>
                                         <td className="text-end">
                                             <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>
-                                                {formatINRDecimal(item.earned)}
+                                                {formatMoneyDecimal(item.earned)}
                                             </span>
                                         </td>
                                     </tr>
@@ -211,7 +211,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                     </td>
                                     <td className="text-end py-4 pe-6" style={totalHighlightRightCellStyle}>
                                         <span className={`fw-bolder fs-6 text-success text-nowrap ${sensitiveCls}`}>
-                                            {subtotalPrefix}{formatINRDecimal(fixedSubtotal)}
+                                            {subtotalPrefix}{formatMoneyDecimal(fixedSubtotal)}
                                         </span>
                                     </td>
                                 </tr>
@@ -241,13 +241,13 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                     {/* Desktop amount */}
                     <div className="d-none d-md-flex justify-content-end">
                         <span className={`fw-bolder fs-2 ${sensitiveCls}`} style={{ color: '#2563eb' }}>
-                            {formatINRDecimal(grandTotal)}
+                            {formatMoneyDecimal(grandTotal)}
                         </span>
                     </div>
                     {/* Mobile amount container */}
                     <div className="d-flex d-md-none justify-content-center align-items-center rounded-3 px-4 py-2 w-100" style={{ backgroundColor: '#dbeafe', border: '1px solid #bfdbfe' }}>
                         <span className={`fw-bolder fs-2 ${sensitiveCls}`} style={{ color: '#2563eb' }}>
-                            {formatINRDecimal(grandTotal)}
+                            {formatMoneyDecimal(grandTotal)}
                         </span>
                     </div>
                 </div>

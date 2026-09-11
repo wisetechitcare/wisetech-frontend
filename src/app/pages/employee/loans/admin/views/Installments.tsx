@@ -87,7 +87,7 @@ const Installments: React.FC = () => {
               },
               {
                 label: "Bill Due This Month",
-                value: `₹ ${
+                value: `${getCurrencySymbol()} ${
                   loanStats?.activeLoansOverview?.billDueThisMonth?.toLocaleString(
                     "en-IN"
                   ) ?? "0"
@@ -96,7 +96,7 @@ const Installments: React.FC = () => {
               },
               {
                 label: "Previous Dues",
-                value: `₹ ${
+                value: `${getCurrencySymbol()} ${
                   loanStats?.activeLoansOverview?.previousDue?.toLocaleString(
                     "en-IN"
                   ) ?? "0"
@@ -105,7 +105,7 @@ const Installments: React.FC = () => {
               },
               {
                 label: "Amount Collected",
-                value: `₹ ${
+                value: `${getCurrencySymbol()} ${
                   loanStats?.activeLoansOverview?.amountCollected?.toLocaleString(
                     "en-IN"
                   ) ?? "0"

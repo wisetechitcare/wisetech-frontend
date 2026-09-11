@@ -2,7 +2,7 @@
  * One source of truth for how the reimbursement module renders dates, money, statuses and
  * missing values.
  *
- * Before this file the module carried `fmtDate` ×4, `fmtAmount` ×5, `formatINR` ×5,
+ * Before this file the module carried `fmtDate` ×4, `fmtAmount` ×5, `formatMoney` ×5,
  * `resolveStatusNum` ×2 and five inline re-implementations — copies that had already drifted
  * apart. The visible symptom was a footer rendering 0dp while the rows above it rendered 2dp, so
  * a total literally did not equal the sum of the column it totalled.
@@ -61,7 +61,7 @@ export const fmtAmount = (value?: number | string | null): string =>
  * Same number with the currency symbol, for KPI values and totals.
  *
  * Named for money rather than for rupees on purpose: it follows the branch now, and a
- * function called formatINR that returns dirhams is the kind of thing that gets trusted
+ * function called formatMoney that returns dirhams is the kind of thing that gets trusted
  * right up until it is wrong.
  */
 export const formatMoney = (value?: number | string | null): string =>

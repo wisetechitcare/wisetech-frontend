@@ -246,7 +246,7 @@ function Overview() {
                 },
                 {
                   label: "Total Loan Taken",
-                  value: `₹ ${
+                  value: `${getCurrencySymbol()} ${
                     loanSummariesData?.allTimeInstallmentStats.totalLoanTaken?.toLocaleString(
                       "en-IN"
                     ) ?? "0"
@@ -254,7 +254,7 @@ function Overview() {
                 },
                 {
                   label: "Total Loan Collected",
-                  value: `₹ ${
+                  value: `${getCurrencySymbol()} ${
                     loanSummariesData?.allTimeInstallmentStats.totalLoanCollected?.toLocaleString(
                       "en-IN"
                     ) ?? "0"
@@ -262,7 +262,7 @@ function Overview() {
                 },
                 {
                   label: "Total Loan Pending",
-                  value: `₹ ${
+                  value: `${getCurrencySymbol()} ${
                     loanSummariesData?.allTimeInstallmentStats.totalLoanPending?.toLocaleString(
                       "en-IN"
                     ) ?? "0"

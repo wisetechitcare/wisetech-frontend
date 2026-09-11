@@ -304,7 +304,9 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         const facts: string[] = [];
         if (shownRequests) facts.push(`${shownRequests} expense${shownRequests === 1 ? '' : 's'}`);
         if (d.totalAmount != null) {
-            facts.push(`${getCurrencySymbol()}${money(shownAmount).replace('₹', '')}`);
+            // `money()` already returns the symbol. Stripping it to put it back was
+            // harmless while the symbol was always a rupee and is not any more.
+            facts.push(money(shownAmount));
         }
 
         let statusFlow: string | null = null;

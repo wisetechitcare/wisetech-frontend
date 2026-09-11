@@ -617,7 +617,7 @@ const ProjectTablePage = () => {
         meta: { defaultVisible: false },
         size: 130,
         Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : "₹0",
+          cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : `${getCurrencySymbol()}0`,
       },
       {
         accessorKey: "totalCost",
@@ -625,7 +625,7 @@ const ProjectTablePage = () => {
         meta: { defaultVisible: false },
         size: 130,
         Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : "₹0",
+          cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : `${getCurrencySymbol()}0`,
       },
       {
         accessorKey: "projectArea",

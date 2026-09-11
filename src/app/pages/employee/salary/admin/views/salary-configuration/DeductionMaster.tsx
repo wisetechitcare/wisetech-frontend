@@ -61,7 +61,7 @@ const DIRECTION_COLORS: Record<string, { color: string; label: string }> = {
 };
 
 const CALC_TYPE_LABELS: Record<string, string> = {
-  FIXED:          'Fixed ₹',
+  FIXED:          `Fixed ${getCurrencySymbol()}`,
   PERCENTAGE:     '% Based',
   HOURLY:         'Hourly',
   DAILY:          'Daily',

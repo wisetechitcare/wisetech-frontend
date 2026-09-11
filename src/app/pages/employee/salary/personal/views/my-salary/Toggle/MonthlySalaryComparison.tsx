@@ -57,7 +57,7 @@ const MonthlySalaryComparison = ({
     const parseAmount = (raw: any): number => {
         if (raw === null || raw === undefined) return 0;
         if (typeof raw === 'number') return raw;
-        const n = Number(String(raw).replace(/₹|,/g, '').trim());
+        const n = Number(String(raw).replace(/[^0-9.-]/g, '').trim());
         return Number.isFinite(n) ? n : 0;
     };
 
@@ -430,7 +430,7 @@ const MonthlySalaryComparison = ({
                     </svg>
                     Stacked bar = Net Payable + applicable deductions (PF, TDS, PTax…)
                 </div>
-                <div>All amounts in ₹ (Indian Rupees)</div>
+                <div>All amounts in {getCurrencySymbol()}</div>
             </div>
         </div>
     );

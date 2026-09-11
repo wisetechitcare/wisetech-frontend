@@ -51,7 +51,7 @@ The bar for every component: **reusable, responsive, accessible, theme-aware (li
 ### This is lint-enforced — you cannot merge a violation
 `.eslintrc.cjs` fails the build on banned primitives. Don't add `eslint-disable` to get around it; fix the code or the rule is pointless.
 - **`no-restricted-imports`** (always error, everywhere except the kit): importing `Switch` from `@mui/material`.
-- **`no-restricted-syntax`** (error): native `type="date"|"datetime-local"|"time"|"month"`, `<style>` blocks, Bootstrap component classes (`form-switch`, `form-control`, `btn btn-`, `card-body`, `badge badge-`), `toLocaleDateString()`.
+- **`no-restricted-syntax`** (error): native `type="date"|"datetime-local"|"time"|"month"`, `<style>` blocks, Bootstrap component classes (`form-switch`, `form-control`, `btn btn-`, `card-body`, `badge badge-`), `toLocaleDateString()`, a hardcoded `₹` in any string/template/JSX, an inline `{ style: 'currency' }`, and the `dollar` keenicon.
 - **The ratchet** (`.eslint-ui-baseline.cjs`, auto-generated): 286 legacy files predate these rules and would make the build permanently red, so they emit *warnings* instead. **Every file not in that list errors.** New code can't regress; the list can only shrink. Regenerate after a burn-down pass with `pnpm run lint:ui:baseline`, and delete paths as you fix them — never add one.
 - Severity is split across two rules on purpose: the ratchet downgrades `no-restricted-syntax` for baselined files, so the raw-`Switch` ban lives in `no-restricted-imports` where the ratchet can't reach it.
 
@@ -96,6 +96,16 @@ Official format guide: **`2025.12.03`** ✅ · `2025-12-03` ❌ (dashes) · `03.
 Single source of truth: `src/utils/dateFormats.ts`.
 - **Display** (anything a human reads — fields, tables, cards, exports, PDFs): `formatDate()` / `formatDateTime()` / `DATE_FORMATS.DISPLAY`. Never `toLocaleDateString()` and never an inline format string.
 - **Wire** (network/DB): ISO `DATE_FORMATS.WIRE` (`YYYY-MM-DD`). This must stay ISO — the backend parses it. Don't "fix" wire values to dots.
+
+### Currency — it follows the BRANCH, never a hardcoded glyph
+Single source of truth: `src/utils/currency.ts` + `src/hooks/useCurrency.ts`. Resolution order is the branch's own `Branches.currency`, then the currency of the branch's country (from the geo directory, which carries one for all 250), then INR.
+
+- **Formatting**: `formatCurrency()` / `formatCurrencyDecimal()` / `formatCurrencyRounded()` / `formatCurrencyCompact()`. Omit the currency argument — they use the active one. Pass one ONLY to render an amount that is deliberately not in the viewer's currency.
+- **A glyph on its own**: `getCurrencySymbol()` in text, or `<CurrencySymbol />` in an icon slot (`IconBox` and `StatTile` take a node). The `dollar` keenicon is banned — it is currency-specific. For a *category* icon on a money feature use `wallet`.
+- **Parsing a formatted amount back to a number**: strip `/[^0-9.-]/g`. Never name the characters to remove — `replace(/[₹,]/g, '')` returns 0 for every other currency.
+- **Building your own number format** (Excel `numFmt` is the real case): `usesIndianGrouping()` tells you whether the pattern needs lakh/crore sections, because a numFmt carries its own grouping and Excel will not infer it from a locale.
+- **Non-React code** (exports, analytics utils) is served by the module-level active currency, published by `useCurrency` which `App.tsx` mounts. It is DISPLAY ONLY — never use it to decide a stored amount, a comparison or a total.
+- **The one exception**: an amount fixed by statute. India's professional-tax slabs are rupees by law and must not follow the branch; those two files are listed as lint overrides in `.eslintrc.cjs`.
 
 ### Styling rules
 - Layout/spacing: Tailwind utilities or MUI `sx`. **No new `.css` files, no `<style>` blocks, no inline `style={{}}`, no Bootstrap layout classes** (`row`, `col-*`, `d-flex`, `px-5`, `mt-7`, `fw-bold`, `text-muted`, `form-control`, `btn`).

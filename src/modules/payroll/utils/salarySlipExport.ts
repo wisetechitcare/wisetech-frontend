@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { saveAs } from 'file-saver';
 import { formatValue } from './payrollFormatters';
 import { getTimeTokens } from '@utils/timeFormat';
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, usesIndianGrouping } from '@utils/currency';
 
 /**
  * Spreadsheet export of a month's salary slip.
@@ -612,16 +612,57 @@ export function buildSlipModel(input: SalarySlipExportInput): SlipModel {
 
 const argb = (hex: string) => 'FF' + hex.replace('#', '').toUpperCase();
 
-// Indian digit grouping (₹12,34,567.89). The final section also catches negatives.
-const INR2 = '[>=10000000]"₹"##\\,##\\,##\\,##0.00;[>=100000]"₹"##\\,##\\,##0.00;"₹"#,##0.00';
-const INR0 = '[>=10000000]"₹"##\\,##\\,##\\,##0;[>=100000]"₹"##\\,##\\,##0;"₹"#,##0';
-// Deductions are held as positive numbers and worn with a minus. The leading
-// `[<0.005]` section keeps a nil deduction reading "₹0" rather than "-₹0", and the
-// two-digit grouping repeats leftwards on its own, so crores still come out right.
-const INR2_NEG = '[<0.005]"₹"#,##0.00;[>=100000]"-₹"##\\,##\\,##0.00;"-₹"#,##0.00';
-const INR0_NEG = '[<0.005]"₹"#,##0;[>=100000]"-₹"##\\,##\\,##0;"-₹"#,##0';
+/**
+ * The payslip's Excel number formats, in the active currency.
+ *
+ * Built rather than written out, because a numFmt pattern carries its own digit grouping
+ * and Excel will not infer lakh/crore from a locale. The Indian branch keeps the
+ * three-section pattern (₹12,34,567.89); anything else gets plain thousands.
+ *
+ * Deductions are held as positive numbers and worn with a minus. The leading `[<0.005]`
+ * section keeps a nil deduction reading "₹0" rather than "-₹0", and the two-digit
+ * grouping repeats leftwards on its own, so crores still come out right.
+ *
+ * These are functions, not consts: a const is evaluated when the module is imported,
+ * which is before the app knows the currency.
+ */
+const buildMoneyFormats = (raw: string) => {
+    // A double quote inside the symbol would close the literal and corrupt the pattern.
+    const s = raw.replace(/"/g, '');
+    const indian = usesIndianGrouping();
+    return {
+        d2: indian
+            ? `[>=10000000]"${s}"##\\,##\\,##\\,##0.00;[>=100000]"${s}"##\\,##\\,##0.00;"${s}"#,##0.00`
+            : `"${s}"#,##0.00`,
+        d0: indian
+            ? `[>=10000000]"${s}"##\\,##\\,##\\,##0;[>=100000]"${s}"##\\,##\\,##0;"${s}"#,##0`
+            : `"${s}"#,##0`,
+        d2Neg: indian
+            ? `[<0.005]"${s}"#,##0.00;[>=100000]"-${s}"##\\,##\\,##0.00;"-${s}"#,##0.00`
+            : `[<0.005]"${s}"#,##0.00;"-${s}"#,##0.00`,
+        d0Neg: indian
+            ? `[<0.005]"${s}"#,##0;[>=100000]"-${s}"##\\,##\\,##0;"-${s}"#,##0`
+            : `[<0.005]"${s}"#,##0;"-${s}"#,##0`,
+        signed: `"${s}"#,##0.00;"-${s}"#,##0.00;"${s}"0.00`,
+    };
+};
+
+// One build per currency per session; a sheet asks for these dozens of times.
+let moneyFormats: { key: string; value: ReturnType<typeof buildMoneyFormats> } | null = null;
+const money = () => {
+    const key = getCurrencySymbol();
+    if (!moneyFormats || moneyFormats.key !== key) {
+        moneyFormats = { key, value: buildMoneyFormats(key) };
+    }
+    return moneyFormats.value;
+};
+
+const fmt2 = () => money().d2;
+const fmt0 = () => money().d0;
+const fmt2Neg = () => money().d2Neg;
+const fmt0Neg = () => money().d0Neg;
 /** Signed format for a figure that may legitimately fall either side of zero. */
-const INR2_SIGNED = '"₹"#,##0.00;"-₹"#,##0.00;"₹"0.00';
+const fmtSigned = () => money().signed;
 
 const colLetter = (col: number) => String.fromCharCode(64 + col);
 
@@ -629,7 +670,7 @@ const colLetter = (col: number) => String.fromCharCode(64 + col);
 const qtyFmt = (unit: string, integral = false) => `${integral ? '0' : '0.00'}${unit ? `" ${unit}"` : ''}`;
 
 /** Rate format carrying its own unit, e.g. ₹80.65 / Hour or ₹322.58 / 3 late. */
-const rateFmt = (unit: string) => `"₹"#,##0.00${unit ? `" / ${unit}"` : ''}`;
+const rateFmt = (unit: string) => `"${getCurrencySymbol().replace(/"/g, '')}"#,##0.00${unit ? `" / ${unit}"` : ''}`;
 
 const C = {
     navy: '#0f2044',
@@ -973,7 +1014,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
             band(ws, r, lblCol, valCol - 1, item.label, lblStyle);
             const cell = band(ws, r, valCol, valEnd, item.value, valStyle);
             if (typeof item.value === 'number') {
-                if (item.money) cell.numFmt = INR2;
+                if (item.money) cell.numFmt = fmt2();
                 ref[item.label] = { addr: `$${colLetter(valCol)}$${r}`, row: r, col: valCol, value: item.value };
             }
         });
@@ -1002,10 +1043,10 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
     // standard working day, and the monthly basic is a twelfth of the annual CTC. Change
     // the hourly rate and every day-priced line downstream follows.
     if (hourRateRef && ref['Per Day Rate']) {
-        relink('Per Day Rate', `${hourRateRef}*8`, ref['Per Hour Rate'].value * 8, INR2);
+        relink('Per Day Rate', `${hourRateRef}*8`, ref['Per Hour Rate'].value * 8, fmt2());
     }
     if (ref['Annual CTC'] && ref['Monthly Basic Salary']) {
-        relink('Monthly Basic Salary', `${ref['Annual CTC'].addr}/12`, ref['Annual CTC'].value / 12, INR2);
+        relink('Monthly Basic Salary', `${ref['Annual CTC'].addr}/12`, ref['Annual CTC'].value / 12, fmt2());
     }
     // Payable days: try the fuller identity first, fall back to the plain one. relink
     // writes nothing where neither reproduces the engine's figure, so a company whose
@@ -1106,7 +1147,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
                 ws, r, 5, e.amount,
                 canFormula ? `C${r}*D${r}` : null,
                 canFormula ? (e.qty as number) * (e.rateValue as number) : null,
-                earnAmtStyle, INR2,
+                earnAmtStyle, fmt2(),
             );
         } else {
             band(ws, r, 2, 5, '', rowStyle);
@@ -1140,7 +1181,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
             const computed = !live ? null : d.slab
                 ? Math.floor((d.qty as number) / d.slab) * (d.rateValue as number)
                 : (d.qty as number) * (d.rateValue as number);
-            amountCell(ws, r, 11, d.amount, formula, computed, dedAmtStyle, INR2_NEG);
+            amountCell(ws, r, 11, d.amount, formula, computed, dedAmtStyle, fmt2Neg());
         } else {
             band(ws, r, 7, 11, '', rowStyle);
         }
@@ -1158,7 +1199,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
         ws, r, 5, m.totalVariableEarnings,
         m.variableEarnings.length ? `SUM(E${varEarnStart}:E${varEarnEnd})` : null,
         m.variableEarnings.length ? m.variableEarnings.reduce((a, e) => a + e.amount, 0) : null,
-        { bold: true, size: 11, color: C.greenInk, align: 'right', bg: C.greenBg, border: C.greenLine }, INR0,
+        { bold: true, size: 11, color: C.greenInk, align: 'right', bg: C.greenBg, border: C.greenLine }, fmt0(),
     );
     const attTotalRow = r;
     band(ws, r, 7, 10, 'Total Attendance Adjustments', { bold: true, size: 10, color: C.redInk, bg: C.redBg, border: C.redLine });
@@ -1166,7 +1207,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
         ws, r, 11, m.totalVariableDeductions,
         m.variableDeductions.length ? `SUM(K${varDedStart}:K${varDedEnd})` : null,
         m.variableDeductions.length ? m.variableDeductions.reduce((a, d) => a + d.amount, 0) : null,
-        { bold: true, size: 11, color: C.redInk, align: 'right', bg: C.redBg, border: C.redLine }, INR0_NEG,
+        { bold: true, size: 11, color: C.redInk, align: 'right', bg: C.redBg, border: C.redLine }, fmt0Neg(),
     );
     ws.getRow(r).height = 18;
     r += 2;
@@ -1200,7 +1241,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
 
         if (e) {
             band(ws, r, 2, 4, e.name, rowStyle);
-            amountCell(ws, r, 5, e.amount, null, null, earnAmtStyle, INR2);
+            amountCell(ws, r, 5, e.amount, null, null, earnAmtStyle, fmt2());
         } else {
             band(ws, r, 2, 5, '', rowStyle);
         }
@@ -1212,7 +1253,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
             const rate = ws.getCell(r, 9);
             if (d.rateValue !== null) {
                 rate.value = d.isPercent ? d.rateValue : d.rateValue;
-                rate.numFmt = d.isPercent ? '0.00%' : INR2;
+                rate.numFmt = d.isPercent ? '0.00%' : fmt2();
             } else {
                 rate.value = d.rateText;
             }
@@ -1221,7 +1262,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
             const baseCell = ws.getCell(r, 10);
             if (d.base !== null) {
                 baseCell.value = d.base;
-                baseCell.numFmt = INR0;
+                baseCell.numFmt = fmt0();
                 baseCells.push({ row: r, value: d.base });
             } else {
                 baseCell.value = '—';
@@ -1233,7 +1274,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
                 ws, r, 11, d.amount,
                 canFormula ? `ROUND(J${r}*I${r},0)` : (!d.isPercent && d.rateValue !== null ? `ROUND(I${r},0)` : null),
                 canFormula ? Math.round((d.base as number) * (d.rateValue as number)) : (!d.isPercent && d.rateValue !== null ? Math.round(d.rateValue) : null),
-                dedAmtStyle, INR0_NEG,
+                dedAmtStyle, fmt0Neg(),
             );
         } else {
             band(ws, r, 7, 11, '', rowStyle);
@@ -1251,7 +1292,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
         ws, r, 5, m.totalFixedEarnings,
         m.fixedEarnings.length ? `SUM(E${fixedEarnStart}:E${fixedEarnEnd})` : null,
         m.fixedEarnings.length ? m.fixedEarnings.reduce((a, e) => a + e.amount, 0) : null,
-        { bold: true, size: 11, color: C.greenInk, align: 'right', bg: C.greenBg, border: C.greenLine }, INR0,
+        { bold: true, size: 11, color: C.greenInk, align: 'right', bg: C.greenBg, border: C.greenLine }, fmt0(),
     );
     const statTotalRow = r;
     band(ws, r, 7, 10, 'Total Statutory Deductions', { bold: true, size: 10, color: C.redInk, bg: C.redBg, border: C.redLine });
@@ -1259,7 +1300,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
         ws, r, 11, m.totalFixedDeductions,
         m.fixedDeductions.length ? `SUM(K${fixedDedStart}:K${fixedDedEnd})` : null,
         m.fixedDeductions.length ? m.fixedDeductions.reduce((a, d) => a + d.amount, 0) : null,
-        { bold: true, size: 11, color: C.redInk, align: 'right', bg: C.redBg, border: C.redLine }, INR0_NEG,
+        { bold: true, size: 11, color: C.redInk, align: 'right', bg: C.redBg, border: C.redLine }, fmt0Neg(),
     );
     ws.getRow(r).height = 18;
     r++;
@@ -1269,14 +1310,14 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
     band(ws, r, 2, 4, 'TOTAL EARNINGS (A + B)', { bold: true, size: 11, color: C.white, bg: '#16a34a' });
     const grossCell = ws.getCell(r, 5);
     grossCell.value = { formula: `E${varEarnSumRow}+E${fixedEarnSumRow}`, result: m.totalGrossPay } as any;
-    grossCell.numFmt = INR0;
+    grossCell.numFmt = fmt0();
     applyStyle(grossCell, { bold: true, size: 12, color: C.white, align: 'right', bg: '#16a34a' });
 
     const dedRow = r;
     band(ws, r, 7, 10, 'TOTAL DEDUCTIONS (1 + 2)', { bold: true, size: 11, color: C.white, bg: '#dc2626' });
     const dedCell = ws.getCell(r, 11);
     dedCell.value = { formula: `K${attTotalRow}+K${statTotalRow}`, result: m.totalDeductions } as any;
-    dedCell.numFmt = INR0_NEG;
+    dedCell.numFmt = fmt0Neg();
     applyStyle(dedCell, { bold: true, size: 12, color: C.white, align: 'right', bg: '#dc2626' });
     ws.getRow(r).height = 22;
     r += 2;
@@ -1286,7 +1327,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
     const afterAttCell = ws.getCell(r, 9);
     ws.mergeCells(r, 9, r, 11);
     afterAttCell.value = { formula: `MAX(0,E${grossRow}-K${attTotalRow})`, result: m.salaryAfterAttendance } as any;
-    afterAttCell.numFmt = INR0;
+    afterAttCell.numFmt = fmt0();
     for (let c = 9; c <= 11; c++) applyStyle(ws.getCell(r, c), { bold: true, size: 12, color: C.blueInk, align: 'right', bg: C.blueBg, border: C.blueLine });
     ws.getRow(r).height = 20;
     const afterAttRow = r;
@@ -1307,7 +1348,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
         ws.mergeCells(r, 9, r, 11);
         const adjCell = ws.getCell(r, 9);
         adjCell.value = m.netAdjustment;
-        adjCell.numFmt = INR2_SIGNED;
+        adjCell.numFmt = fmtSigned();
         for (let c = 9; c <= 11; c++) applyStyle(ws.getCell(r, c), { bold: true, size: 11, color: C.amberInk, align: 'right', bg: C.amberBg, border: '#fde68a' });
         ws.getRow(r).height = 18;
         adjRef = `I${r}`;
@@ -1323,7 +1364,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
         formula: `E${grossRow}-K${dedRow}${adjRef ? `+${adjRef}` : ''}`,
         result: m.netSalary,
     } as any;
-    netCell.numFmt = INR0;
+    netCell.numFmt = fmt0();
     for (let c = 9; c <= 11; c++) applyStyle(ws.getCell(r, c), { bold: true, size: 14, color: C.white, align: 'right', bg: C.navy });
     ws.getRow(r).height = 26;
     r++;
@@ -1335,16 +1376,16 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
     // ── SUMMARY CARDS — now that every total exists ───────────────────────────
     const cardGross = ws.getCell(cardRow, 2);
     cardGross.value = { formula: `E${grossRow}`, result: m.totalGrossPay } as any;
-    cardGross.numFmt = INR0;
+    cardGross.numFmt = fmt0();
     const cardAtt = ws.getCell(cardRow, 4);
     cardAtt.value = { formula: `K${attTotalRow}`, result: m.totalVariableDeductions } as any;
-    cardAtt.numFmt = INR0_NEG;
+    cardAtt.numFmt = fmt0Neg();
     const cardDed = ws.getCell(cardRow, 6);
     cardDed.value = { formula: `K${dedRow}`, result: m.totalDeductions } as any;
-    cardDed.numFmt = INR0_NEG;
+    cardDed.numFmt = fmt0Neg();
     const cardNet = ws.getCell(cardRow, 9);
     cardNet.value = { formula: `I${netRow}`, result: m.netSalary } as any;
-    cardNet.numFmt = INR0;
+    cardNet.numFmt = fmt0();
 
     // ── SALARY HISTORY ────────────────────────────────────────────────────────
     if (m.salaryHistory.length) {
@@ -1366,19 +1407,19 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
             ws.mergeCells(r, 5, r, 6);
             const payable = ws.getCell(r, 5);
             payable.value = { formula: `$I$${netRow}`, result: h.payable } as any;
-            payable.numFmt = INR0;
+            payable.numFmt = fmt0();
             for (let c = 5; c <= 6; c++) applyStyle(ws.getCell(r, c), { ...rowStyle, align: 'right' });
 
             ws.mergeCells(r, 7, r, 8);
             const paid = ws.getCell(r, 7);
             paid.value = h.paid;
-            paid.numFmt = INR0;
+            paid.numFmt = fmt0();
             for (let c = 7; c <= 8; c++) applyStyle(ws.getCell(r, c), { ...rowStyle, align: 'right', bold: true, color: C.greenInk });
 
             ws.mergeCells(r, 9, r, 11);
             const remaining = ws.getCell(r, 9);
             remaining.value = { formula: `MAX(0,E${r}-SUM($G$${histStart}:G${r}))`, result: h.remaining } as any;
-            remaining.numFmt = INR0;
+            remaining.numFmt = fmt0();
             for (let c = 9; c <= 11; c++) applyStyle(ws.getCell(r, c), { ...rowStyle, align: 'right', bold: true, color: i === m.salaryHistory.length - 1 ? C.blueInk : C.ink });
 
             ws.getRow(r).height = 16;
@@ -1389,12 +1430,12 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
         ws.mergeCells(r, 7, r, 8);
         const totPaid = ws.getCell(r, 7);
         totPaid.value = { formula: `SUM(G${histStart}:G${r - 1})`, result: m.salaryHistory.reduce((a, h) => a + h.paid, 0) } as any;
-        totPaid.numFmt = INR0;
+        totPaid.numFmt = fmt0();
         for (let c = 7; c <= 8; c++) applyStyle(ws.getCell(r, c), { bold: true, size: 11, color: C.greenInk, align: 'right', bg: C.greenBg, border: C.greenLine });
         ws.mergeCells(r, 9, r, 11);
         const totRemaining = ws.getCell(r, 9);
         totRemaining.value = { formula: `MAX(0,$I$${netRow}-G${r})`, result: Math.max(0, m.netSalary - m.salaryHistory.reduce((a, h) => a + h.paid, 0)) } as any;
-        totRemaining.numFmt = INR0;
+        totRemaining.numFmt = fmt0();
         for (let c = 9; c <= 11; c++) applyStyle(ws.getCell(r, c), { bold: true, size: 11, color: C.blueInk, align: 'right', bg: C.greenBg, border: C.greenLine });
         ws.getRow(r).height = 18;
         r += 2;
@@ -1413,7 +1454,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
             }
             band(ws, r, lblCol, valCol - 1, item.label, lblStyle);
             const cell = band(ws, r, valCol, valEnd, item.value, { ...valStyle, align: 'right' });
-            if (item.money) cell.numFmt = INR0;
+            if (item.money) cell.numFmt = fmt0();
             if (typeof item.value === 'number') {
                 sumRef[item.label] = { addr: `$${colLetter(valCol)}$${r}`, row: r, col: valCol, value: item.value };
             }
@@ -1532,7 +1573,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
                 const cell = ps.getCell(pr, ci + 1);
                 cell.value = v;
                 const isMoney = ci >= 6 && ci <= 8;
-                if (isMoney) cell.numFmt = INR0;
+                if (isMoney) cell.numFmt = fmt0();
                 applyStyle(cell, {
                     size: 10,
                     bold: isMoney,
@@ -1549,7 +1590,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
         const totalCell = ps.getCell(pr, 7);
         band(ps, pr, 1, 6, 'TOTAL PAID', { bold: true, size: 11, color: C.blueInk, bg: C.blueBg, border: C.blueLine });
         totalCell.value = { formula: `SUM(G${ledgerStart}:G${pr - 1})`, result: m.totalPaid } as any;
-        totalCell.numFmt = INR0;
+        totalCell.numFmt = fmt0();
         applyStyle(totalCell, { bold: true, size: 11, color: C.blueInk, align: 'right', bg: C.blueBg, border: C.blueLine });
         for (let c = 8; c <= headers.length; c++) applyStyle(ps.getCell(pr, c), { bg: C.blueBg, border: C.blueLine });
         ps.getRow(pr).height = 20;

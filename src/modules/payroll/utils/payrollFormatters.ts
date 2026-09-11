@@ -7,7 +7,7 @@ export const truncatePayrollAmount = (n: number, fractionDigits = 2) => {
     return Math.trunc(value * factor) / factor;
 };
 
-const formatINR = (n: number, fractionDigits: number) => {
+const formatMoney = (n: number, fractionDigits: number) => {
     let value = Number.isFinite(n) ? (n || 0) : 0;
     
     // Truncate the value to avoid rounding up
@@ -20,17 +20,19 @@ const formatINR = (n: number, fractionDigits: number) => {
     })}`;
 };
 
-export const formatINRDecimal = (n: number) => formatINR(Math.trunc(n), 0);
+export const formatMoneyDecimal = (n: number) => formatMoney(Math.trunc(n), 0);
 
-export const formatINRDecimalTruncated = (n: number) => formatINR(truncatePayrollAmount(n, 0), 0);
+export const formatMoneyDecimalTruncated = (n: number) => formatMoney(truncatePayrollAmount(n, 0), 0);
 
-export const formatINRRounded = (n: number) => formatINR(Math.trunc(n), 0);
+export const formatMoneyRounded = (n: number) => formatMoney(Math.trunc(n), 0);
 
-export const formatINR2 = formatINRRounded;
+export const formatMoney2 = formatMoneyRounded;
 
 export const parseCurrencyString = (str: string | undefined): number => {
     if (!str) return 0;
-    return parseFloat(str.replace(/[₹,\s]/g, '') || '0');
+    // Strip everything that is not part of a number. Naming the characters to remove is
+    // what made this rupee-only: a string carrying any other symbol parsed to 0.
+    return parseFloat(str.replace(/[^0-9.-]/g, '') || '0');
 };
 
 export const sumBreakdownEarnings = (entries: Record<string, any> | undefined) =>

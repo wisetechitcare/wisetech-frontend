@@ -889,7 +889,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         size: 120,
         Cell: ({ cell }: { cell: any }) => {
           const v = cell.getValue();
-          return v !== undefined ? `${getCurrencySymbol()}${Number(v).toLocaleString()}` : "₹0";
+          return v !== undefined ? `${getCurrencySymbol()}${Number(v).toLocaleString()}` : `${getCurrencySymbol()}0`;
         },
       },
       {
@@ -1083,7 +1083,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           header: "Project Cost",
           size: 130,
           Cell: ({ cell }: { cell: any }) =>
-            cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : "₹0",
+            cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : `${getCurrencySymbol()}0`,
         }]),
         {
           accessorKey: "projectRate",

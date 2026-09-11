@@ -3707,7 +3707,7 @@ export async function fetchEmpAllTimeKpiStatistics(fromAdmin: boolean = false, s
 export const formatNumber = (number: number | string) => formatCurrencyRounded(number);
 
 // format string to currency in INR
-export const formatStringINR = (str: string | number) => {
+export const formatMoneyString = (str: string | number) => {
     const num = parseFloat(str.toString().replace(/[^0-9.-]+/g, '')); // removes ₹, commas, etc.
     return `${getCurrencySymbol()}${num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };

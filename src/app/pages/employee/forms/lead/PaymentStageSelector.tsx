@@ -132,7 +132,7 @@ export const PaymentStageSelector: React.FC = () => {
         <div className="col-md-5">
           <div className="d-flex flex-column align-items-md-end">
             <span className="text-gray-600 fs-8 fw-bold text-uppercase">Total Commercial Cost</span>
-            <span className="text-primary fs-5 fw-bolder">₹ {formatCurrency(totalCost)}</span>
+            <span className="text-primary fs-5 fw-bolder">{getCurrencySymbol()} {formatCurrency(totalCost)}</span>
           </div>
         </div>
       </div>
@@ -169,7 +169,7 @@ export const PaymentStageSelector: React.FC = () => {
               <tr className="bg-light-primary fw-bolder border-top border-gray-300">
                 <td colSpan={2} className="text-end pe-3 text-gray-800">Total</td>
                 <td className="text-center text-primary">{roundedPct}%</td>
-                <td className="text-end pe-3 text-primary">₹ {formatCurrency(totalCost)}</td>
+                <td className="text-end pe-3 text-primary">{getCurrencySymbol()} {formatCurrency(totalCost)}</td>
               </tr>
             </tfoot>
           </Table>

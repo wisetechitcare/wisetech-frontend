@@ -132,7 +132,7 @@ const BillingRateCard = () => {
                     bgcolor: alpha(theme.palette.success.main, dark ? 0.16 : 0.07),
                 }}>
                     <Typography sx={{ fontFamily: FONT.body, fontSize: 13, color: C.textPrimary }}>
-                        An hour that costs <strong>₹83.33</strong> is billed at{' '}
+                        An hour that costs <strong>{getCurrencySymbol()}83.33</strong> is billed at{' '}
                         <strong>{getCurrencySymbol()}{valid ? (83.3333 * parsed).toFixed(2) : '—'}</strong>.
                     </Typography>
                     <Typography sx={{ fontFamily: FONT.body, fontSize: 12, color: C.textMuted, marginTop: SP.xs }}>

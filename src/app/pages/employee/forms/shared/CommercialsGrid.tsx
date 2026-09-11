@@ -3,6 +3,7 @@ import { FieldArray, useFormikContext } from "formik";
 import { Button } from "react-bootstrap";
 import { Delete, Add } from "@mui/icons-material";
 import "./Workspace.css";
+import { getCurrencySymbol } from '@utils/currency';
 
 interface CommercialsGridProps {
   type: "lead" | "project";
@@ -256,7 +257,7 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
             <div className="d-flex align-items-center gap-2">
               <span className="text-gray-600 fs-7 fw-bold uppercase">Grand Total:</span>
               <span className="text-primary fs-6 fw-bolder">
-                ₹ {formatCurrency(getGrandTotal())}
+                {getCurrencySymbol()} {formatCurrency(getGrandTotal())}
               </span>
             </div>
           </div>
