@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Box, Stack, Typography, TextField, CircularProgress, DialogContent, DialogActions,
+    Box, Stack, Typography, TextField, CircularProgress, DialogContent, DialogActions, Slider,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import ReorderableGroup, { DragHandle, type DragHandleProps } from "@app/modules/common/components/ReorderableGroup";
@@ -10,6 +10,7 @@ import {
     IconBox, ToneChip, TRIO, toast, confirmDialog, type Trio, type SemanticTone,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
+import { toPercentages, rebalance } from "@utils/weightBalancer";
 import ScorecardTemplateSection from "./ScorecardTemplateSection";
 import {
     getApplicationStatuses, createApplicationStatus, updateApplicationStatus, deleteApplicationStatus,
@@ -291,11 +292,11 @@ const MasterSection = ({
 };
 
 // ─── Scoring & automation settings ────────────────────────────────────────────
-const WEIGHT_FIELDS: { key: keyof ScoringWeights; label: string }[] = [
-    { key: "ctcFit", label: "CTC fit" },
-    { key: "experience", label: "Experience" },
-    { key: "noticePeriod", label: "Notice period" },
-    { key: "keywordMatch", label: "Keyword match" },
+const WEIGHT_FIELDS: { key: keyof ScoringWeights; label: string; hint: string }[] = [
+    { key: "ctcFit", label: "Salary fit", hint: "Expected CTC against the requisition's band" },
+    { key: "experience", label: "Experience", hint: "Years, ramping to full marks around five" },
+    { key: "noticePeriod", label: "Availability", hint: "Notice period — immediate scores highest" },
+    { key: "keywordMatch", label: "Title match", hint: "Requisition wording against current title and employer" },
 ];
 
 const SettingsSection = () => {
@@ -310,9 +311,24 @@ const SettingsSection = () => {
         onError: () => toast({ icon: "error", title: "Could not save (admin permission required)" }),
     });
 
+    /**
+     * Weights are edited as percentages of 100, never as free decimals.
+     *
+     * They were four independent numbers (0.3, 0.3, 0.15, 0.25) with no visible
+     * relationship, yet the scorer only ever used their RATIO — it divides by their sum.
+     * So "0.3" answered neither "how much does this matter" nor "how much compared to
+     * that". Percentages that visibly total 100 answer both, and the scorer needs no
+     * change: 30/30/15/25 and 0.3/0.3/0.15/0.25 produce identical scores.
+     *
+     * rebalance() is shared with the scorecard template's weighted criteria. Two copies of
+     * a 100% invariant is two places for it to drift.
+     */
+    const weightPercents = settings ? toPercentages(settings.weights as unknown as Record<string, number>) : null;
+
     const setWeight = (key: keyof ScoringWeights, value: number) => {
-        if (!settings) return;
-        setDraft({ ...settings, weights: { ...settings.weights, [key]: value } });
+        if (!settings || !weightPercents) return;
+        const next = rebalance(weightPercents, key as string, value);
+        setDraft({ ...settings, weights: next as unknown as ScoringWeights });
     };
     const setRule = (key: keyof RecruitmentSettings["autoRules"], value: boolean) => {
         if (!settings) return;
@@ -339,22 +355,40 @@ const SettingsSection = () => {
                 <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={22} /></Stack>
             ) : (
                 <Stack spacing={1.5}>
-                    <Typography sx={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: "text.secondary" }}>
-                        Scoring weights (relative)
-                    </Typography>
-                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" }, gap: 1.5 }}>
-                        {WEIGHT_FIELDS.map((w) => (
-                            <TextField
-                                key={w.key}
-                                label={w.label}
-                                type="number"
-                                size="small"
-                                value={settings.weights[w.key]}
-                                onChange={(e) => setWeight(w.key, Math.max(0, Number(e.target.value) || 0))}
-                                inputProps={{ min: 0, step: 0.05 }}
-                            />
+                    <Stack direction="row" alignItems="baseline" justifyContent="space-between" sx={{ flexWrap: "wrap", gap: 1 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: "text.secondary" }}>
+                            Scoring weights
+                        </Typography>
+                        {/* Always 100 by construction. Shown anyway, because the invariant is
+                            the reassurance: you can drag anything and the total stays honest. */}
+                        <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                            Totals <strong>100%</strong> — moving one adjusts the others
+                        </Typography>
+                    </Stack>
+                    <Stack spacing={1.75}>
+                        {weightPercents && WEIGHT_FIELDS.map((w) => (
+                            <Box key={w.key}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.25 }}>
+                                    <Typography sx={{ fontSize: 13, fontWeight: 600 }} title={w.hint}>{w.label}</Typography>
+                                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: "text.secondary" }}>
+                                        {weightPercents[w.key]}%
+                                    </Typography>
+                                </Stack>
+                                <Slider
+                                    value={weightPercents[w.key]}
+                                    onChange={(_, v) => setWeight(w.key, Array.isArray(v) ? v[0] : v)}
+                                    min={0}
+                                    max={100}
+                                    step={1}
+                                    size="small"
+                                    aria-label={`${w.label} weight, ${weightPercents[w.key]} percent`}
+                                    valueLabelDisplay="auto"
+                                    valueLabelFormat={(v) => `${v}%`}
+                                />
+                                <Typography sx={{ fontSize: 11.5, color: "text.secondary", mt: -0.5 }}>{w.hint}</Typography>
+                            </Box>
                         ))}
-                    </Box>
+                    </Stack>
                     <Typography sx={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: "text.secondary", pt: 0.5 }}>
                         Automation rules
                     </Typography>
