@@ -6,7 +6,7 @@ import dayjs from 'dayjs';
 import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui/glass';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
 import { WtDateField } from '@app/modules/common/components/ui/dates';
-import { fmtAmount, formatINR } from '../../utils/reimbursementFormat';
+import { fmtAmount, formatMoney } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow } from './paymentData';
 
 /**
@@ -159,11 +159,11 @@ export default function RecordPaymentModal({
                             <SummaryRow label="Employee" value={`${single.employeeName} · ${single.employeeCode}`} />
                             <SummaryRow label="Batch" value={single.submissionId} />
                             <SummaryRow label="Requests" value={String(single.totalRequests)} />
-                            <SummaryRow label="Approved" value={formatINR(single.approvedAmount)} />
+                            <SummaryRow label="Approved" value={formatMoney(single.approvedAmount)} />
                             {single.paidAmount > 0 && (
-                                <SummaryRow label="Already paid" value={formatINR(single.paidAmount)} tone="#16a34a" />
+                                <SummaryRow label="Already paid" value={formatMoney(single.paidAmount)} tone="#16a34a" />
                             )}
-                            <SummaryRow label="Remaining" value={formatINR(single.remainingAmount)} tone="#1E3A8A" />
+                            <SummaryRow label="Remaining" value={formatMoney(single.remainingAmount)} tone="#1E3A8A" />
                         </>
                     ) : (
                         <>
@@ -172,14 +172,14 @@ export default function RecordPaymentModal({
                                     <SummaryRow
                                         key={b.id}
                                         label={`${b.employeeName} · ${b.submissionId}`}
-                                        value={formatINR(b.remainingAmount)}
+                                        value={formatMoney(b.remainingAmount)}
                                     />
                                 ))}
                             </Box>
                             <Box sx={{ px: 2, py: 1.25, display: 'flex', justifyContent: 'space-between', bgcolor: 'action.hover' }}>
                                 <Typography sx={{ fontSize: 12.5, fontWeight: 800 }}>Total to pay</Typography>
                                 <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#1E3A8A', fontVariantNumeric: 'tabular-nums' }}>
-                                    {formatINR(remainingTotal)}
+                                    {formatMoney(remainingTotal)}
                                 </Typography>
                             </Box>
                         </>
@@ -250,7 +250,7 @@ export default function RecordPaymentModal({
 
                 {isPartial && (
                     <Alert severity="info" sx={{ mt: 2, fontSize: 12.5 }}>
-                        This records a part payment. {formatINR(single!.remainingAmount - amount)} stays outstanding
+                        This records a part payment. {formatMoney(single!.remainingAmount - amount)} stays outstanding
                         and the batch remains in the queue.
                     </Alert>
                 )}
@@ -266,9 +266,9 @@ export default function RecordPaymentModal({
                 <WtButton ghost onClick={onClose} disabled={submitting}>Cancel</WtButton>
                 <WtButton onClick={handleConfirm} disabled={blocked}>
                     {submitting ? 'Recording…'
-                        : isRun ? `Pay ${batches.length} batches · ${formatINR(remainingTotal)}`
-                        : isPartial ? `Record part payment · ${formatINR(amount || 0)}`
-                        : `Confirm payment · ${formatINR(amount || 0)}`}
+                        : isRun ? `Pay ${batches.length} batches · ${formatMoney(remainingTotal)}`
+                        : isPartial ? `Record part payment · ${formatMoney(amount || 0)}`
+                        : `Confirm payment · ${formatMoney(amount || 0)}`}
                 </WtButton>
             </DialogActions>
         </GlassDialog>

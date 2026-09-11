@@ -13,7 +13,7 @@ import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { fetchReimbursementBatches, createReimbursementPayment, fetchAllEmployees } from '@services/employee';
 import { BatchDetailModal } from '../../shared/ReimbursementBatchShared';
 import LoadErrorState from '../../components/LoadErrorState';
-import { formatINR } from '../../utils/reimbursementFormat';
+import { formatMoney } from '../../utils/reimbursementFormat';
 import {
     buildPaymentRows, filterQueueByPeriod, paymentsInPeriod, paymentKpis, stateBreakdown,
     PaymentBatchRow, PaymentState, PeriodFilter, COMPACT_BUTTON_SX, EmployeeOrgDetail,
@@ -235,7 +235,7 @@ function PaymentTab() {
             toast({
                 icon: 'success',
                 title: succeeded === 1 ? 'Payment recorded' : `${succeeded} payments recorded`,
-                text: `${formatINR(paid)} recorded.`,
+                text: `${formatMoney(paid)} recorded.`,
             });
         }
         // A failed payout is not a toast — it names a batch someone has to go back to, so it
@@ -244,7 +244,7 @@ function PaymentTab() {
             alertDialog({
                 icon: 'error',
                 title: `${failures.length} payment${failures.length === 1 ? '' : 's'} could not be recorded`,
-                html: `${succeeded > 0 ? `<p>${succeeded} succeeded (${formatINR(paid)}).</p>` : ''}<ul style="text-align:left;margin:0;padding-left:18px">${failures.map((f) => `<li>${f}</li>`).join('')}</ul>`,
+                html: `${succeeded > 0 ? `<p>${succeeded} succeeded (${formatMoney(paid)}).</p>` : ''}<ul style="text-align:left;margin:0;padding-left:18px">${failures.map((f) => `<li>${f}</li>`).join('')}</ul>`,
             });
         }
     };
@@ -340,7 +340,7 @@ function PaymentTab() {
                             <Typography sx={{ fontSize: 12.5, fontWeight: 700, flex: '1 1 auto' }}>
                                 {selectedRows.length} batch{selectedRows.length === 1 ? '' : 'es'} selected ·{' '}
                                 <Box component="span" sx={{ color: '#1E3A8A', fontVariantNumeric: 'tabular-nums' }}>
-                                    {formatINR(selectedTotal)}
+                                    {formatMoney(selectedTotal)}
                                 </Box>
                             </Typography>
                             <WtButton ghost size="small" sx={COMPACT_BUTTON_SX} onClick={() => setSelectedIds([])}>

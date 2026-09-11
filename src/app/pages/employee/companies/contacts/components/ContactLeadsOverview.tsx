@@ -13,6 +13,7 @@ import {
   SP,
   RADIUS,
 } from '@app/modules/configuration';
+import { formatCurrencyRounded } from '@utils/currency';
 
 type Lead = {
   budget: string;
@@ -109,11 +110,7 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
         const amt = parseFloat(cell.getValue() ?? "");
         return isNaN(amt)
           ? "-NA-"
-          : new Intl.NumberFormat("en-IN", {
-              style: "currency",
-              currency: "INR",
-              maximumFractionDigits: 0,
-            }).format(amt);
+          : formatCurrencyRounded(amt);
       },
     },
   

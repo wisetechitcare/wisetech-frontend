@@ -12,6 +12,7 @@
  */
 
 import dayjs from 'dayjs';
+import { formatCurrencyDecimal } from '@utils/currency';
 
 /**
  * The single placeholder for "there is no value here".
@@ -56,14 +57,15 @@ export const fmtMonth = (value?: string | Date | null): string => {
 export const fmtAmount = (value?: number | string | null): string =>
     Number(value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/** Same number with the currency symbol, for KPI values and totals. */
-export const formatINR = (value?: number | string | null): string =>
-    new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    }).format(Number(value ?? 0));
+/**
+ * Same number with the currency symbol, for KPI values and totals.
+ *
+ * Named for money rather than for rupees on purpose: it follows the branch now, and a
+ * function called formatINR that returns dirhams is the kind of thing that gets trusted
+ * right up until it is wrong.
+ */
+export const formatMoney = (value?: number | string | null): string =>
+    formatCurrencyDecimal(Number(value ?? 0));
 
 /** Sums an amount column without going through float concatenation at the call site. */
 export const sumAmounts = (rows: Array<{ amount?: number | string | null }>): number =>

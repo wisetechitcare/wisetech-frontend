@@ -6,7 +6,7 @@ import { fetchReimbursementPayments, fetchReimbursementBatchById, fetchApprovalI
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
-import { fmtDate, fmtAmount, formatINR } from '../utils/reimbursementFormat';
+import { fmtDate, fmtAmount, formatMoney } from '../utils/reimbursementFormat';
 import PaymentDetailPanel from './PaymentDetailPanel';
 import { clickableRowProps, CLICKABLE_ROW_SX } from '../utils/rowInteraction';
 import LoadErrorState from './LoadErrorState';
@@ -31,7 +31,7 @@ interface ReimbursementPaymentHistoryTableProps {
     periodDate: dayjs.Dayjs;
 }
 
-// Rows and footers render the SAME column, so they must agree to the paisa. `formatINR`
+// Rows and footers render the SAME column, so they must agree to the paisa. `formatMoney`
 // used maximumFractionDigits: 0 while the row formatter used 2 — a footer literally did not
 // equal the sum of the rows above it.
 
@@ -277,7 +277,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 ),
                 Footer: () => (
                     <span className={sensitiveCls} style={{ color: '#475569', fontWeight: 700, fontSize: '1rem' }}>
-                        {formatINR(grandTotalRequestAmount)}
+                        {formatMoney(grandTotalRequestAmount)}
                     </span>
                 ),
             },
@@ -292,7 +292,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 ),
                 Footer: () => (
                     <span className={sensitiveCls} style={{ color: '#16a34a', fontWeight: 700, fontSize: '1rem' }}>
-                        {formatINR(grandTotalPaid)}
+                        {formatMoney(grandTotalPaid)}
                     </span>
                 ),
             },
@@ -312,7 +312,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 ),
                 Footer: () => (
                     <span className={sensitiveCls} style={{ color: '#1E3A8A', fontWeight: 700, fontSize: '1rem' }}>
-                        {formatINR(grandTotalRemainingAmount)}
+                        {formatMoney(grandTotalRemainingAmount)}
                     </span>
                 ),
             },

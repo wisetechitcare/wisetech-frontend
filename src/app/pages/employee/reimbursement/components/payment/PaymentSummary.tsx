@@ -1,7 +1,7 @@
 import { Box, ButtonBase, alpha } from '@mui/material';
 import { StatTile } from '@app/modules/common/components/ui/patterns';
 import { SkeletonKpiCard } from '@app/modules/common/components/Skeleton';
-import { formatINR, PAYMENT_TONE } from '../../utils/reimbursementFormat';
+import { formatMoney, PAYMENT_TONE } from '../../utils/reimbursementFormat';
 import { PaymentKpis, PaymentState, PAYMENT_STATE_LABEL } from './paymentData';
 
 /**
@@ -58,14 +58,14 @@ export function PaymentKpiCards({ kpis, loading }: { kpis: PaymentKpis; loading?
         <Box sx={KPI_GRID}>
             <Tile
                 label="Pending payment"
-                value={formatINR(kpis.pendingAmount)}
+                value={formatMoney(kpis.pendingAmount)}
                 context={kpis.pendingBatches > 0 ? `${kpis.pendingBatches} batch${kpis.pendingBatches === 1 ? '' : 'es'}` : undefined}
                 tone="#d97706"
                 icon="wallet"
             />
             <Tile
                 label="Total paid"
-                value={formatINR(kpis.paidAmount)}
+                value={formatMoney(kpis.paidAmount)}
                 context={`${kpis.settledPct}% settled`}
                 tone="#16a34a"
                 icon="check-circle"
@@ -123,8 +123,8 @@ export function PaymentStatusRail({
             key={key}
             onClick={onClick}
             aria-pressed={selected}
-            title={`${count} ${count === 1 ? 'batch' : 'batches'} · ${formatINR(amount)}`}
-            aria-label={`${label}, ${count} ${count === 1 ? 'batch' : 'batches'}, ${formatINR(amount)}`}
+            title={`${count} ${count === 1 ? 'batch' : 'batches'} · ${formatMoney(amount)}`}
+            aria-label={`${label}, ${count} ${count === 1 ? 'batch' : 'batches'}, ${formatMoney(amount)}`}
             sx={(theme) => {
                 const dark = theme.palette.mode === 'dark';
                 return {

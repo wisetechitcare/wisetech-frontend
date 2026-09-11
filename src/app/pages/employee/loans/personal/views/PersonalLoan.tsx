@@ -17,6 +17,7 @@ import PaymentChangeRequest from '../components/PaymentChangeRequest'
 import dayjs from 'dayjs'
 import { formatNumber } from '@utils/statistics'
 import { hasPermission } from '@utils/authAbac'
+import { formatCurrencyDecimal } from '@utils/currency';
 
 interface MyComponentProps {
     resource: string;
@@ -47,11 +48,7 @@ function PersonalLoan({ resource, viewOthers, viewOwn, isSelecteEmployee }: { re
     const [allTimeTotalInstallmentPaid, setAllTimeTotalInstallmentPaid] = useState(0)
     const [allTimeTotalInstallmentPending, setAllTimeTotalInstallmentPending] = useState(0)
     const [allTimeTotalInstallmentSkipped, setAllTimeTotalInstallmentSkipped] = useState(0)
-    const formatter = new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR',
-        minimumFractionDigits: 2
-    });
+
 
     const navigate = useNavigate()
 
@@ -216,7 +213,7 @@ function PersonalLoan({ resource, viewOthers, viewOwn, isSelecteEmployee }: { re
                             <span
                                 style={{ fontWeight: '600', fontSize: '24px', fontFamily:'Inter' }}
                             >
-                                {formatter.format(totalAmountDue)}
+                                {formatCurrencyDecimal(totalAmountDue)}
                             </span>
                         </div>
                     </div>
@@ -231,7 +228,7 @@ function PersonalLoan({ resource, viewOthers, viewOwn, isSelecteEmployee }: { re
                             }}
                         >
                             <span>Loan Amount Taken</span>
-                            <span>{formatter.format(totalLoanAmountTaken)}</span>
+                            <span>{formatCurrencyDecimal(totalLoanAmountTaken)}</span>
                         </div>
                         <div
                             className="col-12 col-sm-6 d-flex flex-column"
@@ -241,7 +238,7 @@ function PersonalLoan({ resource, viewOthers, viewOwn, isSelecteEmployee }: { re
                             }}
                         >
                             <span>Loans Amount Paid</span>
-                            <span>{formatter.format(totalLoanAmountPaid)}</span>
+                            <span>{formatCurrencyDecimal(totalLoanAmountPaid)}</span>
                         </div>
                         <div
                             className="col-12 col-sm-6 d-flex flex-column"
@@ -261,7 +258,7 @@ function PersonalLoan({ resource, viewOthers, viewOwn, isSelecteEmployee }: { re
                             }}
                         >
                             <span>Amount Due This Month</span>
-                            <span>{formatter.format(amountDueThisMonth)}</span>
+                            <span>{formatCurrencyDecimal(amountDueThisMonth)}</span>
                         </div>
                     </div>
                 </div>

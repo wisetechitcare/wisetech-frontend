@@ -28,6 +28,7 @@ import { errorConfirmation, successConfirmation } from "./modal";
 import axios from "axios";
 import { EMPLOYEE } from "@constants/api-endpoint";
 import { getTimeTokens } from './timeFormat';
+import { formatCurrencyRounded } from '@utils/currency';
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 // functions for fetching statistics for daily, weekly, monthly, yearly ------ starts here -----
 
@@ -3696,15 +3697,14 @@ export async function fetchEmpAllTimeKpiStatistics(fromAdmin: boolean = false, s
 }
 
 // ================================================================================
-// format number to currency in INR, 
-export const formatNumber = (number: number | string) => {
-    return Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    }).format(Number(number));
-}
+/**
+ * A whole-rupee money string, in whatever currency the app is currently showing.
+ *
+ * Kept as a one-line delegate rather than folded into its 117 call sites: the name does
+ * not claim a currency, so it stays honest, and re-pointing the body is what makes every
+ * one of those call sites correct.
+ */
+export const formatNumber = (number: number | string) => formatCurrencyRounded(number);
 
 // format string to currency in INR
 export const formatStringINR = (str: string | number) => {
