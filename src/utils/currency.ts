@@ -1,11 +1,14 @@
 import { store } from '@redux/store';
 
 /**
- * Format a number as currency using branch currency settings
- * Falls back to INR if no currency is provided
+ * Format a number as currency.
+ *
+ * Omit the currency and it uses whatever the app is currently showing — see
+ * `getActiveCurrency` at the foot of this file. Pass one only when formatting an amount
+ * that is NOT in the viewer's own currency, which is rare and should be deliberate.
  *
  * @param amount - The number or string to format
- * @param branchCurrency - Optional currency code from the branch (defaults to INR)
+ * @param branchCurrency - Overrides the active currency. Omit in almost every case.
  * @param options - Optional Intl.NumberFormatOptions to customize formatting
  * @returns Formatted currency string (e.g., "₹1,234.56" or "$1,234.56")
  *
@@ -14,8 +17,8 @@ import { store } from '@redux/store';
  * formatCurrency(1234.56, 'USD') // "$1,234.56"
  *
  * @example
- * // Without currency (defaults to INR)
- * formatCurrency(1234.56) // "₹1,234.56"
+ * // Without currency (uses the active one)
+ * formatCurrency(1234.56) // "₹1,234.56" at an Indian branch, "د.إ1,234.56" at a Dubai one
  *
  * @example
  * // With custom options
@@ -26,7 +29,7 @@ export const formatCurrency = (
   branchCurrency?: string,
   options?: Partial<Intl.NumberFormatOptions>
 ): string => {
-  const currency = branchCurrency || 'INR';
+  const currency = branchCurrency || getActiveCurrency();
 
   // Get locale based on currency - uses Western grouping (1,000,000) by default
   // Only INR uses Indian grouping (10,00,000)
@@ -173,19 +176,37 @@ export const formatCurrencyRounded = (
 };
 
 /**
- * Compact currency for dashboards/chips — Indian scale (Cr / L).
- * e.g. 249470070000 → "₹24,947.01 Cr", 350000 → "₹3.50 L", 4200 → "₹4,200".
+ * Currencies a reader groups in lakh and crore rather than thousand and million.
+ * Nothing to do with the country a branch sits in — it is how the NUMBER is read.
+ */
+const INDIAN_GROUPED = new Set(['INR', 'PKR', 'BDT', 'NPR', 'LKR']);
+
+/**
+ * Compact currency for dashboards and chips.
+ * e.g. 249470070000 → "₹24,947.01 Cr" · 350000 → "₹3.50 L" · 1200000 → "$1.2M"
  */
 export const formatCurrencyCompact = (
   amount: number | string,
-  branchCurrency: string = 'INR'
+  branchCurrency?: string
 ): string => {
+  const currency = branchCurrency || getActiveCurrency();
   const n = Number(amount) || 0;
-  const symbol = getCurrencySymbol(branchCurrency);
+  const symbol = getCurrencySymbol(currency);
   const abs = Math.abs(n);
-  if (abs >= 1e7) return `${symbol}${(n / 1e7).toLocaleString('en-IN', { maximumFractionDigits: 2 })} Cr`;
-  if (abs >= 1e5) return `${symbol}${(n / 1e5).toLocaleString('en-IN', { maximumFractionDigits: 2 })} L`;
-  return formatCurrencyRounded(n, branchCurrency);
+
+  // "24,947 Cr" is how an Indian reader takes in a large number at a glance. The same
+  // suffix on dollars is not a quantity anyone reads, so only the lakh/crore currencies
+  // get it and everything else gets K/M/B.
+  if (INDIAN_GROUPED.has(currency)) {
+    if (abs >= 1e7) return `${symbol}${(n / 1e7).toLocaleString('en-IN', { maximumFractionDigits: 2 })} Cr`;
+    if (abs >= 1e5) return `${symbol}${(n / 1e5).toLocaleString('en-IN', { maximumFractionDigits: 2 })} L`;
+    return formatCurrencyRounded(n, currency);
+  }
+
+  if (abs >= 1e9) return `${symbol}${(n / 1e9).toLocaleString('en-US', { maximumFractionDigits: 2 })}B`;
+  if (abs >= 1e6) return `${symbol}${(n / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 })}M`;
+  if (abs >= 1e3) return `${symbol}${(n / 1e3).toLocaleString('en-US', { maximumFractionDigits: 1 })}K`;
+  return formatCurrencyRounded(n, currency);
 };
 
 /**
@@ -198,11 +219,12 @@ export const formatCurrencyCompact = (
  * getCurrencySymbol('INR') // "₹"
  * getCurrencySymbol('USD') // "$"
  */
-export const getCurrencySymbol = (currencyCode: string = 'INR'): string => {
+export const getCurrencySymbol = (currencyCode?: string): string => {
+  const code = currencyCode || getActiveCurrency();
   try {
     return new Intl.NumberFormat('en', {
       style: 'currency',
-      currency: currencyCode,
+      currency: code,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     })
@@ -248,4 +270,40 @@ export const resolveCurrency = (
   if (derived.length === 3) return derived;
 
   return DEFAULT_CURRENCY;
+};
+
+/**
+ * The currency the app is currently showing, for the code that cannot call a hook.
+ *
+ * Roughly half the money in this app is formatted from outside React: salary-slip export,
+ * the analytics utils, the statistics helpers. Threading a currency argument through all of
+ * them would mean touching every caller of every caller, and one missed link silently prints
+ * the wrong unit. So the resolved currency is published here once and every formatter in this
+ * file falls back to it. `hooks/useCurrency` is what publishes it.
+ *
+ * A module-level value is a deliberate trade. It is display-only, and a session shows one
+ * user at one branch — the same assumption the app already makes for its date and time
+ * format. It must never be used to DECIDE anything: a stored amount, a comparison, a total.
+ * Those carry their own currency or they are wrong.
+ */
+let activeCurrency: string | null = null;
+
+/** Publish the resolved currency. Called by the React binding; see `hooks/useCurrency`. */
+export const setActiveCurrency = (code?: string | null): void => {
+  const next = String(code ?? '').trim().toUpperCase();
+  activeCurrency = next.length === 3 ? next : null;
+};
+
+/**
+ * What the formatters fall back to.
+ *
+ * Before the React binding has published anything — a module formatting during the first
+ * render, or a test — this reads the branch's own explicit currency straight off the store,
+ * so an early call is still right for a branch that set one. The country-derived step needs
+ * the geo directory, which only the hook has, so that one genuinely waits for it.
+ */
+export const getActiveCurrency = (): string => {
+  if (activeCurrency) return activeCurrency;
+  const explicit = (store.getState() as any)?.employee?.currentEmployee?.branches?.currency;
+  return resolveCurrency(explicit);
 };

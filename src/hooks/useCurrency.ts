@@ -28,6 +28,7 @@
  * copy, deduped across every consumer and cached for the session — the directory is static
  * reference data, so it never needs revalidating.
  */
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
@@ -37,6 +38,7 @@ import {
     formatCurrency,
     getCurrencySymbol,
     resolveCurrency,
+    setActiveCurrency,
 } from '@utils/currency';
 
 /** One row of the geo directory, narrowed to the fields this hook reads. */
@@ -102,6 +104,13 @@ export const useCurrency = (): ResolvedCurrency => {
         : undefined;
 
     const code = resolveCurrency(explicit, country?.currency);
+
+    /**
+     * Publish it for the code that cannot call a hook — salary-slip export, the analytics
+     * utils, every memoised column definition that calls `formatCurrency()` plainly. Without
+     * this the engine would reach only the components that remembered to ask.
+     */
+    useEffect(() => { setActiveCurrency(code); }, [code]);
 
     // The directory ships a symbol per country; Intl is the fallback for an explicitly set
     // currency whose country is not the branch's own.
