@@ -258,7 +258,7 @@ export interface StageMovePayload {
 }
 
 // ─── Applications ────────────────────────────────────────────────────────────
-export const getApplications = async (filters: { requisitionId?: string; statusId?: string; search?: string } = {}, companyId?: string): Promise<Application[]> => {
+export const getApplications = async (filters: { requisitionId?: string; statusId?: string; sourceId?: string; search?: string } = {}, companyId?: string): Promise<Application[]> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${listQuery({ ...filters, companyId })}`);
     return data?.applications ?? [];
 };

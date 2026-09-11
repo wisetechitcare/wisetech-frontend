@@ -7,6 +7,7 @@ import {
 } from "@app/modules/common/components/ui";
 import PeriodFilter, { type PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import { queryKeys } from "@/lib/queryKeys";
+import ApplicationsDrillDown from "./ApplicationsDrillDown";
 import { getRecruitmentOverview, type OrgScoped,
 } from "@services/recruitment";
 
@@ -16,14 +17,38 @@ const titleCase = (s: string) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : s
 
 /** Horizontal magnitude bar. Fill uses the config (admin-set) identity colour; all
  *  text stays in ink tokens so the chart reads correctly in light AND dark mode. */
-const BarRow = ({ label, count, max, color }: { label: string; count: number; max: number; color?: string | null }) => {
+const BarRow = ({ label, count, max, color, onOpen }: { label: string; count: number; max: number; color?: string | null; onOpen?: () => void }) => {
     const pct = max > 0 && count > 0 ? Math.max(5, Math.round((count / max) * 100)) : 0;
+    // A row with nobody in it has nothing to show, so it stays inert rather than opening an
+    // empty dialog — the cursor is the honest signal about which bars lead somewhere.
+    const clickable = Boolean(onOpen) && count > 0;
     return (
-        <Stack direction="row" alignItems="center" spacing={1.25} sx={{ minWidth: 0 }}>
+        <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1.25}
+            sx={{
+                minWidth: 0,
+                ...(clickable && {
+                    cursor: "pointer",
+                    borderRadius: 1,
+                    mx: -0.5, px: 0.5, py: 0.25,
+                    transition: "background-color 150ms ease",
+                    "&:hover": { bgcolor: "action.hover" },
+                }),
+            }}
+            onClick={clickable ? onOpen : undefined}
+            // Keyboard reachable, because a chart that only responds to a mouse excludes
+            // anyone driving the app from the keyboard.
+            role={clickable ? "button" : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen?.(); } } : undefined}
+            aria-label={clickable ? `${label}: ${count}. Open the list.` : undefined}
+        >
             <Typography noWrap title={label} sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 88, sm: 132 }, flexShrink: 0, color: "text.secondary" }}>
                 {label}
             </Typography>
-            <Tooltip title={`${count}`} arrow placement="top">
+            <Tooltip title={clickable ? `${count} — click to see who` : `${count}`} arrow placement="top">
                 <Box sx={{ flex: 1, minWidth: 0, height: 20, borderRadius: 999, bgcolor: "action.hover", overflow: "hidden" }}>
                     <Box sx={{ width: `${pct}%`, height: "100%", borderRadius: 999, bgcolor: color || FALLBACK_BAR, transition: "width .5s cubic-bezier(0.4,0,0.2,1)" }} />
                 </Box>
@@ -120,6 +145,13 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
         queryFn: () => getRecruitmentOverview(range, companyId),
     });
 
+    /**
+     * Which bar the user opened. Every count on this page used to be a dead end: the
+     * tooltip repeated the number and nothing said WHO. One piece of state rather than one
+     * per chart, because only one drill-down can be open at a time.
+     */
+    const [drillDown, setDrillDown] = useState<{ title: string; statusId?: string; sourceId?: string } | null>(null);
+
     if (isLoading) return <Stack alignItems="center" sx={{ py: 8 }}><CircularProgress size={30} /></Stack>;
     if (!data) return <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>Nothing to show yet.</Box>;
 
@@ -186,7 +218,16 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                     <EmptyHint text="No hiring steps set up yet. Add them in the Configure tab." />
                 ) : (
                     <Stack spacing={1}>
-                        {funnel.map((f) => <BarRow key={f.id} label={f.name} count={f.count} max={funnelMax} color={f.color} />)}
+                        {funnel.map((f) => (
+                            <BarRow
+                                key={f.id}
+                                label={f.name}
+                                count={f.count}
+                                max={funnelMax}
+                                color={f.color}
+                                onOpen={() => setDrillDown({ title: `${f.name} — ${f.count} ${f.count === 1 ? "candidate" : "candidates"}`, statusId: f.id })}
+                            />
+                        ))}
                     </Stack>
                 )}
             </GlassCard>
@@ -240,7 +281,13 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                         <Stack spacing={1}>
                             {candidatesBySource.map((s) => (
                                 <Box key={s.id}>
-                                    <BarRow label={s.name} count={s.count} max={sourceMax} color={s.color} />
+                                    <BarRow
+                                        label={s.name}
+                                        count={s.count}
+                                        max={sourceMax}
+                                        color={s.color}
+                                        onOpen={() => setDrillDown({ title: `From ${s.name} — ${s.count} ${s.count === 1 ? "candidate" : "candidates"}`, sourceId: s.id })}
+                                    />
                                     {s.hires > 0 && (
                                         <Typography sx={{ fontSize: 11.5, color: "text.secondary", pl: { xs: 12.5, sm: 17 }, mt: -0.25 }}>
                                             {s.hires} hired — {s.hireRatePct} in every 100 who applied
@@ -281,6 +328,18 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                     </Stack>
                 </GlassCard>
             </AutoGrid>
+
+            {/* Mounted only while a bar is open, so a closed drill-down costs nothing. */}
+            {drillDown && (
+                <ApplicationsDrillDown
+                    open
+                    onClose={() => setDrillDown(null)}
+                    title={drillDown.title}
+                    statusId={drillDown.statusId}
+                    sourceId={drillDown.sourceId}
+                    companyId={companyId}
+                />
+            )}
         </Box>
     );
 };
