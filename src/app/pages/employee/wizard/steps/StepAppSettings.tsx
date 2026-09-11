@@ -365,7 +365,7 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile, activeSection,
         { id: "financial", title: "Financial Config", icon: "wallet" },
         // Leave Settings section removed — no longer needed
         // { id: "leaves", title: "Custom Leave Allocation (optional)", icon: "calendar" },
-        { id: "reimbursement", title: "Reimbursement Config",              icon: "dollar"       },
+        { id: "reimbursement", title: "Reimbursement Config",              icon: "wallet"       },
         { id: "access", title: "System Access Settings", icon: "setting-2" },
         { id: "privacy", title: "Privacy Controls", icon: "shield-tick" },
     ];

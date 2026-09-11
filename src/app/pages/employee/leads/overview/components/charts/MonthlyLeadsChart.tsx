@@ -507,7 +507,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                   tickFormatter={(val) => formatShort(val)}
                 >
                   <Label
-                    value="Cumulative Value (₹)"
+                    value={`Cumulative Value (${getCurrencySymbol()})`}
                     angle={-90}
                     position="insideLeft"
                     offset={40}

@@ -1144,7 +1144,7 @@ function SubmissionsTable({
       }] : []),
       {
         accessorKey: '_totalAmount',
-        header: 'Amount (₹)',
+        header: `Amount (${getCurrencySymbol()})`,
         size: 145,
         Cell: ({ row }: any) => (
           <span className={`fs-7 ${sensitiveCls}`}>{getCurrencySymbol()}{fmtAmount(row.original._totalAmount)}</span>

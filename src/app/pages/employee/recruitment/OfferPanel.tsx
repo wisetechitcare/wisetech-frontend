@@ -112,7 +112,7 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
                             {offer ? "Save offer" : "Create offer"}
                         </WtButton>
                         {offer && offer.status === 0 && (
-                            <WtButton size="small" tone="accent" disabled={submitMut.isPending} onClick={() => submitMut.mutate()} startIcon={<KTIcon iconName="dollar" className="fs-6" />}>
+                            <WtButton size="small" tone="accent" disabled={submitMut.isPending} onClick={() => submitMut.mutate()} startIcon={<KTIcon iconName="wallet" className="fs-6" />}>
                                 Submit for approval
                             </WtButton>
                         )}

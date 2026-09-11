@@ -417,7 +417,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                   tickFormatter={(val) => formatShort(val)}
                 >
                   <Label
-                    value="Financial Value (₹)"
+                    value={`Financial Value (${getCurrencySymbol()})`}
                     angle={-90}
                     position="insideLeft"
                     offset={8}

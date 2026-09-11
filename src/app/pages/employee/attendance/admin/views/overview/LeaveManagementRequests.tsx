@@ -15,7 +15,7 @@ import dayjs from "dayjs";
 import { KTIcon } from "@metronic/helpers";
 import { successConfirmation, rejectConfirmation, errorConfirmation } from "@utils/modal";
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
-import { GlassDialog, GlassHeader, WtButton, WtIconButton, StatusBadge, IconBox, TRIO, type Trio, Spinner } from "@app/modules/common/components/ui/tw";
+import { GlassDialog, GlassHeader, WtButton, WtIconButton, StatusBadge, IconBox, TRIO, type Trio, Spinner, CurrencySymbol } from "@app/modules/common/components/ui/tw";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
@@ -354,7 +354,7 @@ function LeaveManagementRequests() {
       {hasRequests && (
       <div className="mt-8">
         <div className="mb-2.5 flex items-center gap-3">
-          <IconBox icon="dollar" trio={TRIO.purple} size={44} fs="fs-1" />
+          <IconBox icon={<CurrencySymbol />} trio={TRIO.purple} size={44} fs="fs-1" />
           <span className="font-bold text-[20px] text-slate-900">Pending Leave Management Requests</span>
         </div>
         <MaterialTable

@@ -250,7 +250,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
         {
             title: 'Total Cost',
             value: displaySummary.totalCost,
-            icon: 'dollar',
+            icon: 'wallet',
             bgColor: 'bg-light-success',
             iconColor: 'text-success',
             img: "/media/details/totalCost.png"

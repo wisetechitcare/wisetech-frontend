@@ -95,7 +95,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     <WtButton size="small" ghost startIcon={<KTIcon iconName="message-text-2" className="fs-6" />} onClick={() => setInterviewsFor(a)}>
                         Interviews
                     </WtButton>
-                    <WtButton size="small" ghost startIcon={<KTIcon iconName="dollar" className="fs-6" />} onClick={() => setOfferFor(a)}>
+                    <WtButton size="small" ghost startIcon={<KTIcon iconName="wallet" className="fs-6" />} onClick={() => setOfferFor(a)}>
                         Offer
                     </WtButton>
                     {a.status?.isHiredOutcome && (
@@ -384,7 +384,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 open={!!offerFor}
                 onClose={() => setOfferFor(null)}
                 maxWidth="sm"
-                header={<GlassHeader title="Offer" icon={<KTIcon iconName="dollar" className="fs-2" />} onClose={() => setOfferFor(null)} />}
+                header={<GlassHeader title="Offer" icon={<KTIcon iconName="wallet" className="fs-2" />} onClose={() => setOfferFor(null)} />}
             >
                 <DialogContent>
                     {offerFor && (

@@ -628,7 +628,7 @@ const PendingRequestsTable = () => {
       },
       {
         accessorKey: 'totalAmount',
-        header: 'Total Amount (₹)',
+        header: `Total Amount (${getCurrencySymbol()})`,
         size: 150,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
         Cell: ({ row }) => <span className='text-dark fs-7'>{getCurrencySymbol()}{fmtAmount(row.original.totalAmount)}</span>,

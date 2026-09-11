@@ -5,6 +5,7 @@ import { KTIcon } from '@metronic/helpers';
 import { Close } from '@mui/icons-material';
 import { GrossDistributionData, DynamicField } from '../../types/payroll.types';
 import { formatINRDecimal } from '../../utils/payrollFormatters';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface GrossDistributionModalProps {
     show: boolean;
@@ -62,7 +63,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                             {/* Header row */}
                             <div className="d-flex align-items-center gap-3 px-5 py-2" style={{ background: '#f0fdf4', borderBottom: '1px solid #bbf7d0' }}>
                                 <div style={{ flex: '1 1 0', letterSpacing: '0.05em', color: '#16a34a' }} className="fw-bold fs-9 text-uppercase">Component</div>
-                                <div style={{ width: 160, color: '#16a34a' }} className="fw-bold fs-9 text-uppercase text-end">Amount (₹)</div>
+                                <div style={{ width: 160, color: '#16a34a' }} className="fw-bold fs-9 text-uppercase text-end">Amount ({getCurrencySymbol()})</div>
                                 <div style={{ width: 30 }} />
                             </div>
                             {workEntries.map(([key, item]: [string, any]) => (
@@ -118,7 +119,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                     {/* Header row */}
                                     <div className="d-flex align-items-center gap-3 px-5 py-2 bg-light" style={{ borderBottom: '1px solid #e9ecef' }}>
                                         <div style={{ flex: '1 1 0' }} className="text-muted fs-9 fw-bold text-uppercase">Component</div>
-                                        <div style={{ width: 160 }} className="text-muted fs-9 fw-bold text-uppercase text-end">Amount (₹)</div>
+                                        <div style={{ width: 160 }} className="text-muted fs-9 fw-bold text-uppercase text-end">Amount ({getCurrencySymbol()})</div>
                                         <div style={{ width: 30 }} />
                                     </div>
 

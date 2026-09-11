@@ -258,7 +258,7 @@ const MonthlySalaryComparison = ({
                 style: { colors: '#64748b', fontSize: '12px', fontWeight: 500 },
             },
             title: {
-                text: 'Amount (₹)',
+                text: `Amount (${getCurrencySymbol()})`,
                 style: { color: '#64748b', fontSize: '13px', fontWeight: 600 },
             },
         },

@@ -18,6 +18,7 @@ import {
   formatCountShort,
   sumSeries,
 } from "./yearlyAnalyticsUtils";
+import { getCurrencySymbol } from '@utils/currency';
 
 interface YearlyGrowthChartProps {
   series: YearlyMonthPoint[];
@@ -173,7 +174,7 @@ const YearlyGrowthChart: React.FC<YearlyGrowthChartProps> = ({ series, periodLab
               tickFormatter={(v) => axisFmt(v)}
             >
               <Label
-                value={mode === "value" ? "Value (₹)" : "Lead Count"}
+                value={mode === "value" ? `Value (${getCurrencySymbol()})` : "Lead Count"}
                 angle={-90}
                 position="insideLeft"
                 offset={-2}

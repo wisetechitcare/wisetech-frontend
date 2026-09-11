@@ -543,7 +543,7 @@ function ComponentFormModal({
                     value={form.calculationType}
                     onChange={e => setForm(f => ({ ...f, calculationType: e.target.value }))}
                   >
-                    <option value="FIXED">Fixed Amount (₹)</option>
+                    <option value="FIXED">Fixed Amount ({getCurrencySymbol()})</option>
                     <option value="PERCENTAGE">Percentage (%)</option>
                     <option value="HOURLY">Hourly Rate</option>
                     <option value="DAILY">Daily Rate</option>
@@ -558,7 +558,7 @@ function ComponentFormModal({
                 {/* Default value fields */}
                 {isAmountBased && (
                   <div className="col-md-6">
-                    <label className="form-label fw-semibold text-gray-700 fs-7 mb-1">Default Amount (₹)</label>
+                    <label className="form-label fw-semibold text-gray-700 fs-7 mb-1">Default Amount ({getCurrencySymbol()})</label>
                     <input
                       className="form-control form-control-sm"
                       type="number" min="0" step="0.01"

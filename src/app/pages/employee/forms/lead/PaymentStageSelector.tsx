@@ -4,6 +4,7 @@ import { Table } from "react-bootstrap";
 import { getAllPaymentPlans } from "@services/paymentPlan";
 import type { PaymentPlan } from "@models/leads";
 import { filterPlansForLead } from "./paymentPlanScope";
+import { getCurrencySymbol } from '@utils/currency';
 
 /**
  * Lead commercial step — payment stage break-up.
@@ -151,7 +152,7 @@ export const PaymentStageSelector: React.FC = () => {
                 <th className="ps-3 w-40px">Sr</th>
                 <th className="min-w-150px">Stage / Particulars</th>
                 <th className="w-90px text-center">%</th>
-                <th className="min-w-120px text-end pe-3">Amount (₹)</th>
+                <th className="min-w-120px text-end pe-3">Amount ({getCurrencySymbol()})</th>
               </tr>
             </thead>
             <tbody>

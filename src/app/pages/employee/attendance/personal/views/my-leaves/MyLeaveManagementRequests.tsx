@@ -4,7 +4,7 @@ import { RootState } from "@redux/store";
 import { getAllLeaveManagements } from "@services/employee";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
-import { StatusBadge, IconBox, TRIO, type Trio } from "@app/modules/common/components/ui/tw";
+import { StatusBadge, IconBox, TRIO, type Trio, CurrencySymbol } from "@app/modules/common/components/ui/tw";
 import { toast } from "react-toastify";
 import dayjs from "dayjs";
 import { useEventBus } from "@hooks/useEventBus";
@@ -164,7 +164,7 @@ function MyLeaveManagementRequests({ startDateNew, endDateNew }: { startDateNew:
   return (
     <div className="mt-8">
       <div className="mb-2.5 flex items-center gap-3">
-        <IconBox icon="dollar" trio={TRIO.purple} size={40} fs="fs-2" />
+        <IconBox icon={<CurrencySymbol />} trio={TRIO.purple} size={40} fs="fs-2" />
         <span className="font-bold text-[17px] text-slate-900">My Leave Management Requests</span>
       </div>
       <MaterialTable

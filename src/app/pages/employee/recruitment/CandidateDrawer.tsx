@@ -284,7 +284,7 @@ const CandidateDrawer = ({ application, statuses, onClose }: Props) => {
 
                 <Divider sx={{ my: 3 }} />
 
-                <Section title="Offer" icon="dollar">
+                <Section title="Offer" icon="wallet">
                     <OfferPanel applicationId={a.id} applicantName={fullName(a)} />
                 </Section>
             </Box>

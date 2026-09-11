@@ -551,7 +551,7 @@ const YearlyPerformanceAnalytics: React.FC<YearlyPerformanceAnalyticsProps> = ({
                   tickFormatter={(val) => formatShort(val)}
                 >
                   <Label
-                    value="Cumulative Value (₹)"
+                    value={`Cumulative Value (${getCurrencySymbol()})`}
                     angle={-90}
                     position="insideLeft"
                     offset={-20}

@@ -1055,12 +1055,12 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
     band(ws, r, 2, 2, 'DESCRIPTION', thStyle);
     band(ws, r, 3, 3, 'DETAILS', { ...thStyle, align: 'center' });
     band(ws, r, 4, 4, 'RATE', { ...thStyle, align: 'center' });
-    band(ws, r, 5, 5, 'AMOUNT (₹)', { ...thStyle, align: 'right' });
+    band(ws, r, 5, 5, `AMOUNT (${getCurrencySymbol()})`, { ...thStyle, align: 'right' });
     band(ws, r, 7, 7, 'DESCRIPTION', thStyle);
     band(ws, r, 8, 8, 'DETAILS', { ...thStyle, align: 'center' });
     band(ws, r, 9, 9, 'RATE', { ...thStyle, align: 'center' });
     band(ws, r, 10, 10, '', thStyle);
-    band(ws, r, 11, 11, 'AMOUNT (₹)', { ...thStyle, align: 'right' });
+    band(ws, r, 11, 11, `AMOUNT (${getCurrencySymbol()})`, { ...thStyle, align: 'right' });
     ws.getRow(r).height = 15;
     r++;
 
@@ -1178,12 +1178,12 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
     r++;
 
     band(ws, r, 2, 4, 'DESCRIPTION', thStyle);
-    band(ws, r, 5, 5, 'AMOUNT (₹)', { ...thStyle, align: 'right' });
+    band(ws, r, 5, 5, `AMOUNT (${getCurrencySymbol()})`, { ...thStyle, align: 'right' });
     band(ws, r, 7, 7, 'DESCRIPTION', thStyle);
     band(ws, r, 8, 8, 'TYPE', { ...thStyle, align: 'center' });
     band(ws, r, 9, 9, 'RATE', { ...thStyle, align: 'center' });
     band(ws, r, 10, 10, 'BASE', { ...thStyle, align: 'center' });
-    band(ws, r, 11, 11, 'AMOUNT (₹)', { ...thStyle, align: 'right' });
+    band(ws, r, 11, 11, `AMOUNT (${getCurrencySymbol()})`, { ...thStyle, align: 'right' });
     ws.getRow(r).height = 15;
     r++;
 
@@ -1353,9 +1353,9 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
         r++;
 
         band(ws, r, 2, 4, 'DATE & TIME', thStyle);
-        band(ws, r, 5, 6, 'PAYABLE (₹)', { ...thStyle, align: 'right' });
-        band(ws, r, 7, 8, 'PAID (₹)', { ...thStyle, align: 'right' });
-        band(ws, r, 9, 11, 'REMAINING (₹)', { ...thStyle, align: 'right' });
+        band(ws, r, 5, 6, `PAYABLE (${getCurrencySymbol()})`, { ...thStyle, align: 'right' });
+        band(ws, r, 7, 8, `PAID (${getCurrencySymbol()})`, { ...thStyle, align: 'right' });
+        band(ws, r, 9, 11, `REMAINING (${getCurrencySymbol()})`, { ...thStyle, align: 'right' });
         ws.getRow(r).height = 15;
         r++;
 
@@ -1508,7 +1508,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
             { width: 6 }, { width: 24 }, { width: 13 }, { width: 24 }, { width: 17 },
             { width: 22 }, { width: 16 }, { width: 16 }, { width: 16 }, { width: 15 }, { width: 30 },
         ];
-        const headers = ['#', 'Date & Time', 'Type', 'Component', 'Method', 'Transaction ID', 'Paid (₹)', 'Payable (₹)', 'Remaining (₹)', 'Status', 'Remarks'];
+        const headers = ['#', 'Date & Time', 'Type', 'Component', 'Method', 'Transaction ID', `Paid (${getCurrencySymbol()})`, `Payable (${getCurrencySymbol()})`, `Remaining (${getCurrencySymbol()})`, 'Status', 'Remarks'];
 
         let pr = 1;
         band(ps, pr, 1, headers.length, `PAYMENT LEDGER — ${m.employeeName}  ·  ${m.payMonth}`, { bold: true, size: 14, color: C.white, align: 'center', bg: C.navy });

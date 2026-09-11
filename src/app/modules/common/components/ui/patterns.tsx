@@ -15,6 +15,7 @@ import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 import { KTIcon } from '@metronic/helpers';
 import { GlassSurface } from './glass';
 import { toTitleCase, titleCaseNode } from './text';
+import { ICON_BOX_CLASS, TILE_LABEL_CLASS } from './classNames';
 
 /** Accent tone: foreground / fill / border — drives IconBox, StatusBadge, StatTile, and keylines. */
 export type Trio = { c: string; bg: string; bd: string };
@@ -78,15 +79,12 @@ export const menuOptionSx = (theme: Theme) => {
 export const EASE_200 = 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)';
 
 /**
- * Stable class on every `IconBox`, so a surface can animate the glyph it contains on its own
- * hover. That is how the aside menu behaves — `.menu-link:hover .menu-font-icon` lifts and
- * takes the brand tint while the chip itself stays put — and a parent cannot reach a child's
- * `sx` without a selector to aim at.
+ * Re-exported, not declared here. The Tailwind twin stamps the same classes and imports no
+ * MUI, so the strings live in a dependency-free module both kits can reach — see
+ * `./classNames`. Two declarations would drift and the hover selector would silently stop
+ * matching in one kit.
  */
-export const ICON_BOX_CLASS = 'wt-iconbox';
-
-/** Stamped on a tile's quiet caption, so the same hover recipe can sharpen it. */
-export const TILE_LABEL_CLASS = 'wt-tile-label';
+export { ICON_BOX_CLASS, TILE_LABEL_CLASS };
 
 /**
  * The app's hover language for a tinted tile, in one place.
