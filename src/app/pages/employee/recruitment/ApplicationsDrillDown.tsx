@@ -1,9 +1,10 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-    Box, Stack, Typography, Table, TableHead, TableBody, TableRow, TableCell, Chip, CircularProgress,
-} from "@mui/material";
+import { Box, Stack, Typography, Chip } from "@mui/material";
+import type { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import DrillDownDialog from "@app/modules/common/components/DrillDownDialog";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { ToneChip } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { getApplications, SCORE_BAND_META, type Application } from "@services/recruitment";
@@ -12,18 +13,23 @@ import { formatDate } from "@utils/dateFormats";
 /**
  * The people behind a number on the overview.
  *
- * Every bar on that page was a count with a tooltip repeating the same count — a dead end
- * at exactly the moment someone wants to act. "Four in Interview" is only useful if you can
- * see WHICH four.
+ * Every bar on that page was a dead end: hovering repeated the count you could already
+ * read, at exactly the moment someone wants to act. "Four in Interview" is only useful if
+ * you can see WHICH four.
  *
- * REUSES `DrillDownDialog`, the same shell the Companies and Contacts charts open, so a
- * drill-down looks and stacks identically wherever it is launched from. That component
- * already solves the z-index problem of opening a dialog from a chart that may itself be a
- * fullscreen overlay.
+ * BUILT ON THE SHARED TABLE ENGINE, not a hand-rolled table. `MaterialTable` brings column
+ * show/hide, per-column search, sorting, export and per-user column preferences — none of
+ * which a bespoke table would have, and all of which the Companies and Contacts drill-downs
+ * already give their users. It also already knows about `DRILLDOWN_Z_INDEX`: its column menu
+ * is a portal that would otherwise paint behind this very dialog. The engine and the dialog
+ * are a designed pair.
+ *
+ * `MaterialTable` is a lazy boundary over the 2.5k-line impl, so importing it here does not
+ * pull material-react-table into the entry chunk.
  *
  * ONE component for BOTH charts. Stage and source are two filters on the same list, so the
- * columns, the scoping and the empty state are defined once. A second component per chart
- * is how two views of the same records start disagreeing.
+ * columns, the scoping and the empty state are defined once. A second component per chart is
+ * how two views of the same records start disagreeing.
  */
 export interface ApplicationsDrillDownProps {
     open: boolean;
@@ -45,15 +51,99 @@ const ApplicationsDrillDown = ({ open, onClose, title, statusId, sourceId, compa
     const { data: rows = [], isLoading } = useQuery({
         queryKey: queryKeys.recruitment.applications({ companyId, ...filters }),
         queryFn: () => getApplications(filters, companyId),
-        // Nothing to fetch until the dialog is actually open — a closed drill-down must not
-        // cost a request on every overview render.
+        // Nothing to fetch until the dialog is open — a closed drill-down must not cost a
+        // request on every overview render.
         enabled: open,
     });
 
+    const columns = useMemo<MRT_ColumnDef<Application>[]>(() => [
+        {
+            accessorFn: (a) => fullName(a),
+            id: "candidate",
+            header: "Candidate",
+            size: 200,
+            Cell: ({ row }) => (
+                <Box>
+                    <Typography sx={{ fontSize: 13.5, fontWeight: 600 }}>{fullName(row.original)}</Typography>
+                    {row.original.applicant?.phone && (
+                        <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>{row.original.applicant.phone}</Typography>
+                    )}
+                </Box>
+            ),
+        },
+        {
+            accessorFn: (a) => a.requisition?.title ?? "—",
+            id: "position",
+            header: "Position",
+            size: 180,
+        },
+        {
+            accessorFn: (a) => a.status?.name ?? "—",
+            id: "stage",
+            header: "Stage",
+            size: 140,
+            Cell: ({ row }) => (
+                <ToneChip tone="brand" color={row.original.status?.color ?? undefined} label={row.original.status?.name ?? "—"} dense />
+            ),
+        },
+        {
+            // Sorts on the NUMBER even though the cell renders a chip — sorting on the
+            // rendered label would order "9d" after "40d".
+            accessorFn: (a) => a.daysInStage ?? 0,
+            id: "waiting",
+            header: "Waiting",
+            size: 110,
+            Cell: ({ row }) => {
+                const a = row.original;
+                // A hired or rejected application carries no band: it is finished, not waiting.
+                if (!a.stageAgeBand) return <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>;
+                return (
+                    <Chip
+                        size="small"
+                        variant="outlined"
+                        color={a.stageAgeBand === "stalled" ? "error" : a.stageAgeBand === "ageing" ? "warning" : "default"}
+                        label={`${a.daysInStage ?? 0}d`}
+                    />
+                );
+            },
+        },
+        {
+            accessorFn: (a) => Number(a.aiScore ?? a.ruleScore ?? 0),
+            id: "score",
+            header: "Score",
+            size: 140,
+            Cell: ({ row }) => {
+                const a = row.original;
+                const score = a.aiScore ?? a.ruleScore;
+                if (score == null) return <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>;
+                return (
+                    <Chip
+                        size="small"
+                        variant="outlined"
+                        color={a.scoreBand ? SCORE_BAND_META[a.scoreBand].color : "default"}
+                        label={a.scoreBand ? `${SCORE_BAND_META[a.scoreBand].label} · ${Number(score).toFixed(0)}` : Number(score).toFixed(0)}
+                    />
+                );
+            },
+        },
+        {
+            accessorFn: (a) => a.applicant?.source?.name ?? "—",
+            id: "source",
+            header: "Source",
+            size: 140,
+        },
+        {
+            accessorFn: (a) => (a.appliedDate ? formatDate(a.appliedDate) : "—"),
+            id: "applied",
+            header: "Applied",
+            size: 120,
+        },
+    ], []);
+
     return (
-        <DrillDownDialog open={open} onClose={onClose} maxBodyHeight="70vh">
-            <Box sx={{ p: { xs: 1.5, sm: 2.5 } }}>
-                <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 2 }}>
+        <DrillDownDialog open={open} onClose={onClose} maxBodyHeight="70vh" bodyClassName="p-2">
+            <Box sx={{ px: { xs: 0.5, sm: 1 }, pt: { xs: 1, sm: 1.5 } }}>
+                <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 1.5 }}>
                     <KTIcon iconName="people" className="fs-2" />
                     <Box sx={{ minWidth: 0 }}>
                         <Typography sx={{ fontWeight: 700, fontSize: { xs: 15, sm: 16.5 }, lineHeight: 1.3 }}>{title}</Typography>
@@ -62,78 +152,18 @@ const ApplicationsDrillDown = ({ open, onClose, title, statusId, sourceId, compa
                         </Typography>
                     </Box>
                 </Stack>
-
-                {isLoading ? (
-                    <Stack alignItems="center" sx={{ py: 4 }}><CircularProgress size={24} /></Stack>
-                ) : rows.length === 0 ? (
-                    <Typography sx={{ fontSize: 13, color: "text.secondary", py: 3, textAlign: "center" }}>
-                        Nobody here yet.
-                    </Typography>
-                ) : (
-                    // Wide tables scroll inside their own container so the page never does.
-                    <Box sx={{ overflowX: "auto" }}>
-                        <Table size="small" sx={{ minWidth: 720 }}>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell sx={{ fontWeight: 700 }}>Candidate</TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>Position</TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>Stage</TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>Waiting</TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>Score</TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>Source</TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>Applied</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {rows.map((a) => {
-                                    const score = a.aiScore ?? a.ruleScore;
-                                    return (
-                                        <TableRow key={a.id} hover>
-                                            <TableCell sx={{ fontWeight: 600 }}>
-                                                {fullName(a)}
-                                                {a.applicant?.phone && (
-                                                    <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>{a.applicant.phone}</Typography>
-                                                )}
-                                            </TableCell>
-                                            <TableCell sx={{ fontSize: 13 }}>{a.requisition?.title ?? "—"}</TableCell>
-                                            <TableCell>
-                                                <ToneChip tone="brand" color={a.status?.color ?? undefined} label={a.status?.name ?? "—"} dense />
-                                            </TableCell>
-                                            <TableCell>
-                                                {/* Terminal applications carry no band — they are finished, not waiting. */}
-                                                {a.stageAgeBand ? (
-                                                    <Chip
-                                                        size="small"
-                                                        variant="outlined"
-                                                        color={a.stageAgeBand === "stalled" ? "error" : a.stageAgeBand === "ageing" ? "warning" : "default"}
-                                                        label={`${a.daysInStage ?? 0}d`}
-                                                    />
-                                                ) : (
-                                                    <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                {score == null ? (
-                                                    <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>
-                                                ) : (
-                                                    <Chip
-                                                        size="small"
-                                                        variant="outlined"
-                                                        color={a.scoreBand ? SCORE_BAND_META[a.scoreBand].color : "default"}
-                                                        label={a.scoreBand ? `${SCORE_BAND_META[a.scoreBand].label} · ${Number(score).toFixed(0)}` : Number(score).toFixed(0)}
-                                                    />
-                                                )}
-                                            </TableCell>
-                                            <TableCell sx={{ fontSize: 13 }}>{a.applicant?.source?.name ?? "—"}</TableCell>
-                                            <TableCell sx={{ fontSize: 13 }}>{a.appliedDate ? formatDate(a.appliedDate) : "—"}</TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
-                    </Box>
-                )}
             </Box>
+
+            <MaterialTable
+                columns={columns}
+                data={rows}
+                isLoading={isLoading}
+                // Named per chart so a recruiter's column choices on the stage drill-down do
+                // not silently rearrange the source one.
+                tableName={statusId ? "RecruitmentByStage" : "RecruitmentBySource"}
+                hideExportCenter={false}
+                muiTableContainerProps={{ sx: { maxHeight: "52vh" } }}
+            />
         </DrillDownDialog>
     );
 };
