@@ -183,11 +183,44 @@ export interface Application {
      */
     enteredStageAt?: string | null;
     daysInStage?: number;
-    stageAgeBand?: StageAgeBand;
+    /** Null for a hired or rejected candidate — they are finished, not going cold. */
+    stageAgeBand?: StageAgeBand | null;
+    /** Null when the application has never been scored. Not the same as a weak score. */
+    scoreBand?: ScoreBand | null;
+    /** Recomputed server-side from the weights in force, so it can never be stale. */
+    scoreBreakdown?: ScoreBreakdown | null;
 }
 
 /** fresh → nothing to do · ageing → worth a look · stalled → someone is going cold. */
 export type StageAgeBand = "fresh" | "ageing" | "stalled";
+
+export type ScoreBand = "excellent" | "good" | "fair" | "poor";
+
+export interface ScoreBreakdown {
+    ctcFit: number;
+    experience: number;
+    noticePeriod: number;
+    keywordMatch: number;
+}
+
+/**
+ * How a band reads, and how it renders. One definition so a chip on a card and a chip in
+ * a drawer can never disagree about what "Good" looks like.
+ */
+export const SCORE_BAND_META: Record<ScoreBand, { label: string; color: "success" | "info" | "warning" | "error" }> = {
+    excellent: { label: "Excellent", color: "success" },
+    good: { label: "Good", color: "info" },
+    fair: { label: "Fair", color: "warning" },
+    poor: { label: "Weak", color: "error" },
+};
+
+/** The four factors in display order, with the words a recruiter uses. */
+export const SCORE_FACTORS: { key: keyof ScoreBreakdown; label: string; hint: string }[] = [
+    { key: "ctcFit", label: "Salary fit", hint: "Expected CTC against the requisition's band" },
+    { key: "experience", label: "Experience", hint: "Years, ramping to full marks around five" },
+    { key: "noticePeriod", label: "Availability", hint: "Notice period — immediate scores highest" },
+    { key: "keywordMatch", label: "Title match", hint: "Requisition wording against current title and employer" },
+];
 
 export interface ApplicantPayload {
     firstName: string;

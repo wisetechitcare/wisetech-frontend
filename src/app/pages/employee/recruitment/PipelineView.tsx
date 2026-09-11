@@ -13,6 +13,7 @@ import { getRequisitions, type JobRequisition, type OrgScoped,
 import {
     getApplications, createApplication, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
     stashConversion,
+    SCORE_BAND_META, SCORE_FACTORS,
     type Application, type ApplicationStatus, type ApplicationCreatePayload,
 } from "@services/recruitment";
 import InterviewsPanel from "./InterviewsPanel";
@@ -226,7 +227,20 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                                                 {a.requisition?.title ?? "No requisition"}
                                             </Typography>
                                             <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: "wrap", gap: 0.5 }}>
-                                                {scoreLabel(a) && <Chip size="small" label={`Score ${scoreLabel(a)}`} color="info" variant="outlined" />}
+                                                {/* The band leads and the number follows it. A recruiter
+                                                    scanning twenty cards reads the word; the number is
+                                                    there for whoever wants to argue with it. */}
+                                                {scoreLabel(a) && (
+                                                    <Chip
+                                                        size="small"
+                                                        variant="outlined"
+                                                        color={a.scoreBand ? SCORE_BAND_META[a.scoreBand].color : "default"}
+                                                        label={a.scoreBand ? `${SCORE_BAND_META[a.scoreBand].label} · ${scoreLabel(a)}` : `Score ${scoreLabel(a)}`}
+                                                        title={a.scoreBreakdown
+                                                            ? SCORE_FACTORS.map((f) => `${f.label} ${Math.round(a.scoreBreakdown![f.key])}`).join("  ·  ")
+                                                            : undefined}
+                                                    />
+                                                )}
                                                 {/* Only shown once it matters. A "0 days" badge on every
                                                     card is noise, and noise is how a colour stops being
                                                     read at all. */}

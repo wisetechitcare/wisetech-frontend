@@ -1,13 +1,25 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Box, Stack, Typography, Divider, TextField, CircularProgress, Link as MuiLink } from "@mui/material";
+import { Box, Stack, Typography, Divider, TextField, CircularProgress, LinearProgress, Link as MuiLink } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import { GlassDialog, GlassHeader, WtButton, ToneChip, toast, confirmDialog } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import {
     getApplicationById, getApplicationNotes, createApplicationNote, deleteApplicationNote,
-    type Application, type ApplicationDetail, type ApplicationStatus, type StageHistoryEntry,
+    SCORE_BAND_META, SCORE_FACTORS,
+    type Application, type ApplicationDetail, type ApplicationStatus, type StageHistoryEntry, type ScoreBand,
 } from "@services/recruitment";
+
+/**
+ * The kit's ToneChip speaks semantic tones, not band names. Mapped once here so the drawer
+ * chip and the board chip cannot end up disagreeing about what "Good" looks like.
+ */
+const SCORE_BAND_TONE: Record<ScoreBand, "success" | "cyan" | "warning" | "danger"> = {
+    excellent: "success",
+    good: "cyan",
+    fair: "warning",
+    poor: "danger",
+};
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
 
@@ -119,10 +131,49 @@ const CandidateDrawer = ({ application, statuses, onClose }: Props) => {
                 {/* ── Identity + the four factors the score is actually computed from ── */}
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
                     <ToneChip tone="brand" color={a.status?.color ?? undefined} label={statusName} dense />
-                    {score != null && <ToneChip tone="cyan" label={`Score ${Number(score).toFixed(0)}`} dense />}
+                    {score != null && (
+                        <ToneChip
+                            tone={a.scoreBand ? SCORE_BAND_TONE[a.scoreBand] : "cyan"}
+                            label={a.scoreBand ? `${SCORE_BAND_META[a.scoreBand].label} · ${Number(score).toFixed(0)}` : `Score ${Number(score).toFixed(0)}`}
+                            dense
+                        />
+                    )}
                     {a.prefix && <ToneChip tone="neutral" label={a.prefix} dense />}
                     {a.convertedEmployeeId && <ToneChip tone="success" label="Converted to employee" dense />}
                 </Stack>
+
+                {/*
+                  * The score has to be defensible to the person it rejected, so the four
+                  * factors are shown with the number each contributed rather than hidden
+                  * behind a total. Recomputed server-side from the weights in force, so
+                  * this can never explain a score with weights that have since changed.
+                  */}
+                {a.scoreBreakdown && (
+                    <Box sx={{ mb: 2, p: 1.5, borderRadius: 1.5, bgcolor: "action.hover" }}>
+                        <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "text.secondary", mb: 1 }}>
+                            How this score was reached
+                        </Typography>
+                        <Stack spacing={1}>
+                            {SCORE_FACTORS.map((f) => {
+                                const v = Math.round(a.scoreBreakdown![f.key]);
+                                return (
+                                    <Box key={f.key} title={f.hint}>
+                                        <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.25 }}>
+                                            <Typography sx={{ fontSize: 12.5 }}>{f.label}</Typography>
+                                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "text.secondary" }}>{v}</Typography>
+                                        </Stack>
+                                        <LinearProgress
+                                            variant="determinate"
+                                            value={v}
+                                            sx={{ height: 5, borderRadius: 3 }}
+                                            aria-label={`${f.label}: ${v} out of 100`}
+                                        />
+                                    </Box>
+                                );
+                            })}
+                        </Stack>
+                    </Box>
+                )}
 
                 <Stack direction="row" spacing={{ xs: 1.5, sm: 3 }} flexWrap="wrap" useFlexGap>
                     <Fact label="Email" value={a.applicant?.email} />
