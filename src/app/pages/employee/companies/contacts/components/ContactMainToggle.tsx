@@ -8,7 +8,7 @@ import ClientContactsForm from "./ClientContactsForm";
 import ContactLeadReferenceTab from "./ContactLeadReferenceTab";
 import ContactHeader from "./ContactHeader";
 import CompanyReferences from "../../companies/components/CompanyReferences";
-import MeetingsList from "@app/modules/common/components/MeetingsList";
+import ProjectMeetings from "@app/pages/employee/entity/detail/sections/ProjectMeetings";
 import { UnderlineTabs } from "@app/modules/common/components/ui";
 
 type TabType = "overview" | "lead-reference" | "company-references" | "projects" | "meetings";
@@ -75,8 +75,9 @@ const ContactMainToggle = () => {
       case "projects":
         return <ContactProject contact={contact}/>;
       case "meetings":
-        // Meetings where this contact is an external participant.
-        return <MeetingsList mode="contact" targetId={contactId} />;
+        // Meetings where this contact is an external participant — with the same actions as
+        // the calendar and the project tab, and new ones pre-inviting this contact.
+        return <ProjectMeetings contact={{ id: contactId, fullName: contact?.fullName || "Contact", profilePhoto: contact?.profilePhoto }} />;
       default:
         return <ContactOverview contact={contact} />;
     }

@@ -164,6 +164,24 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
     [series]
   );
 
+  // One card per status. Counted over every row in the period (not just the dated,
+  // bucketed ones) so the cards always add up to RESULTS.
+  const statusCards = useMemo(() => {
+    const byName = new Map<string, { name: string; color: string; count: number; value: number }>();
+    rows.forEach((r) => {
+      const card = byName.get(r.series) ?? {
+        name: r.series,
+        color: r.color || seriesColor.get(r.series) || FALLBACK_COLORS[byName.size % FALLBACK_COLORS.length],
+        count: 0,
+        value: 0,
+      };
+      card.count += 1;
+      card.value += Number(r.value) || 0;
+      byName.set(r.series, card);
+    });
+    return [...byName.values()].sort((a, b) => b.count - a.count);
+  }, [rows, seriesColor]);
+
   // What the open bar contains, newest first. Indexed defensively: changing the period
   // rebuilds the buckets, and the dialog may still be holding an index from the old set.
   const drill = useMemo(() => {
@@ -210,15 +228,9 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
     // the dialog closes, which reads as a filter nobody applied.
     states: { hover: { filter: { type: "darken" } }, active: { filter: { type: "none" } } },
     dataLabels: { enabled: false },
-    legend: {
-      position: "top",
-      horizontalAlign: "left",
-      fontSize: "12.5px",
-      fontWeight: 600,
-      markers: { radius: 12 } as any,
-      itemMargin: { horizontal: 10 },
-      labels: { colors: "#46505d" },
-    },
+    // The status cards above the chart are the legend (Apex also hid it for a
+    // single series, leaving an all-"Received" chart with no key at all).
+    legend: { show: false },
     grid: {
       borderColor: "#eef0f3",
       strokeDashArray: 5,
@@ -299,6 +311,53 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
             </div>
           </div>
         </div>
+
+        {statusCards.length > 0 && (
+          // Slim chips, same height and grammar as the VALUE / RESULTS pill.
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: -1.5, mb: 1 }}>
+            {statusCards.map((c) => (
+              <Box
+                key={c.name}
+                title={`${c.count} ${plural(noun, c.count)}${c.value > 0 ? ` · ${formatCurrencyCompact(c.value)}` : ""}`}
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 1,
+                  height: 32,
+                  pl: 1,
+                  pr: 1.25,
+                  borderRadius: "8px",
+                  border: 1,
+                  borderColor: "divider",
+                  // The status's own colour, faintly, so a chip reads as its chart stack.
+                  bgcolor: (t) => `color-mix(in srgb, ${c.color} 7%, ${t.palette.background.paper})`,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Box sx={{ width: 4, height: 16, borderRadius: 4, bgcolor: c.color, flexShrink: 0 }} />
+                {/* One size for every part (uppercase caps = digit height, so they line up);
+                    hierarchy comes from weight and colour only. */}
+                <Typography sx={{ fontSize: 12, lineHeight: 1, fontWeight: 600, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.02em" }}>
+                  {c.name}
+                </Typography>
+                <Typography sx={{ fontSize: 12, lineHeight: 1, fontWeight: 800, color: "text.primary", fontVariantNumeric: "tabular-nums" }}>
+                  {c.count}
+                </Typography>
+                <Typography sx={{ fontSize: 12, lineHeight: 1, fontWeight: 500, color: "text.disabled", fontVariantNumeric: "tabular-nums" }}>
+                  {Math.round((c.count / rows.length) * 100)}%
+                </Typography>
+                {hasValue && c.value > 0 && (
+                  <>
+                    <Box sx={{ width: "1px", height: 14, bgcolor: "divider" }} />
+                    <Typography sx={{ fontSize: 12, lineHeight: 1, fontWeight: 700, color: ACCENT, fontVariantNumeric: "tabular-nums" }}>
+                      {formatCurrencyCompact(c.value)}
+                    </Typography>
+                  </>
+                )}
+              </Box>
+            ))}
+          </Box>
+        )}
 
         {hasData ? (
           // Re-mount on filter change → replays a subtle CSS fade-in instead of

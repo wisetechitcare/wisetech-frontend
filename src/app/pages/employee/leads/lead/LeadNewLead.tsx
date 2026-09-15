@@ -68,6 +68,7 @@ import LeadActionPicker from "./LeadActionPicker";
 // The SAME meeting dialog the calendar and the project board use. A second form here is how
 // the app would end up with two ways to book an hour that disagree about what an hour needs.
 import MeetingDialog from "@pages/employee/MeetingDialog";
+import { LeadStatusPill, leadRowSx, leadTableSx, UNASSIGNED_ORG_LABEL } from "./leadTableStyle";
 
 /**
  * Leads created before organizations existed carry no organizationId. They are
@@ -75,7 +76,6 @@ import MeetingDialog from "@pages/employee/MeetingDialog";
  * filter value, never written to a lead.
  */
 const UNASSIGNED_ORG_VALUE = "__unassigned__";
-const UNASSIGNED_ORG_LABEL = "Unassigned";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -1031,21 +1031,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       accessorKey: "status",
       header: "Lead Status",
       size: 150,
-      Cell: ({ row }: any) => {
-        const st = row?.original?.status;
-        return st?.name ? (
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            backgroundColor: st.color || '#64748B',
-            borderRadius: '16px', padding: '4px 10px 4px 8px',
-          }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#fff' }} />
-            <span style={{ fontSize: '12px', fontWeight: 600, color: '#fff' }}>{st.name}</span>
-          </div>
-        ) : (
-          "N/A"
-        );
-      },
+      Cell: ({ row }: any) => <LeadStatusPill status={row?.original?.status} />,
     },
     {
       accessorKey: "receivedDate",
@@ -2115,52 +2101,13 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             sx: { maxHeight: "700px", overflowX: "auto" },
           }}
           muiTableProps={{
-            sx: {
-              borderCollapse: "separate",
-              borderSpacing: "0 4px !important",
-              // Precise column widths: `fixed` makes each column exactly its `size`
-              // (no stretching to fill), and `max-content` sizes the table to the sum
-              // of the columns so there's no forced dead space. Horizontal scroll kicks
-              // in via the container's overflowX when the columns exceed the viewport.
-              tableLayout: "fixed",
-              width: "max-content",
-            },
+            // Precise column widths: `fixed` makes each column exactly its `size`
+            // (no stretching to fill), and `max-content` sizes the table to the sum
+            // of the columns so there's no forced dead space. Horizontal scroll kicks
+            // in via the container's overflowX when the columns exceed the viewport.
+            sx: leadTableSx,
             muiTableBodyRowProps: ({ row }: any) => ({
-              sx: {
-                cursor: "pointer",
-                backgroundColor: `${row.original?.status?.color}20`,
-                transition: "all 0.2s ease",
-                "& .MuiTableCell-root": {
-                  fontSize: "15.5px",
-                  fontFamily: "Inter",
-                  fontWeight: "500",
-                  padding: "4px 8px !important",
-                  border: "none",
-                  color: "#333",
-                  whiteSpace: "nowrap",
-                },
-                "& .MuiTableCell-root:first-of-type": {
-                  borderTopLeftRadius: "12px",
-                  borderBottomLeftRadius: "12px",
-                  borderLeft: "3px solid transparent !important",
-                  transition: "border-color 0.2s ease-in-out !important",
-                },
-                "& .MuiTableCell-root:last-of-type": {
-                  borderTopRightRadius: "12px",
-                  borderBottomRightRadius: "12px",
-                },
-                "&:hover": {
-                  backgroundColor: "#F8FAFC !important",
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                  "& .MuiTableCell-root": {
-                    backgroundColor: "#F8FAFC !important",
-                  },
-                  "& .MuiTableCell-root:first-of-type": {
-                    borderLeftColor: `${row.original?.status?.color || "#1E3A8A"} !important`,
-                  },
-                },
-              },
+              sx: leadRowSx(row.original?.status?.color),
               onClick: () =>
                 navigate(`/leads/${row.original.id}`, {
                   state: { leadData: row.original.id },
