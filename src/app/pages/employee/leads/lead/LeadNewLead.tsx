@@ -16,11 +16,13 @@ import {
   InputAdornment,
 } from "@mui/material";
 import { getAllLeadsComplete } from "@services/leads";
+import { getMyLeadReminders } from "@services/leadService";
+import { getMeetingLeadIds } from "@services/employee";
 import { saveLeadPeriodPreference, getLeadPeriodPreference, getUserTablePreferences } from "@services/users";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SelectLeadOrganizationDialog from "./SelectLeadOrganizationDialog";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
 import {
@@ -60,6 +62,12 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import LeadBulkImport from "./LeadBulkImport";
 import { useOrgScope } from "@hooks/useOrgScope";
+import { ActionIconButton, toast } from "@app/modules/common/components/ui";
+import LeadNoteDialog, { ReminderCell, REMINDER_COLUMN_WIDTH } from "./LeadNoteDialog";
+import LeadActionPicker from "./LeadActionPicker";
+// The SAME meeting dialog the calendar and the project board use. A second form here is how
+// the app would end up with two ways to book an hour that disagree about what an hour needs.
+import MeetingDialog from "@pages/employee/MeetingDialog";
 
 /**
  * Leads created before organizations existed carry no organizationId. They are
@@ -171,6 +179,7 @@ const NavigationButtons: React.FC<{
 );
 
 // All selectable leads-table column keys (must match the `accessorKey`s below and the
+
 const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   statusId,
   serviceId,
@@ -207,6 +216,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // ── Bulk import state (from file 2) ─────────────────────────────────────────
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [pagination] = useState({ pageIndex: 0, pageSize: 10 });
+
+  // ── Per-row actions: the reminder note and the meeting ──────────────────────
+  // Each holds the ROW the icon was clicked on, not just its id — both dialogs need the
+  // lead's name and existing note, which the table already has in hand. `null` = closed.
+  const [noteLead, setNoteLead] = useState<any>(null);
+  const [meetingLead, setMeetingLead] = useState<any>(null);
+  /** The lead whose `+` was pressed with BOTH actions still missing. */
+  const [pickerLead, setPickerLead] = useState<any>(null);
+
 
   // ── Date mode ────────────────────────────────────────────────────────────────
   const [alignment, setAlignment] = useState<DateMode>("monthly");
@@ -294,10 +312,38 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // spinner, no request storm, the rows are simply still there.
   // `loadLeadsScreen` is a hoisted function declaration further down — the rows
   // it returns are read all over the body above it.
+  // Named once and reused by the two in-place row patches below. A second literal spelling
+  // of this key would be a patch that writes to a cache entry nothing reads.
+  const leadsScreenKey = ["leads-screen", currentEmployeeId];
+  const queryClient = useQueryClient();
   const { data: leadsScreen, isPending, refetch } = useQuery({
-    queryKey: ["leads-screen", currentEmployeeId],
+    queryKey: leadsScreenKey,
     queryFn: loadLeadsScreen,
   });
+
+  /**
+   * Change one field on one row, without going back to the server.
+   *
+   * Folds a saved reminder, or a newly booked meeting, back into the row it belongs to.
+   * A stable identity, so the memoised column definitions can close over it without going
+   * stale and without rebuilding the column model.
+   *
+   * The rows live in the query cache now rather than in component state, so this writes
+   * there — same intent as the `setTableData` it replaces, same reason: `refetch` pulls every
+   * lead plus its country/state/city lookups, which is a full reload of the screen to show
+   * one edited sentence, and it loses the table's scroll position doing it.
+   */
+  const patchCachedRow = useCallback(
+    (leadId: string, patch: Record<string, any>) => {
+      queryClient.setQueryData(leadsScreenKey, (prev: any) => (prev ? {
+        ...prev,
+        leads: prev.leads.map((r: any) => (r.id === leadId ? { ...r, ...patch } : r)),
+      } : prev));
+    },
+    // The key is rebuilt each render; its CONTENT is what matters, so depend on that.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queryClient, currentEmployeeId],
+  );
   const fetchAllData = refetch;
   const tableData: any[] = leadsScreen?.leads || [];
   const rawLeadsDatas: any[] = leadsScreen?.rawLeads || [];
@@ -466,8 +512,44 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // React Query can cache it. Declared as a function so the useQuery call near the
   // top of the component — above every reader of its rows — can name it.
   async function loadLeadsScreen() {
-      const leadsResponse = await getAllLeadsComplete();
+      // MY reminders and which leads have a meeting, fetched BESIDE the leads rather than
+      // joined onto them. The leads list is the heaviest read in the app and is shared by the
+      // dashboard, the drill-downs and the exports — making it viewer-dependent to serve one
+      // column would cost all of them. Safe to cache because the query key carries
+      // currentEmployeeId, so one person's reminders can never be served to another.
+      //
+      // Both are best-effort. A failure in either is not a failure of the page: the table
+      // still lists every lead, with the Reminder column simply empty and the Action column
+      // offering `+` everywhere — wrong, but not broken.
+      const [leadsResponse, remindersResponse, meetingLeadsResponse] = await Promise.all([
+        getAllLeadsComplete(),
+        getMyLeadReminders().catch((e) => {
+          console.warn("Could not load your reminders", e);
+          return null;
+        }),
+        getMeetingLeadIds().catch((e) => {
+          console.warn("Could not load which leads have meetings", e);
+          return null;
+        }),
+      ]);
+      const leadsWithMeetings = new Set<string>(
+        (meetingLeadsResponse?.data?.leadIds || []).map(String),
+      );
       const leadsData = leadsResponse?.data?.data?.leads || [];
+      // ONE `.data` LESS THAN THE LEADS ABOVE, and that is not a typo.
+      //
+      // The two calls come from different clients. `services/leads.ts` uses raw axios and
+      // returns the whole axios response, so the envelope is at `.data` and the payload at
+      // `.data.data`. `leadService.ts` goes through `api`, whose helpers already return
+      // `r.data` — so what resolves here IS the envelope, and the payload is at `.data`.
+      //
+      // Read the deeper way, this silently yields `undefined`: every save appeared to work,
+      // the row updated in place, and the reminder vanished on the next load.
+      const reminderByLead = new Map<string, { note: string; color: string | null }>(
+        (remindersResponse?.data?.reminders || []).map(
+          (r: any) => [String(r.leadId), { note: r.note, color: r.color }] as const,
+        ),
+      );
 
       const [servicesRes, subcatRes, catRes, statusRes, countriesData] =
         await Promise.all([
@@ -646,6 +728,14 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             referrals: lead.referrals || [],
             companyType: lead.company?.companyTypeId || "",
             receivedDate: lead?.receivedDate || "",
+            // THIS READER'S reminder. Named `reminder`, not `notes`: the lead has a `notes`
+            // field of its own, a different and shared thing that predates this, and one of
+            // the two had to stop borrowing the other's name. Seeded onto the row so both the
+            // inline cell and the dialog open with no fetch of their own.
+            reminder: reminderByLead.get(String(lead.id))?.note || "",
+            reminderColor: reminderByLead.get(String(lead.id))?.color || "",
+            // Drives the Action column: an icon means the thing exists on this lead.
+            hasMeeting: leadsWithMeetings.has(String(lead.id)),
             fileLocation: lead?.fileLocation || "",
             fileLocationCompany: lead?.fileLocationCompany || "",
             fileLocationCompanyType: lead?.fileLocationCompanyType || "",
@@ -734,6 +824,106 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // ping-pongs with the auto-refetch and reloads the table continuously.
   const columns = useMemo(() => [
 
+    {
+      // `id: "actions"` is not cosmetic — MaterialTable recognises that exact id and turns
+      // off sorting and grouping for it, because there is no backing row field for either to
+      // operate on. Ordering is not one of those: the header carries a name and drags like
+      // any other column.
+      id: "actions",
+      header: "Action",
+      size: 108,
+      minSize: 108,
+      enableResizing: false,
+      /**
+       * THE ICONS ARE THE STATE, not a fixed toolbar.
+       *
+       * Two permanent buttons on 1,385 identical rows told the reader nothing: every lead
+       * looked the same whether it had been followed up or never touched. Now an icon means
+       * that thing EXISTS on this lead, and `+` means something is still missing — so the
+       * column answers "which of these has a reminder, which has a meeting" at a glance,
+       * which is the question somebody scanning a pipeline is actually asking.
+       *
+       * `+` knows what is missing, so it only asks when it genuinely does not know: with one
+       * of the two already there it goes straight to the other, and the chooser opens only
+       * when both are absent.
+       */
+      Cell: ({ row }: any) => {
+        const lead = row.original;
+        const hasReminder = !!lead?.reminder;
+        const hasMeeting = !!lead?.hasMeeting;
+        return (
+          // The row itself navigates to the lead on click. Stopping here — once, on the
+          // wrapper — is what keeps "open the reminder" from also being "leave the page".
+          <Box
+            sx={{ display: "flex", gap: "4px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {hasReminder && (
+              <ActionIconButton
+                size="sm"
+                iconName="notepad-edit"
+                tone="success"
+                // Names the full editor, not just "edit": a quick text fix is a click on the
+                // Reminder cell itself, and this is the way to the thing that cell cannot do.
+                title="Edit reminder and colour"
+                onClick={() => setNoteLead(lead)}
+              />
+            )}
+            {hasMeeting && (
+              <ActionIconButton
+                size="sm"
+                iconName="calendar-tick"
+                tone="indigo"
+                title="Meeting booked — schedule another"
+                onClick={() => setMeetingLead(lead)}
+              />
+            )}
+            {!(hasReminder && hasMeeting) && (
+              <ActionIconButton
+                size="sm"
+                iconName="plus"
+                tone="brand"
+                title={
+                  hasReminder
+                    ? "Schedule a meeting"
+                    : hasMeeting
+                      ? "Add a reminder"
+                      : "Add a reminder or a meeting"
+                }
+                onClick={() => {
+                  if (hasReminder) setMeetingLead(lead);
+                  else if (hasMeeting) setNoteLead(lead);
+                  else setPickerLead(lead);
+                }}
+              />
+            )}
+          </Box>
+        );
+      },
+    },
+    {
+      accessorKey: "reminder",
+      header: "Reminder",
+      // One number, shared with the cell — which caps its own content to it. A column whose
+      // width and whose content ceiling can disagree is a column that grows.
+      size: REMINDER_COLUMN_WIDTH,
+      minSize: 200,
+      // FIRST after the row actions, before the dates. A reminder is the one cell here that
+      // is a claim on the reader's attention rather than a fact about the lead — buried mid-
+      // table it is read after everything it was meant to interrupt, and off the right edge
+      // of a wide table it is not read at all.
+      //
+      // Its own column rather than a second line under Project Name: that cell's Cell
+      // returns a single string child, which is what the table's search highlighter
+      // clones through — wrapping it in a container to append the note would silently
+      // stop the project name highlighting on every search.
+      Cell: ({ row }: { row: any }) => (
+        <ReminderCell
+          lead={row.original}
+          onSaved={(reminder) => patchCachedRow(row.original.id, { reminder })}
+        />
+      ),
+    },
     {
       accessorKey: "inquiryDate",
       header: "Inquiry Date",
@@ -1041,6 +1231,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     rawLeadsData,
     fileLocCompanyMap,
     fileLocTypeMap,
+    // Stable via useCallback, so listing it never rebuilds the column model — it only stops
+    // the reminder cell closing over a stale writer if that ever changes.
+    patchCachedRow,
   ]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -1053,6 +1246,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     { key: 'inquiryDate', header: 'Inquiry Date', type: 'text' as const },
     { key: 'prefix', header: 'Inquiry ID', type: 'text' as const },
     { key: 'projectName', header: 'Project Name', type: 'text' as const },
+    { key: 'reminder', header: 'Reminder', type: 'text' as const },
     { key: 'organization', header: 'Organization', type: 'text' as const },
     { key: 'totalCost', header: 'Total Cost', type: 'currency' as const, showTotal: true },
     { key: 'client', header: 'Client', type: 'text' as const },
@@ -1632,98 +1826,45 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         )}
       </Box>
 
-      <MaterialTable
-        columns={columns}
-        data={quickFilteredData}
-        tableName="LeadsTablesMainV2"
-        defaultSorting={[{ id: "inquiryDate", desc: true }]}
-        // Returns elements, not a <FilterToolbar/> component declared in render —
-        // a fresh component type each render remounts the controls mid-interaction
-        // (the Assigned To autocomplete would lose focus on every keystroke).
-        renderTopToolbarRightActions={() => (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              {/* Status Filter */}
-              <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 140 }}>
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  displayEmpty
-                  sx={pillSelectSx(!!statusFilter)}
-                  renderValue={(val) => {
-                    if (!val) {
-                      return (
-                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                          Select Status
-                        </span>
-                      );
-                    }
-                    const st = leadStatuses.find((s: any) => s.name === val);
-                    return (
-                      <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", overflow: "hidden" }}>
-                        {st?.color && (
-                          <span style={{ width: 8, height: 8, minWidth: 8, borderRadius: "50%", backgroundColor: st.color, display: "inline-block" }} />
-                        )}
-                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                          {val}
-                        </span>
-                        <span
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setStatusFilter("");
-                          }}
-                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#1E3A8A", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
-                        >
-                          ✕
-                        </span>
-                      </span>
-                    );
-                  }}
-                  MenuProps={menuSx}
-                >
-                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                    All Statuses
-                  </MenuItem>
-                  {leadStatuses.map((st: any) => (
-                    <MenuItem key={st.id} value={st.name} sx={{ fontSize: "12px" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color, display: "inline-block", flexShrink: 0 }} />
-                        {st.name}
-                      </span>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              {/* Organization Filter — same pill treatment as Status. Hidden when
-                  there is only one organization and nothing legacy to separate. */}
-              {organizationFilterOptions.length > 1 && (
-                <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 170 }}>
+        <MaterialTable
+          columns={columns}
+          data={quickFilteredData}
+          tableName="LeadsTablesMainV2"
+          defaultSorting={[{ id: "inquiryDate", desc: true }]}
+          // Returns elements, not a <FilterToolbar/> component declared in render —
+          // a fresh component type each render remounts the controls mid-interaction
+          // (the Assigned To autocomplete would lose focus on every keystroke).
+          renderTopToolbarRightActions={() => (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                {/* Status Filter */}
+                <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 140 }}>
                   <Select
-                    value={organizationFilter}
-                    onChange={(e) => setOrganizationFilter(e.target.value)}
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
                     displayEmpty
-                    sx={pillSelectSx(!!organizationFilter)}
+                    sx={pillSelectSx(!!statusFilter)}
                     renderValue={(val) => {
                       if (!val) {
                         return (
                           <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                            Organization
+                            Select Status
                           </span>
                         );
                       }
-                      const label =
-                        organizationFilterOptions.find((o) => o.value === val)?.label ?? val;
+                      const st = leadStatuses.find((s: any) => s.name === val);
                       return (
                         <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", overflow: "hidden" }}>
+                          {st?.color && (
+                            <span style={{ width: 8, height: 8, minWidth: 8, borderRadius: "50%", backgroundColor: st.color, display: "inline-block" }} />
+                          )}
                           <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                            {label}
+                            {val}
                           </span>
                           <span
                             onMouseDown={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              setOrganizationFilter("");
+                              setStatusFilter("");
                             }}
                             style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#1E3A8A", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
                           >
@@ -1735,245 +1876,298 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     MenuProps={menuSx}
                   >
                     <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                      All Organizations
+                      All Statuses
                     </MenuItem>
-                    {organizationFilterOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value} sx={{ fontSize: "12px" }}>
-                        {option.label}
+                    {leadStatuses.map((st: any) => (
+                      <MenuItem key={st.id} value={st.name} sx={{ fontSize: "12px" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+                          <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color, display: "inline-block", flexShrink: 0 }} />
+                          {st.name}
+                        </span>
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-              )}
 
-              {/* Assigned To Autocomplete */}
-              <Autocomplete
-                size="small"
-                options={assignedToOptions}
-                getOptionLabel={(emp: any) => emp.displayName || emp.employeeName}
-                value={assignedToOptions.find((e: any) => e.employeeId === assignedToFilter) ?? null}
-                onChange={(_: any, emp: any) => setAssignedToFilter(emp?.employeeId ?? "")}
-                isOptionEqualToValue={(opt: any, val: any) => opt.employeeId === val.employeeId}
-                filterOptions={(options, { inputValue }) => {
-                  const q = inputValue.toLowerCase();
-                  if (!q) return options;
-                  return options.filter((o: any) => (o.displayName || o.employeeName || "").toLowerCase().includes(q));
-                }}
-                sx={{ minWidth: isMobile ? "100%" : 180 }}
-                clearOnEscape
-                renderOption={(props, emp: any) => (
-                  <li {...props} key={emp.employeeId}>
-                    {emp.employeeId === "__NA__" ? (
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                        <span style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, backgroundColor: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "8px", color: "#999", fontWeight: 700 }}>
-                          N/A
-                        </span>
-                        <span style={{ fontFamily: "Inter", fontSize: "12px", color: "#888" }}>
-                          N/A — UNASSIGNED
-                        </span>
-                      </span>
-                    ) : (
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                        <img
-                          src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}&size=32&background=random`}
-                          alt=""
-                          style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0, filter: emp.isInactive ? "grayscale(60%)" : "none" }}
-                          onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}`; }}
-                        />
-                        <span style={{ fontFamily: "Inter", fontSize: "12px" }}>
-                          {emp.isInactive ? `${emp.employeeName} (Inactive)` : emp.employeeName}
-                        </span>
-                      </span>
-                    )}
-                  </li>
-                )}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    placeholder="Assigned To"
-                    InputProps={{
-                      ...params.InputProps,
-                      startAdornment: assignedToFilter ? (
-                        <InputAdornment position="start" sx={{ ml: "4px", mr: 0 }}>
-                          {assignedToFilter === "__NA__" ? (
-                            <span style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#f0f0f0", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "7px", color: "#999", fontWeight: 700 }}>
-                              N/A
+                {/* Organization Filter — same pill treatment as Status. Hidden when
+                    there is only one organization and nothing legacy to separate. */}
+                {organizationFilterOptions.length > 1 && (
+                  <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 170 }}>
+                    <Select
+                      value={organizationFilter}
+                      onChange={(e) => setOrganizationFilter(e.target.value)}
+                      displayEmpty
+                      sx={pillSelectSx(!!organizationFilter)}
+                      renderValue={(val) => {
+                        if (!val) {
+                          return (
+                            <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
+                              Organization
                             </span>
-                          ) : (
-                            <img
-                              src={assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.employeeName || "")}&size=24&background=random`}
-                              alt=""
-                              style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", filter: assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.isInactive ? "grayscale(60%)" : "none" }}
-                            />
-                          )}
-                        </InputAdornment>
-                      ) : undefined,
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        borderRadius: "6px",
-                        height: FILTER_HEIGHT,
-                        fontFamily: "Inter",
-                        fontSize: "12px",
-                        fontWeight: 500,
-                        color: assignedToFilter ? "#1E3A8A" : "#1E293B",
-                        paddingRight: "8px !important",
-                        "& fieldset": {
-                          borderColor: assignedToFilter ? "#1E3A8A" : "#E2E8F0",
-                          borderWidth: "1px",
+                          );
+                        }
+                        const label =
+                          organizationFilterOptions.find((o) => o.value === val)?.label ?? val;
+                        return (
+                          <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", overflow: "hidden" }}>
+                            <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                              {label}
+                            </span>
+                            <span
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setOrganizationFilter("");
+                              }}
+                              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#1E3A8A", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                            >
+                              ✕
+                            </span>
+                          </span>
+                        );
+                      }}
+                      MenuProps={menuSx}
+                    >
+                      <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
+                        All Organizations
+                      </MenuItem>
+                      {organizationFilterOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value} sx={{ fontSize: "12px" }}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+
+                {/* Assigned To Autocomplete */}
+                <Autocomplete
+                  size="small"
+                  options={assignedToOptions}
+                  getOptionLabel={(emp: any) => emp.displayName || emp.employeeName}
+                  value={assignedToOptions.find((e: any) => e.employeeId === assignedToFilter) ?? null}
+                  onChange={(_: any, emp: any) => setAssignedToFilter(emp?.employeeId ?? "")}
+                  isOptionEqualToValue={(opt: any, val: any) => opt.employeeId === val.employeeId}
+                  filterOptions={(options, { inputValue }) => {
+                    const q = inputValue.toLowerCase();
+                    if (!q) return options;
+                    return options.filter((o: any) => (o.displayName || o.employeeName || "").toLowerCase().includes(q));
+                  }}
+                  sx={{ minWidth: isMobile ? "100%" : 180 }}
+                  clearOnEscape
+                  renderOption={(props, emp: any) => (
+                    <li {...props} key={emp.employeeId}>
+                      {emp.employeeId === "__NA__" ? (
+                        <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+                          <span style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, backgroundColor: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "8px", color: "#999", fontWeight: 700 }}>
+                            N/A
+                          </span>
+                          <span style={{ fontFamily: "Inter", fontSize: "12px", color: "#888" }}>
+                            N/A — UNASSIGNED
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+                          <img
+                            src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}&size=32&background=random`}
+                            alt=""
+                            style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0, filter: emp.isInactive ? "grayscale(60%)" : "none" }}
+                            onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}`; }}
+                          />
+                          <span style={{ fontFamily: "Inter", fontSize: "12px" }}>
+                            {emp.isInactive ? `${emp.employeeName} (Inactive)` : emp.employeeName}
+                          </span>
+                        </span>
+                      )}
+                    </li>
+                  )}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Assigned To"
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: assignedToFilter ? (
+                          <InputAdornment position="start" sx={{ ml: "4px", mr: 0 }}>
+                            {assignedToFilter === "__NA__" ? (
+                              <span style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#f0f0f0", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "7px", color: "#999", fontWeight: 700 }}>
+                                N/A
+                              </span>
+                            ) : (
+                              <img
+                                src={assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.employeeName || "")}&size=24&background=random`}
+                                alt=""
+                                style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", filter: assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.isInactive ? "grayscale(60%)" : "none" }}
+                              />
+                            )}
+                          </InputAdornment>
+                        ) : undefined,
+                      }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
                           borderRadius: "6px",
-                        },
-                        "&:hover fieldset": { borderColor: "#1E3A8A" },
-                        "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        padding: "0 4px !important",
-                        fontFamily: "Inter",
-                        fontSize: "12px",
-                        fontWeight: 500,
-                        color: assignedToFilter ? "#1E3A8A" : "#1E293B",
-                        "&::placeholder": {
-                          color: "#94A3B8",
-                          opacity: 1,
+                          height: FILTER_HEIGHT,
                           fontFamily: "Inter",
                           fontSize: "12px",
                           fontWeight: 500,
+                          color: assignedToFilter ? "#1E3A8A" : "#1E293B",
+                          paddingRight: "8px !important",
+                          "& fieldset": {
+                            borderColor: assignedToFilter ? "#1E3A8A" : "#E2E8F0",
+                            borderWidth: "1px",
+                            borderRadius: "6px",
+                          },
+                          "&:hover fieldset": { borderColor: "#1E3A8A" },
+                          "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
                         },
-                      },
-                      "& .MuiAutocomplete-endAdornment": {
-                        right: "6px",
-                        "& .MuiSvgIcon-root": {
-                          color: assignedToFilter ? "#1E3A8A" : "#94A3B8",
-                          fontSize: "16px",
-                        },
-                      },
-                    }}
-                  />
-                )}
-                slotProps={{
-                  paper: {
-                    sx: {
-                      borderRadius: "8px",
-                      mt: 0.5,
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                      "& .MuiAutocomplete-listbox": {
-                        maxHeight: 280,
-                        fontFamily: "Inter",
-                        "& .MuiAutocomplete-option": {
+                        "& .MuiOutlinedInput-input": {
+                          padding: "0 4px !important",
+                          fontFamily: "Inter",
                           fontSize: "12px",
-                          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
-                          '&[aria-selected="true"]': {
-                            backgroundColor: "rgba(30, 58, 138,0.1)",
-                            color: "#1E3A8A",
-                            fontWeight: 600,
+                          fontWeight: 500,
+                          color: assignedToFilter ? "#1E3A8A" : "#1E293B",
+                          "&::placeholder": {
+                            color: "#94A3B8",
+                            opacity: 1,
+                            fontFamily: "Inter",
+                            fontSize: "12px",
+                            fontWeight: 500,
+                          },
+                        },
+                        "& .MuiAutocomplete-endAdornment": {
+                          right: "6px",
+                          "& .MuiSvgIcon-root": {
+                            color: assignedToFilter ? "#1E3A8A" : "#94A3B8",
+                            fontSize: "16px",
+                          },
+                        },
+                      }}
+                    />
+                  )}
+                  slotProps={{
+                    paper: {
+                      sx: {
+                        borderRadius: "8px",
+                        mt: 0.5,
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                        "& .MuiAutocomplete-listbox": {
+                          maxHeight: 280,
+                          fontFamily: "Inter",
+                          "& .MuiAutocomplete-option": {
+                            fontSize: "12px",
+                            "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
+                            '&[aria-selected="true"]': {
+                              backgroundColor: "rgba(30, 58, 138,0.1)",
+                              color: "#1E3A8A",
+                              fontWeight: 600,
+                            },
                           },
                         },
                       },
                     },
-                  },
-                }}
-              />
-
-
-
-              {/* Clear filters trigger */}
-              {hasAnyFilter && (
-                <button
-                  onClick={clearAllFilters}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: "12px",
-                    color: "#1E3A8A",
-                    fontWeight: 600,
-                    fontFamily: "Inter, sans-serif",
-                    padding: "2px 8px",
-                    whiteSpace: "nowrap"
                   }}
-                >
-                  ✕ Clear Filters
-                </button>
-              )}
-          </Box>
-        )}
-        renderExportActions={() => (
-          <ExportButton
-            data={quickFilteredData}
-            columns={leadsExportColumns}
-            filename="leads-management"
-            title="Leads Management"
-            subtitle="Inquiry-wise leads, costs, and status"
-            sheetName="Leads"
-            showTotals
-            totalLabel="TOTAL"
-            disabled={!quickFilteredData?.length}
-          />
-        )}
-        employeeId={currentEmployeeId}
-        resource="LEADS"
-        viewOwn={true}
-        viewOthers={true}
-        checkOwnWithOthers={true}
-        enableColumnResizing={true}
-        layoutMode="semantic"
-        muiTableContainerProps={{
-          sx: { maxHeight: "700px", overflowX: "auto" },
-        }}
-        muiTableProps={{
-          sx: {
-            borderCollapse: "separate",
-            borderSpacing: "0 4px !important",
-            // Precise column widths: `fixed` makes each column exactly its `size`
-            // (no stretching to fill), and `max-content` sizes the table to the sum
-            // of the columns so there's no forced dead space. Horizontal scroll kicks
-            // in via the container's overflowX when the columns exceed the viewport.
-            tableLayout: "fixed",
-            width: "max-content",
-          },
-          muiTableBodyRowProps: ({ row }: any) => ({
+                />
+
+
+
+                {/* Clear filters trigger */}
+                {hasAnyFilter && (
+                  <button
+                    onClick={clearAllFilters}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      color: "#1E3A8A",
+                      fontWeight: 600,
+                      fontFamily: "Inter, sans-serif",
+                      padding: "2px 8px",
+                      whiteSpace: "nowrap"
+                    }}
+                  >
+                    ✕ Clear Filters
+                  </button>
+                )}
+            </Box>
+          )}
+          renderExportActions={() => (
+            <ExportButton
+              data={quickFilteredData}
+              columns={leadsExportColumns}
+              filename="leads-management"
+              title="Leads Management"
+              subtitle="Inquiry-wise leads, costs, and status"
+              sheetName="Leads"
+              showTotals
+              totalLabel="TOTAL"
+              disabled={!quickFilteredData?.length}
+            />
+          )}
+          employeeId={currentEmployeeId}
+          resource="LEADS"
+          viewOwn={true}
+          viewOthers={true}
+          checkOwnWithOthers={true}
+          enableColumnResizing={true}
+          layoutMode="semantic"
+          muiTableContainerProps={{
+            sx: { maxHeight: "700px", overflowX: "auto" },
+          }}
+          muiTableProps={{
             sx: {
-              cursor: "pointer",
-              backgroundColor: `${row.original?.status?.color}20`,
-              transition: "all 0.2s ease",
-              "& .MuiTableCell-root": {
-                fontSize: "15.5px",
-                fontFamily: "Inter",
-                fontWeight: "500",
-                padding: "4px 8px !important",
-                border: "none",
-                color: "#333",
-                whiteSpace: "nowrap",
-              },
-              "& .MuiTableCell-root:first-of-type": {
-                borderTopLeftRadius: "12px",
-                borderBottomLeftRadius: "12px",
-                borderLeft: "3px solid transparent !important",
-                transition: "border-color 0.2s ease-in-out !important",
-              },
-              "& .MuiTableCell-root:last-of-type": {
-                borderTopRightRadius: "12px",
-                borderBottomRightRadius: "12px",
-              },
-              "&:hover": {
-                backgroundColor: "#F8FAFC !important",
-                transform: "translateY(-2px)",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+              borderCollapse: "separate",
+              borderSpacing: "0 4px !important",
+              // Precise column widths: `fixed` makes each column exactly its `size`
+              // (no stretching to fill), and `max-content` sizes the table to the sum
+              // of the columns so there's no forced dead space. Horizontal scroll kicks
+              // in via the container's overflowX when the columns exceed the viewport.
+              tableLayout: "fixed",
+              width: "max-content",
+            },
+            muiTableBodyRowProps: ({ row }: any) => ({
+              sx: {
+                cursor: "pointer",
+                backgroundColor: `${row.original?.status?.color}20`,
+                transition: "all 0.2s ease",
                 "& .MuiTableCell-root": {
-                  backgroundColor: "#F8FAFC !important",
+                  fontSize: "15.5px",
+                  fontFamily: "Inter",
+                  fontWeight: "500",
+                  padding: "4px 8px !important",
+                  border: "none",
+                  color: "#333",
+                  whiteSpace: "nowrap",
                 },
                 "& .MuiTableCell-root:first-of-type": {
-                  borderLeftColor: `${row.original?.status?.color || "#1E3A8A"} !important`,
+                  borderTopLeftRadius: "12px",
+                  borderBottomLeftRadius: "12px",
+                  borderLeft: "3px solid transparent !important",
+                  transition: "border-color 0.2s ease-in-out !important",
+                },
+                "& .MuiTableCell-root:last-of-type": {
+                  borderTopRightRadius: "12px",
+                  borderBottomRightRadius: "12px",
+                },
+                "&:hover": {
+                  backgroundColor: "#F8FAFC !important",
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                  "& .MuiTableCell-root": {
+                    backgroundColor: "#F8FAFC !important",
+                  },
+                  "& .MuiTableCell-root:first-of-type": {
+                    borderLeftColor: `${row.original?.status?.color || "#1E3A8A"} !important`,
+                  },
                 },
               },
-            },
-            onClick: () =>
-              navigate(`/leads/${row.original.id}`, {
-                state: { leadData: row.original.id },
-              }),
-          }),
-        }}
-      />
+              onClick: () =>
+                navigate(`/leads/${row.original.id}`, {
+                  state: { leadData: row.original.id },
+                }),
+            }),
+          }}
+        />
 
       <SelectLeadOrganizationDialog
         open={showOrgPicker}
@@ -2043,6 +2237,57 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         show={showBulkImport}
         onHide={() => setShowBulkImport(false)}
       />
+
+      {/* The full reminder editor — writing one from scratch, and the colour. Quick text
+          fixes happen inline in the Reminder cell and never come through here. */}
+      {noteLead && (
+        <LeadNoteDialog
+          open
+          lead={noteLead}
+          onClose={() => setNoteLead(null)}
+          onSaved={(reminder, reminderColor) => patchCachedRow(noteLead.id, { reminder, reminderColor })}
+        />
+      )}
+
+      {/* Booking a meeting ON A LEAD, which is only possible from here.
+          `lockProject` is what enforces that: the meeting form's own picker offers projects
+          you are on the internal team of, and a lead that has not become a project is on
+          nobody's — so opened from the Calendar or a task, this lead is not offerable at all.
+          `leadName` names the row and marks it as a lead so the form does not call it a
+          project. */}
+      {meetingLead && (
+        <MeetingDialog
+          open
+          defaultProjectId={meetingLead.id}
+          lockProject
+          leadName={meetingLead.projectName || meetingLead.prefix || "Lead"}
+          onClose={() => setMeetingLead(null)}
+          // The form itself is silent on success — the Calendar page says so in its own
+          // onSaved, and a dialog that just closes reads as one that failed.
+          onSaved={() => {
+            // The row's Action column reads this: without it the lead keeps offering `+` for
+            // a meeting that now exists, until the next full reload.
+            patchCachedRow(meetingLead.id, { hasMeeting: true });
+            toast({ icon: "success", title: "Meeting scheduled" });
+          }}
+        />
+      )}
+
+      {/* Only reachable from a lead with NEITHER a reminder nor a meeting — with one of them
+          already there, `+` has a single possible answer and goes straight to it. */}
+      {pickerLead && (
+        <LeadActionPicker
+          open
+          leadName={pickerLead.projectName || pickerLead.prefix || "Lead"}
+          onClose={() => setPickerLead(null)}
+          onChoose={(choice) => {
+            const lead = pickerLead;
+            setPickerLead(null);
+            if (choice === "reminder") setNoteLead(lead);
+            else setMeetingLead(lead);
+          }}
+        />
+      )}
     </>
   );
 };

@@ -7,8 +7,11 @@ name: ✅ Frontend CI
 # "Require a pull request before merging".
 #
 # Lint note: the project has pre-existing ESLint errors in legacy files, so a whole-repo
-# lint gate would block every merge. We hard-gate on build (which runs tsc) and lint ONLY
-# the files a change touches, so new errors block while legacy ones don't.
+# lint gate would block every merge. We hard-gate on the typecheck and lint ONLY the files
+# a change touches, so new errors block while legacy ones don't.
+#
+# This job does NOT bundle. Amplify builds the artifact that ships (see amplify.yml), so
+# a `vite build` here would be a second bundle nothing consumes.
 on:
   pull_request:
     branches: [main]
@@ -28,11 +31,11 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30 # the bundle is large; a cold build runs well past the 10-min mark
+    timeout-minutes: 15 # no bundle here any more — Amplify builds; this job only checks
 
     steps:
       - name: ⬇️ Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0 # needed to diff against the base commit
           persist-credentials: false # don't leave the token in .git/config for later steps
@@ -40,10 +43,10 @@ jobs:
       # Must come before setup-node: `cache: pnpm` needs pnpm on PATH.
       # Version is read from the "packageManager" field in package.json.
       - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           # 24, not 20: pnpm 11.20 (our packageManager) requires Node >= 22.13 and dies on
           # 20 with "No such built-in module: node:sqlite" before it can install anything.
@@ -95,9 +98,18 @@ jobs:
       - name: 🧩 Run task-domain tests
         run: pnpm run test:tasks
 
-      # `build` is `tsc && vite build`, so this IS the typecheck gate.
-      - name: 🏗️ Build
-        run: pnpm run build
+      # TYPECHECK ONLY — Amplify owns the build.
+      #
+      # `pnpm run build` is `tsc && vite build`, and amplify.yml runs exactly that
+      # again on every deploy. Bundling here produced a dist that nothing consumed:
+      # the artifact that actually ships is the one Amplify builds. `--noEmit` keeps
+      # the identical compile gate and drops the bundle, which was the single longest
+      # step in this job.
+      #
+      # If this repo ever stops deploying through Amplify, restore the full build and
+      # promote ITS artifact rather than rebuilding downstream.
+      - name: 🔎 Typecheck
+        run: pnpm exec tsc --noEmit
 
       # Mirrors the backend gate. Blocks on high/critical only; moderate and low are
       # reported without blocking a merge. When a fix isn't published yet, pin the floor

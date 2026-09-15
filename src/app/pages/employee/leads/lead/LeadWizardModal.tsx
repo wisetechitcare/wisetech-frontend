@@ -3217,9 +3217,14 @@ const LeadWizardModal = ({
                     setFieldValue("poDate", "");
                     setFieldValue("poFile", "");
                   }
-                  // Auto-fill Received Date the moment the status becomes Received —
-                  // only if it isn't already set, so it never overwrites a value the
-                  // user has since edited. Fully editable after.
+                  // Stamp Received Date the moment the USER moves the status to
+                  // Received. Not "only when empty": 1391 of 1393 existing leads were
+                  // imported with receivedDate already set equal to inquiryDate, so an
+                  // only-when-empty rule never fired on a real lead — it looked like the
+                  // feature was missing. The guards above mean this runs only on a
+                  // deliberate status change (never on open/hydration), so the value it
+                  // replaces is the stale imported one, not something just typed. Fully
+                  // editable afterwards.
                   //
                   // The full instant, not just the day: two leads received on the same
                   // date are otherwise both midnight, and nothing downstream can tell
@@ -3227,8 +3232,16 @@ const LeadWizardModal = ({
                   // has always had room for the time — we just weren't sending it.
                   // (`.split("T")[0]` also truncated a UTC ISO, so an evening receipt in
                   // IST was stored as the previous day.)
-                  if (isReceived && !values.receivedDate) {
-                    setFieldValue("receivedDate", new Date().toISOString());
+                  if (isReceived) {
+                    const receivedAt = new Date().toISOString();
+                    setFieldValue("receivedDate", receivedAt);
+                    // Start Date too. Project numbers are issued in receipt order, and
+                    // the Projects page lists by Start Date — so a start date left at
+                    // the imported inquiry-era value (every legacy lead has one, so the
+                    // seed effect below never fires) puts a brand-new number next to a
+                    // months-old date. That is exactly how 763/764/765/769 ended up
+                    // "out of sequence".
+                    setFieldValue("startDate", receivedAt);
                   }
                   // Clear receivedDate when status is no longer Received
                   if (!isReceived && values.receivedDate) {

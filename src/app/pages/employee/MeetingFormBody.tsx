@@ -15,7 +15,7 @@ import { getAllProjects } from '@services/projects';
 import { getMeetingProjects } from '@services/employee';
 import { getLeadById } from '@services/leadService';
 import { openingRange, type SelectedDateTimeInfo } from './meetingOpening';
-import { WtDateField, WtSwitch } from '@app/modules/common/components/ui';
+import { ToneChip, WtDateField, WtSwitch } from '@app/modules/common/components/ui';
 import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
 import { KTIcon } from '@metronic/helpers';
 import { TRIO, menuOptionSx, type Trio } from '@app/modules/common/components/ui/patterns';
@@ -74,6 +74,19 @@ export interface MeetingFormBodyProps {
     /** Hides the project cascade entirely — the caller has already decided the project. */
     lockProject?: boolean;
     /**
+     * The linked row is a LEAD, not a project — and this is its name.
+     *
+     * Set only by the Leads table, which is the sole place a meeting may be booked against a
+     * lead that has not become a project. It does two things a bare `defaultProjectId` cannot:
+     *
+     * 1. NAMES the row. `projectOptions` only lists projects you are on the internal team of,
+     *    and a fresh lead is on nobody's — so the locked line would read "Selected project"
+     *    until the detail fetch landed, and the Autocomplete would render EMPTY.
+     * 2. Says WHICH KIND it is, so the form does not call a lead a project. Presence is the
+     *    signal; there is no matching `projectName`, because a project needs no announcement.
+     */
+    leadName?: string;
+    /**
      * Calendar drag-selection, so a meeting drawn on the grid opens on those times.
      *
      * Typed loosely on purpose: what the calendar hands over is FullCalendar's own selection
@@ -111,7 +124,7 @@ const initialsOf = (name: string) =>
     name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
 
 export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBodyProps>(
-    ({ editing, defaultProjectId, lockProject = false, selectedDateTimeInfo, onSaved, onScheduleChange }, ref) => {
+    ({ editing, defaultProjectId, lockProject = false, leadName, selectedDateTimeInfo, onSaved, onScheduleChange }, ref) => {
         const theme = useTheme();
         const employeeId = useSelector((s: RootState) => s.employee?.currentEmployee?.id);
         // Already in the store from sign-in, so the office costs no fetch.
@@ -290,9 +303,15 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
          * With NO project chosen the list is everybody, because the project is what narrows it —
          * without one there is nothing to narrow by, and an empty picker would make a
          * project-less meeting impossible to staff.
+         *
+         * A LEAD is that same case wearing a different hat. Internal teams are staffed when a
+         * lead becomes a project, so a lead has none — narrowing by it would leave the picker
+         * empty and make the first meeting anyone books on a lead unstaffable, which is the
+         * one meeting a lead actually needs. Scoped to `leadName` so the project rule, which
+         * exists to stop people inviting colleagues onto work they are not on, is untouched.
          */
         const internalOptions: Option[] = useMemo(() => {
-            if (!projectId) {
+            if (!projectId || leadName) {
                 return Object.entries(employeeById)
                     .map(([value, info]) => ({ value, label: info.name, avatar: info.avatar }))
                     .sort((a, b) => a.label.localeCompare(b.label));
@@ -317,7 +336,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 // right answer to "who is coming". They appear, named, a moment later.
                 .filter((o: Option) => !!o.label)
                 .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
-        }, [projectId, projectDetail, employeeById]);
+        }, [projectId, projectDetail, employeeById, leadName]);
 
         /**
          * The addresses an offline meeting could actually happen at, each named by whose it is.
@@ -518,13 +537,15 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 const known = projects.find((p: any) => String(p.id) === String(projectId));
                 opts.unshift({
                     value: projectId,
-                    // The lead detail this form already fetches for its roster names the project
-                    // even when the picker's own list has not loaded or does not contain it.
-                    label: known ? projectLabelOf(known) : (projectDetail?.title || 'Selected project'),
+                    // The caller's own name for the row wins — it is on screen already and
+                    // needs no fetch. Otherwise the lead detail this form fetches for its
+                    // roster names the project, even when the picker's list has not loaded
+                    // or does not contain it.
+                    label: leadName || (known ? projectLabelOf(known) : (projectDetail?.title || 'Selected project')),
                 });
             }
             return opts;
-        }, [projects, myProjectIds, companyTypeId, companyId, projectId, projectDetail]);
+        }, [projects, myProjectIds, companyTypeId, companyId, projectId, projectDetail, leadName]);
 
         /**
          * Moving the start CARRIES the meeting: the end shifts with it and the duration holds.
@@ -769,15 +790,19 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     sx={{ '& .MuiInputBase-input': { fontSize: 15, fontWeight: 600, py: 1.25 } }}
                 />
 
-                {/* The project, stated rather than asked, when the screen already decided it. */}
+                {/* The project — or the LEAD — stated rather than asked, when the screen already
+                    decided it. The chip is not decoration: this same line otherwise reads as
+                    "some project", and a lead that has not become one is a different thing to
+                    everybody downstream of the booking. */}
                 {lockProject && projectLabel ? (
                     <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: -1, mb: 2 }}>
-                        <Box sx={{ color: TRIO.purple.c, lineHeight: 0 }}>
-                            <KTIcon iconName="briefcase" className="fs-6" />
+                        <Box sx={{ color: leadName ? TRIO.amber.c : TRIO.purple.c, lineHeight: 0 }}>
+                            <KTIcon iconName={leadName ? 'abstract-26' : 'briefcase'} className="fs-6" />
                         </Box>
                         <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>
                             {projectLabel}
                         </Typography>
+                        {leadName && <ToneChip dense tone="warning" label="Lead" />}
                     </Stack>
                 ) : (
                     <Box sx={{ mb: 2 }}>

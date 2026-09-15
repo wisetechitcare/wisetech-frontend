@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { deleteMeeting, setMeetingCancelled, updateMeeting } from '@services/employee';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -31,6 +32,7 @@ import { errorConfirmation, successConfirmation } from '@utils/modal';
  * with the meetings they organize OR are a participant on, and nothing else.
  */
 const Meetings = () => {
+  const [params] = useSearchParams();
   const currentEmployeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const [showMeetingForm, setShowMeetingForm] = useState(false);
   // Bumped after a create or a delete: the list owns its own fetch, and this is how a parent
@@ -153,6 +155,9 @@ const Meetings = () => {
         mode="employee"
         targetId={currentEmployeeId}
         reloadToken={reloadToken}
+        // Set by a meeting clicked on the Calendar tab, so the grid opens on ITS month
+        // rather than the current one. Absent for anyone who just opened the tab.
+        focusDate={params.get('date') || undefined}
         onCreate={canCreate ? (startIso) => { setEditing(null); setCreateOn(startIso ?? null); setShowMeetingForm(true); } : undefined}
         onEdit={canCreate ? (m) => { setEditing(toEditableMeeting(m)); setCreateOn(null); setShowMeetingForm(true); } : undefined}
         onReschedule={canCreate ? handleReschedule : undefined}

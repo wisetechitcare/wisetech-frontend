@@ -19,6 +19,25 @@ const HOURS_24 = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')
 /** 12-hour clock order — 12 leads, as it does on a clock face. */
 const HOURS_12 = ['12', ...Array.from({ length: 11 }, (_, i) => String(i + 1).padStart(2, '0'))];
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+
+/**
+ * The minutes a field offers, given its step.
+ *
+ * A step exists because some fields are read by a job that only wakes periodically — the
+ * birthday greeting runs every quarter hour — and offering a precision the consumer cannot
+ * honour invites somebody to set 4:37 and wonder why it went at 4:45. Default 1 keeps every
+ * existing caller on all sixty minutes.
+ *
+ * A value ALREADY stored off-step stays in the list. Dropping it would leave the wheel
+ * highlighting nothing while the field above it shows a minute the wheel does not contain,
+ * which reads as a broken control rather than as a stale value. It stays selectable until
+ * the reader picks something else, and every new choice is on-step.
+ */
+const minuteOptions = (step: number, current: string): string[] => {
+    if (step <= 1) return MINUTES;
+    const stepped = Array.from({ length: Math.ceil(60 / step) }, (_, i) => String(i * step).padStart(2, '0'));
+    return stepped.includes(current) ? stepped : [...stepped, current].sort();
+};
 const to12 = (h: number) => String(h % 12 || 12).padStart(2, '0');
 
 
@@ -119,9 +138,15 @@ export interface TimeWheelFieldProps {
     invalid?: boolean;
     /** Stretch to the container width (default) or size to content (compact rows). */
     fullWidth?: boolean;
+    /**
+     * Minutes to offer, as a step. Default 1 — every minute, which is what every existing
+     * caller gets. Pass 15 where the value feeds something that only acts on the quarter
+     * hour, so the control cannot promise a precision the consumer will round away.
+     */
+    minuteStep?: number;
 }
 
-export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, invalid = false, fullWidth = true }: TimeWheelFieldProps) {
+export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, invalid = false, fullWidth = true, minuteStep = 1 }: TimeWheelFieldProps) {
     const [anchor, setAnchor] = useState<HTMLElement | null>(null);
     const open = Boolean(anchor);
     const theme = useTheme();
@@ -224,7 +249,7 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
                             selected={hh} tone={tone} onSelect={pickHour}
                         />
                         <Box sx={{ display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 800, color: 'text.disabled' }}>:</Box>
-                        <WheelColumn items={MINUTES} selected={mm} tone={tone} onSelect={(mi) => onChange(`${String(h24).padStart(2, '0')}:${mi}`)} />
+                        <WheelColumn items={minuteOptions(minuteStep, mm)} selected={mm} tone={tone} onSelect={(mi) => onChange(`${String(h24).padStart(2, '0')}:${mi}`)} />
                         {/* Two choices, so buttons — a scroll wheel of two rows is a wheel that
                             cannot centre and has to be dragged before it can be read. */}
                         {hour12 && (
