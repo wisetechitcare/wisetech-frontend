@@ -7,7 +7,7 @@ import { formatDate, formatDateRange, formatTime } from '@utils/dateFormats';
 import EmployeeIdentityCell from '@app/modules/common/components/EmployeeIdentityCell';
 import { getApprovalDomain } from './domains/registry';
 import type { ApprovalStep } from './domains/types';
-import { getCurrencySymbol, getCurrencyLocale, formatCurrency } from '@utils/currency';
+import { getCurrencyLocale, formatCurrency, currencyPrefix } from '@utils/currency';
 
 export interface Ageing {
     days: number;
@@ -84,7 +84,7 @@ export interface ItemSummary {
 }
 
 const money = (v: unknown) =>
-    `${getCurrencySymbol()}${Number(v ?? 0).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `${currencyPrefix()}${Number(v ?? 0).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** Worked span between two punches, `7h 14m`. Null unless both exist and run forwards. */
 const workedSpan = (from?: string | null, to?: string | null): string | null => {

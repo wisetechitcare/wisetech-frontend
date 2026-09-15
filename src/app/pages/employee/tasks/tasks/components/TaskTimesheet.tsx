@@ -12,7 +12,7 @@ import { toast } from 'react-toastify';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { getTimeTokens } from '@utils/timeFormat';
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 // Extend dayjs with duration plugin
 dayjs.extend(duration);
@@ -111,7 +111,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
         if (!logs.length) {
             return {
                 totalLogTime: '0h 0m',
-                totalCost: `${getCurrencySymbol()}0`,
+                totalCost: `${currencyPrefix()}0`,
                 totalLogs: 0,
                 billableLogs: 0,
                 nonBillableLogs: 0
@@ -136,7 +136,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
 
         const result = {
             totalLogTime: formatDuration(totalHours, remainingMinutes, remainingSeconds),
-            totalCost: `${getCurrencySymbol()}${totalCost.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            totalCost: `${currencyPrefix()}${totalCost.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             totalLogs: logs.length,
             billableLogs,
             nonBillableLogs: logs.length - billableLogs
@@ -231,7 +231,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
         if (apiResponse?.summary) {
             return {
                 totalLogTime: calculatedSummary.totalLogTime, // Use calculated time (more accurate)
-                totalCost: apiResponse.summary.totalCostFormatted || `${getCurrencySymbol()}0`, // Use API cost
+                totalCost: apiResponse.summary.totalCostFormatted || `${currencyPrefix()}0`, // Use API cost
                 totalLogs: apiResponse.summary.totalEntries || 0 // Use API count
             };
         }
@@ -463,7 +463,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                                             <td className="text-center"> {log.billable ? 'Yes' : 'No'}</td>
                                             <td>
                                                 <span className="" style={{color:'#1D5DE1'}}>
-                                                    {log.costFormatted || `${getCurrencySymbol()}${(log.cost || 0).toFixed(2)}`}
+                                                    {log.costFormatted || `${currencyPrefix()}${(log.cost || 0).toFixed(2)}`}
                                                 </span>
                                             </td>
                                             <td className="text-nowrap">

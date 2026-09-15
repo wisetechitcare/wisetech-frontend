@@ -1,4 +1,4 @@
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
 /**
  * Project Analytics Utilities — pure functions for project execution data transformation.
  * Focus: Project lifecycle, execution, delivery, billing, risk, and operations.
@@ -220,10 +220,10 @@ export const calculateProjectHealthMetrics = (statusData: ProjectStatus[]): Proj
  * Format Indian currency for display.
  */
 export const formatMoneyShort = (value: number): string => {
-  if (value >= 10000000) return `${getCurrencySymbol()}${(value / 10000000).toFixed(1)}Cr`;
-  if (value >= 100000) return `${getCurrencySymbol()}${(value / 100000).toFixed(1)}L`;
-  if (value >= 1000) return `${getCurrencySymbol()}${(value / 1000).toFixed(1)}K`;
-  return `${getCurrencySymbol()}${value.toFixed(0)}`;
+  if (value >= 10000000) return `${currencyPrefix()}${(value / 10000000).toFixed(1)}Cr`;
+  if (value >= 100000) return `${currencyPrefix()}${(value / 100000).toFixed(1)}L`;
+  if (value >= 1000) return `${currencyPrefix()}${(value / 1000).toFixed(1)}K`;
+  return `${currencyPrefix()}${value.toFixed(0)}`;
 };
 
 /**

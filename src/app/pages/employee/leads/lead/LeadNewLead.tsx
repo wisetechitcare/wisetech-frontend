@@ -60,7 +60,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import LeadBulkImport from "./LeadBulkImport";
 import { useOrgScope } from "@hooks/useOrgScope";
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 /**
  * Leads created before organizations existed carry no organizationId. They are
@@ -784,7 +784,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
-        return v !== undefined ? `${getCurrencySymbol()}${Number(v).toLocaleString()}` : `${getCurrencySymbol()}0`;
+        return v !== undefined ? `${currencyPrefix()}${Number(v).toLocaleString()}` : `${currencyPrefix()}0`;
       },
     },
     {
@@ -986,7 +986,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       size: 120,
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
-        cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : `${getCurrencySymbol()}0`,
+        cell.getValue() ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}` : `${currencyPrefix()}0`,
     },
     {
       accessorKey: "fileLocation",
@@ -1321,9 +1321,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   );
   const formatCost = (amount: number) => {
     if (amount >= 1_00_00_000)
-      return `${getCurrencySymbol()}${(amount / 1_00_00_000).toFixed(2)} Cr`;
-    if (amount >= 1_00_000) return `${getCurrencySymbol()}${(amount / 1_00_000).toFixed(2)} L`;
-    return `${getCurrencySymbol()}${amount.toLocaleString(getCurrencyLocale())}`;
+      return `${currencyPrefix()}${(amount / 1_00_00_000).toFixed(2)} Cr`;
+    if (amount >= 1_00_000) return `${currencyPrefix()}${(amount / 1_00_000).toFixed(2)} L`;
+    return `${currencyPrefix()}${amount.toLocaleString(getCurrencyLocale())}`;
   };
 
   // ── Shared heights ─────────────────────────────────────────────────────────

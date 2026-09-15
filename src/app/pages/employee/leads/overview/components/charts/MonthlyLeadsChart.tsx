@@ -20,7 +20,7 @@ import {
 import ManageTargetModal from "../modals/ManageTargetModal";
 import dayjs from "dayjs";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
 
 interface PerformanceData {
   receivedCount: number;
@@ -58,8 +58,8 @@ const formatIndianNumber = (num: any) => {
     short = (val / 1000).toFixed(2).replace(/\.00$/, "") + " K";
 
   return short
-    ? `${val < 0 ? "-" : ""}${getCurrencySymbol()}${Math.abs(val).toFixed(2)} (${short.replace("-", "")})`
-    : `${val < 0 ? "-" : ""}${getCurrencySymbol()}${Math.abs(val).toFixed(2)}`;
+    ? `${val < 0 ? "-" : ""}${currencyPrefix()}${Math.abs(val).toFixed(2)} (${short.replace("-", "")})`
+    : `${val < 0 ? "-" : ""}${currencyPrefix()}${Math.abs(val).toFixed(2)}`;
 };
 const formatShort = (val: number) => {
   const absVal = Math.abs(val);

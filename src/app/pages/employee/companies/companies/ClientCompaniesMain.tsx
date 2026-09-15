@@ -18,7 +18,7 @@ import { deleteConfirmation } from "@utils/modal";
 import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 // All selectable company-table column keys (must match the `accessorKey`s below).
 const COMPANY_COLUMN_KEYS = [
@@ -384,7 +384,7 @@ const ClientCompaniesMain = ({
         header: "Budget",
         Cell: ({ cell }) => {
           const budget = cell.getValue() as number;
-          return `${getCurrencySymbol()}${budget.toLocaleString(getCurrencyLocale())}`;
+          return `${currencyPrefix()}${budget.toLocaleString(getCurrencyLocale())}`;
         },
       },
       {

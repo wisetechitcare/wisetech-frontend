@@ -9,7 +9,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import { saveAs } from 'file-saver';
 import { DRILLDOWN_Z_INDEX } from '@app/modules/common/components/DrillDownDialog';
-import { formatCurrencyDecimal, getCurrencySymbol, usesIndianGrouping } from '@utils/currency';
+import { formatCurrencyDecimal, usesIndianGrouping, currencyPrefix } from '@utils/currency';
 
 // ─── Column definition ─────────────────────────────────────────────────────────
 
@@ -205,7 +205,7 @@ const argb = (hex: string) => 'FF' + hex.replace('#', '').toUpperCase();
  */
 const currencyNumFmt = (): string => {
     // A double quote inside the symbol would end the literal and corrupt the pattern.
-    const sym = getCurrencySymbol().replace(/"/g, '');
+    const sym = currencyPrefix().replace(/"/g, '');
     return usesIndianGrouping()
         ? `[>=10000000]"${sym}"##\\,##\\,##\\,##0.00;[>=100000]"${sym}"##\\,##\\,##0.00;"${sym}"#,##0.00`
         : `"${sym}"#,##0.00`;

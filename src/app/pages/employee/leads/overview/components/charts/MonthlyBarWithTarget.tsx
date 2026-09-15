@@ -19,7 +19,7 @@ import {
   ComposedChart,
 } from "recharts";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 interface MonthlyBarWithTargetProps {
   title?: string;
@@ -57,8 +57,8 @@ const formatLeadCount = (num: any) => {
     short = (val / 1000).toFixed(2).replace(/\.00$/, "") + " K";
 
   return short
-    ? `${val < 0 ? "-" : ""}${getCurrencySymbol()}${Math.abs(val).toFixed(2)} (${short.replace("-", "")})`
-    : `${val < 0 ? "-" : ""}${getCurrencySymbol()}${Math.abs(val).toFixed(2)}`;
+    ? `${val < 0 ? "-" : ""}${currencyPrefix()}${Math.abs(val).toFixed(2)} (${short.replace("-", "")})`
+    : `${val < 0 ? "-" : ""}${currencyPrefix()}${Math.abs(val).toFixed(2)}`;
 };
 
 const CustomTooltip = ({ active, payload, label, showFullDigits }: any) => {
@@ -112,7 +112,7 @@ const CustomTooltip = ({ active, payload, label, showFullDigits }: any) => {
                     style={{ fontSize: "13px" }}
                   >
                     {showFullDigits
-                      ? getCurrencySymbol() + Number(entry.value).toLocaleString(getCurrencyLocale())
+                      ? currencyPrefix() + Number(entry.value).toLocaleString(getCurrencyLocale())
                       : formatLeadCount(entry.value)}
                   </span>
                   {!isTarget && count !== undefined && (
@@ -466,7 +466,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                     formatter={(val: any) => {
                       if (val < 1000000 && !isExpanded) return "";
                       return showFullDigits
-                        ? getCurrencySymbol() + Number(val).toLocaleString(getCurrencyLocale())
+                        ? currencyPrefix() + Number(val).toLocaleString(getCurrencyLocale())
                         : formatShort(val);
                     }}
                   />
@@ -499,7 +499,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                     formatter={(val: any) => {
                       if (val < 1000000 && !isExpanded) return "";
                       return showFullDigits
-                        ? getCurrencySymbol() + Number(val).toLocaleString(getCurrencyLocale())
+                        ? currencyPrefix() + Number(val).toLocaleString(getCurrencyLocale())
                         : formatShort(val);
                     }}
                   />

@@ -5,7 +5,7 @@ import { Card } from 'react-bootstrap';
 import { CompanyDialogModal } from './CompanyDialogModal';
 import dayjs, { Dayjs } from 'dayjs';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { getCurrencySymbol } from '@utils/currency';
+import { currencyPrefix } from '@utils/currency';
 
 type LocationFilterType = {
   country: string;
@@ -212,7 +212,7 @@ const processedData = useMemo(() => {
     plotOptions: { bar: { borderRadius: 4, columnWidth: data.length === 1 ? '10%' : '60%', dataLabels: { position: 'top' } } },
     dataLabels: {
       enabled: true,
-      formatter: (val: number) => getCurrencySymbol() + val.toLocaleString(),
+      formatter: (val: number) => currencyPrefix() + val.toLocaleString(),
       offsetY: -20,
       style: { fontSize: '12px', colors: ['#304758'], fontWeight: 'bold' }
     },

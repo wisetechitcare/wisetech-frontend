@@ -12,7 +12,7 @@ import { Card } from "react-bootstrap";
 
 import dayjs, { Dayjs } from "dayjs";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { getCurrencySymbol } from '@utils/currency';
+import { currencyPrefix } from '@utils/currency';
  
 type Filters = {
   country: string;
@@ -359,7 +359,7 @@ export default function ProjectByLocationAndStatus({
     plotOptions: { bar: { borderRadius: 6, columnWidth: data.length === 1 ? '10%' : '80%', dataLabels: { position: "top" } } },
     dataLabels: {
       enabled: true,
-      formatter: (val: number) => getCurrencySymbol() + val.toLocaleString(),
+      formatter: (val: number) => currencyPrefix() + val.toLocaleString(),
       offsetY: -30,
       style: { fontSize: "16px", colors: ["#000"] },
     },

@@ -59,7 +59,7 @@ import {
   matchesView,
   projectNumberOf,
 } from "./entityUtils";
-import { getCurrencySymbol } from '@utils/currency';
+import { currencyPrefix } from '@utils/currency';
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -889,7 +889,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         size: 120,
         Cell: ({ cell }: { cell: any }) => {
           const v = cell.getValue();
-          return v !== undefined ? `${getCurrencySymbol()}${Number(v).toLocaleString()}` : `${getCurrencySymbol()}0`;
+          return v !== undefined ? `${currencyPrefix()}${Number(v).toLocaleString()}` : `${currencyPrefix()}0`;
         },
       },
       {
@@ -1083,14 +1083,14 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           header: "Project Cost",
           size: 130,
           Cell: ({ cell }: { cell: any }) =>
-            cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : `${getCurrencySymbol()}0`,
+            cell.getValue() ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}` : `${currencyPrefix()}0`,
         }]),
         {
           accessorKey: "projectRate",
           header: "Rate",
           size: 110,
           Cell: ({ cell }: { cell: any }) =>
-            cell.getValue() ? `${getCurrencySymbol()}${Number(cell.getValue()).toLocaleString()}` : "N/A",
+            cell.getValue() ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}` : "N/A",
         },
         {
           accessorKey: "duration",

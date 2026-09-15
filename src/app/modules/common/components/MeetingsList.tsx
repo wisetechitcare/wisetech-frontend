@@ -16,7 +16,7 @@ import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { SegmentedControl } from '@app/modules/common/components/ui/SegmentedControl';
 import { getTimeTokens } from '@utils/timeFormat';
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 /**
  * MeetingsList — the meetings surface, shared by the project (entity), contact and employee
@@ -488,7 +488,7 @@ interface MeetingAnalytics {
 
 // Named for money, not for rupees. The symbol was written as the escape `\u20B9`, which is
 // why a search for the character walked straight past it.
-const money = (n: number) => `${getCurrencySymbol()}${Math.round(n).toLocaleString(getCurrencyLocale())}`;
+const money = (n: number) => `${currencyPrefix()}${Math.round(n).toLocaleString(getCurrencyLocale())}`;
 const hm = (mins: number) => {
     const h = Math.floor(mins / 60);
     const m = Math.round(mins % 60);

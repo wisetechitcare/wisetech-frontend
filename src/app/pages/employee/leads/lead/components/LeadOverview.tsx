@@ -17,7 +17,7 @@ import type { AppDispatch, RootState } from "@redux/store";
 import { VersionHistory } from "@modules/audit/VersionHistory";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getTimeTokens } from '@utils/timeFormat';
-import { getCurrencySymbol } from '@utils/currency';
+import { currencyPrefix } from '@utils/currency';
 
 interface ProjectData {
   currentStatus: string;
@@ -180,7 +180,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
       endDate: lead?.endDate ? dayjs(lead.endDate).format("DD/MM/YYYY") : '-',
       duration: computeDuration(start, end),
       rate: '-', // Not directly available in new structure
-      totalCost: totalCost > 0 ? `${getCurrencySymbol()}${totalCost}` : '-',
+      totalCost: totalCost > 0 ? `${currencyPrefix()}${totalCost}` : '-',
       area: lead?.additionalDetails?.projectArea || '-',
       leadNumber: lead.prefix || lead.id || '-',
       inquiryDate: lead.inquiryDate ? dayjs(lead.inquiryDate).format("DD/MM/YYYY") : '-',
@@ -871,7 +871,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
                           color: "black",
                         }}
                       >
-                        {getCurrencySymbol()}{lead?.commercials?.reduce((sum: number, commercial: any) => {
+                        {currencyPrefix()}{lead?.commercials?.reduce((sum: number, commercial: any) => {
                           return sum + parseFloat(commercial.cost || 0);
                         }, 0) || 0}
                       </div>
@@ -954,7 +954,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
                                 }}
                               >
                                 <div style={{ fontWeight: "500" }}>Cost</div>
-                                <div style={{ fontWeight: "400" }}>{getCurrencySymbol()}{commercial.cost || "-"}</div>
+                                <div style={{ fontWeight: "400" }}>{currencyPrefix()}{commercial.cost || "-"}</div>
                               </div>
                             </>
                           )}
@@ -982,7 +982,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
                                 }}
                               >
                                 <div style={{ fontWeight: "500" }}>Cost</div>
-                                <div style={{ fontWeight: "400" }}>{getCurrencySymbol()}{commercial.cost || "-"}</div>
+                                <div style={{ fontWeight: "400" }}>{currencyPrefix()}{commercial.cost || "-"}</div>
                               </div>
                             </>
                           )}

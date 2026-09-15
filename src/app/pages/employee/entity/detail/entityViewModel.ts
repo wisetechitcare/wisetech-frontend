@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import { formatCompactCurrency } from '../entityUtils';
 import { getTimeTokens } from '@utils/timeFormat';
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 /**
  * Pure derivations for the 360° detail page. No React here — sections consume
@@ -16,7 +16,7 @@ export const fmtDateTime = (v?: string | Date | null) => (v ? dayjs(v).format(`D
 
 export const fmtMoney = (v?: any): string => {
   const n = parseFloat(v);
-  return isFinite(n) && n !== 0 ? `${getCurrencySymbol()}${n.toLocaleString(getCurrencyLocale())}` : DASH;
+  return isFinite(n) && n !== 0 ? `${currencyPrefix()}${n.toLocaleString(getCurrencyLocale())}` : DASH;
 };
 export const compactMoney = (v?: any): string => {
   const n = parseFloat(v);

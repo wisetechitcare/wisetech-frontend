@@ -1,4 +1,4 @@
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 /**
  * Unified Entity (Lead-as-Master) helpers.
  *
@@ -94,9 +94,9 @@ export const matchesView = (lead: any, view: EntityView): boolean => {
 
 /** Indian-format compact currency (matches existing leads KPI bar). */
 export const formatCompactCurrency = (amount: number): string => {
-  if (amount >= 1_00_00_000) return `${getCurrencySymbol()}${(amount / 1_00_00_000).toFixed(2)} Cr`;
-  if (amount >= 1_00_000) return `${getCurrencySymbol()}${(amount / 1_00_000).toFixed(2)} L`;
-  return `${getCurrencySymbol()}${amount.toLocaleString(getCurrencyLocale())}`;
+  if (amount >= 1_00_00_000) return `${currencyPrefix()}${(amount / 1_00_00_000).toFixed(2)} Cr`;
+  if (amount >= 1_00_000) return `${currencyPrefix()}${(amount / 1_00_000).toFixed(2)} L`;
+  return `${currencyPrefix()}${amount.toLocaleString(getCurrencyLocale())}`;
 };
 
 /**

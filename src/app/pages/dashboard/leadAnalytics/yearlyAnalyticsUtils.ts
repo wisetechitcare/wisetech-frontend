@@ -14,7 +14,7 @@ import {
   computeLeadStatusKpis,
   InsightTone,
 } from "./leadAnalyticsUtils";
-import { getCurrencySymbol } from '@utils/currency';
+import { currencyPrefix } from '@utils/currency';
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
@@ -30,10 +30,10 @@ export const formatMoneyShort = (val: number): string => {
   const n = Number(val) || 0;
   const sign = n < 0 ? "-" : "";
   const a = Math.abs(n);
-  if (a >= 1e7) return `${sign}${getCurrencySymbol()}${round1(a / 1e7)}Cr`;
-  if (a >= 1e5) return `${sign}${getCurrencySymbol()}${round1(a / 1e5)}L`;
-  if (a >= 1e3) return `${sign}${getCurrencySymbol()}${round1(a / 1e3)}K`;
-  return `${sign}${getCurrencySymbol()}${Math.round(a)}`;
+  if (a >= 1e7) return `${sign}${currencyPrefix()}${round1(a / 1e7)}Cr`;
+  if (a >= 1e5) return `${sign}${currencyPrefix()}${round1(a / 1e5)}L`;
+  if (a >= 1e3) return `${sign}${currencyPrefix()}${round1(a / 1e3)}K`;
+  return `${sign}${currencyPrefix()}${Math.round(a)}`;
 };
 
 /** "1.2K" / "12.4M"-style for counts (rare, but keeps axes tidy). */

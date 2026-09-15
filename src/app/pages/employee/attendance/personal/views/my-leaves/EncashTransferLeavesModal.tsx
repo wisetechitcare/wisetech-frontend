@@ -8,7 +8,7 @@ import { RootState } from '@redux/store';
 import dayjs from 'dayjs';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { getCurrencySymbol } from '@utils/currency';
+import { currencyPrefix } from '@utils/currency';
 
 interface EncashTransferLeavesModalProps {
     show: boolean;
@@ -466,7 +466,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                 color: '#2b9725',
                                 fontFamily: 'Inter, sans-serif',
                             }}>
-                                {getCurrencySymbol()}{transferableAmount.toLocaleString()}
+                                {currencyPrefix()}{transferableAmount.toLocaleString()}
                             </div>
                         </div>
                     )}

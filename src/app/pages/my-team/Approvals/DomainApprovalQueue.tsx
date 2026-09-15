@@ -24,7 +24,7 @@ import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 import { tonePair, type SemanticTone } from '@app/theme/tokens';
 import { CircularProgress } from '@mui/material';
 import { formatTime } from '@utils/dateFormats';
-import { getCurrencySymbol } from '@utils/currency';
+import { currencyPrefix } from '@utils/currency';
 
 // A single leave segment within a multi-segment (sandwich) group request — one LeaveTracker row.
 type LeaveSegment = {
@@ -634,7 +634,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           const ds = row.original as DisplayStep;
           const amount = ds.requestDetails?.totalAmount;
           if (amount == null) return <span className='text-muted fs-7'>—</span>;
-          return <span className='text-dark fw-semibold fs-7'>{getCurrencySymbol()}{fmtAmount(amount)}</span>;
+          return <span className='text-dark fw-semibold fs-7'>{currencyPrefix()}{fmtAmount(amount)}</span>;
         },
       } as MRT_ColumnDef<ApprovalStep>
       
