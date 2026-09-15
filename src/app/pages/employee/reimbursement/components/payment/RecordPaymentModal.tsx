@@ -8,7 +8,7 @@ import { WtButton } from '@app/modules/common/components/ui/buttons';
 import { WtDateField } from '@app/modules/common/components/ui/dates';
 import { fmtAmount, formatMoney } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow } from './paymentData';
-import { getCurrencySymbol } from '@utils/currency';
+import { currencyPrefix } from '@utils/currency';
 
 /**
  * Confirming a payout before it is recorded.
@@ -109,7 +109,7 @@ export default function RecordPaymentModal({
         if (!single) return '';
         if (!amountInput.trim() || isNaN(amount) || amount <= 0) return 'Enter an amount greater than 0';
         if (amount > single.remainingAmount) {
-            return `Amount cannot exceed the remaining balance of ${getCurrencySymbol()}${fmtAmount(single.remainingAmount)}`;
+            return `Amount cannot exceed the remaining balance of ${currencyPrefix()}${fmtAmount(single.remainingAmount)}`;
         }
         return '';
     };
@@ -220,7 +220,7 @@ export default function RecordPaymentModal({
                                 }
                             }}
                             error={!!amountError}
-                            helperText={amountError || `Maximum payable ${getCurrencySymbol()}${fmtAmount(single.remainingAmount)}`}
+                            helperText={amountError || `Maximum payable ${currencyPrefix()}${fmtAmount(single.remainingAmount)}`}
                             inputProps={{ inputMode: 'decimal' }}
                         />
                     )}

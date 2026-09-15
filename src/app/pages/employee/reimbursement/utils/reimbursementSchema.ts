@@ -1,6 +1,6 @@
 import * as Yup from 'yup';
 import dayjs from 'dayjs';
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 /**
  * The one validation schema for filing an expense.
@@ -158,7 +158,7 @@ export const describeLimitBreach = (
     if (value <= tightest.cap) return null;
 
     const over = value - tightest.cap;
-    const inr = (n: number) => `${getCurrencySymbol()}${n.toLocaleString(getCurrencyLocale(), { maximumFractionDigits: 2 })}`;
+    const inr = (n: number) => `${currencyPrefix()}${n.toLocaleString(getCurrencyLocale(), { maximumFractionDigits: 2 })}`;
     return `${inr(over)} over ${tightest.label} of ${inr(tightest.cap)}`;
 };
 

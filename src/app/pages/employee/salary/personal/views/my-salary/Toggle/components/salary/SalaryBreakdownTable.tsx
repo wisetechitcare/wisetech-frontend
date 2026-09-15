@@ -1,6 +1,6 @@
 import { Box, Chip, Paper, Skeleton, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography } from '@mui/material';
 import ExportButton, { ExportColumn } from '@app/modules/common/components/ExportButton';
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 /** One vocabulary for every "was this money actually paid?" question in the table. */
 export type PayState = 'Paid' | 'Unpaid' | 'Partial' | 'Extra Paid' | 'None';
@@ -102,7 +102,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
 
     // Whole rupees only — the table shows no paise, so the totals must not either.
     const formatCurrency = (value: number) =>
-        `${getCurrencySymbol()}${value.toLocaleString(getCurrencyLocale(), { maximumFractionDigits: 0 })}`;
+        `${currencyPrefix()}${value.toLocaleString(getCurrencyLocale(), { maximumFractionDigits: 0 })}`;
 
     const realRows = rows.filter((r) => !r.isPlaceholder);
 

@@ -1,5 +1,5 @@
 import { Tooltip } from '@mui/material';
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 /**
  * Marks an expense that exceeded a spend limit.
@@ -24,7 +24,7 @@ export default function OverLimitChip({ limit, limitLabel }: OverLimitChipProps)
     const cap = Number(limit ?? NaN);
     const hasCap = Number.isFinite(cap) && cap > 0;
     const tooltip = hasCap
-        ? `Over the ${limitLabel ? `${limitLabel} ` : ''}limit of ${getCurrencySymbol()}${cap.toLocaleString(getCurrencyLocale())}`
+        ? `Over the ${limitLabel ? `${limitLabel} ` : ''}limit of ${currencyPrefix()}${cap.toLocaleString(getCurrencyLocale())}`
         : 'This expense exceeded a spend limit';
 
     return (

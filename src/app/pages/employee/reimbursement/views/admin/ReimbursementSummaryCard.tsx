@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Paper, Skeleton, Stack, Typography } from '@mui/material';
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 interface ReimbursementSummaryCardProps {
   totalRequestAmount?: number;
@@ -13,7 +13,7 @@ interface ReimbursementSummaryCardProps {
 }
 
 const fmt = (n: number) =>
-  `${getCurrencySymbol()}${Math.round(n).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  `${currencyPrefix()}${Math.round(n).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 

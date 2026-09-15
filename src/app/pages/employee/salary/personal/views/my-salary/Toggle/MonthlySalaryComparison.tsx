@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import ApexCharts from 'react-apexcharts';
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 interface MonthlySalaryComparisonProps {
     ComparisonData: any[];
@@ -234,7 +234,7 @@ const MonthlySalaryComparison = ({
                     }
                     if (total > 0) displayVal = total;
                 }
-                return getCurrencySymbol() + (displayVal / 1000).toFixed(0) + 'k';
+                return currencyPrefix() + (displayVal / 1000).toFixed(0) + 'k';
             },
             offsetY: 0,
             style: {
@@ -254,7 +254,7 @@ const MonthlySalaryComparison = ({
             labels: {
                 minWidth: 54,
                 maxWidth: 54,
-                formatter: (val: number) => getCurrencySymbol() + val.toLocaleString(getCurrencyLocale()),
+                formatter: (val: number) => currencyPrefix() + val.toLocaleString(getCurrencyLocale()),
                 style: { colors: '#64748b', fontSize: '12px', fontWeight: 500 },
             },
             title: {
@@ -297,7 +297,7 @@ const MonthlySalaryComparison = ({
                             <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;"></span>
                             ${label}:
                         </span>
-                        <span style="font-weight:600;color:#1e293b;">${getCurrencySymbol()}${val.toLocaleString(getCurrencyLocale())}</span>
+                        <span style="font-weight:600;color:#1e293b;">${currencyPrefix()}${val.toLocaleString(getCurrencyLocale())}</span>
                     </div>` : '';
 
                 return `
@@ -312,7 +312,7 @@ const MonthlySalaryComparison = ({
                         ${row(COLOR_TDS,   'TDS', tdsVal)}
                         ${row(COLOR_TDS2,  'TDS2', tds2Val)}
                         ${totalNet > 0 ? `<div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">
-                            Total: ${getCurrencySymbol()}${totalNet.toLocaleString(getCurrencyLocale())}</div>` : ''}
+                            Total: ${currencyPrefix()}${totalNet.toLocaleString(getCurrencyLocale())}</div>` : ''}
                         ${avgVal > 0 ? `
                         <div style="display:flex;align-items:center;justify-content:space-between;
                             border-top:1px solid #f1f5f9;padding-top:6px;margin-top:6px;font-size:12px;">
@@ -320,7 +320,7 @@ const MonthlySalaryComparison = ({
                                 <span style="width:8px;height:8px;border-radius:50%;background:${COLOR_LINE};display:inline-block;"></span>
                                 Average:
                             </span>
-                            <span style="font-weight:600;color:${COLOR_LINE};">${getCurrencySymbol()}${avgVal.toLocaleString(getCurrencyLocale())}</span>
+                            <span style="font-weight:600;color:${COLOR_LINE};">${currencyPrefix()}${avgVal.toLocaleString(getCurrencyLocale())}</span>
                         </div>` : ''}
                     </div>`;
             },

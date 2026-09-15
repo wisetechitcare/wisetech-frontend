@@ -11,7 +11,7 @@ import {
 } from '../utils/reimbursementChartData';
 import { formatMoney } from '../utils/reimbursementFormat';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
-import { getCurrencySymbol } from '@utils/currency';
+import { currencyPrefix } from '@utils/currency';
 
 /**
  * The three analytics — trend, status, categories — in one row. One set of components for all
@@ -75,7 +75,7 @@ const FIGURE: React.CSSProperties = { fontVariantNumeric: 'tabular-nums', fontWe
 const FOOTER: React.CSSProperties = { borderTop: `1px solid ${LINE}`, marginTop: 8, paddingTop: 8, flexShrink: 0 };
 
 const axisTick = { fontSize: 11, fill: MUTED } as const;
-const money = (v: number) => (v >= 1000 ? `${getCurrencySymbol()}${Math.round(v / 1000)}k` : `${getCurrencySymbol()}${v}`);
+const money = (v: number) => (v >= 1000 ? `${currencyPrefix()}${Math.round(v / 1000)}k` : `${currencyPrefix()}${v}`);
 
 /**
  * A currency figure that obeys the page's eye toggle.

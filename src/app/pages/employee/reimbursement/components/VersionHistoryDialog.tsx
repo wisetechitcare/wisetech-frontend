@@ -9,7 +9,7 @@ import {
     type FieldChange, type ReimbursementVersion,
 } from '@services/reimbursementVersions';
 import { queryCategoryLabel } from '@services/reimbursementQueries';
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 /**
  * The audit story of one expense claim, version by version.
@@ -108,7 +108,7 @@ function VersionCard({ version, previous }: { version: ReimbursementVersion; pre
                 </Typography>
                 <Box sx={{ flex: 1 }} />
                 <Typography sx={{ fontSize: 13, fontWeight: 800 }}>
-                    {getCurrencySymbol()}{Number(version.amount).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2 })}
+                    {currencyPrefix()}{Number(version.amount).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2 })}
                 </Typography>
             </Stack>
 

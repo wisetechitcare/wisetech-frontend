@@ -4,7 +4,7 @@ import { ToneChip, WtButton, tonePair } from '@app/modules/common/components/ui'
 import type { SemanticTone } from '@app/theme/tokens';
 import { fmtDate, fmtAmount, STATUS, type StatusNum } from '../utils/reimbursementFormat';
 import { canResolveQuery } from '@services/reimbursementQueries';
-import { getCurrencySymbol } from '@utils/currency';
+import { currencyPrefix } from '@utils/currency';
 
 /**
  * The batch, described as a workflow rather than as a table of rows.
@@ -96,7 +96,7 @@ const BATCH_STATUS_TONE: Record<string, { tone: SemanticTone; label: string }> =
     REJECTED: { tone: 'danger', label: 'Rejected' },
 };
 
-const inr = (v: unknown) => `${getCurrencySymbol()}${fmtAmount(v as number)}`;
+const inr = (v: unknown) => `${currencyPrefix()}${fmtAmount(v as number)}`;
 
 /**
  * Where one request has got to, in words.
