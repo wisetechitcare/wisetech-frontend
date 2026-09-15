@@ -60,14 +60,20 @@ export interface WtFieldProps {
      * passing this by hand is rarely the right answer.
      */
     labelPlacement?: 'floating' | 'above';
-    value: string | number;
-    onChange: (value: string) => void;
+    /**
+     * Required for every control this frame renders itself. Optional ONLY because
+     * `children` replaces the input entirely, and a picker that opens a dialog has no
+     * string value to hand back. On any other control, omitting them silently makes the
+     * field read-only, so treat them as required unless you are passing `children`.
+     */
+    value?: string | number;
+    onChange?: (value: string) => void;
 
     /** Present ⇒ this is a select. Absent ⇒ a text/number input. */
     options?: WtFieldOption[];
 
     /** Quiet guidance under the field. Replaced by `error` when that is set. */
-    hint?: string;
+    hint?: React.ReactNode;
     /** A message. Non-empty turns the control red and sets aria-invalid. */
     error?: string;
     required?: boolean;
@@ -150,7 +156,7 @@ const controlSx = (tone: string | undefined, invalid: boolean): SxProps<Theme> =
 });
 
 export const WtField: React.FC<WtFieldProps> = ({
-    label, labelPlacement = 'floating', value, onChange, options, hint, error, required, disabled, placeholder,
+    label, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, placeholder,
     size = 'sm', fullWidth = true, minWidth, icon, tone,
     type = 'text', multiline, minRows = 3, inputMode, min, max, step,
     searchable, clearable, id, name, autoFocus, sx, children,

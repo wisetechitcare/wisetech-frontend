@@ -6,6 +6,7 @@ import { KTIcon } from "@metronic/helpers";
 import { fetchAllEmployeesSelectedData } from "@services/employee";
 import { getAvatar } from "@utils/avatar";
 import { EmployeeSelectionDialog, type EmployeeOption } from "./EmployeeSelectionDialog";
+import { WtField } from "./ui/WtField";
 
 /**
  * EmployeePickerField — a labelled form control that opens the shared
@@ -78,10 +79,12 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
     const save = () => { onChange(draft); setOpen(false); };
 
     return (
-        <Box sx={sx}>
-            <Typography component="span" sx={{ display: "block", fontSize: 12, fontWeight: 600, color: "text.secondary", mb: 0.5 }}>
-                {label}{required ? " *" : ""}
-            </Typography>
+        // The label sits ABOVE because this control is a BUTTON that opens a dialog, not an
+        // input, so there is no notch it could carry — the same exception WtField already
+        // makes for a searchable select. Everything else (label, hint, spacing, the required
+        // marker) comes from WtField now; this file used to restate all of it with the exact
+        // same numbers, which is a copy rather than a variation.
+        <WtField label={label} labelPlacement="above" required={required} hint={helperText} disabled={disabled} sx={sx}>
             <Box
                 role="button"
                 tabIndex={disabled ? -1 : 0}
@@ -109,9 +112,8 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
                         {selected.length > 4 && <Typography sx={{ fontSize: 12, color: "text.secondary", alignSelf: "center" }}>+{selected.length - 4}</Typography>}
                     </Stack>
                 )}
-                <KTIcon iconName="profile-circle" className="fs-5 text-muted" />
+                                <KTIcon iconName="profile-circle" className="fs-5 text-muted" />
             </Box>
-            {helperText && <Typography sx={{ fontSize: 11.5, color: "text.secondary", mt: 0.4, ml: 0.25, lineHeight: 1.4 }}>{helperText}</Typography>}
 
             <EmployeeSelectionDialog
                 open={open}
@@ -126,7 +128,7 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
                 saveLabel={multiple ? "Select" : "Choose"}
                 footerNote={isLoading ? "Loading directory…" : `${employees.length} employees`}
             />
-        </Box>
+        </WtField>
     );
 };
 
