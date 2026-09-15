@@ -1,103 +1,31 @@
 import { store } from '@redux/store';
 
 /**
- * Which locale formats each currency.
+ * The locale to format a currency's numbers in.
  *
- * It decides DIGIT GROUPING, which is not cosmetic: 1234567 is "12,34,567" to an Indian
- * reader and "1,234,567" to everyone else. Western grouping is the default and only the
- * currencies that group differently need an entry.
+ * ENGLISH, ALWAYS. The app's screens are English, so an amount is written the way an English
+ * reader reads it whatever the currency. Only the DIGIT GROUPING follows the currency — lakh and
+ * crore (12,34,567) for the currencies that use them, thousands (1,234,567) for the rest — and
+ * that is not cosmetic, which is why the currency decides it at all.
  *
- * Module scope, not inside the formatter: it used to be rebuilt on every call, which is a
- * seventy-entry object allocated once per formatted figure in renderers that run down a
- * whole table.
- */
-const CURRENCY_LOCALE: Record<string, string> = {
-  // Americas
-  'USD': 'en-US',      // United States Dollar
-  'CAD': 'en-CA',      // Canadian Dollar
-  'MXN': 'es-MX',      // Mexican Peso
-  'BRL': 'pt-BR',      // Brazilian Real
-  'ARS': 'es-AR',      // Argentine Peso
-  'CLP': 'es-CL',      // Chilean Peso
-  'COP': 'es-CO',      // Colombian Peso
-  'PEN': 'es-PE',      // Peruvian Sol
-
-  // Europe
-  'EUR': 'de-DE',      // Euro
-  'GBP': 'en-GB',      // British Pound Sterling
-  'CHF': 'de-CH',      // Swiss Franc
-  'SEK': 'sv-SE',      // Swedish Krona
-  'NOK': 'nb-NO',      // Norwegian Krone
-  'DKK': 'da-DK',      // Danish Krone
-  'PLN': 'pl-PL',      // Polish Zloty
-  'CZK': 'cs-CZ',      // Czech Koruna
-  'HUF': 'hu-HU',      // Hungarian Forint
-  'RON': 'ro-RO',      // Romanian Leu
-  'BGN': 'bg-BG',      // Bulgarian Lev
-  'HRK': 'hr-HR',      // Croatian Kuna
-  'RUB': 'ru-RU',      // Russian Ruble
-  'TRY': 'tr-TR',      // Turkish Lira
-  'UAH': 'uk-UA',      // Ukrainian Hryvnia
-
-  // Middle East & Africa
-  'AED': 'ar-AE',      // UAE Dirham
-  'SAR': 'ar-SA',      // Saudi Riyal
-  'QAR': 'ar-QA',      // Qatari Riyal
-  'OMR': 'ar-OM',      // Omani Rial
-  'KWD': 'ar-KW',      // Kuwaiti Dinar
-  'BHD': 'ar-BH',      // Bahraini Dinar
-  'JOD': 'ar-JO',      // Jordanian Dinar
-  'LBP': 'ar-LB',      // Lebanese Pound
-  'EGP': 'ar-EG',      // Egyptian Pound
-  'ILS': 'he-IL',      // Israeli Shekel
-  'ZAR': 'en-ZA',      // South African Rand
-  'NGN': 'en-NG',      // Nigerian Naira
-  'KES': 'en-KE',      // Kenyan Shilling
-
-  // Asia Pacific
-  'INR': 'en-IN',      // Indian Rupee (Indian grouping: 10,00,000)
-  'PKR': 'en-PK',      // Pakistani Rupee
-  'BDT': 'bn-BD',      // Bangladeshi Taka
-  'LKR': 'si-LK',      // Sri Lankan Rupee
-  'NPR': 'ne-NP',      // Nepalese Rupee
-  'CNY': 'zh-CN',      // Chinese Yuan
-  'JPY': 'ja-JP',      // Japanese Yen
-  'KRW': 'ko-KR',      // South Korean Won
-  'TWD': 'zh-TW',      // Taiwan Dollar
-  'HKD': 'zh-HK',      // Hong Kong Dollar
-  'SGD': 'en-SG',      // Singapore Dollar
-  'MYR': 'ms-MY',      // Malaysian Ringgit
-  'IDR': 'id-ID',      // Indonesian Rupiah
-  'PHP': 'en-PH',      // Philippine Peso
-  'THB': 'th-TH',      // Thai Baht
-  'VND': 'vi-VN',      // Vietnamese Dong
-  'MMK': 'my-MM',      // Myanmar Kyat
-  'KHR': 'km-KH',      // Cambodian Riel
-  'LAK': 'lo-LA',      // Lao Kip
-  'BND': 'ms-BN',      // Brunei Dollar
-
-  // Oceania
-  'AUD': 'en-AU',      // Australian Dollar
-  'NZD': 'en-NZ',      // New Zealand Dollar
-  'FJD': 'en-FJ',      // Fijian Dollar
-
-  // Other important currencies
-  'IRR': 'fa-IR',      // Iranian Rial
-  'AFN': 'fa-AF',      // Afghan Afghani
-  'IQD': 'ar-IQ',      // Iraqi Dinar
-  'SYP': 'ar-SY',      // Syrian Pound
-  'YER': 'ar-YE',      // Yemeni Rial
-};
-
-/**
- * The locale to format the active currency in.
+ * THIS USED TO LOOK UP EACH CURRENCY'S HOME LOCALE, from a seventy-entry table, and that formats
+ * in the home country's script and conventions. Inside an English screen a Saudi branch saw
+ * Arabic-Indic digits wrapped in right-to-left marks, a euro branch a comma for the decimal point
+ * (1.234.567,50 €), a Bangladeshi or Nepali branch Bengali or Devanagari digits — and Sri Lankan
+ * rupees were grouped in thousands although `usesIndianGrouping` lists them. None of it agreed
+ * with `getCurrencySymbol`, which has always resolved in English. No branch had used any of those
+ * currencies yet, which is the only reason it went unseen; rupees, dollars and pounds print
+ * exactly as before.
+ *
+ * It is now the backend's rule exactly (`currencyLocale` in wisetech-backend/src/utils/currency.ts),
+ * so a payslip or an offer letter and the screen showing it write the amount the same way.
  *
  * Exported because roughly sixty places call `toLocaleString` themselves rather than going
- * through `formatCurrency`, and they all had `'en-IN'` written into them. Passing this
- * instead keeps their own decimal and rounding options while fixing the grouping.
+ * through `formatCurrency`. Passing this keeps their own decimal and rounding options while
+ * fixing the grouping.
  */
 export const getCurrencyLocale = (currencyCode?: string): string =>
-  CURRENCY_LOCALE[currencyCode || getActiveCurrency()] || 'en-US';
+  usesIndianGrouping(currencyCode) ? 'en-IN' : 'en-US';
 
 /**
  * Format a number as currency.
@@ -117,7 +45,7 @@ export const getCurrencyLocale = (currencyCode?: string): string =>
  *
  * @example
  * // Without currency (uses the active one)
- * formatCurrency(1234.56) // "₹1,234.56" at an Indian branch, "د.إ1,234.56" at a Dubai one
+ * formatCurrency(1234.56) // "₹1,234.56" at an Indian branch, "AED 1,234.56" at a Dubai one
  *
  * @example
  * // With custom options
@@ -210,7 +138,10 @@ export const formatCurrencyCompact = (
 ): string => {
   const currency = branchCurrency || getActiveCurrency();
   const n = Number(amount) || 0;
-  const symbol = getCurrencySymbol(currency);
+  // A letter code is set apart from the number by a no-break space — "AED 180K", never
+  // "AED180K" — exactly as `formatCurrency` (Intl) prints it. A glyph sits flush: "₹3.50 L".
+  const code = getCurrencySymbol(currency);
+  const symbol = /\p{L}$/u.test(code) ? `${code}\u00A0` : code;
   const abs = Math.abs(n);
 
   // "24,947 Cr" is how an Indian reader takes in a large number at a glance. The same

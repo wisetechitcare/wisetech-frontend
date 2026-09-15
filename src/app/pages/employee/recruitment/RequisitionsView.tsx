@@ -7,7 +7,7 @@ import {
 import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip,
-    WtDateField, toast, confirmDialog, type SemanticTone,
+    WtDateField, WtMoneyField, toast, confirmDialog, type SemanticTone,
     WtEmptyState,
 } from "@app/modules/common/components/ui";
 import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
@@ -22,7 +22,8 @@ import {
     type JobRequisition, type RequisitionPayload, type OrgScoped,
     getRecruitmentSettings,
 } from "@services/recruitment";
-import { getCurrencySymbol } from '@utils/currency';
+import { formatCurrencyCompact } from '@utils/currency';
+import { annualAmountError } from '@utils/ctc';
 
 const STATUS_META: Record<number, { label: string; tone: SemanticTone }> = {
     0: { label: "Pending", tone: "warning" },
@@ -52,8 +53,8 @@ const emptyForm = (defaults: { hiringManagerId?: string; recruiterId?: string } 
     employeeLevelId: null,
     hiringManagerId: defaults.hiringManagerId ?? "",
     recruiterId: defaults.recruiterId ?? "",
-    minCtcInLpa: null,
-    maxCtcInLpa: null,
+    minCtc: null,
+    maxCtc: null,
     targetStartDate: null,
     requisitionStageId: "",
 });
@@ -65,13 +66,27 @@ const isEditable = (r: JobRequisition) => r.status === 0;
 
 const isConflict = (e: unknown) => axios.isAxiosError(e) && e.response?.status === 409;
 
-const ctcLabel = (min?: number | string | null, max?: number | string | null) => {
+/**
+ * The band as a reader takes it in at a glance — "₹12 L – ₹18 L", "AED 180K – 240K" — in the
+ * requisition's OWN currency, which the API resolved. Compact because it sits in a meta pill;
+ * the form shows the exact figures.
+ */
+const ctcLabel = (min?: number | string | null, max?: number | string | null, currency?: string) => {
     const lo = min == null || min === "" ? null : Number(min);
     const hi = max == null || max === "" ? null : Number(max);
-    if (lo == null && hi == null) return null;
-    if (lo != null && hi != null) return `${getCurrencySymbol()}${lo}–${hi} LPA`;
-    return `${getCurrencySymbol()}${lo ?? hi} LPA`;
+    const money = (n: number) => formatCurrencyCompact(n, currency);
+    if (lo != null && hi != null) return `${money(lo)} – ${money(hi)}`;
+    if (lo != null) return `From ${money(lo)}`;
+    if (hi != null) return `Up to ${money(hi)}`;
+    return null;
 };
+
+/** Every problem with the band, by field. The form shows them and Save is held while any exist. */
+const bandErrors = (min?: number | null, max?: number | null) => ({
+    min: annualAmountError("Min CTC", min),
+    max: annualAmountError("Max CTC", max)
+        ?? (min != null && max != null && max < min ? "Max CTC cannot be less than min CTC" : undefined),
+});
 
 /** Compact, muted meta chip — packs identity/metrics into the card without stretched gaps. */
 const MetaPill = ({ text }: { text: string }) => (
@@ -160,8 +175,8 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
             employeeLevelId: r.employeeLevelId ?? null,
             hiringManagerId: r.hiringManagerId ?? "",
             recruiterId: r.recruiterId ?? "",
-            minCtcInLpa: r.minCtcInLpa == null ? null : Number(r.minCtcInLpa),
-            maxCtcInLpa: r.maxCtcInLpa == null ? null : Number(r.maxCtcInLpa),
+            minCtc: r.minCtc == null ? null : Number(r.minCtc),
+            maxCtc: r.maxCtc == null ? null : Number(r.maxCtc),
             targetStartDate: r.targetStartDate ? r.targetStartDate.slice(0, 10) : null,
             requisitionStageId: r.requisitionStageId ?? "",
         });
@@ -177,7 +192,8 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
         if (ok) deleteMut.mutate(r.id);
     };
 
-    const canSave = !!form.title?.trim();
+    const band = bandErrors(form.minCtc, form.maxCtc);
+    const canSave = !!form.title?.trim() && !band.min && !band.max;
     const saving = createMut.isPending || updateMut.isPending;
 
     const save = () => {
@@ -189,8 +205,8 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
             hiringManagerId: form.hiringManagerId || null,
             recruiterId: form.recruiterId || null,
             requisitionStageId: form.requisitionStageId || null,
-            minCtcInLpa: form.minCtcInLpa ?? null,
-            maxCtcInLpa: form.maxCtcInLpa ?? null,
+            minCtc: form.minCtc ?? null,
+            maxCtc: form.maxCtc ?? null,
             targetStartDate: form.targetStartDate || null,
         };
         if (editing) updateMut.mutate({ id: editing.id, payload: { ...payload, expectedRevisionCount: editing.revisionCount } });
@@ -232,7 +248,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                 <AutoGrid min={320}>
                     {requisitions.map((r) => {
                         const meta = STATUS_META[r.status] ?? STATUS_META[0];
-                        const ctc = ctcLabel(r.minCtcInLpa, r.maxCtcInLpa);
+                        const ctc = ctcLabel(r.minCtc, r.maxCtc, r.currency);
                         return (
                             <GlassCard key={r.id} preset="row" interactive sx={{ display: "flex", flexDirection: "column", gap: 1, height: "100%", p: 1.75 }}>
                                 <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ minWidth: 0 }}>
@@ -350,15 +366,20 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                             )}
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField
-                                label="Min CTC (LPA)" type="number" size="small" sx={{ flex: 1 }}
-                                value={form.minCtcInLpa ?? ""}
-                                onChange={(e) => setForm({ ...form, minCtcInLpa: e.target.value === "" ? null : Number(e.target.value) })}
+                            {/* The requisition's own currency when editing; a new one has no record yet, so
+                                it is shown in the viewer's, which the server's company rule also lands on for
+                                any company whose branches share a currency. */}
+                            <WtMoneyField
+                                label="Min CTC" per="year" currency={editing?.currency} sx={{ flex: 1 }}
+                                value={form.minCtc}
+                                onChange={(v) => setForm({ ...form, minCtc: v })}
+                                error={band.min}
                             />
-                            <TextField
-                                label="Max CTC (LPA)" type="number" size="small" sx={{ flex: 1 }}
-                                value={form.maxCtcInLpa ?? ""}
-                                onChange={(e) => setForm({ ...form, maxCtcInLpa: e.target.value === "" ? null : Number(e.target.value) })}
+                            <WtMoneyField
+                                label="Max CTC" per="year" currency={editing?.currency} sx={{ flex: 1 }}
+                                value={form.maxCtc}
+                                onChange={(v) => setForm({ ...form, maxCtc: v })}
+                                error={band.max}
                             />
                         </Stack>
                         {stages.length > 0 && (

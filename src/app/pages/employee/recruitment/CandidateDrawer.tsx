@@ -5,6 +5,7 @@ import { KTIcon } from "@metronic/helpers";
 import { GlassDialog, GlassHeader, WtButton, ToneChip, toast, confirmDialog, WtEmptyState } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { COPY } from "./terms";
+import { formatCurrency } from "@utils/currency";
 import {
     getApplicationById, getApplicationNotes, createApplicationNote, deleteApplicationNote,
     SCORE_BAND_META, SCORE_FACTORS,
@@ -181,7 +182,7 @@ const CandidateDrawer = ({ application, statuses, onClose }: Props) => {
                     <Fact label="Phone" value={a.applicant?.phone} />
                     <Fact label="Experience" value={experience(a.applicant?.totalExperienceMonths)} />
                     <Fact label="Notice period" value={a.applicant?.noticePeriodDays != null ? `${a.applicant.noticePeriodDays} days` : null} />
-                    <Fact label="Expected CTC" value={a.applicant?.expectedCtcInLpa != null ? `${Number(a.applicant.expectedCtcInLpa)} LPA` : null} />
+                    <Fact label="Expected CTC" value={a.applicant?.expectedCtc != null ? `${formatCurrency(Number(a.applicant.expectedCtc))} per year` : null} />
                     <Fact label="Source" value={a.applicant?.source?.name} />
                     <Fact label="Applied" value={when(a.appliedDate ?? a.createdAt)} />
                     <Fact label="Requisition" value={a.requisition?.title} />

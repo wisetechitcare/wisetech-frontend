@@ -170,12 +170,14 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         };
         // Pull the approved offer (if any) so placement details prefill too.
         try {
-            const offer = await getApplicationOffer(a.id);
+            const { offer } = await getApplicationOffer(a.id);
             if (offer) {
                 if (offer.offeredDesignationId) draft.designationId = offer.offeredDesignationId;
                 if (offer.offeredDepartmentId) draft.departmentId = offer.offeredDepartmentId;
                 if (offer.offeredEmployeeTypeConfigId) draft.employeeTypeConfigId = offer.offeredEmployeeTypeConfigId;
-                if (offer.offeredCtcInLpa != null) draft.ctcInLpa = String(offer.offeredCtcInLpa);
+                // Annual to annual. The employee column is still NAMED ctcInLpa but has always held the
+                // full yearly amount; now that the offer does too, the figure copies across unchanged.
+                if (offer.offeredCtc != null) draft.ctcInLpa = String(offer.offeredCtc);
                 if (offer.proposedJoiningDate) draft.dateOfJoining = new Date(offer.proposedJoiningDate).toISOString().slice(0, 10);
             }
         } catch {

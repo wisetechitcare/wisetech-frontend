@@ -29,8 +29,11 @@ export interface JobRequisition {
     recruiterId?: string | null;
     headcount: number;
     filledCount: number;
-    minCtcInLpa?: number | string | null;
-    maxCtcInLpa?: number | string | null;
+    /** The salary band: full ANNUAL amounts, in `currency`. Never lakhs. */
+    minCtc?: number | string | null;
+    maxCtc?: number | string | null;
+    /** ISO 4217 the API resolved for this requisition — its branch, else its company. */
+    currency?: string;
     targetStartDate?: string | null;
     requisitionStageId?: string | null;
     requisitionStage?: RequisitionStage | null;
@@ -52,8 +55,8 @@ export interface RequisitionPayload {
     hiringManagerId?: string | null;
     recruiterId?: string | null;
     headcount?: number;
-    minCtcInLpa?: number | null;
-    maxCtcInLpa?: number | null;
+    minCtc?: number | null;
+    maxCtc?: number | null;
     targetStartDate?: string | null;
     requisitionStageId?: string | null;
     isActive?: boolean;
@@ -162,8 +165,9 @@ export interface Applicant {
     id: string; firstName: string; lastName?: string | null; email: string; phone?: string | null;
     currentEmployer?: string | null; currentTitle?: string | null; totalExperienceMonths?: number | null;
     currentLocation?: string | null; qualification?: string | null; employeeLevelId?: string | null;
-    currentCtcInLpa?: number | string | null;
-    expectedCtcInLpa?: number | string | null; noticePeriodDays?: number | null; resumeS3Url?: string | null;
+    /** Full annual amounts. */
+    currentCtc?: number | string | null;
+    expectedCtc?: number | string | null; noticePeriodDays?: number | null; resumeS3Url?: string | null;
     resumeFileName?: string | null; linkedInUrl?: string | null; sourceId?: string | null; source?: ApplicantSource | null;
     isBlacklisted: boolean; isActive: boolean; createdAt: string;
 }
@@ -239,9 +243,9 @@ export interface ApplicantPayload {
     /** Seniority, from the same ladder a requisition picks from. */
     employeeLevelId?: string | null;
     totalExperienceMonths?: number | null;
-    /** What they earn now. `expectedCtcInLpa` is what they are asking for; both are LPA. */
-    currentCtcInLpa?: number | null;
-    expectedCtcInLpa?: number | null;
+    /** What they earn now. `expectedCtc` is what they are asking for; both are full annual amounts. */
+    currentCtc?: number | null;
+    expectedCtc?: number | null;
     noticePeriodDays?: number | null;
     sourceId?: string | null;
 }
@@ -727,20 +731,27 @@ export const getApplicationEvaluation = async (applicationId: string): Promise<E
 export interface Offer {
     id: string; prefix?: string | null; applicationId: string;
     offeredDesignationId?: string | null; offeredDepartmentId?: string | null; offeredBranchId?: string | null;
-    offeredEmployeeTypeConfigId?: string | null; offeredCtcInLpa?: number | string | null; proposedJoiningDate?: string | null;
+    offeredEmployeeTypeConfigId?: string | null; offeredCtc?: number | string | null; proposedJoiningDate?: string | null;
     status: number; acceptanceStatus: string; offerLetterUrl?: string | null; notes?: string | null;
     expiresAt?: string | null; revisionCount: number;
+    /** ISO 4217 the offer is in — its branch, else its requisition's, else its company's. */
+    currency?: string;
 }
 export interface OfferPayload {
     applicationId?: string;
     offeredDesignationId?: string | null; offeredDepartmentId?: string | null; offeredBranchId?: string | null;
-    offeredEmployeeTypeConfigId?: string | null; offeredCtcInLpa?: number | null; proposedJoiningDate?: string | null;
+    offeredEmployeeTypeConfigId?: string | null; offeredCtc?: number | null; proposedJoiningDate?: string | null;
     expiresAt?: string | null; notes?: string | null; expectedRevisionCount?: number;
 }
 
-export const getApplicationOffer = async (applicationId: string): Promise<Offer | null> => {
+/**
+ * An application's offer, and the currency it is — or will be — in. The currency comes back
+ * even when there is no offer yet, because the form that creates one has to show it.
+ */
+export interface ApplicationOffer { offer: Offer | null; currency?: string }
+export const getApplicationOffer = async (applicationId: string): Promise<ApplicationOffer> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_OFFER.replace(":id", applicationId)}`);
-    return data?.offer ?? null;
+    return { offer: data?.offer ?? null, currency: data?.currency };
 };
 export const createOffer = async (payload: OfferPayload) => {
     const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_OFFER}`, payload);

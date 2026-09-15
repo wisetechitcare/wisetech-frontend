@@ -33,6 +33,7 @@ are built from.
 | Brand logo glyph (WhatsApp…) | `WhatsAppIcon` from `brandIcons` | `KTIcon iconName="whatsapp"` — the duotone font paints its first layer at 40% opacity, so the mark washes out |
 | Close (×) | `WtCloseButton` (`ui/tw/WtCloseButton`) | a `&times;` in an `IconButton` |
 | **Any labelled input** (text, number, textarea, select) | **`WtField`** | `InputLabel` + `Select`/`TextField` assembled by hand |
+| **An amount of money** (salary, fee, expense) | **`WtMoneyField`** (a `WtField` with the currency inside the frame and a live money read-back) | a number box with the unit in its label — "CTC (LPA)", "Lakhs per year" |
 | Toolbar filter | `ToolbarFilterSelect` + `FILTER_TONES` (a `WtField` adapter) | a bespoke `<select>` or `FormControl` |
 | Currency glyph / code / formatter | `CurrencySymbol` + `useCurrency()` (`hooks/useCurrency`) | `KTIcon iconName="dollar"`, a typed-in `₹`, or `{ style: 'currency', currency: 'INR' }` inline |
 | Hover on a tinted tile / card | `hoverTileSx(trio, dark)` | another `'&:hover': { transform: 'translateY(-2px)' }` — 61 files have their own |
@@ -94,6 +95,22 @@ themselves, so passing it by hand is rarely right.
 Searchable / multi / creatable stays `WtSelect` — pass `searchable` and it renders
 inside the same frame. Dates stay `WtDateField`. `WtField` owns the frame, not every
 engine that can sit in it.
+
+### Money is `WtMoneyField`
+
+```tsx
+<WtMoneyField label="Offered CTC" per="year" currency={offer.currency}
+              value={form.offeredCtc} onChange={(v) => setForm({ ...form, offeredCtc: v })}
+              validate={(v) => annualAmountError('Offered CTC', v)} />
+```
+
+The currency sits inside the frame (`WtField`'s `prefix`), and the hint reads the number
+back as money while it is typed — `12` shows `₹12 per year`, which is the moment someone
+who meant "12 lakh" notices. Pass `currency` with the code the API resolved for the record
+(a requisition, an offer); omit it for the viewer's own. The field knows money, not
+salaries: domain rules come in through `validate` (`utils/ctc` has the salary one).
+
+A salary is always the **full annual amount**. Never label a field in lakhs or LPA.
 
 ## Shared components OUTSIDE this folder — check here too
 

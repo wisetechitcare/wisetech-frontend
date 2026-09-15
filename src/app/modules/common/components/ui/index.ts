@@ -30,6 +30,10 @@ export { AppIcon, type AppIconProps } from './AppIcon';
 // the border line. That is the bug this control was rebuilt to end.
 // Reach for this before building an InputLabel + control pairing by hand.
 export { WtField } from './WtField';
+// An amount of money: WtField with the currency inside the frame and the number read back as
+// money in the hint as you type. Pass `currency` for a record's own currency (a requisition,
+// an offer); omit it for the viewer's. Salary rules go in `validate`, not in the field.
+export { WtMoneyField, type WtMoneyFieldProps } from './WtMoneyField';
 // The active currency's glyph, resolved from the branch — never a typed-in `$`.
 // Pair it with `useCurrency()` (hooks/useCurrency), which also hands back the ISO
 // code and a `format()` already bound to it.

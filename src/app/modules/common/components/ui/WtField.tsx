@@ -88,6 +88,14 @@ export interface WtFieldProps {
     /** Leading glyph. A `bi-` prefix renders a Bootstrap icon; anything else a KTIcon. */
     icon?: string;
     /**
+     * Short leading TEXT inside the frame — the unit the value is in: `₹`, `AED`, `kg`.
+     *
+     * Text, not a node, for the same reason `clearable` is a flag and not an adornment slot:
+     * every caller would otherwise build its own and they would disagree about size, colour
+     * and spacing. Money fields should use `WtMoneyField`, which fills this from the currency.
+     */
+    prefix?: string;
+    /**
      * Accent applied ONLY while a value is set — how a toolbar shows "this filter is
      * active" without a second control.
      */
@@ -100,7 +108,8 @@ export interface WtFieldProps {
     inputMode?: 'text' | 'numeric' | 'decimal' | 'tel' | 'email';
     min?: number;
     max?: number;
-    step?: number;
+    /** `'any'` allows any decimal — without it a number input treats 1200000.50 as invalid. */
+    step?: number | 'any';
 
     /** Renders react-select inside this frame, for search / multi / creatable. */
     searchable?: boolean;
@@ -157,7 +166,7 @@ const controlSx = (tone: string | undefined, invalid: boolean): SxProps<Theme> =
 
 export const WtField: React.FC<WtFieldProps> = ({
     label, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, placeholder,
-    size = 'sm', fullWidth = true, minWidth, icon, tone,
+    size = 'sm', fullWidth = true, minWidth, icon, prefix, tone,
     type = 'text', multiline, minRows = 3, inputMode, min, max, step,
     searchable, clearable, id, name, autoFocus, sx, children,
 }) => {
@@ -198,7 +207,7 @@ export const WtField: React.FC<WtFieldProps> = ({
         </Box>
     ) : null;
 
-    const startAdornment = icon ? (
+    const iconAdornment = icon ? (
         <Box
             component="span"
             aria-hidden="true"
@@ -206,7 +215,19 @@ export const WtField: React.FC<WtFieldProps> = ({
         >
             <FieldIcon name={icon} color={activeTone ?? 'currentColor'} />
         </Box>
-    ) : undefined;
+    ) : null;
+
+    // Not aria-hidden: unlike a decorative icon, the unit is part of what the value means.
+    const prefixAdornment = prefix ? (
+        <Box
+            component="span"
+            sx={{ mr: 0.75, fontSize: 13, fontWeight: 600, lineHeight: 1, whiteSpace: 'nowrap', color: 'text.secondary', userSelect: 'none' }}
+        >
+            {prefix}
+        </Box>
+    ) : null;
+
+    const startAdornment = iconAdornment || prefixAdornment ? <>{iconAdornment}{prefixAdornment}</> : undefined;
 
     /**
      * react-select, and anything handed in as `children`, cannot cut a gap in a border. So

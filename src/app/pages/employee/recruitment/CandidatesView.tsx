@@ -7,12 +7,14 @@ import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip,
     WtSwitchField, toast, confirmDialog, controlHeightSx,
-    WtEmptyState, WtField,
+    WtEmptyState, WtField, WtMoneyField,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { COPY } from "./terms";
 import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
 import { formatDate } from "@utils/dateFormats";
+import { formatCurrencyCompact } from "@utils/currency";
+import { annualAmountError } from "@utils/ctc";
 import {
     getApplicants, createApplicant, updateApplicant, getApplicantSources,
     type Applicant, type ApplicantPayload, type ApplicantSource, type OrgScoped,
@@ -23,8 +25,8 @@ import {
 const emptyForm = (): ApplicantPayload => ({
     firstName: "", lastName: "", email: "", phone: "",
     currentEmployer: "", currentTitle: "", currentLocation: "", qualification: "", employeeLevelId: null,
-    totalExperienceMonths: null, currentCtcInLpa: null,
-    expectedCtcInLpa: null, noticePeriodDays: null, sourceId: null,
+    totalExperienceMonths: null, currentCtc: null,
+    expectedCtc: null, noticePeriodDays: null, sourceId: null,
 });
 
 /** Compact, muted meta chip — packs identity/metrics into the card without stretched gaps. */
@@ -168,8 +170,8 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
             currentLocation: a.currentLocation ?? "", qualification: a.qualification ?? "",
             employeeLevelId: a.employeeLevelId ?? null,
             totalExperienceMonths: a.totalExperienceMonths ?? null,
-            currentCtcInLpa: a.currentCtcInLpa == null ? null : Number(a.currentCtcInLpa),
-            expectedCtcInLpa: a.expectedCtcInLpa == null ? null : Number(a.expectedCtcInLpa),
+            currentCtc: a.currentCtc == null ? null : Number(a.currentCtc),
+            expectedCtc: a.expectedCtc == null ? null : Number(a.expectedCtc),
             noticePeriodDays: a.noticePeriodDays ?? null,
             sourceId: a.sourceId ?? null,
         });
@@ -194,12 +196,15 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
     // Requiring an email here would block the real intake outright: candidates arriving by
     // WhatsApp, walk-in or referral routinely have a number and no address.
     const hasIdentity = Boolean((form.email ?? "").trim() || (form.phone ?? "").trim());
-    const canSave = Boolean(form.firstName.trim()) && hasIdentity && !saving;
+    // Salaries use the same rule the fields display, so Save cannot send what the API refuses.
+    const currentCtcError = annualAmountError("Current salary", form.currentCtc);
+    const expectedCtcError = annualAmountError("Expected salary", form.expectedCtc);
+    const canSave = Boolean(form.firstName.trim()) && hasIdentity && !currentCtcError && !expectedCtcError && !saving;
 
     const set = <K extends keyof ApplicantPayload>(key: K, value: ApplicantPayload[K]) =>
         setForm((f) => ({ ...f, [key]: value }));
     /** Numeric fields: "" must become null, not 0 — 0 years' experience is a real value. */
-    const setNum = (key: "totalExperienceMonths" | "currentCtcInLpa" | "expectedCtcInLpa" | "noticePeriodDays", raw: string) =>
+    const setNum = (key: "totalExperienceMonths" | "noticePeriodDays", raw: string) =>
         set(key, raw === "" ? null : Number(raw));
 
     const sourceName = useMemo(
@@ -297,7 +302,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
 
                                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.25 }}>
                                     {exp && <MetaPill text={exp} />}
-                                    {a.expectedCtcInLpa != null && <MetaPill text={`${a.expectedCtcInLpa} LPA expected`} />}
+                                    {a.expectedCtc != null && <MetaPill text={`${formatCurrencyCompact(Number(a.expectedCtc))} expected`} />}
                                     {a.noticePeriodDays != null && <MetaPill text={`${a.noticePeriodDays}d notice`} />}
                                     {src && <MetaPill text={src} />}
                                 </Stack>
@@ -408,15 +413,18 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                                 hint="In months"
                                 value={form.totalExperienceMonths ?? ""} onChange={(v) => setNum("totalExperienceMonths", v)}
                             />
-                            <WtField
-                                label="Current salary" type="number" min={0} step={0.5} inputMode="decimal"
-                                hint="Lakhs per year"
-                                value={form.currentCtcInLpa ?? ""} onChange={(v) => setNum("currentCtcInLpa", v)}
+                            {/* A candidate belongs to no branch, so their figures are shown in the
+                                viewer's currency. The full yearly amount — the read-back under the field
+                                is what catches a 12 typed to mean 12 lakh. */}
+                            <WtMoneyField
+                                label="Current salary" per="year" hint="Full yearly amount"
+                                value={form.currentCtc} onChange={(v) => set("currentCtc", v)}
+                                error={currentCtcError}
                             />
-                            <WtField
-                                label="Expected salary" type="number" min={0} step={0.5} inputMode="decimal"
-                                hint="Lakhs per year"
-                                value={form.expectedCtcInLpa ?? ""} onChange={(v) => setNum("expectedCtcInLpa", v)}
+                            <WtMoneyField
+                                label="Expected salary" per="year" hint="Full yearly amount"
+                                value={form.expectedCtc} onChange={(v) => set("expectedCtc", v)}
+                                error={expectedCtcError}
                             />
                             <WtField
                                 label="Notice period" type="number" min={0} inputMode="numeric"

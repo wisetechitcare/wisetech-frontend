@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Box, Stack, Typography, TextField, MenuItem, CircularProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassCard, WtButton, ToneChip, WtDateField, toast, confirmDialog, type SemanticTone } from "@app/modules/common/components/ui";
+import { GlassCard, WtButton, ToneChip, WtDateField, WtMoneyField, toast, confirmDialog, type SemanticTone } from "@app/modules/common/components/ui";
+import { annualAmountError } from "@utils/ctc";
 import { queryKeys } from "@/lib/queryKeys";
 import { fetchDesignations, fetchDepartments } from "@services/options";
 import {
@@ -30,7 +31,11 @@ interface Props {
  */
 const OfferPanel = ({ applicationId, applicantName }: Props) => {
     const qc = useQueryClient();
-    const { data: offer, isLoading } = useQuery({ queryKey: queryKeys.recruitment.offer(applicationId), queryFn: () => getApplicationOffer(applicationId) });
+    const { data, isLoading } = useQuery({ queryKey: queryKeys.recruitment.offer(applicationId), queryFn: () => getApplicationOffer(applicationId) });
+    const offer = data?.offer ?? null;
+    // The currency the API resolved for this offer — present before the offer exists, so the
+    // amount being typed into a NEW offer is shown in the right one too.
+    const currency = offer?.currency ?? data?.currency;
     const { data: designations = [] } = useQuery({ queryKey: ["designations", "options"], queryFn: async () => (await fetchDesignations())?.data?.designations ?? [], staleTime: 5 * 60_000 });
     const { data: departments = [] } = useQuery({ queryKey: ["departments", "options"], queryFn: async () => (await fetchDepartments())?.data?.departments ?? [], staleTime: 5 * 60_000 });
     const [form, setForm] = useState<OfferPayload>({ applicationId });
@@ -38,7 +43,7 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
     useEffect(() => {
         setForm({
             applicationId,
-            offeredCtcInLpa: offer?.offeredCtcInLpa != null ? Number(offer.offeredCtcInLpa) : null,
+            offeredCtc: offer?.offeredCtc != null ? Number(offer.offeredCtc) : null,
             proposedJoiningDate: offer?.proposedJoiningDate ?? null,
             offeredDesignationId: offer?.offeredDesignationId ?? null,
             offeredDepartmentId: offer?.offeredDepartmentId ?? null,
@@ -72,6 +77,8 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
     if (isLoading) return <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={22} /></Stack>;
 
     const meta = offer ? STATUS[offer.status] ?? STATUS[0] : null;
+    // The same rule the field shows, so the button cannot send what the API will refuse.
+    const ctcError = annualAmountError("Offered CTC", form.offeredCtc);
 
     return (
         <Box>
@@ -84,10 +91,11 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
             <GlassCard preset="section">
                 <Stack spacing={2}>
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                        <TextField
-                            label="Offered CTC (LPA)" type="number" size="small" sx={{ flex: 1 }}
-                            value={form.offeredCtcInLpa ?? ""}
-                            onChange={(e) => setForm({ ...form, offeredCtcInLpa: e.target.value === "" ? null : Number(e.target.value) })}
+                        <WtMoneyField
+                            label="Offered CTC" per="year" currency={currency} sx={{ flex: 1 }}
+                            value={form.offeredCtc}
+                            onChange={(v) => setForm({ ...form, offeredCtc: v })}
+                            validate={(v) => annualAmountError("Offered CTC", v)}
                         />
                         <WtDateField
                             label="Proposed joining date" sx={{ flex: 1 }}
@@ -117,7 +125,7 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
                     <TextField label="Notes" size="small" fullWidth multiline minRows={2} value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value || null })} />
 
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        <WtButton tone="primary" size="small" disabled={saveMut.isPending} onClick={() => saveMut.mutate()}>
+                        <WtButton tone="primary" size="small" disabled={saveMut.isPending || !!ctcError} onClick={() => saveMut.mutate()}>
                             {offer ? "Save offer" : "Create offer"}
                         </WtButton>
                         {offer && offer.status === 0 && (

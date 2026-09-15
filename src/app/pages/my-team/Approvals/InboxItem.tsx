@@ -7,7 +7,7 @@ import { formatDate, formatDateRange, formatTime } from '@utils/dateFormats';
 import EmployeeIdentityCell from '@app/modules/common/components/EmployeeIdentityCell';
 import { getApprovalDomain } from './domains/registry';
 import type { ApprovalStep } from './domains/types';
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale, formatCurrency } from '@utils/currency';
 
 export interface Ageing {
     days: number;
@@ -351,7 +351,8 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         return {
             title: d.candidateName ? `Offer - ${d.candidateName}` : 'Offer',
             facts: [d.proposedJoiningDate ? `Joins ${formatDate(d.proposedJoiningDate)}` : null].filter(Boolean) as string[],
-            value: d.offeredCtcInLpa ? `${d.offeredCtcInLpa} LPA` : null,
+            // In the offer's own currency, resolved by the API — the one its letter prints.
+            value: d.offeredCtc != null ? `${formatCurrency(Number(d.offeredCtc), d.currency)} per year` : null,
         };
     }
 
