@@ -23,9 +23,10 @@ import {
  * draft was already with the approver, and left Submit offered on one that was.
  */
 const stageOf = (offer: Offer): { label: string; tone: SemanticTone } =>
-    offer.status === 1 ? { label: "Approved", tone: "success" }
-        : offer.status === 2 ? { label: "Rejected", tone: "danger" }
-            : offer.approvalPending ? { label: "Awaiting approval", tone: "warning" }
+    // Pending first: a rejected offer that has been resubmitted keeps status 2 until it is decided again.
+    offer.approvalPending ? { label: "Awaiting approval", tone: "warning" }
+        : offer.status === 1 ? { label: "Approved", tone: "success" }
+            : offer.status === 2 ? { label: "Rejected", tone: "danger" }
                 : { label: "Draft", tone: "neutral" };
 
 /**
@@ -73,7 +74,7 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
     const qc = useQueryClient();
     const { data, isLoading, isError } = useQuery({ queryKey: queryKeys.recruitment.offer(applicationId), queryFn: () => getApplicationOffer(applicationId) });
     const offer = data?.offer ?? null;
-    const { byId: branchById } = useRecruitmentBranches();
+    const { byId: branchById, isLoading: branchesLoading } = useRecruitmentBranches();
     const { data: designations = [] } = useQuery({ queryKey: ["designations", "options"], queryFn: async () => (await fetchDesignations())?.data?.designations ?? [], staleTime: 5 * 60_000 });
     const { data: departments = [] } = useQuery({ queryKey: ["departments", "options"], queryFn: async () => (await fetchDepartments())?.data?.departments ?? [], staleTime: 5 * 60_000 });
     const [form, setForm] = useState<OfferPayload>({ applicationId });
@@ -128,19 +129,21 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
     const saved = termsOf(offer);
     const dirty = !!offer && (Object.keys(saved) as (keyof typeof saved)[]).some((k) =>
         k === "proposedJoiningDate" ? (toDateInput(form.proposedJoiningDate) || null) !== saved.proposedJoiningDate : (form[k] ?? null) !== saved[k]);
+    // A branch deactivated since the offer was drafted is no longer in the list; the field says so and Save waits.
+    const branchUsable = !!form.offeredBranchId && (branchesLoading || branchById.has(form.offeredBranchId));
     // A draft may be saved with its terms still incomplete; only the branch is needed, as the server requires.
-    const canSave = !ctcError && !!form.offeredBranchId && (!offer || dirty);
+    const canSave = !ctcError && branchUsable && (!offer || dirty);
     // The currency the amount is typed in follows the branch chosen; before one is, the API's answer.
     const currency = (form.offeredBranchId && branchById.get(form.offeredBranchId)?.currency) || offer?.currency || data?.currency;
 
     const description = !offer
         ? "No offer yet. Fill in the terms and create one."
-        : offer.status === 1
-            ? "Approved. The offer letter was generated and emailed to the candidate."
-            : offer.status === 2
-                ? "Rejected in approval. Adjust the terms and submit again."
-                : offer.approvalPending
-                    ? "With the approver. The terms are locked until they decide."
+        : offer.approvalPending
+            ? "With the approver. The terms are locked until they decide."
+            : offer.status === 1
+                ? "Approved. The offer letter was generated and emailed to the candidate."
+                : offer.status === 2
+                    ? "Rejected in approval. Adjust the terms and submit again."
                     : "Draft. Submit it for approval to generate and email the offer letter.";
 
     return (
@@ -167,6 +170,7 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
                             required disabled={locked} sx={{ flex: 1 }}
                             value={form.offeredBranchId}
                             onChange={(v) => setForm({ ...form, offeredBranchId: v })}
+                            error={!locked && form.offeredBranchId && !branchUsable ? "This branch is no longer active. Choose another." : undefined}
                         />
                         <WtMoneyField
                             label="Offered CTC" per="year" currency={currency} required disabled={locked} sx={{ flex: 1 }}

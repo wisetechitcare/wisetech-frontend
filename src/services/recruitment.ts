@@ -37,7 +37,9 @@ export interface JobRequisition {
     targetStartDate?: string | null;
     requisitionStageId?: string | null;
     requisitionStage?: RequisitionStage | null;
-    status: number; // 0 pending · 1 approved · 2 rejected
+    status: number; // 0 draft or awaiting approval · 1 approved · 2 rejected
+    /** Out for sign-off right now. Status 0 is both a draft and a submitted requisition; this says which. */
+    approvalPending?: boolean;
     isActive: boolean;
     revisionCount: number;
     createdAt: string;
