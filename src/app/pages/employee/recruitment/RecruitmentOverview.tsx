@@ -164,7 +164,12 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
     const kpiTiles: Array<{ label: string; value: number | string; trio: Trio; icon: React.ReactNode }> = [
         { label: "Open Roles", value: kpis.openRequisitions, trio: TRIO.blue, icon: "questionnaire-tablet" },
         { label: "In Process", value: kpis.activeCandidates, trio: TRIO.purple, icon: "profile-circle" },
-        { label: "Interviews", value: kpis.interviewsScheduled, trio: TRIO.cyan, icon: "message-text-2" },
+                // "Interviews" sat directly above a funnel bar also called Interview and meant
+        // something else entirely: this counts BOOKINGS still to happen, the bar counts people
+        // parked in that stage. Reading 0 beside a bar of 5 looked broken and was not. The
+        // longer label is the fix — and the gap between the two is the useful signal, because
+        // five people waiting with nothing booked is the thing worth seeing.
+        { label: "Interviews Booked", value: kpis.interviewsScheduled, trio: TRIO.cyan, icon: "message-text-2" },
         // The branch's own currency, not the icon font's `dollar` — that glyph was showing a
         // `$` to an office that pays in rupees purely because it is the only money shape the
         // font ships.
