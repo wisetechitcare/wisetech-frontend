@@ -903,14 +903,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                   <FormSection title="Location" icon={<KTIcon iconName="geolocation" className="fs-5" />}>
 
                   <div className='row'>
-                    {/* <div className='col-lg-12 mb-7'>
-                      <DropDownInput
-                        isRequired={false}
-                        formikField='currency'
-                        inputLabel='Currency'
-                        options={currenciesOption}
-                      />
-                    </div> */}
 
                     {/* <div className='col-lg-6 mb-7'>
                       <DropDownInput
@@ -973,21 +965,58 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                         }}
                       />
 
-                      {/* Derived, not asked for. Salary, offers and exported payslips all read
-                          this, so a branch that silently inherits the wrong one is expensive to
-                          notice — saying it here costs a line and removes the guess. */}
+                      {/* Currency sits directly under Country because it is DERIVED from it:
+                          picking a country fills this in. It stays editable because a branch
+                          that bills in something other than its local currency is a real
+                          arrangement — a Gulf office invoicing in dollars, a European
+                          subsidiary reporting in euros.
+
+                          The full list, not a country-or-dollar pair. USD is not a universal
+                          second currency: it is the right answer in the Gulf and the wrong one
+                          for a London or Frankfurt branch, and hard-coding it would put an
+                          American assumption into a product sold in India and the Gulf. The
+                          list is already fetched and already in state, so offering all of it
+                          costs nothing and restricting it would be extra code for less. */}
+                      <div className='mb-7'>
+                        <DropDownInput
+                          isRequired={false}
+                          formikField='currency'
+                          inputLabel='Currency'
+                          options={currenciesOption}
+                        />
+                      </div>
+
+                      {/* Deviating from the country is allowed but never silent. Salary, offers
+                          and exported payslips all read this, and a branch quietly set to the
+                          wrong currency is the kind of thing noticed a quarter later. */}
                       {(() => {
                         const code = formikProps.values.currency
                         if (!code) return null
+                        const fromCountry = geoCountries?.find((c) => c.iso2 === formikProps.values.countryId)?.currency
+                        const deviates = Boolean(fromCountry && fromCountry !== code)
                         return (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: -0.5, mb: 2 }}>
-                            <KTIcon iconName="wallet" className="fs-6 text-muted" />
-                            <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
-                              Salaries and offers at this branch are shown in{' '}
-                              <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                                {getCurrencySymbol(code)} {code}
-                              </Box>
-                              , from the country above.
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, mt: -1, mb: 2.5 }}>
+                            <KTIcon
+                              iconName={deviates ? 'information-5' : 'wallet'}
+                              className={`fs-6 ${deviates ? 'text-warning' : 'text-muted'}`}
+                            />
+                            <Typography sx={{ fontSize: 12.5, color: deviates ? 'warning.main' : 'text.secondary' }}>
+                              {deviates ? (
+                                <>
+                                  This branch bills in{' '}
+                                  <Box component="span" sx={{ fontWeight: 700 }}>{getCurrencySymbol(code)} {code}</Box>
+                                  , not its country&rsquo;s {fromCountry}. Salaries, offers and payslips here will
+                                  all use it.
+                                </>
+                              ) : (
+                                <>
+                                  Salaries, offers and payslips at this branch are shown in{' '}
+                                  <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                                    {getCurrencySymbol(code)} {code}
+                                  </Box>
+                                  , from the country above.
+                                </>
+                              )}
                             </Typography>
                           </Box>
                         )
