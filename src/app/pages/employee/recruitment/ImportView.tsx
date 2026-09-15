@@ -236,7 +236,8 @@ const ImportView = () => {
                         onChange={changeSheet}
                         options={SHEETS.map((s) => ({ value: s.key, label: s.label }))}
                         disabled={busy}
-                        sx={{ minWidth: { sm: 220 } }}
+                        fullWidth={false}
+                        sx={{ width: { xs: "100%", sm: 220 }, flexShrink: 0 }}
                     />
                     <Typography sx={{ flex: 1, fontSize: 13, color: "text.secondary" }}>
                         {SHEETS.find((s) => s.key === sheet)?.hint}

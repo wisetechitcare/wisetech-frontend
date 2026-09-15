@@ -1,9 +1,9 @@
 import React, { useId } from 'react';
-import { Box, MenuItem, TextField, Typography, alpha } from '@mui/material';
+import { Autocomplete, Box, MenuItem, TextField, Typography, alpha } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { AppIcon } from './AppIcon';
-import { WtSelect } from './WtSelect';
+import { menuOptionSx } from './patterns';
 
 /**
  * WtField — the one labelled control in the app.
@@ -37,8 +37,9 @@ import { WtSelect } from './WtSelect';
  * ONE MESSAGE SLOT. `error` is a MESSAGE, not a boolean, and it replaces `hint` when set —
  * so a field can never show a red border with cheerful guidance underneath it.
  *
- * DELEGATION, NOT REIMPLEMENTATION. Searchable selects are `WtSelect` (react-select). Dates
- * stay `WtDateField` / `WtDateTimeField`. This owns the frame, not every engine in it.
+ * DELEGATION, NOT REIMPLEMENTATION. A single searchable select is MUI Autocomplete, which keeps the
+ * floating label; multi-select and creatable stay `WtSelect` (react-select), used directly. Dates stay
+ * `WtDateField` / `WtDateTimeField`. This owns the frame, not every engine in it.
  */
 
 export type WtFieldSize = 'sm' | 'md';
@@ -111,7 +112,10 @@ export interface WtFieldProps {
     /** `'any'` allows any decimal — without it a number input treats 1200000.50 as invalid. */
     step?: number | 'any';
 
-    /** Renders react-select inside this frame, for search / multi / creatable. */
+    /**
+     * Type-to-search for a long single-select (needs `options`). Same floating label, height and outline
+     * as a plain select, so a searchable field and a plain one can share a row. Multi / creatable: `WtSelect`.
+     */
     searchable?: boolean;
 
     /**
@@ -126,6 +130,12 @@ export interface WtFieldProps {
     id?: string;
     name?: string;
     autoFocus?: boolean;
+    /**
+     * LAYOUT for the field as a whole — `flex`, `minWidth`, margins — applied to its outer frame.
+     * It used to reach only the input INSIDE a full-width frame, so `sx={{ flex: 1 }}` did nothing
+     * in a row: two fields claimed 100% each and a neighbouring date field was squeezed to a sliver.
+     * Descendant selectors (`'& .MuiOutlinedInput-root'`) still style the control from here.
+     */
     sx?: SxProps<Theme>;
     /** Escape hatch for a control this frame does not model. Replaces the input. */
     children?: React.ReactNode;
@@ -230,27 +240,71 @@ export const WtField: React.FC<WtFieldProps> = ({
     const startAdornment = iconAdornment || prefixAdornment ? <>{iconAdornment}{prefixAdornment}</> : undefined;
 
     /**
-     * react-select, and anything handed in as `children`, cannot cut a gap in a border. So
-     * those two — and only those two — fall back to a label on its own line.
+     * The outer frame carries the caller's layout `sx`. `minWidth: 0` lets a field shrink in a row
+     * instead of forcing its neighbours out; the caller's own `minWidth` still wins.
      */
+    const frameSx = [
+        { width: fullWidth ? '100%' : 'auto', minWidth: minWidth ?? 0 },
+        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+    ] as SxProps<Theme>;
+
     const selected = (options ?? []).find((o) => o.value === String(value ?? ''));
-    const custom = children ?? (searchable ? (
-        <WtSelect
-            options={(options ?? []).map((o) => ({ value: o.value, label: o.label, isDisabled: o.disabled }))}
-            value={selected ? { value: selected.value, label: selected.label } : null}
-            onChange={(opt: { value: string } | null) => onChange(opt?.value ?? '')}
-            placeholder={placeholder}
-            isDisabled={disabled}
-            error={invalid}
-            size={size}
-            ariaLabel={label}
-            isSearchable
-        />
-    ) : null);
+
+    /**
+     * A long single-select, with type-to-search. MUI's Autocomplete renders a real outlined
+     * TextField, so it keeps the SAME floating label in the border as every other field — the
+     * react-select engine this used could not cut that gap, put its label on a line above, and
+     * sat in a row beside ordinary fields at a different height with a different label.
+     */
+    if (searchable && options && !children) {
+        return (
+            <Box sx={frameSx}>
+                <Autocomplete
+                    id={fieldId}
+                    options={options}
+                    value={selected ?? null}
+                    onChange={(_e, opt) => onChange(opt?.value ?? '')}
+                    getOptionLabel={(o) => o.label}
+                    getOptionDisabled={(o) => Boolean(o.disabled)}
+                    isOptionEqualToValue={(o, v) => o.value === v.value}
+                    disabled={disabled}
+                    disableClearable={!clearable}
+                    autoHighlight
+                    size={size === 'md' ? 'medium' : 'small'}
+                    fullWidth
+                    // Above app dialogs (1300, nested 1302), as the date pickers do.
+                    slotProps={{ popper: { sx: { zIndex: 1350 } }, paper: { sx: menuOptionSx } }}
+                    renderInput={(params) => (
+                        <TextField
+                            {...params}
+                            name={name}
+                            label={label}
+                            required={required}
+                            placeholder={placeholder}
+                            autoFocus={autoFocus}
+                            error={invalid}
+                            helperText={message}
+                            FormHelperTextProps={invalid ? { role: 'alert' } : undefined}
+                            InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
+                            InputProps={{
+                                ...params.InputProps,
+                                notched: true,
+                                startAdornment: <>{startAdornment}{params.InputProps.startAdornment}</>,
+                            }}
+                            sx={controlSx(activeTone, invalid)}
+                        />
+                    )}
+                />
+            </Box>
+        );
+    }
+
+    /** Anything handed in as `children` cannot cut a gap in a border, so it takes a label on its own line. */
+    const custom = children ?? null;
 
     if (custom || labelPlacement === 'above') {
         return (
-            <Box sx={{ width: fullWidth ? '100%' : 'auto', minWidth, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 0.5 }, ...(frameSx as object[])] as SxProps<Theme>}>
                 {label && (
                     <Typography
                         component="label"
@@ -287,7 +341,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                         error={invalid}
                         InputProps={{ startAdornment, endAdornment: clearButton }}
                         inputProps={{ inputMode, min, max, step, 'aria-describedby': message ? messageId : undefined }}
-                        sx={{ ...(controlSx(activeTone, invalid) as object), ...(sx as object) }}
+                        sx={controlSx(activeTone, invalid)}
                     />
                 )}
 
@@ -305,7 +359,7 @@ export const WtField: React.FC<WtFieldProps> = ({
     }
 
     return (
-        <Box sx={{ width: fullWidth ? '100%' : 'auto', minWidth, display: 'flex' }}>
+        <Box sx={[{ display: 'flex' }, ...(frameSx as object[])] as SxProps<Theme>}>
             <TextField
                 id={fieldId}
                 name={name}
@@ -361,7 +415,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                         },
                     },
                 } : undefined}
-                sx={{ ...(controlSx(activeTone, invalid) as object), ...(sx as object) }}
+                sx={controlSx(activeTone, invalid)}
             >
                 {isSelect && options?.map((o) => (
                     <MenuItem key={o.value} value={o.value} disabled={o.disabled} sx={{ fontSize: 13 }}>

@@ -48,7 +48,8 @@ export const RecruitmentBranchField = ({ value, onChange, required, disabled, er
             onChange={onChange}
             options={options}
             searchable={options.length >= SEARCHABLE_FROM}
-            placeholder={isLoading ? "Loading branches…" : "Choose a branch"}
+            // A locked record with no branch says so, rather than inviting a choice it will not accept.
+            placeholder={isLoading ? "Loading branches…" : disabled ? "Not set" : "Choose a branch"}
             disabled={disabled || isLoading || isError || !branches.length}
             error={message}
             hint={selected ? `Salaries are in ${selected.currency}` : "Decides the currency salaries are in"}

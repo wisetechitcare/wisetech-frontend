@@ -88,13 +88,16 @@ restated the legend metrics by hand, and `ProjectTablePage` nudged its label wit
 Uppercase label *text* is fine — MUI measures the characters you pass. Uppercasing
 in CSS is not. Everything else on the control may be themed; the label may not.
 
-`labelPlacement="above"` exists only for controls that cannot carry a notch — a
-searchable react-select, or a control passed as `children`. Those switch to it
-themselves, so passing it by hand is rarely right.
+`labelPlacement="above"` exists only for a control passed as `children`, which cannot carry a
+notch. It switches on its own, so passing it by hand is rarely right.
 
-Searchable / multi / creatable stays `WtSelect` — pass `searchable` and it renders
-inside the same frame. Dates stay `WtDateField`. `WtField` owns the frame, not every
+A long single-select takes `searchable`: it renders MUI Autocomplete with the same floating
+label, height and outline as a plain select, so the two can share a row. Multi-select and
+creatable stay `WtSelect`. Dates stay `WtDateField`. `WtField` owns the frame, not every
 engine that can sit in it.
+
+**`sx` is layout for the whole field** (`flex`, `minWidth`, margins) and lands on its outer
+frame. Descendant selectors (`'& .MuiOutlinedInput-root'`) still reach the control.
 
 ### Money is `WtMoneyField`
 

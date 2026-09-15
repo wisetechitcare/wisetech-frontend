@@ -11,7 +11,7 @@ import type { RootState } from "@redux/store";
 import { queryKeys } from "@/lib/queryKeys";
 import { COPY } from "./terms";
 import { formatCurrency } from "@utils/currency";
-import { formatDateTime } from "@utils/dateFormats";
+import { formatDate, formatDateTime } from "@utils/dateFormats";
 import { apiErrorMessage } from "@utils/apiError";
 import {
     getApplicationById, getApplicationNotes, createApplicationNote, deleteApplicationNote,
@@ -157,7 +157,8 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                             {a.convertedEmployeeId && <ToneChip tone="success" label="Converted to employee" dense />}
                         </Stack>
                         {onConvert && currentStatus?.isHiredOutcome && !a.convertedEmployeeId && (
-                            <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => onConvert(a)}>
+                            <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => onConvert(a)}
+                                sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>
                                 Convert to employee
                             </WtButton>
                         )}
@@ -169,7 +170,10 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                                 options={statuses.map((s) => ({ value: s.id, label: s.name }))}
                                 disabled={moving || !loaded}
                                 icon="abstract-26"
-                                sx={{ minWidth: { sm: 220 } }}
+                                // A fixed width beside the chips. Full width, it took the whole row and crushed
+                                // the chips to a sliver.
+                                fullWidth={false}
+                                sx={{ width: { xs: "100%", sm: 240 }, flexShrink: 0 }}
                             />
                         ) : (
                             currentStatus && <ToneChip tone="brand" color={currentStatus.color ?? undefined} label={currentStatus.name} dense />
@@ -197,7 +201,8 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                             {loaded && <Fact label="Current CTC" value={salary(a.applicant?.currentCtc)} />}
                             {loaded && <Fact label="Expected CTC" value={salary(a.applicant?.expectedCtc)} />}
                             <Fact label="Source" value={a.applicant?.source?.name} />
-                            <Fact label="Applied" value={formatDateTime(a.appliedDate ?? a.createdAt)} />
+                            {/* A date, not a time: applied dates are stored at midnight, which a time-of-day turned into "5:30 AM". */}
+                            <Fact label="Applied" value={formatDate(a.appliedDate ?? a.createdAt)} />
                         </Box>
 
                         {(a.applicant?.resumeS3Url || a.applicant?.linkedInUrl) && (
