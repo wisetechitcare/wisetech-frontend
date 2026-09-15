@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,6 +11,8 @@ import {
     WtEmptyState,
 } from "@app/modules/common/components/ui";
 import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
+import { useSelector } from "react-redux";
+import type { RootState } from "@redux/store";
 import { queryKeys } from "@/lib/queryKeys";
 import { COPY } from "./terms";
 import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
@@ -18,6 +20,7 @@ import {
     getRequisitions, createRequisition, updateRequisition, archiveRequisition, submitRequisitionApproval,
     getRequisitionStages,
     type JobRequisition, type RequisitionPayload, type OrgScoped,
+    getRecruitmentSettings,
 } from "@services/recruitment";
 import { getCurrencySymbol } from '@utils/currency';
 
@@ -85,6 +88,27 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
     const qc = useQueryClient();
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<JobRequisition | null>(null);
+    /**
+     * Who a new requisition names, before anyone edits it.
+     *
+     * The hiring manager is whoever is filling the form — a requisition is normally raised BY
+     * the manager whose team the hire joins. The recruiter comes from the tenant's setting,
+     * because which person in HR runs hiring differs per customer.
+     *
+     * Both are defaults on a NEW requisition only. Editing an existing one loads what was
+     * saved, and neither value is forced on save.
+     */
+    const currentEmployeeId = useSelector((st: RootState) => st.employee?.currentEmployee?.id as string | undefined);
+    const { data: settings } = useQuery({
+        queryKey: queryKeys.recruitment.settings(),
+        queryFn: getRecruitmentSettings,
+        staleTime: 5 * 60_000,
+    });
+    const newFormDefaults = useMemo(() => ({
+        hiringManagerId: currentEmployeeId,
+        recruiterId: settings?.defaultRecruiterId ?? undefined,
+    }), [currentEmployeeId, settings?.defaultRecruiterId]);
+
     const [form, setForm] = useState<RequisitionPayload>(emptyForm());
 
     const { data: requisitions = [], isLoading } = useQuery({
@@ -126,7 +150,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
         onError: () => toast({ icon: "error", title: "Could not archive requisition" }),
     });
 
-    const openCreate = () => { setEditing(null); setForm(emptyForm()); setOpen(true); };
+    const openCreate = () => { setEditing(null); setForm(emptyForm(newFormDefaults)); setOpen(true); };
     const openEdit = (r: JobRequisition) => {
         setEditing(r);
         setForm({
