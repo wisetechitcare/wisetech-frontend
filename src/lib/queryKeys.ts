@@ -68,6 +68,7 @@ export const queryKeys = {
     requisitions: (scope = '') => [...queryKeys.recruitment.all, 'requisitions', scope] as const,
     requisition: (id: string) => [...queryKeys.recruitment.all, 'requisition', id] as const,
     requisitionStages: () => [...queryKeys.recruitment.all, 'requisition-stages'] as const,
+    branches: () => [...queryKeys.recruitment.all, 'branches'] as const,
     applications: (filters: Record<string, unknown> = {}) =>
       [...queryKeys.recruitment.all, 'applications', filters] as const,
     applicants: (search = '', scope = '') => [...queryKeys.recruitment.all, 'applicants', search, scope] as const,

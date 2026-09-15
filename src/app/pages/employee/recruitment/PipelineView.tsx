@@ -174,6 +174,8 @@ const PipelineView = ({ companyId }: OrgScoped) => {
             if (offer) {
                 if (offer.offeredDesignationId) draft.designationId = offer.offeredDesignationId;
                 if (offer.offeredDepartmentId) draft.departmentId = offer.offeredDepartmentId;
+                // The wizard works out the organization and sub-org from the branch on its own.
+                if (offer.offeredBranchId) draft.branchId = offer.offeredBranchId;
                 if (offer.offeredEmployeeTypeConfigId) draft.employeeTypeConfigId = offer.offeredEmployeeTypeConfigId;
                 // Annual to annual. The employee column is still NAMED ctcInLpa but has always held the
                 // full yearly amount; now that the offer does too, the figure copies across unchanged.

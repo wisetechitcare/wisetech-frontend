@@ -16,6 +16,8 @@ import type { RootState } from "@redux/store";
 import { queryKeys } from "@/lib/queryKeys";
 import { COPY } from "./terms";
 import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
+import { useRecruitmentBranches } from "@/hooks/useRecruitmentBranches";
+import { RecruitmentBranchField } from "./RecruitmentBranchField";
 import {
     getRequisitions, createRequisition, updateRequisition, archiveRequisition, submitRequisitionApproval,
     getRequisitionStages,
@@ -46,13 +48,14 @@ const STATUS_META: Record<number, { label: string; tone: SemanticTone }> = {
  * Defaults only, and only on a NEW requisition. Editing an existing one loads what was
  * saved.
  */
-const emptyForm = (defaults: { hiringManagerId?: string; recruiterId?: string } = {}): RequisitionPayload => ({
+const emptyForm = (defaults: { hiringManagerId?: string; recruiterId?: string; branchId?: string } = {}): RequisitionPayload => ({
     title: "",
     jobDescription: "",
     headcount: 1,
     employeeLevelId: null,
     hiringManagerId: defaults.hiringManagerId ?? "",
     recruiterId: defaults.recruiterId ?? "",
+    branchId: defaults.branchId ?? "",
     minCtc: null,
     maxCtc: null,
     targetStartDate: null,
@@ -119,10 +122,13 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
         queryFn: getRecruitmentSettings,
         staleTime: 5 * 60_000,
     });
+    // The branch decides the currency of the salary band, so the band's fields follow it.
+    const { byId: branchById, defaultBranchId } = useRecruitmentBranches();
     const newFormDefaults = useMemo(() => ({
         hiringManagerId: currentEmployeeId,
         recruiterId: settings?.defaultRecruiterId ?? undefined,
-    }), [currentEmployeeId, settings?.defaultRecruiterId]);
+        branchId: defaultBranchId || undefined,
+    }), [currentEmployeeId, settings?.defaultRecruiterId, defaultBranchId]);
 
     const [form, setForm] = useState<RequisitionPayload>(emptyForm());
 
@@ -175,6 +181,8 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
             employeeLevelId: r.employeeLevelId ?? null,
             hiringManagerId: r.hiringManagerId ?? "",
             recruiterId: r.recruiterId ?? "",
+            // Older requisitions may have none; the field is required, so Save asks for one.
+            branchId: r.branchId ?? "",
             minCtc: r.minCtc == null ? null : Number(r.minCtc),
             maxCtc: r.maxCtc == null ? null : Number(r.maxCtc),
             targetStartDate: r.targetStartDate ? r.targetStartDate.slice(0, 10) : null,
@@ -193,7 +201,9 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
     };
 
     const band = bandErrors(form.minCtc, form.maxCtc);
-    const canSave = !!form.title?.trim() && !band.min && !band.max;
+    const canSave = !!form.title?.trim() && !!form.branchId && !band.min && !band.max;
+    // The currency the band is being typed in: the chosen branch's, else what the API resolved.
+    const bandCurrency = (form.branchId && branchById.get(form.branchId)?.currency) || editing?.currency;
     const saving = createMut.isPending || updateMut.isPending;
 
     const save = () => {
@@ -272,6 +282,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
 
                                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.25 }}>
                                     <MetaPill text={`${r.filledCount}/${r.headcount} filled`} />
+                                    {r.branchId && branchById.get(r.branchId) && <MetaPill text={branchById.get(r.branchId)!.name} />}
                                     {r.requisitionStage?.name && <MetaPill text={r.requisitionStage.name} />}
                                     {ctc && <MetaPill text={ctc} />}
                                     {r.targetStartDate && <MetaPill text={`Starts ${new Date(r.targetStartDate).toLocaleDateString()}`} />}
@@ -366,17 +377,20 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                             )}
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            {/* The requisition's own currency when editing; a new one has no record yet, so
-                                it is shown in the viewer's, which the server's company rule also lands on for
-                                any company whose branches share a currency. */}
+                            {/* Branch first: it decides the currency the band beside it is typed in. */}
+                            <RecruitmentBranchField
+                                required sx={{ flex: 1 }}
+                                value={form.branchId}
+                                onChange={(v) => setForm({ ...form, branchId: v })}
+                            />
                             <WtMoneyField
-                                label="Min CTC" per="year" currency={editing?.currency} sx={{ flex: 1 }}
+                                label="Min CTC" per="year" currency={bandCurrency} sx={{ flex: 1 }}
                                 value={form.minCtc}
                                 onChange={(v) => setForm({ ...form, minCtc: v })}
                                 error={band.min}
                             />
                             <WtMoneyField
-                                label="Max CTC" per="year" currency={editing?.currency} sx={{ flex: 1 }}
+                                label="Max CTC" per="year" currency={bandCurrency} sx={{ flex: 1 }}
                                 value={form.maxCtc}
                                 onChange={(v) => setForm({ ...form, maxCtc: v })}
                                 error={band.max}

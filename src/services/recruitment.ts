@@ -95,6 +95,17 @@ const listQuery = (params: Record<string, string | undefined> = {}): string => {
     return s ? `?${s}` : "";
 };
 
+/**
+ * A branch a requisition or offer can be for — every active branch in the tenant family, each
+ * with the currency the server resolved for it. Choosing one is what decides the currency a
+ * salary on that record is in.
+ */
+export interface RecruitmentBranch { id: string; name: string; companyId: string; companyName: string | null; currency: string }
+export const getRecruitmentBranches = async (): Promise<RecruitmentBranch[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_BRANCHES}`);
+    return data?.branches ?? [];
+};
+
 export const getRequisitions = async (companyId?: string): Promise<JobRequisition[]> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_REQUISITIONS}${listQuery({ companyId })}`);
     return data?.requisitions ?? [];
@@ -748,10 +759,15 @@ export interface OfferPayload {
  * An application's offer, and the currency it is — or will be — in. The currency comes back
  * even when there is no offer yet, because the form that creates one has to show it.
  */
-export interface ApplicationOffer { offer: Offer | null; currency?: string }
+export interface ApplicationOffer {
+    offer: Offer | null;
+    currency?: string;
+    /** The requisition's branch — what a NEW offer defaults to, as the server does. */
+    requisitionBranchId?: string | null;
+}
 export const getApplicationOffer = async (applicationId: string): Promise<ApplicationOffer> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_OFFER.replace(":id", applicationId)}`);
-    return { offer: data?.offer ?? null, currency: data?.currency };
+    return { offer: data?.offer ?? null, currency: data?.currency, requisitionBranchId: data?.requisitionBranchId ?? null };
 };
 export const createOffer = async (payload: OfferPayload) => {
     const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_OFFER}`, payload);

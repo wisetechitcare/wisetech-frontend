@@ -16,6 +16,7 @@ export const RECRUITMENT = {
     GET_OVERVIEW: "api/recruitment/overview",
     CREATE_REQUISITION: "api/recruitment/requisitions",
     GET_ALL_REQUISITIONS: "api/recruitment/requisitions",
+    GET_BRANCHES: "api/recruitment/branches",
     GET_REQUISITION_BY_ID: "api/recruitment/requisitions/:id",
     UPDATE_REQUISITION: "api/recruitment/requisitions/:id",
     UPDATE_REQUISITION_SECTION: "api/recruitment/requisitions/:id/section",
