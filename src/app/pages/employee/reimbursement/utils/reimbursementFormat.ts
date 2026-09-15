@@ -12,7 +12,7 @@
  */
 
 import dayjs from 'dayjs';
-import { formatCurrencyDecimal } from '@utils/currency';
+import { formatCurrencyDecimal, getCurrencyLocale } from '@utils/currency';
 
 /**
  * The single placeholder for "there is no value here".
@@ -55,7 +55,7 @@ export const fmtMonth = (value?: string | Date | null): string => {
  * footers and totals, which is where the precision used to diverge from the rows.
  */
 export const fmtAmount = (value?: number | string | null): string =>
-    Number(value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    Number(value ?? 0).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /**
  * Same number with the currency symbol, for KPI values and totals.

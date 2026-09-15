@@ -1,6 +1,6 @@
 import React from "react";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 interface MonthlySalaryEmployDataProps {
   employeesData: any[];
@@ -85,7 +85,7 @@ const MonthlySalaryEmployData: React.FC<MonthlySalaryEmployDataProps> = ({
             accessorKey: "salary",
             header: "Salary",
             Cell: ({ renderedCellValue }: any) => (
-              `${getCurrencySymbol()}${Math.round(Number(renderedCellValue || 0)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+              `${getCurrencySymbol()}${Math.round(Number(renderedCellValue || 0)).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
             )
           },
         ]}

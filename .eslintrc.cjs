@@ -162,6 +162,13 @@ module.exports = {
         selector: "TemplateElement[value.raw=/₹/]",
         message: 'Hardcoded currency symbol in a template literal. Interpolate ${getCurrencySymbol()} from @utils/currency instead.',
       },
+      /* `raw` is the SOURCE text, so the rule above never saw a rupee written as the escape
+       * `\u20B9` — and one was hiding in MeetingsList exactly that way. `cooked` is the
+       * character the template actually produces, which is what matters. */
+      {
+        selector: "TemplateElement[value.cooked=/₹/]",
+        message: 'Hardcoded currency symbol in a template literal (written as an escape). Interpolate ${getCurrencySymbol()} from @utils/currency instead.',
+      },
       {
         selector: "JSXText[value=/₹/]",
         message: 'Hardcoded currency symbol in JSX. Use {getCurrencySymbol()} or <CurrencySymbol /> from the ui kit.',
@@ -173,23 +180,6 @@ module.exports = {
     ],
   },
   overrides: [
-    {
-      /* currency.ts IMPLEMENTS the formatters, so it is the one place an Intl currency
-       * option and a literal rupee (the fallback for an unknown ISO code) are correct. */
-      files: ['src/utils/currency.ts'],
-      rules: { 'no-restricted-syntax': 'off' },
-    },
-    {
-      /* India's professional-tax slabs. These rupee amounts are set by statute — they do
-       * not change because a Dubai branch is looking at them, so they must NOT follow the
-       * active currency. The two files are duplicates of each other and worth collapsing,
-       * but that is a separate job. */
-      files: [
-        'src/app/pages/company/organisationInfo/rule/mockData.ts',
-        'src/app/pages/employee/personal-rules/components/SalarySection.tsx',
-      ],
-      rules: { 'no-restricted-syntax': 'off' },
-    },
     {
       /* The UI kit and shared inputs IMPLEMENT these primitives, so they must be able to use
        * them. This is the only place a raw Switch / native input / <style> is legitimate. */
@@ -223,6 +213,25 @@ module.exports = {
        * Net effect: new code cannot regress, and the list can only shrink. */
       files: require('./.eslint-ui-baseline.cjs'),
       rules: { 'no-restricted-syntax': 'warn' },
+    },
+    {
+      /* PLACED AFTER THE RATCHET ON PURPOSE. ESLint applies overrides in order and the last
+       * match wins, so an `off` before the ratchet is re-enabled by it as a warning. */
+      /* currency.ts IMPLEMENTS the formatters, so it is the one place an Intl currency
+       * option and a literal rupee (the fallback for an unknown ISO code) are correct. */
+      files: ['src/utils/currency.ts'],
+      rules: { 'no-restricted-syntax': 'off' },
+    },
+    {
+      /* India's professional-tax slabs. These rupee amounts are set by statute — they do
+       * not change because a Dubai branch is looking at them, so they must NOT follow the
+       * active currency. The two files are duplicates of each other and worth collapsing,
+       * but that is a separate job. */
+      files: [
+        'src/app/pages/company/organisationInfo/rule/mockData.ts',
+        'src/app/pages/employee/personal-rules/components/SalarySection.tsx',
+      ],
+      rules: { 'no-restricted-syntax': 'off' },
     },
   ],
 }

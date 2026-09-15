@@ -3,7 +3,7 @@ import { FieldArray, useFormikContext } from "formik";
 import { Button } from "react-bootstrap";
 import { Delete, Add } from "@mui/icons-material";
 import "./Workspace.css";
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 interface CommercialsGridProps {
   type: "lead" | "project";
@@ -16,9 +16,12 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
   const arrayPath = isLead ? "projectAreas" : "commercials";
   const items = values[arrayPath] || [];
 
-  // Helper to safely format numbers as standard Indian Rupees
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString("en-IN", {
+  // Two decimals, no symbol — the grid puts the symbol in its own column. Named for the
+  // amount rather than the currency because it used to be called `formatCurrency`, which
+  // is also the name of the shared formatter in @utils/currency: a local shadow of a
+  // global helper is how two different answers to the same question end up on one screen.
+  const formatAmount = (val: number) => {
+    return val.toLocaleString(getCurrencyLocale(), {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -257,7 +260,7 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
             <div className="d-flex align-items-center gap-2">
               <span className="text-gray-600 fs-7 fw-bold uppercase">Grand Total:</span>
               <span className="text-primary fs-6 fw-bolder">
-                {getCurrencySymbol()} {formatCurrency(getGrandTotal())}
+                {getCurrencySymbol()} {formatAmount(getGrandTotal())}
               </span>
             </div>
           </div>

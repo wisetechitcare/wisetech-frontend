@@ -1,4 +1,4 @@
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 /**
  * Unified Entity (Lead-as-Master) helpers.
  *
@@ -96,7 +96,7 @@ export const matchesView = (lead: any, view: EntityView): boolean => {
 export const formatCompactCurrency = (amount: number): string => {
   if (amount >= 1_00_00_000) return `${getCurrencySymbol()}${(amount / 1_00_00_000).toFixed(2)} Cr`;
   if (amount >= 1_00_000) return `${getCurrencySymbol()}${(amount / 1_00_000).toFixed(2)} L`;
-  return `${getCurrencySymbol()}${amount.toLocaleString('en-IN')}`;
+  return `${getCurrencySymbol()}${amount.toLocaleString(getCurrencyLocale())}`;
 };
 
 /**

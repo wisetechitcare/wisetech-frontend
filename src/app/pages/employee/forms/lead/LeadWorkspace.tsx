@@ -14,7 +14,7 @@ import {
   EventNote,
   TrackChanges,
 } from "@mui/icons-material";
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 /**
  * Placeholder body for wizard steps that exist in the flow but are not built yet.
@@ -512,7 +512,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       },
       {
         label: "Commercial Value",
-        value: `${getCurrencySymbol()} ${totalCommercials.toLocaleString("en-IN", {
+        value: `${getCurrencySymbol()} ${totalCommercials.toLocaleString(getCurrencyLocale(), {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`,

@@ -5,7 +5,7 @@ import { FilterDropdown } from "./FilterDropdown";
 import { clamp } from "lodash";
 import { FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@mui/material";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { formatCurrencyRounded, getCurrencySymbol } from '@utils/currency';
+import { formatCurrencyRounded, getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 interface BarChartData {
   label: string;
@@ -430,7 +430,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
                </div>
                <div class="tooltip-row">
                  <span>Total:</span>
-                 <strong>${getCurrencySymbol()}${amount.toLocaleString("en-IN") || "0"}</strong>
+                 <strong>${getCurrencySymbol()}${amount.toLocaleString(getCurrencyLocale()) || "0"}</strong>
                </div>
              </div>`
             : `<div class="apex-tooltip">
@@ -441,7 +441,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
                </div>
                <div class="tooltip-row">
                  <span>Total:</span>
-                 <strong>${getCurrencySymbol()}${amount.toLocaleString("en-IN") || "0"}</strong>
+                 <strong>${getCurrencySymbol()}${amount.toLocaleString(getCurrencyLocale()) || "0"}</strong>
                </div>
              </div>`;
         },

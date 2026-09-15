@@ -28,7 +28,7 @@ import { errorConfirmation, successConfirmation } from "./modal";
 import axios from "axios";
 import { EMPLOYEE } from "@constants/api-endpoint";
 import { getTimeTokens } from './timeFormat';
-import { formatCurrencyRounded, getCurrencySymbol } from '@utils/currency';
+import { formatCurrencyRounded, getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 // functions for fetching statistics for daily, weekly, monthly, yearly ------ starts here -----
 
@@ -3709,7 +3709,7 @@ export const formatNumber = (number: number | string) => formatCurrencyRounded(n
 // format string to currency in INR
 export const formatMoneyString = (str: string | number) => {
     const num = parseFloat(str.toString().replace(/[^0-9.-]+/g, '')); // removes ₹, commas, etc.
-    return `${getCurrencySymbol()}${num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    return `${getCurrencySymbol()}${num.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
 /**

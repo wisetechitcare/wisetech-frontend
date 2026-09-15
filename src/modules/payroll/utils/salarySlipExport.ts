@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { saveAs } from 'file-saver';
 import { formatValue } from './payrollFormatters';
 import { getTimeTokens } from '@utils/timeFormat';
-import { getCurrencySymbol, usesIndianGrouping } from '@utils/currency';
+import { getCurrencySymbol, usesIndianGrouping, getCurrencyLocale } from '@utils/currency';
 
 /**
  * Spreadsheet export of a month's salary slip.
@@ -69,7 +69,7 @@ const fmtDate = (v: any, withTime = false): string => {
     return d.isValid() ? d.format(withTime ? 'DD MMM YYYY, hh:mm A' : 'DD MMM YYYY') : String(v);
 };
 
-const money2 = (n: number) => `${getCurrencySymbol()}${num(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money2 = (n: number) => `${getCurrencySymbol()}${num(n).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** A number when the value is one, otherwise an em-dash — keeps day counts numeric in the sheet. */
 const numOrDash = (v: any): number | string => {

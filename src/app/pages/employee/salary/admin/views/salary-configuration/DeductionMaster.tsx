@@ -25,7 +25,7 @@ import { WtSwitch, AppIcon } from "@app/modules/common/components/ui";
 import { useDispatch, useSelector } from 'react-redux';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppDispatch, RootState } from '@redux/store';
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 /** Company-wide employees, loaded once into redux and shared by the picker + cards. */
 function useEmployeeOptions() {
@@ -1105,7 +1105,7 @@ function ComponentCard({
   const durLabel  = APPLY_DURATION_LABELS[item.applyDuration]?.label || item.applyDuration;
 
   const defaultLabel = item.defaultAmount != null
-    ? `${getCurrencySymbol()}${Number(item.defaultAmount).toLocaleString('en-IN')}`
+    ? `${getCurrencySymbol()}${Number(item.defaultAmount).toLocaleString(getCurrencyLocale())}`
     : item.defaultPercentage != null
       ? `${item.defaultPercentage}%`
       : null;

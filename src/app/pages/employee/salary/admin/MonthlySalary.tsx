@@ -13,7 +13,7 @@ import { Dialog, DialogTitle, DialogContent, IconButton, Box, CircularProgress }
 import { Close } from "@mui/icons-material";
 import SalaryView from "../personal/SalaryView";
 import { fetchCurrentEmployeeByEmpId } from "@services/employee";
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 interface MonthlySalaryProps {
   month: Dayjs;
@@ -232,7 +232,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
   }, [filteredEmployeeSummaries, statusFilter]);
 
   // Column totals across ALL filtered rows (matches the export totals).
-  const fmtMoney = (n: number) => `${getCurrencySymbol()}${Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const fmtMoney = (n: number) => `${getCurrencySymbol()}${Math.round(n).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   const columnTotals = useMemo(() => {
     const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
     return tableData.reduce(
@@ -357,7 +357,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               header: "Basic Salary",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtMoney(columnTotals.basicSalary),
             },
@@ -366,7 +366,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               header: "Over Time Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtMoney(columnTotals.overTimeAmount),
             },
@@ -375,7 +375,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               header: "Total Salary After Attendance Adjustments",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtMoney(columnTotals.totalSalaryAfterAttendance),
             },
@@ -385,7 +385,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => {
                 const val = Math.round(Number(renderedCellValue));
                 if (!val || val === 0) return "-";
-                return `${getCurrencySymbol()}${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${val.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtMoney(columnTotals.retention),
             },
@@ -395,7 +395,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => {
                 const val = Math.round(Number(renderedCellValue));
                 if (!val || val === 0) return "-";
-                return `${getCurrencySymbol()}${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${val.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtMoney(columnTotals.professionalFees),
             },
@@ -405,7 +405,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => {
                 const val = Math.round(Number(renderedCellValue));
                 if (!val || val === 0) return "-";
-                return `${getCurrencySymbol()}${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${val.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtMoney(columnTotals.tds2),
             },
@@ -415,7 +415,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => {
                 const val = Math.round(Number(renderedCellValue));
                 if (!val || val === 0) return "-";
-                return `${getCurrencySymbol()}${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${val.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtMoney(columnTotals.professionalTax),
             },
@@ -424,7 +424,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               header: "Net Payable",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtMoney(columnTotals.netAmount),
             },
@@ -433,7 +433,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               header: "Paid",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                return `${getCurrencySymbol()}${Math.round(Number(renderedCellValue))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => <span style={{ color: '#1d4ed8', fontWeight: 800 }}>{fmtMoney(columnTotals.amountPaid)}</span>,
             },
@@ -444,9 +444,9 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                 if (renderedCellValue === "-" || renderedCellValue === null || renderedCellValue === undefined) return "-";
                 const amount = Math.round(Number(renderedCellValue));
                 if (amount < 0) {
-                  return <span className="text-info fw-bold">Paid Extra ({getCurrencySymbol()}{Math.abs(amount).toLocaleString('en-IN')})</span>;
+                  return <span className="text-info fw-bold">Paid Extra ({getCurrencySymbol()}{Math.abs(amount).toLocaleString(getCurrencyLocale())})</span>;
                 } else if (amount > 0) {
-                  return <span className="text-danger fw-bold">{getCurrencySymbol()}{amount.toLocaleString('en-IN')}</span>;
+                  return <span className="text-danger fw-bold">{getCurrencySymbol()}{amount.toLocaleString(getCurrencyLocale())}</span>;
                 } else {
                   return <span className="text-success fw-bold">{getCurrencySymbol()}0</span>;
                 }

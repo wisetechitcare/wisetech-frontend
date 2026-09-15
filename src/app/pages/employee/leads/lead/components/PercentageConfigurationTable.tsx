@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Table, Form, Button, Badge } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 interface Props {
   percentages: any[];
@@ -225,7 +225,7 @@ const PercentageConfigurationTable: React.FC<Props> = ({
               <th className="w-110px text-center">%</th>
               {totalCost !== undefined && (
                 <th className="min-w-120px text-end pe-4">
-                  {totalCost.toLocaleString("en-IN", {
+                  {totalCost.toLocaleString(getCurrencyLocale(), {
                     maximumFractionDigits: 2,
                     minimumFractionDigits: 2,
                   })}
@@ -287,7 +287,7 @@ const PercentageConfigurationTable: React.FC<Props> = ({
                     {(
                       ((parseFloat(p.value) || 0) / 100) *
                       totalCost
-                    ).toLocaleString("en-IN", {
+                    ).toLocaleString(getCurrencyLocale(), {
                       maximumFractionDigits: 2,
                       minimumFractionDigits: 2,
                     })}
@@ -315,7 +315,7 @@ const PercentageConfigurationTable: React.FC<Props> = ({
                 <td className="text-center text-primary">{totalPercentage}%</td>
                 <td className="text-end pe-4 text-primary">
                   {getCurrencySymbol()}{" "}
-                  {totalCost.toLocaleString("en-IN", {
+                  {totalCost.toLocaleString(getCurrencyLocale(), {
                     maximumFractionDigits: 2,
                     minimumFractionDigits: 2,
                   })}

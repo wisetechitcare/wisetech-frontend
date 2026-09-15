@@ -28,7 +28,7 @@ import ByProject from './ByProject';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -69,7 +69,7 @@ interface EmployeeSummary {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const fmtMoney = (n: number) =>
-  `${getCurrencySymbol()}${Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  `${getCurrencySymbol()}${Math.round(n).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 // Distinct, sorted values of one summary field ('N/A' and blanks dropped) — same rule the
 // payroll toolbar uses, so both pages offer the same options for the same population.

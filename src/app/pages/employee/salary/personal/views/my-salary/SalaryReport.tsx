@@ -60,7 +60,7 @@ type SalaryStructure = {
 import { IBreakdownItem, IBreakdownData, IMonthlyApiResponse } from '@redux/slices/salaryData';
 import { IconButton } from '@mui/material';
 import { Close } from '@mui/icons-material';
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 interface SalaryReportProps {
     stats: Attendance[];
@@ -80,13 +80,13 @@ interface SalaryReportProps {
 }
 
 const formatMoneyDecimal = (n: number) =>
-    `${getCurrencySymbol()}${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+    `${getCurrencySymbol()}${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString(getCurrencyLocale(), {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;
 
 const formatMoneyRounded = (n: number) =>
-    `${getCurrencySymbol()}${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+    `${getCurrencySymbol()}${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString(getCurrencyLocale(), {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;
@@ -500,7 +500,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         // console.log("grossBreakdownTable:: ",data);
 
         const formatCurrency = (amount: number) => {
-            return `${getCurrencySymbol()}${Math.round(amount).toLocaleString('en-IN', {
+            return `${getCurrencySymbol()}${Math.round(amount).toLocaleString(getCurrencyLocale(), {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0
             })}`;

@@ -33,7 +33,7 @@ import {
   DetailProfileBlock,
 } from '@app/modules/detail-page/DetailPageComponents';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 /**
  * Project Workspace — the execution-persona home for a project (Phase 3 of
@@ -169,7 +169,7 @@ const ExecutionOverview: React.FC<{ lead: any; onOpenLead: () => void }> = ({ le
             <DetailRow label="Client Company" value={lead?.company?.companyName || DASH} />
             <DetailRow label="Contact" value={lead?.contact?.fullName || DASH} />
             <DetailRow label="Pipeline Status" value={lead?.status?.name ? <DetailStatusBadge status={lead.status.name} color={lead.status.color} /> : DASH} />
-            <DetailRow label="Contract Rate" value={exec?.rate != null ? `${getCurrencySymbol()}${parseFloat(exec.rate).toLocaleString('en-IN')}` : DASH} />
+            <DetailRow label="Contract Rate" value={exec?.rate != null ? `${getCurrencySymbol()}${parseFloat(exec.rate).toLocaleString(getCurrencyLocale())}` : DASH} />
             <DetailRow label="Contract Cost" value={exec?.cost != null ? formatCompactCurrency(parseFloat(exec.cost)) : DASH} isLast />
           </DetailCard>
         </div>

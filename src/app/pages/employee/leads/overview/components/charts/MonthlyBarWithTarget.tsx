@@ -19,7 +19,7 @@ import {
   ComposedChart,
 } from "recharts";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 interface MonthlyBarWithTargetProps {
   title?: string;
@@ -112,7 +112,7 @@ const CustomTooltip = ({ active, payload, label, showFullDigits }: any) => {
                     style={{ fontSize: "13px" }}
                   >
                     {showFullDigits
-                      ? getCurrencySymbol() + Number(entry.value).toLocaleString("en-IN")
+                      ? getCurrencySymbol() + Number(entry.value).toLocaleString(getCurrencyLocale())
                       : formatLeadCount(entry.value)}
                   </span>
                   {!isTarget && count !== undefined && (
@@ -466,7 +466,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                     formatter={(val: any) => {
                       if (val < 1000000 && !isExpanded) return "";
                       return showFullDigits
-                        ? getCurrencySymbol() + Number(val).toLocaleString("en-IN")
+                        ? getCurrencySymbol() + Number(val).toLocaleString(getCurrencyLocale())
                         : formatShort(val);
                     }}
                   />
@@ -499,7 +499,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                     formatter={(val: any) => {
                       if (val < 1000000 && !isExpanded) return "";
                       return showFullDigits
-                        ? getCurrencySymbol() + Number(val).toLocaleString("en-IN")
+                        ? getCurrencySymbol() + Number(val).toLocaleString(getCurrencyLocale())
                         : formatShort(val);
                     }}
                   />

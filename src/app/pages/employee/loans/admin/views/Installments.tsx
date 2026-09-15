@@ -7,7 +7,7 @@ import InstallmentPayments from "./InstallmentPayments";
 import { fetchEmpMonthlyInstallmentsStatistics } from "@services/company";
 import DateSelector from "@components/DateSelector";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 const Installments: React.FC = () => {
   const [month, setMonth] = useState<Dayjs>(dayjs());
@@ -74,7 +74,7 @@ const Installments: React.FC = () => {
               {loanStats?.activeLoansOverview?.totalDueThisMonth
                 ? Math.round(
                     loanStats.activeLoansOverview.totalDueThisMonth
-                  ).toLocaleString("en-IN")
+                  ).toLocaleString(getCurrencyLocale())
                 : "0"}
             </h3>
           </div>
@@ -89,7 +89,7 @@ const Installments: React.FC = () => {
                 label: "Bill Due This Month",
                 value: `${getCurrencySymbol()} ${
                   loanStats?.activeLoansOverview?.billDueThisMonth?.toLocaleString(
-                    "en-IN"
+                    getCurrencyLocale()
                   ) ?? "0"
                 }`,
                 borderColor: "#CB2C2C",
@@ -98,7 +98,7 @@ const Installments: React.FC = () => {
                 label: "Previous Dues",
                 value: `${getCurrencySymbol()} ${
                   loanStats?.activeLoansOverview?.previousDue?.toLocaleString(
-                    "en-IN"
+                    getCurrencyLocale()
                   ) ?? "0"
                 }`,
                 borderColor: "#1DD12C",
@@ -107,7 +107,7 @@ const Installments: React.FC = () => {
                 label: "Amount Collected",
                 value: `${getCurrencySymbol()} ${
                   loanStats?.activeLoansOverview?.amountCollected?.toLocaleString(
-                    "en-IN"
+                    getCurrencyLocale()
                   ) ?? "0"
                 }`,
                 borderColor: "#CB2C2C",

@@ -4,7 +4,7 @@ import { Table } from "react-bootstrap";
 import { getAllPaymentPlans } from "@services/paymentPlan";
 import type { PaymentPlan } from "@models/leads";
 import { filterPlansForLead } from "./paymentPlanScope";
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 /**
  * Lead commercial step — payment stage break-up.
@@ -73,8 +73,11 @@ export const PaymentStageSelector: React.FC = () => {
     [options, values.paymentPlanId],
   );
 
-  const formatCurrency = (val: number) =>
-    val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Two decimals, no symbol — the column beside it carries the symbol. Named for the
+  // amount because `formatCurrency` is the shared formatter's name in @utils/currency, and
+  // a local shadow of a global helper is how one screen ends up with two answers.
+  const formatAmount = (val: number) =>
+    val.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   // Compute each stage's amount, letting the final stage take the rounding remainder
   // so the amounts add up to totalCost to the paisa.
@@ -132,7 +135,7 @@ export const PaymentStageSelector: React.FC = () => {
         <div className="col-md-5">
           <div className="d-flex flex-column align-items-md-end">
             <span className="text-gray-600 fs-8 fw-bold text-uppercase">Total Commercial Cost</span>
-            <span className="text-primary fs-5 fw-bolder">{getCurrencySymbol()} {formatCurrency(totalCost)}</span>
+            <span className="text-primary fs-5 fw-bolder">{getCurrencySymbol()} {formatAmount(totalCost)}</span>
           </div>
         </div>
       </div>
@@ -161,7 +164,7 @@ export const PaymentStageSelector: React.FC = () => {
                   <td className="ps-3 fw-bold text-gray-600">{idx + 1}</td>
                   <td className="fw-semibold text-gray-800">{row.name}</td>
                   <td className="text-center fw-bold text-gray-700">{row.percentage}%</td>
-                  <td className="text-end pe-3 fw-bolder text-dark">{formatCurrency(row.amount)}</td>
+                  <td className="text-end pe-3 fw-bolder text-dark">{formatAmount(row.amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -169,7 +172,7 @@ export const PaymentStageSelector: React.FC = () => {
               <tr className="bg-light-primary fw-bolder border-top border-gray-300">
                 <td colSpan={2} className="text-end pe-3 text-gray-800">Total</td>
                 <td className="text-center text-primary">{roundedPct}%</td>
-                <td className="text-end pe-3 text-primary">{getCurrencySymbol()} {formatCurrency(totalCost)}</td>
+                <td className="text-end pe-3 text-primary">{getCurrencySymbol()} {formatAmount(totalCost)}</td>
               </tr>
             </tfoot>
           </Table>

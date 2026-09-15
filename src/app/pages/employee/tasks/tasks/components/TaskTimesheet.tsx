@@ -12,7 +12,7 @@ import { toast } from 'react-toastify';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { getTimeTokens } from '@utils/timeFormat';
-import { getCurrencySymbol } from '@utils/currency';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 // Extend dayjs with duration plugin
 dayjs.extend(duration);
@@ -136,7 +136,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
 
         const result = {
             totalLogTime: formatDuration(totalHours, remainingMinutes, remainingSeconds),
-            totalCost: `${getCurrencySymbol()}${totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            totalCost: `${getCurrencySymbol()}${totalCost.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             totalLogs: logs.length,
             billableLogs,
             nonBillableLogs: logs.length - billableLogs
