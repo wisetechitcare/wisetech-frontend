@@ -7,6 +7,7 @@ import { fetchAllEmployeesSelectedData } from "@services/employee";
 import { getAvatar } from "@utils/avatar";
 import { EmployeeSelectionDialog, type EmployeeOption } from "./EmployeeSelectionDialog";
 import { WtField } from "./ui/WtField";
+import { WtSelect } from "./ui/WtSelect";
 
 /**
  * EmployeePickerField — a labelled form control that opens the shared
@@ -78,12 +79,49 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
         setDraft((prev) => (multiple ? (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]) : prev[0] === id ? [] : [id]));
     const save = () => { onChange(draft); setOpen(false); };
 
+    /**
+     * ONE value is a dropdown, not a dialog.
+     *
+     * The dialog put a checkbox on every row and a "Choose (1)" button under a field that
+     * accepts a single employee. The affordance is the promise: checkboxes say "tick as many
+     * as you like", so someone does, and the control refuses without explaining. It also took
+     * four interactions — open, search, tick, confirm — for what a dropdown does in one.
+     *
+     * `WtSelect` already renders avatars and a second line via `optionVariant="avatar"`, so
+     * the richer row was never a reason to reach for a modal.
+     */
+    if (!multiple) {
+        const options = employees.map((e) => ({
+            value: e.id,
+            label: e.name,
+            avatar: e.avatar,
+            description: e.designation,
+        }));
+        const current = options.find((o) => o.value === ids[0]) ?? null;
+
+        return (
+            <WtField label={label} labelPlacement="above" required={required} hint={helperText} disabled={disabled} sx={sx}>
+                <WtSelect
+                    options={options}
+                    value={current}
+                    onChange={(opt: { value: string } | null) => onChange(opt?.value ? [opt.value] : [])}
+                    placeholder={placeholder}
+                    isDisabled={disabled}
+                    isLoading={isLoading}
+                    isSearchable
+                    isClearable
+                    optionVariant="avatar"
+                    ariaLabel={label}
+                />
+            </WtField>
+        );
+    }
+
     return (
-        // The label sits ABOVE because this control is a BUTTON that opens a dialog, not an
-        // input, so there is no notch it could carry — the same exception WtField already
-        // makes for a searchable select. Everything else (label, hint, spacing, the required
-        // marker) comes from WtField now; this file used to restate all of it with the exact
-        // same numbers, which is a copy rather than a variation.
+        // MULTI-select keeps the dialog, where a checkbox and a count are honest: picking
+        // several panelists from a long directory is genuinely easier in a full-screen list
+        // than in a dropdown. The label sits ABOVE because this control is a BUTTON, not an
+        // input, so there is no notch it could carry.
         <WtField label={label} labelPlacement="above" required={required} hint={helperText} disabled={disabled} sx={sx}>
             <Box
                 role="button"

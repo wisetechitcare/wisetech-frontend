@@ -473,7 +473,16 @@ export const reorderConfig = async (type: string, orderedIds: string[]) => {
 // ─── Tenant settings (scoring weights + automation rules) ────────────────────
 export interface ScoringWeights { ctcFit: number; experience: number; noticePeriod: number; keywordMatch: number }
 export interface AutoRules { autoAdvanceEnabled: boolean; autoRejectEnabled: boolean; aiScreeningEnabled: boolean }
-export interface RecruitmentSettings { weights: ScoringWeights; autoRules: AutoRules }
+export interface RecruitmentSettings {
+    weights: ScoringWeights;
+    autoRules: AutoRules;
+    /**
+     * Who a new requisition names as recruiter before anyone edits it — normally whoever in
+     * HR runs hiring. A setting rather than a constant: which person that is differs per
+     * customer. Null when unset, and the field is then simply left empty.
+     */
+    defaultRecruiterId?: string | null;
+}
 
 export const getRecruitmentSettings = async (): Promise<RecruitmentSettings> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.SETTINGS}`);

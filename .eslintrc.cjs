@@ -177,6 +177,13 @@ module.exports = {
         selector: "JSXAttribute[name.name=/^(icon|iconName)$/] > Literal[value='dollar']",
         message: 'The `dollar` keenicon is a currency-specific glyph. If it stands for an AMOUNT use <CurrencySymbol /> (IconBox and StatTile take a node); if it is a category icon use `wallet`.',
       },
+      /* The same glyph, written as an object property in a config map rather than a JSX
+       * attribute. The selector above never looked at these, which is how three of them sat
+       * in the approval domain registry putting a $ on every offer and reimbursement card. */
+      {
+        selector: "Property[key.name=/^(icon|iconName)$/] > Literal[value='dollar']",
+        message: 'The `dollar` keenicon is a currency-specific glyph. For a category icon use `wallet`; for an AMOUNT use <CurrencySymbol />.',
+      },
     ],
   },
   overrides: [

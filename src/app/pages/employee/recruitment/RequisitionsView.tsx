@@ -27,13 +27,28 @@ const STATUS_META: Record<number, { label: string; tone: SemanticTone }> = {
     2: { label: "Rejected", tone: "danger" },
 };
 
-const emptyForm = (): RequisitionPayload => ({
+/**
+ * A blank requisition, with the two people pre-filled where we can honestly guess.
+ *
+ * `hiringManagerId` is whoever is filling the form: a requisition is normally raised BY the
+ * manager whose team the hire joins. Derived rather than configured, because "the logged-in
+ * user" is true for every customer.
+ *
+ * `recruiterId` is the tenant's configured default. Which person in HR runs hiring is a
+ * per-customer fact, so it is a setting rather than a name in this file. Unset leaves the
+ * field empty — guessing somebody is worse than asking, since a wrong recruiter stays
+ * invisible until they wonder why nobody told them about the role.
+ *
+ * Defaults only, and only on a NEW requisition. Editing an existing one loads what was
+ * saved.
+ */
+const emptyForm = (defaults: { hiringManagerId?: string; recruiterId?: string } = {}): RequisitionPayload => ({
     title: "",
     jobDescription: "",
     headcount: 1,
     employeeLevelId: null,
-    hiringManagerId: "",
-    recruiterId: "",
+    hiringManagerId: defaults.hiringManagerId ?? "",
+    recruiterId: defaults.recruiterId ?? "",
     minCtcInLpa: null,
     maxCtcInLpa: null,
     targetStartDate: null,
