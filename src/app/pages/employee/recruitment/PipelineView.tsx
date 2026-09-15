@@ -5,7 +5,7 @@ import {
     Box, Stack, Typography, ToggleButton, ToggleButtonGroup, CircularProgress, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, toast, AppIcon, WtEmptyState } from "@app/modules/common/components/ui";
+import { ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, AppIcon, WtEmptyState } from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
 import { COPY } from "./terms";
 import { queryKeys } from "@/lib/queryKeys";
@@ -83,25 +83,18 @@ const PipelineView = ({ companyId }: OrgScoped) => {
      */
     const listColumns = useMemo(
         () => applicationColumns({
+            // One row of icon actions, each named by its tooltip (and aria-label). Four worded buttons
+            // did not fit the column and wrapped into a ragged stack on every row. Clicks here must not
+            // also reach the row, which opens the candidate.
             actions: (a) => (
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                    <WtButton size="small" ghost startIcon={<KTIcon iconName="profile-circle" className="fs-6" />} onClick={() => setOpenCandidate(a)}>
-                        Open
-                    </WtButton>
-                    <WtButton size="small" ghost startIcon={<KTIcon iconName="message-text-2" className="fs-6" />} onClick={() => setInterviewsFor(a)}>
-                        Interviews
-                    </WtButton>
-                    <WtButton size="small" ghost startIcon={<KTIcon iconName="wallet" className="fs-6" />} onClick={() => setOfferFor(a)}>
-                        Offer
-                    </WtButton>
+                <Stack direction="row" spacing={0.75} alignItems="center" onClick={(e) => e.stopPropagation()}>
+                    <ActionIconButton iconName="profile-circle" size="sm" tone="brand" title="Open candidate" onClick={() => setOpenCandidate(a)} />
+                    <ActionIconButton iconName="message-text-2" size="sm" tone="indigo" title="Interviews" onClick={() => setInterviewsFor(a)} />
+                    <ActionIconButton iconName="wallet" size="sm" tone="indigo" title="Offer" onClick={() => setOfferFor(a)} />
                     {a.status?.isHiredOutcome && (
                         a.convertedEmployeeId
                             ? <ToneChip tone="success" label="Converted" dense />
-                            : (
-                                <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => convertToEmployee(a)}>
-                                    Convert
-                                </WtButton>
-                            )
+                            : <ActionIconButton iconName="user-tick" size="sm" tone="success" title="Convert to employee" onClick={() => convertToEmployee(a)} />
                     )}
                 </Stack>
             ),
@@ -306,6 +299,14 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     data={applications}
                     isLoading={isLoading}
                     tableName="RecruitmentPipelineList"
+                    // The whole row opens the candidate — the record that holds stage, interviews,
+                    // offer and convert — so the row is the target, not a 30px icon at its end.
+                    muiTableProps={{
+                        muiTableBodyRowProps: ({ row }: { row: { original: Application } }) => ({
+                            onClick: () => setOpenCandidate(row.original),
+                            sx: { cursor: "pointer" },
+                        }),
+                    }}
                 />
             )}
 

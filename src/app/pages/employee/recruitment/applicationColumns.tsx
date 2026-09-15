@@ -163,7 +163,9 @@ export function applicationColumns(opts: ApplicationColumnOptions = {}): MRT_Col
         kept.push({
             id: "actions",
             header: "Actions",
-            size: 260,
+            // Sized for a row of up to four 30px icon actions — never wrapping.
+            size: 170,
+            minSize: 170,
             // Buttons are not data: sorting, filtering and exporting them is meaningless,
             // and leaving them enabled offers the user three controls that do nothing.
             enableSorting: false,

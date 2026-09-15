@@ -20,6 +20,7 @@ import {
     type Applicant, type ApplicantPayload, type ApplicantSource, type OrgScoped,
     uploadApplicantResume,
 } from "@services/recruitment";
+import { apiErrorMessage } from "@utils/apiError";
 
 /** Blank create form. The API requires a first name plus EITHER an email or a phone. */
 const emptyForm = (): ApplicantPayload => ({
@@ -142,7 +143,8 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
             return created;
         },
         onSuccess: () => { toast({ icon: "success", title: "Candidate added" }); close(); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not add candidate (a candidate with this email may already exist)" }),
+        // The server names the existing candidate when the email or phone is already on file.
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not add the candidate") }),
     });
     const updateMut = useMutation({
         mutationFn: async () => {
@@ -151,7 +153,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
             return updated;
         },
         onSuccess: () => { toast({ icon: "success", title: "Candidate updated" }); close(); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not update candidate" }),
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not update the candidate") }),
     });
     const blacklistMut = useMutation({
         mutationFn: (vars: { id: string; isBlacklisted: boolean }) => updateApplicant(vars.id, { isBlacklisted: vars.isBlacklisted }),
@@ -386,7 +388,8 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                                 value={form.phone ?? ""}
                                 onChange={(v) => set("phone", v)}
                                 error={hasIdentity ? undefined : "Enter an email or a phone number."}
-                                hint="Re-applying with this number updates the same candidate."
+                                // Adding someone already on file is refused and names them, so they are found, not duplicated.
+                                hint={editing ? undefined : "If this number or email is already on file, you will be told who has it."}
                             />
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
