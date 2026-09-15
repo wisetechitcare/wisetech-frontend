@@ -1017,15 +1017,13 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                                   <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
                                     {getCurrencySymbol(code)} {code}
                                   </Box>
-                                  , from the country above.
+                                  , from the selected country.
                                 </>
                               )}
                             </Typography>
                           </Box>
                         )
                       })()}
-                    {/* </div>
-                  </div> */}
 
                   <div className='row'>
                     <div className='col-lg-6 mb-7'>
