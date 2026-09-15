@@ -1,4 +1,4 @@
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 export const roundPayrollAmount = (n: number) => Math.round(Number.isFinite(n) ? n : 0);
 
 export const truncatePayrollAmount = (n: number, fractionDigits = 2) => {
@@ -14,7 +14,7 @@ const formatMoney = (n: number, fractionDigits: number) => {
     const factor = 10 ** fractionDigits;
     value = Math.trunc(value * factor) / factor;
     
-    return `${getCurrencySymbol()}${value.toLocaleString(getCurrencyLocale(), {
+    return `${currencyPrefix()}${value.toLocaleString(getCurrencyLocale(), {
         minimumFractionDigits: fractionDigits,
         maximumFractionDigits: fractionDigits,
     })}`;

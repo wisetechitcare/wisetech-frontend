@@ -3,7 +3,7 @@ import { describe, test, expect, vi } from 'vitest';
 // The module reads the store only as a fallback before the app has published a currency.
 vi.mock('@redux/store', () => ({ store: { getState: () => ({}) } }));
 
-const { formatCurrency, formatCurrencyCompact, getCurrencyLocale, getCurrencySymbol } = await import('./currency');
+const { currencyPrefix, formatCurrency, formatCurrencyCompact, getCurrencyLocale, getCurrencySymbol } = await import('./currency');
 
 // Characters are built from code points, never typed: the lint rule bans a typed rupee sign in
 // app code, and invisible characters in source are unreviewable.
@@ -63,5 +63,20 @@ describe('formatCurrencyCompact', () => {
   test('a glyph sits flush, unchanged', () => {
     expect(formatCurrencyCompact(1200000, 'INR')).toBe(`${RUPEE}12 L`);
     expect(formatCurrencyCompact(1200000, 'USD')).toBe('$1.2M');
+  });
+});
+
+describe('currencyPrefix — the symbol as it leads a hand-built figure', () => {
+  test('a glyph is exactly getCurrencySymbol, so rupee, dollar and pound output is unchanged', () => {
+    for (const code of ['INR', 'USD', 'GBP', 'EUR']) {
+      expect(currencyPrefix(code)).toBe(getCurrencySymbol(code));
+    }
+  });
+
+  test('a letter code gets a no-break space, matching what Intl prints', () => {
+    for (const code of ['AED', 'SAR', 'CHF']) {
+      expect(currencyPrefix(code)).toBe(`${getCurrencySymbol(code)}${NBSP}`);
+      expect(`${currencyPrefix(code)}1,234`).toBe(formatCurrency(1234, code));
+    }
   });
 });

@@ -138,10 +138,8 @@ export const formatCurrencyCompact = (
 ): string => {
   const currency = branchCurrency || getActiveCurrency();
   const n = Number(amount) || 0;
-  // A letter code is set apart from the number by a no-break space — "AED 180K", never
-  // "AED180K" — exactly as `formatCurrency` (Intl) prints it. A glyph sits flush: "₹3.50 L".
-  const code = getCurrencySymbol(currency);
-  const symbol = /\p{L}$/u.test(code) ? `${code}\u00A0` : code;
+  // "AED 180K", never "AED180K"; a glyph sits flush: "₹3.50 L". See currencyPrefix.
+  const symbol = currencyPrefix(currency);
   const abs = Math.abs(n);
 
   // "24,947 Cr" is how an Indian reader takes in a large number at a glance. The same
@@ -204,6 +202,24 @@ export const getCurrencySymbol = (currencyCode?: string): string => {
 
   symbolCache.set(code, symbol);
   return symbol;
+};
+
+/** A no-break space: keeps "AED" and its figure on one line. From a code point so it stays visible in review. */
+const NBSP = String.fromCharCode(0xa0);
+
+/**
+ * The symbol as it should LEAD a figure built by hand.
+ *
+ * A glyph sits flush — "₹1,234", "$1,234" — and this is then exactly `getCurrencySymbol()`.
+ * A symbol that ends in a letter gets a no-break space — "AED 1,234", never "AED1,234" — which
+ * is how `formatCurrency` (Intl) writes it, so a hand-built figure and a formatted one match.
+ *
+ * Use this wherever a symbol is glued in front of a number. Keep `getCurrencySymbol()` for the
+ * bare symbol: a column label "Amount (AED)", an input adornment, an icon slot.
+ */
+export const currencyPrefix = (currencyCode?: string): string => {
+  const symbol = getCurrencySymbol(currencyCode);
+  return /\p{L}$/u.test(symbol) ? `${symbol}${NBSP}` : symbol;
 };
 
 /** The currency assumed when neither the branch nor its country can say. */
