@@ -914,8 +914,11 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                     </div> */}
                   </div>
 
-                  {/* <div className='row'>
-                    <div className='col-lg-12 mb-7'> */}
+                  {/* Country and Currency share a row: currency is DERIVED from country, so
+                      putting them side by side says that without a sentence. Same 6/6 split
+                      the State and City row below already uses. */}
+                  <div className='row'>
+                    <div className='col-lg-6 mb-7'>
                       <LocationDropdown
                         isRequired={true}
                         value={selectedCountry}
@@ -964,27 +967,27 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                           setCountrySearch(newValue)
                         }}
                       />
+                    </div>
 
-                      {/* Currency sits directly under Country because it is DERIVED from it:
-                          picking a country fills this in. It stays editable because a branch
-                          that bills in something other than its local currency is a real
-                          arrangement — a Gulf office invoicing in dollars, a European
-                          subsidiary reporting in euros.
+                    {/* Editable, because a branch that bills in something other than its local
+                        currency is a real arrangement — a Gulf office invoicing in dollars, a
+                        European subsidiary reporting in euros.
 
-                          The full list, not a country-or-dollar pair. USD is not a universal
-                          second currency: it is the right answer in the Gulf and the wrong one
-                          for a London or Frankfurt branch, and hard-coding it would put an
-                          American assumption into a product sold in India and the Gulf. The
-                          list is already fetched and already in state, so offering all of it
-                          costs nothing and restricting it would be extra code for less. */}
-                      <div className='mb-7'>
-                        <DropDownInput
-                          isRequired={false}
-                          formikField='currency'
-                          inputLabel='Currency'
-                          options={currenciesOption}
-                        />
-                      </div>
+                        The full list, not a country-or-dollar pair. USD is not a universal
+                        second currency: right in the Gulf, wrong for a London or Frankfurt
+                        branch, and hard-coding it would put an American assumption into a
+                        product sold in India and the Gulf. The list is already fetched and
+                        already in state, so offering all of it costs nothing and restricting
+                        it would be extra code for less. */}
+                    <div className='col-lg-6 mb-7'>
+                      <DropDownInput
+                        isRequired={false}
+                        formikField='currency'
+                        inputLabel='Currency'
+                        options={currenciesOption}
+                      />
+                    </div>
+                  </div>
 
                       {/* Deviating from the country is allowed but never silent. Salary, offers
                           and exported payslips all read this, and a branch quietly set to the

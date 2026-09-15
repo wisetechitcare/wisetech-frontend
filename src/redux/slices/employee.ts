@@ -28,6 +28,12 @@ interface Branch {
      */
     showDateIn12HourFormat?: boolean | null,
     currency?: string,
+    /**
+     * ISO2. Feeds the CURRENCY FALLBACK: a branch with no currency of its own resolves one
+     * from its country. Without it that fallback cannot fire and such a branch lands on the
+     * final INR default, which is right in India and wrong everywhere else.
+     */
+    countryId?: string,
     dateFormat?: string,
     timezone?: string,
 }
