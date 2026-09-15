@@ -227,7 +227,9 @@ const EntityDetailPage: React.FC = () => {
         return <TeamsSection lead={lead} />;
       case 'meetings':
         // Meetings are linked by projectId = the lead id (lead-as-master).
-        return <ProjectMeetings leadId={lead.id} />;
+        // A lead that is not yet a project is on nobody's project list, so the meeting form
+        // needs its name handed over (same as the Leads table does).
+        return <ProjectMeetings leadId={lead.id} leadName={isProject ? undefined : (lead.title || lead.prefix || 'Lead')} />;
       default:
         return null;
     }

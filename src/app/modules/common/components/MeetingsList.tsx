@@ -11,7 +11,7 @@ import {
     MEETING_HALF_PM, MEETING_HALF_FREE_COLOR, MEETING_HALF_AM,
     MEETING_STATUS_CANCELLED, MEETING_STATUS_AWAITING, MEETING_STATUS_HELD,
 } from '@constants/configurations-key';
-import { Dialog, DialogContent, useMediaQuery } from '@mui/material';
+import { Box, Dialog, DialogContent, useMediaQuery } from '@mui/material';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -1213,43 +1213,35 @@ const DayDetail: React.FC<{
                             title={onEdit ? 'Open this meeting' : undefined}
                             style={{
                                 /**
-                                 * TIME AND ACTIONS SHARE THE TOP LINE; the text gets the row.
+                                 * A CARD: time on top, the meeting across the full width, and
+                                 * its actions in a footer of their own.
                                  *
-                                 * These were three side-by-side columns, and the two fixed ones
-                                 * ate the row: 118px reserved for the clock and about 120 for
-                                 * five icon buttons, out of the ~400px a half-column gets inside
-                                 * this dialog. That left roughly 140px for the title, the
-                                 * project and the address — so a venue like "Sector 30A, Vashi,
-                                 * Navi Mumbai, Maharashtra 400703" wrapped into a ten-line
-                                 * column and the card ran off the bottom of the panel.
+                                 * The actions used to share the top line with the clock as five
+                                 * bare 16px glyphs — small targets, and a bell / pencil / circle
+                                 * row that had to be hovered to be read. In a footer they get
+                                 * room for a WORD each, and the text above still keeps the full
+                                 * width that stopped long addresses wrapping into a column.
                                  *
-                                 * Neither fixed column NEEDS to be beside the text. The clock is
-                                 * eight characters and the buttons are icons, so both fit on one
-                                 * line together with room to spare, and the text below gets the
-                                 * full width — the same address now takes two lines.
-                                 *
-                                 * Grid areas rather than reordering the markup: the buttons stay
-                                 * last in the DOM, which is the order they should be read and
-                                 * tabbed in, and only where they are PAINTED changes.
+                                 * The buttons stay last in the DOM, the order they are read and
+                                 * tabbed in.
                                  */
-                                display: 'grid',
-                                gridTemplateColumns: '1fr auto',
-                                gridTemplateAreas: '"time actions" "body body"',
-                                columnGap: 8, rowGap: 4, alignItems: 'center',
+                                display: 'flex', flexDirection: 'column',
                                 // The half's own colour, tinted. Under a heading that already
                                 // names the half, this is confirmation rather than the only
                                 // clue — which is why it can afford to be quiet.
                                 background: rowTone(colors[half.key]).bg,
                                 border: '1px solid #E2E8F0',
                                 borderLeft: `3px solid ${colors[half.key]}`,
-                                borderRadius: 9, padding: '10px 12px',
+                                borderRadius: 10, overflow: 'hidden',
                                 cursor: onEdit ? 'pointer' : 'default',
                             }}
                         >
-                            <div style={{ gridArea: 'time', fontSize: 12, fontWeight: 700, color: rowTone(colors[half.key]).fg, whiteSpace: 'nowrap' }}>
+                            <div style={{ padding: '10px 12px 10px', minWidth: 0 }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: rowTone(colors[half.key]).fg, whiteSpace: 'nowrap', marginBottom: 4 }}>
+                                <AppIcon name="bi-clock" className="fs-7" />
                                 {timeRange(m)}
                             </div>
-                            <div style={{ gridArea: 'body', minWidth: 0 }}>
+                            <div style={{ minWidth: 0 }}>
                                 {/* Struck through and tagged, exactly as the table row reads it.
                                     The row is kept — a cancelled meeting is still part of what
                                     the day and the project had booked — but it has to be
@@ -1286,62 +1278,49 @@ const DayDetail: React.FC<{
                                     {m.organizerName && <span style={{ marginLeft: 10 }}>· {m.organizerName}</span>}
                                 </div>
                             </div>
-                            {/* The SAME three actions the table row offers. They were only in
-                                the table, so which of them existed depended on which view you
-                                happened to be in — and the day modal is the view people are in
-                                when they want them. */}
-                            <div style={{ gridArea: 'actions', display: 'flex', gap: 2, justifySelf: 'end' }} onClick={(e) => e.stopPropagation()}>
-                                {onRemind && !isHeld(m) && !isCancelled(m) && (
-                                    <button
-                                        type="button"
-                                        onClick={() => onRemind(m)}
-                                        title="Remind me before this meeting"
-                                        style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#1E3A8A' }}
-                                    >
-                                        <AppIcon name="bi-bell" className="fs-5" />
-                                    </button>
-                                )}
-                                {onLogTime && isHeld(m) && !isCancelled(m) && (
-                                    <button
-                                        type="button"
-                                        onClick={() => onLogTime(m)}
-                                        title={m.loggedMinutes ? 'Edit your logged time' : 'Log your time'}
-                                        style={{ border: 0, background: 'transparent', cursor: 'pointer', color: m.loggedMinutes ? '#16A34A' : '#B45309' }}
-                                    >
-                                        <AppIcon name="bi-stopwatch" className="fs-5" />
-                                    </button>
-                                )}
-                                {onEdit && !isCancelled(m) && (
-                                    <button
-                                        type="button"
-                                        onClick={() => onEdit(m)}
-                                        title="Edit meeting"
-                                        style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#1E3A8A' }}
-                                    >
-                                        <AppIcon name="bi-pencil" className="fs-5" />
-                                    </button>
-                                )}
-                                {onCancel && (
-                                    <button
-                                        type="button"
-                                        onClick={() => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
-                                        title={isCancelled(m) ? 'Restore meeting' : 'Cancel meeting'}
-                                        style={{ border: 0, background: 'transparent', cursor: 'pointer', color: isCancelled(m) ? '#16A34A' : '#B45309' }}
-                                    >
-                                        <AppIcon name={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'} className="fs-5" />
-                                    </button>
-                                )}
-                                {onDelete && (
-                                    <button
-                                        type="button"
-                                        onClick={() => onDelete(m.id)}
-                                        title="Delete meeting"
-                                        style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#DC2626' }}
-                                    >
-                                        <AppIcon name="bi-trash" className="fs-5" />
-                                    </button>
-                                )}
                             </div>
+                            {/* The SAME actions the table row offers. They were only in the
+                                table, so which of them existed depended on which view you
+                                happened to be in — and the day modal is the view people are in
+                                when they want them. Rendered only when there is one to show. */}
+                            {((onRemind && !isHeld(m) && !isCancelled(m)) || (onLogTime && isHeld(m) && !isCancelled(m))
+                                || (onEdit && !isCancelled(m)) || onCancel || onDelete) && (
+                                <div
+                                    style={{
+                                        display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 12px',
+                                        borderTop: '1px dashed rgba(100,116,139,0.28)',
+                                        background: 'rgba(255,255,255,0.55)',
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {onRemind && !isHeld(m) && !isCancelled(m) && (
+                                        <CardAction icon="bi-bell" label="Remind me" color="#1E3A8A" onClick={() => onRemind(m)} />
+                                    )}
+                                    {onLogTime && isHeld(m) && !isCancelled(m) && (
+                                        <CardAction
+                                            icon="bi-stopwatch"
+                                            label={m.loggedMinutes ? 'Edit time' : 'Log time'}
+                                            color={m.loggedMinutes ? '#16A34A' : '#B45309'}
+                                            onClick={() => onLogTime(m)}
+                                        />
+                                    )}
+                                    {onEdit && !isCancelled(m) && (
+                                        <CardAction icon="bi-pencil" label="Edit" color="#1E3A8A" onClick={() => onEdit(m)} />
+                                    )}
+                                    {onCancel && (
+                                        <CardAction
+                                            icon={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'}
+                                            label={isCancelled(m) ? 'Restore' : 'Cancel'}
+                                            color={isCancelled(m) ? '#16A34A' : '#B45309'}
+                                            onClick={() => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
+                                        />
+                                    )}
+                                    {onDelete && (
+                                        // Destructive, so it sits apart on the far right.
+                                        <CardAction icon="bi-trash" label="Delete" color="#DC2626" onClick={() => onDelete(m.id)} pushRight />
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -1353,6 +1332,34 @@ const DayDetail: React.FC<{
         </Dialog>
     );
 };
+
+/**
+ * One labelled action in a day-card footer: icon AND word, a 30px target, tinted in its own
+ * colour so Cancel and Delete read as different weights before they are read as words.
+ * `color` is a 6-digit hex (the alpha suffixes below depend on it).
+ */
+const CardAction: React.FC<{
+    icon: string; label: string; color: string; onClick: () => void; pushRight?: boolean;
+}> = ({ icon, label, color, onClick, pushRight }) => (
+    <Box
+        component="button"
+        type="button"
+        onClick={onClick}
+        sx={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            height: 30, px: 1.25, ml: pushRight ? 'auto' : 0,
+            borderRadius: '8px', border: `1px solid ${color}33`, bgcolor: `${color}0D`, color,
+            fontSize: 12, fontWeight: 600, fontFamily: 'inherit', lineHeight: 1, whiteSpace: 'nowrap',
+            cursor: 'pointer', transition: 'background-color .15s, border-color .15s, transform .1s',
+            '&:hover': { bgcolor: `${color}1F`, borderColor: `${color}66` },
+            '&:active': { transform: 'scale(0.97)' },
+            '&:focus-visible': { outline: `2px solid ${color}`, outlineOffset: 1 },
+        }}
+    >
+        <AppIcon name={icon} className="fs-6" />
+        {label}
+    </Box>
+);
 
 export interface MeetingsListProps {
     mode: 'project' | 'contact' | 'employee';
