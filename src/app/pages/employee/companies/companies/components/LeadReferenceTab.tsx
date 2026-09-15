@@ -42,7 +42,9 @@ const LeadReferenceTab: React.FC<{ referredLeads?: ReferredLead[] }> = ({ referr
     noun="lead"
     storageKey="leadReferencePeriodMode"
   >
-    {(filtered) => <CompanyLeadReferences referredLeads={filtered as any} />}
+    {(filtered) => (
+      <CompanyLeadReferences referrals={filtered as any} tableName="company-lead-references" showReferredBy />
+    )}
   </AnalyticsTab>
 );
 
