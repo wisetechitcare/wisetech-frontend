@@ -37,6 +37,11 @@ import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@redux/store'
 import { saveCountries } from '@redux/slices/locations'
+// The geo directory, read through the hook rather than the locations slice: that slice
+// holds either raw country records or a slimmed {value,label} pair depending on which
+// screen loaded first, and only the raw shape carries a currency.
+import { useCountryDirectory } from '@hooks/useCurrency'
+import { getCurrencySymbol } from '@utils/currency'
 import LocationDropdown from '@app/modules/common/inputs/LocationDropdown'
 import DropDownInput from '@app/modules/common/inputs/DropdownInput'
 import RadioInput from '@app/modules/common/inputs/RadioInput'
@@ -194,6 +199,9 @@ const toBranchTimeFormat = (value: string): boolean | null =>
 function Branches({ companyId, embedded = false, hideHeading = false }: BranchesProps = {}) {
   const dispatch = useDispatch()
   const { countries } = useSelector((state: RootState) => state.locations)
+  // Read through the hook, not the slice: the slice holds raw records or a slimmed
+  // {value,label} pair depending on which screen loaded first, and only raw carries a currency.
+  const geoCountries = useCountryDirectory()
 
   const [show, setShow] = useState(false)
 
@@ -948,6 +956,14 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                           if (!timezoneManuallyEdited && defaultZone) {
                             formikProps.setFieldValue('timezone', defaultZone)
                           }
+
+                          // Currency follows the country, on the same terms as the timezone
+                          // above: derived, and stored so the branch says what it bills in
+                          // rather than leaving every reader to infer it from the country.
+                          const picked = geoCountries?.find((c) => c.iso2 === option?.value)
+                          if (picked?.currency) {
+                            formikProps.setFieldValue('currency', picked.currency)
+                          }
                         }}
                         formikField='countryId'
                         inputLabel='Country'
@@ -956,6 +972,26 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                           setCountrySearch(newValue)
                         }}
                       />
+
+                      {/* Derived, not asked for. Salary, offers and exported payslips all read
+                          this, so a branch that silently inherits the wrong one is expensive to
+                          notice — saying it here costs a line and removes the guess. */}
+                      {(() => {
+                        const code = formikProps.values.currency
+                        if (!code) return null
+                        return (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: -0.5, mb: 2 }}>
+                            <KTIcon iconName="wallet" className="fs-6 text-muted" />
+                            <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
+                              Salaries and offers at this branch are shown in{' '}
+                              <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                                {getCurrencySymbol(code)} {code}
+                              </Box>
+                              , from the country above.
+                            </Typography>
+                          </Box>
+                        )
+                      })()}
                     {/* </div>
                   </div> */}
 
