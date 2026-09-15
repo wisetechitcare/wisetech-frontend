@@ -3233,7 +3233,15 @@ const LeadWizardModal = ({
                   // (`.split("T")[0]` also truncated a UTC ISO, so an evening receipt in
                   // IST was stored as the previous day.)
                   if (isReceived) {
-                    setFieldValue("receivedDate", new Date().toISOString());
+                    const receivedAt = new Date().toISOString();
+                    setFieldValue("receivedDate", receivedAt);
+                    // Start Date too. Project numbers are issued in receipt order, and
+                    // the Projects page lists by Start Date — so a start date left at
+                    // the imported inquiry-era value (every legacy lead has one, so the
+                    // seed effect below never fires) puts a brand-new number next to a
+                    // months-old date. That is exactly how 763/764/765/769 ended up
+                    // "out of sequence".
+                    setFieldValue("startDate", receivedAt);
                   }
                   // Clear receivedDate when status is no longer Received
                   if (!isReceived && values.receivedDate) {

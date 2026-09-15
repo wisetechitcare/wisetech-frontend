@@ -267,8 +267,10 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
       }
       successConfirmation('Prefix settings saved successfully.');
       setReloadToken((n) => n + 1);
-    } catch {
-      errorConfirmation('Could not save prefix settings.');
+    } catch (err: any) {
+      // The server explains a refused save (e.g. a prefix that would duplicate
+      // another organization's numbers) — show that, not a generic failure.
+      errorConfirmation(err?.response?.data?.message || 'Could not save prefix settings.');
     } finally {
       setSaving(false);
     }
