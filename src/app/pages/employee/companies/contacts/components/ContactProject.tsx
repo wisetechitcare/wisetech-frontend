@@ -24,7 +24,8 @@ import { getAllCompanyTypes } from "@services/companies";
 import Loader from "@app/modules/common/utils/Loader";
 import { useNavigate } from "react-router-dom";
 
-const ContactProject = ({ contact }: { contact: any }) => {
+/** `reloadKey` — bump it to refetch (the tab bar's "Add to projects" does). */
+const ContactProject = ({ contact, reloadKey = 0 }: { contact: any; reloadKey?: number }) => {
   const employeeId = useSelector(
     (state: RootState) => state.auth?.currentUser?.id
   );
@@ -86,7 +87,7 @@ const ContactProject = ({ contact }: { contact: any }) => {
   };
   useEffect(() => {
     getAllProjectsData();
-  }, [contact]);
+  }, [contact, reloadKey]);
 
   const findClientCompanyName = (companyId: string | undefined) => {
     if (!companyId) return null;

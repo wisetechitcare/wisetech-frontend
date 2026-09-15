@@ -508,6 +508,9 @@ export const LEAD_PROJECT_COMPANY = {
 
     GET_PROJECTS_BY_COMPANY_ID: "api/lead-project-companies/projects/company/:companyId",
     GET_PROJECTS_BY_EMPLOYEE_ID: "api/lead-project-companies/projects/employee/:employeeId",
+    GET_ASSIGNABLE_PROJECTS: "api/lead-project-companies/projects/assignable",
+    ASSIGN_PROJECTS: "api/lead-project-companies/projects/assign",
+    GET_MANAGED_PROJECTS: "api/lead-project-companies/projects/managed-by/:employeeId",
     GET_RATING_BY_COMPANY_ID: "api/lead-project-companies/company/rating/:companyId",
     GET_LEADS_BY_COMPANY_ID: "api/lead-project-companies/company/leads/:companyId",
 

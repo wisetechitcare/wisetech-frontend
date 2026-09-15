@@ -650,6 +650,46 @@ export const getProjectsByEmployeeId = async (id: string) => {
     }
 }
 
+export type AssignTarget = { employeeId: string } | { contactId: string };
+
+export interface AssignableProject {
+    id: string;
+    title: string;
+    projectNumber: string | null;
+    status: { name: string; color: string | null } | null;
+    teamName: string | null;
+    alreadyAdded: boolean;
+    /** null = project has no execution team (or the target is a contact). */
+    inTeam: boolean | null;
+}
+
+// Every project, flagged for the "Add to projects" dialog
+export const getAssignableProjects = async (target: AssignTarget): Promise<AssignableProject[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ASSIGNABLE_PROJECTS}`, { params: target });
+    return data?.data?.projects ?? [];
+}
+
+// Add an employee / contact to many projects at once
+export const assignToProjects = async (target: AssignTarget, leadIds: string[], startDate: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${LEAD_PROJECT_COMPANY.ASSIGN_PROJECTS}`, { ...target, leadIds, startDate });
+    return data?.data as { added: string[]; failed: { id: string; message: string }[] };
+}
+
+export interface ManagedProject {
+    leadId: string;
+    title: string;
+    projectNumber: string | null;
+    isPrimary: boolean;
+    /** Employees who could take over: the project's active team, minus the leaver. */
+    candidateIds: string[];
+}
+
+// Projects an employee currently manages, for the exit handover dialog
+export const getManagedProjects = async (employeeId: string): Promise<ManagedProject[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_MANAGED_PROJECTS.replace(":employeeId", employeeId)}`);
+    return data?.data?.projects ?? [];
+}
+
 // Get rating by company id
 export const getRatingByCompanyId = async (id: string) => {
     try {
