@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { Box, Typography, Chip } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import type { MRT_ColumnDef } from "material-react-table";
 import { ToneChip } from "@app/modules/common/components/ui";
-import { SCORE_BAND_META, type Application } from "@services/recruitment";
+import { SCORE_BAND_META, SCORE_FACTORS, type Application, type ScoreBand } from "@services/recruitment";
+import type { SemanticTone } from "@app/theme/tokens";
 import { formatDate } from "@utils/dateFormats";
 
 /**
@@ -30,6 +31,46 @@ export const applicantName = (a: Application): string =>
  * abbreviation was the odd one out rather than the norm.
  */
 export const daysLabel = (days: number): string => (days === 1 ? "1 day" : `${days} days`);
+
+/** A score band as a semantic tone — one map, so the board, the list and the candidate modal agree on what "Good" looks like. */
+export const SCORE_BAND_TONE: Record<ScoreBand, SemanticTone> = {
+    excellent: "success",
+    good: "cyan",
+    fair: "warning",
+    poor: "danger",
+};
+
+/**
+ * The score as a chip: the band leads and the number follows. A recruiter scanning twenty cards
+ * reads the word; the number is there for whoever wants to argue with it. Renders nothing for an
+ * unscored application — which is not the same as a weak score.
+ */
+export const ScoreChip = ({ application: a }: { application: Application }) => {
+    const score = a.aiScore ?? a.ruleScore;
+    if (score == null) return null;
+    const n = Number(score).toFixed(0);
+    return (
+        <ToneChip
+            dense
+            tone={a.scoreBand ? SCORE_BAND_TONE[a.scoreBand] : "neutral"}
+            label={a.scoreBand ? `${SCORE_BAND_META[a.scoreBand].label} · ${n}` : `Score ${n}`}
+            title={a.scoreBreakdown ? SCORE_FACTORS.map((f) => `${f.label} ${Math.round(a.scoreBreakdown![f.key])}`).join("  ·  ") : undefined}
+        />
+    );
+};
+
+/** How long the candidate has waited in this stage. Nothing for a finished (hired or rejected) one, and nothing while still fresh unless asked. */
+export const WaitingChip = ({ application: a, showFresh = false }: { application: Application; showFresh?: boolean }) => {
+    if (!a.stageAgeBand || (a.stageAgeBand === "fresh" && !showFresh)) return null;
+    return (
+        <ToneChip
+            dense
+            tone={a.stageAgeBand === "stalled" ? "danger" : a.stageAgeBand === "ageing" ? "warning" : "neutral"}
+            label={daysLabel(a.daysInStage ?? 0)}
+            title={`In ${a.status?.name ?? "this stage"} since ${a.enteredStageAt ? formatDate(a.enteredStageAt) : "an unknown date"}`}
+        />
+    );
+};
 
 export interface ApplicationColumnOptions {
     /** Adds a trailing actions column. Omitted where the table is read-only. */
@@ -88,14 +129,7 @@ export function applicationColumns(opts: ApplicationColumnOptions = {}): MRT_Col
                 const a = row.original;
                 // A hired or rejected application carries no band: it is finished, not waiting.
                 if (!a.stageAgeBand) return <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>;
-                return (
-                    <Chip
-                        size="small"
-                        variant="outlined"
-                        color={a.stageAgeBand === "stalled" ? "error" : a.stageAgeBand === "ageing" ? "warning" : "default"}
-                        label={daysLabel(a.daysInStage ?? 0)}
-                    />
-                );
+                return <WaitingChip application={a} showFresh />;
             },
         },
         {
@@ -105,16 +139,8 @@ export function applicationColumns(opts: ApplicationColumnOptions = {}): MRT_Col
             size: 150,
             Cell: ({ row }) => {
                 const a = row.original;
-                const score = a.aiScore ?? a.ruleScore;
-                if (score == null) return <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>;
-                return (
-                    <Chip
-                        size="small"
-                        variant="outlined"
-                        color={a.scoreBand ? SCORE_BAND_META[a.scoreBand].color : "default"}
-                        label={a.scoreBand ? `${SCORE_BAND_META[a.scoreBand].label} · ${Number(score).toFixed(0)}` : Number(score).toFixed(0)}
-                    />
-                );
+                if ((a.aiScore ?? a.ruleScore) == null) return <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>;
+                return <ScoreChip application={a} />;
             },
         },
         {

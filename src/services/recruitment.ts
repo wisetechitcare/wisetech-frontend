@@ -245,7 +245,7 @@ export interface ApplicantPayload {
      * WhatsApp, walk-in, referral — arrives with a number and no address, and the API
      * rejects only a record carrying neither.
      */
-    email: string;
+    email?: string | null;
     phone?: string | null;
     currentEmployer?: string | null;
     currentTitle?: string | null;
@@ -298,6 +298,8 @@ export interface ApplicationNote {
     id: string;
     applicationId: string;
     authorId?: string | null;
+    /** Resolved server-side; null for a deleted author. */
+    authorName?: string | null;
     body: string;
     createdAt: string;
 }
@@ -311,9 +313,15 @@ export interface StageHistoryEntry {
     isAutomated: boolean;
     note?: string | null;
     changedAt: string;
+    /** Who moved the candidate, resolved server-side; null for an automated move or a deleted user. */
+    changedByName?: string | null;
 }
 
-export type ApplicationDetail = Application & { stageHistory?: StageHistoryEntry[] };
+export type ApplicationDetail = Application & {
+    stageHistory?: StageHistoryEntry[];
+    /** The currency the candidate's salary figures are in — their requisition's. */
+    currency?: string;
+};
 
 /** The full record behind one pipeline row — the endpoint existed with no caller until now. */
 export const getApplicationById = async (id: string): Promise<ApplicationDetail | null> => {
@@ -747,6 +755,8 @@ export interface Offer {
     expiresAt?: string | null; revisionCount: number;
     /** ISO 4217 the offer is in — its branch, else its requisition's, else its company's. */
     currency?: string;
+    /** Out for sign-off right now. Status 0 is both a draft and a submitted offer; this says which. */
+    approvalPending?: boolean;
 }
 export interface OfferPayload {
     applicationId?: string;

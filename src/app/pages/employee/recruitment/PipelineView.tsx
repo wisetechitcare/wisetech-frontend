@@ -2,41 +2,37 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Box, Stack, Typography, ToggleButton, ToggleButtonGroup, Chip, CircularProgress,
-    TextField, MenuItem, DialogContent, DialogActions,
+    Box, Stack, Typography, ToggleButton, ToggleButtonGroup, CircularProgress, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { ListHeader, GlassDialog, GlassHeader, WtButton, ToneChip, toast, AppIcon } from "@app/modules/common/components/ui";
+import { ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, toast, AppIcon, WtEmptyState } from "@app/modules/common/components/ui";
+import { apiErrorMessage } from "@utils/apiError";
+import { COPY } from "./terms";
 import { queryKeys } from "@/lib/queryKeys";
 import { getRequisitions, type JobRequisition, type OrgScoped,
 } from "@services/recruitment";
 import {
     getApplications, createApplication, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
     stashConversion,
-    SCORE_BAND_META, SCORE_FACTORS,
     type Application, type ApplicationStatus, type ApplicationCreatePayload,
 } from "@services/recruitment";
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
 import CandidateDrawer from "./CandidateDrawer";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { applicationColumns, daysLabel } from "./applicationColumns";
-import { formatDate } from "@utils/dateFormats";
+import { applicationColumns, applicantName, ScoreChip, WaitingChip } from "./applicationColumns";
 
 interface PendingMove {
     application: Application;
     status: ApplicationStatus;
 }
 
-const emptyCreate = (): ApplicationCreatePayload & { firstName: string; lastName: string; email: string } => ({
-    firstName: "", lastName: "", email: "", requisitionId: "", statusId: null,
+const emptyCreate = (): ApplicationCreatePayload & { firstName: string; lastName: string; email: string; phone: string } => ({
+    firstName: "", lastName: "", email: "", phone: "", requisitionId: "", statusId: null,
 });
 
-
-const scoreLabel = (a: Application): string | null => {
-    const s = a.aiScore ?? a.ruleScore;
-    return s === null || s === undefined ? null : `${Number(s).toFixed(0)}`;
-};
+/** Loose on purpose — the server validates properly; this only stops an obvious typo reaching it. */
+const looksLikeEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
 const PipelineView = ({ companyId }: OrgScoped) => {
     const qc = useQueryClient();
@@ -54,8 +50,8 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const [interviewsFor, setInterviewsFor] = useState<Application | null>(null);
     const [offerFor, setOfferFor] = useState<Application | null>(null);
 
-    const { data: applications = [], isLoading } = useQuery({ queryKey: queryKeys.recruitment.applications({ companyId }), queryFn: () => getApplications({}, companyId) });
-    const { data: statuses = [] } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
+    const { data: applications = [], isLoading, isError, error, refetch } = useQuery({ queryKey: queryKeys.recruitment.applications({ companyId }), queryFn: () => getApplications({}, companyId) });
+    const { data: statuses = [], isLoading: statusesLoading, isError: statusesError } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
     const { data: reasons = [] } = useQuery({ queryKey: queryKeys.recruitment.rejectionReasons(), queryFn: getRejectionReasons });
     const { data: requisitions = [] } = useQuery({ queryKey: queryKeys.recruitment.requisitions(companyId), queryFn: () => getRequisitions(companyId) });
 
@@ -63,8 +59,8 @@ const PipelineView = ({ companyId }: OrgScoped) => {
 
     const createMut = useMutation({
         mutationFn: (payload: ApplicationCreatePayload) => createApplication(payload),
-        onSuccess: () => { toast({ icon: "success", title: "Application added" }); setCreateOpen(false); setForm(emptyCreate()); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not add application" }),
+        onSuccess: () => { toast({ icon: "success", title: "Application added" }); closeCreate(); invalidate(); },
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not add the application") }),
     });
 
     const moveMut = useMutation({
@@ -76,7 +72,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 rejectionNote: vars.rejectionNote ?? null,
             }),
         onSuccess: () => { toast({ icon: "success", title: "Moved" }); invalidate(); },
-        onError: () => { toast({ icon: "error", title: "Could not move — refresh and retry" }); invalidate(); },
+        onError: (err) => { toast({ icon: "error", title: apiErrorMessage(err, "Could not move the candidate") }); invalidate(); },
     });
 
     /**
@@ -150,10 +146,24 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         setPending(null);
     };
 
+    // Reset on every close, not only on success, so a cancelled draft never reappears.
+    const closeCreate = () => { setCreateOpen(false); setForm(emptyCreate()); };
+    const emailTyped = form.email.trim();
+    const emailInvalid = !!emailTyped && !looksLikeEmail(emailTyped);
+    const hasIdentity = !!emailTyped || !!form.phone.trim();
+    const canCreate = !!form.firstName.trim() && hasIdentity && !emailInvalid;
+    // New applications go to roles that are approved and still open; a draft or rejected role has no pipeline.
+    const openRoles = requisitions.filter((r: JobRequisition) => r.status === 1 && r.isActive !== false);
+
     const submitCreate = () => {
-        if (!form.firstName.trim() || !form.email.trim()) return;
+        if (!canCreate) return;
         createMut.mutate({
-            applicant: { firstName: form.firstName.trim(), lastName: form.lastName || null, email: form.email.trim() },
+            applicant: {
+                firstName: form.firstName.trim(),
+                lastName: form.lastName.trim() || null,
+                email: emailTyped || null,
+                phone: form.phone.trim() || null,
+            },
             requisitionId: form.requisitionId || null,
         });
     };
@@ -201,7 +211,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
             <ListHeader
                 title="Candidate Pipeline"
-                subtitle="Track applicants across stages — drag on the board or update from the list."
+                subtitle="Track candidates across stages. Drag cards between columns, or open a candidate to change their stage."
                 actions={
                     <>
                         <ToggleButtonGroup
@@ -218,29 +228,38 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 }
             />
 
-            {statuses.length === 0 && (
-                <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: "warning.light", color: "warning.contrastText", fontSize: 14 }}>
-                    No pipeline stages configured yet — add them in the <b>Configure</b> tab so candidates can flow through the board.
-                </Box>
+            {/* Loading and a failed load are not "no stages": the notice waits until the list is known to be empty. */}
+            {!statusesLoading && !statusesError && statuses.length === 0 && (
+                <WtEmptyState icon="setting-2" title={COPY.noStagesConfigured.title} hint={COPY.noStagesConfigured.hint} dense />
             )}
 
             {isLoading ? (
                 <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress size={28} /></Stack>
+            ) : isError ? (
+                <WtEmptyState
+                    variant="error"
+                    title="Could not load the pipeline"
+                    hint={apiErrorMessage(error, "Check your connection and try again.")}
+                    actionLabel="Retry"
+                    onAction={() => refetch()}
+                />
             ) : mode === "board" ? (
                 <Box sx={{ display: "flex", gap: 1.5, overflowX: "auto", pb: 1 }}>
-                    {statuses.map((s) => {
-                        const cards = byStatus.map.get(s.id) ?? [];
+                    {/* Candidates whose stage is missing or was removed are listed first rather than
+                        silently left off the board — otherwise the column counts never add up to the list. */}
+                    {[...(byStatus.unassigned.length ? [null] : []), ...statuses].map((s) => {
+                        const cards = s ? byStatus.map.get(s.id) ?? [] : byStatus.unassigned;
                         return (
                             <Box
-                                key={s.id}
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={() => { const app = applications.find((a) => a.id === dragId); if (app) attemptMove(app, s); setDragId(null); }}
+                                key={s?.id ?? "unassigned"}
+                                onDragOver={s ? (e) => e.preventDefault() : undefined}
+                                onDrop={s ? () => { const app = applications.find((a) => a.id === dragId); if (app) attemptMove(app, s); setDragId(null); } : undefined}
                                 sx={{ minWidth: { xs: 210, sm: 250 }, maxWidth: { xs: 240, sm: 280 }, flex: "0 0 auto", bgcolor: "action.hover", borderRadius: 2, p: 1 }}
                             >
                                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1, px: 0.5 }}>
-                                    <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: s.color ?? "#888" }} />
-                                    <Typography sx={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{s.name}</Typography>
-                                    <Chip size="small" label={cards.length} />
+                                    <Box sx={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0, bgcolor: s?.color ?? "text.disabled" }} />
+                                    <Typography sx={{ fontWeight: 600, fontSize: 13, flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>{s ? s.name : "No stage"}</Typography>
+                                    <ToneChip tone="neutral" dense label={String(cards.length)} />
                                 </Stack>
                                 <Stack spacing={1}>
                                     {/* Drag moves a candidate between stages; a plain click opens
@@ -258,43 +277,19 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                                             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenCandidate(a); } }}
                                             sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "background.paper", boxShadow: 1, cursor: "grab", opacity: dragId === a.id ? 0.5 : 1, "&:hover": { boxShadow: 3 } }}
                                         >
-                                            <Typography sx={{ fontWeight: 600, fontSize: 13.5 }}>
-                                                {a.applicant?.firstName} {a.applicant?.lastName ?? ""}
+                                            <Typography sx={{ fontWeight: 600, fontSize: 13.5, overflowWrap: "anywhere" }}>
+                                                {applicantName(a)}
                                             </Typography>
-                                            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-                                                {a.requisition?.title ?? "No requisition"}
+                                            <Typography sx={{ fontSize: 12, color: "text.secondary", overflowWrap: "anywhere" }}>
+                                                {a.requisition?.title ?? "No role"}
                                             </Typography>
-                                            <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: "wrap", gap: 0.5 }}>
-                                                {/* The band leads and the number follows it. A recruiter
-                                                    scanning twenty cards reads the word; the number is
-                                                    there for whoever wants to argue with it. */}
-                                                {scoreLabel(a) && (
-                                                    <Chip
-                                                        size="small"
-                                                        variant="outlined"
-                                                        color={a.scoreBand ? SCORE_BAND_META[a.scoreBand].color : "default"}
-                                                        label={a.scoreBand ? `${SCORE_BAND_META[a.scoreBand].label} · ${scoreLabel(a)}` : `Score ${scoreLabel(a)}`}
-                                                        title={a.scoreBreakdown
-                                                            ? SCORE_FACTORS.map((f) => `${f.label} ${Math.round(a.scoreBreakdown![f.key])}`).join("  ·  ")
-                                                            : undefined}
-                                                    />
-                                                )}
-                                                {/* Only shown once it matters. A "0 days" badge on every
-                                                    card is noise, and noise is how a colour stops being
-                                                    read at all. */}
-                                                {a.stageAgeBand && a.stageAgeBand !== "fresh" && (
-                                                    <Chip
-                                                        size="small"
-                                                        variant="outlined"
-                                                        color={a.stageAgeBand === "stalled" ? "error" : "warning"}
-                                                        label={daysLabel(a.daysInStage ?? 0)}
-                                                        title={`In ${a.status?.name ?? "this stage"} since ${a.enteredStageAt ? formatDate(a.enteredStageAt) : "unknown"}`}
-                                                    />
-                                                )}
+                                            <Stack direction="row" useFlexGap sx={{ mt: 0.75, flexWrap: "wrap", gap: 0.5 }}>
+                                                <ScoreChip application={a} />
+                                                <WaitingChip application={a} />
                                             </Stack>
                                         </Box>
                                     ))}
-                                    {cards.length === 0 && <Typography sx={{ fontSize: 12, color: "text.disabled", px: 0.5, py: 1 }}>Drop here</Typography>}
+                                    {cards.length === 0 && <Typography sx={{ fontSize: 12, color: "text.disabled", px: 0.5, py: 1 }}>No candidates. Drag one here.</Typography>}
                                 </Stack>
                             </Box>
                         );
@@ -317,28 +312,39 @@ const PipelineView = ({ companyId }: OrgScoped) => {
             {/* Create application */}
             <GlassDialog
                 open={createOpen}
-                onClose={() => setCreateOpen(false)}
+                onClose={closeCreate}
                 maxWidth="sm"
-                header={<GlassHeader title="New Application" subtitle="Add a candidate to the pipeline" icon={<KTIcon iconName="user-tick" className="fs-2" />} onClose={() => setCreateOpen(false)} />}
+                header={<GlassHeader title="New application" subtitle="Add a candidate to the pipeline" icon={<KTIcon iconName="user-tick" className="fs-2" />} onClose={closeCreate} />}
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField label="First name" required size="small" sx={{ flex: 1 }} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
-                            <TextField label="Last name" size="small" sx={{ flex: 1 }} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+                            <WtField label="First name" required sx={{ flex: 1 }} value={form.firstName} onChange={(v) => setForm({ ...form, firstName: v })} />
+                            <WtField label="Last name" sx={{ flex: 1 }} value={form.lastName} onChange={(v) => setForm({ ...form, lastName: v })} />
                         </Stack>
-                        <TextField label="Email" required type="email" size="small" fullWidth value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                        <TextField label="Requisition" select size="small" fullWidth value={form.requisitionId ?? ""} onChange={(e) => setForm({ ...form, requisitionId: e.target.value })}>
-                            <MenuItem value="">— None —</MenuItem>
-                            {requisitions.map((r: JobRequisition) => (
-                                <MenuItem key={r.id} value={r.id}>{r.prefix ? `${r.prefix} · ` : ""}{r.title}</MenuItem>
-                            ))}
-                        </TextField>
+                        {/* Email OR phone, the rule every other intake uses: walk-in and referral candidates often have only a number. */}
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                            <WtField label="Email" type="email" inputMode="email" sx={{ flex: 1 }} value={form.email} onChange={(v) => setForm({ ...form, email: v })}
+                                error={emailInvalid ? "That does not look like an email address" : undefined} />
+                            <WtField label="Phone" type="tel" inputMode="tel" sx={{ flex: 1 }} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+                        </Stack>
+                        {!hasIdentity && form.firstName.trim() && (
+                            <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: -1 }}>Add an email or a phone number so the candidate can be told apart from others.</Typography>
+                        )}
+                        <WtField
+                            label="Role" fullWidth clearable
+                            value={form.requisitionId ?? ""}
+                            onChange={(v) => setForm({ ...form, requisitionId: v })}
+                            options={openRoles.map((r: JobRequisition) => ({ value: r.id, label: r.prefix ? `${r.prefix} · ${r.title}` : r.title }))}
+                            searchable={openRoles.length >= 8}
+                            placeholder={openRoles.length ? "Choose an approved role" : "No approved roles yet"}
+                            hint="Only approved, open roles are listed. Leave empty to add them to the pool."
+                        />
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <WtButton ghost onClick={() => setCreateOpen(false)}>Cancel</WtButton>
-                    <WtButton tone="primary" disabled={!form.firstName.trim() || !form.email.trim() || createMut.isPending} onClick={submitCreate}>
+                    <WtButton ghost onClick={closeCreate}>Cancel</WtButton>
+                    <WtButton tone="primary" disabled={!canCreate || createMut.isPending} onClick={submitCreate}>
                         {createMut.isPending ? "Adding…" : "Add"}
                     </WtButton>
                 </DialogActions>
@@ -353,11 +359,15 @@ const PipelineView = ({ companyId }: OrgScoped) => {
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
-                        <TextField label="Reason" select required size="small" fullWidth value={rejectReasonId} onChange={(e) => setRejectReasonId(e.target.value)}>
-                            {reasons.map((r) => <MenuItem key={r.id} value={r.id}>{r.reason}</MenuItem>)}
-                            {reasons.length === 0 && <MenuItem value="" disabled>No reasons configured — add them in Configure</MenuItem>}
-                        </TextField>
-                        <TextField label="Note (optional)" size="small" fullWidth multiline minRows={2} value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} />
+                        <WtField
+                            label="Reason" required fullWidth
+                            value={rejectReasonId} onChange={setRejectReasonId}
+                            options={reasons.map((r) => ({ value: r.id, label: r.reason }))}
+                            disabled={reasons.length === 0}
+                            placeholder={reasons.length ? "Choose a reason" : "No reasons set up yet"}
+                            hint={reasons.length ? undefined : "Add rejection reasons in Configure first."}
+                        />
+                        <WtField label="Note" fullWidth multiline minRows={2} value={rejectNote} onChange={setRejectNote} placeholder="Optional — anything the next reviewer should know" />
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -371,14 +381,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 open={!!interviewsFor}
                 onClose={() => setInterviewsFor(null)}
                 maxWidth="md"
-                header={<GlassHeader title="Interview management" icon={<KTIcon iconName="message-text-2" className="fs-2" />} onClose={() => setInterviewsFor(null)} />}
+                header={<GlassHeader title={interviewsFor ? applicantName(interviewsFor) : "Interviews"} subtitle="Interviews and scorecards" icon={<KTIcon iconName="message-text-2" className="fs-2" />} onClose={() => setInterviewsFor(null)} />}
             >
                 <DialogContent>
                     {interviewsFor && (
-                        <InterviewsPanel
-                            applicationId={interviewsFor.id}
-                            applicantName={`${interviewsFor.applicant?.firstName ?? ""} ${interviewsFor.applicant?.lastName ?? ""}`.trim() || "Candidate"}
-                        />
+                        <InterviewsPanel applicationId={interviewsFor.id} applicantName={applicantName(interviewsFor)} />
                     )}
                 </DialogContent>
             </GlassDialog>
@@ -388,14 +395,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 open={!!offerFor}
                 onClose={() => setOfferFor(null)}
                 maxWidth="sm"
-                header={<GlassHeader title="Offer" icon={<KTIcon iconName="wallet" className="fs-2" />} onClose={() => setOfferFor(null)} />}
+                header={<GlassHeader title={offerFor ? applicantName(offerFor) : "Offer"} subtitle="Offer and approval" icon={<KTIcon iconName="wallet" className="fs-2" />} onClose={() => setOfferFor(null)} />}
             >
                 <DialogContent>
                     {offerFor && (
-                        <OfferPanel
-                            applicationId={offerFor.id}
-                            applicantName={`${offerFor.applicant?.firstName ?? ""} ${offerFor.applicant?.lastName ?? ""}`.trim() || "Candidate"}
-                        />
+                        <OfferPanel applicationId={offerFor.id} applicantName={applicantName(offerFor)} />
                     )}
                 </DialogContent>
             </GlassDialog>
@@ -407,6 +411,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     application={openCandidate}
                     statuses={statuses}
                     onClose={() => setOpenCandidate(null)}
+                    // The same move the board makes, including the reason prompt — and the only
+                    // way to move someone on a phone, where drag-and-drop does not work.
+                    onMove={attemptMove}
+                    moving={moveMut.isPending}
+                    onConvert={convertToEmployee}
                 />
             )}
         </Box>

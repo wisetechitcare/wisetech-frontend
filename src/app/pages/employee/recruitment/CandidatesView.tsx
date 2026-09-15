@@ -374,7 +374,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                             <WtField
                                 label="Email"
                                 type="email"
-                                value={form.email}
+                                value={form.email ?? ""}
                                 onChange={(v) => set("email", v)}
                                 error={hasIdentity ? undefined : "Enter an email or a phone number."}
                                 hint="Either one is enough."

@@ -17,6 +17,8 @@ interface Props {
     value: string | null | undefined;
     onChange: (branchId: string) => void;
     required?: boolean;
+    /** Read-only, e.g. on a record whose terms are frozen. */
+    disabled?: boolean;
     /** A server or form message; replaces the currency hint when set. */
     error?: string;
     sx?: SxProps<Theme>;
@@ -25,7 +27,7 @@ interface Props {
 /** Past this many branches a plain menu becomes a scroll hunt, so the field turns searchable. */
 const SEARCHABLE_FROM = 8;
 
-export const RecruitmentBranchField = ({ value, onChange, required, error, sx }: Props) => {
+export const RecruitmentBranchField = ({ value, onChange, required, disabled, error, sx }: Props) => {
     const { branches, byId, isLoading, isError, spansOrgs } = useRecruitmentBranches();
     const selected = value ? byId.get(value) : undefined;
 
@@ -47,7 +49,7 @@ export const RecruitmentBranchField = ({ value, onChange, required, error, sx }:
             options={options}
             searchable={options.length >= SEARCHABLE_FROM}
             placeholder={isLoading ? "Loading branches…" : "Choose a branch"}
-            disabled={isLoading || isError || !branches.length}
+            disabled={disabled || isLoading || isError || !branches.length}
             error={message}
             hint={selected ? `Salaries are in ${selected.currency}` : "Decides the currency salaries are in"}
             icon="geolocation"
