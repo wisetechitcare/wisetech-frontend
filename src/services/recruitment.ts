@@ -776,10 +776,19 @@ export interface ApplicationOffer {
     currency?: string;
     /** The requisition's branch — what a NEW offer defaults to, as the server does. */
     requisitionBranchId?: string | null;
+    /** The requisition's department and designation — what a NEW offer starts with. */
+    requisitionDepartmentId?: string | null;
+    requisitionDesignationId?: string | null;
 }
 export const getApplicationOffer = async (applicationId: string): Promise<ApplicationOffer> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_OFFER.replace(":id", applicationId)}`);
-    return { offer: data?.offer ?? null, currency: data?.currency, requisitionBranchId: data?.requisitionBranchId ?? null };
+    return {
+        offer: data?.offer ?? null,
+        currency: data?.currency,
+        requisitionBranchId: data?.requisitionBranchId ?? null,
+        requisitionDepartmentId: data?.requisitionDepartmentId ?? null,
+        requisitionDesignationId: data?.requisitionDesignationId ?? null,
+    };
 };
 export const createOffer = async (payload: OfferPayload) => {
     const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_OFFER}`, payload);

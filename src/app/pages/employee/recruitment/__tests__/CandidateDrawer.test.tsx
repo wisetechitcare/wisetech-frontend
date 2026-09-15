@@ -38,6 +38,11 @@ vi.mock('@services/options', async (importOriginal) => ({
     fetchAllCountries: vi.fn(async () => []),
 }));
 // A picker that opens its own employee directory; not what these tests are about.
+// Which designations each department offers — none linked in these tests.
+vi.mock('@services/company', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@services/company')>()),
+    getDepartmentDesignations: vi.fn(async () => ({ links: [], suggestions: [] })),
+}));
 vi.mock('@app/modules/common/components/EmployeePickerField', () => ({ EmployeePickerField: () => null }));
 
 import CandidateDrawer from '../CandidateDrawer';

@@ -36,6 +36,11 @@ vi.mock('@services/options', async (importOriginal) => ({
     fetchDesignations: vi.fn(async () => ({ data: { designations: [] } })),
     fetchDepartments: vi.fn(async () => ({ data: { departments: [] } })),
 }));
+// Which designations each department offers — none linked in these tests.
+vi.mock('@services/company', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@services/company')>()),
+    getDepartmentDesignations: vi.fn(async () => ({ links: [], suggestions: [] })),
+}));
 vi.mock('@app/modules/common/components/EmployeePickerField', () => ({ EmployeePickerField: () => null }));
 // The shared table loads and saves column preferences through the API; answer with "none saved".
 vi.mock('@services/users', async (importOriginal) => ({

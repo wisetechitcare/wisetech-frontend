@@ -11,7 +11,8 @@ import { apiErrorMessage } from "@utils/apiError";
 import { useRecruitmentBranches } from "@/hooks/useRecruitmentBranches";
 import { RecruitmentBranchField } from "./RecruitmentBranchField";
 import { queryKeys } from "@/lib/queryKeys";
-import { fetchDesignations, fetchDepartments } from "@services/options";
+import { DepartmentDesignationFields } from "@app/modules/common/components/DepartmentDesignationFields";
+import { useDepartmentDesignations } from "@/hooks/useDepartmentDesignations";
 import {
     getApplicationOffer, createOffer, updateOffer, submitOfferApproval, respondToOffer,
     type Offer, type OfferPayload,
@@ -41,8 +42,6 @@ const ACCEPTANCE: Record<string, { label: string; tone: SemanticTone }> = {
     EXPIRED: { label: "Expired", tone: "warning" },
 };
 
-/** Past this many options a plain menu becomes a scroll hunt. */
-const SEARCHABLE_FROM = 8;
 
 const toDateInput = (iso?: string | null) => (iso ? iso.slice(0, 10) : "");
 
@@ -75,8 +74,8 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
     const { data, isLoading, isError } = useQuery({ queryKey: queryKeys.recruitment.offer(applicationId), queryFn: () => getApplicationOffer(applicationId) });
     const offer = data?.offer ?? null;
     const { byId: branchById, isLoading: branchesLoading } = useRecruitmentBranches();
-    const { data: designations = [] } = useQuery({ queryKey: ["designations", "options"], queryFn: async () => (await fetchDesignations())?.data?.designations ?? [], staleTime: 5 * 60_000 });
-    const { data: departments = [] } = useQuery({ queryKey: ["departments", "options"], queryFn: async () => (await fetchDepartments())?.data?.departments ?? [], staleTime: 5 * 60_000 });
+    const { isPairAllowed } = useDepartmentDesignations();
+
     const [form, setForm] = useState<OfferPayload>({ applicationId });
 
     useEffect(() => {
@@ -86,12 +85,13 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
             offeredBranchId: offer?.offeredBranchId ?? data?.requisitionBranchId ?? null,
             offeredCtc: offer?.offeredCtc != null ? Number(offer.offeredCtc) : null,
             proposedJoiningDate: offer?.proposedJoiningDate ?? null,
-            offeredDesignationId: offer?.offeredDesignationId ?? null,
-            offeredDepartmentId: offer?.offeredDepartmentId ?? null,
+            // A new offer starts with the role's own department and designation.
+            offeredDesignationId: offer ? offer.offeredDesignationId ?? null : data?.requisitionDesignationId ?? null,
+            offeredDepartmentId: offer ? offer.offeredDepartmentId ?? null : data?.requisitionDepartmentId ?? null,
             notes: offer?.notes ?? null,
             expectedRevisionCount: offer?.revisionCount,
         });
-    }, [offer, applicationId, data?.requisitionBranchId]);
+    }, [offer, applicationId, data?.requisitionBranchId, data?.requisitionDepartmentId, data?.requisitionDesignationId]);
 
     const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.recruitment.offer(applicationId) });
 
@@ -132,7 +132,11 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
     // A branch deactivated since the offer was drafted is no longer in the list; the field says so and Save waits.
     const branchUsable = !!form.offeredBranchId && (branchesLoading || branchById.has(form.offeredBranchId));
     // A draft may be saved with its terms still incomplete; only the branch is needed, as the server requires.
-    const canSave = !ctcError && branchUsable && (!offer || dirty);
+    // The department must offer the designation — the field says so, and the server refuses it too.
+    // An unchanged pair on an older offer is not re-judged — the server only checks a pair that changes.
+    const pairOk = isPairAllowed(form.offeredDepartmentId, form.offeredDesignationId)
+        || (!!offer && (form.offeredDepartmentId ?? null) === saved.offeredDepartmentId && (form.offeredDesignationId ?? null) === saved.offeredDesignationId);
+    const canSave = !ctcError && branchUsable && pairOk && (!offer || dirty);
     // The currency the amount is typed in follows the branch chosen; before one is, the API's answer.
     const currency = (form.offeredBranchId && branchById.get(form.offeredBranchId)?.currency) || offer?.currency || data?.currency;
 
@@ -184,30 +188,14 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
                             onChange={(v) => setForm({ ...form, proposedJoiningDate: v || null })}
                         />
                     </Stack>
-                    {/* Department first: you pick the team, then the role within it.
-
-                        The designation list is NOT narrowed by the chosen department, and that is
-                        not an oversight. `Designations` carries no departmentId — only a
-                        self-hierarchy via parentId — so there is nothing to filter on, and the
-                        live data says the two genuinely cross. Linking them is a schema change. */}
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                        <WtField
-                            label="Department" sx={{ flex: 1 }} clearable disabled={locked}
-                            value={form.offeredDepartmentId ?? ""}
-                            onChange={(v) => setForm({ ...form, offeredDepartmentId: v || null })}
-                            options={departments.map((d: { id: string; name: string }) => ({ value: d.id, label: d.name }))}
-                            searchable={departments.length >= SEARCHABLE_FROM}
-                            placeholder="Choose a department"
-                        />
-                        <WtField
-                            label="Designation" sx={{ flex: 1 }} clearable disabled={locked}
-                            value={form.offeredDesignationId ?? ""}
-                            onChange={(v) => setForm({ ...form, offeredDesignationId: v || null })}
-                            options={designations.map((d: { id: string; role: string }) => ({ value: d.id, label: d.role }))}
-                            searchable={designations.length >= SEARCHABLE_FROM}
-                            placeholder="Choose a designation"
-                        />
-                    </Stack>
+                    {/* Department first, then the designations that department offers — the shared pair,
+                        so the rule is the same here as on the employee form and the requisition. */}
+                    <DepartmentDesignationFields
+                        disabled={locked}
+                        departmentId={form.offeredDepartmentId ?? null}
+                        designationId={form.offeredDesignationId ?? null}
+                        onChange={(next) => setForm({ ...form, offeredDepartmentId: next.departmentId, offeredDesignationId: next.designationId })}
+                    />
                     <WtField
                         label="Notes" fullWidth multiline minRows={2} disabled={locked}
                         value={form.notes ?? ""}

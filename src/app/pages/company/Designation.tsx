@@ -89,7 +89,9 @@ function Designations() {
             setInitialValues({
                 role: designation.role,
                 companyId: designation.companyId,
-                isActive: false
+                // Editing a name must not retire the designation: this sent `false`, so every edit here
+                // deactivated the row and it vanished from every picker.
+                isActive: true
             });
             setEditMode(true);
             setShowModal(true);

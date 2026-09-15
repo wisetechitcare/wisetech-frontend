@@ -99,6 +99,8 @@ export const COMPANY = {
     GET_DEPARTMENT_BY_ID: "api/company/department/:departmentId",
     UPDATE_DEPARTMENT_BY_ID: "api/company/department/:departmentId",
     ARCHIVE_DEPARTMENT_BY_ID: (id: string) => `api/company/departments/${id}`,
+    GET_DEPARTMENT_DESIGNATIONS: "api/company/department-designations",
+    SET_DEPARTMENT_DESIGNATIONS: "api/company/departments/:departmentId/designations",
     CREATE_PUBLIC_HOLIDAYS: "api/company/public-holidays",
     DELETE_PUBLIC_HOLIDAY_BY_ID: "api/company/public-holiday",
     UPDATE_PUBLIC_HOLIDAY_BY_ID: "api/company/public-holiday",

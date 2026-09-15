@@ -272,8 +272,13 @@ export const WtField: React.FC<WtFieldProps> = ({
                     autoHighlight
                     size={size === 'md' ? 'medium' : 'small'}
                     fullWidth
-                    // Above app dialogs (1300, nested 1302), as the date pickers do.
-                    slotProps={{ popper: { sx: { zIndex: 1350 } }, paper: { sx: menuOptionSx } }}
+                    // Above app dialogs (1300, nested 1302), as the date pickers do. The offset keeps a list
+                    // that opens UPWARD clear of the floating label, which sits on the field's top border —
+                    // flush against it, the list covered the label ("Designation" hidden under an option).
+                    slotProps={{
+                        popper: { sx: { zIndex: 1350 }, modifiers: [{ name: 'offset', options: { offset: [0, 10] } }] },
+                        paper: { sx: menuOptionSx },
+                    }}
                     renderInput={(params) => (
                         <TextField
                             {...params}

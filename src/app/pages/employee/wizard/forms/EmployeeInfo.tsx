@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useFormikContext } from "formik";
-import { fetchBranches, fetchDepartments, fetchDesignations, fetchWorkingMethods } from "@services/options";
+import { fetchBranches, fetchWorkingMethods } from "@services/options";
+import { useDepartmentDesignations } from "@/hooks/useDepartmentDesignations";
 import { fetchOrganizationTree } from "@services/company";
 import { getAllEmployeeLevels } from "@services/employee";
 import { getAllTeams } from "@services/projects";
@@ -13,8 +14,8 @@ function EmployeeInfo() {
     const { values, setFieldValue, setValues } = useFormikContext<any>();
     const [orgTree, setOrgTree] = useState<IOrgNode[]>([]);
     const [allBranches, setAllBranches] = useState<any[]>([]);
-    const [designationOptions, setDesignationOptions] = useState<HierarchicalTaskOption[]>([]);
-    const [departmentOpions, setDepartmentOptions] = useState([]);
+    // Departments, job profiles and which job profiles each department offers — the one shared source.
+    const dd = useDepartmentDesignations();
     const [branchOptions, setBrancheOptions] = useState([]);
 const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
     const [workingMethodOptions, setWorkingMethodOptions] = useState([]);
@@ -39,31 +40,6 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
             setBrancheOptions(options);
         }
 
-        /**
-         * Job profiles are a TREE — the same self-referencing table the preset-task
-         * configure page nests, so the picker drills into it rather than listing 24
-         * flat rows where "Associate" and "Associate (D) (L1)" look unrelated.
-         *
-         * The API still returns them FLAT; `parentId` is what nests them, and
-         * `buildTaskOptions` is the same builder the task picker uses.
-         */
-        async function getAllDesignations() {
-            const { data: { designations } } = await fetchDesignations();
-            const options = buildTaskOptions(
-                designations.map((designation: any) => ({
-                    id: designation.id,
-                    name: designation.role,
-                    parentId: designation.parentId ?? null,
-                })),
-            );
-            setDesignationOptions(options);
-        }
-
-        async function getAllDepartments() {
-            const { data: { departments } } = await fetchDepartments();
-            const options = departments.map((department: any) => ({ value: department.id, label: department.name }));
-            setDepartmentOptions(options);
-        }
 
         async function getAllWorkingMethods() {
             const { data: { workingMethods } } = await fetchWorkingMethods();
@@ -138,8 +114,7 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
 
         getOrgTree();
         getAllBranches();
-        getAllDesignations();
-        getAllDepartments();
+
         getAllWorkingMethods();
         getAllEmployeeTypes();
         getTeams();
@@ -193,6 +168,37 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
     const handleOrgChange = (opt: any) => {
         setValues((prev: any) => ({ ...prev, organizationId: opt?.value || '', subOrganizationId: '', branchId: '' }), true);
     };
+    /**
+     * Job profiles are a TREE — the same self-referencing table the preset-task configure page
+     * nests — narrowed to the chosen department's job profiles once that department has been given
+     * some in Configure. The saved value stays listed, so an older record never appears blank.
+     */
+    const departmentOptions = useMemo(() => dd.departments.map((d) => ({ value: d.id, label: d.name })), [dd.departments]);
+    const designationOptions: HierarchicalTaskOption[] = useMemo(
+        () => buildTaskOptions(
+            dd.designationTreeFor(values.departmentId, values.designationId).map((d) => ({ id: d.id, name: d.role, parentId: d.parentId })),
+        ),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [dd.designationTreeFor, values.departmentId, values.designationId],
+    );
+    const designationGuide = dd.designationHint(values.departmentId, values.designationId, { one: 'job profile', many: 'job profiles' });
+
+    // A department that does not offer the chosen job profile clears it, rather than leaving a
+    // pairing the server will refuse on save.
+    const handleDepartmentChange = (opt: { value?: string } | null) => {
+        const nextDepartment = opt?.value || '';
+        if (values.designationId && !dd.isPairAllowed(nextDepartment, values.designationId)) {
+            setFieldValue('designationId', '', false);
+        }
+    };
+    // Choosing a job profile first fills its department when it belongs to exactly one.
+    const handleDesignationChange = (opt: { value?: string } | null) => {
+        if (!values.departmentId && opt?.value) {
+            const only = dd.onlyDepartmentOf(opt.value);
+            if (only) setFieldValue('departmentId', only, true);
+        }
+    };
+
     const handleSubOrgChange = (opt: any) => {
         setValues((prev: any) => ({ ...prev, subOrganizationId: opt?.value || '', branchId: '' }), true);
     };
@@ -239,6 +245,10 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
 
   {/* Remaining fields: flowing 3-column grid — fills left-to-right with no empty gaps */}
   <div className="row">
+    {/* Department first: it decides which job profiles the next field offers. */}
+    <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
+      <DropDownInput isRequired={true} formikField="departmentId" inputLabel="Department" options={departmentOptions} onChange={handleDepartmentChange} />
+    </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
       {/* The same drill-down the Add-New-Task picker uses — a parent profile is
           selectable in its own right, exactly as a parent preset task is, so no level
@@ -257,10 +267,13 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
         }
         options={designationOptions}
         placeholder="Search and select a job profile…"
+        onChange={handleDesignationChange}
+        helpText={
+          designationGuide.error
+            ? <span style={{ fontSize: 12, color: 'var(--bs-danger)' }}>{designationGuide.error}</span>
+            : <span style={{ fontSize: 12, color: 'var(--bs-gray-600)' }}>{designationGuide.hint}</span>
+        }
       />
-    </div>
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
-      <DropDownInput isRequired={true} formikField="departmentId" inputLabel="Department" options={departmentOpions} />
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
       <DropDownInput isRequired={true} formikField="teamId" inputLabel="Team" options={teamOptions} />

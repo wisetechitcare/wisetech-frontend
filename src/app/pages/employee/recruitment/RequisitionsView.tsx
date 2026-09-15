@@ -15,6 +15,8 @@ import { COPY } from "./terms";
 import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
 import { useRecruitmentBranches } from "@/hooks/useRecruitmentBranches";
 import { RecruitmentBranchField } from "./RecruitmentBranchField";
+import { DepartmentDesignationFields } from "@app/modules/common/components/DepartmentDesignationFields";
+import { useDepartmentDesignations } from "@/hooks/useDepartmentDesignations";
 import {
     getRequisitions, createRequisition, updateRequisition, archiveRequisition, submitRequisitionApproval,
     getRequisitionStages,
@@ -60,6 +62,8 @@ const emptyForm = (defaults: { hiringManagerId?: string; recruiterId?: string; b
     hiringManagerId: defaults.hiringManagerId ?? "",
     recruiterId: defaults.recruiterId ?? "",
     branchId: defaults.branchId ?? "",
+    departmentId: null,
+    designationId: null,
     minCtc: null,
     maxCtc: null,
     targetStartDate: null,
@@ -111,6 +115,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
     });
     // The branch decides the currency of the salary band, so the band's fields follow it.
     const { byId: branchById, defaultBranchId, isLoading: branchesLoading } = useRecruitmentBranches();
+    const { isPairAllowed } = useDepartmentDesignations();
 
     const [form, setForm] = useState<RequisitionPayload>(emptyForm());
     // Headcount as typed. A number state snapped a cleared field back to 1, so replacing 1 with 5 gave 15.
@@ -183,6 +188,8 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
             recruiterId: r.recruiterId ?? "",
             // Older requisitions may have none; the field is required, so Save asks for one.
             branchId: r.branchId ?? "",
+            departmentId: r.departmentId ?? null,
+            designationId: r.designationId ?? null,
             minCtc: r.minCtc == null ? null : Number(r.minCtc),
             maxCtc: r.maxCtc == null ? null : Number(r.maxCtc),
             targetStartDate: r.targetStartDate ? r.targetStartDate.slice(0, 10) : null,
@@ -207,7 +214,10 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
     const headcountValid = Number.isInteger(headcount) && headcount >= 1;
     // A branch that has since been deactivated is no longer in the list; the field says so and Save waits.
     const branchUsable = !!form.branchId && (branchesLoading || branchById.has(form.branchId));
-    const canSave = !!form.title?.trim() && branchUsable && headcountValid && !band.min && !band.max;
+    // An unchanged pair on an older requisition is not re-judged — the server only checks a pair that changes.
+    const pairOk = isPairAllowed(form.departmentId, form.designationId)
+        || (!!editing && (form.departmentId ?? null) === (editing.departmentId ?? null) && (form.designationId ?? null) === (editing.designationId ?? null));
+    const canSave = !!form.title?.trim() && branchUsable && headcountValid && pairOk && !band.min && !band.max;
     // The currency the band is being typed in: the chosen branch's, else what the API resolved.
     const bandCurrency = (form.branchId && branchById.get(form.branchId)?.currency) || editing?.currency;
     const saving = createMut.isPending || updateMut.isPending;
@@ -220,6 +230,8 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
             jobDescription: form.jobDescription || null,
             hiringManagerId: form.hiringManagerId || null,
             recruiterId: form.recruiterId || null,
+            departmentId: form.departmentId || null,
+            designationId: form.designationId || null,
             requisitionStageId: form.requisitionStageId || null,
             minCtc: form.minCtc ?? null,
             maxCtc: form.maxCtc ?? null,
@@ -346,6 +358,13 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                             label="Title" required fullWidth
                             value={form.title}
                             onChange={(v) => setForm({ ...form, title: v })}
+                        />
+                        {/* The role's department and designation. The designation also chooses the
+                            interview scorecard, and a new offer for this role starts with both. */}
+                        <DepartmentDesignationFields
+                            departmentId={form.departmentId ?? null}
+                            designationId={form.designationId ?? null}
+                            onChange={(next) => setForm({ ...form, departmentId: next.departmentId, designationId: next.designationId })}
                         />
                         <WtField
                             label="Job description" fullWidth multiline minRows={3}

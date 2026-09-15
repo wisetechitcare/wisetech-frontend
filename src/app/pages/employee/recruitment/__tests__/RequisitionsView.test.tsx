@@ -29,10 +29,17 @@ vi.mock('@services/recruitment', async (importOriginal) => ({
 vi.mock('@services/options', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@services/options')>()),
     fetchAllCountries: vi.fn(async () => []),
+    fetchDesignations: vi.fn(async () => ({ data: { designations: [] } })),
+    fetchDepartments: vi.fn(async () => ({ data: { departments: [] } })),
 }));
 vi.mock('@services/employee', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@services/employee')>()),
     getAllEmployeeLevels: vi.fn(async () => ({ data: { employeeLevels: [] } })),
+}));
+// Which designations each department offers — none linked in these tests.
+vi.mock('@services/company', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@services/company')>()),
+    getDepartmentDesignations: vi.fn(async () => ({ links: [], suggestions: [] })),
 }));
 vi.mock('@app/modules/common/components/EmployeePickerField', () => ({ EmployeePickerField: () => null }));
 
