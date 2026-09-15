@@ -1,18 +1,20 @@
 import { useCallback, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Box, Stack, Typography, Tooltip, CircularProgress } from "@mui/material";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { Box, Stack, Typography, Tooltip, CircularProgress, LinearProgress } from "@mui/material";
 import {
     AutoGrid, ListHeader, GlassCard, StatTile, ToneChip, Eyebrow, TRIO, SectionHead,
-    CurrencySymbol,
+    CurrencySymbol, WtEmptyState,
     type Trio, type SemanticTone,
 } from "@app/modules/common/components/ui";
 import PeriodFilter, { type PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import { queryKeys } from "@/lib/queryKeys";
 import ApplicationsDrillDown from "./ApplicationsDrillDown";
+import { apiErrorMessage } from "@utils/apiError";
 import { getRecruitmentOverview, type OrgScoped,
 } from "@services/recruitment";
 
-const FALLBACK_BAR = "#94A3B8";
+/** A bar whose stage has no configured colour. A theme token, so it reads in dark mode too. */
+const FALLBACK_BAR = "text.disabled";
 const OFFER_TONE: Record<string, SemanticTone> = { ACCEPTED: "success", PENDING: "warning", DECLINED: "danger", EXPIRED: "brand" };
 const titleCase = (s: string) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : s);
 
@@ -141,9 +143,12 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
     }, []);
     const range = { from: period.from, to: period.to };
 
-    const { data, isLoading } = useQuery({
+    const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
         queryKey: queryKeys.recruitment.overview({ ...range, companyId }),
         queryFn: () => getRecruitmentOverview(range, companyId),
+        // Moving between periods keeps the last figures on screen while the next ones load,
+        // instead of blanking the page to a spinner for every click of an arrow.
+        placeholderData: keepPreviousData,
     });
 
     /**
@@ -153,8 +158,46 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
      */
     const [drillDown, setDrillDown] = useState<{ title: string; statusId?: string; sourceId?: string } | null>(null);
 
-    if (isLoading) return <Stack alignItems="center" sx={{ py: 8 }}><CircularProgress size={30} /></Stack>;
-    if (!data) return <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>Nothing to show yet.</Box>;
+    // NEVER return early above the header. The period filter lives in it, and an early-return
+    // spinner unmounted the filter on every change: it lost its place, snapped back to today, and a
+    // custom range could never be finished because picking "From" remounted it empty.
+    const header = (
+        <ListHeader
+            title="Recruitment Overview"
+            subtitle={
+                period.label === "Pick a range"
+                    ? "Choose a start and end date to see that period."
+                    : `How hiring is going — showing ${period.label}.`
+            }
+            actions={
+                <PeriodFilter
+                    initialMode="allyear"
+                    allowedModes={["daily", "weekly", "monthly", "yearly", "allyear", "custom"]}
+                    storageKey="recruitment:overview:period"
+                    // Compact labels: this control sits in a header that also carries a
+                    // title, and its own docblock recommends compact where width is tight.
+                    dateStyle="compact"
+                    navMinWidth={150}
+                    onChange={onPeriodChange}
+                />
+            }
+        />
+    );
+
+    if (!data) {
+        return (
+            <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
+                {header}
+                {isLoading ? (
+                    <Stack alignItems="center" sx={{ py: 8 }}><CircularProgress size={30} /></Stack>
+                ) : isError ? (
+                    <WtEmptyState variant="error" title="Could not load the overview" hint={apiErrorMessage(error, "Check your connection and try again.")} actionLabel="Retry" onAction={() => refetch()} />
+                ) : (
+                    <WtEmptyState title="Nothing to show yet" hint="Numbers appear here once requisitions and applications exist." />
+                )}
+            </Box>
+        );
+    }
 
     const { kpis, funnel, candidatesBySource, requisitionsByStatus, offersByAcceptance, stageDurations, timeToHire } = data;
     const funnelMax = Math.max(1, ...funnel.map((f) => f.count));
@@ -182,26 +225,14 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
 
     return (
         <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
-            <ListHeader
-                title="Recruitment Overview"
-                subtitle={
-                    period.label === "Pick a range"
-                        ? "Choose a start and end date to see that period."
-                        : `How hiring is going — showing ${period.label}.`
-                }
-                actions={
-                    <PeriodFilter
-                        initialMode="allyear"
-                        allowedModes={["daily", "weekly", "monthly", "yearly", "allyear", "custom"]}
-                        storageKey="recruitment:overview:period"
-                        // Compact labels: this control sits in a header that also carries a
-                        // title, and its own docblock recommends compact where width is tight.
-                        dateStyle="compact"
-                        navMinWidth={150}
-                        onChange={onPeriodChange}
-                    />
-                }
-            />
+            {header}
+            {/* The previous period stays readable while the next loads; this line says it is updating. */}
+            <Box sx={{ height: 3, mb: 1 }}>{isFetching && <LinearProgress sx={{ height: 3, borderRadius: 2 }} aria-label="Updating" />}</Box>
+            {isError && (
+                <Typography sx={{ mb: 1.5, fontSize: 13, color: "error.main" }}>
+                    Could not load {period.label}. Showing the last figures that loaded. {apiErrorMessage(error, "")}
+                </Typography>
+            )}
 
             <AutoGrid
                 min={200}
