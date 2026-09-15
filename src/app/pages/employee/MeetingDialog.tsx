@@ -20,7 +20,7 @@ import MeetingFormBody, { type MeetingFormBodyHandle, type MeetingFormBodyProps 
  * in the tree — it is a self-contained reader of a start/end and a participant list, so it can
  * be dropped back in wherever that question does get asked.
  */
-export interface MeetingDialogProps extends Pick<MeetingFormBodyProps, 'selectedDateTimeInfo' | 'defaultProjectId' | 'lockProject' | 'leadName' | 'editing'> {
+export interface MeetingDialogProps extends Pick<MeetingFormBodyProps, 'selectedDateTimeInfo' | 'defaultProjectId' | 'lockProject' | 'leadName' | 'defaultExternalParticipant' | 'editing'> {
     open: boolean;
     onClose: () => void;
     onSaved?: () => void;

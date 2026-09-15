@@ -1,7 +1,7 @@
 import React from "react";
 import AnalyticsTab from "@app/modules/common/components/AnalyticsTab";
 import { leadRow } from "../../companies/components/LeadReferenceTab";
-import ContactLeadReferences from "./ContactLeadReferences";
+import CompanyLeadReferences from "../../companies/components/CompanyLeadReferences";
 
 /**
  * Contact → Lead Reference: the leads this person referred to us, over time.
@@ -16,7 +16,7 @@ const ContactLeadReferenceTab: React.FC<{ referrals?: any[] }> = ({ referrals = 
     noun="lead"
     storageKey="contactLeadReferencePeriodMode"
   >
-    {(filtered) => <ContactLeadReferences referrals={filtered as any} />}
+    {(filtered) => <CompanyLeadReferences referrals={filtered as any} tableName="contact-lead-references" />}
   </AnalyticsTab>
 );
 
