@@ -36,6 +36,7 @@ are built from.
 | **An amount of money** (salary, fee, expense) | **`WtMoneyField`** (a `WtField` with the currency inside the frame and a live money read-back) | a number box with the unit in its label — "CTC (LPA)", "Lakhs per year" |
 | Toolbar filter | `ToolbarFilterSelect` + `FILTER_TONES` (a `WtField` adapter) | a bespoke `<select>` or `FormControl` |
 | Currency glyph / code / formatter | `CurrencySymbol` + `useCurrency()` (`hooks/useCurrency`) | `KTIcon iconName="dollar"`, a typed-in `₹`, or `{ style: 'currency', currency: 'INR' }` inline |
+| Tooltip / hint on hover | `WtTooltip` (`wrap` for a DISABLED child; an empty title renders nothing) | MUI `Tooltip` imported per screen — 17 files set their own `arrow`/`placement`/delays — or a native `title=`, which never shows on touch |
 | Hover on a tinted tile / card | `hoverTileSx(trio, dark)` | another `'&:hover': { transform: 'translateY(-2px)' }` — 61 files have their own |
 | Dropdown ENGINE | `WtSelect` | react-select directly, or a new wrapper |
 | Dropdown (in a form) | `DropdownInput` (Formik) | react-select directly |

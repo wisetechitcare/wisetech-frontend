@@ -54,6 +54,15 @@ export interface WtFieldProps {
     /** Omit only when a visible label sits elsewhere. */
     label?: string;
     /**
+     * The accessible name for a field with NO visible `label` — a toolbar filter whose meaning
+     * comes from its icon, or a rating cell whose criterion is printed in the row beside it.
+     *
+     * Without this, dropping `label` leaves the control with no name at all: a screen reader
+     * announces "combo box", and a test can only reach it by index. Ignored when `label` is set,
+     * because MUI already names the input from the label it renders.
+     */
+    ariaLabel?: string;
+    /**
      * `floating` (default) is the app standard — MUI's label resting in the border.
      *
      * `above` puts it on its own line, for the controls that CANNOT carry a notch: a
@@ -175,7 +184,7 @@ const controlSx = (tone: string | undefined, invalid: boolean): SxProps<Theme> =
 });
 
 export const WtField: React.FC<WtFieldProps> = ({
-    label, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, placeholder,
+    label, ariaLabel, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, placeholder,
     size = 'sm', fullWidth = true, minWidth, icon, prefix, tone,
     type = 'text', multiline, minRows = 3, inputMode, min, max, step,
     searchable, clearable, id, name, autoFocus, sx, children,
@@ -345,7 +354,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                         fullWidth
                         error={invalid}
                         InputProps={{ startAdornment, endAdornment: clearButton }}
-                        inputProps={{ inputMode, min, max, step, 'aria-describedby': message ? messageId : undefined }}
+                        inputProps={{ inputMode, min, max, step, 'aria-label': label ? undefined : ariaLabel, 'aria-describedby': message ? messageId : undefined }}
                         sx={controlSx(activeTone, invalid)}
                     />
                 )}
@@ -393,7 +402,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                     endAdornment: isSelect ? undefined : clearButton,
                     ...(isSelect ? { notched: true } : {}),
                 }}
-                inputProps={isSelect ? undefined : { inputMode, min, max, step }}
+                inputProps={isSelect ? { 'aria-label': label ? undefined : ariaLabel } : { inputMode, min, max, step, 'aria-label': label ? undefined : ariaLabel }}
                 // No `id` here, and no hand-written `aria-describedby` above. TextField
                 // already mints `${id}-helper-text`, puts it on the helper text and points
                 // the input at it — renaming one half silently unlinks the pair.

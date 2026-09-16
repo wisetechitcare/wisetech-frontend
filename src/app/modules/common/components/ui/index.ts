@@ -83,7 +83,9 @@ export { IconPicker, TONE_NAMES } from './SwatchPicker';
 export type { ToneName, IconPickerProps } from './SwatchPicker';
 // Palette + custom colour in one control. Supersedes TonePicker (palette only)
 // and the raw <input type="color"> in the holiday and appearance forms.
-export { WtColorPicker, KIT_SWATCHES, isHexColor, resolveSwatchHex } from './WtColorPicker';
+export { WtColorPicker, KIT_SWATCHES, KIT_HEX_SWATCHES, isHexColor, resolveSwatchHex } from './WtColorPicker';
+export { WtTooltip } from './WtTooltip';
+export type { WtTooltipProps } from './WtTooltip';
 export type { WtColorPickerProps, ColorSwatch } from './WtColorPicker';
 // Headline capitalisation, applied by the kit's heading components.
 export { toTitleCase } from './text';
