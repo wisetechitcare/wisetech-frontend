@@ -48,9 +48,13 @@ const BarRow = ({ label, count, max, color, onOpen }: { label: string; count: nu
             onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen?.(); } } : undefined}
             aria-label={clickable ? `${label}: ${count}. Open the list.` : undefined}
         >
-            <Typography noWrap title={label} sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 88, sm: 132 }, flexShrink: 0, color: "text.secondary" }}>
-                {label}
-            </Typography>
+            {/* The full name stays reachable when the column truncates it — through the kit's
+                tooltip, not a native `title`, which never appears on a touch screen. */}
+            <WtTooltip title={label}>
+                <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 88, sm: 132 }, flexShrink: 0, color: "text.secondary" }}>
+                    {label}
+                </Typography>
+            </WtTooltip>
             <WtTooltip title={clickable ? `${count} — click to see who` : `${count}`}>
                 <Box sx={{ flex: 1, minWidth: 0, height: 20, borderRadius: 999, bgcolor: "action.hover", overflow: "hidden" }}>
                     <Box sx={{ width: `${pct}%`, height: "100%", borderRadius: 999, bgcolor: color || FALLBACK_BAR, transition: "width .5s cubic-bezier(0.4,0,0.2,1)" }} />
@@ -100,7 +104,9 @@ const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays }: 
 }) => (
     <Stack direction="row" alignItems="center" spacing={1.25} flexWrap="wrap" useFlexGap sx={{ py: 0.5 }}>
         <Box sx={{ width: 8, height: 8, borderRadius: 999, bgcolor: color || FALLBACK_BAR, flexShrink: 0 }} />
-        <Typography noWrap title={name} sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 96, sm: 150 }, flexShrink: 0 }}>{name}</Typography>
+        <WtTooltip title={name}>
+            <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 96, sm: 150 }, flexShrink: 0 }}>{name}</Typography>
+        </WtTooltip>
         <Typography sx={{ fontSize: 12.5, color: "text.secondary", flex: 1, minWidth: 0 }}>
             {avgDays == null
                 ? "No one has moved past this step yet"

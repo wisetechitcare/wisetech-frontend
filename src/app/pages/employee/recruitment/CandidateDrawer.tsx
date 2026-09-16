@@ -5,7 +5,7 @@ import { Box, Stack, Typography, CircularProgress, LinearProgress, DialogContent
 import { KTIcon } from "@metronic/helpers";
 import {
     GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, SettingsSection, TRIO,
-    toast, confirmDialog, WtEmptyState,
+    toast, confirmDialog, WtEmptyState, WtTooltip,
 } from "@app/modules/common/components/ui";
 import type { RootState } from "@redux/store";
 import { queryKeys } from "@/lib/queryKeys";
@@ -249,13 +249,13 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                                 {SCORE_FACTORS.map((f) => {
                                     const v = Math.round(a.scoreBreakdown![f.key]);
                                     return (
-                                        <Box key={f.key} title={f.hint}>
+                                        <WtTooltip key={f.key} title={f.hint}><Box>
                                             <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
                                                 <Typography sx={{ fontSize: 12.5 }}>{f.label}</Typography>
                                                 <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "text.secondary" }}>{v}</Typography>
                                             </Stack>
                                             <LinearProgress variant="determinate" value={v} sx={{ height: 6, borderRadius: 3 }} aria-label={`${f.label}: ${v} out of 100`} />
-                                        </Box>
+                                        </Box></WtTooltip>
                                     );
                                 })}
                             </Box>

@@ -5,7 +5,7 @@ import { KTIcon } from "@metronic/helpers";
 import ReorderableGroup, { DragHandle, type DragHandleProps } from "@app/modules/common/components/ReorderableGroup";
 import {
     GlassCard, GlassDialog, GlassHeader, WtButton, WtField, WtSwitchField, WtColorPicker, KIT_HEX_SWATCHES,
-    ActionIconButton, IconBox, ToneChip, TRIO, WtEmptyState, toast, confirmDialog, type Trio, type SemanticTone,
+    ActionIconButton, IconBox, ToneChip, TRIO, WtEmptyState, WtTooltip, toast, confirmDialog, type Trio, type SemanticTone,
 } from "@app/modules/common/components/ui";
 import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
 import { queryKeys } from "@/lib/queryKeys";
@@ -408,7 +408,9 @@ const SettingsSection = () => {
                         {weightPercents && WEIGHT_FIELDS.map((w) => (
                             <Box key={w.key}>
                                 <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.25 }}>
-                                    <Typography sx={{ fontSize: 13, fontWeight: 600 }} title={w.hint}>{w.label}</Typography>
+                                    <WtTooltip title={w.hint}>
+                                        <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{w.label}</Typography>
+                                    </WtTooltip>
                                     <Typography sx={{ fontSize: 13, fontWeight: 700, color: "text.secondary" }}>
                                         {weightPercents[w.key]}%
                                     </Typography>
