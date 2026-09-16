@@ -156,3 +156,145 @@ export function seedDraft(
     kind,
   );
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Rules about the DAY a correction corrects.
+ *
+ * Everything above is about the request on its own. What follows is about what
+ * the day already holds — a recorded punch, a half already awaiting approval, a
+ * window the admin has closed — and it used to live in five places: inline in the
+ * calendar panel, twice inside Graphs.tsx, and in two admin modals that between
+ * them enforced about half of it. One copy, here, and every correction screen
+ * reads it.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** What the day already holds, as far as a correction is concerned. */
+export interface CorrectionDayContext {
+  /** Recorded punches, `HH:mm` in the employee's branch timezone. */
+  recordedCheckIn: string | null;
+  recordedCheckOut: string | null;
+  /** Another PENDING request for the day already carries this half. */
+  pendingCheckIn: boolean;
+  pendingCheckOut: boolean;
+}
+
+/** The slice of a server calendar day these rules read. */
+export interface CorrectionDayLike {
+  actual?: { checkIn?: string | null; checkOut?: string | null } | null;
+  request?: { id?: string; status?: string; hasCheckIn?: boolean; hasCheckOut?: boolean } | null;
+  canRaiseCorrection?: boolean;
+  correctionRefusedReason?: 'not_employed' | 'future' | 'outside_window' | 'day_type';
+  correctionEarliestDate?: string;
+}
+
+/**
+ * Read the day into a correction context.
+ *
+ * Only a PENDING request counts as a half in flight — a decided one is a closed
+ * record. And the request being EDITED is never counted against itself: its halves
+ * are the ones on the form, not a competing correction sitting on top of them.
+ */
+export function correctionContextFromDay(
+  day: CorrectionDayLike | null | undefined,
+  editingRequestId?: string | null,
+): CorrectionDayContext {
+  const req = day?.request;
+  const inFlight = Boolean(req && req.status === 'pending' && (!editingRequestId || req.id !== editingRequestId));
+  return {
+    recordedCheckIn: day?.actual?.checkIn ?? null,
+    recordedCheckOut: day?.actual?.checkOut ?? null,
+    pendingCheckIn: inFlight && Boolean(req?.hasCheckIn),
+    pendingCheckOut: inFlight && Boolean(req?.hasCheckOut),
+  };
+}
+
+/**
+ * Why a kind cannot be chosen, or null when it can.
+ *
+ * A raised-but-unapproved check-in anchors a check-out exactly as a punch does, so
+ * someone who forgot both punches raises them back to back instead of waiting for
+ * an approver in between.
+ */
+export function kindBlockedReason(kind: RequestKind, ctx: CorrectionDayContext): string | null {
+  const hasCheckIn = Boolean(ctx.recordedCheckIn) || ctx.pendingCheckIn;
+  if (kind === 'checkin' && ctx.pendingCheckIn) return 'A check-in correction for this day is already awaiting approval.';
+  if (kind === 'checkout' && ctx.pendingCheckOut) return 'A check-out correction for this day is already awaiting approval.';
+  if (kind === 'checkout' && !hasCheckIn) return 'There is no check-in yet, so raise that first.';
+  // `both` supplies its own check-in, so the anchor rule does not apply to it — but
+  // either half already awaiting approval means one of its two times would land on
+  // top of a pending one.
+  if (kind === 'both' && (ctx.pendingCheckIn || ctx.pendingCheckOut)) {
+    return 'Part of this day is already awaiting approval, so raise the other half on its own.';
+  }
+  return null;
+}
+
+/** Both halves are already awaiting approval — there is nothing left to raise. */
+export const nothingLeftToRaise = (ctx: CorrectionDayContext): boolean => ctx.pendingCheckIn && ctx.pendingCheckOut;
+
+/**
+ * The kind to open on: the preferred one when it is open, else the first open one.
+ * Landing on a closed segment would show a form whose own selector says it is
+ * unavailable.
+ */
+export function firstOpenKind(
+  kinds: readonly RequestKind[],
+  ctx: CorrectionDayContext,
+  preferred?: RequestKind,
+): RequestKind {
+  if (preferred && kinds.includes(preferred) && !kindBlockedReason(preferred, ctx)) return preferred;
+  return kinds.find((k) => !kindBlockedReason(k, ctx)) ?? kinds[0] ?? 'checkin';
+}
+
+/**
+ * A single corrected half must sit sensibly beside the punch already recorded.
+ *
+ * `both` is skipped: it carries its own pair, which `validateAttendanceRequest`
+ * already orders against each other, and there is no third time to compare with.
+ * Compared in minutes on the same day — no Date, so no timezone to get wrong.
+ */
+export function recordedOrderProblem(
+  draft: Pick<AttendanceRequestDraft, 'kind' | 'checkIn' | 'checkOut'>,
+  ctx: CorrectionDayContext,
+  formatTime: (hhmm: string) => string,
+): string | null {
+  if (draft.kind === 'checkin' && ctx.recordedCheckOut && isValidTime(draft.checkIn)) {
+    if (minutes(draft.checkIn) > minutes(ctx.recordedCheckOut)) {
+      return `Check-in (${formatTime(draft.checkIn)}) cannot be after the existing check-out (${formatTime(ctx.recordedCheckOut)})`;
+    }
+  }
+  if (draft.kind === 'checkout' && ctx.recordedCheckIn && isValidTime(draft.checkOut)) {
+    if (minutes(draft.checkOut) < minutes(ctx.recordedCheckIn)) {
+      return `Check-out (${formatTime(draft.checkOut)}) cannot be before the existing check-in (${formatTime(ctx.recordedCheckIn)})`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Why the server refused a correction for this day, as a sentence — or null.
+ *
+ * The decision is the server's (`attendanceCorrectionPolicy`, which also enforces
+ * it on the write). This only words it, so the form can say why instead of
+ * showing a button that fails.
+ */
+export function correctionRefusal(
+  day: CorrectionDayLike | null | undefined,
+  formatDate: (iso: string) => string,
+): string | null {
+  if (!day || day.canRaiseCorrection !== false) return null;
+  switch (day.correctionRefusedReason) {
+    case 'outside_window':
+      return day.correctionEarliestDate
+        ? `This date is outside the correction window. Corrections can be raised for ${formatDate(day.correctionEarliestDate)} onwards.`
+        : 'This date is outside the correction window.';
+    case 'day_type':
+      return 'This day is recorded as leave. Edit the leave request instead of raising an attendance correction.';
+    case 'future':
+      return 'This day has not happened yet, so there is nothing to correct.';
+    case 'not_employed':
+      return 'The employee was not employed on this date.';
+    default:
+      return 'This day is not open for an attendance correction.';
+  }
+}

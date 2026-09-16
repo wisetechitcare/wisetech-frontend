@@ -13,7 +13,6 @@ import {
     shouldApplyCheckInColoring,
 } from '@utils/attendanceColorUtils';
 import { RootState, store } from '@redux/store';
-import { parseWorkingDays } from '@utils/workingDays';
 import ReactApexChart from 'react-apexcharts';
 import { Image, Card, Col, Modal, OverlayTrigger } from 'react-bootstrap';
 import Identifiers from '../utils/Identifiers';
@@ -22,26 +21,12 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { CustomLeaves, IAttendance, IAttendanceRequests } from '@models/employee';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from './MaterialTable';
-import { convertMinutesIntoHrMinFormat, convertToIST, convertToTime, isValidTime, markWeekendOrHoliday, markWeekendOrHolidayForReportsTable } from '@utils/statistics';
+import { convertMinutesIntoHrMinFormat, convertToIST, convertToTime, markWeekendOrHoliday, markWeekendOrHolidayForReportsTable } from '@utils/statistics';
 import { useDispatch, useSelector } from 'react-redux';
-import { permissionConstToUseWithHasPermission, REQUEST_RAISE_DISABLE_MESSAGE, resourceNameMapWithCamelCase, Status, weekDays } from '@constants/statistics';
-import * as Yup from 'yup';
-import { Form, Formik, FormikValues } from 'formik';
-import TextInput from '../inputs/TextInput';
-import { fetchWorkingMethods } from '@services/options';
-import DropDownInput from '../inputs/DropdownInput';
+import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, Status, weekDays } from '@constants/statistics';
 import dayjs, { Dayjs } from 'dayjs';
-import dayjsUtc from 'dayjs/plugin/utc';
-import dayjsTimezone from 'dayjs/plugin/timezone';
-
-// Extended explicitly rather than relying on another module having done it.
-// dayjs plugins are global and idempotent, but `.tz()` silently throwing
-// because an unrelated import was tree-shaken is not a failure mode worth
-// keeping.
-dayjs.extend(dayjsUtc);
-dayjs.extend(dayjsTimezone);
-import { deleteConfirmation, errorConfirmation, successConfirmation } from '@utils/modal';
-import { createUpdateAttendanceRequest, deleteAttendanceRequestById, fetchApprovalInstanceByRequest } from '@services/employee';
+import { deleteConfirmation, errorConfirmation } from '@utils/modal';
+import { deleteAttendanceRequestById, fetchApprovalInstanceByRequest } from '@services/employee';
 import ApprovalStatusTracker from '@app/pages/approvals/ApprovalStatusTracker';
 import { saveToggleChange } from '@redux/slices/attendanceStats';
 import { fetchCompanyOverview, fetchConfiguration } from '@services/company';
@@ -50,18 +35,15 @@ import { checkIfAnyValueIsUndefined, fetchColorAndStoreInSlice } from '@utils/fi
 import { hasPermission } from '@utils/authAbac';
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions';
 import Tooltip from "react-bootstrap/Tooltip";
-import TimePickerInput from '../inputs/TimeInput';
 import { fetchAddressDetails } from '@services/location';
 import { getGraceBasedThresholds } from '@utils/getGraceBasedThresholds';
 import { fetchAttendanceClassification } from '@services/employee';
-import { formatTimeString, MUMBAI_TZ } from '@utils/date';
-import { canOfferCorrection, parseCorrectionWindowMonths } from '@utils/correctionWindow';
-import { UAParser } from 'ua-parser-js';
-import { Form as BootstrapForm } from "react-bootstrap";
+import { formatTimeString } from '@utils/date';
+import { toCalendarKey } from '@utils/calendarKey';
+import { AttendanceCorrectionDialog } from '@app/modules/common/components/attendance/AttendanceCorrectionDialog';
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { fetchAppSettings } from '@redux/slices/appSettings';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
-import { validatePreviousDaysAttendance } from '@utils/attendanceValidation';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { useTimeFormat } from '@hooks/useTimeFormat';
 import { getTimeTokens } from '@utils/timeFormat';
@@ -1275,20 +1257,6 @@ export const HeatMap = ({ heatMapSeries, height, totalDays }: { heatMapSeries: a
     // );
 };
 
-const faqSchema = Yup.object({
-    workingMethodId: Yup.string().required().label('Working Method'),
-    checkIn: Yup.string().required().label('Check In'),
-    remarks: Yup.string().required().label('Remarks'),
-});
-
-let initialState = {
-    employeeId: "",
-    checkIn: "",
-    checkOut: "",
-    workingMethodId: "",
-    remarks: "",
-};
-
 function resolveAttendanceCoordinates(
     rowId: string | undefined,
     locationProp: any[] | undefined,
@@ -1453,152 +1421,32 @@ export const StatisticsTable = ({
     const timeFormat = useTimeFormat();
     const leaveTypesColor = useSelector((state: RootState) => state?.customColors?.leaveTypes);
     const [leaveConfiguration, setLeaveConfiguration] = useState<any>()
-    const [workingMethodOptions, setWorkingMethodOptions] = useState([]);
     const [lateCheckInThreshold, setLateCheckInThreshold] = useState('');
     const [earlyCheckOutThreshold, setEarlyCheckOutThreshold] = useState('');
     const [allEmployeeThresholds, setAllEmployeeThresholds] = useState<any>([]);
     const [latitudeNew, setLatitudeNew] = useState<any>()
     const [longitudeNew, setLongitudeNew] = useState<any>()
-    const [isIOSMobile, setIsIOSMobile] = useState<boolean>(false);
-
-    const [loading, setLoading] = useState(false);
-    const [show, setShow] = useState(false);
-    const [date, setDate] = useState('');
-
-
-    // ADD: Store current row data for handleSubmit
-    const [currentRowData, setCurrentRowData] = useState<any>(null);
-    // ADD: Request type selection state
-    const [requestType, setRequestType] = useState<'checkin' | 'checkout' | null>(null);
-    const [showRequestTypeSelection, setShowRequestTypeSelection] = useState(false);
-    const [hasCheckInData, setHasCheckInData] = useState(false);
-
-    // Validation state for previous days attendance check
-    const [canSubmitRequest, setCanSubmitRequest] = useState(true);
-    const [validationBlockingDate, setValidationBlockingDate] = useState('');
-    const [isValidating, setIsValidating] = useState(false);
-
-    // Get dateOfJoining and branchWorkingDays for validation
-    // Hooks must run unconditionally (rules-of-hooks): read both viewers' values,
-    // then pick by `fromAdmin`. Optional chaining so the always-run selector for the
-    // non-active viewer can't throw when that employee object is absent.
-    // The VIEWED employee's own branch timezone — an admin in Mumbai looking at a
-    // Dubai employee must not offer or refuse a day based on their own midnight.
-    const curViewedTimezone = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.timezone);
-    const selViewedTimezone = useSelector((state: RootState) => state?.employee?.selectedEmployee?.branches?.timezone);
-    const viewedTimezone = fromAdmin ? (selViewedTimezone || curViewedTimezone) : curViewedTimezone;
 
     /**
-     * The tenant's correction window, read off the `leave management` config this
-     * component already loads for the VIEWED employee's company and branch — so a
-     * branch that widens it is honoured without a second request. The server
-     * resolves the identical value and enforces it.
+     * The row whose day is being corrected, or null. The form itself — its state, its
+     * gate and its rules — lives in the shared `AttendanceCorrectionDialog`.
      */
-    const correctionWindowMonths = useMemo(
-        () => parseCorrectionWindowMonths(leaveConfiguration),
-        [leaveConfiguration],
-    );
+    const [correctionRow, setCorrectionRow] = useState<any>(null);
+
+    const raiseRequest = (attendance: any) => setCorrectionRow(attendance);
+
     /**
-     * Today in the VIEWED employee's own branch timezone, not the viewer's. An admin
-     * in Mumbai looking at a Dubai employee must not be offered — or refused — a day
-     * based on their own midnight.
+     * Where the day was recorded, carried onto the request as this table always has:
+     * the row's own location first, then the browser position this component already
+     * asks for on mount.
      */
-    const todayKey = useMemo(
-        () => dayjs().tz(viewedTimezone || MUMBAI_TZ).format('YYYY-MM-DD'),
-        [viewedTimezone],
-    );
-
-    const selectedDateOfJoining = useSelector((state: RootState) => state.employee.selectedEmployee?.dateOfJoining);
-    const currentDateOfJoining = useSelector((state: RootState) => state.employee.currentEmployee?.dateOfJoining);
-    const dateOfJoining = fromAdmin ? selectedDateOfJoining : currentDateOfJoining;
-    const selectedBranchWorkingDays = useSelector((state: RootState) =>
-        parseWorkingDays(state.employee.selectedEmployee?.branches?.workingAndOffDays));
-    const currentBranchWorkingDays = useSelector((state: RootState) =>
-        parseWorkingDays(state.employee.currentEmployee?.branches?.workingAndOffDays));
-    const branchWorkingDays = fromAdmin ? selectedBranchWorkingDays : currentBranchWorkingDays;
-
-
-    const handleClose = () => {
-        setShow(false);
-        setCurrentRowData(null); // Clear row data on close
-        setRequestType(null); // Clear request type on close
-        setShowRequestTypeSelection(false); // Reset request type selection
-        // Reset validation state
-        setCanSubmitRequest(true);
-        setValidationBlockingDate('');
-        setIsValidating(false);
-    }
-
-    // MODIFIED: Accept and store the entire attendance row data
-    const raiseRequest = async (attendance: any) => {
-        setDate(attendance.date);
-
-        setCurrentRowData(attendance); // Store the row data
-
-        // Check if check-in data exists for this date
-        const hasCheckInData = (attendance?.attendanceRequests && attendance.attendanceRequests.checkIn) ||
-            (attendance && attendance.checkIn && attendance.checkIn !== "-NA-");
-
-        // Store check-in availability for modal logic
-        setHasCheckInData(hasCheckInData);
-
-        // Always show request type selection modal
-        setShowRequestTypeSelection(true);
-        setShow(true);
-
-        // Validate previous days attendance (skip for admin raising for others)
-        if (!fromAdmin) {
-            setIsValidating(true);
-            try {
-                const validationResult = await validatePreviousDaysAttendance({
-                    employeeId,
-                    selectedDate: attendance.date,
-                    dateOfJoining: String(dateOfJoining || ''),
-                    workingAndOfDays: branchWorkingDays || {},
-                    offDaysForTheBranch: []
-                });
-                setCanSubmitRequest(validationResult.canRaiseRequest);
-                setValidationBlockingDate(validationResult.blockingDate);
-            } catch (validationError) {
-                console.error('Validation error:', validationError);
-                setCanSubmitRequest(true); // Allow on error to not block user
-            } finally {
-                setIsValidating(false);
-            }
-        }
-
-        if (attendance?.attendanceRequests) {
-            initialState = {
-                employeeId: attendance?.attendanceRequests.employeeId,
-                checkIn: attendance?.attendanceRequests?.checkIn,
-                checkOut: attendance?.attendanceRequests?.checkOut,
-                workingMethodId: attendance?.attendanceRequests.workingMethodId,
-                remarks: attendance?.attendanceRequests.remarks,
-            };
-        } else if (attendance?.id) {
-            initialState = {
-                employeeId: employeeId,
-                checkIn: attendance?.checkIn,
-                checkOut: attendance?.checkOut,
-                workingMethodId: attendance?.workingMethodId,
-                remarks: attendance?.remarks
-            };
-        } else {
-            initialState = {
-                employeeId: employeeId,
-                checkIn: '',
-                checkOut: '',
-                workingMethodId: '',
-                remarks: ''
-            };
-        }
-    }
-
-    // ADD: Handle request type selection
-    const handleRequestTypeSelection = (type: 'checkin' | 'checkout') => {
-        setRequestType(type);
-        setShowRequestTypeSelection(false);
-    }
+    const rowLocation = (row: any) => {
+        const entry = Array.isArray(location) ? location.find((item: any) => item.id === row?.id) : null;
+        return {
+            latitude: entry?.latitude || latitudeNew || 0,
+            longitude: entry?.longitude || longitudeNew || 0,
+        };
+    };
 
     useEffect(() => {
         if (navigator.geolocation) {
@@ -1635,183 +1483,6 @@ export const StatisticsTable = ({
         }
         fetchLeaveConfig();
     }, [fromAdmin, selThresholdCompanyId, selThresholdBranchId, curThresholdCompanyId, curThresholdBranchId])
-
-    // MODIFIED: Use currentRowData to get latitude/longitude
-    const handleSubmit = async (values: any, actions: FormikValues) => {
-        // Get location data from the stored row data
-        const currentId = currentRowData?.id;
-        const locationEntry = Array.isArray(location) && location.find(item => item.id === currentId);
-        const latitude = locationEntry?.latitude;
-        const longitude = locationEntry?.longitude;
-
-        const updatedValues = {
-            ...values,
-            latitude: ((latitude == undefined || !latitude) ? latitudeNew : latitude) || 0,
-            longitude: ((longitude == undefined || !longitude) ? longitudeNew : longitude) || 0,
-            status: 0,
-            companyId
-        }
-
-        const formattedDate = dayjs(date).format("YYYY-MM-DD");
-        let checkInDateTime, checkOutDateTime;
-        let checkInUTC, checkOutUTC;
-
-        // Validate based on request type
-        if (requestType === 'checkin') {
-            if (!values.checkIn || values.checkIn === "") {
-                errorConfirmation('Check In time is required for check-in request');
-                return;
-            }
-            if (!isValidTime(values.checkIn)) {
-                errorConfirmation('Enter Check In in HH:MM(24 hr format)');
-                return;
-            }
-            checkInDateTime = dayjs(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm");
-            const checkInDateObject = new Date(checkInDateTime.toString());
-            checkInUTC = checkInDateObject.toISOString();
-            updatedValues.checkIn = checkInUTC;
-            // Remove checkout for checkin requests
-            delete updatedValues.checkOut;
-        } else if (requestType === 'checkout') {
-            if (!values.checkOut || values.checkOut === "") {
-                errorConfirmation('Check Out time is required for check-out request');
-                return;
-            }
-            if (!isValidTime(values.checkOut)) {
-                errorConfirmation('Enter Check Out in HH:MM(24 hr format)');
-                return;
-            }
-            checkOutDateTime = dayjs(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm");
-            const checkOutDateObject = new Date(checkOutDateTime.toString());
-            checkOutUTC = checkOutDateObject.toISOString();
-            updatedValues.checkOut = checkOutUTC;
-            // Remove checkin for checkout requests
-            // updatedValues.checkIn = undefined;
-            if (updatedValues?.checkIn) {
-                const checkInDateTime = new Date(dayjs(`${formattedDate} ${updatedValues?.checkIn}`, "YYYY-MM-DD HH:mm")?.toString());
-                updatedValues.checkIn = checkInDateTime?.toISOString();
-            }
-        }
-
-        // Time conflict validation - check against existing attendance data
-        const existingAttendanceData = currentRowData;
-        let existingCheckInTime = null;
-        let existingCheckOutTime = null;
-
-        // Extract existing times for validation
-        if (existingAttendanceData?.attendanceRequests) {
-            // From attendance requests
-            if (existingAttendanceData.attendanceRequests.checkIn) {
-                existingCheckInTime = dayjs(existingAttendanceData.attendanceRequests.checkIn).format('HH:mm');
-            }
-            if (existingAttendanceData.attendanceRequests.checkOut) {
-                existingCheckOutTime = dayjs(existingAttendanceData.attendanceRequests.checkOut).format('HH:mm');
-            }
-        } else if (existingAttendanceData) {
-            // From attendance data
-            if (existingAttendanceData.checkIn && existingAttendanceData.checkIn !== "-NA-") {
-                // Handle time format from attendance data (might include seconds)
-                const timePart = existingAttendanceData.checkIn.split(' ').pop() || existingAttendanceData.checkIn;
-                if (timePart) {
-                    const timeParts = timePart.split(':');
-                    if (timeParts.length >= 2) {
-                        existingCheckInTime = `${timeParts[0].padStart(2, '0')}:${timeParts[1].padStart(2, '0')}`;
-                    }
-                }
-            }
-            if (existingAttendanceData.checkOut && existingAttendanceData.checkOut !== "-NA-") {
-                const timePart = existingAttendanceData.checkOut.split(' ').pop() || existingAttendanceData.checkOut;
-                if (timePart) {
-                    const timeParts = timePart.split(':');
-                    if (timeParts.length >= 2) {
-                        existingCheckOutTime = `${timeParts[0].padStart(2, '0')}:${timeParts[1].padStart(2, '0')}`;
-                    }
-                }
-            }
-        }
-
-        // Validate time conflicts
-        if (requestType === 'checkin') {
-            // For check-in requests, check against existing check-out time
-            if (existingCheckOutTime) {
-                const newCheckInTime = dayjs(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm");
-                const existingCheckOutDateTime = dayjs(`${formattedDate} ${existingCheckOutTime}`, "YYYY-MM-DD HH:mm");
-
-                if (newCheckInTime.isAfter(existingCheckOutDateTime)) {
-                    errorConfirmation(`Check-in time (${values.checkIn}) cannot be after the existing check-out time (${existingCheckOutTime})`);
-                    return;
-                }
-            }
-
-            // Also check if form has both check-in and check-out values
-            if (values.checkOut && values.checkOut.trim() !== "") {
-                const checkInTime = dayjs(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm");
-                const checkOutTime = dayjs(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm");
-
-                if (checkInTime.isAfter(checkOutTime)) {
-                    errorConfirmation(`Check-in time (${values.checkIn}) cannot be after check-out time (${values.checkOut})`);
-                    return;
-                }
-            }
-        } else if (requestType === 'checkout') {
-            // For check-out requests, check against existing check-in time
-            if (existingCheckInTime) {
-                const newCheckOutTime = dayjs(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm");
-                const existingCheckInDateTime = dayjs(`${formattedDate} ${existingCheckInTime}`, "YYYY-MM-DD HH:mm");
-
-                if (newCheckOutTime.isBefore(existingCheckInDateTime)) {
-                    errorConfirmation(`Check-out time (${values.checkOut}) cannot be before the existing check-in time (${existingCheckInTime})`);
-                    return;
-                }
-            }
-
-            // Also check if form has both check-in and check-out values
-            if (values.checkIn && values.checkIn.trim() !== "") {
-                const checkInTime = dayjs(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm");
-                const checkOutTime = dayjs(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm");
-
-                if (checkOutTime.isBefore(checkInTime)) {
-                    errorConfirmation(`Check-out time (${values.checkOut}) cannot be before check-in time (${values.checkIn})`);
-                    return;
-                }
-            }
-        }
-
-        // Additional validation: If both times are present in the form, validate their relationship
-        if (values.checkIn && values.checkIn.trim() !== "" && values.checkOut && values.checkOut.trim() !== "") {
-            const checkInTime = dayjs(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm");
-            const checkOutTime = dayjs(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm");
-
-            if (checkInTime.isAfter(checkOutTime)) {
-                errorConfirmation(`Check-in time (${values.checkIn}) must be before check-out time (${values.checkOut})`);
-                return;
-            }
-        }
-
-        try {
-            setLoading(true);
-            await createUpdateAttendanceRequest(updatedValues);
-            setLoading(false);
-            successConfirmation('Attendance Request created successfully');
-            setShow(false);
-            setCurrentRowData(null); // Clear row data after successful submission
-            dispatch(saveToggleChange(!toggleChange));
-            return;
-        } catch (err) {
-            setLoading(false);
-            errorConfirmation('Attendance Request failed successfully. Try again later.');
-            dispatch(saveToggleChange(!toggleChange));
-        }
-    }
-
-    useEffect(() => {
-        async function getWorkingMethods() {
-            const { data: { workingMethods } } = await fetchWorkingMethods();
-            const workingMethodOptions = workingMethods.map((workingMethod: any) => ({ value: workingMethod.id, label: workingMethod.type }));
-            setWorkingMethodOptions(workingMethodOptions);
-        }
-        getWorkingMethods();
-    }, []);
 
     // fetch grace based thresholds — scoped to the VIEWED employee so coloring matches their shift
     useEffect(() => {
@@ -2199,44 +1870,20 @@ export const StatisticsTable = ({
             Cell: ({ row }: any) => {
                 const res = hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.create);
                 /**
-                 * Was `!dayjs(row.date).isBefore(dayjs(), 'day')` — TODAY only, so a
-                 * check-out forgotten yesterday was already unreachable by the next
-                 * morning. Because every past row was refused, weekends and holidays
-                 * looked like they were refused FOR BEING weekends and holidays. They
-                 * never were; they were simply in the past.
-                 *
-                 * Now the tenant's own window, from the config this screen already
-                 * loads. The server enforces the same rule, so nothing offered here
-                 * can be refused on arrival.
+                 * TODAY only, deliberately. This table corrects the day in progress; a past
+                 * day is corrected from the attendance calendar, which opens the same
+                 * correction form under the admin's correction window. Offering past days
+                 * here too would be a second entry point to the same action.
                  */
-                const offered = canOfferCorrection({
-                    date: row?.original?.date,
-                    status: row?.original?.status,
-                    today: todayKey,
-                    windowMonths: correctionWindowMonths,
-                });
-                return !(row?.original?.id == "-") && res && offered ?
+                const isPastDate = dayjs(row?.original?.date).isBefore(dayjs(), 'day');
+                return !(row?.original?.id == "-") && res && !isPastDate ?
                     < button className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm' onClick={() => raiseRequest(row?.original)} >
                         <KTIcon iconName='pencil' className='fs-3' />
                     </button > : 'Not Allowed'
             },
         }] : []),
-        // `todayKey` and `correctionWindowMonths` are listed explicitly rather than
-        // left to ride on `leaveConfiguration`: switching the admin's view to an
-        // employee in another timezone changes `todayKey` without touching the config,
-        // and a stale closure there would offer or refuse the wrong day.
-    ], [location, lateCheckInThreshold, earlyCheckOutThreshold, allEmployeeThresholds, leaveConfiguration, backendLateDates, backendDatesReady, todayKey, correctionWindowMonths]);
+    ], [location, lateCheckInThreshold, earlyCheckOutThreshold, allEmployeeThresholds, leaveConfiguration, backendLateDates, backendDatesReady]);
 
-
-    // Detect if device is iOS mobile        
-    useEffect(() => {
-        const parser = new UAParser();
-        const result = parser.getResult();
-        setIsIOSMobile(
-            result.device.type === 'mobile' &&
-            result.os.name === 'iOS'
-        );
-    }, []);
 
     return (
         <>
@@ -2319,162 +1966,21 @@ export const StatisticsTable = ({
                 }}
             />
 
-            <Modal show={show} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>
-                        {showRequestTypeSelection ?
-                            `Select Request Type for ${date}` :
-                            `Raise ${requestType === 'checkin' ? 'Check-In' : 'Check-Out'} Request for ${date} (24 hr HH:MM)`
-                        }
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    {showRequestTypeSelection ? (<div className='d-flex flex-column align-items-center'>
-                        <h5 className='mb-4'>What Type of Request Would You Like to Raise?</h5>
-                        <div className='d-flex gap-3'>
-                            <button
-                                type='button'
-                                className='btn btn-outline-primary px-4 py-2'
-                                style={{ border: "1px solid rgb(175, 16, 16)" }}
-                                onClick={() => handleRequestTypeSelection('checkin')}
-                            >
-                                {/* <AppIcon name="bi-box-arrow-in-right" className="me-2" /> */}
-                                Check-In Request
-                            </button>
-                            <button
-                                type='button'
-                                className={`btn px-4 py-2 ${hasCheckInData ? 'btn-outline-primary' : 'btn-outline-primary disabled'}`}
-                                style={hasCheckInData ? { border: "1px solid rgb(175, 16, 16)" } : { border: "1px solid rgb(175, 16, 16)", backgroundColor: "rgb(246, 217, 217)" }}
-                                onClick={() => hasCheckInData && handleRequestTypeSelection('checkout')}
-                                disabled={!hasCheckInData}
-                            >
-                                {/* <AppIcon name="bi-box-arrow-right" className="me-2" /> */}
-                                Check-Out Request
-                            </button>
-                        </div>
-                        {!hasCheckInData && (
-                            <div className='mt-3 text-center'>
-                                <small className='text-muted'>
-                                    <AppIcon name="bi-info-circle" className="me-1" />
-                                    Since check-in is not present, please create a check-in request first
-                                </small>
-                            </div>
-                        )}
-                    </div>) : (
-                        <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={faqSchema}>
-                            {(formikProps) => {
-                                return (
-                                    <Form className='d-flex flex-column' noValidate id='employee_onboarding_form'>
-
-                                        {requestType === 'checkin' && <div className="col-lg">
-                                            {isIOSMobile ? (
-                                                <BootstrapForm.Group controlId="CheckIn" className="mb-3">
-                                                    <BootstrapForm.Label>Check In *</BootstrapForm.Label>
-                                                    <BootstrapForm.Control
-                                                        type="time"
-                                                        value={formikProps.values.checkIn}
-                                                        onChange={(e) => {
-                                                            formikProps.setFieldValue("checkIn", e.target.value);
-                                                        }}
-                                                        onBlur={() => formikProps.setFieldTouched("checkIn", true)}
-                                                        isInvalid={Boolean(formikProps.errors.checkIn && formikProps.touched.checkIn)}
-                                                        className="form-control"
-                                                        required
-                                                    />
-                                                    <BootstrapForm.Control.Feedback type="invalid">
-                                                        {formikProps.errors.checkIn}
-                                                    </BootstrapForm.Control.Feedback>
-                                                </BootstrapForm.Group>
-                                            ) : (
-                                                <TimePickerInput
-                                                    isRequired={true}
-                                                    label="Check In"
-                                                    formikField="checkIn"
-                                                    placeholder="HH MM"
-                                                />
-                                            )}
-                                        </div>}
-
-                                        {requestType === 'checkout' && <div className="col-lg">
-                                            {isIOSMobile ? (
-                                                <BootstrapForm.Group controlId="CheckOut" className="mb-3">
-                                                    <BootstrapForm.Label>Check Out</BootstrapForm.Label>
-                                                    <BootstrapForm.Control
-                                                        type="time"
-                                                        value={formikProps.values.checkOut}
-                                                        onChange={(e) => {
-                                                            formikProps.setFieldValue("checkOut", e.target.value);
-                                                        }}
-                                                        onBlur={() => formikProps.setFieldTouched("checkOut", true)}
-                                                        isInvalid={Boolean(formikProps.errors.checkOut && formikProps.touched.checkOut)}
-                                                        className="form-control"
-                                                    />
-                                                    <BootstrapForm.Control.Feedback type="invalid">
-                                                        {formikProps.errors.checkOut}
-                                                    </BootstrapForm.Control.Feedback>
-                                                </BootstrapForm.Group>
-                                            ) : (
-                                                <TimePickerInput
-                                                    isRequired={false}
-                                                    label="Check Out"
-                                                    formikField="checkOut"
-                                                    placeholder="HH MM" />
-                                            )}
-                                        </div>}
-
-
-                                        <div className="col-lg mt-3">
-                                            <TextInput
-                                                isRequired={true}
-                                                label="Remarks"
-                                                formikField="remarks" />
-                                        </div>
-
-                                        <div className="col-lg mt-3">
-                                            <DropDownInput
-                                                isRequired={true}
-                                                formikField="workingMethodId"
-                                                inputLabel="Working Method"
-                                                options={workingMethodOptions} />
-                                        </div>
-                                        {disableRaiseRequest && <div className="alert mt-8" role="alert" style={{ backgroundColor: "#FCEDDF", color: '#DD700C', borderColor: '#DD700C' }}>
-                                            {REQUEST_RAISE_DISABLE_MESSAGE}
-                                        </div>}
-                                        {!canSubmitRequest && validationBlockingDate && (
-                                            <div className="alert mt-3" role="alert" style={{ backgroundColor: "#FCEDDF", color: '#DD700C', borderColor: '#DD700C' }}>
-                                                No attendance or request found for {dayjs(validationBlockingDate).format("DD-MM-YYYY")}. Please mark attendance or raise a request for that day before proceeding.
-                                            </div>
-                                        )}
-                                        <div className='d-flex flex-wrap justify-content-between mt-3'>
-                                            <button
-                                                type='button'
-                                                className='btn btn-primary text-white my-2'
-                                                style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
-                                                onClick={() => {
-                                                    setShowRequestTypeSelection(true);
-                                                    setRequestType(null);
-                                                }}
-                                            >
-                                                <AppIcon name="bi-arrow-left" className="me-2 text-white" />
-                                                Back
-                                            </button>
-                                            <button type='submit' className='btn btn-primary my-2' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || !formikProps.isValid || disableRaiseRequest || !canSubmitRequest || isValidating}>
-                                                {isValidating ? 'Validating...' : (!loading ? 'Save Changes' : '')}
-                                                {loading && (
-                                                    <span className='indicator-progress' style={{ display: 'block' }}>
-                                                        Please wait...{' '}
-                                                        <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-                                                    </span>
-                                                )}
-                                            </button>
-                                        </div>
-                                    </Form>
-                                )
-                            }}
-                        </Formik>)}
-
-                </Modal.Body>
-            </Modal >
+            {/* The ONE correction form — the same one the calendar, the open-request
+                table and both admin screens render. Mounted only while a row is open, so
+                the day it reads is fetched for that row and nothing else. */}
+            {correctionRow && (toCalendarKey(correctionRow.formattedDate) ?? toCalendarKey(correctionRow.date)) && (
+                <AttendanceCorrectionDialog
+                    open
+                    onClose={() => setCorrectionRow(null)}
+                    date={(toCalendarKey(correctionRow.formattedDate) ?? toCalendarKey(correctionRow.date)) as string}
+                    employeeId={employeeId}
+                    location={rowLocation(correctionRow)}
+                    onSaved={() => {
+                        dispatch(saveToggleChange(!toggleChange));
+                    }}
+                />
+            )}
         </>
     );
 }
@@ -2506,12 +2012,14 @@ export const ReportsTable = ({
 }) => {
 
     const dispatch = useDispatch();
-    const [loading, setLoading] = useState(false);
-    const [show, setShow] = useState(false);
+    /**
+     * The request being edited, or null. The form — its state, rules and the day it
+     * reads — lives in the shared `AttendanceCorrectionDialog`.
+     */
+    const [editRow, setEditRow] = useState<any>(null);
     const [lateCheckInThreshold, setLateCheckInThreshold] = useState('');
     const [earlyCheckOutThreshold, setEarlyCheckOutThreshold] = useState('');
     const [employeeThresholds, setEmployeeThresholds] = useState<any>([]);
-    const [disableRaiseRequest, setDisableRaiseRequest] = useState(false);
     const [trackingRequestId, setTrackingRequestId] = useState<string | null>(null);
     const [trackInstanceId, setTrackInstanceId] = useState<string | null>(null);
     const [trackInstanceLoading, setTrackInstanceLoading] = useState(false);
@@ -2529,8 +2037,6 @@ export const ReportsTable = ({
     const allWeekends = fromAdmin ? (selWeekends || curWeekends) : curWeekends;
     const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
 
-    const [workingMethodOptions, setWorkingMethodOptions] = useState([]);
-    const [currentRowData, setCurrentRowData] = useState<any>(null);
     const companyId = useSelector((state: RootState) => state.employee.currentEmployee.companyId);
     // Config scope for the VIEWED employee (selected when admin, else self) — same rule the
     // threshold fetch uses, so on-site colouring follows the org/branch override, not global.
@@ -2545,12 +2051,6 @@ export const ReportsTable = ({
     const allEmployees = useSelector((state: RootState) => state.allEmployees?.list);
 
     useEffect(() => {
-        async function getWorkingMethods() {
-            const { data: { workingMethods } } = await fetchWorkingMethods();
-            const workingMethodOptions = workingMethods.map((workingMethod: any) => ({ value: workingMethod.id, label: workingMethod.type }));
-            setWorkingMethodOptions(workingMethodOptions);
-        }
-        getWorkingMethods();
         async function fetchLeaveConfig() {
             const { data: configuration } = await fetchConfiguration(
                 LEAVE_MANAGEMENT, undefined, undefined,
@@ -2594,7 +2094,6 @@ export const ReportsTable = ({
         }
     };
 
-    const [date, setDate] = useState('');
     const selectedEmployeeDetails = useSelector((state: RootState) => state.employee.selectedEmployee);
     const currentEmployeeDetails = useSelector((state: RootState) => state.employee.currentEmployee);
     const employeeDeatils = fromAdmin ? selectedEmployeeDetails : currentEmployeeDetails;
@@ -2901,109 +2400,19 @@ export const ReportsTable = ({
         }] : []),
     ];
 
-    const handleClose = () => {
-        setShow(false);
-        setCurrentRowData(null);
-    }
+    const raiseRequest = (attendance: any) => setEditRow(attendance);
 
-    const raiseRequest = async (attendance: any) => {
-        setShow(true);
-        setDate(attendance.date);
-        setCurrentRowData(attendance);
-        if (attendance?.attendanceRequests) {
-            initialState = {
-                employeeId: attendance?.attendanceRequests.employeeId,
-                checkIn: attendance?.attendanceRequests?.checkIn,
-                checkOut: attendance?.attendanceRequests?.checkOut,
-                workingMethodId: attendance?.attendanceRequests.workingMethodId,
-                remarks: attendance?.attendanceRequests.remarks,
-            };
-        } else if (attendance?.id) {
-            initialState = {
-                employeeId: employeeId,
-                checkIn: attendance?.checkIn,
-                checkOut: attendance?.checkOut,
-                workingMethodId: attendance?.workingMethodId,
-                remarks: attendance?.remarks
-            };
-        } else {
-            initialState = {
-                employeeId: employeeId,
-                checkIn: '',
-                checkOut: '',
-                workingMethodId: '',
-                remarks: ''
-            };
-        }
-    }
+    /** Where the day was recorded: the row's own location, then the browser position. */
+    const rowLocation = (row: any) => {
+        const entry = Array.isArray(location) ? location.find((item: any) => item.id === row?.id) : null;
+        return {
+            latitude: entry?.latitude || latitudeNew || 0,
+            longitude: entry?.longitude || longitudeNew || 0,
+        };
+    };
 
-
-    const handleSubmit = async (values: any, actions: FormikValues) => {
-        const currentId = currentRowData?.id;
-        const locationEntry = Array.isArray(location) && location.find(item => item.id === currentId);
-        const latitude = locationEntry?.latitude;
-        const longitude = locationEntry?.longitude;
-
-        const updatedValues = {
-            ...values,
-            latitude: latitude || latitudeNew,
-            longitude: longitude || longitudeNew,
-            // status: 0,
-            // companyId
-        }
-
-        const formattedDate = dayjs(date, "DD MMM YYYY").format("YYYY-MM-DD");
-
-        if (values.checkIn !== "") {
-            if (!isValidTime(values.checkIn)) {
-                errorConfirmation('Enter Check In in HH:MM(24 hr format)');
-                return;
-            }
-            const checkInDateTime = dayjs(`${formattedDate} ${updatedValues.checkIn}`, "YYYY-MM-DD HH:mm").toString();
-            const checkInDateObject = new Date(checkInDateTime);
-            const checkInUTC = checkInDateObject.toISOString();
-            updatedValues.checkIn = checkInUTC;
-        }
-
-        if (values.checkOut !== '-NA-') {
-            if (!isValidTime(values.checkOut)) {
-                errorConfirmation('Enter Check Out in HH:MM(24 hr format)');
-                return;
-            }
-            const checkOutDateTime = dayjs(`${formattedDate} ${updatedValues.checkOut}`, "YYYY-MM-DD HH:mm").toString();
-            const checkOutDateObject = new Date(checkOutDateTime);
-            const checkOutUTC = checkOutDateObject.toISOString();
-            updatedValues.checkOut = checkOutUTC;
-        } else {
-            delete updatedValues.checkOut;
-        }
-
-        // Chronological validation: Check-Out must be after Check-In when both exist
-        if (updatedValues.checkIn && updatedValues.checkOut) {
-            const checkInMoment = dayjs(updatedValues.checkIn);
-            const checkOutMoment = dayjs(updatedValues.checkOut);
-            if (!checkOutMoment.isAfter(checkInMoment)) {
-                errorConfirmation('Check Out time must be after Check In time');
-                return;
-            }
-        }
-
-        try {
-            setLoading(true);
-
-            await createUpdateAttendanceRequest(updatedValues);
-            setLoading(false);
-            successConfirmation('Attendance Request created successfully');
-            setShow(false);
-            setCurrentRowData(null);
-            dispatch(saveToggleChange(!toggleChange));
-            return;
-        } catch (err) {
-            setLoading(false);
-            errorConfirmation('Attendance Request failed. Try again later.');
-            dispatch(saveToggleChange(!toggleChange));
-        }
-    }
+    /** The day an open request belongs to, read without ever parsing a display string as an instant. */
+    const editDate = editRow ? toCalendarKey(editRow.formattedDate) ?? toCalendarKey(editRow.date) : null;
 
     return (
         <>
@@ -3023,68 +2432,30 @@ export const ReportsTable = ({
                 isLoading={isLoading}
             />
 
-            <Modal show={show} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>Raise Request for {date} (24 hr HH:MM)</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={faqSchema}>
-                        {(formikProps) => {
-                            return (
-                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form'>
-                                    <div className="col-lg">
-                                        <TimePickerInput
-                                            isRequired={true}
-                                            label="Check In"
-                                            margin="mb-7"
-                                            formikField="checkIn"
-                                            placeholder="HH MM" />
-                                    </div>
-
-                                    <div className="col-lg">
-                                        <TimePickerInput
-                                            isRequired={false}
-                                            label="Check Out"
-                                            margin="mb-7"
-                                            formikField="checkOut"
-                                            placeholder="HH MM" />
-                                    </div>
-
-                                    <div className="col-lg">
-                                        <TextInput
-                                            isRequired={true}
-                                            label="Remarks"
-                                            margin="mb-7"
-                                            formikField="remarks" />
-                                    </div>
-
-                                    <div className="col-lg">
-                                        <DropDownInput
-                                            isRequired={true}
-                                            formikField="workingMethodId"
-                                            inputLabel="Working Method"
-                                            options={workingMethodOptions} />
-                                    </div>
-                                    {disableRaiseRequest && <div className="alert mt-8" role="alert" style={{ backgroundColor: "#FCEDDF", color: '#DD700C', borderColor: '#DD700C' }}>
-                                        {REQUEST_RAISE_DISABLE_MESSAGE}
-                                    </div>}
-                                    <div className='d-flex justify-content-center mt-8'>
-                                        <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || !formikProps.isValid}>
-                                            {!loading && 'Save Changes'}
-                                            {loading && (
-                                                <span className='indicator-progress' style={{ display: 'block' }}>
-                                                    Please wait...{' '}
-                                                    <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-                                                </span>
-                                            )}
-                                        </button>
-                                    </div>
-                                </Form>
-                            )
-                        }}
-                    </Formik>
-                </Modal.Body>
-            </Modal >
+            {/* The ONE correction form, in edit mode. The old modal was seeded with the
+                table's 12-hour display strings and validated them as 24-hour, required a
+                check-in even on a check-out-only request, and never sent the request id —
+                it found the row by date. */}
+            {editRow && editDate && (
+                <AttendanceCorrectionDialog
+                    open
+                    onClose={() => setEditRow(null)}
+                    date={editDate}
+                    employeeId={editRow.employeeId || employeeId}
+                    request={{
+                        id: editRow.id,
+                        checkIn: editRow.requestCheckIn ?? null,
+                        checkOut: editRow.requestCheckOut ?? null,
+                        workingMethodId: editRow.workingMethodId ?? null,
+                        remarks: editRow.remarks ?? null,
+                        status: editRow.requestStatus ?? 0,
+                    }}
+                    location={rowLocation(editRow)}
+                    onSaved={() => {
+                        dispatch(saveToggleChange(!toggleChange));
+                    }}
+                />
+            )}
             <Modal
                 show={!!trackingRequestId}
                 onHide={() => { setTrackingRequestId(null); setTrackInstanceId(null); }}

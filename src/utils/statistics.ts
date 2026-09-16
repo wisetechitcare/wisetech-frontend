@@ -2910,6 +2910,14 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             // For checkout-only requests, rawCheckIn comes from actualCheckIn (enriched by backend).
             rawCheckIn: checkInSource ? checkInSource.toString() : undefined,
             rawCheckOut: attendanceRequest?.checkOut ? attendanceRequest.checkOut.toString() : undefined,
+            // The request's OWN stored values, untouched. `rawCheckIn` above falls back to
+            // the enriched actual check-in (right for display, wrong for editing — it
+            // would put a device punch into the request), and `status` is later
+            // overwritten with "Holiday" by the weekend/holiday marker. The correction
+            // dialogs edit the request, so they read these.
+            requestCheckIn: attendanceRequest?.checkIn ?? null,
+            requestCheckOut: attendanceRequest?.checkOut ?? null,
+            requestStatus: typeof attendanceRequest?.status === 'number' ? attendanceRequest.status : null,
             workingMethod: attendanceRequest.workingMethod.type,
             remarks: attendanceRequest?.remarks || "",
             latitude: attendanceRequest.latitude,
