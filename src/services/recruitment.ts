@@ -183,6 +183,8 @@ export interface Applicant {
     expectedCtc?: number | string | null; noticePeriodDays?: number | null; resumeS3Url?: string | null;
     resumeFileName?: string | null; linkedInUrl?: string | null; sourceId?: string | null; source?: ApplicantSource | null;
     isBlacklisted: boolean; isActive: boolean; createdAt: string;
+    /** Optimistic-concurrency counter: sent back as expectedRevisionCount so a stale edit is refused, not silently applied. */
+    revisionCount?: number;
 }
 export interface Application {
     id: string; prefix?: string | null; applicantId: string; applicant?: Applicant | null;
@@ -275,7 +277,7 @@ export interface StageMovePayload {
 }
 
 // ─── Applications ────────────────────────────────────────────────────────────
-export const getApplications = async (filters: { requisitionId?: string; statusId?: string; sourceId?: string; search?: string } = {}, companyId?: string): Promise<Application[]> => {
+export const getApplications = async (filters: { requisitionId?: string; statusId?: string; sourceId?: string; search?: string; applicantId?: string } = {}, companyId?: string): Promise<Application[]> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${listQuery({ ...filters, companyId })}`);
     return data?.applications ?? [];
 };
@@ -423,7 +425,7 @@ export const getApplicantById = async (id: string): Promise<Applicant | null> =>
 
 // There is deliberately no deleteApplicant: candidate records are never hard-deleted (audit +
 // data-retention). Deactivating/blacklisting flows through this update instead.
-export const updateApplicant = async (id: string, payload: Partial<ApplicantPayload> & { isBlacklisted?: boolean; isActive?: boolean }) => {
+export const updateApplicant = async (id: string, payload: Partial<ApplicantPayload> & { isBlacklisted?: boolean; isActive?: boolean; expectedRevisionCount?: number }) => {
     const { data } = await axios.put(`${API_BASE_URL}/${RECRUITMENT.UPDATE_APPLICANT.replace(":id", id)}`, payload);
     return data;
 };

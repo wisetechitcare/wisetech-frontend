@@ -9,16 +9,15 @@ import { ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, Acti
 import { apiErrorMessage } from "@utils/apiError";
 import { COPY } from "./terms";
 import { queryKeys } from "@/lib/queryKeys";
-import { getRequisitions, type JobRequisition, type OrgScoped,
-} from "@services/recruitment";
 import {
-    getApplications, createApplication, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
+    getApplications, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
     stashConversion,
-    type Application, type ApplicationStatus, type ApplicationCreatePayload,
+    type Application, type ApplicationStatus, type OrgScoped,
 } from "@services/recruitment";
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
 import CandidateDrawer from "./CandidateDrawer";
+import { AddCandidateDialog } from "./AddCandidateDialog";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { applicationColumns, applicantName, ScoreChip, WaitingChip } from "./applicationColumns";
 
@@ -27,19 +26,11 @@ interface PendingMove {
     status: ApplicationStatus;
 }
 
-const emptyCreate = (): ApplicationCreatePayload & { firstName: string; lastName: string; email: string; phone: string } => ({
-    firstName: "", lastName: "", email: "", phone: "", requisitionId: "", statusId: null,
-});
-
-/** Loose on purpose — the server validates properly; this only stops an obvious typo reaching it. */
-const looksLikeEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-
 const PipelineView = ({ companyId }: OrgScoped) => {
     const qc = useQueryClient();
     const navigate = useNavigate();
     const [mode, setMode] = useState<"board" | "list">("board");
-    const [createOpen, setCreateOpen] = useState(false);
-    const [form, setForm] = useState(emptyCreate());
+    const [adding, setAdding] = useState(false);
     const [pending, setPending] = useState<PendingMove | null>(null);
     const [rejectReasonId, setRejectReasonId] = useState("");
     const [rejectNote, setRejectNote] = useState("");
@@ -53,15 +44,8 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const { data: applications = [], isLoading, isError, error, refetch } = useQuery({ queryKey: queryKeys.recruitment.applications({ companyId }), queryFn: () => getApplications({}, companyId) });
     const { data: statuses = [], isLoading: statusesLoading, isError: statusesError } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
     const { data: reasons = [] } = useQuery({ queryKey: queryKeys.recruitment.rejectionReasons(), queryFn: getRejectionReasons });
-    const { data: requisitions = [] } = useQuery({ queryKey: queryKeys.recruitment.requisitions(companyId), queryFn: () => getRequisitions(companyId) });
 
     const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.recruitment.all });
-
-    const createMut = useMutation({
-        mutationFn: (payload: ApplicationCreatePayload) => createApplication(payload),
-        onSuccess: () => { toast({ icon: "success", title: "Application added" }); closeCreate(); invalidate(); },
-        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not add the application") }),
-    });
 
     const moveMut = useMutation({
         mutationFn: (vars: { id: string; statusId: string; revisionCount: number; rejectionReasonId?: string; rejectionNote?: string }) =>
@@ -139,28 +123,6 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         setPending(null);
     };
 
-    // Reset on every close, not only on success, so a cancelled draft never reappears.
-    const closeCreate = () => { setCreateOpen(false); setForm(emptyCreate()); };
-    const emailTyped = form.email.trim();
-    const emailInvalid = !!emailTyped && !looksLikeEmail(emailTyped);
-    const hasIdentity = !!emailTyped || !!form.phone.trim();
-    const canCreate = !!form.firstName.trim() && hasIdentity && !emailInvalid;
-    // New applications go to roles that are approved and still open; a draft or rejected role has no pipeline.
-    const openRoles = requisitions.filter((r: JobRequisition) => r.status === 1 && r.isActive !== false);
-
-    const submitCreate = () => {
-        if (!canCreate) return;
-        createMut.mutate({
-            applicant: {
-                firstName: form.firstName.trim(),
-                lastName: form.lastName.trim() || null,
-                email: emailTyped || null,
-                phone: form.phone.trim() || null,
-            },
-            requisitionId: form.requisitionId || null,
-        });
-    };
-
     // Convert a hired candidate into an employee: prefill the New Employee wizard
     // via its onboarding-draft seam, then open it — no re-keying of known details.
     const convertToEmployee = async (a: Application) => {
@@ -214,8 +176,8 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                             <ToggleButton value="board"><AppIcon name="bi-kanban" />&nbsp;Board</ToggleButton>
                             <ToggleButton value="list"><AppIcon name="bi-list-ul" />&nbsp;List</ToggleButton>
                         </ToggleButtonGroup>
-                        <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setCreateOpen(true)}>
-                            New application
+                        <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
+                            Add candidate
                         </WtButton>
                     </>
                 }
@@ -310,47 +272,8 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 />
             )}
 
-            {/* Create application */}
-            <GlassDialog
-                open={createOpen}
-                onClose={closeCreate}
-                maxWidth="sm"
-                header={<GlassHeader title="New application" subtitle="Add a candidate to the pipeline" icon={<KTIcon iconName="user-tick" className="fs-2" />} onClose={closeCreate} />}
-            >
-                <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <WtField label="First name" required sx={{ flex: 1 }} value={form.firstName} onChange={(v) => setForm({ ...form, firstName: v })} />
-                            <WtField label="Last name" sx={{ flex: 1 }} value={form.lastName} onChange={(v) => setForm({ ...form, lastName: v })} />
-                        </Stack>
-                        {/* Email OR phone, the rule every other intake uses: walk-in and referral candidates often have only a number. */}
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <WtField label="Email" type="email" inputMode="email" sx={{ flex: 1 }} value={form.email} onChange={(v) => setForm({ ...form, email: v })}
-                                error={emailInvalid ? "That does not look like an email address" : undefined} />
-                            <WtField label="Phone" type="tel" inputMode="tel" sx={{ flex: 1 }} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
-                        </Stack>
-                        {!hasIdentity && form.firstName.trim() && (
-                            <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: -1 }}>Add an email or a phone number so the candidate can be told apart from others.</Typography>
-                        )}
-                        <WtField
-                            label="Role" fullWidth clearable
-                            value={form.requisitionId ?? ""}
-                            onChange={(v) => setForm({ ...form, requisitionId: v })}
-                            options={openRoles.map((r: JobRequisition) => ({ value: r.id, label: r.prefix ? `${r.prefix} · ${r.title}` : r.title }))}
-                            searchable={openRoles.length >= 8}
-                            placeholder={openRoles.length ? "Choose an approved role" : "No approved roles yet"}
-                            hint="Only approved, open roles are listed. Leave empty to add them to the pool."
-                        />
-                    </Stack>
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <WtButton ghost onClick={closeCreate}>Cancel</WtButton>
-                    <WtButton tone="primary" disabled={!canCreate || createMut.isPending} onClick={submitCreate}>
-                        {createMut.isPending ? "Adding…" : "Add"}
-                    </WtButton>
-                </DialogActions>
-            </GlassDialog>
-
+            {/* The shared Add candidate window. From the pipeline a role is required: a card with no role has no column. */}
+            <AddCandidateDialog open={adding} onClose={() => setAdding(false)} roleRequired companyId={companyId} />
             {/* Rejection reason capture on move to a terminal/requires-reason stage */}
             <GlassDialog
                 open={!!pending}

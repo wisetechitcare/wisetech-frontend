@@ -61,7 +61,8 @@ export const COPY = {
     },
     noSearchMatch: (term: string) => ({
         title: `Nothing matches “${term}”`,
-        hint: 'Try part of a name, a phone number, or the role they applied for.',
+        // What the search actually matches (backend applicantSearch: name, email, job title, employer).
+        hint: 'Try part of a name, an email, a job title or an employer.',
     }),
     noRequisitions: {
         title: 'No roles open',

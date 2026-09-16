@@ -19,6 +19,7 @@ import {
     type Application, type ApplicationDetail, type ApplicationStatus, type StageHistoryEntry,
 } from "@services/recruitment";
 import { ScoreChip } from "./applicationColumns";
+import { AddToRoleDialog } from "./AddToRoleDialog";
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
 
@@ -79,6 +80,7 @@ const Fact = ({ label, value, href }: { label: string; value?: string | number |
 const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onConvert }: Props) => {
     const qc = useQueryClient();
     const [draft, setDraft] = useState("");
+    const [addingToRole, setAddingToRole] = useState(false);
     const viewerId = useSelector((st: RootState) => st.employee?.currentEmployee?.id as string | undefined);
 
     // The board row paints the modal instantly as a placeholder — never as cached data, because
@@ -156,6 +158,8 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                             {a.requisition?.title && <ToneChip tone="neutral" label={a.requisition.title} dense />}
                             {a.convertedEmployeeId && <ToneChip tone="success" label="Converted to employee" dense />}
                         </Stack>
+                        {/* The same person can be considered for more than one role. */}
+                        <ActionIconButton iconName="briefcase" tone="brand" title="Add to another role" onClick={() => setAddingToRole(true)} />
                         {onConvert && currentStatus?.isHiredOutcome && !a.convertedEmployeeId && (
                             <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => onConvert(a)}
                                 sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>
@@ -352,6 +356,9 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                     <InterviewsPanel applicationId={a.id} applicantName={fullName(a)} />
                     <OfferPanel applicationId={a.id} applicantName={fullName(a)} />
                 </Stack>
+                {addingToRole && (
+                    <AddToRoleDialog open onClose={() => setAddingToRole(false)} applicantId={a.applicantId} applicantName={fullName(a)} />
+                )}
             </DialogContent>
         </GlassDialog>
     );
