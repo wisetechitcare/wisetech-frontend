@@ -13,6 +13,7 @@ dayjs.extend(timezone);
 
 import { convertTo12HourFormat, convertToTimeZone, findTimeDifference, getWeekDay, isDateBeforeOrSameAsCurrDate, timeToMinutes } from "./date";
 import { parseWorkingDays } from "@utils/workingDays";
+import { markWeekendOrHolidayDays } from "@utils/weekendHoliday";
 import { ABSENT, CHECK_OUT_MISSING, checkInTime, checkOutTime, EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HEATMAPLABELS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, monthDays, months, ON_LEAVE, onSiteAndHolidayWeekendSettingsOnOffName, PRESENT, TOTAL_ANNUAL_LEAVES, TOTAL_FLOATER_LEAVES, TOTAL_SICK_LEAVES, TOTAL_WORKING_DAYS, totalShiftTimeMins, week, weekDays, WEEKEND } from "@constants/statistics";
 import { ATTENDANCE_STATUS, LeaveStatus, LeaveTypes } from "@constants/attendance";
 import { IPublicHoliday } from "@models/company";
@@ -4023,96 +4024,25 @@ export function formatDisplay(input: string): string {
 }
 
 
-export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHolidays: any[]): (any & { isWeekendOrHoliday: boolean })[] => {
-    // Prepare holiday date strings in "YYYY-MM-DD". Both `h.date` (a holiday's
-    // stored date) and `entry.date` below (already a formatted calendar-date
-    // string by the time it reaches this function, from an upstream transform —
-    // not a raw instant) are timezone-NEUTRAL pure calendar dates, not instants
-    // needing business-timezone conversion. Extract via explicit `.utc()`, not a
-    // hardcoded `.tz('Asia/Kolkata')` — the old IST shift only ever happened to
-    // be safe because IST is east of UTC; shifting a pure date into a WEST-of-UTC
-    // branch timezone (e.g. America/New_York) would incorrectly roll it back a
-    // day. `?? []` guards a null holiday list (was `allHolidays?.filter(...).map(...)`,
-    // which threw once the optional chain ended before `.map`).
-    const allHolidaysWithoutWeeknd = (allHolidays ?? []).filter(data => !data?.isWeekend)
-    const holidayDates = new Set(
-        allHolidaysWithoutWeeknd.map(h => dayjs.utc(h.date).format("YYYY-MM-DD"))
-    );
+/**
+ * Mark rows falling on a weekly off, alternate weekend or public holiday.
+ *
+ * Both names now delegate to the ONE implementation in `@utils/weekendHoliday`.
+ * They were byte-identical copies carrying the same date bug: the holiday lookup
+ * ran `new Date("15 Sept 2026")` — LOCAL midnight — and read it back with
+ * `dayjs.utc()`, landing a day early in IST. 14 Sept's holiday appeared on the
+ * 15 Sept row, and the 14th lost the one it genuinely had. Fixing one copy would
+ * have left the other wrong, and the two feed the two tables stacked on the same
+ * screen.
+ *
+ * Kept as two exported names so no call site has to change. There is no longer any
+ * behavioural difference between them, and there never intentionally was one.
+ */
+export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHolidays: any[]): (any & { isWeekendOrHoliday: boolean })[] =>
+    markWeekendOrHolidayDays(attendance ?? [], allWeekends, allHolidays);
 
-    // const weekndsList = holidayDates?.filter()
-
-    const allWeekendsJson = parseWorkingDays(allWeekends);
-
-    const alternateWeekends = (allHolidays ?? []).filter(data => data?.isWeekend)
-
-    return attendance.map(entry => {
-        const dayKey = entry.day?.toLowerCase() || '';
-
-        const isWeekend = allWeekendsJson[dayKey] == "0" || alternateWeekends?.some(data => dayjs(data?.date).isSame(dayjs(entry?.date), 'day'));
-        //   const isWeekend = allWeekendsJson[dayKey] === "0" || alternateWeekends?.some(data=>data?.date === entry?.date);
-
-        const entryDate = entry?.date ? new Date(entry.date) : dayjs().toDate();
-
-        // entry.date is already a formatted calendar-date string (timezone-neutral
-        // pure date) by the time it reaches this function — see the note above.
-        const formattedDate = dayjs.utc(entryDate).format("YYYY-MM-DD");
-
-        const isHoliday = holidayDates.has(formattedDate);
-
-        return {
-            ...entry,
-            isWeekendOrHoliday: isHoliday || isWeekend,
-            ...(isHoliday && { status: "Holiday" })
-        };
-    });
-}
-
-
-export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeekends: any, allHolidays: any[]): (any & { isWeekendOrHoliday: boolean })[] => {
-    // Prepare holiday date strings in "YYYY-MM-DD". Both `h.date` (a holiday's
-    // stored date) and `entry.date` below (already a formatted calendar-date
-    // string by the time it reaches this function, from an upstream transform —
-    // not a raw instant) are timezone-NEUTRAL pure calendar dates, not instants
-    // needing business-timezone conversion. Extract via explicit `.utc()`, not a
-    // hardcoded `.tz('Asia/Kolkata')` — the old IST shift only ever happened to
-    // be safe because IST is east of UTC; shifting a pure date into a WEST-of-UTC
-    // branch timezone (e.g. America/New_York) would incorrectly roll it back a
-    // day. `?? []` guards a null holiday list (was `allHolidays?.filter(...).map(...)`,
-    // which threw once the optional chain ended before `.map`).
-    const allHolidaysWithoutWeeknd = (allHolidays ?? []).filter(data => !data?.isWeekend)
-    const holidayDates = new Set(
-        allHolidaysWithoutWeeknd.map(h => dayjs.utc(h.date).format("YYYY-MM-DD"))
-    );
-
-    // const weekndsList = holidayDates?.filter()
-
-    const allWeekendsJson = parseWorkingDays(allWeekends);
-
-    const alternateWeekends = (allHolidays ?? []).filter(data => data?.isWeekend)
-
-    return attendance.map(entry => {
-        const dayKey = entry.day?.toLowerCase() || '';
-
-        const isWeekend = allWeekendsJson[dayKey] == "0" || alternateWeekends?.some(data => dayjs(data?.date).isSame(dayjs(entry?.date), 'day'));
-        //   const isWeekend = allWeekendsJson[dayKey] === "0" || alternateWeekends?.some(data=>data?.date === entry?.date);
-
-        const entryDate = entry?.date ? new Date(entry.date) : dayjs().toDate();
-
-        // entry.date is already a formatted calendar-date string (timezone-neutral
-        // pure date) by the time it reaches this function — see the note above.
-        const formattedDate = dayjs.utc(entryDate).format("YYYY-MM-DD");
-
-        const isHoliday = holidayDates.has(formattedDate);
-        //   const entryNew = entry;
-        //   console.log("Entry:::: ",entryNew);
-
-        return {
-            ...entry,
-            isWeekendOrHoliday: isHoliday || isWeekend,
-            ...(isHoliday && { status: "Holiday" })
-        };
-    });
-}
+export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeekends: any, allHolidays: any[]): (any & { isWeekendOrHoliday: boolean })[] =>
+    markWeekendOrHolidayDays(attendance ?? [], allWeekends, allHolidays);
 
 // Calculate total time for a project
 export const handleSendEmailForResetAttendanceRequestLimit = async (
