@@ -31,6 +31,15 @@ import TextInput from '../inputs/TextInput';
 import { fetchWorkingMethods } from '@services/options';
 import DropDownInput from '../inputs/DropdownInput';
 import dayjs, { Dayjs } from 'dayjs';
+import dayjsUtc from 'dayjs/plugin/utc';
+import dayjsTimezone from 'dayjs/plugin/timezone';
+
+// Extended explicitly rather than relying on another module having done it.
+// dayjs plugins are global and idempotent, but `.tz()` silently throwing
+// because an unrelated import was tree-shaken is not a failure mode worth
+// keeping.
+dayjs.extend(dayjsUtc);
+dayjs.extend(dayjsTimezone);
 import { deleteConfirmation, errorConfirmation, successConfirmation } from '@utils/modal';
 import { createUpdateAttendanceRequest, deleteAttendanceRequestById, fetchApprovalInstanceByRequest } from '@services/employee';
 import ApprovalStatusTracker from '@app/pages/approvals/ApprovalStatusTracker';
@@ -45,7 +54,8 @@ import TimePickerInput from '../inputs/TimeInput';
 import { fetchAddressDetails } from '@services/location';
 import { getGraceBasedThresholds } from '@utils/getGraceBasedThresholds';
 import { fetchAttendanceClassification } from '@services/employee';
-import { formatTimeString } from '@utils/date';
+import { formatTimeString, MUMBAI_TZ } from '@utils/date';
+import { canOfferCorrection, parseCorrectionWindowMonths } from '@utils/correctionWindow';
 import { UAParser } from 'ua-parser-js';
 import { Form as BootstrapForm } from "react-bootstrap";
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
@@ -1454,6 +1464,8 @@ export const StatisticsTable = ({
     const [loading, setLoading] = useState(false);
     const [show, setShow] = useState(false);
     const [date, setDate] = useState('');
+
+
     // ADD: Store current row data for handleSubmit
     const [currentRowData, setCurrentRowData] = useState<any>(null);
     // ADD: Request type selection state
@@ -1470,6 +1482,32 @@ export const StatisticsTable = ({
     // Hooks must run unconditionally (rules-of-hooks): read both viewers' values,
     // then pick by `fromAdmin`. Optional chaining so the always-run selector for the
     // non-active viewer can't throw when that employee object is absent.
+    // The VIEWED employee's own branch timezone — an admin in Mumbai looking at a
+    // Dubai employee must not offer or refuse a day based on their own midnight.
+    const curViewedTimezone = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.timezone);
+    const selViewedTimezone = useSelector((state: RootState) => state?.employee?.selectedEmployee?.branches?.timezone);
+    const viewedTimezone = fromAdmin ? (selViewedTimezone || curViewedTimezone) : curViewedTimezone;
+
+    /**
+     * The tenant's correction window, read off the `leave management` config this
+     * component already loads for the VIEWED employee's company and branch — so a
+     * branch that widens it is honoured without a second request. The server
+     * resolves the identical value and enforces it.
+     */
+    const correctionWindowMonths = useMemo(
+        () => parseCorrectionWindowMonths(leaveConfiguration),
+        [leaveConfiguration],
+    );
+    /**
+     * Today in the VIEWED employee's own branch timezone, not the viewer's. An admin
+     * in Mumbai looking at a Dubai employee must not be offered — or refused — a day
+     * based on their own midnight.
+     */
+    const todayKey = useMemo(
+        () => dayjs().tz(viewedTimezone || MUMBAI_TZ).format('YYYY-MM-DD'),
+        [viewedTimezone],
+    );
+
     const selectedDateOfJoining = useSelector((state: RootState) => state.employee.selectedEmployee?.dateOfJoining);
     const currentDateOfJoining = useSelector((state: RootState) => state.employee.currentEmployee?.dateOfJoining);
     const dateOfJoining = fromAdmin ? selectedDateOfJoining : currentDateOfJoining;
@@ -2160,16 +2198,34 @@ export const StatisticsTable = ({
             maxSize: 150,
             Cell: ({ row }: any) => {
                 const res = hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.create);
-                const hasAttendanceResquest = row?.original?.attendanceRequests?.id;
-                const isPastDate = dayjs(row?.original?.date).isBefore(dayjs(), 'day');
-                // if(hasAttendanceResquest) return 'Request Already Raised'
-                return !(row?.original?.id == "-") && res && !isPastDate ?
+                /**
+                 * Was `!dayjs(row.date).isBefore(dayjs(), 'day')` — TODAY only, so a
+                 * check-out forgotten yesterday was already unreachable by the next
+                 * morning. Because every past row was refused, weekends and holidays
+                 * looked like they were refused FOR BEING weekends and holidays. They
+                 * never were; they were simply in the past.
+                 *
+                 * Now the tenant's own window, from the config this screen already
+                 * loads. The server enforces the same rule, so nothing offered here
+                 * can be refused on arrival.
+                 */
+                const offered = canOfferCorrection({
+                    date: row?.original?.date,
+                    status: row?.original?.status,
+                    today: todayKey,
+                    windowMonths: correctionWindowMonths,
+                });
+                return !(row?.original?.id == "-") && res && offered ?
                     < button className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm' onClick={() => raiseRequest(row?.original)} >
                         <KTIcon iconName='pencil' className='fs-3' />
                     </button > : 'Not Allowed'
             },
         }] : []),
-    ], [location, lateCheckInThreshold, earlyCheckOutThreshold, allEmployeeThresholds, leaveConfiguration, backendLateDates, backendDatesReady]);
+        // `todayKey` and `correctionWindowMonths` are listed explicitly rather than
+        // left to ride on `leaveConfiguration`: switching the admin's view to an
+        // employee in another timezone changes `todayKey` without touching the config,
+        // and a stale closure there would offer or refuse the wrong day.
+    ], [location, lateCheckInThreshold, earlyCheckOutThreshold, allEmployeeThresholds, leaveConfiguration, backendLateDates, backendDatesReady, todayKey, correctionWindowMonths]);
 
 
     // Detect if device is iOS mobile        
