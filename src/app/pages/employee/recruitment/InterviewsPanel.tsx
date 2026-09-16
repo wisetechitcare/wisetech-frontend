@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-    Box, Stack, Typography, TextField, MenuItem, Chip, CircularProgress, DialogContent, DialogActions,
-} from "@mui/material";
+import dayjs from "dayjs";
+import { Box, Stack, Typography, CircularProgress, DialogContent, DialogActions } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, GlassCard, WtButton, WtIconButton, ToneChip, WtDateTimeField, WtField, toast } from "@app/modules/common/components/ui";
+import {
+    GlassDialog, GlassHeader, GlassCard, WtButton, WtIconButton, ToneChip, WtDateTimeField, WtField, SettingsSection, TRIO,
+    toast, WtEmptyState,
+} from "@app/modules/common/components/ui";
 import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
 import { queryKeys } from "@/lib/queryKeys";
+import { formatDateTime } from "@utils/dateFormats";
+import { apiErrorMessage } from "@utils/apiError";
+import { COPY } from "./terms";
 import {
     getApplicationInterviews, createInterview, updateInterview, submitScorecard, getApplicationEvaluation,
     type Interview, type InterviewPayload, type ScorecardPayload,
@@ -14,9 +19,27 @@ import {
     type DecisionOutcome, type RatingScale,
 } from "@services/recruitment";
 
-const TYPES = ["PHONE", "VIDEO", "ONSITE", "TECHNICAL", "HR"];
-const MODES = ["ONLINE", "OFFLINE"];
-const STATUSES = ["SCHEDULED", "COMPLETED", "NO_SHOW", "CANCELLED", "RESCHEDULED"];
+/** Stored codes → what a person reads. The codes stay on the wire; only the labels are for people. */
+const TYPES = [
+    { value: "PHONE", label: "Phone screen" },
+    { value: "VIDEO", label: "Video" },
+    { value: "ONSITE", label: "On-site" },
+    { value: "TECHNICAL", label: "Technical" },
+    { value: "HR", label: "HR" },
+];
+const MODES = [
+    { value: "ONLINE", label: "Online" },
+    { value: "OFFLINE", label: "In person" },
+];
+const STATUSES = [
+    { value: "SCHEDULED", label: "Scheduled" },
+    { value: "RESCHEDULED", label: "Rescheduled" },
+    { value: "COMPLETED", label: "Completed" },
+    { value: "NO_SHOW", label: "No-show" },
+    { value: "CANCELLED", label: "Cancelled" },
+];
+const labelOf = (list: { value: string; label: string }[], code: string) => list.find((o) => o.value === code)?.label ?? code;
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 // The rating scale and the decision wording are NOT declared here. They are
 // properties of the scorecard template and arrive with it, because the company
 // scores interviews three different ways depending on which of its own forms you
@@ -27,11 +50,16 @@ const STATUSES = ["SCHEDULED", "COMPLETED", "NO_SHOW", "CANCELLED", "RESCHEDULED
 const outcomeTone = (outcome?: DecisionOutcome) =>
     outcome === "ADVANCE" ? "success" : outcome === "REJECT" ? "danger" : "warning";
 
-/**
- * A neutral opening rating: the middle of whatever scale applies. The dialog used
- * to open on 4 out of 5, which quietly starts every candidate above the midpoint.
- */
+/** A neutral opening rating: the middle of whatever scale applies. */
 const midpointOf = (scale: RatingScale) => Math.round((scale.min + scale.max) / 2);
+
+/**
+ * A scorecard draft before the rubric has said which vocabulary applies. The rating and the
+ * decision are deliberately out of range, so the effect below always replaces them with the
+ * rubric's own midpoint and first decision — never a hardcoded "4 / YES" that starts every
+ * candidate above the middle.
+ */
+const blankScorecard = (): ScorecardPayload => ({ overallRating: -1, recommendation: "", comments: "", factorScores: null });
 
 /**
  * One rating input, rendered in whatever vocabulary the rubric carries: a worded
@@ -48,33 +76,43 @@ const RatingControl = ({
     ariaLabel: string;
     fullWidth?: boolean;
 }) => {
+    // What the box shows, so clearing it leaves it cleared. `Number("") || scale.min` used to
+    // refill the field with the minimum the moment it was emptied — the same snap-back the
+    // Headcount field had — and the cursor then sat behind a digit nobody typed.
+    const [text, setText] = useState(value === "" ? "" : String(value));
+    useEffect(() => { setText(value === "" ? "" : String(value)); }, [value]);
+
     if (scale.levels?.length) {
         return (
-            <TextField
-                select size="small" fullWidth={fullWidth} sx={fullWidth ? undefined : { width: 140 }}
+            <WtField
+                ariaLabel={ariaLabel}
+                fullWidth={fullWidth} minWidth={fullWidth ? undefined : 140}
                 value={value === "" ? "" : String(value)}
-                onChange={(e) => onChange(Number(e.target.value))}
-                inputProps={{ "aria-label": ariaLabel }}
-            >
-                {scale.levels.map((level) => (
-                    <MenuItem key={level.value} value={String(level.value)}>{level.label}</MenuItem>
-                ))}
-            </TextField>
+                onChange={(v) => onChange(Number(v))}
+                options={scale.levels.map((level) => ({ value: String(level.value), label: level.label }))}
+            />
         );
     }
     return (
-        <TextField
-            type="number" size="small" fullWidth={fullWidth} sx={fullWidth ? undefined : { width: 92 }}
-            inputProps={{ min: scale.min, max: scale.max, "aria-label": ariaLabel }}
-            value={value}
-            // Clamped on the way in as well as on the server: typing 9 on a scale that
-            // stops at 5 should correct itself, not fail on save.
-            onChange={(e) => onChange(Math.min(scale.max, Math.max(scale.min, Number(e.target.value) || scale.min)))}
+        <WtField
+            ariaLabel={ariaLabel}
+            type="number" inputMode="numeric" min={scale.min} max={scale.max}
+            fullWidth={fullWidth} minWidth={fullWidth ? undefined : 92}
+            value={text}
+            onChange={(v) => {
+                setText(v);
+                if (v.trim() === "") return; // an empty box is a value not yet given, not a zero
+                const n = Number(v);
+                // Clamped on the way in as well as on the server: typing 9 on a scale that
+                // stops at 5 should correct itself, not fail on save.
+                if (!Number.isNaN(n)) onChange(Math.min(scale.max, Math.max(scale.min, n)));
+            }}
         />
     );
 };
 
-const toLocalInput = (iso?: string) => (iso ? new Date(iso).toISOString().slice(0, 16) : "");
+/** The date-time field speaks LOCAL wall-clock `YYYY-MM-DDTHH:mm`; toISOString would hand it UTC. */
+const toLocalInput = (d: Date) => dayjs(d).format("YYYY-MM-DDTHH:mm");
 
 interface Props {
     applicationId: string;
@@ -83,7 +121,6 @@ interface Props {
 
 const emptySchedule = (): InterviewPayload => ({
     applicationId: "",
-    round: 1,
     type: "VIDEO",
     mode: "ONLINE",
     scheduledStart: "",
@@ -94,19 +131,22 @@ const emptySchedule = (): InterviewPayload => ({
 });
 
 /**
- * Interviews + scorecards for one application: schedule (glass dialog, emails the
- * candidate + panel), list with status control, per-panelist scorecard capture,
- * and a weighted evaluation summary. Glass kit + KTIcon + responsive.
+ * Interviews + scorecards for one application: schedule (emails the candidate + panel), list
+ * with status control, per-panelist scorecard capture, and a weighted evaluation summary.
+ * Framed as a kit SettingsSection, so it sits in the candidate modal and in its own dialog alike.
  */
 const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
     const qc = useQueryClient();
     const [scheduleOpen, setScheduleOpen] = useState(false);
     const [form, setForm] = useState<InterviewPayload>({ ...emptySchedule(), applicationId });
+    // Text, not a number: a number state turns a cleared field back into "1" mid-typing, so
+    // replacing 1 with 2 produced 12.
+    const [roundText, setRoundText] = useState("1");
     const [scoreFor, setScoreFor] = useState<Interview | null>(null);
-    const [score, setScore] = useState<ScorecardPayload>({ overallRating: 4, recommendation: "YES", comments: "" });
+    const [score, setScore] = useState<ScorecardPayload>(blankScorecard());
 
     // The rubric for the interview being scored. Resolved server-side from the
-    // requisition’s designation, falling back to the tenant default; null is an ordinary
+    // requisition's designation, falling back to the tenant default; null is an ordinary
     // answer, and the dialog then behaves exactly as it did before rubrics existed.
     const { data: rubric } = useQuery({
         queryKey: queryKeys.recruitment.scorecardTemplateFor(scoreFor?.id ?? ""),
@@ -117,13 +157,15 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
     const factors = rubric?.template?.factors ?? [];
     const scale = rubric?.scale;
     const decisions = rubric?.decisions;
+    /** A rating the server would accept. Its absence is why Save was failing on press. */
+    const ratingGiven = !!scale && score.overallRating >= scale.min && score.overallRating <= scale.max;
     const setFactor = (factorId: string, value: number) =>
         setScore((prev) => ({ ...prev, factorScores: { ...(prev.factorScores ?? {}), [factorId]: value } }));
 
-    // The dialog opens before its rubric has loaded, so the draft starts on the
-    // app default and is corrected once the server says which vocabulary applies.
-    // Only values the resolved rubric would REJECT are replaced — a rating the
-    // interviewer already entered inside the valid range is left alone.
+    // Once the server says which vocabulary applies, values the rubric would REJECT are
+    // replaced; a rating the interviewer already entered inside the range is left alone.
+    // Keyed on the interview too: reopening the same one reuses the cached rubric object, and
+    // without it the fresh blank draft would never be filled.
     useEffect(() => {
         if (!scale || !decisions) return;
         setScore((prev) => {
@@ -136,9 +178,9 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                 overallRating: ratingOk ? prev.overallRating : midpointOf(scale),
             };
         });
-    }, [scale, decisions]);
+    }, [scale, decisions, scoreFor?.id]);
 
-    const { data: interviews = [], isLoading } = useQuery({ queryKey: queryKeys.recruitment.interviews(applicationId), queryFn: () => getApplicationInterviews(applicationId) });
+    const { data: interviews = [], isLoading, isError } = useQuery({ queryKey: queryKeys.recruitment.interviews(applicationId), queryFn: () => getApplicationInterviews(applicationId) });
     const { data: evaluation } = useQuery({ queryKey: queryKeys.recruitment.evaluation(applicationId), queryFn: () => getApplicationEvaluation(applicationId) });
 
     const invalidate = () => {
@@ -146,83 +188,105 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
         qc.invalidateQueries({ queryKey: queryKeys.recruitment.evaluation(applicationId) });
     };
 
+    const round = Number.parseInt(roundText, 10);
+    const roundValid = Number.isInteger(round) && round >= 1;
+
     const scheduleMut = useMutation({
         mutationFn: () => createInterview({
             ...form,
             applicationId,
+            round,
             scheduledStart: form.scheduledStart ? new Date(form.scheduledStart).toISOString() : "",
             scheduledEnd: form.scheduledEnd ? new Date(form.scheduledEnd).toISOString() : "",
         }),
         onSuccess: () => { toast({ icon: "success", title: "Interview scheduled — invites sent" }); setScheduleOpen(false); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not schedule interview" }),
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not schedule the interview") }),
     });
 
     const statusMut = useMutation({
         mutationFn: (vars: { id: string; status: string }) => updateInterview(vars.id, { status: vars.status }),
         onSuccess: () => { toast({ icon: "success", title: "Interview updated" }); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not update" }),
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not update the interview") }),
     });
 
     const scoreMut = useMutation({
         mutationFn: () => submitScorecard(scoreFor!.id, score),
         onSuccess: () => { toast({ icon: "success", title: "Scorecard saved" }); setScoreFor(null); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not save scorecard" }),
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not save the scorecard") }),
     });
 
     const openSchedule = () => {
-        const start = new Date(Date.now() + 86_400_000);
-        const end = new Date(start.getTime() + 45 * 60_000);
-        setForm({ ...emptySchedule(), applicationId, scheduledStart: toLocalInput(start.toISOString()), scheduledEnd: toLocalInput(end.toISOString()) });
+        // Tomorrow, on the hour — a clean slot rather than "this exact minute plus a day".
+        const start = dayjs().add(1, "day").startOf("hour").toDate();
+        const end = dayjs(start).add(45, "minute").toDate();
+        setForm({ ...emptySchedule(), applicationId, scheduledStart: toLocalInput(start), scheduledEnd: toLocalInput(end) });
+        setRoundText(String(interviews.length + 1));
         setScheduleOpen(true);
     };
-    const canSchedule = !!form.scheduledStart && !!form.scheduledEnd && (form.panelistIds?.length ?? 0) > 0;
+    const openScorecard = (iv: Interview) => { setScore(blankScorecard()); setScoreFor(iv); };
+
+    const endAfterStart = !!form.scheduledStart && !!form.scheduledEnd && dayjs(form.scheduledEnd).isAfter(dayjs(form.scheduledStart));
+    const canSchedule = roundValid && endAfterStart && (form.panelistIds?.length ?? 0) > 0;
+
+    const summary = evaluation && evaluation.scorecardCount > 0
+        ? `${evaluation.averageOverall !== null
+            ? `Average ${evaluation.averageOverall}`
+            // Falls back to the comparable percentage when the panel spans two scales,
+            // where a single mean would describe neither of them.
+            : evaluation.averagePercent !== null ? `Average ${Math.round(evaluation.averagePercent * 100)}%` : "No average"
+        } · ${plural(evaluation.scorecardCount, "scorecard")}`
+        : interviews.length ? plural(interviews.length, "round") : undefined;
 
     return (
-        <Box>
-            <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
-                <Typography sx={{ fontWeight: 700, fontSize: 16, flex: 1 }}>Interviews — {applicantName}</Typography>
-                {evaluation && evaluation.scorecardCount > 0 && (
-                    <ToneChip
-                        tone={evaluation.verdict === "MIXED" ? "warning" : outcomeTone(evaluation.verdict ?? undefined)}
-                        // Falls back to the comparable percentage when the panel spans two
-                        // scales, where a single mean would describe neither of them.
-                        label={`${
-                            evaluation.averageOverall !== null
-                                ? evaluation.averageOverall
-                                : evaluation.averagePercent !== null
-                                    ? `${Math.round(evaluation.averagePercent * 100)}%`
-                                    : "—"
-                        } · ${evaluation.scorecardCount} scorecard(s)`}
-                        dense
-                    />
-                )}
-                <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openSchedule}>Schedule</WtButton>
-            </Stack>
+        <SettingsSection
+            tone={TRIO.green}
+            icon="message-text-2"
+            title="Interviews"
+            description={summary}
+            action={
+                <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openSchedule} aria-label={`Schedule an interview with ${applicantName}`}>
+                    Schedule
+                </WtButton>
+            }
+        >
+            {evaluation && evaluation.scorecardCount > 0 && evaluation.verdict && (
+                <Box sx={{ mb: 1.5 }}>
+                    <ToneChip tone={evaluation.verdict === "MIXED" ? "warning" : outcomeTone(evaluation.verdict)} label={`Panel verdict: ${evaluation.verdict === "MIXED" ? "Mixed" : evaluation.verdict.charAt(0) + evaluation.verdict.slice(1).toLowerCase()}`} dense />
+                </Box>
+            )}
 
             {isLoading ? (
                 <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={22} /></Stack>
+            ) : isError ? (
+                <Typography sx={{ fontSize: 13, color: "error.main" }}>Could not load interviews.</Typography>
             ) : interviews.length === 0 ? (
-                <Typography sx={{ color: "text.secondary", fontSize: 13 }}>No interviews scheduled yet.</Typography>
+                <WtEmptyState icon="calendar-add" title={COPY.noInterviews.title} hint={COPY.noInterviews.hint} dense />
             ) : (
                 <Stack spacing={1}>
                     {interviews.map((iv) => (
                         <GlassCard key={iv.id} preset="row">
-                            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ flexWrap: "wrap" }}>
-                                <Box sx={{ flex: 1, minWidth: 160 }}>
-                                    <Typography sx={{ fontWeight: 600, fontSize: 14 }}>Round {iv.round} · {iv.type} · {iv.mode}</Typography>
-                                    <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
-                                        {new Date(iv.scheduledStart).toLocaleString()} · {iv.panelistIds?.length ?? 0} panelist(s) · {iv.scorecards?.length ?? 0} scorecard(s)
+                            <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ xs: "stretch", sm: "center" }} spacing={1.5}>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
+                                        Round {iv.round} · {labelOf(TYPES, iv.type)} · {labelOf(MODES, iv.mode)}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 12.5, color: "text.secondary", overflowWrap: "anywhere" }}>
+                                        {formatDateTime(iv.scheduledStart)} · {plural(iv.panelistIds?.length ?? 0, "panelist")} · {plural(iv.scorecards?.length ?? 0, "scorecard")}
                                     </Typography>
                                 </Box>
-                                <TextField
-                                    select size="small" value={iv.status} sx={{ minWidth: 140 }}
-                                    onChange={(e) => statusMut.mutate({ id: iv.id, status: e.target.value })}
-                                >
-                                    {STATUSES.map((s) => <MenuItem key={s} value={s}>{s.replace("_", " ")}</MenuItem>)}
-                                </TextField>
-                                <WtIconButton title="Add scorecard" onClick={() => { setScoreFor(iv); setScore({ overallRating: 4, recommendation: "YES", comments: "", factorScores: null }); }}>
-                                    <KTIcon iconName="questionnaire-tablet" className="fs-5" />
-                                </WtIconButton>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <WtField
+                                        label="Status"
+                                        value={iv.status}
+                                        onChange={(v) => statusMut.mutate({ id: iv.id, status: v })}
+                                        options={STATUSES.some((s) => s.value === iv.status) ? STATUSES : [...STATUSES, { value: iv.status, label: iv.status }]}
+                                        disabled={statusMut.isPending}
+                                        sx={{ flex: 1, minWidth: 150 }}
+                                    />
+                                    <WtIconButton title="Add Scorecard" onClick={() => openScorecard(iv)}>
+                                        <KTIcon iconName="questionnaire-tablet" className="fs-5" />
+                                    </WtIconButton>
+                                </Stack>
                             </Stack>
                         </GlassCard>
                     ))}
@@ -234,25 +298,31 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                 open={scheduleOpen}
                 onClose={() => setScheduleOpen(false)}
                 maxWidth="sm"
-                header={<GlassHeader title="Schedule interview" subtitle="Candidate + panel are emailed an invite" icon={<KTIcon iconName="message-text-2" className="fs-2" />} onClose={() => setScheduleOpen(false)} />}
+                header={<GlassHeader title="Schedule Interview" subtitle={`${applicantName} and the panel are emailed an invite`} icon={<KTIcon iconName="message-text-2" className="fs-2" />} onClose={() => setScheduleOpen(false)} />}
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField label="Round" type="number" size="small" sx={{ flex: 1 }} value={form.round} onChange={(e) => setForm({ ...form, round: Number(e.target.value) || 1 })} />
-                            <TextField label="Type" select size="small" sx={{ flex: 1 }} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                                {TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-                            </TextField>
-                            <TextField label="Mode" select size="small" sx={{ flex: 1 }} value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
-                                {MODES.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                            </TextField>
+                            <WtField label="Round" type="number" min={1} step={1} inputMode="numeric" required sx={{ flex: 1 }}
+                                value={roundText} onChange={setRoundText} error={roundText !== "" && !roundValid ? "Round starts at 1" : undefined} />
+                            <WtField label="Type" sx={{ flex: 1 }} value={form.type ?? ""} options={TYPES} onChange={(v) => setForm({ ...form, type: v })} />
+                            <WtField label="Mode" sx={{ flex: 1 }} value={form.mode ?? ""} options={MODES} onChange={(v) => setForm({ ...form, mode: v })} />
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <WtDateTimeField label="Start" sx={{ flex: 1 }} value={form.scheduledStart} onChange={(v) => setForm({ ...form, scheduledStart: v })} />
-                            {/* An interview cannot end before it starts — the native input allowed it. */}
+                            {/* An interview cannot end before it starts. */}
                             <WtDateTimeField label="End" sx={{ flex: 1 }} minDateTime={form.scheduledStart || undefined} value={form.scheduledEnd} onChange={(v) => setForm({ ...form, scheduledEnd: v })} />
                         </Stack>
-                        <TextField label={form.mode === "ONLINE" ? "Meeting link" : "Location"} size="small" fullWidth value={(form.mode === "ONLINE" ? form.meetingLink : form.location) ?? ""} onChange={(e) => setForm(form.mode === "ONLINE" ? { ...form, meetingLink: e.target.value } : { ...form, location: e.target.value })} />
+                        {form.scheduledStart && form.scheduledEnd && !endAfterStart && (
+                            <Typography sx={{ fontSize: 12.5, color: "error.main", mt: -1 }}>The end has to be after the start.</Typography>
+                        )}
+                        <WtField
+                            label={form.mode === "ONLINE" ? "Meeting link" : "Location"}
+                            fullWidth
+                            placeholder={form.mode === "ONLINE" ? "https://…" : "Office, room or address"}
+                            value={(form.mode === "ONLINE" ? form.meetingLink : form.location) ?? ""}
+                            onChange={(v) => setForm(form.mode === "ONLINE" ? { ...form, meetingLink: v } : { ...form, location: v })}
+                        />
                         <EmployeePickerField
                             label="Panelists" multiple
                             placeholder="Add interviewers…"
@@ -265,7 +335,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <WtButton ghost onClick={() => setScheduleOpen(false)}>Cancel</WtButton>
-                    <WtButton tone="primary" disabled={!canSchedule || scheduleMut.isPending} onClick={() => scheduleMut.mutate()}>{scheduleMut.isPending ? "Scheduling…" : "Schedule & invite"}</WtButton>
+                    <WtButton tone="primary" disabled={!canSchedule || scheduleMut.isPending} onClick={() => scheduleMut.mutate()}>{scheduleMut.isPending ? "Scheduling…" : "Schedule & Invite"}</WtButton>
                 </DialogActions>
             </GlassDialog>
 
@@ -274,13 +344,13 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                 open={!!scoreFor}
                 onClose={() => setScoreFor(null)}
                 maxWidth="xs"
-                header={<GlassHeader title="Interview scorecard" subtitle={`Round ${scoreFor?.round ?? ""}`} icon={<KTIcon iconName="questionnaire-tablet" className="fs-2" />} onClose={() => setScoreFor(null)} />}
+                header={<GlassHeader title="Interview Scorecard" subtitle={scoreFor ? `${applicantName} · Round ${scoreFor.round}` : undefined} icon={<KTIcon iconName="questionnaire-tablet" className="fs-2" />} onClose={() => setScoreFor(null)} />}
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
-                        {/* The rubric, when one is configured. Each criterion is scored 1–5 and
-                            stored against its factor id, so a later rename of the label cannot
-                            silently re-point a score that was already given. */}
+                        {/* The rubric, when one is configured. Each criterion is stored against its
+                            factor id, so a later rename of the label cannot silently re-point a score
+                            that was already given. */}
                         {factors.length > 0 && scale && (
                             <Box>
                                 <Typography sx={{ fontSize: 12.5, color: "text.secondary", mb: 1 }}>
@@ -298,10 +368,10 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                                                 )}
                                             </Typography>
                                             <RatingControl
-                                                scale={scale!}
+                                                scale={scale}
                                                 value={score.factorScores?.[factor.id] ?? ""}
                                                 onChange={(v) => setFactor(factor.id, v)}
-                                                ariaLabel={`${factor.label} — ${scale!.label}`}
+                                                ariaLabel={`${factor.label} — ${scale.label}`}
                                             />
                                         </Stack>
                                     ))}
@@ -316,11 +386,11 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                             <>
                                 <Box>
                                     <Typography sx={{ fontSize: 12.5, color: "text.secondary", mb: 0.75 }}>
-                                        Overall rating · {scale.label}
+                                        Overall Rating · {scale.label}
                                     </Typography>
                                     <RatingControl
                                         scale={scale}
-                                        value={score.overallRating}
+                                        value={score.overallRating >= scale.min ? score.overallRating : ""}
                                         onChange={(v) => setScore({ ...score, overallRating: v })}
                                         ariaLabel={`Overall rating — ${scale.label}`}
                                         fullWidth
@@ -337,6 +407,11 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                                 />
                             </>
                         )}
+                        {scale && !ratingGiven && (
+                            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                                Give an overall rating to save this scorecard.
+                            </Typography>
+                        )}
                         <WtField
                             label="Comments"
                             multiline minRows={3}
@@ -346,16 +421,17 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                         />
                         {scoreFor && (scoreFor.scorecards?.length ?? 0) > 0 && (
                             <Box>
-                                <Typography sx={{ fontSize: 12.5, color: "text.secondary", mb: 0.5 }}>Existing scorecards</Typography>
+                                <Typography sx={{ fontSize: 12.5, color: "text.secondary", mb: 0.5 }}>Existing Scorecards</Typography>
                                 <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
                                     {scoreFor.scorecards!.map((sc) => (
                                         // The denominator is shown only when this card NAMES the scale now on
                                         // screen. A card with no scale recorded predates the column and means the
                                         // app default, which is not necessarily this rubric — borrowing this
                                         // maximum would restate a 4 out of 5 as 4 out of 3.
-                                        <Chip
+                                        <ToneChip
                                             key={sc.id}
-                                            size="small"
+                                            tone="neutral"
+                                            dense
                                             label={`${sc.overallRating}${
                                                 sc.ratingScale && scale && sc.ratingScale === scale.id ? `/${scale.max}` : ""
                                             } · ${
@@ -371,10 +447,15 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <WtButton ghost onClick={() => setScoreFor(null)}>Cancel</WtButton>
-                    <WtButton tone="primary" disabled={scoreMut.isPending} onClick={() => scoreMut.mutate()}>{scoreMut.isPending ? "Saving…" : "Save scorecard"}</WtButton>
+                    {/* Held until the rubric is in AND a rating has actually been given: the server
+                        validates the rating against the scale, so an unset one was an enabled button
+                        that failed on press. */}
+                    <WtButton tone="primary" disabled={scoreMut.isPending || !ratingGiven || !decisions || !score.recommendation} onClick={() => scoreMut.mutate()}>
+                        {scoreMut.isPending ? "Saving…" : "Save Scorecard"}
+                    </WtButton>
                 </DialogActions>
             </GlassDialog>
-        </Box>
+        </SettingsSection>
     );
 };
 

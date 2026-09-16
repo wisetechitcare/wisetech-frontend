@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import ReactECharts from "echarts-for-react";
 import { ChartDatum, buildPalette } from "./leadAnalyticsUtils";
+import { formatCurrencyRounded } from '@utils/currency';
 
 interface LocationBubbleChartProps {
   data: ChartDatum[];
@@ -10,8 +11,6 @@ interface LocationBubbleChartProps {
   height?: number;
 }
 
-const formatINR = (n: number) =>
-  n.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
 /**
  * Packed bubble cluster for geographic distribution — each location is a floating
@@ -71,7 +70,7 @@ const LocationBubbleChart: React.FC<LocationBubbleChartProps> = ({
         backgroundColor: "rgba(15,23,42,0.92)",
         textStyle: { color: "#fff", fontFamily: "Inter, sans-serif" },
         formatter: (p: any) => {
-          const rev = showRevenue && p.data?.totalCost ? `<br/>${formatINR(p.data.totalCost)}` : "";
+          const rev = showRevenue && p.data?.totalCost ? `<br/>${formatCurrencyRounded(p.data.totalCost)}` : "";
           return `<strong>${p.name}</strong><br/>${p.value} Leads · ${p.data?.share}%${rev}`;
         },
       },

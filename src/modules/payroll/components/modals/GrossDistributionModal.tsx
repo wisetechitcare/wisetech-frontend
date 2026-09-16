@@ -4,7 +4,8 @@ import { Formik, Form } from 'formik';
 import { KTIcon } from '@metronic/helpers';
 import { Close } from '@mui/icons-material';
 import { GrossDistributionData, DynamicField } from '../../types/payroll.types';
-import { formatINRDecimal } from '../../utils/payrollFormatters';
+import { formatMoneyDecimal } from '../../utils/payrollFormatters';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface GrossDistributionModalProps {
     show: boolean;
@@ -55,14 +56,14 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                 </span>
                                 <span className="badge badge-light-success fs-9 py-1 px-2">Auto-Calculated</span>
                             </div>
-                            <span className="fw-bolder fs-6 text-success">+{formatINRDecimal(workTotal)}</span>
+                            <span className="fw-bolder fs-6 text-success">+{formatMoneyDecimal(workTotal)}</span>
                         </div>
 
                         <div className="rounded-3 overflow-hidden mb-1" style={{ border: '1px solid #bbf7d0' }}>
                             {/* Header row */}
                             <div className="d-flex align-items-center gap-3 px-5 py-2" style={{ background: '#f0fdf4', borderBottom: '1px solid #bbf7d0' }}>
                                 <div style={{ flex: '1 1 0', letterSpacing: '0.05em', color: '#16a34a' }} className="fw-bold fs-9 text-uppercase">Component</div>
-                                <div style={{ width: 160, color: '#16a34a' }} className="fw-bold fs-9 text-uppercase text-end">Amount (₹)</div>
+                                <div style={{ width: 160, color: '#16a34a' }} className="fw-bold fs-9 text-uppercase text-end">Amount ({getCurrencySymbol()})</div>
                                 <div style={{ width: 30 }} />
                             </div>
                             {workEntries.map(([key, item]: [string, any]) => (
@@ -72,11 +73,11 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                     </div>
                                     <div style={{ width: 160 }}>
                                         <div className="input-group input-group-sm">
-                                            <span className="input-group-text border-end-0 px-2" style={{ fontSize: '0.75rem', background: '#f0fdf4', borderColor: '#bbf7d0', color: '#16a34a' }}>₹</span>
+                                            <span className="input-group-text border-end-0 px-2" style={{ fontSize: '0.75rem', background: '#f0fdf4', borderColor: '#bbf7d0', color: '#16a34a' }}>{getCurrencySymbol()}</span>
                                             <input
                                                 type="text"
                                                 readOnly
-                                                value={formatINRDecimal(Number(item.earned || 0)).replace('₹', '')}
+                                                value={formatMoneyDecimal(Number(item.earned || 0)).replace(getCurrencySymbol(), '')}
                                                 className="form-control border-start-0 ps-1 text-end fw-bolder"
                                                 style={{ fontSize: '0.85rem', background: '#f0fdf4', borderColor: '#bbf7d0', color: '#16a34a', cursor: 'default' }}
                                             />
@@ -118,7 +119,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                     {/* Header row */}
                                     <div className="d-flex align-items-center gap-3 px-5 py-2 bg-light" style={{ borderBottom: '1px solid #e9ecef' }}>
                                         <div style={{ flex: '1 1 0' }} className="text-muted fs-9 fw-bold text-uppercase">Component</div>
-                                        <div style={{ width: 160 }} className="text-muted fs-9 fw-bold text-uppercase text-end">Amount (₹)</div>
+                                        <div style={{ width: 160 }} className="text-muted fs-9 fw-bold text-uppercase text-end">Amount ({getCurrencySymbol()})</div>
                                         <div style={{ width: 30 }} />
                                     </div>
 
@@ -129,7 +130,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                             </div>
                                             <div style={{ width: 160 }}>
                                                 <div className="input-group input-group-sm">
-                                                    <span className="input-group-text bg-light border-end-0 text-gray-500 px-2" style={{ fontSize: '0.75rem' }}>₹</span>
+                                                    <span className="input-group-text bg-light border-end-0 text-gray-500 px-2" style={{ fontSize: '0.75rem' }}>{getCurrencySymbol()}</span>
                                                     <input
                                                         type="number"
                                                         className="form-control border-start-0 ps-1 text-end"
@@ -163,7 +164,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                             </div>
                                             <div style={{ width: 160 }}>
                                                 <div className="input-group input-group-sm">
-                                                    <span className="input-group-text bg-light border-end-0 text-gray-500 px-2" style={{ fontSize: '0.75rem' }}>₹</span>
+                                                    <span className="input-group-text bg-light border-end-0 text-gray-500 px-2" style={{ fontSize: '0.75rem' }}>{getCurrencySymbol()}</span>
                                                     <input
                                                         type="number"
                                                         className="form-control border-start-0 ps-1 text-end"

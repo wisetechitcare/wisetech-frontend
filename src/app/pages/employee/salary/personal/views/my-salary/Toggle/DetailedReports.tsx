@@ -8,6 +8,7 @@ import {
     TableRow,
     Paper,
 } from '@mui/material';
+import { getCurrencySymbol, formatCurrencyDecimal } from '@utils/currency';
 
 interface DetailedReportsProps {
     data: any[];
@@ -96,31 +97,31 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
         );
     };
 
-    const formatCurrencyDecimal = (val: any) => {
+    /**
+     * These two used to be local copies named exactly `formatCurrencyDecimal` and
+     * `formatCurrencyRounded` — the names of the shared formatters — each with INR written
+     * into it. A local shadow of a global helper is how one screen ends up disagreeing with
+     * every other screen about the same figure.
+     *
+     * What is genuinely local is the GUARD: this API sends the string "-" for a blank cell
+     * and sometimes a pre-formatted amount, so the raw value is cleaned before it is a
+     * number. The formatting itself is the shared one.
+     */
+    const money = (val: any) => {
         if (val === null || val === undefined || val === '-') return '-';
-        const cleaned = String(val).trim().replace(/[₹,]/g, '');
+        const cleaned = String(val).trim().replace(/[^0-9.-]/g, '');
         const num = Number(cleaned);
         if (!Number.isFinite(num)) return String(val);
-        return num.toLocaleString('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        });
+        return formatCurrencyDecimal(num);
     };
 
-    const formatCurrencyRounded = (val: any) => {
+    /** Same, but truncated to paise first rather than rounded up to them. */
+    const moneyTruncated = (val: any) => {
         if (val === null || val === undefined || val === '-') return '-';
-        const cleaned = String(val).trim().replace(/[₹,]/g, '');
+        const cleaned = String(val).trim().replace(/[^0-9.-]/g, '');
         const num = Number(cleaned);
         if (!Number.isFinite(num)) return String(val);
-        const truncated = Math.trunc(num * 100) / 100;
-        return truncated.toLocaleString('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        });
+        return formatCurrencyDecimal(Math.trunc(num * 100) / 100);
     };
 
     const getAttendanceDeductionAmount = (row: any): number => {
@@ -137,7 +138,7 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
 
         const grossAmt = typeof row.totalGrossPayAmountInNumber === 'number'
             ? row.totalGrossPayAmountInNumber
-            : (Number(String(row.totalGrossPayAmount ?? row.totalGrossPay ?? '0').replace(/[₹,]/g, '')) || 0);
+            : (Number(String(row.totalGrossPayAmount ?? row.totalGrossPay ?? '0').replace(/[^0-9.-]/g, '')) || 0);
 
         const lateCheckinDeduction = getAttendanceDeductionAmount(row);
         return grossAmt - lateCheckinDeduction;
@@ -163,7 +164,7 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
                     display: 'inline-block',
                 }}
             >
-                Late: {formatCurrencyDecimal(amt)}
+                Late: {money(amt)}
             </span>
         );
     };
@@ -213,7 +214,7 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
                             border: `1px solid ${cut.color}25`,
                         }}
                     >
-                        {cut.label}: {formatCurrencyDecimal(cut.amount)}
+                        {cut.label}: {money(cut.amount)}
                     </span>
                 ))}
             </div>
@@ -349,7 +350,7 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
                                         {row.month}
                                     </TableCell>
                                     <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontSize: '13.5px', color: '#2d3748', whiteSpace: 'nowrap' }}>
-                                        {formatCurrencyDecimal(row.basicSalary)}
+                                        {money(row.basicSalary)}
                                     </TableCell>
                                     <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontSize: '13.5px', color: '#2d3748', whiteSpace: 'nowrap' }}>
                                         {row.payableHours || '-'}
@@ -364,28 +365,28 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
                                         {row.remainingTime || '-'}
                                     </TableCell>
                                     <TableCell style={{ padding: '6px 12px', textAlign: 'left', color: '#2E7D32', fontWeight: 500, fontSize: '13.5px', whiteSpace: 'nowrap' }}>
-                                        {formatCurrencyDecimal(row.totalGrossPayAmount ?? row.totalGrossPay)}
+                                        {money(row.totalGrossPayAmount ?? row.totalGrossPay)}
                                     </TableCell>
                                     <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
                                         {renderAttendanceDeduction(row)}
                                     </TableCell>
                                     <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 600, color: '#1565C0', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
-                                        {formatCurrencyDecimal(getSalaryAfterAttendance(row))}
+                                        {money(getSalaryAfterAttendance(row))}
                                     </TableCell>
                                     <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
                                         {renderGovtPayrollDeduction(row)}
                                     </TableCell>
                                     <TableCell style={{ padding: '6px 12px', textAlign: 'left', color: '#C62828', fontWeight: 500, fontSize: '13.5px', whiteSpace: 'nowrap' }}>
-                                        {formatCurrencyDecimal(row.totalDeductedAmount ?? row.totalDeducted)}
+                                        {money(row.totalDeductedAmount ?? row.totalDeducted)}
                                     </TableCell>
                                     <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 600, fontSize: '13.5px', color: '#2d3748', whiteSpace: 'nowrap' }}>
-                                        {formatCurrencyRounded(row.netAmount)}
+                                        {moneyTruncated(row.netAmount)}
                                     </TableCell>
                                     <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontSize: '13.5px', color: '#2d3748', whiteSpace: 'nowrap' }}>
-                                        {formatCurrencyRounded(paidAmtVal)}
+                                        {moneyTruncated(paidAmtVal)}
                                     </TableCell>
-                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', color: row.due && parseFloat(String(row.due).replace(/[₹,]/g, '')) > 0 ? '#C62828' : '#2d3748', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
-                                        {formatCurrencyRounded(row.due)}
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', color: row.due && parseFloat(String(row.due).replace(/[^0-9.-]/g, '')) > 0 ? '#C62828' : '#2d3748', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
+                                        {moneyTruncated(row.due)}
                                     </TableCell>
                                     <TableCell style={{ padding: '6px 12px', textAlign: 'center', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
                                         {getStatusBadge(row.status)}

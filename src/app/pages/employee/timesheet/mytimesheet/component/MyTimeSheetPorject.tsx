@@ -4,7 +4,7 @@ import { KTIcon } from "@metronic/helpers";
 import { Avatar, Box, Stack, Typography } from "@mui/material";
 import { RootState } from "@redux/store";
 import { fetchConfiguration } from "@services/company";
-import { formatStringINR } from "@utils/statistics";
+import { formatMoneyString } from "@utils/statistics";
 // The same duration rule the admin table and the backend use. See timesheetDuration.ts
 // for why there is exactly one of these now.
 import { entryHours, entrySeconds, formatSpan, logSubject, totalSpan, describeSplit, billingMultiplierOf } from "../../timesheetDuration";
@@ -97,7 +97,7 @@ const MyTimeSheetProject = ({
         // ...times what this project bills an hour at. See billingMultiplierOf.
         const cost = entryHours(timesheet) * hourlySalary * billingMultiplierOf(timesheet, defaultMultiplier);
 
-        return isBillable ? formatStringINR(cost) : "-";
+        return isBillable ? formatMoneyString(cost) : "-";
       }
     },
     [hourlySalary, defaultMultiplier]

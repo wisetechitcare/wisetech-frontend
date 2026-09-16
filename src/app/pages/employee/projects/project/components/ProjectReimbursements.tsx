@@ -8,6 +8,7 @@ import { fetchReimbursementsByProjectId } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { Box, Paper, Stack, Typography } from "@mui/material";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getCurrencyLocale } from '@utils/currency';
 
 // ---------------------------------------------------------------------------
 // DocumentPreviewModal
@@ -216,7 +217,7 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
   );
 
   const fmtAmount = (n: number) =>
-    Math.round(n).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    Math.round(n).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   const columns = useMemo<MRT_ColumnDef<IReimbursements>[]>(
     () => [

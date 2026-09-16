@@ -48,6 +48,7 @@ import { useEventBus } from '@hooks/useEventBus';
 import { WtButton, AppIcon } from '@app/modules/common/components/ui';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { getReimbursementSchema, makeReimbursementInitialState, findDuplicateCandidate, categoryRequiresLocation, describeLimitBreach } from './utils/reimbursementSchema';
+import { currencyPrefix } from '@utils/currency';
 
 const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
 
@@ -819,7 +820,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Amount</div>
-                  <div style={{ fontWeight: 700, color: '#0f172a' }} className={sensitive.cls}>₹{fmtAmount(row.original.amount)}</div>
+                  <div style={{ fontWeight: 700, color: '#0f172a' }} className={sensitive.cls}>{currencyPrefix()}{fmtAmount(row.original.amount)}</div>
                 </div>
               </div>
               <div style={{ fontSize: '0.85rem', color: '#475569', marginBottom: '6px' }}>
@@ -1065,7 +1066,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                           background: '#fffbeb', border: '1px solid #fde68a',
                           color: '#92400e', fontSize: '0.82rem', fontWeight: 600,
                         }}>
-                          You already have a ₹{fmtAmount(dupe.amount ?? 0)} expense in this category on{' '}
+                          You already have a {currencyPrefix()}{fmtAmount(dupe.amount ?? 0)} expense in this category on{' '}
                           {dayjs(formikProps.values.expenseDate).format('DD MMM')}. Submit anyway if this is a separate claim.
                         </div>
                       </div>

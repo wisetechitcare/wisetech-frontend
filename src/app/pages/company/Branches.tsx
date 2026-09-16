@@ -37,6 +37,11 @@ import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@redux/store'
 import { saveCountries } from '@redux/slices/locations'
+// The geo directory, read through the hook rather than the locations slice: that slice
+// holds either raw country records or a slimmed {value,label} pair depending on which
+// screen loaded first, and only the raw shape carries a currency.
+import { useCountryDirectory } from '@hooks/useCurrency'
+import { getCurrencySymbol } from '@utils/currency'
 import LocationDropdown from '@app/modules/common/inputs/LocationDropdown'
 import DropDownInput from '@app/modules/common/inputs/DropdownInput'
 import RadioInput from '@app/modules/common/inputs/RadioInput'
@@ -194,6 +199,9 @@ const toBranchTimeFormat = (value: string): boolean | null =>
 function Branches({ companyId, embedded = false, hideHeading = false }: BranchesProps = {}) {
   const dispatch = useDispatch()
   const { countries } = useSelector((state: RootState) => state.locations)
+  // Read through the hook, not the slice: the slice holds raw records or a slimmed
+  // {value,label} pair depending on which screen loaded first, and only raw carries a currency.
+  const geoCountries = useCountryDirectory()
 
   const [show, setShow] = useState(false)
 
@@ -895,14 +903,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                   <FormSection title="Location" icon={<KTIcon iconName="geolocation" className="fs-5" />}>
 
                   <div className='row'>
-                    {/* <div className='col-lg-12 mb-7'>
-                      <DropDownInput
-                        isRequired={false}
-                        formikField='currency'
-                        inputLabel='Currency'
-                        options={currenciesOption}
-                      />
-                    </div> */}
 
                     {/* <div className='col-lg-6 mb-7'>
                       <DropDownInput
@@ -914,8 +914,11 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                     </div> */}
                   </div>
 
-                  {/* <div className='row'>
-                    <div className='col-lg-12 mb-7'> */}
+                  {/* Country and Currency share a row: currency is DERIVED from country, so
+                      putting them side by side says that without a sentence. Same 6/6 split
+                      the State and City row below already uses. */}
+                  <div className='row'>
+                    <div className='col-lg-6 mb-7'>
                       <LocationDropdown
                         isRequired={true}
                         value={selectedCountry}
@@ -948,6 +951,14 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                           if (!timezoneManuallyEdited && defaultZone) {
                             formikProps.setFieldValue('timezone', defaultZone)
                           }
+
+                          // Currency follows the country, on the same terms as the timezone
+                          // above: derived, and stored so the branch says what it bills in
+                          // rather than leaving every reader to infer it from the country.
+                          const picked = geoCountries?.find((c) => c.iso2 === option?.value)
+                          if (picked?.currency) {
+                            formikProps.setFieldValue('currency', picked.currency)
+                          }
                         }}
                         formikField='countryId'
                         inputLabel='Country'
@@ -956,8 +967,63 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                           setCountrySearch(newValue)
                         }}
                       />
-                    {/* </div>
-                  </div> */}
+                    </div>
+
+                    {/* Editable, because a branch that bills in something other than its local
+                        currency is a real arrangement — a Gulf office invoicing in dollars, a
+                        European subsidiary reporting in euros.
+
+                        The full list, not a country-or-dollar pair. USD is not a universal
+                        second currency: right in the Gulf, wrong for a London or Frankfurt
+                        branch, and hard-coding it would put an American assumption into a
+                        product sold in India and the Gulf. The list is already fetched and
+                        already in state, so offering all of it costs nothing and restricting
+                        it would be extra code for less. */}
+                    <div className='col-lg-6 mb-7'>
+                      <DropDownInput
+                        isRequired={false}
+                        formikField='currency'
+                        inputLabel='Currency'
+                        options={currenciesOption}
+                      />
+                    </div>
+                  </div>
+
+                      {/* Deviating from the country is allowed but never silent. Salary, offers
+                          and exported payslips all read this, and a branch quietly set to the
+                          wrong currency is the kind of thing noticed a quarter later. */}
+                      {(() => {
+                        const code = formikProps.values.currency
+                        if (!code) return null
+                        const fromCountry = geoCountries?.find((c) => c.iso2 === formikProps.values.countryId)?.currency
+                        const deviates = Boolean(fromCountry && fromCountry !== code)
+                        return (
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, mt: -1, mb: 2.5 }}>
+                            <KTIcon
+                              iconName={deviates ? 'information-5' : 'wallet'}
+                              className={`fs-6 ${deviates ? 'text-warning' : 'text-muted'}`}
+                            />
+                            <Typography sx={{ fontSize: 12.5, color: deviates ? 'warning.main' : 'text.secondary' }}>
+                              {deviates ? (
+                                <>
+                                  This branch bills in{' '}
+                                  <Box component="span" sx={{ fontWeight: 700 }}>{getCurrencySymbol(code)} {code}</Box>
+                                  , not its country&rsquo;s {fromCountry}. Salaries, offers and payslips here will
+                                  all use it.
+                                </>
+                              ) : (
+                                <>
+                                  Salaries, offers and payslips at this branch are shown in{' '}
+                                  <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                                    {getCurrencySymbol(code)} {code}
+                                  </Box>
+                                  , from the selected country.
+                                </>
+                              )}
+                            </Typography>
+                          </Box>
+                        )
+                      })()}
 
                   <div className='row'>
                     <div className='col-lg-6 mb-7'>

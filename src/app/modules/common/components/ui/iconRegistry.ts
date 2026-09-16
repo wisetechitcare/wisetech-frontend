@@ -37,7 +37,7 @@ import {
     ChevronUp, ChevronsLeft, ChevronsRight, CircleCheck, CircleMinus, CircleUser, CircleX,
     Clock, CloudCog, CloudDownload, CloudUpload, Compass, Component, Contact, CreditCard,
     Crown, DollarSign, Euro, Eye, EyeOff, File, FileDown, FilePlus, FileText, Funnel,
-    FingerprintPattern, Flag, Folder, Frame, Gift, Grid2x2, Heart, Info, LayoutGrid, Layers,
+    FingerprintPattern, Flag, Folder, FolderPlus, Frame, Gift, Grid2x2, Heart, Info, LayoutGrid, Layers,
     Landmark, ListFilter, Lock, LogOut, Mail, Map, MapPin, MessageSquareText, Minus,
     Monitor, Moon, MousePointerClick, NotebookPen, Package, PaintBucket, Paperclip,
     Pencil, Percent, Phone, Plus, ReceiptText, RefreshCw, Route, Rows3, Save, ScrollText,
@@ -118,7 +118,10 @@ const KEENICON: Record<string, AppIconComponent> = {
     'down': ChevronDown, 'entity': Building2, 'euro': Euro, 'exit-right-corner': LogOut,
     'exit-up': Upload, 'eye': Eye, 'eye-slash': EyeOff, 'file': File, 'file-down': FileDown,
     'file-invoice': ReceiptText, 'filter': Funnel, 'fingerprint-scanning': FingerprintPattern,
-    'flag': Flag, 'folder': Folder, 'geolocation': MapPin, 'gift': Gift, 'heart': Heart,
+    // 'folder-added' is WtEmptyState's DEFAULT glyph, so every empty state in the app that does
+    // not name its own icon was drawing a blank square. Its own test caught it and it went
+    // unfixed; registering the name is the fix, because the name is what call sites already say.
+    'flag': Flag, 'folder': Folder, 'folder-added': FolderPlus, 'geolocation': MapPin, 'gift': Gift, 'heart': Heart,
     'information': Info, 'information-5': Info, 'left': ChevronLeft, 'lock': Lock,
     'magic': Wand, 'magic-star': WandSparkles, 'magnifier': Search, 'map': Map,
     'message-text-2': MessageSquareText, 'minus': Minus, 'minus-circle': CircleMinus,

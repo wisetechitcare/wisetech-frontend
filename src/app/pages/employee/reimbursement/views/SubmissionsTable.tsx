@@ -43,6 +43,7 @@ import { Tooltip } from '@mui/material';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { LEGACY_UIKIT as T, tonePair } from '@app/theme/tokens';
+import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
 
 // Sentinel batch id for reimbursements that have no batch (batch_id = NULL).
 // These are legacy/imported records that were never submitted through the
@@ -542,7 +543,7 @@ function SubmissionDetailModal({
               {batch && (
                 <div className="text-muted fs-7 mt-1">
                   {displayedReimbursements.length} request{displayedReimbursements.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
-                  ₹{fmtAmount(detailTotal)} total&nbsp;·&nbsp;Submitted{' '}
+                  {currencyPrefix()}{fmtAmount(detailTotal)} total&nbsp;·&nbsp;Submitted{' '}
                   {fmtDate(batch.submittedAt)}
                   {batch.approvedAt && (
                     <>&nbsp;·&nbsp;Decided {fmtDate(batch.approvedAt)}</>
@@ -1143,12 +1144,12 @@ function SubmissionsTable({
       }] : []),
       {
         accessorKey: '_totalAmount',
-        header: 'Amount (₹)',
+        header: `Amount (${getCurrencySymbol()})`,
         size: 145,
         Cell: ({ row }: any) => (
-          <span className={`fs-7 ${sensitiveCls}`}>₹{fmtAmount(row.original._totalAmount)}</span>
+          <span className={`fs-7 ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(row.original._totalAmount)}</span>
         ),
-        Footer: () => <span className={`text-dark fw-bold fs-7 ${sensitiveCls}`}>₹{fmtAmount(rowsTotal)}</span>,
+        Footer: () => <span className={`text-dark fw-bold fs-7 ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(rowsTotal)}</span>,
       },
       {
         accessorKey: '_status',

@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
-import { buildProjectPipelineStages, ProjectStatus, formatINRShort } from "./projectAnalyticsUtils";
+import { buildProjectPipelineStages, ProjectStatus, formatMoneyShort } from "./projectAnalyticsUtils";
 
 interface Props {
   statusData: ProjectStatus[];
@@ -127,7 +127,7 @@ const ProjectPipelineBoard: React.FC<Props> = ({ statusData }) => {
                   color: "#6B7280",
                   marginBottom: 8,
                 }}>
-                  Value: <strong>{formatINRShort(stage.totalValue)}</strong>
+                  Value: <strong>{formatMoneyShort(stage.totalValue)}</strong>
                 </div>
 
                 {/* Duration */}

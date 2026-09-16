@@ -8,6 +8,7 @@ import { RootState } from '@redux/store';
 import dayjs from 'dayjs';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { currencyPrefix } from '@utils/currency';
 
 interface EncashTransferLeavesModalProps {
     show: boolean;
@@ -465,7 +466,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                 color: '#2b9725',
                                 fontFamily: 'Inter, sans-serif',
                             }}>
-                                ₹{transferableAmount.toLocaleString()}
+                                {currencyPrefix()}{transferableAmount.toLocaleString()}
                             </div>
                         </div>
                     )}

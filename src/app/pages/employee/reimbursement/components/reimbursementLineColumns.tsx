@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import OverLimitChip from './OverLimitChip';
 import { fmtAmount, NO_VALUE, projectTitle } from '../utils/reimbursementFormat';
 import { ReimbursementLine } from '../utils/reimbursementTypes';
+import { currencyPrefix } from '@utils/currency';
 
 /**
  * The expense-line columns, shared by both batch detail modals.
@@ -97,14 +98,14 @@ export const buildReimbursementLineColumns = (
         enableColumnActions: false,
         Cell: ({ row }: any) => (
             <span className="d-inline-flex align-items-center gap-2">
-                <span className="text-dark fw-bold fs-7">₹{fmtAmount(row.original.amount)}</span>
+                <span className="text-dark fw-bold fs-7">{currencyPrefix()}{fmtAmount(row.original.amount)}</span>
                 {row.original.isExceedingLimit && <OverLimitChip />}
             </span>
         ),
         Footer: () =>
             detailTotal === undefined
                 ? null
-                : <span style={{ fontWeight: 800, color: '#0f172a' }}>₹{fmtAmount(detailTotal)}</span>,
+                : <span style={{ fontWeight: 800, color: '#0f172a' }}>{currencyPrefix()}{fmtAmount(detailTotal)}</span>,
     },
     {
         accessorKey: 'fromLocation',

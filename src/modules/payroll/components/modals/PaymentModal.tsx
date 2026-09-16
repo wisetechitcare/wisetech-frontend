@@ -6,7 +6,8 @@ import TextInput from '@app/modules/common/inputs/TextInput';
 import DateInput from '@app/modules/common/inputs/DateInput';
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { KTIcon } from '@metronic/helpers';
-import { formatINR2 } from '../../utils/payrollFormatters';
+import { formatMoney2 } from '../../utils/payrollFormatters';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 interface PaymentModalProps {
     show: boolean;
@@ -194,8 +195,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             <Card className="bg-light-primary border-0 shadow-none h-100">
                                 <Card.Body className="p-4">
                                     <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">Salary In Hand</span>
-                                    <span className="text-gray-900 fs-3 fw-bolder d-block">{formatINR2(salaryInHand)}</span>
-                                    <Badge bg="primary" className="bg-opacity-10 text-primary mt-1">Pending: {formatINR2(salaryPending)}</Badge>
+                                    <span className="text-gray-900 fs-3 fw-bolder d-block">{formatMoney2(salaryInHand)}</span>
+                                    <Badge bg="primary" className="bg-opacity-10 text-primary mt-1">Pending: {formatMoney2(salaryPending)}</Badge>
                                 </Card.Body>
                             </Card>
                         </Col>
@@ -217,22 +218,22 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                 <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#f1416c', flexShrink: 0 }} />
                                                                 <span className="fs-8 text-gray-700 fw-semibold">{shortDeductionLabel(d.label)}</span>
                                                             </div>
-                                                            <span className="fs-8 fw-bolder text-gray-900">{formatINR2(d.amount)}</span>
+                                                            <span className="fs-8 fw-bolder text-gray-900">{formatMoney2(d.amount)}</span>
                                                         </div>
                                                     ))}
                                                 </div>
                                                 <div className="border-top border-danger border-opacity-25 mt-2 pt-3">
                                                     <div className="d-flex justify-content-between align-items-center">
                                                         <span className="fs-8 fw-semibold text-gray-500">Total</span>
-                                                        <span className="fs-5 fw-bolder text-gray-900">{formatINR2(correctedFixedDeductions)}</span>
+                                                        <span className="fs-5 fw-bolder text-gray-900">{formatMoney2(correctedFixedDeductions)}</span>
                                                     </div>
-                                                    <Badge bg="danger" className="bg-opacity-10 text-danger mt-2 px-3 rounded-pill">Pending: {formatINR2(govtPending)}</Badge>
+                                                    <Badge bg="danger" className="bg-opacity-10 text-danger mt-2 px-3 rounded-pill">Pending: {formatMoney2(govtPending)}</Badge>
                                                 </div>
                                             </>
                                         ) : (
                                             <>
-                                                <span className="text-gray-900 fs-3 fw-bolder d-block">{formatINR2(correctedFixedDeductions)}</span>
-                                                <Badge bg="danger" className="bg-opacity-10 text-danger mt-1">Pending: {formatINR2(govtPending)}</Badge>
+                                                <span className="text-gray-900 fs-3 fw-bolder d-block">{formatMoney2(correctedFixedDeductions)}</span>
+                                                <Badge bg="danger" className="bg-opacity-10 text-danger mt-1">Pending: {formatMoney2(govtPending)}</Badge>
                                             </>
                                         )}
                                     </Card.Body>
@@ -243,7 +244,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             <Card className="bg-light-success border-0 shadow-none h-100">
                                 <Card.Body className="p-4">
                                     <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">Salary Paid</span>
-                                    <span className="text-success fs-3 fw-bolder d-block">{formatINR2(salaryPaid)}</span>
+                                    <span className="text-success fs-3 fw-bolder d-block">{formatMoney2(salaryPaid)}</span>
                                     <Badge bg="success" className="bg-opacity-10 text-success mt-1">Paid to Employee</Badge>
                                 </Card.Body>
                             </Card>
@@ -271,7 +272,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                 </div>
                                                                 <div className="d-flex align-items-center gap-1">
                                                                     <span className={`fs-8 fw-bolder ${fullyPaid ? 'text-success' : 'text-gray-400'}`}>
-                                                                        {formatINR2(paidAmt)}
+                                                                        {formatMoney2(paidAmt)}
                                                                     </span>
                                                                     {fullyPaid
                                                                         ? <span className="badge badge-light-success rounded-pill px-2 py-1" style={{ fontSize: '9px' }}>✓</span>
@@ -285,14 +286,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                 <div className="border-top border-info border-opacity-25 mt-2 pt-3">
                                                     <div className="d-flex justify-content-between align-items-center">
                                                         <span className="fs-8 fw-semibold text-gray-500">Total Paid</span>
-                                                        <span className="fs-5 fw-bolder text-info">{formatINR2(govPaidNonRetention)}</span>
+                                                        <span className="fs-5 fw-bolder text-info">{formatMoney2(govPaidNonRetention)}</span>
                                                     </div>
                                                     <Badge bg="info" className="bg-opacity-10 text-info mt-2 px-3 rounded-pill">Paid</Badge>
                                                 </div>
                                             </>
                                         ) : (
                                             <>
-                                                <span className="text-info fs-3 fw-bolder d-block">{formatINR2(govPaidNonRetention)}</span>
+                                                <span className="text-info fs-3 fw-bolder d-block">{formatMoney2(govPaidNonRetention)}</span>
                                                 <Badge bg="info" className="bg-opacity-10 text-info mt-1">Paid</Badge>
                                             </>
                                         )}
@@ -308,11 +309,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                             <div style={{ width: 3, height: 16, borderRadius: 2, backgroundColor: '#ffc700', flexShrink: 0 }} />
                                             <span className="text-gray-500 fs-9 fw-bold text-uppercase" style={{ letterSpacing: '0.06em' }}>Company Deduction (Retention)</span>
                                         </div>
-                                        <span className="text-gray-900 fs-3 fw-bolder d-block">{formatINR2(companyTotal)}</span>
+                                        <span className="text-gray-900 fs-3 fw-bolder d-block">{formatMoney2(companyTotal)}</span>
                                         {companyPending > 0 ? (
-                                            <Badge bg="warning" className="bg-opacity-10 text-warning mt-1">Pending: {formatINR2(companyPending)}</Badge>
+                                            <Badge bg="warning" className="bg-opacity-10 text-warning mt-1">Pending: {formatMoney2(companyPending)}</Badge>
                                         ) : (
-                                            <Badge bg="success" className="bg-opacity-10 text-success mt-1">Settled: {formatINR2(retentionPaid)}</Badge>
+                                            <Badge bg="success" className="bg-opacity-10 text-success mt-1">Settled: {formatMoney2(retentionPaid)}</Badge>
                                         )}
                                     </Card.Body>
                                 </Card>
@@ -439,7 +440,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                     type="number"
                                                                     isRequired={activeTab === 'SALARY'}
                                                                 />
-                                                                <div className="text-muted fs-8 mt-1">Remaining: {formatINR2(Math.max(0, salaryPending - (Number(values.salaryAmount) || 0)))}</div>
+                                                                <div className="text-muted fs-8 mt-1">Remaining: {formatMoney2(Math.max(0, salaryPending - (Number(values.salaryAmount) || 0)))}</div>
                                                             </Col>
                                                             <Col md={6}>
                                                                 <TextInput
@@ -471,8 +472,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                         const paid = isDeductionFullyPaid(d.value, d.amount);
                                                                         return {
                                                                             label: paid
-                                                                                ? `${d.label} (₹${Math.trunc(d.amount).toLocaleString('en-IN')}) — ✓ Paid`
-                                                                                : `${d.label} (₹${Math.trunc(d.amount).toLocaleString('en-IN')})`,
+                                                                                ? `${d.label} (${currencyPrefix()}${Math.trunc(d.amount).toLocaleString(getCurrencyLocale())}) — ✓ Paid`
+                                                                                : `${d.label} (${currencyPrefix()}${Math.trunc(d.amount).toLocaleString(getCurrencyLocale())})`,
                                                                             value: d.value,
                                                                             color: paid ? '#22c55e' : '#FFB700',
                                                                             isDisabled: paid,
@@ -498,7 +499,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                     isRequired={activeTab === 'GOVERNMENT'}
                                                                 />
                                                                 <div className="text-muted fs-8 mt-1">
-                                                                    {values.govType && `Total pending govt: ${formatINR2(Math.max(0, govtPending - (Number(values.govAmount) || 0)))}`}
+                                                                    {values.govType && `Total pending govt: ${formatMoney2(Math.max(0, govtPending - (Number(values.govAmount) || 0)))}`}
                                                                 </div>
                                                             </Col>
                                                             <Col md={4}>
@@ -537,8 +538,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                         const paid = isDeductionFullyPaid(d.value, d.amount);
                                                                         return {
                                                                             label: paid
-                                                                                ? `${d.label} (₹${Math.trunc(d.amount).toLocaleString('en-IN')}) — ✓ Paid`
-                                                                                : `${d.label} (₹${Math.trunc(d.amount).toLocaleString('en-IN')})`,
+                                                                                ? `${d.label} (${currencyPrefix()}${Math.trunc(d.amount).toLocaleString(getCurrencyLocale())}) — ✓ Paid`
+                                                                                : `${d.label} (${currencyPrefix()}${Math.trunc(d.amount).toLocaleString(getCurrencyLocale())})`,
                                                                             value: d.value,
                                                                             color: paid ? '#22c55e' : '#FFB700',
                                                                             isDisabled: paid,
@@ -564,7 +565,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                     isRequired={true}
                                                                 />
                                                                 <div className="text-muted fs-8 mt-1">
-                                                                    Retention pending: {formatINR2(Math.max(0, companyPending - (Number(values.companyAmount) || 0)))}
+                                                                    Retention pending: {formatMoney2(Math.max(0, companyPending - (Number(values.companyAmount) || 0)))}
                                                                 </div>
                                                             </Col>
                                                         </Row>

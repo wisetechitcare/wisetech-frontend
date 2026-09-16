@@ -1,5 +1,6 @@
 import { Employee } from "@redux/slices/employee";
 import { ISalaryData } from "@redux/slices/salaryData";
+import { getCurrencySymbol } from '@utils/currency';
 
 // Use the existing ISalaryData interface
 export type ApiSalaryData = ISalaryData;
@@ -119,7 +120,7 @@ export function transformApiDataToSalarySlipProps(
   // instead of throwing "Cannot read property 'toFixed' of null".
   const formatCurrency = (value: number | string | null | undefined): string => {
     const parsed = typeof value === 'string'
-      ? parseFloat(value.replace(/[₹,]/g, ''))
+      ? parseFloat(value.replace(/[^0-9.-]/g, ''))
       : value;
     const numValue = (parsed === null || parsed === undefined || Number.isNaN(parsed)) ? 0 : parsed;
 
@@ -210,7 +211,7 @@ export function transformApiDataToSalarySlipProps(
   // Parse amounts and remove currency symbols since consumers format them themselves
   const parseAmount = (amount: string | undefined): string => {
     if (!amount) return '0';
-    const parsed = parseFloat(amount.replace(/[₹,]/g, ''));
+    const parsed = parseFloat(amount.replace(/[^0-9.-]/g, ''));
     return parsed.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   };
 
@@ -248,7 +249,7 @@ export function transformApiDataToSalarySlipProps(
     Object.values(entries ?? {}).reduce((acc, item: any) => acc + Number(item?.earned ?? 0), 0);
 
   const numericGrossPay = parseFloat(
-    (validApiData.totalGrossPayAmount || '0').replace(/[₹,]/g, '')
+    (validApiData.totalGrossPayAmount || '0').replace(/[^0-9.-]/g, '')
   );
   const totalVariableDeductionsNum = sumEarned(validApiData.deductionBreakdown?.variable);
   const totalFixedDeductionsNum = sumEarned(validApiData.deductionBreakdown?.fixed);

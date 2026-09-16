@@ -1,7 +1,7 @@
 import React from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { DeductionBreakdownProps } from '../../types/payroll.types';
-import { formatINRDecimal, formatINRDecimalTruncated, sumBreakdownEarnings } from '../../utils/payrollFormatters';
+import { formatMoneyDecimal, formatMoneyDecimalTruncated, sumBreakdownEarnings } from '../../utils/payrollFormatters';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
@@ -69,7 +69,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     };
     const formatAdjustmentFormula = (calculatedAmount: number, extraAmount: number) => {
         const sign = extraAmount < 0 ? '-' : '+';
-        return `(${formatINRDecimal(calculatedAmount)} ${sign} ${formatINRDecimal(Math.abs(extraAmount))})`;
+        return `(${formatMoneyDecimal(calculatedAmount)} ${sign} ${formatMoneyDecimal(Math.abs(extraAmount))})`;
     };
     const totalHighlightCellStyle = {
         backgroundColor: '#fffbeb',
@@ -92,7 +92,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
             Fixed cuts (like PF/TDS) are calculated from your salary AFTER variable cuts.
         </Tooltip>
     );
-    const formatAmountOrDash = (amount: number) => (amount === 0 ? '—' : formatINRDecimal(amount));
+    const formatAmountOrDash = (amount: number) => (amount === 0 ? '—' : formatMoneyDecimal(amount));
 
     return (
         <div className="deduction-panel d-flex flex-column flex-grow-1">
@@ -160,7 +160,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                             {/* A credit-direction component is a negative deduction — show it as a
                                                 positive payout, not "-₹-65,000". */}
                                             <span className={`${Number(item.earned || 0) < 0 ? 'text-success' : 'text-danger'} fw-bolder fs-7 ${sensitiveCls}`}>
-                                                {Number(item.earned || 0) < 0 ? '+' : '-'}{formatINRDecimal(Math.abs(Number(item.earned || 0)))}
+                                                {Number(item.earned || 0) < 0 ? '+' : '-'}{formatMoneyDecimal(Math.abs(Number(item.earned || 0)))}
                                             </span>
                                         </td>
                                     </tr>
@@ -180,7 +180,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     style={totalHighlightRightCellStyle}
                                 >
                                     <span className={`fw-bolder fs-6 text-danger ${sensitiveCls}`}>
-                                        -{formatINRDecimal(totalVariable)}
+                                        -{formatMoneyDecimal(totalVariable)}
                                     </span>
                                 </td>
                             </tr>
@@ -224,7 +224,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                             className={`fw-bolder fs-2 ${sensitiveCls}`}
                             style={{ color: '#2563EB' }}
                         >
-                            {formatINRDecimal(intermediateSalary)}
+                            {formatMoneyDecimal(intermediateSalary)}
                         </span>
                     </div>
                 </div>
@@ -255,7 +255,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                             ) : (
                                 sortedEntries(fixedEntries).map(([key, item]: [string, any]) => {
                                     const isPct = String(item.type).toLowerCase() === 'percentage';
-                                    const rate = isPct ? `${item.value}%` : formatINRDecimal(Number(item.value || 0));
+                                    const rate = isPct ? `${item.value}%` : formatMoneyDecimal(Number(item.value || 0));
                                     const typeLabel = isPct ? 'Percentage' : 'Fixed';
                                     const extraAmount = Number(item.extraAmount || 0);
                                     const calculatedAmount = Number(item.calculatedAmount || 0);
@@ -300,7 +300,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                             <td className="text-end">
                                                 <div className="d-flex flex-column align-items-end">
                                                     <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
-                                                        -{formatINRDecimal(Math.round(earnedAmount))}
+                                                        -{formatMoneyDecimal(Math.round(earnedAmount))}
                                                     </span>
                                                     {!isInactiveWithExtra && extraAmount !== 0 && calculatedAmount !== 0 && (
                                                         <span className="text-muted fs-9 fw-bold">
@@ -326,7 +326,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     style={totalHighlightRightCellStyle}
                                 >
                                     <span className={`fw-bolder fs-6 text-danger ${sensitiveCls}`}>
-                                        -{formatINRDecimal(totalFixed)}
+                                        -{formatMoneyDecimal(totalFixed)}
                                     </span>
                                 </td>
                             </tr>
@@ -355,13 +355,13 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                 {/* Desktop amount */}
                 <div className="d-none d-md-flex justify-content-end">
                     <span className={`text-danger fw-bolder fs-2 ${sensitiveCls}`}>
-                        -{formatINRDecimal(grandTotalDeductions)}
+                        -{formatMoneyDecimal(grandTotalDeductions)}
                     </span>
                 </div>
                 {/* Mobile amount container */}
                 <div className="d-flex d-md-none justify-content-center align-items-center rounded-3 px-4 py-2 w-100" style={{ backgroundColor: '#FEE2E2', border: '1px solid #FECACA' }}>
                     <span className={`text-danger fw-bolder fs-2 ${sensitiveCls}`}>
-                        -{formatINRDecimal(grandTotalDeductions)}
+                        -{formatMoneyDecimal(grandTotalDeductions)}
                     </span>
                 </div>
             </div>

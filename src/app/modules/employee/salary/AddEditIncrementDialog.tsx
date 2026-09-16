@@ -17,7 +17,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { incrementService, IncrementRecord } from '@services/incrementService';
-import { formatCurrencyRounded } from '@utils/currency';
+import { formatCurrencyRounded, currencyPrefix } from '@utils/currency';
+import { MIN_VALID_ANNUAL_CTC } from '@utils/ctc';
 import { T } from '@app/modules/common/components/ui/tokens';
 import { toast, alertDialog } from '@app/modules/common/components/ui/feedback';
 
@@ -41,7 +42,7 @@ export interface AddEditIncrementDialogProps {
  * schemas). Mirror that floor here — otherwise the save leaves as valid and
  * comes back as a bare 422 the user cannot act on.
  */
-const MIN_ANNUAL_CTC = 1000;
+const MIN_ANNUAL_CTC = MIN_VALID_ANNUAL_CTC;
 const MIN_MONTHLY_SALARY = Math.ceil(MIN_ANNUAL_CTC / 12);
 
 const fieldSx = {
@@ -116,7 +117,7 @@ const AddEditIncrementDialog: React.FC<AddEditIncrementDialogProps> = ({
         !newSalary || isNaN(salaryNum) || salaryNum <= 0
             ? 'Enter a valid positive salary'
             : salaryNum * 12 < MIN_ANNUAL_CTC
-                ? `Monthly salary must be at least ₹${MIN_MONTHLY_SALARY}`
+                ? `Monthly salary must be at least ${currencyPrefix()}${MIN_MONTHLY_SALARY}`
                 : null;
     const salaryError = touched && !!salaryProblem;
     const dateError = touched && (!selectedDate || !selectedDate.isValid());

@@ -46,6 +46,7 @@ import {
   fmtAmount,
 } from "@app/pages/employee/reimbursement/shared/ReimbursementBatchShared";
 import { useTimeFormat } from '@hooks/useTimeFormat';
+import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
 
 // ---------------------------------------------------------------------------
 
@@ -627,11 +628,11 @@ const PendingRequestsTable = () => {
       },
       {
         accessorKey: 'totalAmount',
-        header: 'Total Amount (₹)',
+        header: `Total Amount (${getCurrencySymbol()})`,
         size: 150,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ row }) => <span className='text-dark fs-7'>₹{fmtAmount(row.original.totalAmount)}</span>,
-        Footer: () => <span className='text-dark fw-bold fs-7'>₹{fmtAmount(reimbursementTotal)}</span>,
+        Cell: ({ row }) => <span className='text-dark fs-7'>{currencyPrefix()}{fmtAmount(row.original.totalAmount)}</span>,
+        Footer: () => <span className='text-dark fw-bold fs-7'>{currencyPrefix()}{fmtAmount(reimbursementTotal)}</span>,
       },
       {
         accessorKey: 'totalRequests',

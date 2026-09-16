@@ -305,6 +305,22 @@ export const updateBranchById = async (branchId: string, payload: ICompanyBranch
     }
 }
 
+/** One department's designations — the link that narrows a designation picker to that department. */
+export interface DepartmentDesignationLink { departmentId: string; designationId: string }
+/** A link suggested from what today's employees hold; HR confirms it in Configure. */
+export interface SuggestedDepartmentDesignation extends DepartmentDesignationLink { employees: number }
+
+export const getDepartmentDesignations = async (): Promise<{ links: DepartmentDesignationLink[]; suggestions: SuggestedDepartmentDesignation[] }> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${COMPANY.GET_DEPARTMENT_DESIGNATIONS}`);
+    return { links: data?.data?.links ?? [], suggestions: data?.data?.suggestions ?? [] };
+};
+
+/** Replace a department's designations with exactly this list. An empty list un-configures it. */
+export const setDepartmentDesignations = async (departmentId: string, designationIds: string[]) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${COMPANY.SET_DEPARTMENT_DESIGNATIONS.replace(':departmentId', departmentId)}`, { designationIds });
+    return data;
+};
+
 export const fetchAllDepartments = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_DEPARTMENTS}`;

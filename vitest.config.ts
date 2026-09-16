@@ -9,6 +9,16 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
+      /**
+       * 15s, not vitest's 5s.
+       *
+       * A render test that mounts the shared MaterialTable or a GlassDialog pays a one-off
+       * jsdom layout cost of several seconds — the same components that make the app's tables
+       * and dialogs consistent are heavy to mount without a browser. At 5s those tests passed
+       * alone and timed out when the suite ran them in parallel, which is a flake, not a
+       * finding. A genuinely hung test still fails; it just takes 15s to say so.
+       */
+      testTimeout: 15_000,
       exclude: [
         ...defaultExclude,
         '**/dist/**',

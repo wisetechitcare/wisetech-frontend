@@ -69,6 +69,7 @@ import LeadActionPicker from "./LeadActionPicker";
 // the app would end up with two ways to book an hour that disagree about what an hour needs.
 import MeetingDialog from "@pages/employee/MeetingDialog";
 import { LeadStatusPill, leadRowSx, leadTableSx, UNASSIGNED_ORG_LABEL } from "./leadTableStyle";
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 /**
  * Leads created before organizations existed carry no organizationId. They are
@@ -973,7 +974,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
-        return v !== undefined ? `₹${Number(v).toLocaleString()}` : "₹0";
+        return v !== undefined ? `${currencyPrefix()}${Number(v).toLocaleString()}` : `${currencyPrefix()}0`;
       },
     },
     {
@@ -1161,7 +1162,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       size: 120,
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
-        cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
+        cell.getValue() ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}` : `${currencyPrefix()}0`,
     },
     {
       accessorKey: "fileLocation",
@@ -1500,9 +1501,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   );
   const formatCost = (amount: number) => {
     if (amount >= 1_00_00_000)
-      return `₹${(amount / 1_00_00_000).toFixed(2)} Cr`;
-    if (amount >= 1_00_000) return `₹${(amount / 1_00_000).toFixed(2)} L`;
-    return `₹${amount.toLocaleString("en-IN")}`;
+      return `${currencyPrefix()}${(amount / 1_00_00_000).toFixed(2)} Cr`;
+    if (amount >= 1_00_000) return `${currencyPrefix()}${(amount / 1_00_000).toFixed(2)} L`;
+    return `${currencyPrefix()}${amount.toLocaleString(getCurrencyLocale())}`;
   };
 
   // ── Shared heights ─────────────────────────────────────────────────────────

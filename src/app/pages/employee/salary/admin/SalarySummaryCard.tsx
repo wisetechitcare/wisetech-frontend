@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Paper, Skeleton, Stack, Typography } from '@mui/material';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 interface SalarySummaryCardProps {
   totalEmployeesPaid?: number;
@@ -13,7 +14,7 @@ interface SalarySummaryCardProps {
 }
 
 const fmt = (n: number) =>
-  `₹${Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  `${currencyPrefix()}${Math.round(n).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 

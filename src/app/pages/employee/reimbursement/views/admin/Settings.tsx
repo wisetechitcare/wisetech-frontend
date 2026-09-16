@@ -23,6 +23,7 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import * as Yup from "yup";
 import IconPickerModal, { SelectedIcon } from "./IconPickerModal";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -194,7 +195,7 @@ const CategoryChip: React.FC<CategoryChipProps> = ({ category, canManage, onEdit
               marginTop: "1px",
             }}
           >
-            {hasLimit ? `Limit ₹${Number(category.amountLimit).toLocaleString("en-IN")}` : "No limit set"}
+            {hasLimit ? `Limit ${currencyPrefix()}${Number(category.amountLimit).toLocaleString(getCurrencyLocale())}` : "No limit set"}
           </div>
         </div>
       </div>

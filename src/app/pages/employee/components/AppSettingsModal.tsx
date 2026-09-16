@@ -399,7 +399,7 @@ const SECTIONS = [
     { id: "approval",  label: "Approval Workflow",                 icon: "verify"      },
     { id: "reporting", label: "Reporting Config",                  icon: "profile-user" },
     { id: "financial", label: "Financial Config",                  icon: "wallet"      },
-    { id: "reimbursement",  label: "Reimbursement Config",    icon: "dollar"       },
+    { id: "reimbursement",  label: "Reimbursement Config",    icon: "wallet"       },
     { id: "access",    label: "System Access",                     icon: "setting-2"   },
     { id: "privacy",   label: "Privacy Controls",                  icon: "shield-tick" },
 ];
