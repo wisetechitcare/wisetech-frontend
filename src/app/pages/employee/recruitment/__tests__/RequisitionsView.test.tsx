@@ -120,19 +120,19 @@ describe('RequisitionsView', () => {
         expect(title).not.toMatch(/hiring manager first/);
     });
 
-    test('a failed load is an error with Retry, not "No roles open"', async () => {
+    test('a failed load is an error with Retry, not "No Roles Open"', async () => {
         api.getRequisitions.mockRejectedValue({ response: { data: { detail: 'Service unavailable.' } } });
         renderView();
         expect(await screen.findByText('Could not load the roles')).toBeTruthy();
-        expect(screen.queryByText('No roles open')).toBeNull();
+        expect(screen.queryByText('No Roles Open')).toBeNull();
         expect(screen.getByRole('button', { name: /retry/i })).toBeTruthy();
     });
 
     test('the empty state is a real button, not a clickable box', async () => {
         api.getRequisitions.mockResolvedValue([]);
         renderView();
-        expect(await screen.findByText('No roles open')).toBeTruthy();
-        expect(screen.getAllByRole('button', { name: /new requisition/i }).length).toBeGreaterThanOrEqual(2);
+        expect(await screen.findByText('No Roles Open')).toBeTruthy();
+        expect(screen.getAllByRole('button', { name: /new role/i }).length).toBeGreaterThanOrEqual(2);
     });
 });
 

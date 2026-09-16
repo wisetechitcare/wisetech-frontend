@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { Box, Stack, Typography, TextField, MenuItem, Chip, CircularProgress, DialogContent, DialogActions } from "@mui/material";
+import { Box, Stack, Typography, CircularProgress, DialogContent, DialogActions } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
     GlassDialog, GlassHeader, GlassCard, WtButton, WtIconButton, ToneChip, WtDateTimeField, WtField, SettingsSection, TRIO,
@@ -76,28 +76,37 @@ const RatingControl = ({
     ariaLabel: string;
     fullWidth?: boolean;
 }) => {
+    // What the box shows, so clearing it leaves it cleared. `Number("") || scale.min` used to
+    // refill the field with the minimum the moment it was emptied — the same snap-back the
+    // Headcount field had — and the cursor then sat behind a digit nobody typed.
+    const [text, setText] = useState(value === "" ? "" : String(value));
+    useEffect(() => { setText(value === "" ? "" : String(value)); }, [value]);
+
     if (scale.levels?.length) {
         return (
-            <TextField
-                select size="small" fullWidth={fullWidth} sx={fullWidth ? undefined : { width: 140 }}
+            <WtField
+                ariaLabel={ariaLabel}
+                fullWidth={fullWidth} minWidth={fullWidth ? undefined : 140}
                 value={value === "" ? "" : String(value)}
-                onChange={(e) => onChange(Number(e.target.value))}
-                inputProps={{ "aria-label": ariaLabel }}
-            >
-                {scale.levels.map((level) => (
-                    <MenuItem key={level.value} value={String(level.value)}>{level.label}</MenuItem>
-                ))}
-            </TextField>
+                onChange={(v) => onChange(Number(v))}
+                options={scale.levels.map((level) => ({ value: String(level.value), label: level.label }))}
+            />
         );
     }
     return (
-        <TextField
-            type="number" size="small" fullWidth={fullWidth} sx={fullWidth ? undefined : { width: 92 }}
-            inputProps={{ min: scale.min, max: scale.max, "aria-label": ariaLabel }}
-            value={value}
-            // Clamped on the way in as well as on the server: typing 9 on a scale that
-            // stops at 5 should correct itself, not fail on save.
-            onChange={(e) => onChange(Math.min(scale.max, Math.max(scale.min, Number(e.target.value) || scale.min)))}
+        <WtField
+            ariaLabel={ariaLabel}
+            type="number" inputMode="numeric" min={scale.min} max={scale.max}
+            fullWidth={fullWidth} minWidth={fullWidth ? undefined : 92}
+            value={text}
+            onChange={(v) => {
+                setText(v);
+                if (v.trim() === "") return; // an empty box is a value not yet given, not a zero
+                const n = Number(v);
+                // Clamped on the way in as well as on the server: typing 9 on a scale that
+                // stops at 5 should correct itself, not fail on save.
+                if (!Number.isNaN(n)) onChange(Math.min(scale.max, Math.max(scale.min, n)));
+            }}
         />
     );
 };
@@ -148,6 +157,8 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
     const factors = rubric?.template?.factors ?? [];
     const scale = rubric?.scale;
     const decisions = rubric?.decisions;
+    /** A rating the server would accept. Its absence is why Save was failing on press. */
+    const ratingGiven = !!scale && score.overallRating >= scale.min && score.overallRating <= scale.max;
     const setFactor = (factorId: string, value: number) =>
         setScore((prev) => ({ ...prev, factorScores: { ...(prev.factorScores ?? {}), [factorId]: value } }));
 
@@ -272,7 +283,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                                         disabled={statusMut.isPending}
                                         sx={{ flex: 1, minWidth: 150 }}
                                     />
-                                    <WtIconButton title="Add scorecard" onClick={() => openScorecard(iv)}>
+                                    <WtIconButton title="Add Scorecard" onClick={() => openScorecard(iv)}>
                                         <KTIcon iconName="questionnaire-tablet" className="fs-5" />
                                     </WtIconButton>
                                 </Stack>
@@ -287,7 +298,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                 open={scheduleOpen}
                 onClose={() => setScheduleOpen(false)}
                 maxWidth="sm"
-                header={<GlassHeader title="Schedule interview" subtitle={`${applicantName} and the panel are emailed an invite`} icon={<KTIcon iconName="message-text-2" className="fs-2" />} onClose={() => setScheduleOpen(false)} />}
+                header={<GlassHeader title="Schedule Interview" subtitle={`${applicantName} and the panel are emailed an invite`} icon={<KTIcon iconName="message-text-2" className="fs-2" />} onClose={() => setScheduleOpen(false)} />}
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
@@ -324,7 +335,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <WtButton ghost onClick={() => setScheduleOpen(false)}>Cancel</WtButton>
-                    <WtButton tone="primary" disabled={!canSchedule || scheduleMut.isPending} onClick={() => scheduleMut.mutate()}>{scheduleMut.isPending ? "Scheduling…" : "Schedule & invite"}</WtButton>
+                    <WtButton tone="primary" disabled={!canSchedule || scheduleMut.isPending} onClick={() => scheduleMut.mutate()}>{scheduleMut.isPending ? "Scheduling…" : "Schedule & Invite"}</WtButton>
                 </DialogActions>
             </GlassDialog>
 
@@ -333,7 +344,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                 open={!!scoreFor}
                 onClose={() => setScoreFor(null)}
                 maxWidth="xs"
-                header={<GlassHeader title="Interview scorecard" subtitle={scoreFor ? `${applicantName} · Round ${scoreFor.round}` : undefined} icon={<KTIcon iconName="questionnaire-tablet" className="fs-2" />} onClose={() => setScoreFor(null)} />}
+                header={<GlassHeader title="Interview Scorecard" subtitle={scoreFor ? `${applicantName} · Round ${scoreFor.round}` : undefined} icon={<KTIcon iconName="questionnaire-tablet" className="fs-2" />} onClose={() => setScoreFor(null)} />}
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
@@ -375,7 +386,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                             <>
                                 <Box>
                                     <Typography sx={{ fontSize: 12.5, color: "text.secondary", mb: 0.75 }}>
-                                        Overall rating · {scale.label}
+                                        Overall Rating · {scale.label}
                                     </Typography>
                                     <RatingControl
                                         scale={scale}
@@ -396,6 +407,11 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                                 />
                             </>
                         )}
+                        {scale && !ratingGiven && (
+                            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                                Give an overall rating to save this scorecard.
+                            </Typography>
+                        )}
                         <WtField
                             label="Comments"
                             multiline minRows={3}
@@ -405,16 +421,17 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                         />
                         {scoreFor && (scoreFor.scorecards?.length ?? 0) > 0 && (
                             <Box>
-                                <Typography sx={{ fontSize: 12.5, color: "text.secondary", mb: 0.5 }}>Existing scorecards</Typography>
+                                <Typography sx={{ fontSize: 12.5, color: "text.secondary", mb: 0.5 }}>Existing Scorecards</Typography>
                                 <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
                                     {scoreFor.scorecards!.map((sc) => (
                                         // The denominator is shown only when this card NAMES the scale now on
                                         // screen. A card with no scale recorded predates the column and means the
                                         // app default, which is not necessarily this rubric — borrowing this
                                         // maximum would restate a 4 out of 5 as 4 out of 3.
-                                        <Chip
+                                        <ToneChip
                                             key={sc.id}
-                                            size="small"
+                                            tone="neutral"
+                                            dense
                                             label={`${sc.overallRating}${
                                                 sc.ratingScale && scale && sc.ratingScale === scale.id ? `/${scale.max}` : ""
                                             } · ${
@@ -430,9 +447,11 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <WtButton ghost onClick={() => setScoreFor(null)}>Cancel</WtButton>
-                    {/* Held until the rubric is in: before that the draft has no valid rating to send. */}
-                    <WtButton tone="primary" disabled={scoreMut.isPending || !scale || !decisions || !score.recommendation} onClick={() => scoreMut.mutate()}>
-                        {scoreMut.isPending ? "Saving…" : "Save scorecard"}
+                    {/* Held until the rubric is in AND a rating has actually been given: the server
+                        validates the rating against the scale, so an unset one was an enabled button
+                        that failed on press. */}
+                    <WtButton tone="primary" disabled={scoreMut.isPending || !ratingGiven || !decisions || !score.recommendation} onClick={() => scoreMut.mutate()}>
+                        {scoreMut.isPending ? "Saving…" : "Save Scorecard"}
                     </WtButton>
                 </DialogActions>
             </GlassDialog>

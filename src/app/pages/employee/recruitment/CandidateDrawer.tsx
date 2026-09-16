@@ -156,14 +156,14 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                             <ScoreChip application={a} />
                             {a.prefix && <ToneChip tone="neutral" label={a.prefix} dense />}
                             {a.requisition?.title && <ToneChip tone="neutral" label={a.requisition.title} dense />}
-                            {a.convertedEmployeeId && <ToneChip tone="success" label="Converted to employee" dense />}
+                            {a.convertedEmployeeId && <ToneChip tone="success" label="Converted to Employee" dense />}
                         </Stack>
                         {/* The same person can be considered for more than one role. */}
-                        <ActionIconButton iconName="briefcase" tone="brand" title="Add to another role" onClick={() => setAddingToRole(true)} />
+                        <ActionIconButton iconName="briefcase" tone="brand" title="Add to Another Role" onClick={() => setAddingToRole(true)} />
                         {onConvert && currentStatus?.isHiredOutcome && !a.convertedEmployeeId && (
                             <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => onConvert(a)}
                                 sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>
-                                Convert to employee
+                                Convert to Employee
                             </WtButton>
                         )}
                         {onMove && statuses.length > 0 ? (
@@ -200,7 +200,7 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                             <Fact label="Phone" value={a.applicant?.phone} href={a.applicant?.phone ? `tel:${a.applicant.phone.replace(/\s+/g, "")}` : undefined} />
                             <Fact label="Location" value={a.applicant?.currentLocation} />
                             <Fact label="Experience" value={experience(a.applicant?.totalExperienceMonths)} />
-                            <Fact label="Notice period" value={a.applicant?.noticePeriodDays != null ? (a.applicant.noticePeriodDays === 0 ? "Immediate" : `${a.applicant.noticePeriodDays} days`) : null} />
+                            <Fact label="Notice Period" value={a.applicant?.noticePeriodDays != null ? (a.applicant.noticePeriodDays === 0 ? "Immediate" : `${a.applicant.noticePeriodDays} days`) : null} />
                             {/* Only once the record is in: the row does not know the requisition's currency. */}
                             {loaded && <Fact label="Current CTC" value={salary(a.applicant?.currentCtc)} />}
                             {loaded && <Fact label="Expected CTC" value={salary(a.applicant?.expectedCtc)} />}
@@ -243,7 +243,7 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                       * this can never explain a score with weights that have since changed.
                       */}
                     {a.scoreBreakdown && (
-                        <SettingsSection tone={TRIO.cyan} icon="chart-simple" title="How this score was reached"
+                        <SettingsSection tone={TRIO.cyan} icon="chart-simple" title="How This Score Was Reached"
                             description="Each factor is scored out of 100 and weighted by your scoring settings.">
                             <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" } }}>
                                 {SCORE_FACTORS.map((f) => {
@@ -268,7 +268,7 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                         {/* Ctrl/Cmd+Enter adds the note: typing one and reaching for the mouse is the slow path. */}
                         <Box onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitNote(); } }}>
                             <WtField
-                                label="Add a note"
+                                label="Add a Note"
                                 multiline minRows={2}
                                 placeholder="What did you learn about this candidate?"
                                 value={draft}
@@ -309,7 +309,7 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                                                     <Typography sx={{ fontSize: 13.5, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{n.body}</Typography>
                                                 </Box>
                                                 {mine && (
-                                                    <ActionIconButton iconName="trash" title="Remove note" tone="danger" size="sm"
+                                                    <ActionIconButton iconName="trash" title="Remove Note" tone="danger" size="sm"
                                                         disabled={removeNote.isPending} onClick={() => confirmRemove(n.id)} />
                                                 )}
                                             </Stack>
@@ -321,7 +321,7 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                     </SettingsSection>
 
                     {/* ── Stage history ── */}
-                    <SettingsSection tone={TRIO.purple} icon="time" title="Stage history">
+                    <SettingsSection tone={TRIO.purple} icon="time" title="Stage History">
                         {!loaded ? (
                             detailQuery.isError
                                 ? <Typography sx={{ fontSize: 13, color: "text.secondary" }}>Unavailable until the record loads.</Typography>

@@ -183,7 +183,7 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
                             validate={(v) => annualAmountError("Offered CTC", v)}
                         />
                         <WtDateField
-                            label="Proposed joining date" required disabled={locked} sx={{ flex: 1 }}
+                            label="Proposed Joining Date" required disabled={locked} sx={{ flex: 1 }}
                             value={toDateInput(form.proposedJoiningDate)}
                             onChange={(v) => setForm({ ...form, proposedJoiningDate: v || null })}
                         />
@@ -217,7 +217,7 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
                         )}
                         {offer?.offerLetterUrl && (
                             <WtButton size="small" ghost onClick={() => window.open(offer.offerLetterUrl as string, "_blank", "noopener,noreferrer")} startIcon={<KTIcon iconName="cloud-download" className="fs-6" />}>
-                                Offer letter
+                                Offer Letter
                             </WtButton>
                         )}
                         {offer && offer.status === 1 && offer.acceptanceStatus === "PENDING" && (

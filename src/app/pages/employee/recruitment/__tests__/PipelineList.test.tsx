@@ -82,8 +82,9 @@ const renderList = async () => {
         </Provider>,
     );
     await userEvent.click(await screen.findByRole('button', { name: /list/i }));
-    // The first render of the shared table is slow in jsdom; give it room.
-    const name = await screen.findByText('Suhel Pathan', undefined, { timeout: 5000 });
+    // The first render of the shared table is slow in jsdom; give it room. 5s was enough when
+    // this file ran alone and not when the suite ran it beside 43 others, which is a flake.
+    const name = await screen.findByText('Suhel Pathan', undefined, { timeout: 12000 });
     return name.closest('tr') as HTMLElement;
 };
 
@@ -104,7 +105,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 describe('Pipeline list view', () => {
     test('each row has one set of named icon actions, not a stack of worded buttons', async () => {
         const row = await renderList();
-        for (const name of ['Open candidate', 'Interviews', 'Offer', 'Convert to employee']) {
+        for (const name of ['Open Candidate', 'Interviews', 'Offer', 'Convert to Employee']) {
             expect(within(row).getByRole('button', { name })).toBeTruthy();
         }
         // No worded button labels left in the row.
@@ -124,6 +125,6 @@ describe('Pipeline list view', () => {
         await userEvent.click(within(row).getByRole('button', { name: 'Interviews' }));
         const dialogs = await screen.findAllByRole('dialog');
         expect(dialogs).toHaveLength(1);
-        expect(within(dialogs[0]).getByText('Interviews and scorecards')).toBeTruthy();
+        expect(within(dialogs[0]).getByText('Interviews and Scorecards')).toBeTruthy();
     });
 });

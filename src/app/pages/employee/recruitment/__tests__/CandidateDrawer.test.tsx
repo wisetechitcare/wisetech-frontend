@@ -163,7 +163,7 @@ describe('CandidateDrawer', () => {
         const dialog = await screen.findByRole('dialog');
         await within(dialog).findByText('Strong on HVAC.');
         expect(within(dialog).getByText('Someone Else')).toBeTruthy();
-        expect(within(dialog).getAllByRole('button', { name: 'Remove note' })).toHaveLength(1);
+        expect(within(dialog).getAllByRole('button', { name: 'Remove Note' })).toHaveLength(1);
     });
 
     test('the rejection reason is not shown for a candidate who is no longer rejected', async () => {

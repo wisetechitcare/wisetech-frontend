@@ -137,7 +137,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                 subtitle="Public adverts for approved roles — shown on the careers page."
                 actions={
                     <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openCreate}>
-                        New {TERMS.posting}
+                        New {TERMS.Posting}
                     </WtButton>
                 }
             />
@@ -212,7 +212,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                                     label={<Typography sx={{ fontSize: 12, fontWeight: 600 }}>Publish</Typography>}
                                 />
                                 <Box sx={{ flex: 1 }} />
-                                <ActionIconButton iconName="pencil" title="Edit advert" size="sm" onClick={() => openEdit(p)} />
+                                <ActionIconButton iconName="pencil" title="Edit Advert" size="sm" onClick={() => openEdit(p)} />
                                 <ActionIconButton
                                     iconName="copy"
                                     title={p.publicUrl ? "Copy public link" : "No careers site is configured for this deployment yet"}
@@ -256,23 +256,23 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                                 : "Only approved, open roles can be advertised."}
                         />
                         <WtField
-                            label="Public title" fullWidth
+                            label="Public Title" fullWidth
                             value={form.title ?? ""} onChange={(v) => setForm({ ...form, title: v })}
                             disabled={saveMut.isPending}
                             hint="Defaults to the role's own title if left blank."
                         />
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <WtField label="Location" sx={{ flex: 1 }} value={form.location ?? ""} onChange={(v) => setForm({ ...form, location: v })} disabled={saveMut.isPending} />
-                            <WtField label="Employment type" sx={{ flex: 1 }} value={form.employmentType ?? ""} onChange={(v) => setForm({ ...form, employmentType: v })} disabled={saveMut.isPending} />
+                            <WtField label="Employment Type" sx={{ flex: 1 }} value={form.employmentType ?? ""} onChange={(v) => setForm({ ...form, employmentType: v })} disabled={saveMut.isPending} />
                         </Stack>
                         <WtDateField
-                            label="Closes on"
+                            label="Closes On"
                             value={form.expiresAt ?? ""}
                             onChange={(v) => setForm({ ...form, expiresAt: v || null })}
                             helperText="After this date the advert comes off the careers page on its own. Leave blank to keep it up until you take it down."
                         />
                         <WtField
-                            label="Public description" fullWidth multiline minRows={4}
+                            label="Public Description" fullWidth multiline minRows={4}
                             value={form.descriptionHtml ?? ""} onChange={(v) => setForm({ ...form, descriptionHtml: v })}
                             disabled={saveMut.isPending}
                             hint="What a candidate reads. The internal job description is not published."
@@ -298,7 +298,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <WtButton ghost onClick={() => setOpen(false)} disabled={saveMut.isPending}>Cancel</WtButton>
                     <WtButton tone="primary" onClick={save} disabled={saveMut.isPending || (attempted && !roleValid)}>
-                        {saveMut.isPending ? "Saving…" : editing ? "Save changes" : "Create advert"}
+                        {saveMut.isPending ? "Saving…" : editing ? "Save Changes" : "Create Advert"}
                     </WtButton>
                 </DialogActions>
             </GlassDialog>

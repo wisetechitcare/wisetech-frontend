@@ -1,9 +1,9 @@
 import { useCallback, useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { Box, Stack, Typography, Tooltip, CircularProgress, LinearProgress } from "@mui/material";
+import { Box, Stack, Typography, CircularProgress, LinearProgress } from "@mui/material";
 import {
     AutoGrid, ListHeader, GlassCard, StatTile, ToneChip, Eyebrow, TRIO, SectionHead,
-    CurrencySymbol, WtEmptyState,
+    CurrencySymbol, WtEmptyState, WtTooltip,
     type Trio, type SemanticTone,
 } from "@app/modules/common/components/ui";
 import PeriodFilter, { type PeriodRange } from "@app/modules/common/components/PeriodFilter";
@@ -51,11 +51,11 @@ const BarRow = ({ label, count, max, color, onOpen }: { label: string; count: nu
             <Typography noWrap title={label} sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 88, sm: 132 }, flexShrink: 0, color: "text.secondary" }}>
                 {label}
             </Typography>
-            <Tooltip title={clickable ? `${count} — click to see who` : `${count}`} arrow placement="top">
+            <WtTooltip title={clickable ? `${count} — click to see who` : `${count}`}>
                 <Box sx={{ flex: 1, minWidth: 0, height: 20, borderRadius: 999, bgcolor: "action.hover", overflow: "hidden" }}>
                     <Box sx={{ width: `${pct}%`, height: "100%", borderRadius: 999, bgcolor: color || FALLBACK_BAR, transition: "width .5s cubic-bezier(0.4,0,0.2,1)" }} />
                 </Box>
-            </Tooltip>
+            </WtTooltip>
             <Typography sx={{ fontSize: 13, fontWeight: 700, width: 30, textAlign: "right", flexShrink: 0 }}>{count}</Typography>
         </Stack>
     );
@@ -109,22 +109,19 @@ const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays }: 
                   : `Usually takes ${dayWord(avgDays)}`}
         </Typography>
         {openCount > 0 && (
-            <Tooltip
-                arrow
-                placement="top"
+            <WtTooltip
+                wrap
                 title={`${openCount === 1 ? "1 person is" : `${openCount} people are`} waiting here. The one waiting longest has been here ${dayWord(oldestOpenDays ?? 0)}.`}
             >
                 {/* The longest wait is the number worth acting on: a step that usually takes
                     2 days with someone sitting 40 days is one person being forgotten, and no
                     average will ever show that. */}
-                <span>
-                    <ToneChip
-                        dense
-                        tone={(oldestOpenDays ?? 0) >= 14 ? "danger" : "neutral"}
-                        label={`${openCount} waiting · longest ${dayWord(oldestOpenDays ?? 0)}`}
-                    />
-                </span>
-            </Tooltip>
+                <ToneChip
+                    dense
+                    tone={(oldestOpenDays ?? 0) >= 14 ? "danger" : "neutral"}
+                    label={`${openCount} waiting · longest ${dayWord(oldestOpenDays ?? 0)}`}
+                />
+            </WtTooltip>
         )}
     </Stack>
 );
@@ -193,7 +190,7 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                 ) : isError ? (
                     <WtEmptyState variant="error" title="Could not load the overview" hint={apiErrorMessage(error, "Check your connection and try again.")} actionLabel="Retry" onAction={() => refetch()} />
                 ) : (
-                    <WtEmptyState title="Nothing to show yet" hint="Numbers appear here once requisitions and applications exist." />
+                    <WtEmptyState title="Nothing to Show Yet" hint="Numbers appear here once requisitions and applications exist." />
                 )}
             </Box>
         );
@@ -251,7 +248,7 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                 <CardTitle
                     tone={TRIO.blue}
                     icon="chart-simple"
-                    title="Where Applicants Are"
+                    title="Where Candidates Are"
                     hint={`${kpis.totalApplications} people applied · ${conversion} in every 100 were hired · ${kpis.publishedPostings} jobs live on the careers page`}
                 />
                 {funnel.length === 0 ? (

@@ -222,7 +222,7 @@ const ImportView = () => {
     return (
         <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 1400, mx: "auto" }}>
             <ListHeader
-                title="Import from the HR tracker"
+                title="Import from the HR Tracker"
                 subtitle="Upload one sheet at a time. Nothing is written until you press Import."
             />
 
@@ -296,7 +296,7 @@ const ImportView = () => {
                                 {questions.unmappedStatuses.map((q) => (
                                     <QuestionRow key={q.value} label={q.value} meta={plural(q.rowCount, "row")}>
                                         <WtField
-                                            label="Maps to" fullWidth
+                                            label="Maps To" fullWidth
                                             value={answers.statusAliases?.[q.value.toLowerCase()] ?? ""}
                                             onChange={(v) => answer({
                                                 ...answers,

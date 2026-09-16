@@ -32,12 +32,12 @@ export const TERMS = {
     /** A requisition published to the careers site. */
     posting: 'job advert',
     postings: 'job adverts',
-    Posting: 'Job advert',
-    Postings: 'Job adverts',
+    Posting: 'Job Advert',
+    Postings: 'Job Adverts',
 
     /** One panelist's written verdict on one interview. */
     scorecard: 'interview feedback',
-    Scorecard: 'Interview feedback',
+    Scorecard: 'Interview Feedback',
     scorecards: 'interview feedback',
 
     /** Where a candidate came from — referral, WhatsApp, careers page. */
@@ -55,9 +55,9 @@ export const TERMS = {
  */
 export const COPY = {
     noCandidates: {
-        title: 'No candidates yet',
+        title: 'No Candidates Yet',
         hint: 'Add someone by hand, import the HR tracker, or publish a job advert so people can apply.',
-        action: 'Add a candidate',
+        action: 'Add a Candidate',
     },
     noSearchMatch: (term: string) => ({
         title: `Nothing matches “${term}”`,
@@ -65,26 +65,26 @@ export const COPY = {
         hint: 'Try part of a name, an email, a job title or an employer.',
     }),
     noRequisitions: {
-        title: 'No roles open',
+        title: 'No Roles Open',
         hint: 'A role is the approved request to hire. Open one before adding candidates against it.',
-        action: 'Open a role',
+        action: 'Open a Role',
     },
     noPostings: {
-        title: 'Nothing published yet',
+        title: 'Nothing Published Yet',
         hint: 'Publishing a role puts it on the careers page so people can apply themselves.',
-        action: 'Publish a role',
+        action: 'Publish a Role',
     },
     noInterviews: {
-        title: 'No interviews scheduled',
+        title: 'No Interviews Scheduled',
         hint: 'Scheduling one emails the candidate and the panel with the time and the joining link.',
-        action: 'Schedule an interview',
+        action: 'Schedule an Interview',
     },
     noNotes: {
-        title: 'No notes yet',
+        title: 'No Notes Yet',
         hint: 'Notes are what you remember about a candidate that the form fields cannot hold.',
     },
     noStagesConfigured: {
-        title: 'No hiring stages set up',
+        title: 'No Hiring Stages Set Up',
         hint: 'Stages are the steps a candidate moves through. Add them in Configure before anyone applies.',
     },
 } as const;

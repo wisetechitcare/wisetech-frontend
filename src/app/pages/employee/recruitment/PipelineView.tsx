@@ -72,13 +72,13 @@ const PipelineView = ({ companyId }: OrgScoped) => {
             // also reach the row, which opens the candidate.
             actions: (a) => (
                 <Stack direction="row" spacing={0.75} alignItems="center" onClick={(e) => e.stopPropagation()}>
-                    <ActionIconButton iconName="profile-circle" size="sm" tone="brand" title="Open candidate" onClick={() => setOpenCandidate(a)} />
+                    <ActionIconButton iconName="profile-circle" size="sm" tone="brand" title="Open Candidate" onClick={() => setOpenCandidate(a)} />
                     <ActionIconButton iconName="message-text-2" size="sm" tone="indigo" title="Interviews" onClick={() => setInterviewsFor(a)} />
                     <ActionIconButton iconName="wallet" size="sm" tone="indigo" title="Offer" onClick={() => setOfferFor(a)} />
                     {a.status?.isHiredOutcome && (
                         a.convertedEmployeeId
                             ? <ToneChip tone="success" label="Converted" dense />
-                            : <ActionIconButton iconName="user-tick" size="sm" tone="success" title="Convert to employee" onClick={() => convertToEmployee(a)} />
+                            : <ActionIconButton iconName="user-tick" size="sm" tone="success" title="Convert to Employee" onClick={() => convertToEmployee(a)} />
                     )}
                 </Stack>
             ),
@@ -177,7 +177,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                             <ToggleButton value="list"><AppIcon name="bi-list-ul" />&nbsp;List</ToggleButton>
                         </ToggleButtonGroup>
                         <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
-                            Add candidate
+                            Add Candidate
                         </WtButton>
                     </>
                 }
@@ -305,7 +305,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 open={!!interviewsFor}
                 onClose={() => setInterviewsFor(null)}
                 maxWidth="md"
-                header={<GlassHeader title={interviewsFor ? applicantName(interviewsFor) : "Interviews"} subtitle="Interviews and scorecards" icon={<KTIcon iconName="message-text-2" className="fs-2" />} onClose={() => setInterviewsFor(null)} />}
+                header={<GlassHeader title={interviewsFor ? applicantName(interviewsFor) : "Interviews"} subtitle="Interviews and Scorecards" icon={<KTIcon iconName="message-text-2" className="fs-2" />} onClose={() => setInterviewsFor(null)} />}
             >
                 <DialogContent>
                     {interviewsFor && (
@@ -319,7 +319,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 open={!!offerFor}
                 onClose={() => setOfferFor(null)}
                 maxWidth="sm"
-                header={<GlassHeader title={offerFor ? applicantName(offerFor) : "Offer"} subtitle="Offer and approval" icon={<KTIcon iconName="wallet" className="fs-2" />} onClose={() => setOfferFor(null)} />}
+                header={<GlassHeader title={offerFor ? applicantName(offerFor) : "Offer"} subtitle="Offer and Approval" icon={<KTIcon iconName="wallet" className="fs-2" />} onClose={() => setOfferFor(null)} />}
             >
                 <DialogContent>
                     {offerFor && (

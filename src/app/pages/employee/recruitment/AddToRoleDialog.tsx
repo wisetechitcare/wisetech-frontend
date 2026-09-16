@@ -67,7 +67,7 @@ export function AddToRoleDialog({ open, onClose, applicantId, applicantName, com
             maxWidth="xs"
             header={
                 <GlassHeader
-                    title="Add to a role"
+                    title="Add to a Role"
                     subtitle={applicantName}
                     icon={<KTIcon iconName="briefcase" className="fs-2" />}
                     onClose={addMut.isPending ? undefined : onClose}
@@ -95,7 +95,7 @@ export function AddToRoleDialog({ open, onClose, applicantId, applicantName, com
             <DialogActions sx={{ px: 3, pb: 2 }}>
                 <WtButton ghost onClick={onClose} disabled={addMut.isPending}>Cancel</WtButton>
                 <WtButton tone="primary" onClick={() => addMut.mutate()} disabled={!requisitionId || addMut.isPending}>
-                    {addMut.isPending ? "Adding…" : "Add to role"}
+                    {addMut.isPending ? "Adding…" : "Add to Role"}
                 </WtButton>
             </DialogActions>
         </GlassDialog>

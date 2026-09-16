@@ -112,7 +112,7 @@ export function AddCandidateDialog({ open, onClose, roleRequired = false, compan
             maxWidth="sm"
             header={
                 <GlassHeader
-                    title="Add candidate"
+                    title="Add Candidate"
                     subtitle={roleRequired ? "Add someone to a role's pipeline" : "Add someone to the candidate pool, or straight into a role"}
                     icon={<KTIcon iconName="user-tick" className="fs-2" />}
                     onClose={addMut.isPending ? undefined : onClose}
@@ -146,7 +146,7 @@ export function AddCandidateDialog({ open, onClose, roleRequired = false, compan
             <DialogActions sx={{ px: 3, pb: 2 }}>
                 <WtButton ghost onClick={onClose} disabled={addMut.isPending}>Cancel</WtButton>
                 <WtButton tone="primary" onClick={save} disabled={addMut.isPending || (attempted && !valid)}>
-                    {addMut.isPending ? "Adding…" : role ? "Add to role" : "Add candidate"}
+                    {addMut.isPending ? "Adding…" : role ? "Add to Role" : "Add Candidate"}
                 </WtButton>
             </DialogActions>
         </GlassDialog>

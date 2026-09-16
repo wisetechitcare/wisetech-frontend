@@ -65,9 +65,9 @@ export function CandidateFormFields({ form, onChange, showErrors, resumeFile, on
     return (
         <Stack spacing={2}>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <WtField label="First name" required sx={{ flex: 1 }} value={form.firstName} onChange={(v) => set("firstName", v)}
+                <WtField label="First Name" required sx={{ flex: 1 }} value={form.firstName} onChange={(v) => set("firstName", v)}
                     error={showErrors && problems.firstName ? "First name is required" : undefined} disabled={disabled} />
-                <WtField label="Last name" sx={{ flex: 1 }} value={form.lastName ?? ""} onChange={(v) => set("lastName", v)} disabled={disabled} />
+                <WtField label="Last Name" sx={{ flex: 1 }} value={form.lastName ?? ""} onChange={(v) => set("lastName", v)} disabled={disabled} />
             </Stack>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <WtField label="Email" type="email" inputMode="email" sx={{ flex: 1 }} value={form.email ?? ""} onChange={(v) => set("email", v)}
@@ -76,24 +76,24 @@ export function CandidateFormFields({ form, onChange, showErrors, resumeFile, on
                     error={identityError} disabled={disabled} />
             </Stack>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <WtField label="Current title" sx={{ flex: 1 }} value={form.currentTitle ?? ""} onChange={(v) => set("currentTitle", v)} disabled={disabled} />
-                <WtField label="Current employer" sx={{ flex: 1 }} value={form.currentEmployer ?? ""} onChange={(v) => set("currentEmployer", v)} disabled={disabled} />
+                <WtField label="Current Title" sx={{ flex: 1 }} value={form.currentTitle ?? ""} onChange={(v) => set("currentTitle", v)} disabled={disabled} />
+                <WtField label="Current Employer" sx={{ flex: 1 }} value={form.currentEmployer ?? ""} onChange={(v) => set("currentEmployer", v)} disabled={disabled} />
             </Stack>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <WtField label="Current location" sx={{ flex: 1 }} value={form.currentLocation ?? ""} onChange={(v) => set("currentLocation", v)} disabled={disabled} />
+                <WtField label="Current Location" sx={{ flex: 1 }} value={form.currentLocation ?? ""} onChange={(v) => set("currentLocation", v)} disabled={disabled} />
                 <WtField label="Qualification" sx={{ flex: 1 }} value={form.qualification ?? ""} onChange={(v) => set("qualification", v)} disabled={disabled} />
             </Stack>
             {/* Two per row: four money and number fields crushed into one row made their labels and hints unreadable. */}
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <WtMoneyField label="Current salary" per="year" hint="Full yearly amount" sx={{ flex: 1 }}
+                <WtMoneyField label="Current Salary" per="year" hint="Full yearly amount" sx={{ flex: 1 }}
                     value={form.currentCtc} onChange={(v) => set("currentCtc", v)} error={problems.currentCtc} disabled={disabled} />
-                <WtMoneyField label="Expected salary" per="year" hint="Full yearly amount" sx={{ flex: 1 }}
+                <WtMoneyField label="Expected Salary" per="year" hint="Full yearly amount" sx={{ flex: 1 }}
                     value={form.expectedCtc} onChange={(v) => set("expectedCtc", v)} error={problems.expectedCtc} disabled={disabled} />
             </Stack>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <WtField label="Experience" type="number" min={0} inputMode="numeric" hint="In months" sx={{ flex: 1 }}
                     value={form.totalExperienceMonths ?? ""} onChange={(v) => setNum("totalExperienceMonths", v)} disabled={disabled} />
-                <WtField label="Notice period" type="number" min={0} inputMode="numeric" hint="In days" sx={{ flex: 1 }}
+                <WtField label="Notice Period" type="number" min={0} inputMode="numeric" hint="In days" sx={{ flex: 1 }}
                     value={form.noticePeriodDays ?? ""} onChange={(v) => setNum("noticePeriodDays", v)} disabled={disabled} />
             </Stack>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
@@ -103,7 +103,7 @@ export function CandidateFormFields({ form, onChange, showErrors, resumeFile, on
                         onChange={(v) => set("employeeLevelId", v || null)}
                         options={levels.map((l) => ({ value: l.id, label: l.name }))} placeholder="Not set" disabled={disabled} />
                 )}
-                <WtField label="Where they came from" sx={{ flex: 1 }} clearable value={form.sourceId ?? ""}
+                <WtField label="Where They Came From" sx={{ flex: 1 }} clearable value={form.sourceId ?? ""}
                     onChange={(v) => set("sourceId", v || null)}
                     options={sources.map((s: ApplicantSource) => ({ value: s.id, label: s.name }))}
                     placeholder="Not recorded" hint="Tells you which channel is worth the budget." disabled={disabled} />

@@ -211,14 +211,14 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 actions={
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: "100%", sm: "auto" } }}>
                         <WtField
-                            label="Search candidates" icon="magnifier" clearable
+                            label="Search Candidates" icon="magnifier" clearable
                             value={searchInput} onChange={setSearchInput}
                             placeholder="Name, email, title or employer"
                             fullWidth={false}
                             sx={{ width: { xs: "100%", sm: 280 } }}
                         />
                         <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
-                            Add candidate
+                            Add Candidate
                         </WtButton>
                     </Stack>
                 }
@@ -236,7 +236,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 search ? (
                     <WtEmptyState variant="no-match" {...COPY.noSearchMatch(search)} />
                 ) : (
-                    <WtEmptyState icon="people" title={COPY.noCandidates.title} hint={COPY.noCandidates.hint} actionLabel="Add candidate" onAction={() => setAdding(true)} />
+                    <WtEmptyState icon="people" title={COPY.noCandidates.title} hint={COPY.noCandidates.hint} actionLabel="Add Candidate" onAction={() => setAdding(true)} />
                 )
             ) : (
                 <AutoGrid min={320}>
@@ -282,7 +282,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                                         Added {formatDate(a.createdAt)}
                                     </Typography>
                                     <Box sx={{ flex: 1 }} />
-                                    <ActionIconButton iconName="briefcase" size="sm" tone="brand" title="Add to a role" onClick={() => setAddToRole(a)} />
+                                    <ActionIconButton iconName="briefcase" size="sm" tone="brand" title="Add to a Role" onClick={() => setAddToRole(a)} />
                                     <ActionIconButton
                                         iconName={a.resumeS3Url ? "arrows-circle" : "cloud-add"}
                                         icon={uploadingId === a.id ? <CircularProgress size={14} color="inherit" /> : undefined}
@@ -356,7 +356,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <WtButton ghost onClick={closeEdit} disabled={updateMut.isPending}>Cancel</WtButton>
                     <WtButton tone="primary" disabled={updateMut.isPending || (attempted && !isCandidateFormValid(form))} onClick={saveEdit}>
-                        {updateMut.isPending ? "Saving…" : "Save changes"}
+                        {updateMut.isPending ? "Saving…" : "Save Changes"}
                     </WtButton>
                 </DialogActions>
             </GlassDialog>

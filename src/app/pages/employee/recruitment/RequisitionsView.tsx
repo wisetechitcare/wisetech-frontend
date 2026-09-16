@@ -248,7 +248,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                 subtitle="A role is an approved request to hire — HR's job requisition. Raise it, route it for approval, then publish it to the careers page."
                 actions={
                     <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openCreate}>
-                        New requisition
+                        New Role
                     </WtButton>
                 }
             />
@@ -262,7 +262,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                     icon="briefcase"
                     title={COPY.noRequisitions.title}
                     hint={COPY.noRequisitions.hint}
-                    actionLabel="New requisition"
+                    actionLabel="New Role"
                     onAction={openCreate}
                 />
             ) : (
@@ -367,7 +367,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                             onChange={(next) => setForm({ ...form, departmentId: next.departmentId, designationId: next.designationId })}
                         />
                         <WtField
-                            label="Job description" fullWidth multiline minRows={3}
+                            label="Job Description" fullWidth multiline minRows={3}
                             value={form.jobDescription ?? ""}
                             onChange={(v) => setForm({ ...form, jobDescription: v })}
                         />
@@ -379,7 +379,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                                 error={headcountText !== "" && !headcountValid ? "At least 1" : undefined}
                             />
                             <WtDateField
-                                label="Target start date"
+                                label="Target Start Date"
                                 sx={{ flex: 1 }}
                                 value={form.targetStartDate}
                                 onChange={(v) => setForm({ ...form, targetStartDate: v || null })}
@@ -428,7 +428,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                         )}
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <EmployeePickerField
-                                label="Hiring manager" sx={{ flex: 1 }}
+                                label="Hiring Manager" sx={{ flex: 1 }}
                                 placeholder="Select a manager…"
                                 // The server routes approval to the hiring manager — unless that is the
                                 // person submitting, who cannot approve their own request; then it goes
@@ -449,7 +449,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <WtButton ghost onClick={close}>Cancel</WtButton>
                     <WtButton tone="primary" disabled={!canSave || saving} onClick={save}>
-                        {editing ? (updateMut.isPending ? "Saving…" : "Save changes") : (createMut.isPending ? "Creating…" : "Create")}
+                        {editing ? (updateMut.isPending ? "Saving…" : "Save Changes") : (createMut.isPending ? "Creating…" : "Create")}
                     </WtButton>
                 </DialogActions>
             </GlassDialog>
