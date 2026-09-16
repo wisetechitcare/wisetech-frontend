@@ -12,6 +12,7 @@ import PipelineView from "./PipelineView";
 import CandidatesView from "./CandidatesView";
 import RecruitmentConfigurationMain from "./RecruitmentConfigurationMain";
 import ImportView from "./ImportView";
+import { TERMS } from "./terms";
 
 /**
  * Recruitment / ATS module shell. Mirrors LeadsMain (MaterialHeaderTab +
@@ -92,8 +93,11 @@ const RecruitmentMain = () => {
 
   const tabItems: TabItem[] = [
     { title: "Overview", component: <RecruitmentOverview companyId={companyId} />, icon: "bi-grid-1x2" },
-    { title: "Requisitions", component: <RequisitionsView companyId={companyId} />, icon: "bi-briefcase" },
-    { title: "Postings", component: <PostingsView companyId={companyId} />, icon: "bi-megaphone" },
+    // Tab LABELS come from TERMS; the tab KEYS above stay as they are, because they are in
+    // people's URLs. The module used to say "Requisitions" here and "role" inside every
+    // dialog, which is one thing with two names.
+    { title: TERMS.Requisitions, component: <RequisitionsView companyId={companyId} />, icon: "bi-briefcase" },
+    { title: TERMS.Postings, component: <PostingsView companyId={companyId} />, icon: "bi-megaphone" },
     { title: "Pipeline", component: <PipelineView companyId={companyId} />, icon: "bi-kanban" },
     { title: "Candidates", component: <CandidatesView companyId={companyId} />, icon: "bi-people" },
     // Sits before Configure: it is a migration tool, used heavily for a short while and

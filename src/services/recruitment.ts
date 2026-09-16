@@ -817,6 +817,13 @@ export interface JobPosting {
     /** Publish this role's CTC band publicly. Off by default; the server redacts the
      *  numbers entirely when it is false, so they never reach the careers site. */
     showSalary?: boolean;
+    /**
+     * The link a recruiter shares, built by the server from `CAREERS_SITE_BASE_URL`.
+     * `null` when no careers site is configured for this deployment — offer no link at all
+     * rather than a guessed one (this used to be a literal domain in the bundle, so every
+     * tenant copied the same company's website).
+     */
+    publicUrl?: string | null;
     requisition?: { id: string; title: string; prefix?: string | null } | null;
 }
 export interface PostingPayload {

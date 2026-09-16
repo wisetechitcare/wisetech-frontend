@@ -11,7 +11,7 @@ import { EmployeePickerField } from "@app/modules/common/components/EmployeePick
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
 import { queryKeys } from "@/lib/queryKeys";
-import { COPY } from "./terms";
+import { COPY, TERMS } from "./terms";
 import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
 import { useRecruitmentBranches } from "@/hooks/useRecruitmentBranches";
 import { RecruitmentBranchField } from "./RecruitmentBranchField";
@@ -244,8 +244,8 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
     return (
         <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
             <ListHeader
-                title="Job Requisitions"
-                subtitle="Raise headcount requests, route them for approval, then publish to the careers page."
+                title={TERMS.Requisitions}
+                subtitle="A role is an approved request to hire — HR's job requisition. Raise it, route it for approval, then publish it to the careers page."
                 actions={
                     <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openCreate}>
                         New requisition
@@ -256,7 +256,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
             {isLoading ? (
                 <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress size={28} /></Stack>
             ) : isError ? (
-                <WtEmptyState variant="error" title="Could not load requisitions" hint={apiErrorMessage(error, "Check your connection and try again.")} actionLabel="Retry" onAction={() => refetch()} />
+                <WtEmptyState variant="error" title="Could not load the roles" hint={apiErrorMessage(error, "Check your connection and try again.")} actionLabel="Retry" onAction={() => refetch()} />
             ) : requisitions.length === 0 ? (
                 <WtEmptyState
                     icon="briefcase"
@@ -318,7 +318,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                                     <Box sx={{ flex: 1 }} />
                                     <ActionIconButton
                                         iconName="pencil" size="sm" tone="indigo"
-                                        title={isEditable(r) ? "Edit" : r.approvalPending ? "Locked while awaiting approval" : "Locked — this requisition is approved"}
+                                        title={isEditable(r) ? "Edit" : r.approvalPending ? "Locked while awaiting approval" : "Locked — this role is approved"}
                                         disabled={!isEditable(r)}
                                         onClick={() => openEdit(r)}
                                     />

@@ -106,7 +106,7 @@ describe('RequisitionsView', () => {
         const edits = screen.getAllByRole('button', { name: /^edit$/i });
         expect(edits).toHaveLength(2);
         expect(screen.getByRole('button', { name: 'Locked while awaiting approval' })).toBeTruthy();
-        expect(screen.getByRole('button', { name: /Locked — this requisition is approved/ })).toBeTruthy();
+        expect(screen.getByRole('button', { name: /Locked — this role is approved/ })).toBeTruthy();
     });
 
     test('a failed submit shows the server\'s reason, not a guess about the hiring manager', async () => {
@@ -123,7 +123,7 @@ describe('RequisitionsView', () => {
     test('a failed load is an error with Retry, not "No roles open"', async () => {
         api.getRequisitions.mockRejectedValue({ response: { data: { detail: 'Service unavailable.' } } });
         renderView();
-        expect(await screen.findByText('Could not load requisitions')).toBeTruthy();
+        expect(await screen.findByText('Could not load the roles')).toBeTruthy();
         expect(screen.queryByText('No roles open')).toBeNull();
         expect(screen.getByRole('button', { name: /retry/i })).toBeTruthy();
     });
