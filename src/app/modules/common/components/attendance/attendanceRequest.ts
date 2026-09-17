@@ -180,6 +180,8 @@ export interface CorrectionDayContext {
 
 /** The slice of a server calendar day these rules read. */
 export interface CorrectionDayLike {
+  /** The server's day status (`present`, `weekly_off`, `leave`, …). */
+  status?: string;
   actual?: { checkIn?: string | null; checkOut?: string | null } | null;
   request?: { id?: string; status?: string; hasCheckIn?: boolean; hasCheckOut?: boolean } | null;
   canRaiseCorrection?: boolean;
@@ -278,11 +280,40 @@ export function recordedOrderProblem(
  * it on the write). This only words it, so the form can say why instead of
  * showing a button that fails.
  */
+/**
+ * Day statuses a correction may be raised on — the client mirror of the server's
+ * `CORRECTABLE_STATUSES` in attendanceCorrectionPolicy. Leave is deliberately absent:
+ * the leave reconciler owns attendance-overrides-leave.
+ */
+const CORRECTABLE_DAY_STATUSES: ReadonlySet<string> = new Set([
+  'present', 'absent', 'half_day', 'pending', 'weekly_off', 'holiday',
+]);
+
 export function correctionRefusal(
   day: CorrectionDayLike | null | undefined,
   formatDate: (iso: string) => string,
+  options: {
+    /**
+     * The viewer is raising on someone else's behalf as an approver. The server exempts
+     * approvers from the admin's correction WINDOW (and only the window), so the admin
+     * dialogs must not refuse a day it would accept.
+     */
+    exemptFromWindow?: boolean;
+  } = {},
 ): string | null {
   if (!day || day.canRaiseCorrection !== false) return null;
+
+  /**
+   * The server judges the window BEFORE the day type, so an old leave day arrives
+   * reported as `outside_window`. Lifting that refusal is only safe once the day type
+   * has been checked here — otherwise an admin exemption would quietly open leave days.
+   */
+  if (options.exemptFromWindow && day.correctionRefusedReason === 'outside_window') {
+    return day.status && !CORRECTABLE_DAY_STATUSES.has(day.status)
+      ? correctionRefusal({ ...day, correctionRefusedReason: 'day_type' }, formatDate)
+      : null;
+  }
+
   switch (day.correctionRefusedReason) {
     case 'outside_window':
       return day.correctionEarliestDate

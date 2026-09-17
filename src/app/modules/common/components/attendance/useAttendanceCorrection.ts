@@ -41,6 +41,7 @@ import { useAttendanceCalendar } from '@hooks/useAttendanceCalendar';
 import { validatePreviousDaysAttendance } from '@utils/attendanceValidation';
 import { parseWorkingDays } from '@utils/workingDays';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
+import { apiErrorMessage } from '@utils/apiError';
 import { MUMBAI_TZ, formatTimeString } from '@utils/date';
 import {
   applyKind,
@@ -110,12 +111,6 @@ interface GateState {
 
 const OPEN_GATE: GateState = { checking: false, blocked: false, blockingDate: '' };
 
-/** The server's rejection message when it sent one — the policy explains itself. */
-function serverMessage(err: unknown): string | null {
-  const msg = (err as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
-  return typeof msg === 'string' && msg.trim() ? msg : null;
-}
-
 export function useAttendanceCorrection(args: UseAttendanceCorrectionArgs) {
   const { open, date, employeeId, request, asAdmin = false, preferredKind, location, successMessage, onSaved } = args;
   const mode: CorrectionMode = request ? 'edit' : 'raise';
@@ -136,7 +131,13 @@ export function useAttendanceCorrection(args: UseAttendanceCorrectionArgs) {
   const timezone = calendar?.timezone || me?.branches?.timezone || MUMBAI_TZ;
 
   const context = useMemo(() => correctionContextFromDay(day, request?.id), [day, request?.id]);
-  const refusal = useMemo(() => correctionRefusal(day, (iso) => dayjs(iso).format('D MMM YYYY')), [day]);
+  // An admin raising for someone else is exempt from the window server-side, so the dialog
+  // must not refuse what the server would accept. The server still decides authority: an
+  // admin-flow user who is not actually an approver gets the server's refusal on submit.
+  const refusal = useMemo(
+    () => correctionRefusal(day, (iso) => dayjs(iso).format('D MMM YYYY'), { exemptFromWindow: asAdmin }),
+    [day, asAdmin],
+  );
   // Editing a request cannot be "nothing left": the halves on the form are its own.
   const nothingLeft = mode === 'raise' && nothingLeftToRaise(context);
   const kindBlocked = useCallback((k: RequestKind) => kindBlockedReason(k, context), [context]);
@@ -272,7 +273,9 @@ export function useAttendanceCorrection(args: UseAttendanceCorrectionArgs) {
         mode,
       });
     } catch (err) {
-      errorConfirmation(serverMessage(err) ?? 'Attendance request failed. Please try again later.');
+      // The policy's refusal is in the envelope's `detail`; `message` is only the status name
+      // ("Bad request"). The shared extractor reads the right field.
+      errorConfirmation(apiErrorMessage(err, 'Attendance request failed. Please try again later.'));
     } finally {
       setSaving(false);
     }

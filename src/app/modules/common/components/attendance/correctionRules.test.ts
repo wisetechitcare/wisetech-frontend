@@ -163,3 +163,36 @@ describe('correctionRefusal — the server said no, and the form says why', () =
     expect(correctionRefusal({ canRaiseCorrection: false, correctionRefusedReason: 'not_employed' }, fmtDate)).toMatch(/employ/);
   });
 });
+
+describe('correctionRefusal — an admin is exempt from the window, and only the window', () => {
+  const fmtDate = (d: string) => d;
+  const closed = (status: string) => ({
+    status,
+    canRaiseCorrection: false,
+    correctionRefusedReason: 'outside_window' as const,
+    correctionEarliestDate: '2026-08-19',
+  });
+
+  /** The server exempts approvers from the window; the admin dialogs must not block what it accepts. */
+  it('does not refuse an old working day for an admin', () => {
+    expect(correctionRefusal(closed('absent'), fmtDate, { exemptFromWindow: true })).toBeNull();
+    expect(correctionRefusal(closed('weekly_off'), fmtDate, { exemptFromWindow: true })).toBeNull();
+  });
+
+  it('still refuses the same day for an employee', () => {
+    expect(correctionRefusal(closed('absent'), fmtDate)).toMatch(/correction window/);
+  });
+
+  /**
+   * The server checks the window BEFORE the day type, so an old leave day arrives reported
+   * as `outside_window`. Lifting that refusal blindly would open leave days to admins.
+   */
+  it('still refuses an old LEAVE day for an admin, as a leave day', () => {
+    expect(correctionRefusal(closed('leave'), fmtDate, { exemptFromWindow: true })).toMatch(/leave/);
+  });
+
+  it('leaves every other refusal in place for an admin', () => {
+    const future = { status: 'future', canRaiseCorrection: false, correctionRefusedReason: 'future' as const };
+    expect(correctionRefusal(future, fmtDate, { exemptFromWindow: true })).toMatch(/not happened yet/);
+  });
+});
