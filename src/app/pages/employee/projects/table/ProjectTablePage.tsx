@@ -601,38 +601,19 @@ const ProjectTablePage = () => {
 
   return (
     <>
-      <Box sx={{ p: { xs: 2, md: 3 }, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
-        <div style={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: isMobile ? 'stretch' : 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          marginBottom: '16px',
-          flexWrap: 'wrap'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <h1 style={{ fontFamily: "Barlow", fontSize: "20px", fontWeight: 700, margin: 0, color: '#1E293B', letterSpacing: '-0.02em', lineHeight: '1.2' }}>
-              Projects
-            </h1>
-            <p style={{ color: '#64748B', margin: 0, fontSize: '12px', fontWeight: 500 }}>
-              Project management — execution, timesheets, deliverables
-            </p>
-          </div>
-        </div>
-
+      <Box sx={{ px: { xs: 2, md: 3 }, py: 1.5, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
         <div style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '10px',
-          marginTop: '4px',
+          gap: '4px',
+          marginTop: '2px',
           flexWrap: 'wrap'
         }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '2px',
             flexWrap: 'wrap',
             width: isMobile ? '100%' : 'auto'
           }}>
@@ -644,8 +625,6 @@ const ProjectTablePage = () => {
               <TimePeriodSelector
                 value={alignment as TimePeriodMode}
                 onChange={(mode) => handleAlignmentChange({} as any, mode)}
-                isMobile={isMobile}
-                variant="boxed"
               />
             </div>
 
@@ -778,6 +757,10 @@ const ProjectTablePage = () => {
         </div>
       </Box>
 
+      {/* MaterialTable opens with a shared `pt-6` (24px) gutter. Tightened for this page
+          only — Leads uses the same component and keeps its spacing. `!important`
+          because Bootstrap's own `.pt-6` utility carries it. */}
+      <Box sx={{ "& > .pt-6": { paddingTop: "8px !important" } }}>
       <MaterialTable
         columns={columns}
         data={quickFilteredData}
@@ -906,6 +889,7 @@ const ProjectTablePage = () => {
         onVisibleColumnsChange={handleVisibleColumnsChange}
         {...projectTableProps((row) => navigate(`/project/${row.id}`))}
       />
+      </Box>
     </>
   );
 };

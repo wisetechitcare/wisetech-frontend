@@ -3,7 +3,7 @@ import { Close } from '@mui/icons-material';
 import { KTIcon } from '@metronic/helpers';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
 import { StatusBadge } from '@app/modules/common/components/ui/patterns';
-import { fmtDate, formatINR, PAYMENT_TONE, STATUS_LABEL, StatusNum } from '../../utils/reimbursementFormat';
+import { fmtDate, formatMoney, PAYMENT_TONE, STATUS_LABEL, StatusNum } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow, PAYMENT_STATE_LABEL } from './paymentData';
 
 /**
@@ -117,9 +117,9 @@ export default function PaymentDetailDrawer({
                             p: 1.75, mb: 2, borderRadius: '12px',
                             border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover',
                         }}>
-                            <Figure label="Approved" value={formatINR(row.approvedAmount)} />
-                            <Figure label="Paid" value={formatINR(row.paidAmount)} tone="#16a34a" />
-                            <Figure label="Remaining" value={formatINR(row.remainingAmount)} tone={row.remainingAmount > 0 ? '#1E3A8A' : '#16a34a'} />
+                            <Figure label="Approved" value={formatMoney(row.approvedAmount)} />
+                            <Figure label="Paid" value={formatMoney(row.paidAmount)} tone="#16a34a" />
+                            <Figure label="Remaining" value={formatMoney(row.remainingAmount)} tone={row.remainingAmount > 0 ? '#1E3A8A' : '#16a34a'} />
                         </Box>
 
                         <Field label="Requests" value={`${row.totalRequests} approved`} />
@@ -161,7 +161,7 @@ export default function PaymentDetailDrawer({
                                             fontSize: 13, fontWeight: 700, color: '#16a34a',
                                             fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
                                         }}>
-                                            {formatINR(p.amountPaid)}
+                                            {formatMoney(p.amountPaid)}
                                         </Typography>
                                     </Box>
                                 ))}
@@ -199,7 +199,7 @@ export default function PaymentDetailDrawer({
                                     color: line.status === 1 ? 'text.primary' : 'text.secondary',
                                     textDecoration: line.status === 2 ? 'line-through' : 'none',
                                 }}>
-                                    {formatINR(line.amount)}
+                                    {formatMoney(line.amount)}
                                 </Typography>
                             </Box>
                         ))}

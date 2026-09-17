@@ -6,6 +6,7 @@ import { RootState } from '@redux/store';
 import { InstallmentTypeEnum } from '@constants/statistics';
 import dayjs from 'dayjs';
 import CommonCard from '@app/modules/common/components/CommonCard';
+import { formatCurrencyDecimal } from '@utils/currency';
 
 const DashboardLoans = () => {
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee?.id);
@@ -17,11 +18,7 @@ const DashboardLoans = () => {
   const [totalAmountDue, setTotalAmountDue] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const formatter = new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2
-  });
+
 
   const fetchLoanData = useCallback(async () => {
     if (!employeeId) return;
@@ -134,7 +131,7 @@ const DashboardLoans = () => {
             <span
               style={{ fontWeight: '600', fontSize: '24px', fontFamily: 'Inter' }}
             >
-              {formatter.format(totalAmountDue)}
+              {formatCurrencyDecimal(totalAmountDue)}
             </span>
           </div>
         </div>
@@ -149,7 +146,7 @@ const DashboardLoans = () => {
               }}
             >
               <span>Loan Amount Taken</span>
-              <span>{formatter.format(totalLoanAmountTaken)}</span>
+              <span>{formatCurrencyDecimal(totalLoanAmountTaken)}</span>
             </div>
             <div
               className="col-12 col-sm-6 d-flex flex-column"
@@ -159,7 +156,7 @@ const DashboardLoans = () => {
               }}
             >
               <span>Loans Amount Paid</span>
-              <span>{formatter.format(totalLoanAmountPaid)}</span>
+              <span>{formatCurrencyDecimal(totalLoanAmountPaid)}</span>
             </div>
             <div
               className="col-12 col-sm-6 d-flex flex-column"
@@ -179,7 +176,7 @@ const DashboardLoans = () => {
               }}
             >
               <span>Amount Due This Month</span>
-              <span>{formatter.format(amountDueThisMonth)}</span>
+              <span>{formatCurrencyDecimal(amountDueThisMonth)}</span>
             </div>
           </div>
         </div>

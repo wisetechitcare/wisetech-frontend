@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import ReactECharts from "echarts-for-react";
 import { useIsMobile } from "@components/navigation/BottomNavigation/useIsMobile";
-import { formatCurrencyCompact } from "@utils/currency";
+import { formatCurrencyCompact, formatCurrencyRounded } from "@utils/currency";
 import { ChartDatum, ChartMetric, buildPalette, toRanked } from "./leadAnalyticsUtils";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
@@ -28,8 +28,6 @@ interface RankedBarChartProps {
   entityLabel?: string;
 }
 
-const formatINR = (n: number) =>
-  n.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
 const ROW_HEIGHT = 34; // px per bar in the fullscreen view, so all rows stay readable
 const DEFAULT_LIMIT = 10; // top-N shown inline; the rest live in the fullscreen view
@@ -116,7 +114,7 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
           const p = Array.isArray(params) ? params[0] : params;
           const row = rows[p.dataIndex];
           const volume = row?.volumeValue !== undefined ? row.volumeValue : row?.value;
-          const rev = showRevenue && row?.totalCost ? `<br/>${formatINR(row.totalCost)}` : "";
+          const rev = showRevenue && row?.totalCost ? `<br/>${formatCurrencyRounded(row.totalCost)}` : "";
           // In amount mode the plotted value IS the money, so lead it with the
           // formatted amount and keep the count as the secondary line.
           if (metric === "amount") {

@@ -128,8 +128,10 @@ export const BI_TO_KEENICON: Record<string, string> = {
     'bi-calendar3': 'calendar',
     'bi-camera': 'picture',
     'bi-card-text': 'note-2',
-    'bi-cash-coin': 'dollar',
-    'bi-cash-stack': 'dollar',
+    // Cash is money, not dollars. These used to resolve to the `dollar` glyph, which put a
+    // $ on every older screen that still names a bi-cash-* icon.
+    'bi-cash-coin': 'wallet',
+    'bi-cash-stack': 'wallet',
     'bi-check-all': 'check-square',
     'bi-check-circle': 'check-circle',
     'bi-check-circle-fill': 'check-circle',

@@ -16,6 +16,32 @@ HRMS web client (Metronic-based admin theme). React 18 + TypeScript + Vite. Pair
 - API calls go through `src/services/` (axios). Don't call axios directly from components — add/extend a service.
 - Path aliases (in `vite.config.ts` + tsconfig): `@ @app @pages @components @hooks @services @utils @redux @models @constants @metronic`.
 
+## Rule zero — reuse before you write. This applies to everyone, every task.
+
+**1. Cross-check the codebase before writing anything.** Not just UI — services, hooks, utils,
+schemas, queries, scripts. Grep for the concept, for similar names, for the canonical pattern.
+If the search is wide, map it properly before typing.
+
+**2. If it does not exist, build it GLOBAL and reusable FIRST, then consume it.** Never inline a
+one-off in a page intending to extract it later. Later does not come, and the second copy is
+written by someone who never knew the first existed.
+
+**3. If a shared thing is missing what you need, add it to the shared thing.** Do not work around
+it locally — that is precisely how the second implementation gets written.
+
+**4. No messy code, and nothing done blindly.** Verify against the tree. A claim in a doc, a
+comment, or a green typecheck is not proof; check the thing itself.
+
+> **This has been got wrong, and it is worth knowing how.** A recruitment drill-down was built on
+> a hand-written `<Table>`. The search that should have prevented it *did* return
+> `MaterialTableImpl` — the shared engine, used by 84 files — and it was read past. That screen's
+> users silently lost sorting, per-column search, column show/hide, export and saved column
+> preferences that every other table in the app has. Searching is not enough; you have to act on
+> what the search returns.
+>
+> The root cause was an index gap: the kit README covered `ui/` only, while the engine lives one
+> level up in `components/`. **When a search fails, fix the index too, not just the code.**
+
 ## UI standard — READ THIS BEFORE WRITING ANY UI
 
 **The standard is MUI + Tailwind, composed from the shared kit. This is not a preference to weigh against what a file already does — it is the target for all new and edited UI.** Ant Design, Mantine, react-bootstrap and raw Bootstrap markup are legacy; never reach for them, and convert what you touch.
@@ -25,7 +51,7 @@ The bar for every component: **reusable, responsive, accessible, theme-aware (li
 ### This is lint-enforced — you cannot merge a violation
 `.eslintrc.cjs` fails the build on banned primitives. Don't add `eslint-disable` to get around it; fix the code or the rule is pointless.
 - **`no-restricted-imports`** (always error, everywhere except the kit): importing `Switch` from `@mui/material`.
-- **`no-restricted-syntax`** (error): native `type="date"|"datetime-local"|"time"|"month"`, `<style>` blocks, Bootstrap component classes (`form-switch`, `form-control`, `btn btn-`, `card-body`, `badge badge-`), `toLocaleDateString()`.
+- **`no-restricted-syntax`** (error): native `type="date"|"datetime-local"|"time"|"month"`, `<style>` blocks, Bootstrap component classes (`form-switch`, `form-control`, `btn btn-`, `card-body`, `badge badge-`), `toLocaleDateString()`, a hardcoded `₹` in any string/template/JSX, an inline `{ style: 'currency' }`, and the `dollar` keenicon.
 - **The ratchet** (`.eslint-ui-baseline.cjs`, auto-generated): 286 legacy files predate these rules and would make the build permanently red, so they emit *warnings* instead. **Every file not in that list errors.** New code can't regress; the list can only shrink. Regenerate after a burn-down pass with `pnpm run lint:ui:baseline`, and delete paths as you fix them — never add one.
 - Severity is split across two rules on purpose: the ratchet downgrades `no-restricted-syntax` for baselined files, so the raw-`Switch` ban lives in `no-restricted-imports` where the ratchet can't reach it.
 
@@ -56,6 +82,8 @@ Canonical primitives — use these, don't reinvent or fork:
 | Card / surface | `GlassCard` / `GlassSurface` | `<div className="card">` |
 | List / collection layout | `AutoGrid` (auto-fit tile grid) | stretched single-column rows, hand-rolled `gridTemplateColumns` breakpoints |
 | List / page header | `ListHeader` (title + subtitle + actions) | copy-pasted `Stack direction="row" justifyContent="space-between"` toolbars |
+| **Any data table** | **`MaterialTable`** (`components/MaterialTable`, 84 call sites) | a hand-written `<Table>` — you lose sorting, per-column search, column show/hide, export and saved column preferences |
+| Chart drill-down modal | `DrillDownDialog` | a raw `<Dialog>` (it also fixes z-index against fullscreen charts) |
 | Chip / badge | `ToneChip` | `<span className="badge">` |
 | Single-select modal | `OptionPickerDialog` | bespoke option lists |
 | Drag-to-reorder | `ReorderableGroup` + `DragHandle` | up/down arrow buttons |
@@ -68,6 +96,18 @@ Official format guide: **`2025.12.03`** ✅ · `2025-12-03` ❌ (dashes) · `03.
 Single source of truth: `src/utils/dateFormats.ts`.
 - **Display** (anything a human reads — fields, tables, cards, exports, PDFs): `formatDate()` / `formatDateTime()` / `DATE_FORMATS.DISPLAY`. Never `toLocaleDateString()` and never an inline format string.
 - **Wire** (network/DB): ISO `DATE_FORMATS.WIRE` (`YYYY-MM-DD`). This must stay ISO — the backend parses it. Don't "fix" wire values to dots.
+
+### Currency — it follows the BRANCH, never a hardcoded glyph
+Single source of truth: `src/utils/currency.ts` + `src/hooks/useCurrency.ts`. Resolution order is the branch's own `Branches.currency`, then the currency of the branch's country (from the geo directory, which carries one for all 250), then INR.
+
+- **Formatting**: `formatCurrency()` / `formatCurrencyDecimal()` / `formatCurrencyRounded()` / `formatCurrencyCompact()`. Omit the currency argument — they use the active one. Pass one ONLY to render an amount that is deliberately not in the viewer's currency — typically the `currency` the API returned on a record (recruitment requisitions, offers, approval details).
+- **Always written in English.** `getCurrencyLocale()` is `en-IN` for lakh/crore currencies and `en-US` for the rest — the backend's rule exactly. Never format in a currency's home locale: that printed Arabic-Indic digits, RTL marks and decimal commas inside English screens.
+- **Money inputs are `WtMoneyField`** — the currency sits inside the frame and the hint reads the figure back as money. A salary is always the **full annual amount**; never label a field in lakhs or LPA. The salary floor lives in `utils/ctc` (twin of the backend's).
+- **A glyph on its own**: `getCurrencySymbol()` in text, or `<CurrencySymbol />` in an icon slot (`IconBox` and `StatTile` take a node). The `dollar` keenicon is banned — it is currency-specific. For a *category* icon on a money feature use `wallet`.
+- **Parsing a formatted amount back to a number**: strip `/[^0-9.-]/g`. Never name the characters to remove — `replace(/[₹,]/g, '')` returns 0 for every other currency.
+- **Building your own number format** (Excel `numFmt` is the real case): `usesIndianGrouping()` tells you whether the pattern needs lakh/crore sections, because a numFmt carries its own grouping and Excel will not infer it from a locale.
+- **Non-React code** (exports, analytics utils) is served by the module-level active currency, published by `useCurrency` which `App.tsx` mounts. It is DISPLAY ONLY — never use it to decide a stored amount, a comparison or a total.
+- **The one exception**: an amount fixed by statute. India's professional-tax slabs are rupees by law and must not follow the branch; those two files are listed as lint overrides in `.eslintrc.cjs`.
 
 ### Styling rules
 - Layout/spacing: Tailwind utilities or MUI `sx`. **No new `.css` files, no `<style>` blocks, no inline `style={{}}`, no Bootstrap layout classes** (`row`, `col-*`, `d-flex`, `px-5`, `mt-7`, `fw-bold`, `text-muted`, `form-control`, `btn`).
@@ -82,6 +122,15 @@ Single source of truth: `src/utils/dateFormats.ts`.
 - Forms: Formik or react-hook-form (both present) — match whatever the surrounding page already uses; don't mix within one form.
 - Notifications: prefer the kit's `toast` / `confirmDialog` / `alertDialog` (`ui/feedback.ts`). react-toastify / sonner / sweetalert2 all exist from earlier eras; don't add new direct usages.
 - Heavy libs (PDF, charts, maps, xlsx) are code-split via `manualChunks` in `vite.config.ts`. Prefer lazy-loading heavy routes/components; don't import a vendor bundle into a hot common path.
+
+## Lead / Entity module
+Docs live in **[`../LEAD_DB_CHANGES/`](../LEAD_DB_CHANGES/00_START_HERE.md)** — start at `00_START_HERE.md`; see also the [product audit](../LEAD_DB_CHANGES/LEAD_WORLD_CLASS_AUDIT.md) and [target architecture](../LEAD_DB_CHANGES/LEAD_CRM_ARCHITECTURE.md). Screens under `pages/employee/entity/`.
+
+- **Lead-as-Master: the "project" IS the lead** — one row, one `prefix`, inquiry through billing. `EntityDetailPage` renders both lifecycles on one record; the Project view opens on a status whose `isProjectTrigger` flag is set — **never on `name === "Received"`**.
+- **The Source column renders blank today.** `EntityTablePage.tsx:692` and `ContactLeadsOverview.tsx:71` read dead columns (`source`, `sourceId`, `leadSource`); the live ones are `leadDirectSource` / `leadSourceType`. **`SummarySection.tsx:135` already has the correct precedence — copy it, don't reinvent it.** The Source *filter* compares the same empty value.
+- **Leads Configure is the UI reference for every other configuration screen.** "Make them the same" means porting the Leads layout INTO the other screen — never restyling Leads to match something else.
+- `EntityTablePage.tsx` (~2.4k lines) downloads the entire table and evaluates ~30 filter predicates client-side. **Don't add a 31st** — the target is server-side query params + `manualPagination` + row virtualization, all of which the table kit already supports.
+- The Activity/Timeline component is **written and not mounted**, and no backend write path fills it yet. Mounting is ~10 lines once `connections` has writers — don't build a second timeline in the meantime.
 
 ## Billing module (partly built)
 Plan: [../BILLING/INDEX.md](../BILLING/INDEX.md). The project Billing tab already exists as a placeholder — `pages/employee/entity/detail/sections/BillingSection.tsx`, registered in `detail/facets.ts` and rendered from `EntityDetailPage.tsx`. It predates the UI standard (raw divs, hardcoded hex), so **replace it wholesale rather than extending it**.

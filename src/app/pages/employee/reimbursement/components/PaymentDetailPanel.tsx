@@ -1,4 +1,4 @@
-import { fmtDate, formatINR } from '../utils/reimbursementFormat';
+import { fmtDate, formatMoney } from '../utils/reimbursementFormat';
 
 /**
  * The rows shown when a paid batch is expanded: one line per payment against it.
@@ -91,7 +91,7 @@ export default function PaymentDetailPanel({ payments }: { payments: PaymentDeta
                                 </td>
                                 <td style={{ padding: '10px 16px' }}>
                                     <span style={{ fontSize: 14, fontWeight: 700, color: '#2e7d32' }}>
-                                        {formatINR(Number(p.amountPaid || 0))}
+                                        {formatMoney(Number(p.amountPaid || 0))}
                                     </span>
                                 </td>
                             </tr>

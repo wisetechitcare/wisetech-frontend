@@ -11,6 +11,7 @@ import {
 import { ChartDialogModal } from "../components/ChartDialogModal";
 import dayjs from "dayjs";
 import { AnalyticsCard, RankedBarChart, ChartDatum, ChartMetric, applyMetric } from "@pages/dashboard/leadAnalytics";
+import { getCurrencySymbol } from '@utils/currency';
 
 
 type Filters = {
@@ -541,7 +542,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
                   {filteredData.reduce((sum, item) => sum + item.count, 0)}
                 </span>
                 <span>
-                  <strong>Total Budget:</strong> ₹
+                  <strong>Total Budget:</strong> {getCurrencySymbol()}
                   {filteredData.reduce((sum, item) => sum + item.budget, 0).toLocaleString()}
                 </span>
               </Box>

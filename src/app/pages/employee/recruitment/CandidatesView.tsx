@@ -1,29 +1,24 @@
-import { useMemo, useRef, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-    Box, Stack, Typography, TextField, MenuItem, CircularProgress, DialogContent, DialogActions, InputAdornment,
-} from "@mui/material";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { Box, Stack, Typography, CircularProgress, DialogContent, DialogActions, LinearProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
-    AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip,
-    WtSwitchField, toast, confirmDialog, controlHeightSx,
+    AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, ActionIconButton, ToneChip,
+    WtSwitchField, toast, confirmDialog, WtEmptyState, WtField,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
-import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
+import { COPY } from "./terms";
 import { formatDate } from "@utils/dateFormats";
+import { formatCurrencyCompact } from "@utils/currency";
+import { apiErrorMessage } from "@utils/apiError";
 import {
-    getApplicants, createApplicant, updateApplicant, getApplicantSources,
+    getApplicants, getApplicantById, updateApplicant, getApplicantSources, uploadApplicantResume,
     type Applicant, type ApplicantPayload, type ApplicantSource, type OrgScoped,
-    uploadApplicantResume,
 } from "@services/recruitment";
-
-/** Blank create form. The API requires a first name plus EITHER an email or a phone. */
-const emptyForm = (): ApplicantPayload => ({
-    firstName: "", lastName: "", email: "", phone: "",
-    currentEmployer: "", currentTitle: "", currentLocation: "", qualification: "", employeeLevelId: null,
-    totalExperienceMonths: null, currentCtcInLpa: null,
-    expectedCtcInLpa: null, noticePeriodDays: null, sourceId: null,
-});
+import { CandidateFormFields, emptyCandidate, isCandidateFormValid } from "./CandidateFormFields";
+import { cleanCandidatePayload } from "./candidatePayload";
+import { AddCandidateDialog } from "./AddCandidateDialog";
+import { AddToRoleDialog } from "./AddToRoleDialog";
 
 /** Compact, muted meta chip — packs identity/metrics into the card without stretched gaps. */
 const MetaPill = ({ text }: { text: string }) => (
@@ -35,60 +30,62 @@ const MetaPill = ({ text }: { text: string }) => (
     </Box>
 );
 
-/** Months → "3y 4m" / "7m". Raw month counts are unreadable on a card. */
+/** Months → "3 yr 4 mo" / "7 mo". Raw month counts are unreadable on a card. */
 const experienceLabel = (months?: number | null): string | null => {
     if (months == null || months <= 0) return null;
     const y = Math.floor(months / 12);
     const m = months % 12;
-    return y ? `${y}y${m ? ` ${m}m` : ""} exp` : `${m}m exp`;
+    return [y ? `${y} yr` : null, m ? `${m} mo` : null].filter(Boolean).join(" ") + " experience";
 };
 
-const fullName = (a: Applicant) => [a.firstName, a.lastName].filter(Boolean).join(" ").trim() || a.email;
+const fullName = (a: Applicant) => [a.firstName, a.lastName].filter(Boolean).join(" ").trim() || a.email || a.phone || "Candidate";
+
+/** Wait this long after the last keystroke before searching — one request per pause, not per letter. */
+const SEARCH_DEBOUNCE_MS = 300;
 
 /**
  * Candidates — the applicant directory (Recruitment › Candidates).
  *
- * Full CRUD over `/api/recruitment/applicants`, which is audited server-side (every create /
- * edit / blacklist lands in the Change Intelligence trail). Candidates are never hard-deleted:
- * data-retention and the audit trail both require the row to survive, so the destructive action
- * is "blacklist" (an update), not a delete.
+ * Adding uses the shared Add candidate window (also the Pipeline's); editing uses the same form body.
+ * Candidates are never hard-deleted: data retention and the audit trail both require the row to
+ * survive, so the destructive action is "blacklist" (an update), not a delete.
  */
 const CandidatesView = ({ companyId }: OrgScoped) => {
     const qc = useQueryClient();
-    const { levels, isEmpty: noLevels } = useEmployeeLevels();
+    const [searchInput, setSearchInput] = useState("");
     const [search, setSearch] = useState("");
-    const [open, setOpen] = useState(false);
-    const [editing, setEditing] = useState<Applicant | null>(null);
-    const [form, setForm] = useState<ApplicantPayload>(emptyForm());
-    const [blacklisted, setBlacklisted] = useState(false);
+    useEffect(() => {
+        const t = setTimeout(() => setSearch(searchInput.trim()), SEARCH_DEBOUNCE_MS);
+        return () => clearTimeout(t);
+    }, [searchInput]);
 
-    // The server does the searching, so the key includes the term — each term caches separately.
-    const { data: applicants = [], isLoading } = useQuery({
+    const [adding, setAdding] = useState(false);
+    const [addToRole, setAddToRole] = useState<Applicant | null>(null);
+    const [editing, setEditing] = useState<Applicant | null>(null);
+    const [form, setForm] = useState<ApplicantPayload>(emptyCandidate());
+    const [formFile, setFormFile] = useState<File | null>(null);
+    const [blacklisted, setBlacklisted] = useState(false);
+    const [attempted, setAttempted] = useState(false);
+
+    // The server does the searching, so the key includes the term. The previous results stay on screen
+    // while the next load — the grid used to blank to a spinner on every keystroke.
+    const { data: applicants = [], isLoading, isFetching, isError, error, refetch } = useQuery({
         queryKey: queryKeys.recruitment.applicants(search, companyId),
         queryFn: () => getApplicants(search || undefined, companyId),
+        placeholderData: keepPreviousData,
     });
     const { data: sources = [] } = useQuery({
         queryKey: queryKeys.recruitment.applicantSources(),
         queryFn: getApplicantSources,
     });
 
-    // Invalidate the whole applicants branch: a rename changes which search terms match.
-    const invalidate = () => qc.invalidateQueries({ queryKey: [...queryKeys.recruitment.all, "applicants"] });
+    // Every recruitment list reads candidates — the board, the drill-downs, the candidate modal.
+    const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.recruitment.all });
 
-    // Resume upload. A hidden file input is triggered per candidate rather than rendering
-    // one input per tile — the browser control cannot be styled, and dozens of them make the
-    // grid unusable. `uploadingFor` drives the per-tile spinner so a large CV on a slow
-    // connection does not look like nothing happened.
+    // Resume upload from a card. One hidden input for the whole grid rather than one per tile.
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [uploadFor, setUploadFor] = useState<Applicant | null>(null);
     const [uploadingId, setUploadingId] = useState<string | null>(null);
-
-    // resume chosen INSIDE the form. A new candidate has no id yet — the upload endpoint is
-    // /applicants/:id/resume — so the file is held here and sent once the record exists.
-    // Without this, attaching a CV meant saving, finding the tile, then uploading: two
-    // steps for one intention.
-    const formFileRef = useRef<HTMLInputElement | null>(null);
-    const [formFile, setFormFile] = useState<File | null>(null);
 
     const pickResume = (a: Applicant) => {
         setUploadFor(a);
@@ -106,10 +103,9 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
             await uploadApplicantResume(target.id, file);
             invalidate();
             toast({ icon: "success", title: `Resume attached to ${target.firstName}` });
-        } catch (err: any) {
-            // The server validates type, size and magic bytes; surface its reason rather
-            // than a generic failure, because it tells HR what to do differently.
-            toast({ icon: "error", title: err?.response?.data?.message ?? "Could not upload the resume" });
+        } catch (err) {
+            // The server validates type, size and magic bytes; its reason tells HR what to do differently.
+            toast({ icon: "error", title: apiErrorMessage(err, "Could not upload the resume") });
         } finally {
             setUploadingId(null);
             setUploadFor(null);
@@ -117,65 +113,71 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
     };
 
     /**
-     * Attach the form-chosen resume to a candidate that now exists. Deliberately not fatal:
-     * the candidate was saved either way, and losing the save because the file failed would
-     * be the worse outcome. The failure is reported so it can be retried from the tile.
+     * Open a resume through a FRESH signed link. The links in the list expire after five minutes, so a
+     * page left open handed out dead links. The tab is opened on the click itself (before the request)
+     * so a popup blocker does not treat it as unprompted.
      */
-    const attachFormFile = async (applicantId: string) => {
-        if (!formFile) return;
+    const openResume = async (a: Applicant) => {
+        const tab = window.open("about:blank", "_blank");
         try {
-            await uploadApplicantResume(applicantId, formFile);
-        } catch (err: any) {
-            toast({ icon: "error", title: err?.response?.data?.message ?? "Candidate saved, but the resume did not upload" });
+            const fresh = await getApplicantById(a.id);
+            if (tab && fresh?.resumeS3Url) {
+                tab.opener = null;
+                tab.location.href = fresh.resumeS3Url;
+            } else {
+                tab?.close();
+                toast({ icon: "error", title: "This resume could not be opened." });
+            }
+        } catch (err) {
+            tab?.close();
+            toast({ icon: "error", title: apiErrorMessage(err, "This resume could not be opened.") });
         }
     };
 
-    const createMut = useMutation({
-        mutationFn: async () => {
-            const created = await createApplicant(form);
-            const id = created?.applicant?.id;
-            if (id) await attachFormFile(id);
-            return created;
-        },
-        onSuccess: () => { toast({ icon: "success", title: "Candidate added" }); close(); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not add candidate (a candidate with this email may already exist)" }),
-    });
     const updateMut = useMutation({
         mutationFn: async () => {
-            const updated = await updateApplicant(editing!.id, { ...form, isBlacklisted: blacklisted });
-            await attachFormFile(editing!.id);
-            return updated;
+            // expectedRevisionCount: two people editing the same candidate no longer overwrite each other silently.
+            await updateApplicant(editing!.id, { ...cleanCandidatePayload(form), isBlacklisted: blacklisted, expectedRevisionCount: editing!.revisionCount });
+            // The resume goes up after the save; its failure joins the SAME toast rather than a second one
+            // that a success toast would immediately replace.
+            if (!formFile) return null;
+            try { await uploadApplicantResume(editing!.id, formFile); return null; } catch (err) { return apiErrorMessage(err, "the file was refused"); }
         },
-        onSuccess: () => { toast({ icon: "success", title: "Candidate updated" }); close(); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not update candidate" }),
+        onSuccess: (resumeError) => {
+            toast(resumeError
+                ? { icon: "warning", title: `Candidate updated, but the resume did not upload: ${resumeError}` }
+                : { icon: "success", title: "Candidate updated" });
+            closeEdit();
+            invalidate();
+        },
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not update the candidate") }),
     });
     const blacklistMut = useMutation({
         mutationFn: (vars: { id: string; isBlacklisted: boolean }) => updateApplicant(vars.id, { isBlacklisted: vars.isBlacklisted }),
         onSuccess: (_d, vars) => { toast({ icon: "success", title: vars.isBlacklisted ? "Candidate blacklisted" : "Candidate restored" }); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not update candidate" }),
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not update the candidate") }),
     });
 
-    const openNew = () => { setEditing(null); setForm(emptyForm()); setBlacklisted(false); setFormFile(null); setOpen(true); };
     const openEdit = (a: Applicant) => {
         setEditing(a);
         setForm({
             firstName: a.firstName ?? "", lastName: a.lastName ?? "", email: a.email ?? "", phone: a.phone ?? "",
             currentEmployer: a.currentEmployer ?? "", currentTitle: a.currentTitle ?? "",
-            // Every field the form edits must be repopulated here. A field left out renders
-            // blank on edit even though the record holds a value, which reads as data loss.
+            // Every field the form edits must be repopulated here. A field left out renders blank on
+            // edit even though the record holds a value, which reads as data loss.
             currentLocation: a.currentLocation ?? "", qualification: a.qualification ?? "",
             employeeLevelId: a.employeeLevelId ?? null,
             totalExperienceMonths: a.totalExperienceMonths ?? null,
-            currentCtcInLpa: a.currentCtcInLpa == null ? null : Number(a.currentCtcInLpa),
-            expectedCtcInLpa: a.expectedCtcInLpa == null ? null : Number(a.expectedCtcInLpa),
+            currentCtc: a.currentCtc == null ? null : Number(a.currentCtc),
+            expectedCtc: a.expectedCtc == null ? null : Number(a.expectedCtc),
             noticePeriodDays: a.noticePeriodDays ?? null,
             sourceId: a.sourceId ?? null,
         });
         setBlacklisted(a.isBlacklisted);
         setFormFile(null);
-        setOpen(true);
+        setAttempted(false);
     };
-    const close = () => { setOpen(false); setEditing(null); setFormFile(null); };
+    const closeEdit = () => { setEditing(null); setFormFile(null); setAttempted(false); };
 
     const toggleBlacklist = async (a: Applicant) => {
         if (a.isBlacklisted) { blacklistMut.mutate({ id: a.id, isBlacklisted: false }); return; }
@@ -183,22 +185,15 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
             icon: "warning",
             title: `Blacklist ${fullName(a)}?`,
             text: "They stay on record (and in the audit trail) but are flagged for future applications.",
+            confirmText: "Blacklist",
         });
         if (ok) blacklistMut.mutate({ id: a.id, isBlacklisted: true });
     };
 
-    const saving = createMut.isPending || updateMut.isPending;
-    // A candidate is identified by email OR phone — the same rule the server enforces.
-    // Requiring an email here would block the real intake outright: candidates arriving by
-    // WhatsApp, walk-in or referral routinely have a number and no address.
-    const hasIdentity = Boolean((form.email ?? "").trim() || (form.phone ?? "").trim());
-    const canSave = Boolean(form.firstName.trim()) && hasIdentity && !saving;
-
-    const set = <K extends keyof ApplicantPayload>(key: K, value: ApplicantPayload[K]) =>
-        setForm((f) => ({ ...f, [key]: value }));
-    /** Numeric fields: "" must become null, not 0 — 0 years' experience is a real value. */
-    const setNum = (key: "totalExperienceMonths" | "currentCtcInLpa" | "expectedCtcInLpa" | "noticePeriodDays", raw: string) =>
-        set(key, raw === "" ? null : Number(raw));
+    const saveEdit = () => {
+        setAttempted(true);
+        if (isCandidateFormValid(form) && !updateMut.isPending) updateMut.mutate();
+    };
 
     const sourceName = useMemo(
         () => (id?: string | null) => sources.find((s: ApplicantSource) => s.id === id)?.name ?? null,
@@ -207,131 +202,108 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
 
     return (
         <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
-        {/* One hidden picker for the whole grid — see pickResume. accept is a hint only;
-            the server re-validates type, extension and magic bytes before storing. */}
-        <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.doc,.docx,application/pdf"
-            hidden
-            onChange={onResumeChosen}
-        />
+            {/* One hidden picker for the whole grid — see pickResume. accept is a hint only;
+                the server re-validates type, extension and magic bytes before storing. */}
+            <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,application/pdf" hidden onChange={onResumeChosen} />
             <ListHeader
                 title="Candidates"
-                subtitle="Every applicant on record — searchable across name, email and employer."
+                subtitle="Everyone on record — search by name, email, job title or employer."
                 actions={
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: "100%", sm: "auto" } }}>
-                        <TextField
-                            size="small"
-                            placeholder="Search candidates…"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            // Matches the New Candidate button beside it — MUI's small size
-                            // is 40px against the kit's 46, which is the mismatch you see otherwise.
-                            sx={{ minWidth: { xs: "100%", sm: 260 }, ...controlHeightSx }}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <KTIcon iconName="magnifier" className="fs-5" />
-                                    </InputAdornment>
-                                ),
-                                endAdornment: search ? (
-                                    <InputAdornment position="end">
-                                        <WtIconButton title="Clear" onClick={() => setSearch("")} sx={{ width: 26, height: 26, borderRadius: "8px" }}>
-                                            <KTIcon iconName="cross" className="fs-7" />
-                                        </WtIconButton>
-                                    </InputAdornment>
-                                ) : undefined,
-                            }}
+                        <WtField
+                            label="Search Candidates" icon="magnifier" clearable
+                            value={searchInput} onChange={setSearchInput}
+                            placeholder="Name, email, title or employer"
+                            fullWidth={false}
+                            sx={{ width: { xs: "100%", sm: 280 } }}
                         />
-                        <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openNew}>
-                            New candidate
+                        <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
+                            Add Candidate
                         </WtButton>
                     </Stack>
                 }
             />
 
+            {/* Refreshing a search keeps the last results readable; this line says it is updating. */}
+            <Box sx={{ height: 3, mb: 1 }}>{isFetching && !isLoading && <LinearProgress sx={{ height: 3, borderRadius: 2 }} aria-label="Updating" />}</Box>
+
             {isLoading ? (
                 <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress size={28} /></Stack>
+            ) : isError ? (
+                <WtEmptyState variant="error" title="Could not load candidates" hint={apiErrorMessage(error, "Check your connection and try again.")} actionLabel="Retry" onAction={() => refetch()} />
             ) : applicants.length === 0 ? (
-                <Box sx={{ py: 5, px: 2, borderRadius: "14px", textAlign: "center", border: "1px dashed", borderColor: "divider" }}>
-                    <Typography sx={{ color: "text.secondary", fontSize: 14, fontWeight: 600 }}>
-                        {search ? `No candidates match “${search}”` : "No candidates yet"}
-                    </Typography>
-                    <Typography sx={{ color: "text.disabled", fontSize: 12.5, mt: 0.25 }}>
-                        {search ? "Try a different name, email or employer." : "Add one manually, or they'll appear as applications arrive."}
-                    </Typography>
-                </Box>
+                // A failed search and an empty list are different problems with different remedies.
+                search ? (
+                    <WtEmptyState variant="no-match" {...COPY.noSearchMatch(search)} />
+                ) : (
+                    <WtEmptyState icon="people" title={COPY.noCandidates.title} hint={COPY.noCandidates.hint} actionLabel="Add Candidate" onAction={() => setAdding(true)} />
+                )
             ) : (
                 <AutoGrid min={320}>
                     {applicants.map((a: Applicant) => {
                         const exp = experienceLabel(a.totalExperienceMonths);
                         const src = sourceName(a.sourceId);
+                        // Phone-only candidates are the intake this form was built for; show whichever they have.
+                        const contact = [a.email, a.phone].filter(Boolean).join(" · ");
                         return (
-                            <GlassCard key={a.id} preset="row" interactive sx={{ display: "flex", flexDirection: "column", gap: 1, height: "100%", p: 1.75 }}>
+                            <GlassCard key={a.id} preset="row" sx={{ display: "flex", flexDirection: "column", gap: 1, height: "100%", p: 1.75 }}>
                                 <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ minWidth: 0 }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3, wordBreak: "break-word" }}>
+                                        <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3, overflowWrap: "anywhere" }}>
                                             {fullName(a)}
                                         </Typography>
-                                        <Typography sx={{ fontSize: 12, color: "text.secondary", wordBreak: "break-all", mt: 0.15 }}>
-                                            {a.email}
-                                        </Typography>
+                                        {contact && (
+                                            <Typography sx={{ fontSize: 12, color: "text.secondary", overflowWrap: "anywhere", mt: 0.15 }}>
+                                                {contact}
+                                            </Typography>
+                                        )}
                                     </Box>
                                     {a.isBlacklisted && <ToneChip tone="danger" label="Blacklisted" dense />}
                                 </Stack>
 
                                 {(a.currentTitle || a.currentEmployer) && (
-                                    <Typography sx={{ fontSize: 12.5, color: "text.secondary", lineHeight: 1.45 }}>
+                                    <Typography sx={{ fontSize: 12.5, color: "text.secondary", lineHeight: 1.45, overflowWrap: "anywhere" }}>
                                         {[a.currentTitle, a.currentEmployer].filter(Boolean).join(" · ")}
                                     </Typography>
                                 )}
 
                                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.25 }}>
                                     {exp && <MetaPill text={exp} />}
-                                    {a.expectedCtcInLpa != null && <MetaPill text={`${a.expectedCtcInLpa} LPA expected`} />}
-                                    {a.noticePeriodDays != null && <MetaPill text={`${a.noticePeriodDays}d notice`} />}
+                                    {a.expectedCtc != null && <MetaPill text={`${formatCurrencyCompact(Number(a.expectedCtc))} expected`} />}
+                                    {a.noticePeriodDays != null && <MetaPill text={a.noticePeriodDays === 0 ? "Immediate joiner" : `${a.noticePeriodDays} days notice`} />}
                                     {src && <MetaPill text={src} />}
                                 </Stack>
 
                                 {/* Spacer keeps the action row pinned to the bottom so tiles align in the grid. */}
                                 <Box sx={{ flex: 1 }} />
 
-                                <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+                                <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
                                     <Typography sx={{ fontSize: 11.5, color: "text.disabled", fontWeight: 600 }}>
                                         Added {formatDate(a.createdAt)}
                                     </Typography>
                                     <Box sx={{ flex: 1 }} />
-                                    <WtIconButton
-                                        title={a.resumeS3Url ? "Replace resume" : "Attach resume"}
+                                    <ActionIconButton iconName="briefcase" size="sm" tone="brand" title="Add to a Role" onClick={() => setAddToRole(a)} />
+                                    <ActionIconButton
+                                        iconName={a.resumeS3Url ? "arrows-circle" : "cloud-add"}
+                                        icon={uploadingId === a.id ? <CircularProgress size={14} color="inherit" /> : undefined}
+                                        size="sm" tone="indigo"
+                                        title={uploadingId === a.id ? "Uploading…" : a.resumeS3Url ? "Replace resume" : "Attach resume"}
                                         disabled={uploadingId === a.id}
                                         onClick={() => pickResume(a)}
-                                        sx={{ width: 34, height: 34, borderRadius: "10px" }}
-                                    >
-                                        {uploadingId === a.id
-                                            ? <CircularProgress size={15} />
-                                            : <KTIcon iconName={a.resumeS3Url ? "arrows-circle" : "cloud-add"} className="fs-5" />}
-                                    </WtIconButton>
+                                    />
                                     {a.resumeS3Url && (
-                                        <WtIconButton
-                                            title={a.resumeFileName ? `Resume — ${a.resumeFileName}` : "Resume"}
-                                            onClick={() => window.open(a.resumeS3Url as string, "_blank", "noopener")}
-                                            sx={{ width: 34, height: 34, borderRadius: "10px" }}
-                                        >
-                                            <KTIcon iconName="document" className="fs-5" />
-                                        </WtIconButton>
+                                        <ActionIconButton iconName="document" size="sm" tone="indigo"
+                                            title={a.resumeFileName ? `Open resume — ${a.resumeFileName}` : "Open resume"}
+                                            onClick={() => openResume(a)} />
                                     )}
-                                    <WtIconButton title="Edit" onClick={() => openEdit(a)} sx={{ width: 34, height: 34, borderRadius: "10px" }}>
-                                        <KTIcon iconName="pencil" className="fs-5" />
-                                    </WtIconButton>
-                                    <WtIconButton
+                                    <ActionIconButton iconName="pencil" size="sm" tone="indigo" title="Edit" onClick={() => openEdit(a)} />
+                                    <ActionIconButton
+                                        iconName={a.isBlacklisted ? "check" : "shield-cross"} size="sm"
+                                        tone={a.isBlacklisted ? "success" : "danger"}
                                         title={a.isBlacklisted ? "Remove from blacklist" : "Blacklist"}
-                                        color={a.isBlacklisted ? "#16a34a" : "#C0392B"}
+                                        disabled={blacklistMut.isPending}
                                         onClick={() => toggleBlacklist(a)}
-                                        sx={{ width: 34, height: 34, borderRadius: "10px" }}
-                                    >
-                                        <KTIcon iconName={a.isBlacklisted ? "check" : "shield-cross"} className="fs-5" />
-                                    </WtIconButton>
+                                    />
                                 </Stack>
                             </GlassCard>
                         );
@@ -339,120 +311,52 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 </AutoGrid>
             )}
 
+            <AddCandidateDialog open={adding} onClose={() => setAdding(false)} companyId={companyId} />
+            {addToRole && (
+                <AddToRoleDialog
+                    open
+                    onClose={() => setAddToRole(null)}
+                    applicantId={addToRole.id}
+                    applicantName={fullName(addToRole)}
+                    companyId={companyId}
+                />
+            )}
+
             <GlassDialog
-                open={open}
-                onClose={close}
+                open={!!editing}
+                onClose={updateMut.isPending ? undefined : closeEdit}
                 maxWidth="sm"
                 header={
                     <GlassHeader
-                        title={editing ? `Edit ${fullName(editing)}` : "New candidate"}
+                        title={editing ? `Edit ${fullName(editing)}` : "Edit candidate"}
                         icon={<KTIcon iconName="user-tick" className="fs-2" />}
-                        onClose={close}
+                        onClose={updateMut.isPending ? undefined : closeEdit}
                     />
                 }
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField label="First name" required size="small" sx={{ flex: 1 }} value={form.firstName} onChange={(e) => set("firstName", e.target.value)} />
-                            <TextField label="Last name" size="small" sx={{ flex: 1 }} value={form.lastName ?? ""} onChange={(e) => set("lastName", e.target.value)} />
-                        </Stack>
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField
-                                label="Email" type="email" size="small" sx={{ flex: 1 }}
-                                value={form.email} onChange={(e) => set("email", e.target.value)}
-                                error={!hasIdentity}
-                                helperText={hasIdentity ? "Either an email or a phone number is enough." : "Enter an email or a phone number."}
-                            />
-                            <TextField
-                                label="Phone" size="small" sx={{ flex: 1 }}
-                                value={form.phone ?? ""} onChange={(e) => set("phone", e.target.value)}
-                                error={!hasIdentity}
-                                helperText="Used to de-duplicate — re-applying updates the same candidate."
-                            />
-                        </Stack>
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField label="Current title" size="small" sx={{ flex: 1 }} value={form.currentTitle ?? ""} onChange={(e) => set("currentTitle", e.target.value)} />
-                            <TextField label="Current employer" size="small" sx={{ flex: 1 }} value={form.currentEmployer ?? ""} onChange={(e) => set("currentEmployer", e.target.value)} />
-                        </Stack>
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField label="Current location" size="small" sx={{ flex: 1 }} value={form.currentLocation ?? ""} onChange={(e) => set("currentLocation", e.target.value)} />
-                            <TextField label="Qualification" size="small" sx={{ flex: 1 }} value={form.qualification ?? ""} onChange={(e) => set("qualification", e.target.value)} />
-                            {/* Same ladder the requisition picks from — a level comparison only
-                                means something if both sides chose from one list. */}
-                            {!noLevels && (
-                                <TextField
-                                    select label="Seniority" size="small" sx={{ flex: 1 }}
-                                    value={form.employeeLevelId ?? ""}
-                                    onChange={(e) => set("employeeLevelId", e.target.value || null)}
-                                >
-                                    <MenuItem value="">— Not set —</MenuItem>
-                                    {levels.map((l) => <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>)}
-                                </TextField>
-                            )}
-                        </Stack>
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField
-                                label="Experience (months)" type="number" size="small" sx={{ flex: 1 }}
-                                inputProps={{ min: 0 }}
-                                value={form.totalExperienceMonths ?? ""} onChange={(e) => setNum("totalExperienceMonths", e.target.value)}
-                            />
-                            <TextField
-                                label="Current CTC (LPA)" type="number" size="small" sx={{ flex: 1 }}
-                                inputProps={{ min: 0, step: 0.5 }}
-                                value={form.currentCtcInLpa ?? ""} onChange={(e) => setNum("currentCtcInLpa", e.target.value)}
-                            />
-                            <TextField
-                                label="Expected CTC (LPA)" type="number" size="small" sx={{ flex: 1 }}
-                                inputProps={{ min: 0, step: 0.5 }}
-                                value={form.expectedCtcInLpa ?? ""} onChange={(e) => setNum("expectedCtcInLpa", e.target.value)}
-                            />
-                            <TextField
-                                label="Notice (days)" type="number" size="small" sx={{ flex: 1 }}
-                                inputProps={{ min: 0 }}
-                                value={form.noticePeriodDays ?? ""} onChange={(e) => setNum("noticePeriodDays", e.target.value)}
-                            />
-                        </Stack>
-                        <TextField
-                            select label="Source" size="small" fullWidth
-                            value={form.sourceId ?? ""} onChange={(e) => set("sourceId", e.target.value || null)}
-                        >
-                            <MenuItem value="">— None —</MenuItem>
-                            {sources.map((s: ApplicantSource) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
-                        </TextField>
-                        <Stack direction="row" alignItems="center" spacing={1.5}>
-                            <input
-                                ref={formFileRef}
-                                type="file"
-                                accept=".pdf,.doc,.docx,application/pdf"
-                                hidden
-                                onChange={(e) => setFormFile(e.target.files?.[0] ?? null)}
-                            />
-                            <WtButton
-                                ghost size="small"
-                                startIcon={<KTIcon iconName="cloud-add" className="fs-5" />}
-                                onClick={() => { if (formFileRef.current) formFileRef.current.value = ""; formFileRef.current?.click(); }}
-                            >
-                                {formFile ? "Choose a different resume" : editing?.resumeS3Url ? "Replace resume" : "Attach resume"}
-                            </WtButton>
-                            <Typography sx={{ fontSize: 12.5, color: "text.secondary", minWidth: 0, flex: 1 }} noWrap>
-                                {formFile?.name ?? (editing?.resumeFileName ?? "PDF, DOC or DOCX")}
-                            </Typography>
-                        </Stack>
-                        {editing && (
-                            <WtSwitchField
-                                title="Blacklisted"
-                                description="Keeps the record (and its audit trail) but flags them on future applications."
-                                checked={blacklisted}
-                                onChange={(e) => setBlacklisted(e.target.checked)}
-                            />
-                        )}
+                        <CandidateFormFields
+                            form={form}
+                            onChange={setForm}
+                            showErrors={attempted}
+                            resumeFile={formFile}
+                            onResumeFile={setFormFile}
+                            existingResumeName={editing?.resumeFileName ?? (editing?.resumeS3Url ? "Resume on file" : null)}
+                            disabled={updateMut.isPending}
+                        />
+                        <WtSwitchField
+                            title="Blacklisted"
+                            description="Keeps the record (and its audit trail) but flags them on future applications."
+                            checked={blacklisted}
+                            onChange={(e) => setBlacklisted(e.target.checked)}
+                        />
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <WtButton ghost onClick={close}>Cancel</WtButton>
-                    <WtButton tone="primary" disabled={!canSave} onClick={() => (editing ? updateMut.mutate() : createMut.mutate())}>
-                        {saving ? "Saving…" : "Save"}
+                    <WtButton ghost onClick={closeEdit} disabled={updateMut.isPending}>Cancel</WtButton>
+                    <WtButton tone="primary" disabled={updateMut.isPending || (attempted && !isCandidateFormValid(form))} onClick={saveEdit}>
+                        {updateMut.isPending ? "Saving…" : "Save Changes"}
                     </WtButton>
                 </DialogActions>
             </GlassDialog>

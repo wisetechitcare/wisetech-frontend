@@ -1,3 +1,4 @@
+import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
 /**
  * Project Analytics Utilities — pure functions for project execution data transformation.
  * Focus: Project lifecycle, execution, delivery, billing, risk, and operations.
@@ -89,7 +90,7 @@ export const buildProjectCommandCenterKpis = (statusData: ProjectStatus[]): Proj
     {
       label: "Contract Value",
       value: totalContractValue,
-      prefix: "₹",
+      prefix: getCurrencySymbol(),
       decimals: 0,
       accent: "#059669",
       icon: "bi-cash-stack",
@@ -97,7 +98,7 @@ export const buildProjectCommandCenterKpis = (statusData: ProjectStatus[]): Proj
     {
       label: "Billed Amount",
       value: billedAmount,
-      prefix: "₹",
+      prefix: getCurrencySymbol(),
       decimals: 0,
       accent: "#06B6D4",
       icon: "bi-receipt",
@@ -105,7 +106,7 @@ export const buildProjectCommandCenterKpis = (statusData: ProjectStatus[]): Proj
     {
       label: "Pending Billing",
       value: pendingBilling,
-      prefix: "₹",
+      prefix: getCurrencySymbol(),
       decimals: 0,
       accent: "#EC4899",
       icon: "bi-hourglass-split",
@@ -113,7 +114,7 @@ export const buildProjectCommandCenterKpis = (statusData: ProjectStatus[]): Proj
     {
       label: "Collection Outstanding",
       value: pendingBilling * 0.3, // Assumption: 30% outstanding
-      prefix: "₹",
+      prefix: getCurrencySymbol(),
       decimals: 0,
       accent: "#EF4444",
       icon: "bi-exclamation-triangle-fill",
@@ -218,11 +219,11 @@ export const calculateProjectHealthMetrics = (statusData: ProjectStatus[]): Proj
 /**
  * Format Indian currency for display.
  */
-export const formatINRShort = (value: number): string => {
-  if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;
-  if (value >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
-  if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
-  return `₹${value.toFixed(0)}`;
+export const formatMoneyShort = (value: number): string => {
+  if (value >= 10000000) return `${currencyPrefix()}${(value / 10000000).toFixed(1)}Cr`;
+  if (value >= 100000) return `${currencyPrefix()}${(value / 100000).toFixed(1)}L`;
+  if (value >= 1000) return `${currencyPrefix()}${(value / 1000).toFixed(1)}K`;
+  return `${currencyPrefix()}${value.toFixed(0)}`;
 };
 
 /**

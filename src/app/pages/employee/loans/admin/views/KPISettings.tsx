@@ -281,11 +281,7 @@ export default function KpiSettings() {
   return (
     <>
       <style>{KEYFRAMES}</style>
-      <ConfigPageLayout
-        title="KPI Configuration"
-        subtitle="Manage factor weightage and scoring rules"
-        icon="bi-graph-up"
-      >
+      <ConfigPageLayout>
         <div style={{ marginBottom: SP.lg }}>
           <div
             style={{

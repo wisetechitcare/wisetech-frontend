@@ -89,7 +89,9 @@ function Designations() {
             setInitialValues({
                 role: designation.role,
                 companyId: designation.companyId,
-                isActive: false
+                // Editing a name must not retire the designation: this sent `false`, so every edit here
+                // deactivated the row and it vanished from every picker.
+                isActive: true
             });
             setEditMode(true);
             setShowModal(true);
@@ -170,11 +172,7 @@ function Designations() {
     return (
         <>
             <style>{KEYFRAMES}</style>
-            <ConfigPageLayout
-              title="Designations"
-              subtitle="Manage job designations and roles in your organization"
-              icon="bi-briefcase"
-            >
+            <ConfigPageLayout>
               {hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.readOthers) && (
                 <ConfigSectionCard
                   title={`${data.length} Designation${data.length !== 1 ? 's' : ''}`}

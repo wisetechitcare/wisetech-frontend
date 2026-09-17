@@ -11,9 +11,10 @@ import {
   getAllProjectSubcategories,
 } from "@services/projects";
 import { getAllClientCompanies, getAllClientContacts } from "@services/companies";
+import { currencyPrefix } from "@utils/currency";
 import { AppDispatch, RootState } from "@redux/store";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
-import { getProjectPhase, isDelayedProject, PHASE_THEMES, projectNumberOf } from "../../entity/entityUtils";
+import { getProjectPhase, isDelayedProject, projectNumberOf } from "../../entity/entityUtils";
 
 /**
  * The Projects table — columns, status pill and row styling — shared by the Projects
@@ -182,7 +183,7 @@ export const buildProjectColumns = ({ categories, subcategories, services, pmNam
     meta: { defaultVisible: false },
     size: 130,
     Cell: ({ cell }: { cell: any }) =>
-      cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
+      cell.getValue() ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}` : `${currencyPrefix()}0`,
   },
   {
     accessorKey: "totalCost",
@@ -190,7 +191,7 @@ export const buildProjectColumns = ({ categories, subcategories, services, pmNam
     meta: { defaultVisible: false },
     size: 130,
     Cell: ({ cell }: { cell: any }) =>
-      cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
+      cell.getValue() ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}` : `${currencyPrefix()}0`,
   },
   {
     accessorKey: "projectArea",
@@ -207,7 +208,7 @@ export const buildProjectColumns = ({ categories, subcategories, services, pmNam
     size: 110,
     Cell: ({ cell }: { cell: any }) => {
       const v = Number(cell.getValue());
-      return v ? `₹${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "N/A";
+      return v ? `${currencyPrefix()}${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "N/A";
     },
   },
   {
@@ -259,9 +260,6 @@ export const buildProjectColumns = ({ categories, subcategories, services, pmNam
   },
 ];
 
-const phaseColor = (row: any) =>
-  PHASE_THEMES[row.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A";
-
 // `20` alpha keeps the tint light enough that the solid status pill never blends in.
 const rowBackground = (row: any) => {
   const statusColor = row?.projectStatus?.color || row?.status?.color;
@@ -298,25 +296,12 @@ export const projectTableProps = (onRowClick: (row: any) => void) => ({
           color: "#333",
           whiteSpace: "nowrap",
         },
-        "& .MuiTableCell-root:first-of-type": {
-          borderTopLeftRadius: "12px",
-          borderBottomLeftRadius: "12px",
-          borderLeft: `3px solid ${phaseColor(row.original)} !important`,
-          transition: "border-color 0.2s ease-in-out !important",
-        },
-        "& .MuiTableCell-root:last-of-type": {
-          borderTopRightRadius: "12px",
-          borderBottomRightRadius: "12px",
-        },
         "&:hover": {
           backgroundColor: hoverBg,
           transform: "translateY(-2px)",
           boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
           "& .MuiTableCell-root": {
             backgroundColor: hoverBg,
-          },
-          "& .MuiTableCell-root:first-of-type": {
-            borderLeftColor: `${phaseColor(row.original)} !important`,
           },
         },
       },

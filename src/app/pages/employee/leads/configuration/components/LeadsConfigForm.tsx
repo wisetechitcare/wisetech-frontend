@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
-import { createLeadStatus, updateLeadStatus, createLeadReferralType, updateLeadReferralType, updateLeadDirectSource, createLeadDirectSource, createLeadCancellationReason, updateLeadCancellationReason} from "@services/lead";
+import { createLeadStatus, updateLeadStatus, createLeadReferralType, updateLeadReferralType, updateLeadDirectSource, createLeadDirectSource, createLeadCancellationReason, updateLeadCancellationReason, createLeadPoStatus, updateLeadPoStatus} from "@services/lead";
 import { successConfirmation } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
@@ -35,9 +35,28 @@ interface ConfigFormProps {
   onSuccess?: () => void;
   initialData?: ConfigItem | null;
   isEditing?: boolean;
-  type: "status" | "referral" | "direct-source" | "cancellation-reason";
+  type: "status" | "referral" | "direct-source" | "cancellation-reason" | "po-status";
   title: string;
 }
+
+// PO Status names are stored on the lead itself (`leads.po_status`, VARCHAR(20)) rather
+// than as an FK, so a longer name would be silently truncated on save. Enforced here as
+// well as in the API's yup schema.
+const PO_STATUS_MAX = 20;
+
+// One row per list this modal edits. Replaces three parallel ternary chains (create fn,
+// update fn, event key) that a new list had to be threaded through in all three places.
+const SERVICES: Record<ConfigFormProps["type"], {
+  create: (payload: any) => Promise<any>;
+  update: (id: string, payload: any) => Promise<any>;
+  event: keyof typeof EVENT_KEYS;
+}> = {
+  "status": { create: createLeadStatus, update: updateLeadStatus, event: EVENT_KEYS.leadStatusCreated },
+  "referral": { create: createLeadReferralType, update: updateLeadReferralType, event: EVENT_KEYS.leadReferralTypeCreated },
+  "direct-source": { create: createLeadDirectSource, update: updateLeadDirectSource, event: EVENT_KEYS.leadDirectSourceCreated },
+  "cancellation-reason": { create: createLeadCancellationReason, update: updateLeadCancellationReason, event: EVENT_KEYS.leadCancellationReasonCreated },
+  "po-status": { create: createLeadPoStatus, update: updateLeadPoStatus, event: EVENT_KEYS.leadPoStatusCreated },
+};
 
 const validationSchema = Yup.object().shape({
   name: Yup.string().required('Category Name is required'),
@@ -66,7 +85,7 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
 
   const handleSubmit = async (values: typeof initialValues) => {
     setError("");
-    
+
     // Check if user is trying to set a status as default
     if (type === "status" && "isDefault" in values && values.isDefault) {
       const result = await Swal.fire({
@@ -103,17 +122,17 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
           color: values.color,
           isActive: values.isActive
         };
-        
+
         // Add color for types that support it
         if (type !== "cancellation-reason" as any) {
           submitValues.color = values.color;
         }
-        
+
         // Add isInternal only for referral types
         if (type === "referral" && "isInternal" in values) {
           submitValues.isInternal = values.isInternal;
         }
-        
+
         // Add isDefault only for status types
         if (type === "status" && "isDefault" in values) {
           submitValues.isDefault = values.isDefault;
@@ -130,29 +149,17 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
         }
       }
 
+      const { create, update, event } = SERVICES[type];
+
       if (isEditing && initialData?.id) {
-        const updateFn = type === "status" ? updateLeadStatus : 
-                        type === "referral" ? updateLeadReferralType : 
-                        type === "direct-source" ? updateLeadDirectSource : 
-                        updateLeadCancellationReason;
-        await updateFn(initialData.id, submitValues);
+        await update(initialData.id, submitValues);
         successConfirmation(`${title} updated successfully`);
       } else {
-        const createFn = type === "status" ? createLeadStatus : 
-                        type === "referral" ? createLeadReferralType : 
-                        type === "direct-source" ? createLeadDirectSource : 
-                        createLeadCancellationReason;
-        console.log(submitValues);
-        await createFn(submitValues);
+        await create(submitValues);
         successConfirmation(`${title} created successfully`);
       }
 
-      const eventKey = type === "status" ? EVENT_KEYS.leadStatusCreated : 
-                      type === "referral" ? EVENT_KEYS.leadReferralTypeCreated : 
-                      type === "direct-source" ? EVENT_KEYS.leadDirectSourceCreated : 
-                      EVENT_KEYS.leadCancellationReasonCreated;
-
-      eventBus.emit(eventKey, { id: isEditing ? "updated" : "created" });
+      eventBus.emit(event, { id: isEditing ? "updated" : "created" });
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {
@@ -185,19 +192,19 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
 
               {/* Category Name Input */}
               <div className="mb-4">
-                <label 
-                  className="form-label" 
-                  style={{ 
-                    fontWeight: '500', 
-                    color: '#1a1a1a', 
-                    fontSize: '14px', 
-                    marginBottom: '8px' 
+                <label
+                  className="form-label"
+                  style={{
+                    fontWeight: '500',
+                    color: '#1a1a1a',
+                    fontSize: '14px',
+                    marginBottom: '8px'
                   }}
                 >
                   Category Name
-                  <span 
-                    style={{ 
-                      color: '#dc3545', 
+                  <span
+                    style={{
+                      color: '#dc3545',
                       marginLeft: '4px',
                       fontSize: '14px'
                     }}
@@ -209,6 +216,7 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
                   name="name"
                   type="text"
                   placeholder="Enter category name"
+                  maxLength={type === "po-status" ? PO_STATUS_MAX : undefined}
                   className="form-control mb-5 required"
                   style={{
                     backgroundColor: '#f8f9fa',
@@ -226,13 +234,13 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
               {/* Internal/External Radio Buttons - Show only for referral type */}
               {type === "referral" && (
                 <div className="mb-4">
-                  <label 
-                    className="form-label" 
-                    style={{ 
-                      fontWeight: '500', 
-                      color: '#1a1a1a', 
-                      fontSize: '14px', 
-                      marginBottom: '8px' 
+                  <label
+                    className="form-label"
+                    style={{
+                      fontWeight: '500',
+                      color: '#1a1a1a',
+                      fontSize: '14px',
+                      marginBottom: '8px'
                     }}
                   >
                     Type
@@ -339,13 +347,13 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
               {/* Color Picker - Hide for cancellation-reason type */}
               {/* {type !== "cancellation-reason" && ( */}
               <div className="mb-4">
-                <label 
-                  className="form-label" 
-                  style={{ 
-                    fontWeight: '500', 
-                    color: '#1a1a1a', 
-                    fontSize: '14px', 
-                    marginBottom: '8px' 
+                <label
+                  className="form-label"
+                  style={{
+                    fontWeight: '500',
+                    color: '#1a1a1a',
+                    fontSize: '14px',
+                    marginBottom: '8px'
                   }}
                 >
                   Choose Category Color
@@ -377,8 +385,8 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
                       />
                       <span>Choose Color</span>
                     </div>
-                    <span 
-                      className="text-uppercase fw-medium" 
+                    <span
+                      className="text-uppercase fw-medium"
                       style={{ fontSize: '12px', color: '#6c757d' }}
                     >
                       {values.color}
@@ -412,11 +420,11 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
               </div>
               {/* )}  */}
             </Modal.Body>
-            
+
             <Modal.Footer style={{ borderTop: 'none', paddingTop: '0' }}>
-              <Button 
-                variant="primary" 
-                type="submit" 
+              <Button
+                variant="primary"
+                type="submit"
                 disabled={isSubmitting}
                 style={{
                   backgroundColor: '#1E3A8A',
@@ -433,7 +441,7 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
           </FormikForm>
         )}
       </Formik>
-      
+
       <style jsx>{`
         .form-control:focus {
           background-color: #fff !important;
@@ -441,35 +449,35 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
           box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.1) !important;
           color: #495057 !important;
         }
-        
+
         .form-control::placeholder {
           color: #adb5bd !important;
         }
-        
+
         .modal-content {
           border-radius: 12px !important;
           border: none !important;
           box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1) !important;
         }
-        
+
         .btn-close {
           font-size: 12px !important;
           opacity: 0.6 !important;
         }
-        
+
         .btn-primary:hover {
           background-color: #172554 !important;
         }
-        
+
         .btn-primary:disabled {
           background-color: #ccc !important;
         }
-        
+
         .form-check-input:checked {
           background-color: #1E3A8A !important;
           border-color: #1E3A8A !important;
         }
-        
+
         .form-check-input:focus {
           border-color: #1E3A8A !important;
           box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.25) !important;

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Page, Text, View, Document, StyleSheet, Font } from "@react-pdf/renderer";
 import { Employee } from "@redux/slices/employee";
 import { fetchBranchById, fetchCompanyOverview } from "@services/company";
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 Font.register({
   family: 'Noto',
@@ -32,8 +33,8 @@ const parseAmt = (s: string | number): number => {
   return parseFloat((s || '0').replace(/,/g, '')) || 0;
 };
 
-const fmt0 = (n: number) => Math.trunc(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-const rupee = (v: string | number) => `₹${fmt0(parseAmt(v))}`;
+const fmt0 = (n: number) => Math.trunc(n).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const rupee = (v: string | number) => `${currencyPrefix()}${fmt0(parseAmt(v))}`;
 
 function numberToWords(n: number): string {
   const num = Math.abs(n);

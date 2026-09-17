@@ -25,6 +25,7 @@ import { TasksTab, TimesheetTab, ReimbursementTab } from './detail/sections/Proj
 import DocumentsTab from './detail/sections/DocumentsTab';
 import AuditSection from './detail/sections/AuditSection';
 import TeamsSection from './detail/sections/TeamsSection';
+import BillingSection from './detail/sections/BillingSection';
 import ExecutionSection from './detail/sections/ExecutionSection';
 import ProjectMeetings from './detail/sections/ProjectMeetings';
 import ProjectStatusControl from './detail/ProjectStatusControl';
@@ -230,6 +231,8 @@ const EntityDetailPage: React.FC = () => {
         // A lead that is not yet a project is on nobody's project list, so the meeting form
         // needs its name handed over (same as the Leads table does).
         return <ProjectMeetings leadId={lead.id} leadName={isProject ? undefined : (lead.title || lead.prefix || 'Lead')} />;
+      case 'billing':
+        return <BillingSection lead={lead} />;
       default:
         return null;
     }

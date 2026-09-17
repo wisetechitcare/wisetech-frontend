@@ -7,10 +7,11 @@ import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { createUpdateDeductionConfiguration, fetchDeductionConfiguration } from '@services/employee';
 import { IMonthlyApiResponse, IBreakdownData } from '@redux/slices/salaryData';
 import { Close, InfoOutlined } from '@mui/icons-material';
-import { formatINRDecimal } from '../../../../../../../modules/payroll/utils/payrollFormatters';
+import { formatMoneyDecimal } from '../../../../../../../modules/payroll/utils/payrollFormatters';
 import { deductionMasterService } from '@modules/payroll/services/payrollService';
 import { MASTER_KEY_TO_HARDCODED } from '@modules/payroll/hooks/useSalaryComponentNames';
 import dayjs from 'dayjs';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface DeductionDistributionModalProps {
     show: boolean;
@@ -494,11 +495,11 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                         </div>
                                         <div style={{ width: 160 }}>
                                             <div className="input-group input-group-sm">
-                                                <span className="input-group-text border-end-0 px-2" style={{ fontSize: '0.75rem', background: '#f0fdf4', borderColor: '#bbf7d0', color: '#16a34a' }}>₹</span>
+                                                <span className="input-group-text border-end-0 px-2" style={{ fontSize: '0.75rem', background: '#f0fdf4', borderColor: '#bbf7d0', color: '#16a34a' }}>{getCurrencySymbol()}</span>
                                                 <input
                                                     type="text"
                                                     readOnly
-                                                    value={formatINRDecimal(amount).replace('₹', '')}
+                                                    value={formatMoneyDecimal(amount).replace(getCurrencySymbol(), '')}
                                                     className="form-control border-start-0 ps-1 text-end fw-bolder"
                                                     style={{ fontSize: '0.85rem', background: '#f0fdf4', borderColor: '#bbf7d0', color: '#16a34a', cursor: 'default' }}
                                                 />
@@ -546,7 +547,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
 
                                         <div style={{ width: 120 }}>
                                             <div className="input-group input-group-sm">
-                                                <span className="input-group-text bg-light border-end-0 text-gray-500 px-2" style={{ fontSize: '0.75rem' }}>₹</span>
+                                                <span className="input-group-text bg-light border-end-0 text-gray-500 px-2" style={{ fontSize: '0.75rem' }}>{getCurrencySymbol()}</span>
                                                 <input
                                                     type="number"
                                                     className="form-control border-start-0 ps-1 text-end"
@@ -559,13 +560,13 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
 
                                         <div className="text-end" style={{ minWidth: 76 }}>
                                             <div className="text-muted fs-9 mb-1">Auto</div>
-                                            <div className="fw-semibold fs-7 text-gray-700">{formatINRDecimal(auto)}</div>
+                                            <div className="fw-semibold fs-7 text-gray-700">{formatMoneyDecimal(auto)}</div>
                                         </div>
 
                                         <div className="text-end" style={{ minWidth: 80 }}>
                                             <div className="text-muted fs-9 mb-1">Final</div>
                                             <div className="fw-bolder fs-7" style={{ color: total > 0 ? '#f1416c' : '#a1a5b7' }}>
-                                                {formatINRDecimal(total)}
+                                                {formatMoneyDecimal(total)}
                                             </div>
                                         </div>
 

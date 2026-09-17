@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { RootState } from "@redux/store";
 import { useSelector } from "react-redux";
+import { getCurrencySymbol } from '@utils/currency';
 
 interface InstallmentPayment {
   name: string;
@@ -66,7 +67,7 @@ const InstallmentPayments: React.FC<InstallmentPaymentsProps> = ({
         accessorKey: "loanAmount",
         header: "Loan Amount",
         Cell: ({ cell }) =>
-          `₹ ${cell.getValue<number>()?.toLocaleString() || "0"}`,
+          `${getCurrencySymbol()} ${cell.getValue<number>()?.toLocaleString() || "0"}`,
       },
       { accessorKey: "installment", header: "Installment" },
       { accessorKey: "loanType", header: "Loan Type" }, 
@@ -88,25 +89,25 @@ const InstallmentPayments: React.FC<InstallmentPaymentsProps> = ({
         accessorKey: "billDue",
         header: "Bill Due",
         Cell: ({ cell }) =>
-          `₹ ${cell.getValue<number>()?.toLocaleString() || "0"}`,
+          `${getCurrencySymbol()} ${cell.getValue<number>()?.toLocaleString() || "0"}`,
       },
       {
         accessorKey: "previousDue",
         header: "Previous Due",
         Cell: ({ cell }) =>
-          `₹ ${cell.getValue<number>()?.toLocaleString() || "0"}`,
+          `${getCurrencySymbol()} ${cell.getValue<number>()?.toLocaleString() || "0"}`,
       },
       {
         accessorKey: "dueThisMonth",
         header: "Due This Month",
         Cell: ({ cell }) =>
-          `₹ ${cell.getValue<number>()?.toLocaleString() || "0"}`,
+          `${getCurrencySymbol()} ${cell.getValue<number>()?.toLocaleString() || "0"}`,
       },
       {
         accessorKey: "paidAmount",
         header: "Paid Amount",
         Cell: ({ cell }) =>
-          `₹ ${cell.getValue<number>()?.toLocaleString() || "0"}`,
+          `${getCurrencySymbol()} ${cell.getValue<number>()?.toLocaleString() || "0"}`,
       },
       { accessorKey: "status", header: "Status" },
       ...(isAdmin

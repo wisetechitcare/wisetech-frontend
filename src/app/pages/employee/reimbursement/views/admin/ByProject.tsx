@@ -4,7 +4,7 @@ import ExportButton from '@app/modules/common/components/ExportButton';
 import { MRT_ColumnDef } from 'material-react-table';
 import { IReimbursementsFetch } from '@models/employee';
 import { summariseReimbursements } from '../../utils/reimbursementSummary';
-import { formatINR, NO_VALUE, projectTitle } from '../../utils/reimbursementFormat';
+import { formatMoney, NO_VALUE, projectTitle } from '../../utils/reimbursementFormat';
 import RecordsEmptyState from '../../components/RecordsEmptyState';
 
 /**
@@ -101,30 +101,30 @@ function ByProject({ rows, loading, periodLabel }: ByProjectProps) {
           Footer: () => <span style={{ fontWeight: 800 }}>{totals.totalRequests}</span> },
         {
             accessorKey: 'totalAmount', header: 'Claimed', size: 140,
-            Cell: ({ row }) => <span className='fw-bold fs-7'>{formatINR(row.original.totalAmount)}</span>,
-            Footer: () => <span style={{ fontWeight: 800 }}>{formatINR(totals.totalAmount)}</span>,
+            Cell: ({ row }) => <span className='fw-bold fs-7'>{formatMoney(row.original.totalAmount)}</span>,
+            Footer: () => <span style={{ fontWeight: 800 }}>{formatMoney(totals.totalAmount)}</span>,
         },
         {
             accessorKey: 'approvedAmount', header: 'Approved', size: 140,
-            Cell: ({ row }) => <span style={{ color: '#15803d', fontWeight: 600 }}>{formatINR(row.original.approvedAmount)}</span>,
-            Footer: () => <span style={{ fontWeight: 800, color: '#15803d' }}>{formatINR(totals.approvedAmount)}</span>,
+            Cell: ({ row }) => <span style={{ color: '#15803d', fontWeight: 600 }}>{formatMoney(row.original.approvedAmount)}</span>,
+            Footer: () => <span style={{ fontWeight: 800, color: '#15803d' }}>{formatMoney(totals.approvedAmount)}</span>,
         },
         {
             accessorKey: 'pendingAmount', header: 'Awaiting approval', size: 150,
-            Cell: ({ row }) => <span style={{ color: '#d97706', fontWeight: 600 }}>{formatINR(row.original.pendingAmount)}</span>,
-            Footer: () => <span style={{ fontWeight: 800, color: '#d97706' }}>{formatINR(totals.pendingAmount)}</span>,
+            Cell: ({ row }) => <span style={{ color: '#d97706', fontWeight: 600 }}>{formatMoney(row.original.pendingAmount)}</span>,
+            Footer: () => <span style={{ fontWeight: 800, color: '#d97706' }}>{formatMoney(totals.pendingAmount)}</span>,
         },
         {
             accessorKey: 'paidAmount', header: 'Paid', size: 140,
-            Cell: ({ row }) => <span style={{ color: '#7c3aed', fontWeight: 600 }}>{formatINR(row.original.paidAmount)}</span>,
-            Footer: () => <span style={{ fontWeight: 800, color: '#7c3aed' }}>{formatINR(totals.paidAmount)}</span>,
+            Cell: ({ row }) => <span style={{ color: '#7c3aed', fontWeight: 600 }}>{formatMoney(row.original.paidAmount)}</span>,
+            Footer: () => <span style={{ fontWeight: 800, color: '#7c3aed' }}>{formatMoney(totals.paidAmount)}</span>,
         },
         {
             // Approved but not yet paid — what the project still owes, which is the number a
             // project manager is usually after.
             accessorKey: 'outstandingAmount', header: 'Still owed', size: 140,
-            Cell: ({ row }) => <span style={{ color: '#1e3a8a', fontWeight: 700 }}>{formatINR(row.original.outstandingAmount)}</span>,
-            Footer: () => <span style={{ fontWeight: 800, color: '#1e3a8a' }}>{formatINR(totals.remainingAmount)}</span>,
+            Cell: ({ row }) => <span style={{ color: '#1e3a8a', fontWeight: 700 }}>{formatMoney(row.original.outstandingAmount)}</span>,
+            Footer: () => <span style={{ fontWeight: 800, color: '#1e3a8a' }}>{formatMoney(totals.remainingAmount)}</span>,
         },
     ], [totals]);
 

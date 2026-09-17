@@ -1688,14 +1688,13 @@ function MaterialTable({
                 "& .Mui-TableHeadCell-Content": {
                   display: "flex",
                   alignItems: "center",
-                  gap: "6px",
+                  gap: "8px",
                   width: "100%",
                   height: "100%",
-                  minWidth: 0,
-                  // Containing block for the actions button. Deliberately on this inner
-                  // div and NOT on the <th> — MRT gives pinned header cells
-                  // `position: sticky`, and overriding that would unpin them.
-                  position: "relative",
+                  // Floor = label's longest word + sort icon + gap + actions button. In
+                  // semantic layout the <th> can't be resized below its content's
+                  // min-content, so shrinking a column stops before anything overlaps.
+                  minWidth: "min-content",
                 },
 
                 "& .Mui-TableHeadCell-Content-Labels": {
@@ -1732,15 +1731,12 @@ function MaterialTable({
                   color: "#4B5563",
                 },
 
-                // `opacity: 0` hides the column-actions button but it still occupies its
-                // full width in EVERY header, permanently narrowing the label. Taking it
-                // out of flow means the label gets the whole cell; on hover it fades in
-                // over the label's tail rather than shoving the text sideways.
+                // The actions button stays in flow (its width reserved) so on hover it fades
+                // in beside the sort icon instead of on top of it. Absolute positioning
+                // overlapped the label + sort icon once a column was resized narrow.
                 "& .Mui-TableHeadCell-Content-Actions": {
-                  position: "absolute",
-                  right: "4px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
+                  flexShrink: 0,
+                  marginLeft: "auto",
                   opacity: 0,
                   pointerEvents: "none",
                   transition: "opacity 0.15s ease",
@@ -2674,15 +2670,14 @@ function MaterialTable({
               FilterListIcon: (props: any) => (
                 <KTIcon iconName="filter" className="fs-2" {...props} />
               ),
+              // `arrow-two-diagonals` draws a left/right swap and reads as "reorder",
+              // not "expand"; `cross` reads as "close the table". The corner-bracket
+              // pair is what a full-screen control looks like everywhere else.
               FullscreenIcon: (props: any) => (
-                <KTIcon
-                  iconName="arrow-two-diagonals"
-                  className="fs-2"
-                  {...props}
-                />
+                <KTIcon iconName="maximize" className="fs-2" {...props} />
               ),
               FullscreenExitIcon: (props: any) => (
-                <KTIcon iconName="cross" className="fs-2" {...props} />
+                <KTIcon iconName="minimize" className="fs-2" {...props} />
               ),
               SearchIcon: (props: any) => (
                 <KTIcon iconName="magnifier" className="fs-2" {...props} />

@@ -62,12 +62,17 @@ export const queryKeys = {
     projectServices: () => [...queryKeys.masters.all, 'project-services'] as const,
     projectCategories: () => [...queryKeys.masters.all, 'project-categories'] as const,
     projectSubcategories: () => [...queryKeys.masters.all, 'project-subcategories'] as const,
+    departments: () => [...queryKeys.masters.all, 'departments'] as const,
+    designations: () => [...queryKeys.masters.all, 'designations'] as const,
+    /** Which designations each department offers, plus suggested links. */
+    departmentDesignations: () => [...queryKeys.masters.all, 'department-designations'] as const,
   },
   recruitment: {
     all: ['recruitment'] as const,
     requisitions: (scope = '') => [...queryKeys.recruitment.all, 'requisitions', scope] as const,
     requisition: (id: string) => [...queryKeys.recruitment.all, 'requisition', id] as const,
     requisitionStages: () => [...queryKeys.recruitment.all, 'requisition-stages'] as const,
+    branches: () => [...queryKeys.recruitment.all, 'branches'] as const,
     applications: (filters: Record<string, unknown> = {}) =>
       [...queryKeys.recruitment.all, 'applications', filters] as const,
     applicants: (search = '', scope = '') => [...queryKeys.recruitment.all, 'applicants', search, scope] as const,

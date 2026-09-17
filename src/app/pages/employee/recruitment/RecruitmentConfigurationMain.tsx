@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-    Box, Stack, Typography, TextField, CircularProgress, DialogContent, DialogActions,
-} from "@mui/material";
+import { Box, Stack, Typography, CircularProgress, DialogContent, DialogActions, Slider } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import ReorderableGroup, { DragHandle, type DragHandleProps } from "@app/modules/common/components/ReorderableGroup";
 import {
-    GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, WtSwitchField,
-    IconBox, ToneChip, TRIO, toast, confirmDialog, type Trio, type SemanticTone,
+    GlassCard, GlassDialog, GlassHeader, WtButton, WtField, WtSwitchField, WtColorPicker, KIT_HEX_SWATCHES,
+    ActionIconButton, IconBox, ToneChip, TRIO, WtEmptyState, WtTooltip, toast, confirmDialog, type Trio, type SemanticTone,
 } from "@app/modules/common/components/ui";
+import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
 import { queryKeys } from "@/lib/queryKeys";
+import { toPercentages, rebalance } from "@utils/weightBalancer";
+import { apiErrorMessage } from "@utils/apiError";
+import { TERMS } from "./terms";
 import ScorecardTemplateSection from "./ScorecardTemplateSection";
 import {
     getApplicationStatuses, createApplicationStatus, updateApplicationStatus, deleteApplicationStatus,
@@ -45,19 +47,6 @@ interface MasterSectionProps {
 
 const DEFAULT_COLOR = "#4B5563";
 
-/** Compact row action button — smaller than the default 44px so list rows stay dense.
- *  Glyph size stays on the `fs-*` class (duotone path spans are layered — never size them directly). */
-const RowAction = ({ title, icon, color, onClick }: { title: string; icon: string; color?: string; onClick: () => void }) => (
-    <WtIconButton
-        title={title}
-        color={color}
-        onClick={onClick}
-        sx={{ width: { xs: 34, sm: 36 }, height: { xs: 34, sm: 36 }, borderRadius: "10px" }}
-    >
-        <KTIcon iconName={icon} className="fs-5" />
-    </WtIconButton>
-);
-
 /**
  * Reusable, glassmorphic CRUD master card: list + create/edit (GlassDialog) +
  * delete + drag-to-reorder, driven entirely by injected service fns. Responsive and
@@ -67,7 +56,7 @@ const MasterSection = ({
     title, description, icon, trio, configType, queryKey, labelField, fetchFn, createFn, updateFn, deleteFn, flags = [], emailConfig = false,
 }: MasterSectionProps) => {
     const qc = useQueryClient();
-    const { data: rows = [], isLoading } = useQuery({ queryKey, queryFn: fetchFn });
+    const { data: rows = [], isLoading, isError, error, refetch } = useQuery({ queryKey, queryFn: fetchFn });
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<MasterRow | null>(null);
     const [label, setLabel] = useState("");
@@ -78,6 +67,8 @@ const MasterSection = ({
     const [threshold, setThreshold] = useState("");
 
     const invalidate = () => qc.invalidateQueries({ queryKey });
+    /** "Pipeline Stages" → "Pipeline Stage". Declared here because every message below reads it. */
+    const singular = title.replace(/s$/, "");
 
     const buildPayload = (): Record<string, unknown> => ({
         [labelField]: label.trim(),
@@ -92,25 +83,28 @@ const MasterSection = ({
             : {}),
     });
 
+    // Every failure reports the SERVER's reason. "Could not save (admin permission required)"
+    // was a guess printed for a duplicate name, a validation error and a dropped connection alike.
     const createMut = useMutation({
         mutationFn: () => createFn(buildPayload()),
-        onSuccess: () => { toast({ icon: "success", title: `${title} saved` }); close(); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not save (admin permission required)" }),
+        onSuccess: () => { toast({ icon: "success", title: `${singular} added` }); close(); invalidate(); },
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, `Could not add the ${singular.toLowerCase()}`) }),
     });
     const updateMut = useMutation({
         mutationFn: () => updateFn(editing!.id, buildPayload()),
-        onSuccess: () => { toast({ icon: "success", title: "Updated" }); close(); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not update" }),
+        onSuccess: () => { toast({ icon: "success", title: `${singular} updated` }); close(); invalidate(); },
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, `Could not update the ${singular.toLowerCase()}`) }),
     });
     const deleteMut = useMutation({
         mutationFn: (id: string) => deleteFn(id),
-        onSuccess: () => { toast({ icon: "success", title: "Removed" }); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not remove" }),
+        onSuccess: () => { toast({ icon: "success", title: `${singular} removed` }); invalidate(); },
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, `Could not remove the ${singular.toLowerCase()}`) }),
     });
     const reorderMut = useMutation({
         mutationFn: (orderedIds: string[]) => reorderConfig(configType, orderedIds),
         onSuccess: invalidate,
-        onError: () => { toast({ icon: "error", title: "Could not reorder" }); invalidate(); },
+        // The optimistic paint has to be undone, or the list keeps an order the server rejected.
+        onError: (err) => { toast({ icon: "error", title: apiErrorMessage(err, "Could not save the new order") }); invalidate(); },
     });
 
     const openNew = () => {
@@ -151,11 +145,11 @@ const MasterSection = ({
     };
 
     const saving = createMut.isPending || updateMut.isPending;
-    const singular = title.replace(/s$/, "");
 
     const renderRow = (row: MasterRow, handleProps?: DragHandleProps) => {
         const index = rows.findIndex((r) => r.id === row.id);
         const activeFlags = flags.filter((f) => field(row, f.key));
+        const busy = deleteMut.isPending && deleteMut.variables === row.id;
         return (
             <Stack
                 direction="row"
@@ -172,7 +166,7 @@ const MasterSection = ({
 
                 {/* Identity + flags kept together on the left — no stretched gap in the middle. */}
                 <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0.75 }}>
-                    <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: row.color ?? "#888", flexShrink: 0 }} />
+                    <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: row.color || "action.disabled", flexShrink: 0 }} />
                     <Typography sx={{ fontWeight: 600, fontSize: 14, lineHeight: 1.35, wordBreak: "break-word", mr: 0.25 }}>
                         {String(field(row, labelField) ?? "")}
                     </Typography>
@@ -182,8 +176,8 @@ const MasterSection = ({
                 </Box>
 
                 <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ flexShrink: 0 }}>
-                    <RowAction title="Edit" icon="pencil" onClick={() => openEdit(row)} />
-                    <RowAction title="Remove" icon="trash" color="#C0392B" onClick={() => remove(row)} />
+                    <ActionIconButton iconName="pencil" title="Edit" size="sm" tone="indigo" disabled={busy} onClick={() => openEdit(row)} />
+                    <ActionIconButton iconName="trash" title="Remove" size="sm" tone="danger" disabled={busy} onClick={() => remove(row)} />
                 </Stack>
             </Stack>
         );
@@ -196,7 +190,7 @@ const MasterSection = ({
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap>
                         <Typography sx={{ fontWeight: 700, fontSize: { xs: 14.5, sm: 15.5 }, lineHeight: 1.3 }}>{title}</Typography>
-                        {!isLoading && rows.length > 0 && (
+                        {!isLoading && !isError && rows.length > 0 && (
                             <Box sx={{
                                 px: 0.75, minWidth: 20, textAlign: "center", borderRadius: 999,
                                 bgcolor: "action.selected", color: "text.secondary",
@@ -219,19 +213,26 @@ const MasterSection = ({
 
             {isLoading ? (
                 <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={22} /></Stack>
+            ) : isError ? (
+                // A failed load used to render as "No pipeline stage yet" — which reads as
+                // "nothing is configured" and invites someone to recreate what already exists.
+                <WtEmptyState
+                    variant="error" dense
+                    title={`Could not load ${title.toLowerCase()}`}
+                    hint={apiErrorMessage(error, "Check your connection and try again.")}
+                    actionLabel="Retry"
+                    onAction={() => refetch()}
+                />
             ) : rows.length === 0 ? (
-                <Box
-                    onClick={openNew}
-                    sx={{
-                        py: 2, px: 1.5, borderRadius: "12px", cursor: "pointer", textAlign: "center",
-                        border: "1px dashed", borderColor: "divider",
-                        transition: "border-color .15s, background-color .15s",
-                        "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
-                    }}
-                >
-                    <Typography sx={{ color: "text.secondary", fontSize: 13, fontWeight: 600 }}>No {singular.toLowerCase()} yet</Typography>
-                    <Typography sx={{ color: "text.disabled", fontSize: 12, mt: 0.25 }}>Click to add the first one.</Typography>
-                </Box>
+                <WtEmptyState
+                    dense
+                    icon={icon}
+                    tone={trio}
+                    title={`No ${singular} Yet`}
+                    hint={description}
+                    actionLabel={`New ${singular}`}
+                    onAction={openNew}
+                />
             ) : (
                 <ReorderableGroup
                     items={rows}
@@ -249,14 +250,20 @@ const MasterSection = ({
 
             <GlassDialog
                 open={open}
-                onClose={close}
+                onClose={saving ? undefined : close}
                 maxWidth="xs"
-                header={<GlassHeader title={editing ? `Edit ${singular}` : `New ${singular}`} icon={<KTIcon iconName={icon} className="fs-2" />} onClose={close} />}
+                header={<GlassHeader title={editing ? `Edit ${singular}` : `New ${singular}`} icon={<KTIcon iconName={icon} className="fs-2" />} onClose={saving ? undefined : close} />}
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
-                        <TextField label={labelField === "reason" ? "Reason" : "Name"} size="small" fullWidth value={label} onChange={(e) => setLabel(e.target.value)} />
-                        <TextField label="Color" type="color" size="small" sx={{ width: 90 }} value={color} onChange={(e) => setColor(e.target.value)} />
+                        <WtField
+                            label={labelField === "reason" ? "Reason" : "Name"} required fullWidth
+                            value={label} onChange={setLabel} disabled={saving}
+                        />
+                        {/* The kit palette, stored as the hex this row's dot paints directly. The
+                            raw <input type="color"> it replaces was unthemed and offered no palette,
+                            so two stages picked by two admins never matched. */}
+                        <WtColorPicker label="Colour" palette={KIT_HEX_SWATCHES} value={color} onChange={setColor} disabled={saving} />
                         {flags.map((f) => (
                             <WtSwitchField
                                 key={f.key}
@@ -267,20 +274,24 @@ const MasterSection = ({
                         ))}
                         {emailConfig && (
                             <>
-                                <Typography sx={{ fontWeight: 600, fontSize: 13, color: "text.secondary", mt: 1 }}>Stage-entry email (optional)</Typography>
-                                <TextField label="Email subject" size="small" fullWidth value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
-                                <TextField
-                                    label="Email body" size="small" fullWidth multiline minRows={4}
-                                    helperText="Tokens: {first_name} {candidate_name} {job_title} {stage_name} {application_ref}. Leave empty to disable."
-                                    value={emailBody} onChange={(e) => setEmailBody(e.target.value)}
+                                <Typography sx={{ fontWeight: 600, fontSize: 13, color: "text.secondary", mt: 1 }}>Stage-Entry Email (Optional)</Typography>
+                                <WtField label="Email Subject" fullWidth value={emailSubject} onChange={setEmailSubject} disabled={saving} />
+                                <WtField
+                                    label="Email Body" fullWidth multiline minRows={4}
+                                    hint="Tokens: {first_name} {candidate_name} {job_title} {stage_name} {application_ref}. Leave empty to disable."
+                                    value={emailBody} onChange={setEmailBody} disabled={saving}
                                 />
-                                <TextField label="Auto-advance threshold (score)" type="number" size="small" sx={{ maxWidth: 240 }} value={threshold} onChange={(e) => setThreshold(e.target.value)} />
+                                <WtField
+                                    label="Auto-Advance Threshold" type="number" inputMode="numeric" min={0} max={100} step={1}
+                                    minWidth={240} value={threshold} onChange={setThreshold} disabled={saving}
+                                    hint="Kept with the stage for when auto-advance is wired; nothing moves a candidate on its own today."
+                                />
                             </>
                         )}
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <WtButton ghost onClick={close}>Cancel</WtButton>
+                    <WtButton ghost onClick={close} disabled={saving}>Cancel</WtButton>
                     <WtButton tone="primary" disabled={!label.trim() || saving} onClick={() => (editing ? updateMut.mutate() : createMut.mutate())}>
                         {saving ? "Saving…" : "Save"}
                     </WtButton>
@@ -291,28 +302,43 @@ const MasterSection = ({
 };
 
 // ─── Scoring & automation settings ────────────────────────────────────────────
-const WEIGHT_FIELDS: { key: keyof ScoringWeights; label: string }[] = [
-    { key: "ctcFit", label: "CTC fit" },
-    { key: "experience", label: "Experience" },
-    { key: "noticePeriod", label: "Notice period" },
-    { key: "keywordMatch", label: "Keyword match" },
+const WEIGHT_FIELDS: { key: keyof ScoringWeights; label: string; hint: string }[] = [
+    { key: "ctcFit", label: "Salary fit", hint: "Expected CTC against the role's band" },
+    { key: "experience", label: "Experience", hint: "Years, ramping to full marks around five" },
+    { key: "noticePeriod", label: "Availability", hint: "Notice period — immediate scores highest" },
+    { key: "keywordMatch", label: "Title match", hint: "The role's wording against current title and employer" },
 ];
 
 const SettingsSection = () => {
     const qc = useQueryClient();
-    const { data, isLoading } = useQuery({ queryKey: queryKeys.recruitment.settings(), queryFn: getRecruitmentSettings });
+    const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: queryKeys.recruitment.settings(), queryFn: getRecruitmentSettings });
     const [draft, setDraft] = useState<RecruitmentSettings | null>(null);
     const settings = draft ?? data ?? null;
 
     const saveMut = useMutation({
         mutationFn: (payload: Partial<RecruitmentSettings>) => saveRecruitmentSettings(payload),
         onSuccess: (s) => { toast({ icon: "success", title: "Settings saved" }); setDraft(null); qc.setQueryData(queryKeys.recruitment.settings(), s); },
-        onError: () => toast({ icon: "error", title: "Could not save (admin permission required)" }),
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not save the settings") }),
     });
 
+    /**
+     * Weights are edited as percentages of 100, never as free decimals.
+     *
+     * They were four independent numbers (0.3, 0.3, 0.15, 0.25) with no visible
+     * relationship, yet the scorer only ever used their RATIO — it divides by their sum.
+     * So "0.3" answered neither "how much does this matter" nor "how much compared to
+     * that". Percentages that visibly total 100 answer both, and the scorer needs no
+     * change: 30/30/15/25 and 0.3/0.3/0.15/0.25 produce identical scores.
+     *
+     * rebalance() is shared with the scorecard template's weighted criteria. Two copies of
+     * a 100% invariant is two places for it to drift.
+     */
+    const weightPercents = settings ? toPercentages(settings.weights as unknown as Record<string, number>) : null;
+
     const setWeight = (key: keyof ScoringWeights, value: number) => {
-        if (!settings) return;
-        setDraft({ ...settings, weights: { ...settings.weights, [key]: value } });
+        if (!settings || !weightPercents) return;
+        const next = rebalance(weightPercents, key as string, value);
+        setDraft({ ...settings, weights: next as unknown as ScoringWeights });
     };
     const setRule = (key: keyof RecruitmentSettings["autoRules"], value: boolean) => {
         if (!settings) return;
@@ -324,8 +350,8 @@ const SettingsSection = () => {
             <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 1.5 }}>
                 <IconBox icon="chart-simple" trio={TRIO.purple} size={36} fs="fs-3" />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 700, fontSize: { xs: 14.5, sm: 15.5 }, lineHeight: 1.3 }}>Scoring &amp; Automation</Typography>
-                    <Typography sx={{ fontSize: 12.5, lineHeight: 1.45, color: "text.secondary", mt: 0.25 }}>Tune how candidates are scored and which automations run.</Typography>
+                    <Typography sx={{ fontWeight: 700, fontSize: { xs: 14.5, sm: 15.5 }, lineHeight: 1.3 }}>Hiring Defaults &amp; Scoring</Typography>
+                    <Typography sx={{ fontSize: 12.5, lineHeight: 1.45, color: "text.secondary", mt: 0.25 }}>Who a new role starts with, how candidates are scored, and which automations run.</Typography>
                 </Box>
                 <WtButton
                     tone="primary" size="small" disabled={!draft || saveMut.isPending} onClick={() => draft && saveMut.mutate(draft)}
@@ -335,32 +361,110 @@ const SettingsSection = () => {
                 </WtButton>
             </Stack>
 
-            {isLoading || !settings ? (
+            {isError ? (
+                <WtEmptyState
+                    variant="error" dense
+                    title="Could not load the settings"
+                    hint={apiErrorMessage(error, "Check your connection and try again.")}
+                    actionLabel="Retry"
+                    onAction={() => refetch()}
+                />
+            ) : isLoading || !settings ? (
                 <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={22} /></Stack>
             ) : (
                 <Stack spacing={1.5}>
+                    {/*
+                      * The default recruiter has been stored and read since the requisition form
+                      * existed — a new role pre-fills its Recruiter from it — with NO screen to set
+                      * it, so it was permanently null and the field always opened empty.
+                      *
+                      * Unset is a legitimate answer, and the only honest default: which person runs
+                      * hiring differs per customer, so guessing one puts a real name on every role
+                      * raised by anybody.
+                      */}
                     <Typography sx={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: "text.secondary" }}>
-                        Scoring weights (relative)
+                        New {TERMS.Requisition} Defaults
                     </Typography>
-                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" }, gap: 1.5 }}>
-                        {WEIGHT_FIELDS.map((w) => (
-                            <TextField
-                                key={w.key}
-                                label={w.label}
-                                type="number"
-                                size="small"
-                                value={settings.weights[w.key]}
-                                onChange={(e) => setWeight(w.key, Math.max(0, Number(e.target.value) || 0))}
-                                inputProps={{ min: 0, step: 0.05 }}
-                            />
+                    <EmployeePickerField
+                        label="Default Recruiter"
+                        value={settings.defaultRecruiterId ?? null}
+                        onChange={(ids) => setDraft({ ...settings, defaultRecruiterId: ids[0] ?? null })}
+                        disabled={saveMut.isPending}
+                        placeholder="Nobody — leave it for whoever raises the role"
+                        helperText="Pre-filled as the recruiter on a new role. Whoever raises it can change it, and it is only a default — leaving this empty is fine."
+                    />
+
+                    <Stack direction="row" alignItems="baseline" justifyContent="space-between" sx={{ flexWrap: "wrap", gap: 1, pt: 0.5 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: "text.secondary" }}>
+                            Scoring Weights
+                        </Typography>
+                        {/* Always 100 by construction. Shown anyway, because the invariant is
+                            the reassurance: you can drag anything and the total stays honest. */}
+                        <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                            Totals <strong>100%</strong> — moving one adjusts the others
+                        </Typography>
+                    </Stack>
+                    <Stack spacing={1.75}>
+                        {weightPercents && WEIGHT_FIELDS.map((w) => (
+                            <Box key={w.key}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.25 }}>
+                                    <WtTooltip title={w.hint}>
+                                        <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{w.label}</Typography>
+                                    </WtTooltip>
+                                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: "text.secondary" }}>
+                                        {weightPercents[w.key]}%
+                                    </Typography>
+                                </Stack>
+                                <Slider
+                                    value={weightPercents[w.key]}
+                                    onChange={(_, v) => setWeight(w.key, Array.isArray(v) ? v[0] : v)}
+                                    min={0}
+                                    max={100}
+                                    step={1}
+                                    size="small"
+                                    aria-label={`${w.label} weight, ${weightPercents[w.key]} percent`}
+                                    valueLabelDisplay="auto"
+                                    valueLabelFormat={(v) => `${v}%`}
+                                />
+                                <Typography sx={{ fontSize: 11.5, color: "text.secondary", mt: -0.5 }}>{w.hint}</Typography>
+                            </Box>
                         ))}
-                    </Box>
+                    </Stack>
                     <Typography sx={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: "text.secondary", pt: 0.5 }}>
-                        Automation rules
+                        Automation Rules
                     </Typography>
-                    <WtSwitchField title="Auto-advance on threshold" description="Move a candidate to the next stage when their score clears the stage threshold." checked={settings.autoRules.autoAdvanceEnabled} onChange={(e) => setRule("autoAdvanceEnabled", e.target.checked)} />
-                    <WtSwitchField title="Auto-reject below floor" description="Off by default — keeps a human in the loop." checked={settings.autoRules.autoRejectEnabled} onChange={(e) => setRule("autoRejectEnabled", e.target.checked)} />
-                    <WtSwitchField title="AI screening (Claude)" description="Per-company opt-in. Also requires the server AI key to be configured." checked={settings.autoRules.aiScreeningEnabled} onChange={(e) => setRule("aiScreeningEnabled", e.target.checked)} />
+                    {/*
+                      * DISABLED ON PURPOSE. All three flags are stored, validated and read
+                      * back, and NO code acts on any of them — `autoRules` is written by the
+                      * settings handler and the only consumer of these settings destructures
+                      * `{ weights }`. They were rendering as ON beside live candidate data,
+                      * which reads as "this system is auto-rejecting people" when it is not.
+                      *
+                      * A control that lies is worse than a missing feature, so they stay
+                      * disabled until something acts on them. Re-enable in the same commit
+                      * that wires them, never before.
+                      */}
+                    <WtSwitchField
+                        title="Auto-Advance on Threshold"
+                        description="Not wired yet. Would move a candidate to the next stage when their score clears the stage threshold."
+                        checked={settings.autoRules.autoAdvanceEnabled}
+                        onChange={(e) => setRule("autoAdvanceEnabled", e.target.checked)}
+                        disabled
+                    />
+                    <WtSwitchField
+                        title="Auto-Reject Below Floor"
+                        description="Not wired yet. Would reject a candidate scoring under the floor without a human looking."
+                        checked={settings.autoRules.autoRejectEnabled}
+                        onChange={(e) => setRule("autoRejectEnabled", e.target.checked)}
+                        disabled
+                    />
+                    <WtSwitchField
+                        title="AI Screening (Claude)"
+                        description="Not wired yet. The scoring you see is the deterministic four-factor rule score, not a model."
+                        checked={settings.autoRules.aiScreeningEnabled}
+                        onChange={(e) => setRule("aiScreeningEnabled", e.target.checked)}
+                        disabled
+                    />
                 </Stack>
             )}
         </GlassCard>
@@ -392,8 +496,10 @@ const RecruitmentConfigurationMain = () => (
             emailConfig
         />
         <ScorecardTemplateSection />
+        {/* Titles follow TERMS: this module says "role" everywhere else, and the config card
+            saying "Requisition" / "Applicant" is the exact mismatch terms.ts was written for. */}
         <MasterSection
-            title="Requisition Stages" description="Lifecycle of a job requisition (open / on-hold / filled)." icon="questionnaire-tablet" trio={TRIO.cyan}
+            title={`${TERMS.Requisition} Stages`} description="Lifecycle of a role (open / on-hold / filled)." icon="questionnaire-tablet" trio={TRIO.cyan}
             configType="requisition-stages" queryKey={queryKeys.recruitment.requisitionStages()} labelField="name"
             fetchFn={getRequisitionStages} createFn={(p) => createRequisitionStage(p as never)} updateFn={(id, p) => updateRequisitionStage(id, p as never)} deleteFn={deleteRequisitionStage}
             flags={[
@@ -408,7 +514,7 @@ const RecruitmentConfigurationMain = () => (
             fetchFn={getRejectionReasons} createFn={(p) => createRejectionReason(p as never)} updateFn={(id, p) => updateRejectionReason(id, p as never)} deleteFn={deleteRejectionReason}
         />
         <MasterSection
-            title="Applicant Sources" description="Where candidates come from (referral, careers page, agency…)." icon="user-tick" trio={TRIO.amber}
+            title={`${TERMS.Candidate} Sources`} description="Where candidates come from (referral, careers page, agency…)." icon="user-tick" trio={TRIO.amber}
             configType="applicant-sources" queryKey={queryKeys.recruitment.applicantSources()} labelField="name"
             fetchFn={getApplicantSources} createFn={(p) => createApplicantSource(p as never)} updateFn={(id, p) => updateApplicantSource(id, p as never)} deleteFn={deleteApplicantSource}
             flags={[{ key: "isReferral", label: "Referral", tone: "brand" }]}

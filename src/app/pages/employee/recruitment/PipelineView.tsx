@@ -2,43 +2,35 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Box, Stack, Typography, ToggleButton, ToggleButtonGroup, Chip, CircularProgress,
-    Table, TableHead, TableBody, TableRow, TableCell, TextField, MenuItem, DialogContent, DialogActions,
+    Box, Stack, Typography, ToggleButton, ToggleButtonGroup, CircularProgress, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { ListHeader, GlassDialog, GlassHeader, WtButton, ToneChip, toast, AppIcon } from "@app/modules/common/components/ui";
+import { ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, AppIcon, WtEmptyState } from "@app/modules/common/components/ui";
+import { apiErrorMessage } from "@utils/apiError";
+import { COPY } from "./terms";
 import { queryKeys } from "@/lib/queryKeys";
-import { getRequisitions, type JobRequisition, type OrgScoped,
-} from "@services/recruitment";
 import {
-    getApplications, createApplication, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
+    getApplications, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
     stashConversion,
-    type Application, type ApplicationStatus, type ApplicationCreatePayload,
+    type Application, type ApplicationStatus, type OrgScoped,
 } from "@services/recruitment";
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
 import CandidateDrawer from "./CandidateDrawer";
+import { AddCandidateDialog } from "./AddCandidateDialog";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { applicationColumns, applicantName, ScoreChip, WaitingChip } from "./applicationColumns";
 
 interface PendingMove {
     application: Application;
     status: ApplicationStatus;
 }
 
-const emptyCreate = (): ApplicationCreatePayload & { firstName: string; lastName: string; email: string } => ({
-    firstName: "", lastName: "", email: "", requisitionId: "", statusId: null,
-});
-
-const scoreLabel = (a: Application): string | null => {
-    const s = a.aiScore ?? a.ruleScore;
-    return s === null || s === undefined ? null : `${Number(s).toFixed(0)}`;
-};
-
 const PipelineView = ({ companyId }: OrgScoped) => {
     const qc = useQueryClient();
     const navigate = useNavigate();
     const [mode, setMode] = useState<"board" | "list">("board");
-    const [createOpen, setCreateOpen] = useState(false);
-    const [form, setForm] = useState(emptyCreate());
+    const [adding, setAdding] = useState(false);
     const [pending, setPending] = useState<PendingMove | null>(null);
     const [rejectReasonId, setRejectReasonId] = useState("");
     const [rejectNote, setRejectNote] = useState("");
@@ -49,18 +41,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const [interviewsFor, setInterviewsFor] = useState<Application | null>(null);
     const [offerFor, setOfferFor] = useState<Application | null>(null);
 
-    const { data: applications = [], isLoading } = useQuery({ queryKey: queryKeys.recruitment.applications({ companyId }), queryFn: () => getApplications({}, companyId) });
-    const { data: statuses = [] } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
+    const { data: applications = [], isLoading, isError, error, refetch } = useQuery({ queryKey: queryKeys.recruitment.applications({ companyId }), queryFn: () => getApplications({}, companyId) });
+    const { data: statuses = [], isLoading: statusesLoading, isError: statusesError } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
     const { data: reasons = [] } = useQuery({ queryKey: queryKeys.recruitment.rejectionReasons(), queryFn: getRejectionReasons });
-    const { data: requisitions = [] } = useQuery({ queryKey: queryKeys.recruitment.requisitions(companyId), queryFn: () => getRequisitions(companyId) });
 
     const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.recruitment.all });
-
-    const createMut = useMutation({
-        mutationFn: (payload: ApplicationCreatePayload) => createApplication(payload),
-        onSuccess: () => { toast({ icon: "success", title: "Application added" }); setCreateOpen(false); setForm(emptyCreate()); invalidate(); },
-        onError: () => toast({ icon: "error", title: "Could not add application" }),
-    });
 
     const moveMut = useMutation({
         mutationFn: (vars: { id: string; statusId: string; revisionCount: number; rejectionReasonId?: string; rejectionNote?: string }) =>
@@ -71,8 +56,38 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 rejectionNote: vars.rejectionNote ?? null,
             }),
         onSuccess: () => { toast({ icon: "success", title: "Moved" }); invalidate(); },
-        onError: () => { toast({ icon: "error", title: "Could not move — refresh and retry" }); invalidate(); },
+        onError: (err) => { toast({ icon: "error", title: apiErrorMessage(err, "Could not move the candidate") }); invalidate(); },
     });
+
+    /**
+     * The list view is the SAME records the overview drill-downs show, so it uses the same
+     * column definition and adds only what is unique to this screen: the row actions.
+     * Two hand-written tables were how "Score" came to mean a bare number here and a band
+     * there, with neither able to sort on what it displayed.
+     */
+    const listColumns = useMemo(
+        () => applicationColumns({
+            // One row of icon actions, each named by its tooltip (and aria-label). Four worded buttons
+            // did not fit the column and wrapped into a ragged stack on every row. Clicks here must not
+            // also reach the row, which opens the candidate.
+            actions: (a) => (
+                <Stack direction="row" spacing={0.75} alignItems="center" onClick={(e) => e.stopPropagation()}>
+                    <ActionIconButton iconName="profile-circle" size="sm" tone="brand" title="Open Candidate" onClick={() => setOpenCandidate(a)} />
+                    <ActionIconButton iconName="message-text-2" size="sm" tone="indigo" title="Interviews" onClick={() => setInterviewsFor(a)} />
+                    <ActionIconButton iconName="wallet" size="sm" tone="indigo" title="Offer" onClick={() => setOfferFor(a)} />
+                    {a.status?.isHiredOutcome && (
+                        a.convertedEmployeeId
+                            ? <ToneChip tone="success" label="Converted" dense />
+                            : <ActionIconButton iconName="user-tick" size="sm" tone="success" title="Convert to Employee" onClick={() => convertToEmployee(a)} />
+                    )}
+                </Stack>
+            ),
+        }),
+        // convertToEmployee is stable for the life of the component; the setters are
+        // React state setters, which never change identity.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [],
+    );
 
     const byStatus = useMemo(() => {
         const map = new Map<string, Application[]>();
@@ -108,14 +123,6 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         setPending(null);
     };
 
-    const submitCreate = () => {
-        if (!form.firstName.trim() || !form.email.trim()) return;
-        createMut.mutate({
-            applicant: { firstName: form.firstName.trim(), lastName: form.lastName || null, email: form.email.trim() },
-            requisitionId: form.requisitionId || null,
-        });
-    };
-
     // Convert a hired candidate into an employee: prefill the New Employee wizard
     // via its onboarding-draft seam, then open it — no re-keying of known details.
     const convertToEmployee = async (a: Application) => {
@@ -128,12 +135,16 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         };
         // Pull the approved offer (if any) so placement details prefill too.
         try {
-            const offer = await getApplicationOffer(a.id);
+            const { offer } = await getApplicationOffer(a.id);
             if (offer) {
                 if (offer.offeredDesignationId) draft.designationId = offer.offeredDesignationId;
                 if (offer.offeredDepartmentId) draft.departmentId = offer.offeredDepartmentId;
+                // The wizard works out the organization and sub-org from the branch on its own.
+                if (offer.offeredBranchId) draft.branchId = offer.offeredBranchId;
                 if (offer.offeredEmployeeTypeConfigId) draft.employeeTypeConfigId = offer.offeredEmployeeTypeConfigId;
-                if (offer.offeredCtcInLpa != null) draft.ctcInLpa = String(offer.offeredCtcInLpa);
+                // Annual to annual. The employee column is still NAMED ctcInLpa but has always held the
+                // full yearly amount; now that the offer does too, the figure copies across unchanged.
+                if (offer.offeredCtc != null) draft.ctcInLpa = String(offer.offeredCtc);
                 if (offer.proposedJoiningDate) draft.dateOfJoining = new Date(offer.proposedJoiningDate).toISOString().slice(0, 10);
             }
         } catch {
@@ -155,7 +166,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
             <ListHeader
                 title="Candidate Pipeline"
-                subtitle="Track applicants across stages — drag on the board or update from the list."
+                subtitle="Track candidates across stages. Drag cards between columns, or open a candidate to change their stage."
                 actions={
                     <>
                         <ToggleButtonGroup
@@ -165,36 +176,45 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                             <ToggleButton value="board"><AppIcon name="bi-kanban" />&nbsp;Board</ToggleButton>
                             <ToggleButton value="list"><AppIcon name="bi-list-ul" />&nbsp;List</ToggleButton>
                         </ToggleButtonGroup>
-                        <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setCreateOpen(true)}>
-                            New application
+                        <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
+                            Add Candidate
                         </WtButton>
                     </>
                 }
             />
 
-            {statuses.length === 0 && (
-                <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: "warning.light", color: "warning.contrastText", fontSize: 14 }}>
-                    No pipeline stages configured yet — add them in the <b>Configure</b> tab so candidates can flow through the board.
-                </Box>
+            {/* Loading and a failed load are not "no stages": the notice waits until the list is known to be empty. */}
+            {!statusesLoading && !statusesError && statuses.length === 0 && (
+                <WtEmptyState icon="setting-2" title={COPY.noStagesConfigured.title} hint={COPY.noStagesConfigured.hint} dense />
             )}
 
             {isLoading ? (
                 <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress size={28} /></Stack>
+            ) : isError ? (
+                <WtEmptyState
+                    variant="error"
+                    title="Could not load the pipeline"
+                    hint={apiErrorMessage(error, "Check your connection and try again.")}
+                    actionLabel="Retry"
+                    onAction={() => refetch()}
+                />
             ) : mode === "board" ? (
                 <Box sx={{ display: "flex", gap: 1.5, overflowX: "auto", pb: 1 }}>
-                    {statuses.map((s) => {
-                        const cards = byStatus.map.get(s.id) ?? [];
+                    {/* Candidates whose stage is missing or was removed are listed first rather than
+                        silently left off the board — otherwise the column counts never add up to the list. */}
+                    {[...(byStatus.unassigned.length ? [null] : []), ...statuses].map((s) => {
+                        const cards = s ? byStatus.map.get(s.id) ?? [] : byStatus.unassigned;
                         return (
                             <Box
-                                key={s.id}
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={() => { const app = applications.find((a) => a.id === dragId); if (app) attemptMove(app, s); setDragId(null); }}
+                                key={s?.id ?? "unassigned"}
+                                onDragOver={s ? (e) => e.preventDefault() : undefined}
+                                onDrop={s ? () => { const app = applications.find((a) => a.id === dragId); if (app) attemptMove(app, s); setDragId(null); } : undefined}
                                 sx={{ minWidth: { xs: 210, sm: 250 }, maxWidth: { xs: 240, sm: 280 }, flex: "0 0 auto", bgcolor: "action.hover", borderRadius: 2, p: 1 }}
                             >
                                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1, px: 0.5 }}>
-                                    <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: s.color ?? "#888" }} />
-                                    <Typography sx={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{s.name}</Typography>
-                                    <Chip size="small" label={cards.length} />
+                                    <Box sx={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0, bgcolor: s?.color ?? "text.disabled" }} />
+                                    <Typography sx={{ fontWeight: 600, fontSize: 13, flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>{s ? s.name : "No stage"}</Typography>
+                                    <ToneChip tone="neutral" dense label={String(cards.length)} />
                                 </Stack>
                                 <Stack spacing={1}>
                                     {/* Drag moves a candidate between stages; a plain click opens
@@ -212,102 +232,48 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                                             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenCandidate(a); } }}
                                             sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "background.paper", boxShadow: 1, cursor: "grab", opacity: dragId === a.id ? 0.5 : 1, "&:hover": { boxShadow: 3 } }}
                                         >
-                                            <Typography sx={{ fontWeight: 600, fontSize: 13.5 }}>
-                                                {a.applicant?.firstName} {a.applicant?.lastName ?? ""}
+                                            <Typography sx={{ fontWeight: 600, fontSize: 13.5, overflowWrap: "anywhere" }}>
+                                                {applicantName(a)}
                                             </Typography>
-                                            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-                                                {a.requisition?.title ?? "No requisition"}
+                                            <Typography sx={{ fontSize: 12, color: "text.secondary", overflowWrap: "anywhere" }}>
+                                                {a.requisition?.title ?? "No role"}
                                             </Typography>
-                                            {scoreLabel(a) && <Chip size="small" sx={{ mt: 0.5 }} label={`Score ${scoreLabel(a)}`} color="info" variant="outlined" />}
+                                            <Stack direction="row" useFlexGap sx={{ mt: 0.75, flexWrap: "wrap", gap: 0.5 }}>
+                                                <ScoreChip application={a} />
+                                                <WaitingChip application={a} />
+                                            </Stack>
                                         </Box>
                                     ))}
-                                    {cards.length === 0 && <Typography sx={{ fontSize: 12, color: "text.disabled", px: 0.5, py: 1 }}>Drop here</Typography>}
+                                    {cards.length === 0 && <Typography sx={{ fontSize: 12, color: "text.disabled", px: 0.5, py: 1 }}>No candidates. Drag one here.</Typography>}
                                 </Stack>
                             </Box>
                         );
                     })}
                 </Box>
             ) : (
-                <Box sx={{ overflowX: "auto", border: "1px solid", borderColor: "divider", borderRadius: "14px" }}>
-                <Table size="small" sx={{ minWidth: 680 }}>
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>Ref</TableCell><TableCell>Candidate</TableCell><TableCell>Requisition</TableCell>
-                            <TableCell>Stage</TableCell><TableCell align="center">Score</TableCell><TableCell align="right">Actions</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {applications.map((a) => (
-                            <TableRow key={a.id} hover>
-                                <TableCell>{a.prefix ?? "—"}</TableCell>
-                                <TableCell>{a.applicant?.firstName} {a.applicant?.lastName ?? ""}</TableCell>
-                                <TableCell>{a.requisition?.title ?? "—"}</TableCell>
-                                <TableCell>
-                                    <ToneChip tone="brand" color={a.status?.color ?? undefined} label={a.status?.name ?? "—"} dense />
-                                </TableCell>
-                                <TableCell align="center">{scoreLabel(a) ?? "—"}</TableCell>
-                                <TableCell align="right">
-                                    <Stack direction="row" spacing={0.5} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
-                                        <WtButton size="small" ghost startIcon={<KTIcon iconName="profile-circle" className="fs-6" />} onClick={() => setOpenCandidate(a)}>
-                                            Open
-                                        </WtButton>
-                                        <WtButton size="small" ghost startIcon={<KTIcon iconName="message-text-2" className="fs-6" />} onClick={() => setInterviewsFor(a)}>
-                                            Interviews
-                                        </WtButton>
-                                        <WtButton size="small" ghost startIcon={<KTIcon iconName="dollar" className="fs-6" />} onClick={() => setOfferFor(a)}>
-                                            Offer
-                                        </WtButton>
-                                        {a.status?.isHiredOutcome && (
-                                            a.convertedEmployeeId ? (
-                                                <ToneChip tone="success" label="Converted" dense />
-                                            ) : (
-                                                <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => convertToEmployee(a)}>
-                                                    Convert
-                                                </WtButton>
-                                            )
-                                        )}
-                                    </Stack>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                        {applications.length === 0 && (
-                            <TableRow><TableCell colSpan={6} align="center" sx={{ color: "text.secondary", py: 4 }}>No applications yet.</TableCell></TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-                </Box>
+                /* The shared table engine, not a hand-written table. It brings sorting,
+                       per-column search, column show/hide, export and per-user column
+                       preferences — none of which the previous markup had — and the columns
+                       are the SAME definition the overview drill-downs use, so two views of
+                       the same records cannot drift apart. */
+                <MaterialTable
+                    columns={listColumns}
+                    data={applications}
+                    isLoading={isLoading}
+                    tableName="RecruitmentPipelineList"
+                    // The whole row opens the candidate — the record that holds stage, interviews,
+                    // offer and convert — so the row is the target, not a 30px icon at its end.
+                    muiTableProps={{
+                        muiTableBodyRowProps: ({ row }: { row: { original: Application } }) => ({
+                            onClick: () => setOpenCandidate(row.original),
+                            sx: { cursor: "pointer" },
+                        }),
+                    }}
+                />
             )}
 
-            {/* Create application */}
-            <GlassDialog
-                open={createOpen}
-                onClose={() => setCreateOpen(false)}
-                maxWidth="sm"
-                header={<GlassHeader title="New Application" subtitle="Add a candidate to the pipeline" icon={<KTIcon iconName="user-tick" className="fs-2" />} onClose={() => setCreateOpen(false)} />}
-            >
-                <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField label="First name" required size="small" sx={{ flex: 1 }} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
-                            <TextField label="Last name" size="small" sx={{ flex: 1 }} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
-                        </Stack>
-                        <TextField label="Email" required type="email" size="small" fullWidth value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                        <TextField label="Requisition" select size="small" fullWidth value={form.requisitionId ?? ""} onChange={(e) => setForm({ ...form, requisitionId: e.target.value })}>
-                            <MenuItem value="">— None —</MenuItem>
-                            {requisitions.map((r: JobRequisition) => (
-                                <MenuItem key={r.id} value={r.id}>{r.prefix ? `${r.prefix} · ` : ""}{r.title}</MenuItem>
-                            ))}
-                        </TextField>
-                    </Stack>
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <WtButton ghost onClick={() => setCreateOpen(false)}>Cancel</WtButton>
-                    <WtButton tone="primary" disabled={!form.firstName.trim() || !form.email.trim() || createMut.isPending} onClick={submitCreate}>
-                        {createMut.isPending ? "Adding…" : "Add"}
-                    </WtButton>
-                </DialogActions>
-            </GlassDialog>
-
+            {/* The shared Add candidate window. From the pipeline a role is required: a card with no role has no column. */}
+            <AddCandidateDialog open={adding} onClose={() => setAdding(false)} roleRequired companyId={companyId} />
             {/* Rejection reason capture on move to a terminal/requires-reason stage */}
             <GlassDialog
                 open={!!pending}
@@ -317,11 +283,15 @@ const PipelineView = ({ companyId }: OrgScoped) => {
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
-                        <TextField label="Reason" select required size="small" fullWidth value={rejectReasonId} onChange={(e) => setRejectReasonId(e.target.value)}>
-                            {reasons.map((r) => <MenuItem key={r.id} value={r.id}>{r.reason}</MenuItem>)}
-                            {reasons.length === 0 && <MenuItem value="" disabled>No reasons configured — add them in Configure</MenuItem>}
-                        </TextField>
-                        <TextField label="Note (optional)" size="small" fullWidth multiline minRows={2} value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} />
+                        <WtField
+                            label="Reason" required fullWidth
+                            value={rejectReasonId} onChange={setRejectReasonId}
+                            options={reasons.map((r) => ({ value: r.id, label: r.reason }))}
+                            disabled={reasons.length === 0}
+                            placeholder={reasons.length ? "Choose a reason" : "No reasons set up yet"}
+                            hint={reasons.length ? undefined : "Add rejection reasons in Configure first."}
+                        />
+                        <WtField label="Note" fullWidth multiline minRows={2} value={rejectNote} onChange={setRejectNote} placeholder="Optional — anything the next reviewer should know" />
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -335,14 +305,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 open={!!interviewsFor}
                 onClose={() => setInterviewsFor(null)}
                 maxWidth="md"
-                header={<GlassHeader title="Interview management" icon={<KTIcon iconName="message-text-2" className="fs-2" />} onClose={() => setInterviewsFor(null)} />}
+                header={<GlassHeader title={interviewsFor ? applicantName(interviewsFor) : "Interviews"} subtitle="Interviews and Scorecards" icon={<KTIcon iconName="message-text-2" className="fs-2" />} onClose={() => setInterviewsFor(null)} />}
             >
                 <DialogContent>
                     {interviewsFor && (
-                        <InterviewsPanel
-                            applicationId={interviewsFor.id}
-                            applicantName={`${interviewsFor.applicant?.firstName ?? ""} ${interviewsFor.applicant?.lastName ?? ""}`.trim() || "Candidate"}
-                        />
+                        <InterviewsPanel applicationId={interviewsFor.id} applicantName={applicantName(interviewsFor)} />
                     )}
                 </DialogContent>
             </GlassDialog>
@@ -352,14 +319,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 open={!!offerFor}
                 onClose={() => setOfferFor(null)}
                 maxWidth="sm"
-                header={<GlassHeader title="Offer" icon={<KTIcon iconName="dollar" className="fs-2" />} onClose={() => setOfferFor(null)} />}
+                header={<GlassHeader title={offerFor ? applicantName(offerFor) : "Offer"} subtitle="Offer and Approval" icon={<KTIcon iconName="wallet" className="fs-2" />} onClose={() => setOfferFor(null)} />}
             >
                 <DialogContent>
                     {offerFor && (
-                        <OfferPanel
-                            applicationId={offerFor.id}
-                            applicantName={`${offerFor.applicant?.firstName ?? ""} ${offerFor.applicant?.lastName ?? ""}`.trim() || "Candidate"}
-                        />
+                        <OfferPanel applicationId={offerFor.id} applicantName={applicantName(offerFor)} />
                     )}
                 </DialogContent>
             </GlassDialog>
@@ -371,6 +335,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     application={openCandidate}
                     statuses={statuses}
                     onClose={() => setOpenCandidate(null)}
+                    // The same move the board makes, including the reason prompt — and the only
+                    // way to move someone on a phone, where drag-and-drop does not work.
+                    onMove={attemptMove}
+                    moving={moveMut.isPending}
+                    onConvert={convertToEmployee}
                 />
             )}
         </Box>

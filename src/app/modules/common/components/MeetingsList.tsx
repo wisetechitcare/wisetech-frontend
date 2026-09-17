@@ -17,6 +17,7 @@ import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { SegmentedControl } from '@app/modules/common/components/ui/SegmentedControl';
 import { getTimeTokens } from '@utils/timeFormat';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 /**
  * MeetingsList — the meetings surface, shared by the project (entity), contact and employee
@@ -690,7 +691,9 @@ interface MeetingAnalytics {
     byMeeting: Array<{ id: string; title: string; startDate: string; minutes: number; attendees: number; cost: number }>;
 }
 
-const inr = (n: number) => `\u20B9${Math.round(n).toLocaleString('en-IN')}`;
+// Named for money, not for rupees. The symbol was written as the escape `\u20B9`, which is
+// why a search for the character walked straight past it.
+const money = (n: number) => `${currencyPrefix()}${Math.round(n).toLocaleString(getCurrencyLocale())}`;
 const hm = (mins: number) => {
     const h = Math.floor(mins / 60);
     const m = Math.round(mins % 60);
@@ -853,7 +856,7 @@ const CostSummary: React.FC<{
         },
         {
             label: 'Total cost',
-            value: data.costVisible ? inr(data.heldCost ?? 0) : 'Hidden',
+            value: data.costVisible ? money(data.heldCost ?? 0) : 'Hidden',
             // The denominator is the meetings that ACTUALLY have time logged. Saying "across 5
             // held meetings" over a total drawn from two of them reads as precise and is not.
             sub: !data.costVisible
@@ -879,7 +882,7 @@ const CostSummary: React.FC<{
         },
         {
             label: 'Average meeting',
-            value: data.costVisible ? inr(data.avgCostPerMeeting ?? 0) : hm(data.avgMinutes),
+            value: data.costVisible ? money(data.avgCostPerMeeting ?? 0) : hm(data.avgMinutes),
             sub: data.costVisible
                 ? `${hm(data.avgMinutes)} with about ${Math.round(data.avgAttendees)} people`
                 : `about ${Math.round(data.avgAttendees)} people in the room`,
@@ -972,7 +975,7 @@ const CostSummary: React.FC<{
                     <div>
                         The most expensive was{' '}
                         <strong style={{ color: '#1E293B' }}>{data.costliestMeeting.title}</strong>, at{' '}
-                        {inr(data.costliestMeeting.cost)}.
+                        {money(data.costliestMeeting.cost)}.
                     </div>
                 )}
                 {data.costVisible && data.externalAttendees > 0 && (
@@ -1004,7 +1007,7 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
             <div>
                 <div style={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 600, color: '#BFD2F5' }}>Total meeting cost</div>
                 <div style={{ fontFamily: 'Inter', fontSize: 26, fontWeight: 800, color: '#fff', lineHeight: 1.15 }}>
-                    {inr(data.heldCost ?? 0)}
+                    {money(data.heldCost ?? 0)}
                 </div>
                 <div style={{ fontFamily: 'Inter', fontSize: 12, color: '#9DB6E8', marginTop: 2 }}>
                     across {data.heldCount} held meeting{data.heldCount === 1 ? '' : 's'}
@@ -1032,7 +1035,7 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
                                 <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>{e.name}</div>
                                 <div style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 2 }}>
                                     {e.meetings} meeting{e.meetings === 1 ? '' : 's'}, {hm(e.minutes)} of their time
-                                    {e.rate > 0 && ` at ${inr(e.rate)}/hr`}
+                                    {e.rate > 0 && ` at ${money(e.rate)}/hr`}
                                 </div>
                                 {/* The arithmetic, spelled out. An hourly rate nobody can check is
                                     an hourly rate somebody has to raise a ticket about — this line
@@ -1040,11 +1043,11 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
                                     you can go and look at. */}
                                 {e.monthlySalary != null && (
                                     <div style={{ fontSize: 11, color: '#CBD5E1', marginTop: 1 }}>
-                                        {inr(e.monthlySalary)}/mo ÷ {e.daysInMonth} days ÷ {e.workingHours}h
+                                        {money(e.monthlySalary)}/mo ÷ {e.daysInMonth} days ÷ {e.workingHours}h
                                     </div>
                                 )}
                             </div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: '#1E3A8A', whiteSpace: 'nowrap' }}>{inr(e.cost)}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#1E3A8A', whiteSpace: 'nowrap' }}>{money(e.cost)}</div>
                         </div>
                     ))}
                 </div>
@@ -1064,7 +1067,7 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
                                     {dayjs(m.startDate).format('DD MMM YYYY, hh:mm A')} — {hm(m.minutes)}, {m.attendees} attending
                                 </div>
                             </div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: '#1E3A8A', whiteSpace: 'nowrap' }}>{inr(m.cost)}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#1E3A8A', whiteSpace: 'nowrap' }}>{money(m.cost)}</div>
                         </div>
                     ))}
                 </div>

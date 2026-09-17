@@ -4,7 +4,7 @@ import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { Avatar, Box, Stack, Typography } from "@mui/material";
 import { RootState } from "@redux/store";
 import { fetchConfiguration } from "@services/company";
-import { formatStringINR } from "@utils/statistics";
+import { formatMoneyString } from "@utils/statistics";
 // One rule for what an entry's duration is, mirroring the backend's. The four
 // hand-rolled copies this replaces all derived it from the clock while the money
 // followed the logged figure, so the table and the invoice disagreed.
@@ -90,7 +90,7 @@ const MyEmployeesTimeSheetPorject = ({
       const cost = entryHours(timesheet)
         * employeeHourlySalary
         * billingMultiplierOf(timesheet, defaultMultiplier);
-      return isBillable ? formatStringINR(cost) : "-";
+      return isBillable ? formatMoneyString(cost) : "-";
     },
     [hourlySalaryMap, defaultMultiplier]
   );

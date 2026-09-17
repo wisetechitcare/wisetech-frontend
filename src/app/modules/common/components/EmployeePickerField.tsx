@@ -6,6 +6,8 @@ import { KTIcon } from "@metronic/helpers";
 import { fetchAllEmployeesSelectedData } from "@services/employee";
 import { getAvatar } from "@utils/avatar";
 import { EmployeeSelectionDialog, type EmployeeOption } from "./EmployeeSelectionDialog";
+import { WtField } from "./ui/WtField";
+import { WtSelect } from "./ui/WtSelect";
 
 /**
  * EmployeePickerField — a labelled form control that opens the shared
@@ -77,11 +79,50 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
         setDraft((prev) => (multiple ? (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]) : prev[0] === id ? [] : [id]));
     const save = () => { onChange(draft); setOpen(false); };
 
+    /**
+     * ONE value is a dropdown, not a dialog.
+     *
+     * The dialog put a checkbox on every row and a "Choose (1)" button under a field that
+     * accepts a single employee. The affordance is the promise: checkboxes say "tick as many
+     * as you like", so someone does, and the control refuses without explaining. It also took
+     * four interactions — open, search, tick, confirm — for what a dropdown does in one.
+     *
+     * `WtSelect` already renders avatars and a second line via `optionVariant="avatar"`, so
+     * the richer row was never a reason to reach for a modal.
+     */
+    if (!multiple) {
+        const options = employees.map((e) => ({
+            value: e.id,
+            label: e.name,
+            avatar: e.avatar,
+            description: e.designation,
+        }));
+        const current = options.find((o) => o.value === ids[0]) ?? null;
+
+        return (
+            <WtField label={label} labelPlacement="above" required={required} hint={helperText} disabled={disabled} sx={sx}>
+                <WtSelect
+                    options={options}
+                    value={current}
+                    onChange={(opt: { value: string } | null) => onChange(opt?.value ? [opt.value] : [])}
+                    placeholder={placeholder}
+                    isDisabled={disabled}
+                    isLoading={isLoading}
+                    isSearchable
+                    isClearable
+                    optionVariant="avatar"
+                    ariaLabel={label}
+                />
+            </WtField>
+        );
+    }
+
     return (
-        <Box sx={sx}>
-            <Typography component="span" sx={{ display: "block", fontSize: 12, fontWeight: 600, color: "text.secondary", mb: 0.5 }}>
-                {label}{required ? " *" : ""}
-            </Typography>
+        // MULTI-select keeps the dialog, where a checkbox and a count are honest: picking
+        // several panelists from a long directory is genuinely easier in a full-screen list
+        // than in a dropdown. The label sits ABOVE because this control is a BUTTON, not an
+        // input, so there is no notch it could carry.
+        <WtField label={label} labelPlacement="above" required={required} hint={helperText} disabled={disabled} sx={sx}>
             <Box
                 role="button"
                 tabIndex={disabled ? -1 : 0}
@@ -109,9 +150,8 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
                         {selected.length > 4 && <Typography sx={{ fontSize: 12, color: "text.secondary", alignSelf: "center" }}>+{selected.length - 4}</Typography>}
                     </Stack>
                 )}
-                <KTIcon iconName="profile-circle" className="fs-5 text-muted" />
+                                <KTIcon iconName="profile-circle" className="fs-5 text-muted" />
             </Box>
-            {helperText && <Typography sx={{ fontSize: 11.5, color: "text.secondary", mt: 0.4, ml: 0.25, lineHeight: 1.4 }}>{helperText}</Typography>}
 
             <EmployeeSelectionDialog
                 open={open}
@@ -126,7 +166,7 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
                 saveLabel={multiple ? "Select" : "Choose"}
                 footerNote={isLoading ? "Loading directory…" : `${employees.length} employees`}
             />
-        </Box>
+        </WtField>
     );
 };
 

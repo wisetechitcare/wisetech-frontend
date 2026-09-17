@@ -1,5 +1,6 @@
 import React from "react";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 interface MonthlySalaryEmployDataProps {
   employeesData: any[];
@@ -84,7 +85,7 @@ const MonthlySalaryEmployData: React.FC<MonthlySalaryEmployDataProps> = ({
             accessorKey: "salary",
             header: "Salary",
             Cell: ({ renderedCellValue }: any) => (
-              `₹${Math.round(Number(renderedCellValue || 0)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+              `${currencyPrefix()}${Math.round(Number(renderedCellValue || 0)).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
             )
           },
         ]}

@@ -2,7 +2,7 @@ import { Box } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import YearlyKpiCard from '@pages/employee/salary/personal/views/my-salary/Toggle/components/salary/YearlyKpiCard';
 import { SkeletonKpiCard } from '@app/modules/common/components/Skeleton';
-import { formatINR } from '../utils/reimbursementFormat';
+import { formatMoney } from '../utils/reimbursementFormat';
 
 /**
  * The KPI row: four cards.
@@ -65,7 +65,7 @@ export default function ReimbursementKpiRow({
         <Box sx={KPI_GRID}>
             <YearlyKpiCard
                 label="Submitted"
-                value={formatINR(kpis.totalAmount)}
+                value={formatMoney(kpis.totalAmount)}
                 footer={`${kpis.totalRequests} request${kpis.totalRequests === 1 ? '' : 's'}`}
                 tone="blue"
                 icon={<KTIcon iconName="document" className="fs-4" />}
@@ -73,7 +73,7 @@ export default function ReimbursementKpiRow({
             />
             <YearlyKpiCard
                 label="Approved"
-                value={formatINR(kpis.approvedAmount)}
+                value={formatMoney(kpis.approvedAmount)}
                 footer={approvedPct === null
                     ? `${kpis.approvedCount} approved`
                     : `${kpis.approvedCount} approved · ${approvedPct}%`}
@@ -83,7 +83,7 @@ export default function ReimbursementKpiRow({
             />
             <YearlyKpiCard
                 label="Awaiting approval"
-                value={formatINR(kpis.pendingAmount)}
+                value={formatMoney(kpis.pendingAmount)}
                 footer={`${kpis.pendingCount} pending`}
                 tone="amber"
                 icon={<KTIcon iconName="time" className="fs-4" />}
@@ -91,8 +91,8 @@ export default function ReimbursementKpiRow({
             />
             <YearlyKpiCard
                 label="Paid out"
-                value={formatINR(kpis.paidAmount)}
-                footer={`of ${formatINR(kpis.approvedAmount)} approved`}
+                value={formatMoney(kpis.paidAmount)}
+                footer={`of ${formatMoney(kpis.approvedAmount)} approved`}
                 tone="purple"
                 icon={<KTIcon iconName="wallet" className="fs-4" />}
                 showSensitiveData={showSensitiveData}

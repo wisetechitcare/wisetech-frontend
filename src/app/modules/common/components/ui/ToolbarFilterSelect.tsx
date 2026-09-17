@@ -16,14 +16,11 @@ import { WtField } from './WtField';
  * WHAT IT IS NOW: a thin adapter over `WtField`, which owns the label, the frame,
  * the focus ring and the error treatment for every labelled control in the app.
  *
- * It used to be MUI's outlined Select with a floating `InputLabel`, and it carried
- * a hand-maintained copy of the notch's font metrics — because MUI sizes the gap
- * in the border from the FIELD's typography rather than the label's, so a bold
- * uppercase label rendered wider than its own gap and sat on the border line.
- * That whole class of bug is gone: `WtField` cuts no gap. The label is a small
- * uppercase prefix INSIDE the control (`labelPlacement="inline"`), so the toolbar
- * stays exactly one control tall, which is what the notched pattern was bought
- * for in the first place.
+ * It used to carry a hand-maintained copy of the notch's font metrics, because it
+ * styled its label bold and uppercase — and MUI's legend, which cuts the gap, keeps
+ * the DEFAULT metrics whatever you do to the label. The label was therefore wider
+ * than its own gap and sat on the border line. `WtField` fixes that by never styling
+ * the label at all, so the floating label this control always had now works.
  *
  * The public API is unchanged, deliberately — every existing call site keeps
  * working, and no screen had to be touched to get the fix.
@@ -69,7 +66,6 @@ export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
 }) => (
     <WtField
         label={label}
-        labelPlacement="inline"
         icon={icon}
         value={value}
         onChange={onChange}

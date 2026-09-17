@@ -18,7 +18,7 @@ import { payrollService } from '@modules/payroll/services/payrollService';
 import { uploadUserAsset } from '@services/uploader';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { toast } from 'react-toastify';
-import { salaryCalculations, donutaDataLabel, getWorkingDaysInMonth, multipleRadialBarData, totalCheckInCheckOutMinutes, getWorkingDaysInYear, getCountOfMonthsEmployeePresentOrOnLeaveInAYear, getTotalWeekendDaysInMonth, getTotalWeekendsInYear, formatNumber, formatStringINR, filterLeavesPublicHolidays, customLeaves, getTotalDaysInMonth, getTotalDaysInYear, getTotalWeekendsInYearFilteredByDOJOrCurrentYearDate, getTotalWeekendDaysInMonthFilteredByDOJOrCurrentMonthDate, SalaryCalculations, geAllDaysInAMonth, getAllDaysInAYear, salaryCalculationsForDays, countWeekendDaysInRange } from '@utils/statistics';
+import { salaryCalculations, donutaDataLabel, getWorkingDaysInMonth, multipleRadialBarData, totalCheckInCheckOutMinutes, getWorkingDaysInYear, getCountOfMonthsEmployeePresentOrOnLeaveInAYear, getTotalWeekendDaysInMonth, getTotalWeekendsInYear, formatNumber, formatMoneyString, filterLeavesPublicHolidays, customLeaves, getTotalDaysInMonth, getTotalDaysInYear, getTotalWeekendsInYearFilteredByDOJOrCurrentYearDate, getTotalWeekendDaysInMonthFilteredByDOJOrCurrentMonthDate, SalaryCalculations, geAllDaysInAMonth, getAllDaysInAYear, salaryCalculationsForDays, countWeekendDaysInRange } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { Form, Formik, FormikValues } from 'formik';
 import { useEffect, useState, useMemo } from 'react';
@@ -60,6 +60,7 @@ type SalaryStructure = {
 import { IBreakdownItem, IBreakdownData, IMonthlyApiResponse } from '@redux/slices/salaryData';
 import { IconButton } from '@mui/material';
 import { Close } from '@mui/icons-material';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 interface SalaryReportProps {
     stats: Attendance[];
@@ -78,14 +79,14 @@ interface SalaryReportProps {
     isRefreshing?: boolean;
 }
 
-const formatINRDecimal = (n: number) =>
-    `₹${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+const formatMoneyDecimal = (n: number) =>
+    `${currencyPrefix()}${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString(getCurrencyLocale(), {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;
 
-const formatINRRounded = (n: number) =>
-    `₹${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+const formatMoneyRounded = (n: number) =>
+    `${currencyPrefix()}${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString(getCurrencyLocale(), {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;
@@ -116,7 +117,7 @@ const DeductionPanel = ({
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
     const formatAdjustmentFormula = (calculatedAmount: number, extraAmount: number) => {
         const sign = extraAmount < 0 ? '-' : '+';
-        return `(${formatINRDecimal(calculatedAmount)} ${sign} ${formatINRDecimal(Math.abs(extraAmount))})`;
+        return `(${formatMoneyDecimal(calculatedAmount)} ${sign} ${formatMoneyDecimal(Math.abs(extraAmount))})`;
     };
 
     return (
@@ -146,7 +147,7 @@ const DeductionPanel = ({
                                         {item.value ?? '-'}
                                     </td>
                                     <td style={{ textAlign: 'right' }} className={sensitiveCls}>
-                                        {formatINRDecimal(Number(item.earned || 0))}
+                                        {formatMoneyDecimal(Number(item.earned || 0))}
                                     </td>
                                 </tr>
                             ))}
@@ -164,7 +165,7 @@ const DeductionPanel = ({
                                     className={`fw-bold py-2 ${sensitiveCls}`}
                                     style={{ textAlign: 'right', color: '#1E3A8A' }}
                                 >
-                                    -{formatINRDecimal(totalVariable)}
+                                    -{formatMoneyDecimal(totalVariable)}
                                 </td>
                             </tr>
                         </tbody>
@@ -194,7 +195,7 @@ const DeductionPanel = ({
                             border: '1px solid #E5C8CA',
                         }}
                     >
-                        {formatINRDecimal(intermediateSalary)}
+                        {formatMoneyDecimal(intermediateSalary)}
                     </div>
                 </div>
             </div>
@@ -219,7 +220,7 @@ const DeductionPanel = ({
                             )}
                             {fixedEntries.map(([key, item]: [string, any]) => {
                                 const isPct = String(item.type).toLowerCase() === 'percentage';
-                                const rate = isPct ? `${item.value}%` : formatINRDecimal(Number(item.value || 0));
+                                const rate = isPct ? `${item.value}%` : formatMoneyDecimal(Number(item.value || 0));
                                 const typeLabel = isPct ? 'Percentage' : 'Fixed';
                                 const extraAmount = Number(item.extraAmount || 0);
                                 const calculatedAmount = Number(item.calculatedAmount || 0);
@@ -232,11 +233,11 @@ const DeductionPanel = ({
                                             {rate}
                                         </td>
                                         <td style={{ textAlign: 'right' }} className={sensitiveCls}>
-                                            {isPct ? formatINRDecimal(intermediateSalary) : '—'}
+                                            {isPct ? formatMoneyDecimal(intermediateSalary) : '—'}
                                         </td>
                                         <td style={{ textAlign: 'right' }} className={sensitiveCls}>
                                             <div className="d-flex flex-column align-items-end">
-                                                <span>{formatINRDecimal(earnedAmount)}</span>
+                                                <span>{formatMoneyDecimal(earnedAmount)}</span>
                                                 {extraAmount !== 0 && (
                                                     <span className="text-muted" style={{ fontSize: 10 }}>
                                                         {formatAdjustmentFormula(calculatedAmount, extraAmount)}
@@ -262,7 +263,7 @@ const DeductionPanel = ({
                                     className={`fw-bold py-2 ${sensitiveCls}`}
                                     style={{ textAlign: 'right', color: '#1E3A8A' }}
                                 >
-                                    -{formatINRDecimal(totalFixed)}
+                                    -{formatMoneyDecimal(totalFixed)}
                                 </td>
                             </tr>
                         </tbody>
@@ -288,7 +289,7 @@ const DeductionPanel = ({
                                     border: '1px solid #E5C8CA',
                                 }}
                             >
-                                {formatINRDecimal(intermediateSalary)}
+                                {formatMoneyDecimal(intermediateSalary)}
                             </div>
                         </div>
                     </div>
@@ -345,7 +346,7 @@ const NetAmountPayable = ({
                     className={`fs-2 fw-bolder ${net < 0 ? 'text-danger' : ''} ${sensitiveCls}`}
                     style={{ color: net < 0 ? undefined : '#008C7C' }}
                 >
-                    {formatINRRounded(Math.abs(net))}
+                    {formatMoneyRounded(Math.abs(net))}
                 </div>
             </div>
             {isApiDataLoaded && (
@@ -353,12 +354,12 @@ const NetAmountPayable = ({
                     className={`mt-3 d-flex justify-content-center align-items-center gap-2 px-3 py-2 rounded-2 ${sensitiveCls}`}
                     style={{ backgroundColor: '#D6F4EE', fontSize: 13 }}
                 >
-                    <span className="fw-semibold">{formatINRDecimal(intermediateSalary)}</span>
+                    <span className="fw-semibold">{formatMoneyDecimal(intermediateSalary)}</span>
                     <span className="text-muted">−</span>
-                    <span className="fw-semibold">{formatINRDecimal(totalFixed)}</span>
+                    <span className="fw-semibold">{formatMoneyDecimal(totalFixed)}</span>
                     <span className="text-muted">=</span>
                     <span className="fw-bolder" style={{ color: '#008C7C' }}>
-                        {formatINRRounded(net)}
+                        {formatMoneyRounded(net)}
                     </span>
                 </div>
             )}
@@ -474,16 +475,16 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     // Parse amounts from API data
     const apiTotalGrossPayAmount = parseFloat(
-        apiSalaryData?.totalGrossPayAmount?.replace(/[₹,]/g, '') || '0'
+        apiSalaryData?.totalGrossPayAmount?.replace(/[^0-9.-]/g, '') || '0'
     );
     const apiTotalDeductionsAmount = parseFloat(
-        apiSalaryData?.totalDeductedAmount?.replace(/[₹,]/g, '') || '0'
+        apiSalaryData?.totalDeductedAmount?.replace(/[^0-9.-]/g, '') || '0'
     );
     const apiNetAmount = parseFloat(
-        apiSalaryData?.netAmount?.replace(/[₹,]/g, '') || '0'
+        apiSalaryData?.netAmount?.replace(/[^0-9.-]/g, '') || '0'
     );
     const apiDueAmount = parseFloat(
-        apiSalaryData?.dueAmount?.replace(/[₹,]/g, '') || '0'
+        apiSalaryData?.dueAmount?.replace(/[^0-9.-]/g, '') || '0'
     );
 
     // NEW: Dynamic Breakdown Table Component
@@ -499,7 +500,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         // console.log("grossBreakdownTable:: ",data);
 
         const formatCurrency = (amount: number) => {
-            return `₹${Math.round(amount).toLocaleString('en-IN', {
+            return `${currencyPrefix()}${Math.round(amount).toLocaleString(getCurrencyLocale(), {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0
             })}`;
@@ -662,10 +663,10 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         let totalPaid = 0;
 
         salaryData.forEach(item => {
-            const salary = parseFloat(item.totalGrossPayAmount?.replace(/[₹,]/g, '') || '0');
+            const salary = parseFloat(item.totalGrossPayAmount?.replace(/[^0-9.-]/g, '') || '0');
             const variable = Object.values(item.deductionBreakdown?.variable || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
             const fixed = Object.values(item.deductionBreakdown?.fixed || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
-            const paid = parseFloat(item.amountPaid?.replace(/[₹,]/g, '') || '0');
+            const paid = parseFloat(item.amountPaid?.replace(/[^0-9.-]/g, '') || '0');
 
             totalGrossPay += (salary - variable);
             totalVariableDeduction += variable;
@@ -687,10 +688,10 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const tableRows = useMemo(() => {
         const salaryData = monthlyApiData?.salaryData || [];
         return salaryData.map(item => {
-            const salary = parseFloat(item.totalGrossPayAmount?.replace(/[₹,]/g, '') || '0');
+            const salary = parseFloat(item.totalGrossPayAmount?.replace(/[^0-9.-]/g, '') || '0');
             const variable = Object.values(item.deductionBreakdown?.variable || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
             const fixed = Object.values(item.deductionBreakdown?.fixed || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
-            const paid = parseFloat(item.amountPaid?.replace(/[₹,]/g, '') || '0');
+            const paid = parseFloat(item.amountPaid?.replace(/[^0-9.-]/g, '') || '0');
 
             const grossPay = salary - variable;
             const totalDeduction = variable + fixed;
@@ -795,7 +796,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         console.log("totalGrossPayFixed:: ", totalGrossPayFixed);
         totalGrossPayFixed?.map((fixed, index) => {
             if (fixed?.name && fixed?.name.toLowerCase() !== "basic salary" && fixed?.earned) {
-                finalAmount += Number((fixed.earned).replace(/[₹,]/g, ""))
+                finalAmount += Number((fixed.earned).replace(/[^0-9.-]/g, ''))
             }
         })
         setTotalGrossPayEarned2(finalAmount);
@@ -975,7 +976,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     // COMMENTED: Legacy grossPayFixed calculation - now using API breakdown data
     /*
     const grossPayFixed = salaryCalculationsForDays(totalDaysOfMonthOrYear, allDaysForMonthOrYear, allowances, parseFloat(employee?.ctcInLpa)/12);
-    let totalGrossPayFixedAmount = grossPayFixed.reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[₹,]/g, "")), 0);
+    let totalGrossPayFixedAmount = grossPayFixed.reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[^0-9.-]/g, '')), 0);
 
     useEffect(() => {
         let grossPayFixed = salaryCalculationsForDays(totalDaysOfMonthOrYear, allDaysForMonthOrYear, allowances, parseFloat(employee?.ctcInLpa) / 12);
@@ -996,7 +997,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     // NEW: Fallback grossPayFixed for legacy compatibility (PDF generation, etc.)
     const grossPayFixed = isApiDataLoaded ? [] : salaryCalculationsForDays(totalDaysOfMonthOrYear, allDaysForMonthOrYear, allowances, parseFloat(employee?.ctcInLpa || '0') / 12);
-    const totalGrossPayFixedAmount = isApiDataLoaded ? 0 : (grossPayFixed as any[]).reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[₹,]/g, "")), 0);
+    const totalGrossPayFixedAmount = isApiDataLoaded ? 0 : (grossPayFixed as any[]).reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[^0-9.-]/g, '')), 0);
 
     // --------------------deductions (Variable)------------------
     const lateAttendance = multipleRadialBarData(stats, dayWiseShifts).get(LATE_CHECKIN);
@@ -1020,7 +1021,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         totalListOfMonthsPresent.size
     );
 
-    const totalTaxes = taxes.reduce((acc, tax) => acc + parseFloat((tax.earned).replace(/[₹,]/g, "")), 0);
+    const totalTaxes = taxes.reduce((acc, tax) => acc + parseFloat((tax.earned).replace(/[^0-9.-]/g, '')), 0);
 
     const totalDeductionsEarned =
         multipleLateCheckinEarned +
@@ -2285,7 +2286,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     </div>
                                     <div className="text-muted fs-7 mb-1">{card.label}</div>
                                     <div className={`fs-4 fw-bolder currency-text ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                        {formatStringINR(card.value.toString())}
+                                        {formatMoneyString(card.value.toString())}
                                     </div>
                                 </div>
                             </Col>
@@ -2342,27 +2343,27 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                 </td>
                                                 <td className="text-end">
                                                     <span className={`currency-text ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        {formatINRDecimal(row.calculatedGrossPay)}
+                                                        {formatMoneyDecimal(row.calculatedGrossPay)}
                                                     </span>
                                                 </td>
                                                 <td className="text-end text-danger">
                                                     <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        -{formatINRDecimal(row.calculatedVariableDeduction)}
+                                                        -{formatMoneyDecimal(row.calculatedVariableDeduction)}
                                                     </span>
                                                 </td>
                                                 <td className="text-end text-danger">
                                                     <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        -{formatINRDecimal(row.calculatedFixedDeduction)}
+                                                        -{formatMoneyDecimal(row.calculatedFixedDeduction)}
                                                     </span>
                                                 </td>
                                                 <td className="text-end fw-bold">
                                                     <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        {formatINRDecimal(row.calculatedTotalDeduction)}
+                                                        {formatMoneyDecimal(row.calculatedTotalDeduction)}
                                                     </span>
                                                 </td>
                                                 <td className="text-end fw-bolder text-primary">
                                                     <span className={`currency-text ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        {formatINRRounded(row.calculatedNetSalary)}
+                                                        {formatMoneyRounded(row.calculatedNetSalary)}
                                                     </span>
                                                 </td>
                                                 <td className="text-center">
@@ -2377,7 +2378,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                 </td>
                                                 <td className="text-end fw-bold text-success">
                                                     <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        {formatINRRounded(row.calculatedPaidAmount)}
+                                                        {formatMoneyRounded(row.calculatedPaidAmount)}
                                                     </span>
                                                 </td>
                                                 <td className="text-center">
@@ -2612,7 +2613,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                                 <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{fixed.value}</span>
                                                             </Col>
                                                             <Col xs={4} sm={5} className="text-end">
-                                                                <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatStringINR(totalGrossPayEarned.toString())}</span>
+                                                                <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatMoneyString(totalGrossPayEarned.toString())}</span>
                                                             </Col>
                                                         </Row>
                                                     )
@@ -2626,7 +2627,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                             <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{fixed.value}</span>
                                                         </Col>
                                                         <Col xs={4} sm={5} className="text-end">
-                                                            <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatStringINR(fixed.earned)}</span>
+                                                            <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatMoneyString(fixed.earned)}</span>
                                                         </Col>
                                                     </Row>
                                                 )
@@ -2684,7 +2685,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                             <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{deduction.value}</span>
                                                         </Col>
                                                         <Col xs={4} sm={5} className="text-end">
-                                                            <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatStringINR(deduction.earned)}</span>
+                                                            <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatMoneyString(deduction.earned)}</span>
                                                         </Col>
                                                     </Row>
                                                 ))}

@@ -28,6 +28,7 @@ import { errorConfirmation, successConfirmation } from "./modal";
 import axios from "axios";
 import { EMPLOYEE } from "@constants/api-endpoint";
 import { getTimeTokens } from './timeFormat';
+import { formatCurrencyRounded, getCurrencyLocale, currencyPrefix } from '@utils/currency';
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 // functions for fetching statistics for daily, weekly, monthly, yearly ------ starts here -----
 
@@ -3296,7 +3297,7 @@ export function salaryCalculations(allowances: Record<string, any>, salary: numb
         const obj: SalaryCalculations = {
             name: name,
             value: value.type == 'percentage' ? `${value.value}%` : value.value,
-            earned: `₹${earn}`
+            earned: `${currencyPrefix()}${earn}`
         };
 
         grossPayFixed.push(obj);
@@ -3316,7 +3317,7 @@ export function salaryCalculationsForDays(totalDaysOfMonthOrYearForEmployee: num
             const obj: SalaryCalculations = {
                 name: name,
                 value: value.type == 'percentage' ? `${value.value}%` : value.value,
-                earned: `₹${earn}`
+                earned: `${currencyPrefix()}${earn}`
             };
 
             grossPayFixed.push(obj);
@@ -3334,7 +3335,7 @@ export function salaryCalculationsForDays(totalDaysOfMonthOrYearForEmployee: num
         const obj: SalaryCalculations = {
             name: name,
             value: value.type == 'percentage' ? `${value.value}%` : value.value,
-            earned: `₹${earn}`
+            earned: `${currencyPrefix()}${earn}`
         };
 
         grossPayFixed.push(obj);
@@ -3696,20 +3697,19 @@ export async function fetchEmpAllTimeKpiStatistics(fromAdmin: boolean = false, s
 }
 
 // ================================================================================
-// format number to currency in INR, 
-export const formatNumber = (number: number | string) => {
-    return Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    }).format(Number(number));
-}
+/**
+ * A whole-rupee money string, in whatever currency the app is currently showing.
+ *
+ * Kept as a one-line delegate rather than folded into its 117 call sites: the name does
+ * not claim a currency, so it stays honest, and re-pointing the body is what makes every
+ * one of those call sites correct.
+ */
+export const formatNumber = (number: number | string) => formatCurrencyRounded(number);
 
 // format string to currency in INR
-export const formatStringINR = (str: string | number) => {
+export const formatMoneyString = (str: string | number) => {
     const num = parseFloat(str.toString().replace(/[^0-9.-]+/g, '')); // removes ₹, commas, etc.
-    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    return `${currencyPrefix()}${num.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
 /**
