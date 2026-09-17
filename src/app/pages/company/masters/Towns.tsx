@@ -144,11 +144,7 @@ function Towns() {
     return (
         <>
             <style>{KEYFRAMES}</style>
-            <ConfigPageLayout
-              title="Towns"
-              subtitle="Manage towns and geographical locations"
-              icon="bi-geo-alt"
-            >
+            <ConfigPageLayout>
               <ConfigSectionCard
                 title={`${data.length} Town${data.length !== 1 ? 's' : ''}`}
                 description="View and manage all towns and geographical locations"

@@ -123,6 +123,15 @@ Single source of truth: `src/utils/currency.ts` + `src/hooks/useCurrency.ts`. Re
 - Notifications: prefer the kit's `toast` / `confirmDialog` / `alertDialog` (`ui/feedback.ts`). react-toastify / sonner / sweetalert2 all exist from earlier eras; don't add new direct usages.
 - Heavy libs (PDF, charts, maps, xlsx) are code-split via `manualChunks` in `vite.config.ts`. Prefer lazy-loading heavy routes/components; don't import a vendor bundle into a hot common path.
 
+## Lead / Entity module
+Docs live in **[`../LEAD_DB_CHANGES/`](../LEAD_DB_CHANGES/00_START_HERE.md)** — start at `00_START_HERE.md`; see also the [product audit](../LEAD_DB_CHANGES/LEAD_WORLD_CLASS_AUDIT.md) and [target architecture](../LEAD_DB_CHANGES/LEAD_CRM_ARCHITECTURE.md). Screens under `pages/employee/entity/`.
+
+- **Lead-as-Master: the "project" IS the lead** — one row, one `prefix`, inquiry through billing. `EntityDetailPage` renders both lifecycles on one record; the Project view opens on a status whose `isProjectTrigger` flag is set — **never on `name === "Received"`**.
+- **The Source column renders blank today.** `EntityTablePage.tsx:692` and `ContactLeadsOverview.tsx:71` read dead columns (`source`, `sourceId`, `leadSource`); the live ones are `leadDirectSource` / `leadSourceType`. **`SummarySection.tsx:135` already has the correct precedence — copy it, don't reinvent it.** The Source *filter* compares the same empty value.
+- **Leads Configure is the UI reference for every other configuration screen.** "Make them the same" means porting the Leads layout INTO the other screen — never restyling Leads to match something else.
+- `EntityTablePage.tsx` (~2.4k lines) downloads the entire table and evaluates ~30 filter predicates client-side. **Don't add a 31st** — the target is server-side query params + `manualPagination` + row virtualization, all of which the table kit already supports.
+- The Activity/Timeline component is **written and not mounted**, and no backend write path fills it yet. Mounting is ~10 lines once `connections` has writers — don't build a second timeline in the meantime.
+
 ## Billing module (partly built)
 Plan: [../BILLING/INDEX.md](../BILLING/INDEX.md). The project Billing tab already exists as a placeholder — `pages/employee/entity/detail/sections/BillingSection.tsx`, registered in `detail/facets.ts` and rendered from `EntityDetailPage.tsx`. It predates the UI standard (raw divs, hardcoded hex), so **replace it wholesale rather than extending it**.
 

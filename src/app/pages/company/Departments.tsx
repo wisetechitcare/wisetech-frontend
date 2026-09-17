@@ -191,11 +191,7 @@ function Departments() {
     return (
         <>
             <style>{KEYFRAMES}</style>
-            <ConfigPageLayout
-              title="Departments"
-              subtitle="Manage departments and organizational structure"
-              icon="bi-diagram-3"
-            >
+            <ConfigPageLayout>
               {hasPermission(resourceNameMapWithCamelCase.department, permissionConstToUseWithHasPermission.readOthers) && (
                 <ConfigSectionCard
                   title={`${departments.length} Department${departments.length !== 1 ? 's' : ''}`}

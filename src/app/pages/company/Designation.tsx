@@ -172,11 +172,7 @@ function Designations() {
     return (
         <>
             <style>{KEYFRAMES}</style>
-            <ConfigPageLayout
-              title="Designations"
-              subtitle="Manage job designations and roles in your organization"
-              icon="bi-briefcase"
-            >
+            <ConfigPageLayout>
               {hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.readOthers) && (
                 <ConfigSectionCard
                   title={`${data.length} Designation${data.length !== 1 ? 's' : ''}`}

@@ -52,7 +52,7 @@ import {
     ShieldAlert, SlidersHorizontal, SquareCheck, SquareMinus, TextAlignStart,
     TextCursorInput, ToggleLeft, TrendingUp, UserPen, UserRound, Venus, Video, VideoOff,
     Wifi, Zap,
-    CircleArrowLeft, PanelLeft,
+    CircleArrowLeft, PanelLeft, Minimize,
     CirclePause, Pause, CirclePlay, Play,
 } from 'lucide-react';
 
@@ -175,7 +175,7 @@ const KEENICON_VIA_BI: Record<string, AppIconComponent> = {
     'dots-horizontal': Ellipsis, 'dots-square': Grip, 'entrance-left': LogIn,
     'entrance-right': LogOut, 'exit-down': Download, 'file-deleted': FileX,
     'file-up': FileUp, 'flash-circle': Zap, 'grid-frame': LayoutGrid, 'home': House,
-    'information-2': Info, 'information-3': Info, 'kanban': Columns3, 'maximize': Maximize,
+    'information-2': Info, 'information-3': Info, 'kanban': Columns3, 'maximize': Maximize, 'minimize': Minimize,
     'minus-square': SquareMinus, 'notepad': Notebook, 'notification-status': BellDot,
     'picture': Image, 'plus-circle': CirclePlus, 'profile-user': UserRound,
     'question': CircleQuestionMark, 'setting-4': SlidersHorizontal, 'teacher': GraduationCap,

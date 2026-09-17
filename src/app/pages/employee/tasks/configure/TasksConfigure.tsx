@@ -642,9 +642,6 @@ const TasksConfigure = () => {
     <>
       <style>{KEYFRAMES}</style>
       <ConfigPageLayout
-        title="Tasks Configuration"
-        subtitle="Manage task statuses, priorities, project tasks, stages and deliverables"
-        icon="bi-list-check"
         tabs={[
           { id: 'settings', label: 'Settings', icon: 'bi-gear', badge: projectCategories.length + projectSubcategories.length },
           { id: 'tasks', label: 'Project Tasks', icon: 'bi-clipboard-check', badge: projectServices.length },
