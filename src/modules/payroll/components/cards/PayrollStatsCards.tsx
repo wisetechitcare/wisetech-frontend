@@ -9,7 +9,8 @@ import { Box, Skeleton } from '@mui/material';
 import YearlyKpiCard, { YearlyKpiCardProps } from '@pages/employee/salary/personal/views/my-salary/Toggle/components/salary/YearlyKpiCard';
 import KpiCompactList from '@pages/employee/salary/personal/views/my-salary/Toggle/components/salary/KpiCompactList';
 import { PayrollSummary } from '../../types/payroll.types';
-import { formatINRDecimal } from '../../utils/payrollFormatters';
+import { formatMoneyDecimal } from '../../utils/payrollFormatters';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 interface PayrollStatsCardsProps {
     summaryData: PayrollSummary;
@@ -20,7 +21,7 @@ interface PayrollStatsCardsProps {
 }
 
 const fmtAbs = (n: number) =>
-    `₹${Math.trunc(Math.abs(n)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    `${currencyPrefix()}${Math.trunc(Math.abs(n)).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 const pendingFooter = (amount: number): { label: string; value: string } => {
     const rounded = Math.trunc(amount);
@@ -105,7 +106,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
         {
             label:      'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS',
             sublabel:   'After variable deductions',
-            value:      formatINRDecimal(totalAfterAttendance),
+            value:      formatMoneyDecimal(totalAfterAttendance),
             footer:     monthLabel,
             footerValue: '',
             tone:       'blue',
@@ -115,7 +116,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
         {
             label:       deductionLabel,
             sublabel:    'Govt. & statutory charges',
-            value:       formatINRDecimal(govtDeductions),
+            value:       formatMoneyDecimal(govtDeductions),
             footer:      deductionFt.label,
             footerValue: deductionFt.value,
             tone:        'purple',
@@ -126,7 +127,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
             ? [{
                 label:       'COMPANY DEDUCTION (RETENTION)',
                 sublabel:    'Fresher bond held back',
-                value:       formatINRDecimal(retentionTotal),
+                value:       formatMoneyDecimal(retentionTotal),
                 footer:      retentionFt.label,
                 footerValue: retentionFt.value,
                 tone:        'amber' as const,
@@ -137,7 +138,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
         {
             label:       'PAYABLE SALARY',
             sublabel:    'Net take-home amount',
-            value:       formatINRDecimal(Math.abs(summaryData.netSalary)),
+            value:       formatMoneyDecimal(Math.abs(summaryData.netSalary)),
             footer:      payableFt.label,
             footerValue: payableFt.value,
             tone:        summaryData.netSalary < 0 ? 'danger' : 'green',
@@ -148,7 +149,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
             ? [{
                 label:       'PENDING ARREARS',
                 sublabel:    'Backdated increments',
-                value:       formatINRDecimal(summaryData.totalPendingArrears!),
+                value:       formatMoneyDecimal(summaryData.totalPendingArrears!),
                 footer:      `${summaryData.arrearCount ?? 0} record(s)`,
                 footerValue: fmtAbs(summaryData.totalPendingArrears!),
                 tone:        'amber' as const,

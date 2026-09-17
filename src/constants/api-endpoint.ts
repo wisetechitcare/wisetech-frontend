@@ -16,6 +16,7 @@ export const RECRUITMENT = {
     GET_OVERVIEW: "api/recruitment/overview",
     CREATE_REQUISITION: "api/recruitment/requisitions",
     GET_ALL_REQUISITIONS: "api/recruitment/requisitions",
+    GET_BRANCHES: "api/recruitment/branches",
     GET_REQUISITION_BY_ID: "api/recruitment/requisitions/:id",
     UPDATE_REQUISITION: "api/recruitment/requisitions/:id",
     UPDATE_REQUISITION_SECTION: "api/recruitment/requisitions/:id/section",
@@ -98,6 +99,8 @@ export const COMPANY = {
     GET_DEPARTMENT_BY_ID: "api/company/department/:departmentId",
     UPDATE_DEPARTMENT_BY_ID: "api/company/department/:departmentId",
     ARCHIVE_DEPARTMENT_BY_ID: (id: string) => `api/company/departments/${id}`,
+    GET_DEPARTMENT_DESIGNATIONS: "api/company/department-designations",
+    SET_DEPARTMENT_DESIGNATIONS: "api/company/departments/:departmentId/designations",
     CREATE_PUBLIC_HOLIDAYS: "api/company/public-holidays",
     DELETE_PUBLIC_HOLIDAY_BY_ID: "api/company/public-holiday",
     UPDATE_PUBLIC_HOLIDAY_BY_ID: "api/company/public-holiday",
@@ -508,6 +511,9 @@ export const LEAD_PROJECT_COMPANY = {
 
     GET_PROJECTS_BY_COMPANY_ID: "api/lead-project-companies/projects/company/:companyId",
     GET_PROJECTS_BY_EMPLOYEE_ID: "api/lead-project-companies/projects/employee/:employeeId",
+    GET_ASSIGNABLE_PROJECTS: "api/lead-project-companies/projects/assignable",
+    ASSIGN_PROJECTS: "api/lead-project-companies/projects/assign",
+    GET_MANAGED_PROJECTS: "api/lead-project-companies/projects/managed-by/:employeeId",
     GET_RATING_BY_COMPANY_ID: "api/lead-project-companies/company/rating/:companyId",
     GET_LEADS_BY_COMPANY_ID: "api/lead-project-companies/company/leads/:companyId",
 
@@ -837,6 +843,10 @@ export const CLIENT_COMPANIES = {
     CREATE_LEAD: "api/lead-project-companies/client-companies/leads",
     UPDATE_LEAD: "api/lead-project-companies/client-companies/leads/:id",
     UPDATE_LEAD_SECTION: "api/lead-project-companies/client-companies/leads/:id/section",
+    // Per-person follow-up notes. "Mine" is the session, not a parameter — neither path
+    // names whose reminder it is.
+    GET_MY_LEAD_REMINDERS: "api/lead-project-companies/client-companies/lead-reminders/mine",
+    SET_MY_LEAD_REMINDER: "api/lead-project-companies/client-companies/leads/:id/reminder",
     DELETE_LEAD: "api/lead-project-companies/client-companies/leads/:id",
 
     GET_ALL_CLIENT_COMPANIES: "api/lead-project-companies/client-companies",

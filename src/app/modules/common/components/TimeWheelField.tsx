@@ -1,8 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useTimeFormat } from '@hooks/useTimeFormat';
-import { writeTimeFormatPreference } from '@utils/timeFormat';
 import { KTIcon } from '@metronic/helpers';
-import { Box, ButtonBase, Popover, Typography, useTheme } from '@mui/material';
+import { Box, ButtonBase, Popover, Tooltip, Typography, useTheme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { TRIO, type Trio } from '@app/modules/common/components/ui/tw';
 
@@ -17,8 +16,28 @@ import { TRIO, type Trio } from '@app/modules/common/components/ui/tw';
  */
 
 const HOURS_24 = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-const HOURS_12 = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+/** 12-hour clock order — 12 leads, as it does on a clock face. */
+const HOURS_12 = ['12', ...Array.from({ length: 11 }, (_, i) => String(i + 1).padStart(2, '0'))];
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+
+/**
+ * The minutes a field offers, given its step.
+ *
+ * A step exists because some fields are read by a job that only wakes periodically — the
+ * birthday greeting runs every quarter hour — and offering a precision the consumer cannot
+ * honour invites somebody to set 4:37 and wonder why it went at 4:45. Default 1 keeps every
+ * existing caller on all sixty minutes.
+ *
+ * A value ALREADY stored off-step stays in the list. Dropping it would leave the wheel
+ * highlighting nothing while the field above it shows a minute the wheel does not contain,
+ * which reads as a broken control rather than as a stale value. It stays selectable until
+ * the reader picks something else, and every new choice is on-step.
+ */
+const minuteOptions = (step: number, current: string): string[] => {
+    if (step <= 1) return MINUTES;
+    const stepped = Array.from({ length: Math.ceil(60 / step) }, (_, i) => String(i * step).padStart(2, '0'));
+    return stepped.includes(current) ? stepped : [...stepped, current].sort();
+};
 const to12 = (h: number) => String(h % 12 || 12).padStart(2, '0');
 
 
@@ -28,8 +47,11 @@ const to12 = (h: number) => String(h % 12 || 12).padStart(2, '0');
  * one the tables and `getTimeTokens` read — not a setting private to this picker. Two stores
  * would mean a table showing "8:00 AM" beside a wheel offering 20:00.
  *
- * The toggle in the popover writes through to it, so flipping the format here changes it
- * everywhere, and the settings screen and this control can never disagree.
+ * The popover therefore SHOWS the format and does not change it. It used to carry a toggle
+ * that wrote the preference through, which read as a per-field switch while changing the whole
+ * app — and, because App.tsx keys the routed tree on the resolved format, discarded any
+ * half-filled form the picker was opened from. Settings > Date & Time is the one place it
+ * changes; the label here just says which format is in force.
  */
 // 32, not 40. Five rows plus two rows of padding meant the popover stood 360px tall before
 // its header and button — taller than most of the dialogs it opens inside. The touch target is
@@ -116,9 +138,15 @@ export interface TimeWheelFieldProps {
     invalid?: boolean;
     /** Stretch to the container width (default) or size to content (compact rows). */
     fullWidth?: boolean;
+    /**
+     * Minutes to offer, as a step. Default 1 — every minute, which is what every existing
+     * caller gets. Pass 15 where the value feeds something that only acts on the quarter
+     * hour, so the control cannot promise a precision the consumer will round away.
+     */
+    minuteStep?: number;
 }
 
-export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, invalid = false, fullWidth = true }: TimeWheelFieldProps) {
+export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, invalid = false, fullWidth = true, minuteStep = 1 }: TimeWheelFieldProps) {
     const [anchor, setAnchor] = useState<HTMLElement | null>(null);
     const open = Boolean(anchor);
     const theme = useTheme();
@@ -128,6 +156,10 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
     const mm = m ? m[2] : '00';
     const meridiem = h24 >= 12 ? 'PM' : 'AM';
     const hh = hour12 ? to12(h24) : String(h24).padStart(2, '0');
+    // The closed field must read exactly like the same value in a table, which renders
+    // through formatTimeString's `h:mm A` — no leading zero. `hh` stays padded because the
+    // wheel matches its selection against the padded column items.
+    const displayHour = hour12 ? String(h24 % 12 || 12) : hh;
     // Every write goes back out as 24h "HH:MM" — the display format is a view over the value,
     // never part of it, so no caller has to know which way the picker happens to be showing.
     const emit = (h: number) => onChange(`${String(h).padStart(2, '0')}:${mm}`);
@@ -156,7 +188,7 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
                 }}
             >
                 <Typography component="span" sx={{ fontSize: 14, fontWeight: 600, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
-                    {hh}<Box component="span" sx={{ color: tone.c, mx: 0.5 }}>:</Box>{mm}
+                    {displayHour}<Box component="span" sx={{ color: tone.c, mx: 0.5 }}>:</Box>{mm}
                     {hour12 && <Box component="span" sx={{ ml: 0.75, fontSize: 11, fontWeight: 700, color: 'text.secondary' }}>{meridiem}</Box>}
                 </Typography>
                 {/* Tinted to the field's own accent rather than left at body grey: it is the one
@@ -181,29 +213,32 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
                         states the value it is editing and nothing about who is editing it. */}
                     <Box sx={{ px: 1.25, py: 0.75, borderBottom: `1px solid ${theme.palette.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                         <Typography sx={{ fontSize: 15, fontWeight: 800, color: tone.c, fontVariantNumeric: 'tabular-nums' }}>
-                            {hh}:{mm}{hour12 ? ` ${meridiem}` : ''}
+                            {displayHour}:{mm}{hour12 ? ` ${meridiem}` : ''}
                         </Typography>
-                        {/* Not the shared SegmentedControl: that one is hardwired to a light track
-                            and a navy label, which is a pale blob on this popover in dark mode and
-                            ignores the field's tone. Two pills, themed like the wheel itself. */}
-                        <Box sx={{ display: 'flex', gap: '2px', p: '2px', borderRadius: '6px', bgcolor: alpha(theme.palette.text.primary, 0.07) }}>
-                            {([['12h', true], ['24h', false]] as const).map(([label, is12]) => (
-                                <ButtonBase
-                                    key={label}
-                                    onClick={() => writeTimeFormatPreference(is12 ? '12h' : '24h')}
-                                    aria-pressed={hour12 === is12}
-                                    sx={{
-                                        px: 0.75, height: 20, borderRadius: '4px', fontSize: 10.5, fontWeight: 700,
-                                        color: hour12 === is12 ? '#fff' : 'text.secondary',
-                                        bgcolor: hour12 === is12 ? tone.c : 'transparent',
-                                        transition: 'background-color .14s, color .14s',
-                                        '&:hover': { bgcolor: hour12 === is12 ? tone.c : alpha(tone.c, 0.15) },
-                                    }}
-                                >
-                                    {label}
-                                </ButtonBase>
-                            ))}
-                        </Box>
+                        {/* A LABEL, not a switch.
+                            It was two pills that wrote the app-wide preference. That is a global
+                            write from a control that reads as local to this one field, and it was
+                            unsafe for a concrete reason: App.tsx keys the routed tree on the
+                            resolved format (~15 screens format inside memoised column definitions
+                            that a re-render will not refresh), so flipping it remounted the tree
+                            and discarded whatever the user had typed. This picker opens inside the
+                            attendance correction form, the leave policy modal, the meeting form and
+                            the task dialog — every one of them a half-filled form.
+                            A link would lose the form the same way, so this navigates nowhere. It
+                            answers "why is this 24-hour?" in place and sends the reader to the one
+                            screen that changes it. */}
+                        <Tooltip title="Your time format is an app-wide setting. Change it in Settings > Date & Time.">
+                            <Typography
+                                component="span"
+                                sx={{
+                                    px: 0.75, height: 20, display: 'inline-flex', alignItems: 'center',
+                                    borderRadius: '4px', fontSize: 10.5, fontWeight: 700, cursor: 'help',
+                                    color: 'text.secondary', bgcolor: alpha(theme.palette.text.primary, 0.07),
+                                }}
+                            >
+                                {hour12 ? '12h' : '24h'}
+                            </Typography>
+                        </Tooltip>
                     </Box>
                     <Box sx={{ display: 'grid', gridTemplateColumns: hour12 ? '1fr auto 1fr auto' : '1fr auto 1fr', alignItems: 'stretch' }}>
                         {/* Keyed on the format: a column centres its selection on mount only, so
@@ -214,7 +249,7 @@ export function TimeWheelField({ value, onChange, disabled, tone = TRIO.blue, in
                             selected={hh} tone={tone} onSelect={pickHour}
                         />
                         <Box sx={{ display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 800, color: 'text.disabled' }}>:</Box>
-                        <WheelColumn items={MINUTES} selected={mm} tone={tone} onSelect={(mi) => onChange(`${String(h24).padStart(2, '0')}:${mi}`)} />
+                        <WheelColumn items={minuteOptions(minuteStep, mm)} selected={mm} tone={tone} onSelect={(mi) => onChange(`${String(h24).padStart(2, '0')}:${mi}`)} />
                         {/* Two choices, so buttons — a scroll wheel of two rows is a wheel that
                             cannot centre and has to be dragged before it can be read. */}
                         {hour12 && (

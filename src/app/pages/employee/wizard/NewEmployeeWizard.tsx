@@ -9,6 +9,11 @@ import { StepperComponent } from "@metronic/assets/ts/components";
 import { KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { uploadUserAsset } from "@services/uploader";
+import dayjs from "dayjs";
+import { DATE_FORMATS, formatDate } from "@utils/dateFormats";
+import { confirmDialog } from "@app/modules/common/components/ui";
+import ManagerHandoverDialog, { type ManagerReplacement } from "@app/modules/common/components/ManagerHandoverDialog";
+import { getManagedProjects, type ManagedProject } from "@services/projects";
 // Only the section-id/field-map constants are still needed — the step components
 // they used to accompany are superseded by OnboardingWorkspace's 7-step config.
 import { SECTION_OF_FIELD, ALL_SECTION_IDS } from "./steps/Step2";
@@ -1137,6 +1142,8 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   const stepperRef = useRef<HTMLDivElement | null>(null);
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
   const formikRef = useRef<any>(null);
+  // Exit handover: the save awaits this dialog's answer (resolve), then carries on.
+  const [handover, setHandover] = useState<{ employeeId: string; name: string; projects: ManagedProject[]; resolve: (r: ManagerReplacement[]) => void } | null>(null);
   const profilePhotoPreviewRef = useRef<string>("");
   const [stepper, setStepper] = useState<StepperComponent | null>(null);
   const [activeStepIndex, setActiveStepIndex] = useState(1);
@@ -1481,6 +1488,43 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   };
 
   const updateWizardData = async (values: any) => {
+    // Leaving (exit date added/changed, or switched to inactive) → offer to end their projects
+    // on that date. The backend does it by default; "No" sends applyExitToProjects=false.
+    const initial = formikRef.current?.initialValues;
+    const day = (v: any) => (v ? dayjs(v).format(DATE_FORMATS.WIRE) : "");
+    // The LAST stint's end: Date of Exit, or the latest Re-Exit in the rejoin history.
+    // "" while a stint is still open (no exit yet, or rejoined without a re-exit).
+    // Rejoin history is saved in a separate request after the employee, so the
+    // backend can't see a new Re-Exit. The date is sent explicitly as projectEndDate.
+    const finalExit = (v: any): string => {
+      const ends = [v?.dateOfExit, ...(v?.rejoinHistory ?? []).filter((r: any) => r?.dateOfReJoining).map((r: any) => r?.dateOfReExit)].map(day);
+      return ends.some((d) => !d) ? "" : ends.reduce((a, b) => (b > a ? b : a));
+    };
+    const exitDay = finalExit(values);
+    const exitChanged = !!exitDay && exitDay !== finalExit(initial);
+    const deactivated = initial?.isEmployeeActive === "1" && values.isEmployeeActive !== "1";
+    let applyExitToProjects: boolean | undefined;
+    if (exitChanged || deactivated) {
+      const endOn = exitDay ? formatDate(exitDay) : "today";
+      applyExitToProjects = await confirmDialog({
+        icon: "question",
+        title: "End their projects too?",
+        html: `Set <b>${endOn}</b> as the end date on every project ${String(values.firstName || "this employee").replace(/[<>&"]/g, "")} is still on?`
+          + `<br/><small>You can still change a project's end date later on its Teams tab.</small>`,
+        confirmText: "Yes, end projects",
+        cancelText: "No, keep them",
+      });
+    }
+    // Still a project manager somewhere? Ask who takes over before saving.
+    let managerReplacements: ManagerReplacement[] | undefined;
+    if (applyExitToProjects && values.employeeId) {
+      const managed = await getManagedProjects(values.employeeId).catch(() => []);
+      if (managed.length) {
+        const name = `${values.firstName ?? ""} ${values.lastName ?? ""}`.trim() || "This employee";
+        managerReplacements = await new Promise<ManagerReplacement[]>((resolve) => setHandover({ employeeId: values.employeeId, name, projects: managed, resolve }));
+      }
+    }
+
     const { data: { companyOverview } } = await fetchCompanyOverview();
     const companyId = values.subOrganizationId || values.organizationId || (resolveActiveOrgId(companyOverview) ?? '');
     const {
@@ -1599,6 +1643,9 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(panNumber && { panNumber }), ...(panCardPath && { panCardPath }),
       ...(anniversary && { anniversary }), referredById: referredById || null, referredByName: referredByName || null,
       ...(dateOfExit && { dateOfExit }),
+      ...(applyExitToProjects !== undefined && { applyExitToProjects }),
+      ...(applyExitToProjects && exitDay && { projectEndDate: exitDay }),
+      ...(managerReplacements && { managerReplacements }),
       ...(vegMealPreference && { vegMealPreference }),
       ...(nonVegMealPreference && { nonVegMealPreference }),
       ...(veganMealPreference && { veganMealPreference }),
@@ -2074,6 +2121,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   };
 
   return (
+    <>
     <Modal
       show={show}
       onHide={handleClose}
@@ -2163,6 +2211,14 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         </Modal.Body>
       </div>
     </Modal>
+    <ManagerHandoverDialog
+      open={!!handover}
+      employeeId={handover?.employeeId ?? ""}
+      employeeName={handover?.name ?? ""}
+      projects={handover?.projects ?? []}
+      onDone={(r) => { handover?.resolve(r); setHandover(null); }}
+    />
+    </>
   );
 }
 

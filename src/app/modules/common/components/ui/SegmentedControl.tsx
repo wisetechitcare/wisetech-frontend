@@ -1,4 +1,4 @@
-import { Box } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
 
 export interface SegmentedOption<T extends string> {
@@ -6,6 +6,18 @@ export interface SegmentedOption<T extends string> {
   label: string;
   /** Trailing count, e.g. `Active (37)`. Rendered dimmer than the label. */
   count?: number;
+  /**
+   * A choice that exists but cannot be taken right now.
+   *
+   * Dimmed and unclickable rather than removed, because a segmented control is
+   * read as the complete set of options — dropping one silently changes what
+   * the reader believes the choice IS. Pair it with `disabledReason` so the
+   * segment can say why on hover, and state the reason in the surrounding copy
+   * too: a tooltip is a hint, not an explanation.
+   */
+  disabled?: boolean;
+  /** Hover/assistive text for a disabled segment. */
+  disabledReason?: string;
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -24,12 +36,12 @@ export interface SegmentedControlProps<T extends string> {
  * control.
  *
  * This is the same visual language as `PeriodTabs` (Monthly · Yearly · All Time):
- * a bordered white track, and on the selection a blue label with a 2px blue line
- * under it. The period component is hardwired to time periods — its modes
- * are a fixed union and its labels are internal — so anything that is NOT a period
- * had to hand-roll its own row of pills, which is how the same control ended up
- * with several different looks across the app. This is that control with the
- * choices left open.
+ * a bordered track, unselected segments on the lightest grey, and the selection in
+ * white with a blue label and a 3px blue line under it. The period component is
+ * hardwired to time periods — its modes are a fixed union and its labels are
+ * internal — so anything that is NOT a period had to hand-roll its own row of
+ * pills, which is how the same control ended up with several different looks
+ * across the app. This is that control with the choices left open.
  *
  * Use it for status filters, view switches, or any 2–5 way exclusive choice. For
  * more options than that, or non-exclusive ones, use a select or chips instead —
@@ -38,6 +50,15 @@ export interface SegmentedControlProps<T extends string> {
 export function SegmentedControl<T extends string>({
   options, value, onChange, ariaLabel, fullWidth = false, sx,
 }: SegmentedControlProps<T>) {
+  /**
+   * Mode-aware palette, so the track and labels stay legible on a dark page. In light
+   * mode the selection is pure white over the lightest-grey unselected segments.
+   */
+  const dark = useTheme().palette.mode === 'dark';
+  const C = dark
+    ? { track: '#161b22', pill: '#21262d', hover: '#1c2128', border: '#30363d', idle: '#8b949e', on: '#8AA3EC', line: '#8AA3EC' }
+    : { track: '#F8FAFC', pill: '#ffffff', hover: '#F1F5F9', border: '#E2E8F0', idle: '#64748B', on: '#1E3A8A', line: '#1E3A8A' };
+
   return (
     <Box
       role="tablist"
@@ -47,14 +68,15 @@ export function SegmentedControl<T extends string>({
         alignItems: 'stretch',
         minHeight: 32,
         borderRadius: '8px',
-        border: '1px solid #E2E8F0',
-        bgcolor: '#ffffff',
+        border: `1px solid ${C.border}`,
+        bgcolor: C.track,
         width: fullWidth ? '100%' : 'fit-content',
         overflow: 'hidden',
       }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
     >
       {options.map((option) => {
         const active = option.value === value;
+        const off = Boolean(option.disabled);
         return (
           <Box
             key={option.value}
@@ -62,12 +84,14 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="tab"
             aria-selected={active}
-            onClick={() => onChange(option.value)}
+            disabled={off}
+            title={off ? option.disabledReason : undefined}
+            onClick={() => { if (!off) onChange(option.value); }}
             sx={{
               position: 'relative',
               flex: fullWidth ? 1 : 'none',
               border: 0,
-              '&:not(:first-of-type)': { borderLeft: '1px solid #E2E8F0' },
+              '&:not(:first-of-type)': { borderLeft: `1px solid ${C.border}` },
               // Metronic's unlayered Bootstrap button rules outrank a utility
               // class, so the radius has to be stated here to hold.
               borderRadius: 0,
@@ -77,12 +101,14 @@ export function SegmentedControl<T extends string>({
               fontSize: 12,
               fontWeight: active ? 700 : 600,
               whiteSpace: 'nowrap',
-              cursor: 'pointer',
+              cursor: off ? 'not-allowed' : 'pointer',
               transition: 'background-color 150ms ease, color 150ms ease',
-              // Lightest grey behind unselected segments so the white selection stands out.
-              bgcolor: active ? '#ffffff' : '#F8FAFC',
-              color: active ? '#1E3A8A' : '#64748B',
-              '&:hover': { bgcolor: active ? '#ffffff' : '#F1F5F9' },
+              bgcolor: active ? C.pill : C.track,
+              color: active ? C.on : C.idle,
+              // Dimmed rather than greyed to a fourth colour: the segment keeps
+              // its own colour so it still reads as one of the set.
+              opacity: off ? 0.42 : 1,
+              '&:hover': { bgcolor: active || off ? undefined : C.hover },
             }}
           >
             {option.label}
@@ -111,7 +137,7 @@ export function SegmentedControl<T extends string>({
                   right: 0,
                   bottom: 0,
                   height: '3px',
-                  bgcolor: '#1E3A8A',
+                  bgcolor: C.line,
                   pointerEvents: 'none',
                 }}
               />

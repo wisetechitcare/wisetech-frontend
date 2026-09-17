@@ -44,6 +44,19 @@ export const KIT_SWATCHES: readonly ColorSwatch[] = (
     label: name.charAt(0).toUpperCase() + name.slice(1),
 }));
 
+/**
+ * The same palette, STORED AS HEX.
+ *
+ * `KIT_SWATCHES` stores a tone NAME (`blue`), which is right when the consumer resolves that
+ * name back through TRIO. A record whose colour is painted directly — a config master's dot,
+ * a calendar chip, a status pill — must store the hex, or the element is handed the literal
+ * string "rose", which is not a colour and silently renders as nothing.
+ *
+ * Use this for anything whose colour column is a hex, so those screens still offer the kit
+ * palette instead of only the browser's picker.
+ */
+export const KIT_HEX_SWATCHES: readonly ColorSwatch[] = KIT_SWATCHES.map((s) => ({ ...s, value: s.hex }));
+
 /** True when a stored value is a literal colour rather than a palette name. */
 export const isHexColor = (value: unknown): value is string =>
     typeof value === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim());

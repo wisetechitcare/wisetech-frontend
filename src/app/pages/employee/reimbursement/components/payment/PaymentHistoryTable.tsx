@@ -4,7 +4,7 @@ import MaterialTable from '@app/modules/common/components/MaterialTable';
 import ExportButton from '@app/modules/common/components/ExportButton';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
 import { StatusBadge } from '@app/modules/common/components/ui/patterns';
-import { fmtDate, formatINR, PAYMENT_TONE } from '../../utils/reimbursementFormat';
+import { fmtDate, formatMoney, PAYMENT_TONE } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow, PaymentRecord } from './paymentData';
 import PaymentEmptyState from './PaymentEmptyState';
 
@@ -102,10 +102,10 @@ export default function PaymentHistoryTable({
             size: 135,
             Cell: ({ renderedCellValue }: any) => (
                 <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: '#16a34a' }}>
-                    {formatINR(Number(renderedCellValue))}
+                    {formatMoney(Number(renderedCellValue))}
                 </Box>
             ),
-            Footer: () => <span style={{ fontWeight: 800, color: '#16a34a' }}>{formatINR(total)}</span>,
+            Footer: () => <span style={{ fontWeight: 800, color: '#16a34a' }}>{formatMoney(total)}</span>,
         },
         {
             accessorKey: 'status',
@@ -246,7 +246,7 @@ export default function PaymentHistoryTable({
                                 fontSize: 15, fontWeight: 800, color: '#16a34a',
                                 fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
                             }}>
-                                {formatINR(r.amountPaid)}
+                                {formatMoney(r.amountPaid)}
                             </Typography>
                         </Box>
                         <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>

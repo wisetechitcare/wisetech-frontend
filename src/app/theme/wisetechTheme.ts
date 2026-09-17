@@ -82,10 +82,15 @@ export function makeWisetechTheme(mode: 'light' | 'dark' = 'light', brand: Brand
             color: dark ? GH_DARK.fg : '#ffffff',
             border: dark ? `1px solid ${GH_DARK.border}` : undefined,
             fontFamily: T.font.family,
-            fontSize: 11.5,
+            // 13, up from 11.5. A tooltip is read once, at speed, often to recover text a
+            // cell has clipped — so it is the wrong place to be economical with size. 11.5
+            // was below the app's own smallest body text while carrying content the reader
+            // came looking for. The padding moves with it so the bubble keeps its shape
+            // rather than tightening around bigger type.
+            fontSize: 13,
             fontWeight: 600,
             letterSpacing: 0.2,
-            padding: '5px 9px',
+            padding: '7px 11px',
             borderRadius: 7,
             boxShadow: popShadow,
           },
@@ -119,6 +124,12 @@ export function makeWisetechTheme(mode: 'light' | 'dark' = 'light', brand: Brand
         },
       },
       MuiDialog: {
+        // SweetAlert renders at the end of <body>, OUTSIDE the dialog. MUI's focus trap pulls
+        // focus straight back in, so a Swal input opened from inside a dialog cannot be typed
+        // into at all — which is how "Reason (optional)" on the cancel-meeting prompt looked
+        // broken. Turned off app-wide rather than per dialog: every dialog in the app can fire
+        // a Swal, and the trap buys nothing here since Swal runs its own.
+        defaultProps: { disableEnforceFocus: true },
         styleOverrides: { paper: { borderRadius: 16 } },
       },
     },

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { deleteMeeting, setMeetingCancelled, updateMeeting } from '@services/employee';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -31,6 +32,7 @@ import { errorConfirmation, successConfirmation } from '@utils/modal';
  * with the meetings they organize OR are a participant on, and nothing else.
  */
 const Meetings = () => {
+  const [params] = useSearchParams();
   const currentEmployeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const [showMeetingForm, setShowMeetingForm] = useState(false);
   // Bumped after a create or a delete: the list owns its own fetch, and this is how a parent
@@ -38,6 +40,14 @@ const Meetings = () => {
   const [reloadToken, setReloadToken] = useState(0);
   // The meeting being edited. null → the dialog opens on a blank new meeting.
   const [editing, setEditing] = useState<ReturnType<typeof toEditableMeeting> | null>(null);
+  /**
+   * The day a "new meeting" came from, if it came from one.
+   *
+   * The grid's day dialog knows the date the reader is looking at; the form did not, and opened
+   * on today whichever day you had clicked. Carrying it here is what makes "the 10th is free →
+   * book it" one step instead of two, and null keeps the header button on its old behaviour.
+   */
+  const [createOn, setCreateOn] = useState<string | null>(null);
   // The meeting whose time is being logged. null → the dialog is closed.
   const [logging, setLogging] = useState<any>(null);
   // Not gated on canCreate: a reminder is the reader's own, like logging their own time.
@@ -145,8 +155,11 @@ const Meetings = () => {
         mode="employee"
         targetId={currentEmployeeId}
         reloadToken={reloadToken}
-        onCreate={canCreate ? () => { setEditing(null); setShowMeetingForm(true); } : undefined}
-        onEdit={canCreate ? (m) => { setEditing(toEditableMeeting(m)); setShowMeetingForm(true); } : undefined}
+        // Set by a meeting clicked on the Calendar tab, so the grid opens on ITS month
+        // rather than the current one. Absent for anyone who just opened the tab.
+        focusDate={params.get('date') || undefined}
+        onCreate={canCreate ? (startIso) => { setEditing(null); setCreateOn(startIso ?? null); setShowMeetingForm(true); } : undefined}
+        onEdit={canCreate ? (m) => { setEditing(toEditableMeeting(m)); setCreateOn(null); setShowMeetingForm(true); } : undefined}
         onReschedule={canCreate ? handleReschedule : undefined}
         onLogTime={(m) => setLogging(m)}
         onRemind={(m) => setReminding(m)}
@@ -173,12 +186,14 @@ const Meetings = () => {
       <MeetingDialog
         // Remounted per meeting: the form prefills from `editing` on mount, and reusing one
         // instance across two different meetings would show the first one's values.
-        key={editing?.id ?? 'new'}
+        // The picked day is part of the key too: the form reads its opening times ONCE, on
+        // mount, so opening the 10th and then the 17th on a kept instance would show the 10th.
+        key={editing?.id ?? `new:${createOn ?? 'today'}`}
         open={showMeetingForm}
         editing={editing}
         onClose={() => setShowMeetingForm(false)}
         onSaved={reload}
-        selectedDateTimeInfo={{ startStr: dayjs().toISOString() }}
+        selectedDateTimeInfo={{ startStr: createOn ?? dayjs().toISOString() }}
       />
     </div>
   );

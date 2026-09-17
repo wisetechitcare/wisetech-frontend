@@ -208,7 +208,6 @@ module.exports = [
   "src/app/pages/employee/companies/companyOverview/components/Yearly.tsx",
   "src/app/pages/employee/companies/contacts/ClientContactsMain.tsx",
   "src/app/pages/employee/companies/contacts/components/ClientContactsForm.tsx",
-  "src/app/pages/employee/companies/contacts/components/ContactLeadReferences.tsx",
   "src/app/pages/employee/companies/contacts/components/ContactMainToggle.tsx",
   "src/app/pages/employee/companies/contacts/components/ContactOverview.tsx",
   "src/app/pages/employee/companies/contacts/components/ContactProject.tsx",

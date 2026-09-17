@@ -29,6 +29,8 @@
  * own hardcoded colours until they are migrated.
  */
 
+import { useSyncExternalStore } from 'react';
+
 export type ThemeMode = 'light' | 'dark';
 export type ColorPreference = ThemeMode | 'system';
 export type SurfaceStyle = 'glass' | 'material';
@@ -203,4 +205,18 @@ export function subscribeSurface(onChange: () => void): () => void {
   } catch {
     return () => undefined;
   }
+}
+
+/**
+ * The surface treatment as a React hook.
+ *
+ * `currentSurface()` is the right read for style FUNCTIONS, which run during
+ * render and cannot subscribe to anything. A COMPONENT needs more than that: it
+ * has to re-render when the setting flips, or it keeps painting the treatment
+ * that was chosen when it mounted. This lived in the Tailwind twin, where that
+ * problem was hit first; it belongs here, next to the store it reads, so both
+ * kits share one subscription rather than each growing their own.
+ */
+export function useSurfaceStyle(): SurfaceStyle {
+  return useSyncExternalStore(subscribeSurface, currentSurface, () => 'glass' as SurfaceStyle);
 }

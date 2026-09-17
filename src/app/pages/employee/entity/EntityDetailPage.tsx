@@ -30,7 +30,6 @@ import ExecutionSection from './detail/sections/ExecutionSection';
 import ProjectMeetings from './detail/sections/ProjectMeetings';
 import ProjectStatusControl from './detail/ProjectStatusControl';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import MeetingsList from '@/app/modules/common/components/MeetingsList';
 import { UnderlineTabs } from '@app/modules/common/components/ui';
 
 /**
@@ -229,7 +228,9 @@ const EntityDetailPage: React.FC = () => {
         return <TeamsSection lead={lead} />;
       case 'meetings':
         // Meetings are linked by projectId = the lead id (lead-as-master).
-        return <MeetingsList mode="project" targetId={lead.id} />;
+        // A lead that is not yet a project is on nobody's project list, so the meeting form
+        // needs its name handed over (same as the Leads table does).
+        return <ProjectMeetings leadId={lead.id} leadName={isProject ? undefined : (lead.title || lead.prefix || 'Lead')} />;
       case 'billing':
         return <BillingSection lead={lead} />;
       default:

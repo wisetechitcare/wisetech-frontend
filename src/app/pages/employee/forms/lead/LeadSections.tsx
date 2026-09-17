@@ -22,6 +22,7 @@ import { SectionWrapper } from "./SectionWrapper";
 import { WtSwitch, TRIO, AppIcon } from "@app/modules/common/components/ui";
 import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
 import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 interface LeadSectionsProps {
   // ── Organization (drives the lead's prefix and inquiry-number series) ──────
@@ -1372,7 +1373,7 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
                     isRequired={false}
                   />
                   <p className="text-muted fs-8 mt-2 mb-0">
-                    Auto-filled with today's date when the status is set to Received. Adjust if needed.
+                    Auto-filled with the current date and time when you move the status to Received. Left as-is otherwise — clear it and it stays cleared.
                   </p>
                 </Grid>
                 <Grid item xs={12} md={5}>
@@ -1913,8 +1914,8 @@ export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
               className="wt-review-value"
               style={{ color: "var(--wt-primary)", fontWeight: 700 }}
             >
-              ₹{" "}
-              {commercialsTotal.toLocaleString("en-IN", {
+              {getCurrencySymbol()}{" "}
+              {commercialsTotal.toLocaleString(getCurrencyLocale(), {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}

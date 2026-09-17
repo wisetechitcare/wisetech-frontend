@@ -226,7 +226,6 @@ const MeetingAttendeesDialog: React.FC<MeetingAttendeesDialogProps> = ({
                 title="Attendance"
                 subtitle={meeting?.title}
                 onClose={saving ? undefined : onClose}
-                closeIcon={<KTIcon iconName="cross" className="fs-3" />}
             />
 
             <DialogContent sx={{ p: 2 }}>

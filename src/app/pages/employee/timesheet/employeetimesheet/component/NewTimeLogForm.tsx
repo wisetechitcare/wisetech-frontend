@@ -554,7 +554,6 @@ const NewTimeLogForm = ({
           }
           icon={<KTIcon iconName="time" className="fs-1" />}
           onClose={() => onClose()}
-          closeIcon={<KTIcon iconName="cross" className="fs-3" />}
         />
       }
     >

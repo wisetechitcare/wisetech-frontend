@@ -4,7 +4,7 @@ import MaterialTable from '@app/modules/common/components/MaterialTable';
 import ExportButton from '@app/modules/common/components/ExportButton';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
 import { StatusBadge } from '@app/modules/common/components/ui/patterns';
-import { fmtDate, formatINR, PAYMENT_TONE } from '../../utils/reimbursementFormat';
+import { fmtDate, formatMoney, PAYMENT_TONE } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow, PAYMENT_STATE_LABEL, COMPACT_BUTTON_SX } from './paymentData';
 import PaymentEmptyState from './PaymentEmptyState';
 
@@ -20,7 +20,7 @@ import PaymentEmptyState from './PaymentEmptyState';
 const trioFor = (color: string) => ({ c: color, bg: color + '1A', bd: color + '44' });
 
 const money = (v: number) => (
-    <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{formatINR(v)}</Box>
+    <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{formatMoney(v)}</Box>
 );
 
 export interface PaymentQueueTableProps {
@@ -160,7 +160,7 @@ export default function PaymentQueueTable({
             header: 'Approved',
             size: 130,
             Cell: ({ renderedCellValue }: any) => money(Number(renderedCellValue)),
-            Footer: () => <span style={{ fontWeight: 800 }}>{formatINR(totals.approved)}</span>,
+            Footer: () => <span style={{ fontWeight: 800 }}>{formatMoney(totals.approved)}</span>,
         },
         {
             accessorKey: 'paidAmount',
@@ -168,10 +168,10 @@ export default function PaymentQueueTable({
             size: 130,
             Cell: ({ renderedCellValue }: any) => (
                 <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: '#16a34a' }}>
-                    {formatINR(Number(renderedCellValue))}
+                    {formatMoney(Number(renderedCellValue))}
                 </Box>
             ),
-            Footer: () => <span style={{ fontWeight: 800, color: '#16a34a' }}>{formatINR(totals.paid)}</span>,
+            Footer: () => <span style={{ fontWeight: 800, color: '#16a34a' }}>{formatMoney(totals.paid)}</span>,
         },
         {
             accessorKey: 'remainingAmount',
@@ -182,10 +182,10 @@ export default function PaymentQueueTable({
                     fontVariantNumeric: 'tabular-nums', fontWeight: 800,
                     color: Number(renderedCellValue) > 0 ? '#1E3A8A' : '#16a34a',
                 }}>
-                    {formatINR(Number(renderedCellValue))}
+                    {formatMoney(Number(renderedCellValue))}
                 </Box>
             ),
-            Footer: () => <span style={{ fontWeight: 800, color: '#1E3A8A' }}>{formatINR(totals.remaining)}</span>,
+            Footer: () => <span style={{ fontWeight: 800, color: '#1E3A8A' }}>{formatMoney(totals.remaining)}</span>,
         },
         {
             accessorKey: 'state',
@@ -324,9 +324,9 @@ export default function PaymentQueueTable({
  */
 function QueueRowDetail({ row }: { row: PaymentBatchRow }) {
     const cells: { label: string; value: string; tone?: string }[] = [
-        { label: 'Approved amount', value: formatINR(row.approvedAmount) },
-        { label: 'Previously paid', value: formatINR(row.paidAmount), tone: '#16a34a' },
-        { label: 'Remaining', value: formatINR(row.remainingAmount), tone: row.remainingAmount > 0 ? '#1E3A8A' : '#16a34a' },
+        { label: 'Approved amount', value: formatMoney(row.approvedAmount) },
+        { label: 'Previously paid', value: formatMoney(row.paidAmount), tone: '#16a34a' },
+        { label: 'Remaining', value: formatMoney(row.remainingAmount), tone: row.remainingAmount > 0 ? '#1E3A8A' : '#16a34a' },
         { label: 'Requests', value: String(row.totalRequests) },
         { label: 'Payment status', value: PAYMENT_STATE_LABEL[row.state] },
     ];
@@ -389,7 +389,7 @@ function QueueRowDetail({ row }: { row: PaymentBatchRow }) {
                                     px: 2, py: 1, textAlign: 'right', fontSize: 13, fontWeight: 700,
                                     fontVariantNumeric: 'tabular-nums',
                                 }}>
-                                    {formatINR(line.amount)}
+                                    {formatMoney(line.amount)}
                                 </Box>
                             </Box>
                         ))}
@@ -436,9 +436,9 @@ export function PaymentMobileCard({
             </Box>
 
             {[
-                { label: 'Approved', value: formatINR(row.approvedAmount) },
-                { label: 'Paid', value: formatINR(row.paidAmount) },
-                { label: 'Remaining', value: formatINR(row.remainingAmount), strong: true },
+                { label: 'Approved', value: formatMoney(row.approvedAmount) },
+                { label: 'Paid', value: formatMoney(row.paidAmount) },
+                { label: 'Remaining', value: formatMoney(row.remainingAmount), strong: true },
             ].map((f) => (
                 <Box key={f.label} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.25 }}>
                     <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{f.label}</Typography>

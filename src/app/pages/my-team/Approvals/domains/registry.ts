@@ -24,7 +24,10 @@ const DOMAINS: ApprovalDomain[] = [
         key: 'reimbursement',
         label: 'Reimbursement',
         tone: 'success',
-        icon: 'dollar',
+        // `wallet`, not `dollar`. These are CATEGORY icons for a kind of approval, and the
+        // dollar glyph is currency-specific — it put a $ on an offer card in a company that
+        // pays in rupees. A category icon should not name a currency at all.
+        icon: 'wallet',
         Detail: ReimbursementDetail,
         hasBatchColumns: true,
     },
@@ -42,11 +45,11 @@ const DOMAINS: ApprovalDomain[] = [
     // panel (approval progress + audit); a canonical requisition view can be
     // registered here later with no other changes.
     { key: 'requisition', label: 'Requisition', tone: 'indigo', icon: 'briefcase' },
-    { key: 'offer', label: 'Offer', tone: 'success', icon: 'dollar' },
+    { key: 'offer', label: 'Offer', tone: 'success', icon: 'wallet' },
     // Billing: a team lead's request to bill completed deliverables. Detail falls back to
     // the expandable panel, which already renders the payload the backend supplies
     // (project / client / stage / deliverables / amount) — no billing-specific approval UI.
-    { key: 'billing_request', label: 'Billing Request', tone: 'warning', icon: 'dollar' },
+    { key: 'billing_request', label: 'Billing Request', tone: 'warning', icon: 'wallet' },
 ];
 
 const BY_KEY = new Map(DOMAINS.map((d) => [d.key, d]));

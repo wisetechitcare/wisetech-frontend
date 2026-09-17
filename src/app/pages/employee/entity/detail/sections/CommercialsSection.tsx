@@ -8,6 +8,7 @@ import { usePoStatusOptions } from '@hooks/usePoStatusOptions';
 import { EmptyState } from '../widgets';
 import { fmtMoney, fmtDate, DASH, type CommercialTotals } from '../entityViewModel';
 import type { CommercialLineVM, EntityVM } from '../facets';
+import { getCurrencySymbol } from '@utils/currency';
 
 
 const Td: React.FC<{ children?: React.ReactNode; strong?: boolean }> = ({ children, strong }) => (
@@ -95,7 +96,9 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
           { label: project ? 'Contract Value' : 'Estimated Value', value: fmtMoney(contractValue), icon: 'bi bi-currency-rupee', accentColor: 'green' },
           { label: 'Total Area', value: contractArea ? `${contractArea.toLocaleString('en-IN')} sqft` : DASH, icon: 'bi bi-rulers', accentColor: 'teal' },
           { label: 'Quoted (Lead)', value: fmtMoney(lead.totals.totalCost), icon: 'bi bi-tag', accentColor: 'blue' },
-          { label: 'Avg / sqft', value: contractArea ? fmtMoney(Math.round(contractValue / contractArea)) : DASH, icon: 'bi bi-graph-up', accentColor: 'purple' },
+          // Rounding to the rupee hid the real rate: 22,50,000 over 23,399 sqft read
+          // as 96, not 96.16. Two decimals; a whole number renders without any.
+          { label: 'Avg / sqft', value: contractArea ? fmtMoney(+(contractValue / contractArea).toFixed(2)) : DASH, icon: 'bi bi-graph-up', accentColor: 'purple' },
         ]}
       />
 
@@ -134,8 +137,8 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
                 {({ editing, draft, set }) => (
                   editing ? (
                     <>
-                      <FieldRow label="Contract Rate"><NumberEditor value={draft.rate} prefix="₹" onChange={v => set({ rate: v })} placeholder="0" /></FieldRow>
-                      <FieldRow label="Final Cost" isLast><NumberEditor value={draft.cost} prefix="₹" onChange={v => set({ cost: v })} placeholder="0" /></FieldRow>
+                      <FieldRow label="Contract Rate"><NumberEditor value={draft.rate} prefix={getCurrencySymbol()} onChange={v => set({ rate: v })} placeholder="0" /></FieldRow>
+                      <FieldRow label="Final Cost" isLast><NumberEditor value={draft.cost} prefix={getCurrencySymbol()} onChange={v => set({ cost: v })} placeholder="0" /></FieldRow>
                     </>
                   ) : (
                     <>

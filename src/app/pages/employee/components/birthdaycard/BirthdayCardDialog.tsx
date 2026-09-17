@@ -1,38 +1,38 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, CircularProgress, Stack, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { KTIcon } from "@metronic/helpers";
 import { GlassDialog, GlassHeader, WhatsAppIcon, WtButton, toast } from "@app/modules/common/components/ui";
-import { fetchBirthdayCard, type BirthdayCardKind } from "@services/employee";
-import { downloadBlob, svgToPngBlob, toFileNameStem } from "@utils/svgExport";
+import {
+  fetchBirthdayCard,
+  fetchBirthdayCardImage,
+  type BirthdayCardKind,
+  type BirthdayCardOrientation,
+} from "@services/employee";
+import { downloadBlob, toFileNameStem } from "@utils/svgExport";
 import { canShareFileType, shareFile, whatsAppShareUrl } from "@utils/webShare";
-import BirthdayCard, { type BirthdayCardOrientation } from "./BirthdayCard";
 
 /**
  * "Birthday Card" — preview someone's card, download it, or send it.
  *
- * Deliberately the ID-card dialog's twin: same fetch-don't-compose shape, same
- * client-side rasterisation of the exact SVG on screen, same share path. The card is
- * fetched from `/api/employee/birthday-card/:kind/:id`, which returns the name, the
- * photo and the org logo as `data:` URIs so the export canvas stays untainted.
+ * The card is DRAWN ON THE SERVER and this dialog shows the finished PNG. It used to be
+ * a React SVG rasterised here through a `<canvas>`; that component is gone, along with
+ * the copy of the artwork it carried in the bundle.
  *
- * The one thing this dialog has that the badge does not is the orientation switch,
- * because the card has two jobs: 16:9 for the office TV, 4:5 for sending to the
- * person. Both are the same drawing (see `BirthdayCard`), so switching is instant and
- * the download always matches what is on screen.
+ * The reason is not tidiness. The same card has to go out by email from a cron job,
+ * which has no browser to run a component in, so the drawing had to exist on the server
+ * regardless. A second copy here would only have bought a preview that could disagree
+ * with what was actually sent — different fonts, a different rasteriser, and no way to
+ * notice. What is on screen now is the exact image the recipient gets.
+ *
+ * The orientation switch stays, because the card still has two jobs: 16:9 for the office
+ * TV, 4:5 for sending to the person. Switching now costs a request rather than a
+ * re-render, which react-query caches per shape.
  */
 
-/** Landscape exports at 1× — the artboard IS 1920 × 1080, already a TV's native grid. */
-const EXPORT_SCALE_LANDSCAPE = 1;
-/** Portrait at 2× → 2160 × 2700, comfortably past what any phone will render. */
-const EXPORT_SCALE_PORTRAIT = 2;
-/**
- * Sharing renders at 1× in both shapes. Messaging apps re-compress whatever they are
- * given, so extra pixels buy nothing — and the smaller canvas rasterises fast enough
- * to stay inside the click's transient user activation window, which `navigator.share`
- * requires.
- */
-const SHARE_SCALE = 1;
+/** Portrait downloads at 2× → 2160 × 2700. Landscape's artboard is already a TV's grid. */
+const DOWNLOAD_SCALE_PORTRAIT = 2;
+const DOWNLOAD_SCALE_LANDSCAPE = 1;
 
 export interface BirthdayCardDialogProps {
   open: boolean;
@@ -46,11 +46,11 @@ export interface BirthdayCardDialogProps {
 }
 
 export default function BirthdayCardDialog({ open, onClose, kind, personId, personName }: BirthdayCardDialogProps) {
-  const cardRef = useRef<SVGSVGElement>(null);
   const [orientation, setOrientation] = useState<BirthdayCardOrientation>("portrait");
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
 
+  /** Name and organisation — what titles the dialog and captions a share. */
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["birthday-card", kind, personId],
     queryFn: () => fetchBirthdayCard(kind, personId),
@@ -58,18 +58,54 @@ export default function BirthdayCardDialog({ open, onClose, kind, personId, pers
     staleTime: 5 * 60 * 1000,
   });
 
+  /**
+   * The card itself, at 1×.
+   *
+   * Held in hand rather than fetched on demand, and that is what makes sharing work:
+   * `navigator.share` requires the click's transient user activation, and a round trip
+   * to the server inside the handler spends it. The preview has already paid that cost.
+   */
+  const {
+    data: cardBlob,
+    isLoading: imageLoading,
+    isError: imageError,
+    refetch: refetchImage,
+  } = useQuery({
+    queryKey: ["birthday-card-image", kind, personId, orientation],
+    queryFn: () => fetchBirthdayCardImage(kind, personId, orientation, 1),
+    enabled: open && Boolean(personId),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  /** An object URL lives as long as the blob it wraps; revoke it or the tab keeps the bytes. */
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!cardBlob) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(cardBlob);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [cardBlob]);
+
   const fileName = useCallback(
     (who: string) => `${toFileNameStem(who, "birthday")}-Birthday-${orientation === "landscape" ? "TV" : "Card"}.png`,
     [orientation],
   );
 
   const handleDownload = useCallback(async () => {
-    if (!cardRef.current || !data) return;
+    if (!data) return;
     setDownloading(true);
     try {
-      const blob = await svgToPngBlob(cardRef.current, {
-        scale: orientation === "landscape" ? EXPORT_SCALE_LANDSCAPE : EXPORT_SCALE_PORTRAIT,
-      });
+      // Fetched fresh rather than reusing the preview: a download is the one place the
+      // extra resolution is worth the wait.
+      const blob = await fetchBirthdayCardImage(
+        kind,
+        personId,
+        orientation,
+        orientation === "landscape" ? DOWNLOAD_SCALE_LANDSCAPE : DOWNLOAD_SCALE_PORTRAIT,
+      );
       downloadBlob(blob, fileName(data.person.name));
       toast({
         icon: "success",
@@ -85,27 +121,26 @@ export default function BirthdayCardDialog({ open, onClose, kind, personId, pers
     } finally {
       setDownloading(false);
     }
-  }, [data, orientation, fileName]);
+  }, [data, kind, personId, orientation, fileName]);
 
   /**
    * Share the card as an image.
    *
-   * Where the platform supports it, the rendered PNG goes to the OS share sheet
-   * already attached — the user picks WhatsApp and it arrives as a normal image. A
-   * page cannot post into a chat without that pick; the sheet is the platform's
-   * consent step and no browser lets a site skip it.
+   * Where the platform supports it, the PNG goes to the OS share sheet already attached —
+   * the user picks WhatsApp and it arrives as a normal image. A page cannot post into a
+   * chat without that pick; the sheet is the platform's consent step and no browser lets
+   * a site skip it.
    *
    * Where it isn't supported (desktop Firefox, older browsers) the card downloads and
-   * WhatsApp Web opens with the caption prefilled, for the user to attach. That window
-   * is opened BEFORE the first `await`: once the click's user activation has been spent
-   * rasterising, popup blockers reject it.
+   * WhatsApp Web opens with the caption prefilled, for the user to attach. That window is
+   * opened BEFORE any await: once the click's user activation has been spent, popup
+   * blockers reject it.
    */
   const handleWhatsAppShare = useCallback(async () => {
-    if (!cardRef.current || !data) return;
+    if (!data || !cardBlob) return;
 
     const { name } = data.person;
-    // No age here either — see the note on `BirthdayCard`. The caption says who it is
-    // from, not how old they are.
+    // No age in the caption either — the card carries none, and neither does this.
     const caption = [
       `Happy Birthday, ${name}!`,
       data.organization.name ? `— ${data.organization.name}` : null,
@@ -120,11 +155,9 @@ export default function BirthdayCardDialog({ open, onClose, kind, personId, pers
 
     setSharing(true);
     try {
-      const blob = await svgToPngBlob(cardRef.current, { scale: SHARE_SCALE });
-
       if (canShare) {
         const outcome = await shareFile({
-          file: new File([blob], fileName(name), { type: "image/png" }),
+          file: new File([cardBlob], fileName(name), { type: "image/png" }),
           title: "Birthday Card",
           text: caption,
         });
@@ -132,7 +165,7 @@ export default function BirthdayCardDialog({ open, onClose, kind, personId, pers
         if (outcome === "shared" || outcome === "dismissed") return;
       }
 
-      downloadBlob(blob, fileName(name));
+      downloadBlob(cardBlob, fileName(name));
       toast({
         icon: "info",
         title: "Card ready to attach",
@@ -148,10 +181,11 @@ export default function BirthdayCardDialog({ open, onClose, kind, personId, pers
     } finally {
       setSharing(false);
     }
-  }, [data, fileName]);
+  }, [data, cardBlob, fileName]);
 
   const title = data?.person.name || personName || "Birthday";
   const busy = downloading || sharing;
+  const cardReady = Boolean(previewUrl) && !imageLoading;
 
   return (
     <GlassDialog
@@ -207,18 +241,41 @@ export default function BirthdayCardDialog({ open, onClose, kind, personId, pers
             </ToggleButtonGroup>
 
             {/* Capped so the portrait card cannot outgrow the dialog: at full width its
-                1080 × 1350 artboard would push the buttons off the bottom. */}
+                1080 × 1350 artboard would push the buttons off the bottom. The box holds
+                the artboard's own ratio so switching shape does not make the dialog jump. */}
             <Box
               sx={{
                 maxWidth: orientation === "landscape" ? 760 : 430,
                 width: "100%",
                 mx: "auto",
+                aspectRatio: orientation === "landscape" ? "16 / 9" : "1080 / 1350",
                 borderRadius: 3,
                 overflow: "hidden",
                 boxShadow: "0 18px 44px -18px rgba(15, 23, 42, 0.45)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                bgcolor: "action.hover",
               }}
             >
-              <BirthdayCard ref={cardRef} data={data} orientation={orientation} />
+              {imageError ? (
+                <Stack alignItems="center" spacing={1.25} sx={{ textAlign: "center", p: 2 }}>
+                  <KTIcon iconName="information-5" className="fs-2x text-danger" />
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    The card could not be drawn.
+                  </Typography>
+                  <WtButton ghost onClick={() => refetchImage()}>Try Again</WtButton>
+                </Stack>
+              ) : previewUrl ? (
+                <Box
+                  component="img"
+                  src={previewUrl}
+                  alt={`Birthday card for ${data.person.name}`}
+                  sx={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
+                />
+              ) : (
+                <CircularProgress size={26} />
+              )}
             </Box>
 
             <Typography variant="caption" sx={{ color: "text.secondary", textAlign: "center" }}>
@@ -242,7 +299,7 @@ export default function BirthdayCardDialog({ open, onClose, kind, personId, pers
                 tone="success"
                 flat
                 onClick={handleWhatsAppShare}
-                disabled={busy}
+                disabled={busy || !cardReady}
                 startIcon={
                   sharing
                     ? <CircularProgress size={16} sx={{ color: "inherit" }} />
@@ -257,7 +314,7 @@ export default function BirthdayCardDialog({ open, onClose, kind, personId, pers
               <WtButton
                 flat
                 onClick={handleDownload}
-                disabled={busy}
+                disabled={busy || !cardReady}
                 startIcon={
                   downloading
                     ? <CircularProgress size={16} sx={{ color: "inherit" }} />

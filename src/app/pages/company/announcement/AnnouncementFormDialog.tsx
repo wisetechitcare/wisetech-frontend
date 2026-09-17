@@ -274,7 +274,6 @@ export const AnnouncementFormDialog = ({
                         : 'Say it once, to everyone or to a chosen few'}
                     icon={<KTIcon iconName="notification-status" className="fs-1" />}
                     onClose={busy ? undefined : onClose}
-                    closeIcon={<KTIcon iconName="cross" className="fs-3" />}
                 />
             }
         >

@@ -816,6 +816,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                               <td style={td}>
                                 {isManager ? (
                                   <span style={managerBadge(isPrimary)}>{isPrimary ? 'Primary Manager' : 'Manager'}</span>
+                                ) : m.wasProjectManager ? (
+                                  // Managed this project until they left the company (handed over on exit).
+                                  <span style={{ ...managerBadge(false), background: '#F1F5F9', color: '#64748B', borderColor: '#E2E8F0' }}>Past Manager</span>
                                 ) : DASH}
                               </td>
                             </tr>

@@ -34,6 +34,7 @@ import { Modal, Form, Button } from "react-bootstrap";
 import { successConfirmation } from "@utils/modal";
 import { mapStyles } from "./mapTheme";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { currencyPrefix } from '@utils/currency';
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -254,6 +255,48 @@ const getInitials = (name: string) => {
   return name.substring(0, 2).toUpperCase() || "??";
 };
 
+/**
+ * The popup's picture: the entity's own image when it has one, else the letter/icon it always
+ * showed. The pin already painted the logo while the popup opened over it with a plain "F" —
+ * the same place pictured two ways, one click apart.
+ *
+ * `onError` falls back too: a logo whose file has gone must not leave a broken-image glyph.
+ * Logos are `contain` on white so wordmarks are not cropped; people photos are `cover`.
+ */
+const PopupAvatar: React.FC<{
+  src?: string | null; fit: 'contain' | 'cover'; background?: string; children: React.ReactNode;
+}> = ({ src, fit, background, children }) => {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  const showImage = !!src && !failed;
+  return (
+    <div
+      className="avatar-wrapper"
+      style={showImage
+        // White in both themes on purpose: a logo is drawn for a white ground, and a dark tile
+        // turns a black wordmark invisible.
+        // A profile-card picture, not the 42px letter tile: a face or a logo needs room to be
+        // recognised, a single initial does not.
+        ? {
+            background: 'white', width: 104, height: 104, borderRadius: 24,
+            padding: fit === 'contain' ? 8 : 0, overflow: 'hidden', border: '3px solid white',
+            boxShadow: '0 0 0 1px #e2e8f0, 0 10px 24px rgba(15, 23, 42, 0.16)',
+            marginBottom: 4,
+          }
+        : background ? { background } : undefined}
+    >
+      {showImage ? (
+        <img
+          src={src!}
+          alt=""
+          onError={() => setFailed(true)}
+          style={{ width: '100%', height: '100%', objectFit: fit, borderRadius: fit === 'cover' ? 20 : 12, display: 'block' }}
+        />
+      ) : children}
+    </div>
+  );
+};
+
 const createCustomIcon = (initials: string, color: string, imageUrl?: string, entityType?: string, isRelated: boolean = false, isDimmed: boolean = false, isAnimating: boolean = false, zoom: number = 4, alwaysShowInitials: boolean = false) => {
   try {
     // If we have no initials and no image, fallback to theme-colored circle
@@ -407,7 +450,13 @@ const LocationMarker = React.memo(({
     item.title ||
     "Unnamed";
 
-  const imageUrl = isContact ? loc.item?.profilePhoto : isCompany ? loc.item?.logo : undefined;
+  // A project has no image of its own, so it is pictured by its client's logo.
+  const imageUrl: string | undefined = (isContact
+    ? loc.item?.profilePhoto
+    : isCompany
+      ? loc.item?.logo
+      : loc.item?.clientCompany?.logo || loc.item?.company?.logo) || undefined;
+  const projectClientName: string | undefined = loc.item?.clientCompany?.companyName || loc.item?.company?.companyName;
   const initials = useMemo(() => getInitials(itemTitle || ""), [itemTitle]);
 
   // 3. Country-based Color Logic
@@ -672,9 +721,9 @@ const LocationMarker = React.memo(({
               </div>
 
               <div className="header-center-content">
-                <div className="avatar-wrapper">
+                <PopupAvatar src={imageUrl} fit="contain">
                   {(loc.item?.companyName || loc.item?.name || loc.item?.subCompanyName || loc.item?.branchName || "C").charAt(0).toUpperCase()}
-                </div>
+                </PopupAvatar>
                 <div className="title-wrapper">
                   <h3 className="entity-name" onClick={handleNavigation}>
                     {loc.item?.companyName || loc.item?.name || loc.item?.subCompanyName || loc.item?.branchName || "No Name"}
@@ -760,9 +809,9 @@ const LocationMarker = React.memo(({
               </div>
 
               <div className="header-center-content">
-                <div className="avatar-wrapper" style={{ background: isContact ? '#8b5cf6' : '#10b981' }}>
+                <PopupAvatar src={imageUrl} fit={isContact ? 'cover' : 'contain'} background={isContact ? '#8b5cf6' : '#10b981'}>
                   {isContact ? <BriefcaseIcon style={{ fontSize: '18px' }} /> : <PinIcon style={{ fontSize: '18px' }} />}
-                </div>
+                </PopupAvatar>
                 <div className="title-wrapper">
                   <h3 className="entity-name" onClick={handleNavigation}>
                     {isContact
@@ -797,14 +846,14 @@ const LocationMarker = React.memo(({
                 {isProject && loc.item?.cost && (
                   <div className="info-item">
                     <RupeeIcon className="info-icon" />
-                    <span className="info-text highlight">₹{loc.item.cost.toLocaleString()}</span>
+                    <span className="info-text highlight">{currencyPrefix()}{loc.item.cost.toLocaleString()}</span>
                   </div>
                 )}
 
-                {isProject && loc.item?.company?.companyName && (
+                {isProject && projectClientName && (
                   <div className="info-item">
                     <CompanyIcon className="info-icon" />
-                    <span className="info-text">{loc.item.company.companyName}</span>
+                    <span className="info-text">{projectClientName}</span>
                   </div>
                 )}
 

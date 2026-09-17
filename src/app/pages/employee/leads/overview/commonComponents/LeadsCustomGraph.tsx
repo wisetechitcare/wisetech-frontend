@@ -11,6 +11,7 @@ import { ProjectItem } from "@models/clientProject";
 import { getAllProjectServices } from "@services/projects";
 import CompanyConfigForm from "@pages/employee/companies/companyConfig/components/CompanyConfigForm";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { formatCurrencyDecimal } from '@utils/currency';
 
 type PieChartDataItem = {
   label: string;
@@ -768,10 +769,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                               color: "#808A98",
                             }}
                           >
-                            {totalCost.toLocaleString("en-IN", {
-                              style: "currency",
-                              currency: "INR",
-                            })}
+                            {formatCurrencyDecimal(totalCost)}
                           </span>
                         )}
 

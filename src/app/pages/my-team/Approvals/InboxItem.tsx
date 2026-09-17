@@ -7,6 +7,7 @@ import { formatDate, formatDateRange, formatTime } from '@utils/dateFormats';
 import EmployeeIdentityCell from '@app/modules/common/components/EmployeeIdentityCell';
 import { getApprovalDomain } from './domains/registry';
 import type { ApprovalStep } from './domains/types';
+import { getCurrencyLocale, formatCurrency, currencyPrefix } from '@utils/currency';
 
 export interface Ageing {
     days: number;
@@ -83,7 +84,7 @@ export interface ItemSummary {
 }
 
 const money = (v: unknown) =>
-    `₹${Number(v ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `${currencyPrefix()}${Number(v ?? 0).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** Worked span between two punches, `7h 14m`. Null unless both exist and run forwards. */
 const workedSpan = (from?: string | null, to?: string | null): string | null => {
@@ -303,7 +304,9 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         const facts: string[] = [];
         if (shownRequests) facts.push(`${shownRequests} expense${shownRequests === 1 ? '' : 's'}`);
         if (d.totalAmount != null) {
-            facts.push(`₹${money(shownAmount).replace('₹', '')}`);
+            // `money()` already returns the symbol. Stripping it to put it back was
+            // harmless while the symbol was always a rupee and is not any more.
+            facts.push(money(shownAmount));
         }
 
         let statusFlow: string | null = null;
@@ -348,7 +351,8 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         return {
             title: d.candidateName ? `Offer - ${d.candidateName}` : 'Offer',
             facts: [d.proposedJoiningDate ? `Joins ${formatDate(d.proposedJoiningDate)}` : null].filter(Boolean) as string[],
-            value: d.offeredCtcInLpa ? `${d.offeredCtcInLpa} LPA` : null,
+            // In the offer's own currency, resolved by the API — the one its letter prints.
+            value: d.offeredCtc != null ? `${formatCurrency(Number(d.offeredCtc), d.currency)} per year` : null,
         };
     }
 

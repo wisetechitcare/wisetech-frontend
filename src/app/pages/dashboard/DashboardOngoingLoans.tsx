@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { InstallmentTypeEnum } from '@constants/statistics';
 import dayjs from 'dayjs';
+import { formatCurrencyDecimal } from '@utils/currency';
 
 const DashboardOngoingLoans = () => {
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee?.id);
@@ -15,11 +16,7 @@ const DashboardOngoingLoans = () => {
   const [totalAmountDue, setTotalAmountDue] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const formatter = new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2
-  });
+
 
   const fetchLoanData = useCallback(async () => {
     if (!employeeId) return;
@@ -144,7 +141,7 @@ const DashboardOngoingLoans = () => {
               <span
                 style={{ fontWeight: '700', fontSize: '24px', fontFamily: 'Inter', marginTop: '8px' }}
               >
-                {formatter.format(totalAmountDue)}
+                {formatCurrencyDecimal(totalAmountDue)}
               </span>
             </div>
           </div>
@@ -160,7 +157,7 @@ const DashboardOngoingLoans = () => {
               >
                 <span style={{ fontSize: '14px', fontFamily: 'Inter' }}>Loan Amount Taken</span>
                 <span style={{ fontSize: '16px', fontWeight: '600', fontFamily: 'Inter', marginTop: '4px' }}>
-                  {formatter.format(totalLoanAmountTaken)}
+                  {formatCurrencyDecimal(totalLoanAmountTaken)}
                 </span>
               </div>
               <div
@@ -172,7 +169,7 @@ const DashboardOngoingLoans = () => {
               >
                 <span style={{ fontSize: '14px', fontFamily: 'Inter' }}>Loans Amount Paid</span>
                 <span style={{ fontSize: '16px', fontWeight: '600', fontFamily: 'Inter', marginTop: '4px' }}>
-                  {formatter.format(totalLoanAmountPaid)}
+                  {formatCurrencyDecimal(totalLoanAmountPaid)}
                 </span>
               </div>
               <div
@@ -196,7 +193,7 @@ const DashboardOngoingLoans = () => {
               >
                 <span style={{ fontSize: '14px', fontFamily: 'Inter' }}>Amount Due This Month</span>
                 <span style={{ fontSize: '16px', fontWeight: '600', fontFamily: 'Inter', marginTop: '4px' }}>
-                  {formatter.format(amountDueThisMonth)}
+                  {formatCurrencyDecimal(amountDueThisMonth)}
                 </span>
               </div>
             </div>

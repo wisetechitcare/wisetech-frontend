@@ -22,13 +22,28 @@ export { WhatsAppIcon } from './brandIcons';
 // The one icon element: resolves legacy `bi-*` names to keenicons and renders KTIcon.
 export { AppIcon, type AppIconProps } from './AppIcon';
 // THE labelled control. One frame — label, field, hint/error — for text, number,
-// textarea and select alike, in two placements: `above` for forms, `inline` for
-// toolbars. It deliberately does NOT use MUI's floating label: that pattern sizes
-// the gap in the border from the field's typography rather than the label's, so a
-// bold or uppercase label overflows its own notch and lands on the border line.
-// WtField cuts no gap, so that cannot happen at any size or weight.
+// textarea and select alike. It renders MUI's outlined field with its floating
+// label, the same control the "Add Rule" dialog in SandwhichLeave uses, so the kit
+// and the rest of the app agree on what a labelled input looks like.
+// NEVER style its label: MUI cuts the gap with a <legend> that keeps the DEFAULT
+// label metrics, so a bold or uppercase label outgrows its own notch and lands on
+// the border line. That is the bug this control was rebuilt to end.
 // Reach for this before building an InputLabel + control pairing by hand.
 export { WtField } from './WtField';
+// An amount of money: WtField with the currency inside the frame and the number read back as
+// money in the hint as you type. Pass `currency` for a record's own currency (a requisition,
+// an offer); omit it for the viewer's. Salary rules go in `validate`, not in the field.
+export { WtMoneyField, type WtMoneyFieldProps } from './WtMoneyField';
+// The active currency's glyph, resolved from the branch — never a typed-in `$`.
+// Pair it with `useCurrency()` (hooks/useCurrency), which also hands back the ISO
+// code and a `format()` already bound to it.
+export { CurrencySymbol } from './CurrencySymbol';
+// The one empty state. An empty screen is a QUESTION — 'No candidates yet' restates what the
+// user can already see; this says what to do next and puts the way out where the eye already is.
+// variant='no-match' for a search that found nothing: the remedy is a different search, not a
+// new record, so it deliberately drops the create action.
+export { WtEmptyState } from './WtEmptyState';
+export type { WtEmptyStateProps, WtEmptyStateVariant } from './WtEmptyState';
 export type { WtFieldProps, WtFieldOption, WtFieldSize } from './WtField';
 // The rich select: react-select underneath, so it is the one to reach for when a control
 // needs search, multi-select, creatable or async options. DropdownInput / SelectInput
@@ -52,9 +67,14 @@ export type {
 // Shared UI pattern atoms — app-wide primitives (single source of truth; use across every feature).
 // AutoGrid + ListHeader are the standard responsive list-page layout — prefer them over per-feature
 // grid/toolbar breakpoints so every collection view fills wide screens and stacks cleanly on mobile.
+// hoverTileSx is THE hover for a tinted tile or card: the aside menu's language, which is the
+// surface everyone sees most — the wash and border warm, the IconBox lifts a pixel and deepens,
+// the caption sharpens, and the card itself stays put. Spread it instead of writing another
+// `&:hover` with a transform in it.
 export {
   TRIO, EASE_200, SHADOW_REST, SHADOW_HOVER, IconBox, StatusBadge, StatTile, Eyebrow, SectionHead,
   AutoGrid, ListHeader, ViewModeSwitch, StatusCyclePill, UnderlineTabs,
+  hoverTileSx, ICON_BOX_CLASS, TILE_LABEL_CLASS,
 } from './patterns';
 export type { Trio, ViewModeOption, StatusCycleOption, UnderlineTabItem } from './patterns';
 // Choose-one-from-a-visual-set controls, for any feature that lets an admin
@@ -63,7 +83,9 @@ export { IconPicker, TONE_NAMES } from './SwatchPicker';
 export type { ToneName, IconPickerProps } from './SwatchPicker';
 // Palette + custom colour in one control. Supersedes TonePicker (palette only)
 // and the raw <input type="color"> in the holiday and appearance forms.
-export { WtColorPicker, KIT_SWATCHES, isHexColor, resolveSwatchHex } from './WtColorPicker';
+export { WtColorPicker, KIT_SWATCHES, KIT_HEX_SWATCHES, isHexColor, resolveSwatchHex } from './WtColorPicker';
+export { WtTooltip } from './WtTooltip';
+export type { WtTooltipProps } from './WtTooltip';
 export type { WtColorPickerProps, ColorSwatch } from './WtColorPicker';
 // Headline capitalisation, applied by the kit's heading components.
 export { toTitleCase } from './text';

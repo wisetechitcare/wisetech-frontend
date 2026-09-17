@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import Loader from "@app/modules/common/utils/Loader";
 import { getAllClientContacts } from "@services/companies";
 import { useNavigate } from "react-router-dom";
+import { formatCurrencyRounded } from '@utils/currency';
 
 type Lead = {
   budget: string;
@@ -110,11 +111,7 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
         const amt = parseFloat(cell.getValue() ?? "");
         return isNaN(amt)
           ? "—"
-          : new Intl.NumberFormat("en-IN", {
-              style: "currency",
-              currency: "INR",
-              maximumFractionDigits: 0,
-            }).format(amt);
+          : formatCurrencyRounded(amt);
       },
     },
 

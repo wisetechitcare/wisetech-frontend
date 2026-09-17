@@ -46,30 +46,51 @@ export function distanceInMeters(lat1: number, lon1: number, lat2: number, lon2:
         return distance;
 }
 
-export async function generateFiscalYearFromGivenYear(year: dayjs.Dayjs, fromAdmin: boolean = false) {
-    
-    // --- Retrieve company details as before ---
-    const currEmployee = fromAdmin 
-        ? store.getState().employee.selectedEmployee 
+/**
+ * Make sure `company.currentCompany` is populated, and hand it back.
+ *
+ * The slice is filled LAZILY — historically only from inside
+ * `generateFiscalYearFromGivenYear`, plus the org switcher and the profile form's
+ * save. Nothing fills it on login, so a screen reached directly (Settings, say)
+ * could find `id: ""` and a `null` time format, and had no way to tell "not loaded
+ * yet" from "this org has no setting". Extracted so any screen that needs the
+ * active org can await the same one path instead of growing a second one.
+ *
+ * Cheap on the common path: returns immediately once the slice has an id.
+ */
+export async function ensureCurrentCompanyLoaded(fromAdmin: boolean = false) {
+    const cached = store.getState().company.currentCompany;
+    if (cached?.id) return cached;
+
+    const currEmployee = fromAdmin
+        ? store.getState().employee.selectedEmployee
         : store.getState().employee.currentEmployee;
     const currEmplyeeCompanyId = currEmployee?.companyId;
-    let companyDetails = store.getState().company.currentCompany;
-    if (!companyDetails?.id) {
-        const { data: { companyOverview } } = await fetchCompanyOverview();
-        companyDetails = companyOverview.filter((el: any) => el.id == currEmplyeeCompanyId)[0];
-        if (!companyDetails) {
-            companyDetails = resolveActiveOrg(companyOverview);
-        }
-        store.dispatch(saveCurrentCompanyInfo({
-            id: companyDetails?.id,
-            name: companyDetails?.name,
-            fiscalYear: companyDetails?.fiscalYear,
-            // Passed through as-is: `|| "0"` turned an org that has no setting
-            // into an explicit 24-hour one, which is the one value this must not
-            // invent. null keeps it inheritable. See utils/timeFormat.ts.
-            showDateIn12HourFormat: companyDetails?.showDateIn12HourFormat ?? null
-        }));
+
+    const { data: { companyOverview } } = await fetchCompanyOverview();
+    // The employee's OWN org first; `resolveActiveOrg` (deterministic root) only as
+    // the fallback, so a multi-org tenant does not silently configure the wrong org.
+    let companyDetails = companyOverview.filter((el: any) => el.id == currEmplyeeCompanyId)[0];
+    if (!companyDetails) {
+        companyDetails = resolveActiveOrg(companyOverview);
     }
+
+    const next = {
+        id: companyDetails?.id,
+        name: companyDetails?.name,
+        fiscalYear: companyDetails?.fiscalYear,
+        // Passed through as-is: `|| "0"` turned an org that has no setting
+        // into an explicit 24-hour one, which is the one value this must not
+        // invent. null keeps it inheritable. See utils/timeFormat.ts.
+        showDateIn12HourFormat: companyDetails?.showDateIn12HourFormat ?? null
+    };
+    store.dispatch(saveCurrentCompanyInfo(next));
+    return next;
+}
+
+export async function generateFiscalYearFromGivenYear(year: dayjs.Dayjs, fromAdmin: boolean = false) {
+
+    const companyDetails = await ensureCurrentCompanyLoaded(fromAdmin);
 
     const fiscalYearDetails = companyDetails?.fiscalYear;
     if (!fiscalYearDetails) {

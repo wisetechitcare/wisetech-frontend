@@ -19,6 +19,17 @@ export type RequestKind = 'checkin' | 'checkout' | 'both';
 export const wantsCheckIn = (k: RequestKind): boolean => k === 'both' || k === 'checkin';
 export const wantsCheckOut = (k: RequestKind): boolean => k === 'both' || k === 'checkout';
 
+/**
+ * What each kind is CALLED. Lives with the kind model, not with a form, because
+ * both flows name the same three things and a second copy is how the admin
+ * modal and the day panel would come to disagree about the word "Both".
+ */
+export const KIND_LABEL: Record<RequestKind, string> = {
+    both: 'Both',
+    checkin: 'Check-in',
+    checkout: 'Check-out',
+};
+
 /** 24-hour `HH:mm`. Anchored, so "9:00" and "24:00" are both rejected. */
 export const TIME_24H = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -93,4 +104,55 @@ export function applyKind(draft: AttendanceRequestDraft, kind: RequestKind): Att
     checkIn: wantsCheckIn(kind) ? draft.checkIn : '',
     checkOut: wantsCheckOut(kind) ? draft.checkOut : '',
   };
+}
+
+/** The recorded day a correction starts from. Both forms have one; they fetch it differently. */
+export interface AttendanceRecordLike {
+  /** `HH:mm`, or null when nothing was punched. */
+  checkIn?: string | null;
+  checkOut?: string | null;
+  /** The working method's LABEL (e.g. "Office"), which is what the record stores. */
+  workMode?: string | null;
+}
+
+/**
+ * Open the form on what is being CORRECTED, not on an empty field.
+ *
+ * Clearing both times is right for the raise case — a missing day with nothing
+ * recorded — but the same form serves "fix the time that is already there", and
+ * an empty wheel beside a row reading 07:13 asks the user to re-enter a value
+ * the screen is already showing.
+ *
+ * Seeded from the RECORDED time only, never from the expected one: pre-filling a
+ * correction with the policy threshold would quietly invite everyone to claim
+ * they arrived exactly on it.
+ *
+ * The working method is seeded the same way — the day already says Office, so
+ * asking again is a question the record answers. Matched on the LABEL, because
+ * `workMode` is the method's type rather than its id. An existing choice is
+ * never overwritten; this only fills a blank.
+ *
+ * Lives here rather than in either form because it is a rule about drafts, and
+ * the admin modal opening empty while the day panel opened seeded was the two
+ * of them answering the same question differently.
+ */
+export function seedDraft(
+  base: AttendanceRequestDraft,
+  kind: RequestKind,
+  record: AttendanceRecordLike | null | undefined,
+  methods: ReadonlyArray<{ value: string; label: string }> = [],
+): AttendanceRequestDraft {
+  const method = record?.workMode
+    ? methods.find((m) => m.label.toLowerCase() === record.workMode!.toLowerCase())?.value
+    : undefined;
+
+  return applyKind(
+    {
+      ...base,
+      checkIn: wantsCheckIn(kind) ? record?.checkIn ?? '' : '',
+      checkOut: wantsCheckOut(kind) ? record?.checkOut ?? '' : '',
+      workingMethodId: base.workingMethodId || method || '',
+    },
+    kind,
+  );
 }

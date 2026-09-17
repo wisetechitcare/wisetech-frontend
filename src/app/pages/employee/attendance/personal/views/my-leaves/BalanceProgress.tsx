@@ -15,7 +15,7 @@ import { customLeaves, filterLeavesPublicHolidays, handleDatesChange, leavesBala
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState, useCallback } from "react";
 // Shared glass UI kit — single source of truth for the leave-management look.
-import { GlassCard, WtButton, IconBox, SectionHead, BRAND, TRIO, ErrorState } from "@app/modules/common/components/ui/tw";
+import { GlassCard, WtButton, IconBox, SectionHead, BRAND, TRIO, ErrorState, CurrencySymbol } from "@app/modules/common/components/ui/tw";
 import { useDispatch, useSelector } from "react-redux";
 import ConvertLeavesModal from "./ConvertLeavesModal";
 import EncashTransferLeavesModal from "./EncashTransferLeavesModal";
@@ -477,7 +477,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     )}
                     {approvedRequestInfo.encash && (
                         <GlassCard preset="row" accentEdge="green" className="flex items-start gap-2.5">
-                            <IconBox icon="dollar" trio={TRIO.green} size={34} fs="fs-4" />
+                            <IconBox icon={<CurrencySymbol />} trio={TRIO.green} size={34} fs="fs-4" />
                             <p className="text-[13px] text-slate-500 leading-normal m-0">
                                 Your leave encashment request has been approved.
                                 {approvedRequestInfo.encash.leaveTypeIds && Array.isArray(approvedRequestInfo.encash.leaveTypeIds) && approvedRequestInfo.encash.leaveTypeIds.length > 0 && (

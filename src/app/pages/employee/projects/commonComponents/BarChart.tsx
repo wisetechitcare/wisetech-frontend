@@ -5,6 +5,7 @@ import { FilterDropdown } from "./FilterDropdown";
 import { clamp } from "lodash";
 import { FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@mui/material";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { formatCurrencyRounded, getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 interface BarChartData {
   label: string;
@@ -330,11 +331,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
         .map((item) => {
           const totalCost = item.totalCost ?? item.budget ?? 0;
           const count = item.value || item.count || 0;
-          const costDisplay = totalCost.toLocaleString("en-IN", {
-            style: "currency",
-            currency: "INR",
-            maximumFractionDigits: 0
-          });
+          const costDisplay = formatCurrencyRounded(totalCost);
 
           return {
             x: item[nameKey],
@@ -433,7 +430,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
                </div>
                <div class="tooltip-row">
                  <span>Total:</span>
-                 <strong>₹${amount.toLocaleString("en-IN") || "0"}</strong>
+                 <strong>${currencyPrefix()}${amount.toLocaleString(getCurrencyLocale()) || "0"}</strong>
                </div>
              </div>`
             : `<div class="apex-tooltip">
@@ -444,7 +441,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
                </div>
                <div class="tooltip-row">
                  <span>Total:</span>
-                 <strong>₹${amount.toLocaleString("en-IN") || "0"}</strong>
+                 <strong>${currencyPrefix()}${amount.toLocaleString(getCurrencyLocale()) || "0"}</strong>
                </div>
              </div>`;
         },

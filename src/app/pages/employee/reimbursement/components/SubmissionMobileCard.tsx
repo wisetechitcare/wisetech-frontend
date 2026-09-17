@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { formatINR, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
+import { formatMoney, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
 
 /**
  * One submission, as it reads on a phone.
@@ -51,7 +51,7 @@ function SubmissionMobileCard({ row, onOpen }: SubmissionMobileCardProps) {
                 // Enter and Space, because a div with role="button" gets neither for free.
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
             } : undefined}
-            aria-label={onOpen ? `Submission ${row?._submissionId ?? ''}, ${formatINR(row?._totalAmount)}, ${STATUS_LABEL[status as StatusNum] ?? ''}` : undefined}
+            aria-label={onOpen ? `Submission ${row?._submissionId ?? ''}, ${formatMoney(row?._totalAmount)}, ${STATUS_LABEL[status as StatusNum] ?? ''}` : undefined}
             style={{
                 background: tone.bg,
                 borderLeft: `3px solid ${tone.border}`,
@@ -65,7 +65,7 @@ function SubmissionMobileCard({ row, onOpen }: SubmissionMobileCardProps) {
             <div className='d-flex align-items-start justify-content-between gap-3'>
                 <div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
-                        {formatINR(row?._totalAmount)}
+                        {formatMoney(row?._totalAmount)}
                     </div>
                     <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
                         {expenses} expense{expenses === 1 ? '' : 's'}

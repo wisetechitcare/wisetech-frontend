@@ -16,6 +16,7 @@ import { Toaster } from 'sonner';
 import { ColorModeProvider } from '@app/theme/ColorMode';
 import { GlassToastProvider } from '@app/modules/common/components/ui';
 import { useTimeFormat } from '@hooks/useTimeFormat';
+import { useCurrencyCode } from '@hooks/useCurrency';
 // import { MaintenancePage } from './modules/errors/MaintenancePage';
 // import { NoInternetPage } from './modules/errors/NoInternetPage';
 
@@ -70,6 +71,16 @@ const App = () => {
   // never — the cost is the same as navigating, and the only screen whose state is
   // discarded is the one holding the switch, which re-reads it on mount anyway.
   const timeFormat = useTimeFormat();
+
+  // Currency keys the tree for the same reason, and one more.
+  //
+  // Money is formatted by plain `formatCurrency()` calls inside the same kind of memoised
+  // column definitions, so a resolved currency would not reach them either. But unlike the
+  // time format, this one is not a settings toggle — it ARRIVES, once, when the geo directory
+  // lands a moment after login. Without the key the first paint's rupees would simply stay on
+  // screen. Mounting the hook here is also what publishes the currency to `utils/currency`
+  // for every non-React formatter in the app.
+  const currency = useCurrencyCode();
 
   // // Listen for online/offline and backend-down events
   // useEffect(() => {
@@ -196,7 +207,7 @@ const App = () => {
                   No CssBaseline so Metronic/Bootstrap global styles stay intact. */}
               <ColorModeProvider>
                 <GlassToastProvider>
-                  <Outlet key={timeFormat} />
+                  <Outlet key={`${timeFormat}:${currency}`} />
                   <MasterInit />
                   <Toaster richColors position="top-right" />
 

@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import dayjs from 'dayjs';
 import ExportButton from '@app/modules/common/components/ExportButton';
-import { formatINR, projectTitle, resolveStatusNum, STATUS_LABEL, StatusNum, NO_VALUE } from '../utils/reimbursementFormat';
+import { formatMoney, projectTitle, resolveStatusNum, STATUS_LABEL, StatusNum, NO_VALUE } from '../utils/reimbursementFormat';
+import { getCurrencySymbol } from '@utils/currency';
 
 /**
  * Company-wide LINE-ITEM export — backlog item 12.
@@ -78,7 +79,7 @@ export default function LineItemExportButton({ rows, periodLabel, disabled }: Li
         { accessorKey: 'project', header: 'Project' },
         { accessorKey: 'company', header: 'Company' },
         // The only column that totals — summing a status or a date would be nonsense.
-        { accessorKey: 'amount', header: 'Amount (₹)', showTotal: true, Cell: ({ cell }: any) => formatINR(cell.getValue()) },
+        { accessorKey: 'amount', header: `Amount (${getCurrencySymbol()})`, showTotal: true, Cell: ({ cell }: any) => formatMoney(cell.getValue()) },
         { accessorKey: 'status', header: 'Approval Status' },
         { accessorKey: 'submittedAt', header: 'Submitted On' },
         { accessorKey: 'decidedAt', header: 'Decided On' },

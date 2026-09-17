@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import ReactECharts from "echarts-for-react";
-import { formatCurrencyCompact } from "@utils/currency";
+import { formatCurrencyCompact, formatCurrencyRounded } from "@utils/currency";
 import { ChartDatum, ChartMetric, buildPalette, toRanked } from "./leadAnalyticsUtils";
 
 interface AcquisitionGaugeProps {
@@ -17,8 +17,6 @@ interface AcquisitionGaugeProps {
   entityLabel?: string;
 }
 
-const formatINR = (n: number) =>
-  n.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
 /**
  * Semi-circle gauge (half-donut) for lead-acquisition splits. The top half-ring is
@@ -68,11 +66,11 @@ const AcquisitionGauge: React.FC<AcquisitionGaugeProps> = ({
           if (isAmount) {
             const count =
               p.data?.volumeValue !== undefined ? `<br/>${p.data.volumeValue} ${entityLabel}` : "";
-            return `<strong>${p.name}</strong><br/>${formatINR(p.value)} · ${
+            return `<strong>${p.name}</strong><br/>${formatCurrencyRounded(p.value)} · ${
               p.data?.share ?? p.percent
             }%${count}`;
           }
-          const rev = showRevenue && p.data?.totalCost ? `<br/>${formatINR(p.data.totalCost)}` : "";
+          const rev = showRevenue && p.data?.totalCost ? `<br/>${formatCurrencyRounded(p.data.totalCost)}` : "";
           return `<strong>${p.name}</strong><br/>${p.value} ${entityLabel} · ${p.data?.share ?? p.percent}%${rev}`;
         },
       },

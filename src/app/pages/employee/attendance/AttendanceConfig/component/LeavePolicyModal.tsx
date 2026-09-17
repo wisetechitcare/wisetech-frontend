@@ -11,6 +11,8 @@ import {
   TRIO, IconBox, StatTile, T,
 } from '@app/modules/common/components/ui';
 import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
+import { CurrencySymbol } from '@app/modules/common/components/ui';
+import { getCurrencySymbol } from '@utils/currency';
 
 interface LeavePolicyModalProps {
   open: boolean;
@@ -295,7 +297,7 @@ export function LeavePolicyModal({ open, onClose, readOnly, scope }: LeavePolicy
             <StatTile label="Penalty" value={stats.penaltyText} trio={state.penaltyEnabled ? TRIO.amber : TRIO.slate} icon="time" />
           </Grid>
           <Grid item xs={12} md={2.4}>
-            <StatTile label="Conversion" value={stats.conversionText} trio={state.conversionEnabled ? TRIO.green : TRIO.slate} icon="dollar" />
+            <StatTile label="Conversion" value={stats.conversionText} trio={state.conversionEnabled ? TRIO.green : TRIO.slate} icon={<CurrencySymbol />} />
           </Grid>
         </Grid>
 
@@ -457,14 +459,14 @@ export function LeavePolicyModal({ open, onClose, readOnly, scope }: LeavePolicy
                       onChange={(e) => setState((s) => ({ ...s, penaltyType: e.target.value as any }))}>
                       <MenuItem value="halfDaySalaryDeduction" sx={{ fontSize: 14.5, whiteSpace: 'normal', lineHeight: 1.4, py: 1 }}>Salary deduction (LOP)</MenuItem>
                       <MenuItem value="halfPaidLeave" sx={{ fontSize: 14.5, whiteSpace: 'normal', lineHeight: 1.4, py: 1 }}>Paid leave deduction</MenuItem>
-                      <MenuItem value="fixedAmountDeduction" sx={{ fontSize: 14.5, whiteSpace: 'normal', lineHeight: 1.4, py: 1 }}>Fixed Amount (₹)</MenuItem>
+                      <MenuItem value="fixedAmountDeduction" sx={{ fontSize: 14.5, whiteSpace: 'normal', lineHeight: 1.4, py: 1 }}>Fixed Amount ({getCurrencySymbol()})</MenuItem>
                     </TextField>
                   </Grid>
 
                   <Grid item xs={12} sm={6} md={4}>
                     {state.penaltyType === 'fixedAmountDeduction' ? (
                       <>
-                        <FieldLabel icon="dollar" tone={TRIO.amber}>Deduction Amount (₹)</FieldLabel>
+                        <FieldLabel icon="wallet" tone={TRIO.amber}>Deduction Amount ({getCurrencySymbol()})</FieldLabel>
                         <TextField type="number" size="small" fullWidth disabled={readOnly} sx={inputSx}
                           value={state.penaltyFixedAmount}
                           onChange={(e) => setState((s) => ({ ...s, penaltyFixedAmount: parseFloat(e.target.value) || 0 }))} />
@@ -489,7 +491,7 @@ export function LeavePolicyModal({ open, onClose, readOnly, scope }: LeavePolicy
             <GlassSurface variant="thin" sx={{ p: { xs: 1.75, sm: 2.25 }, display: 'flex', flexDirection: 'column', gap: 1.75, borderTop: `3.5px solid ${TRIO.green.c}` }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
                 <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
-                  <IconBox icon="dollar" trio={TRIO.green} size={36} fs="fs-3" />
+                  <IconBox icon={<CurrencySymbol />} trio={TRIO.green} size={36} fs="fs-3" />
                   <Box sx={{ minWidth: 0 }}>
                     <Typography sx={titleSx}>Leave Conversion (Encashment &amp; Transfer)</Typography>
                     <Typography sx={descSx}>
@@ -505,7 +507,7 @@ export function LeavePolicyModal({ open, onClose, readOnly, scope }: LeavePolicy
               {state.conversionEnabled && (
                 <Grid container spacing={2} sx={{ pt: 1, borderTop: `1px solid ${divider}` }}>
                   <Grid item xs={12} sm={6} md={4}>
-                    <FieldLabel icon="dollar" tone={TRIO.green}>Max Encashable Days / Year</FieldLabel>
+                    <FieldLabel icon="wallet" tone={TRIO.green}>Max Encashable Days / Year</FieldLabel>
                     <TextField type="number" size="small" fullWidth disabled={readOnly} sx={inputSx}
                       value={state.maxEncashDaysPerYear}
                       onChange={(e) => setState((s) => ({ ...s, maxEncashDaysPerYear: Math.max(0, parseFloat(e.target.value) || 0) }))}
@@ -592,7 +594,7 @@ export function LeavePolicyModal({ open, onClose, readOnly, scope }: LeavePolicy
                   {state.onBehalfEnabled && (
                     <>
                       <Grid item xs={12} sm={6}>
-                        <FieldLabel icon="dollar" tone={TRIO.green}>On-Behalf Ceiling (days)</FieldLabel>
+                        <FieldLabel icon="wallet" tone={TRIO.green}>On-Behalf Ceiling (days)</FieldLabel>
                         <TextField type="number" size="small" fullWidth disabled={readOnly} sx={inputSx}
                           value={state.onBehalfMaxDays}
                           onChange={(e) => setState((s) => ({ ...s, onBehalfMaxDays: Math.max(0, parseFloat(e.target.value) || 0) }))}

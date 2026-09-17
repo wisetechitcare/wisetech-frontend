@@ -135,7 +135,7 @@ export default function ConvertForEmployeeButton() {
                 onClose={() => setPickerOpen(false)}
                 title="Convert leave for an employee"
                 subtitle="Encash or transfer unused paid leave on an employee's behalf"
-                icon="dollar"
+                icon="wallet"
                 tone="green"
                 employees={employees}
                 selectedIds={[]}

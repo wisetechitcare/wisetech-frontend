@@ -29,12 +29,17 @@ export interface JobRequisition {
     recruiterId?: string | null;
     headcount: number;
     filledCount: number;
-    minCtcInLpa?: number | string | null;
-    maxCtcInLpa?: number | string | null;
+    /** The salary band: full ANNUAL amounts, in `currency`. Never lakhs. */
+    minCtc?: number | string | null;
+    maxCtc?: number | string | null;
+    /** ISO 4217 the API resolved for this requisition — its branch, else its company. */
+    currency?: string;
     targetStartDate?: string | null;
     requisitionStageId?: string | null;
     requisitionStage?: RequisitionStage | null;
-    status: number; // 0 pending · 1 approved · 2 rejected
+    status: number; // 0 draft or awaiting approval · 1 approved · 2 rejected
+    /** Out for sign-off right now. Status 0 is both a draft and a submitted requisition; this says which. */
+    approvalPending?: boolean;
     isActive: boolean;
     revisionCount: number;
     createdAt: string;
@@ -52,8 +57,8 @@ export interface RequisitionPayload {
     hiringManagerId?: string | null;
     recruiterId?: string | null;
     headcount?: number;
-    minCtcInLpa?: number | null;
-    maxCtcInLpa?: number | null;
+    minCtc?: number | null;
+    maxCtc?: number | null;
     targetStartDate?: string | null;
     requisitionStageId?: string | null;
     isActive?: boolean;
@@ -90,6 +95,17 @@ const listQuery = (params: Record<string, string | undefined> = {}): string => {
     for (const [key, value] of Object.entries(params)) if (value) qs.set(key, value);
     const s = qs.toString();
     return s ? `?${s}` : "";
+};
+
+/**
+ * A branch a requisition or offer can be for — every active branch in the tenant family, each
+ * with the currency the server resolved for it. Choosing one is what decides the currency a
+ * salary on that record is in.
+ */
+export interface RecruitmentBranch { id: string; name: string; companyId: string; companyName: string | null; currency: string }
+export const getRecruitmentBranches = async (): Promise<RecruitmentBranch[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_BRANCHES}`);
+    return data?.branches ?? [];
 };
 
 export const getRequisitions = async (companyId?: string): Promise<JobRequisition[]> => {
@@ -162,10 +178,13 @@ export interface Applicant {
     id: string; firstName: string; lastName?: string | null; email: string; phone?: string | null;
     currentEmployer?: string | null; currentTitle?: string | null; totalExperienceMonths?: number | null;
     currentLocation?: string | null; qualification?: string | null; employeeLevelId?: string | null;
-    currentCtcInLpa?: number | string | null;
-    expectedCtcInLpa?: number | string | null; noticePeriodDays?: number | null; resumeS3Url?: string | null;
+    /** Full annual amounts. */
+    currentCtc?: number | string | null;
+    expectedCtc?: number | string | null; noticePeriodDays?: number | null; resumeS3Url?: string | null;
     resumeFileName?: string | null; linkedInUrl?: string | null; sourceId?: string | null; source?: ApplicantSource | null;
     isBlacklisted: boolean; isActive: boolean; createdAt: string;
+    /** Optimistic-concurrency counter: sent back as expectedRevisionCount so a stale edit is refused, not silently applied. */
+    revisionCount?: number;
 }
 export interface Application {
     id: string; prefix?: string | null; applicantId: string; applicant?: Applicant | null;
@@ -176,7 +195,51 @@ export interface Application {
     coverLetter?: string | null; appliedDate?: string | null; lastStageChangeAt?: string | null; hiredDate?: string | null;
     convertedEmployeeId?: string | null;
     isActive: boolean; revisionCount: number; createdAt: string;
+    /**
+     * How long this application has sat in its CURRENT stage. Server-computed, because the
+     * amber/red thresholds are tenant configuration and the band must mean the same thing
+     * here as it does in the nightly stale-application nudge.
+     */
+    enteredStageAt?: string | null;
+    daysInStage?: number;
+    /** Null for a hired or rejected candidate — they are finished, not going cold. */
+    stageAgeBand?: StageAgeBand | null;
+    /** Null when the application has never been scored. Not the same as a weak score. */
+    scoreBand?: ScoreBand | null;
+    /** Recomputed server-side from the weights in force, so it can never be stale. */
+    scoreBreakdown?: ScoreBreakdown | null;
 }
+
+/** fresh → nothing to do · ageing → worth a look · stalled → someone is going cold. */
+export type StageAgeBand = "fresh" | "ageing" | "stalled";
+
+export type ScoreBand = "excellent" | "good" | "fair" | "poor";
+
+export interface ScoreBreakdown {
+    ctcFit: number;
+    experience: number;
+    noticePeriod: number;
+    keywordMatch: number;
+}
+
+/**
+ * How a band reads, and how it renders. One definition so a chip on a card and a chip in
+ * a drawer can never disagree about what "Good" looks like.
+ */
+export const SCORE_BAND_META: Record<ScoreBand, { label: string; color: "success" | "info" | "warning" | "error" }> = {
+    excellent: { label: "Excellent", color: "success" },
+    good: { label: "Good", color: "info" },
+    fair: { label: "Fair", color: "warning" },
+    poor: { label: "Weak", color: "error" },
+};
+
+/** The four factors in display order, with the words a recruiter uses. */
+export const SCORE_FACTORS: { key: keyof ScoreBreakdown; label: string; hint: string }[] = [
+    { key: "ctcFit", label: "Salary fit", hint: "Expected CTC against the requisition's band" },
+    { key: "experience", label: "Experience", hint: "Years, ramping to full marks around five" },
+    { key: "noticePeriod", label: "Availability", hint: "Notice period — immediate scores highest" },
+    { key: "keywordMatch", label: "Title match", hint: "Requisition wording against current title and employer" },
+];
 
 export interface ApplicantPayload {
     firstName: string;
@@ -186,7 +249,7 @@ export interface ApplicantPayload {
      * WhatsApp, walk-in, referral — arrives with a number and no address, and the API
      * rejects only a record carrying neither.
      */
-    email: string;
+    email?: string | null;
     phone?: string | null;
     currentEmployer?: string | null;
     currentTitle?: string | null;
@@ -195,9 +258,9 @@ export interface ApplicantPayload {
     /** Seniority, from the same ladder a requisition picks from. */
     employeeLevelId?: string | null;
     totalExperienceMonths?: number | null;
-    /** What they earn now. `expectedCtcInLpa` is what they are asking for; both are LPA. */
-    currentCtcInLpa?: number | null;
-    expectedCtcInLpa?: number | null;
+    /** What they earn now. `expectedCtc` is what they are asking for; both are full annual amounts. */
+    currentCtc?: number | null;
+    expectedCtc?: number | null;
     noticePeriodDays?: number | null;
     sourceId?: string | null;
 }
@@ -214,7 +277,7 @@ export interface StageMovePayload {
 }
 
 // ─── Applications ────────────────────────────────────────────────────────────
-export const getApplications = async (filters: { requisitionId?: string; statusId?: string; search?: string } = {}, companyId?: string): Promise<Application[]> => {
+export const getApplications = async (filters: { requisitionId?: string; statusId?: string; sourceId?: string; search?: string; applicantId?: string } = {}, companyId?: string): Promise<Application[]> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${listQuery({ ...filters, companyId })}`);
     return data?.applications ?? [];
 };
@@ -239,6 +302,8 @@ export interface ApplicationNote {
     id: string;
     applicationId: string;
     authorId?: string | null;
+    /** Resolved server-side; null for a deleted author. */
+    authorName?: string | null;
     body: string;
     createdAt: string;
 }
@@ -252,9 +317,15 @@ export interface StageHistoryEntry {
     isAutomated: boolean;
     note?: string | null;
     changedAt: string;
+    /** Who moved the candidate, resolved server-side; null for an automated move or a deleted user. */
+    changedByName?: string | null;
 }
 
-export type ApplicationDetail = Application & { stageHistory?: StageHistoryEntry[] };
+export type ApplicationDetail = Application & {
+    stageHistory?: StageHistoryEntry[];
+    /** The currency the candidate's salary figures are in — their requisition's. */
+    currency?: string;
+};
 
 /** The full record behind one pipeline row — the endpoint existed with no caller until now. */
 export const getApplicationById = async (id: string): Promise<ApplicationDetail | null> => {
@@ -354,7 +425,7 @@ export const getApplicantById = async (id: string): Promise<Applicant | null> =>
 
 // There is deliberately no deleteApplicant: candidate records are never hard-deleted (audit +
 // data-retention). Deactivating/blacklisting flows through this update instead.
-export const updateApplicant = async (id: string, payload: Partial<ApplicantPayload> & { isBlacklisted?: boolean; isActive?: boolean }) => {
+export const updateApplicant = async (id: string, payload: Partial<ApplicantPayload> & { isBlacklisted?: boolean; isActive?: boolean; expectedRevisionCount?: number }) => {
     const { data } = await axios.put(`${API_BASE_URL}/${RECRUITMENT.UPDATE_APPLICANT.replace(":id", id)}`, payload);
     return data;
 };
@@ -429,7 +500,16 @@ export const reorderConfig = async (type: string, orderedIds: string[]) => {
 // ─── Tenant settings (scoring weights + automation rules) ────────────────────
 export interface ScoringWeights { ctcFit: number; experience: number; noticePeriod: number; keywordMatch: number }
 export interface AutoRules { autoAdvanceEnabled: boolean; autoRejectEnabled: boolean; aiScreeningEnabled: boolean }
-export interface RecruitmentSettings { weights: ScoringWeights; autoRules: AutoRules }
+export interface RecruitmentSettings {
+    weights: ScoringWeights;
+    autoRules: AutoRules;
+    /**
+     * Who a new requisition names as recruiter before anyone edits it — normally whoever in
+     * HR runs hiring. A setting rather than a constant: which person that is differs per
+     * customer. Null when unset, and the field is then simply left empty.
+     */
+    defaultRecruiterId?: string | null;
+}
 
 export const getRecruitmentSettings = async (): Promise<RecruitmentSettings> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.SETTINGS}`);
@@ -674,20 +754,43 @@ export const getApplicationEvaluation = async (applicationId: string): Promise<E
 export interface Offer {
     id: string; prefix?: string | null; applicationId: string;
     offeredDesignationId?: string | null; offeredDepartmentId?: string | null; offeredBranchId?: string | null;
-    offeredEmployeeTypeConfigId?: string | null; offeredCtcInLpa?: number | string | null; proposedJoiningDate?: string | null;
+    offeredEmployeeTypeConfigId?: string | null; offeredCtc?: number | string | null; proposedJoiningDate?: string | null;
     status: number; acceptanceStatus: string; offerLetterUrl?: string | null; notes?: string | null;
     expiresAt?: string | null; revisionCount: number;
+    /** ISO 4217 the offer is in — its branch, else its requisition's, else its company's. */
+    currency?: string;
+    /** Out for sign-off right now. Status 0 is both a draft and a submitted offer; this says which. */
+    approvalPending?: boolean;
 }
 export interface OfferPayload {
     applicationId?: string;
     offeredDesignationId?: string | null; offeredDepartmentId?: string | null; offeredBranchId?: string | null;
-    offeredEmployeeTypeConfigId?: string | null; offeredCtcInLpa?: number | null; proposedJoiningDate?: string | null;
+    offeredEmployeeTypeConfigId?: string | null; offeredCtc?: number | null; proposedJoiningDate?: string | null;
     expiresAt?: string | null; notes?: string | null; expectedRevisionCount?: number;
 }
 
-export const getApplicationOffer = async (applicationId: string): Promise<Offer | null> => {
+/**
+ * An application's offer, and the currency it is — or will be — in. The currency comes back
+ * even when there is no offer yet, because the form that creates one has to show it.
+ */
+export interface ApplicationOffer {
+    offer: Offer | null;
+    currency?: string;
+    /** The requisition's branch — what a NEW offer defaults to, as the server does. */
+    requisitionBranchId?: string | null;
+    /** The requisition's department and designation — what a NEW offer starts with. */
+    requisitionDepartmentId?: string | null;
+    requisitionDesignationId?: string | null;
+}
+export const getApplicationOffer = async (applicationId: string): Promise<ApplicationOffer> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_OFFER.replace(":id", applicationId)}`);
-    return data?.offer ?? null;
+    return {
+        offer: data?.offer ?? null,
+        currency: data?.currency,
+        requisitionBranchId: data?.requisitionBranchId ?? null,
+        requisitionDepartmentId: data?.requisitionDepartmentId ?? null,
+        requisitionDesignationId: data?.requisitionDesignationId ?? null,
+    };
 };
 export const createOffer = async (payload: OfferPayload) => {
     const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_OFFER}`, payload);
@@ -714,6 +817,13 @@ export interface JobPosting {
     /** Publish this role's CTC band publicly. Off by default; the server redacts the
      *  numbers entirely when it is false, so they never reach the careers site. */
     showSalary?: boolean;
+    /**
+     * The link a recruiter shares, built by the server from `CAREERS_SITE_BASE_URL`.
+     * `null` when no careers site is configured for this deployment — offer no link at all
+     * rather than a guessed one (this used to be a literal domain in the bundle, so every
+     * tenant copied the same company's website).
+     */
+    publicUrl?: string | null;
     requisition?: { id: string; title: string; prefix?: string | null } | null;
 }
 export interface PostingPayload {

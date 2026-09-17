@@ -4,7 +4,7 @@ import { KTIcon } from '@metronic/helpers';
 import dayjs from 'dayjs';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { PayrollTableRow } from '../../types/payroll.types';
-import { formatINRRounded } from '../../utils/payrollFormatters';
+import { formatMoneyRounded } from '../../utils/payrollFormatters';
 
 interface PaymentDetailsTableProps {
     tableRows: PayrollTableRow[];
@@ -89,13 +89,13 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
         if (remaining < 0) {
             return (
                 <span className={`fw-bold ${sensitiveCls} text-info`}>
-                    {formatINRRounded(Math.abs(remaining))} <span className="fs-8 fw-semibold">extra</span>
+                    {formatMoneyRounded(Math.abs(remaining))} <span className="fs-8 fw-semibold">extra</span>
                 </span>
             );
         }
         return (
             <span className={`fw-bold ${sensitiveCls} ${remaining === 0 ? 'text-success' : 'text-danger'}`}>
-                {formatINRRounded(row.calculatedRemainingAmount)}
+                {formatMoneyRounded(row.calculatedRemainingAmount)}
             </span>
         );
     };
@@ -192,13 +192,13 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                             <div className="d-flex flex-column">
                                                 <span className="text-muted fw-semibold fs-9">Net Payable</span>
                                                 <span className={`fw-bolder fs-6 ${sensitiveCls} ${row.calculatedNetSalary < 0 ? 'text-info' : 'text-primary'}`}>
-                                                    {formatINRRounded(row.calculatedNetSalary)}
+                                                    {formatMoneyRounded(row.calculatedNetSalary)}
                                                 </span>
                                             </div>
                                             <div className="d-flex flex-column">
                                                 <span className="text-muted fw-semibold fs-9">Paid</span>
                                                 <span className={`text-success fw-bold fs-6 ${sensitiveCls}`}>
-                                                    {formatINRRounded(row.calculatedPaidAmount)}
+                                                    {formatMoneyRounded(row.calculatedPaidAmount)}
                                                 </span>
                                             </div>
                                             <div className="d-flex flex-column align-items-end">
@@ -293,12 +293,12 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                         </td>
                                         <td className="text-end">
                                             <span className={`fw-bolder fs-6 ${sensitiveCls} ${row.calculatedNetSalary < 0 ? 'text-info' : 'text-primary'}`}>
-                                                {formatINRRounded(row.calculatedNetSalary)}
+                                                {formatMoneyRounded(row.calculatedNetSalary)}
                                             </span>
                                         </td>
                                         <td className="text-end">
                                             <span className={`text-success fw-bold fs-6 ${sensitiveCls}`}>
-                                                {formatINRRounded(row.calculatedPaidAmount)}
+                                                {formatMoneyRounded(row.calculatedPaidAmount)}
                                             </span>
                                         </td>
                                         <td className="text-end fs-6">

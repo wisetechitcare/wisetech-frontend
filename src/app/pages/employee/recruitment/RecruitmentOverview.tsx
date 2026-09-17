@@ -1,33 +1,65 @@
 import { useCallback, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Box, Stack, Typography, Tooltip, CircularProgress } from "@mui/material";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { Box, Stack, Typography, CircularProgress, LinearProgress } from "@mui/material";
 import {
     AutoGrid, ListHeader, GlassCard, StatTile, ToneChip, Eyebrow, TRIO, SectionHead,
+    CurrencySymbol, WtEmptyState, WtTooltip,
     type Trio, type SemanticTone,
 } from "@app/modules/common/components/ui";
 import PeriodFilter, { type PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import { queryKeys } from "@/lib/queryKeys";
+import ApplicationsDrillDown from "./ApplicationsDrillDown";
+import { apiErrorMessage } from "@utils/apiError";
 import { getRecruitmentOverview, type OrgScoped,
 } from "@services/recruitment";
 
-const FALLBACK_BAR = "#94A3B8";
+/** A bar whose stage has no configured colour. A theme token, so it reads in dark mode too. */
+const FALLBACK_BAR = "text.disabled";
 const OFFER_TONE: Record<string, SemanticTone> = { ACCEPTED: "success", PENDING: "warning", DECLINED: "danger", EXPIRED: "brand" };
 const titleCase = (s: string) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : s);
 
 /** Horizontal magnitude bar. Fill uses the config (admin-set) identity colour; all
  *  text stays in ink tokens so the chart reads correctly in light AND dark mode. */
-const BarRow = ({ label, count, max, color }: { label: string; count: number; max: number; color?: string | null }) => {
+const BarRow = ({ label, count, max, color, onOpen }: { label: string; count: number; max: number; color?: string | null; onOpen?: () => void }) => {
     const pct = max > 0 && count > 0 ? Math.max(5, Math.round((count / max) * 100)) : 0;
+    // A row with nobody in it has nothing to show, so it stays inert rather than opening an
+    // empty dialog — the cursor is the honest signal about which bars lead somewhere.
+    const clickable = Boolean(onOpen) && count > 0;
     return (
-        <Stack direction="row" alignItems="center" spacing={1.25} sx={{ minWidth: 0 }}>
-            <Typography noWrap title={label} sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 88, sm: 132 }, flexShrink: 0, color: "text.secondary" }}>
-                {label}
-            </Typography>
-            <Tooltip title={`${count}`} arrow placement="top">
+        <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1.25}
+            sx={{
+                minWidth: 0,
+                ...(clickable && {
+                    cursor: "pointer",
+                    borderRadius: 1,
+                    mx: -0.5, px: 0.5, py: 0.25,
+                    transition: "background-color 150ms ease",
+                    "&:hover": { bgcolor: "action.hover" },
+                }),
+            }}
+            onClick={clickable ? onOpen : undefined}
+            // Keyboard reachable, because a chart that only responds to a mouse excludes
+            // anyone driving the app from the keyboard.
+            role={clickable ? "button" : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen?.(); } } : undefined}
+            aria-label={clickable ? `${label}: ${count}. Open the list.` : undefined}
+        >
+            {/* The full name stays reachable when the column truncates it — through the kit's
+                tooltip, not a native `title`, which never appears on a touch screen. */}
+            <WtTooltip title={label}>
+                <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 88, sm: 132 }, flexShrink: 0, color: "text.secondary" }}>
+                    {label}
+                </Typography>
+            </WtTooltip>
+            <WtTooltip title={clickable ? `${count} — click to see who` : `${count}`}>
                 <Box sx={{ flex: 1, minWidth: 0, height: 20, borderRadius: 999, bgcolor: "action.hover", overflow: "hidden" }}>
                     <Box sx={{ width: `${pct}%`, height: "100%", borderRadius: 999, bgcolor: color || FALLBACK_BAR, transition: "width .5s cubic-bezier(0.4,0,0.2,1)" }} />
                 </Box>
-            </Tooltip>
+            </WtTooltip>
             <Typography sx={{ fontSize: 13, fontWeight: 700, width: 30, textAlign: "right", flexShrink: 0 }}>{count}</Typography>
         </Stack>
     );
@@ -72,7 +104,9 @@ const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays }: 
 }) => (
     <Stack direction="row" alignItems="center" spacing={1.25} flexWrap="wrap" useFlexGap sx={{ py: 0.5 }}>
         <Box sx={{ width: 8, height: 8, borderRadius: 999, bgcolor: color || FALLBACK_BAR, flexShrink: 0 }} />
-        <Typography noWrap title={name} sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 96, sm: 150 }, flexShrink: 0 }}>{name}</Typography>
+        <WtTooltip title={name}>
+            <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 96, sm: 150 }, flexShrink: 0 }}>{name}</Typography>
+        </WtTooltip>
         <Typography sx={{ fontSize: 12.5, color: "text.secondary", flex: 1, minWidth: 0 }}>
             {avgDays == null
                 ? "No one has moved past this step yet"
@@ -81,22 +115,19 @@ const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays }: 
                   : `Usually takes ${dayWord(avgDays)}`}
         </Typography>
         {openCount > 0 && (
-            <Tooltip
-                arrow
-                placement="top"
+            <WtTooltip
+                wrap
                 title={`${openCount === 1 ? "1 person is" : `${openCount} people are`} waiting here. The one waiting longest has been here ${dayWord(oldestOpenDays ?? 0)}.`}
             >
                 {/* The longest wait is the number worth acting on: a step that usually takes
                     2 days with someone sitting 40 days is one person being forgotten, and no
                     average will ever show that. */}
-                <span>
-                    <ToneChip
-                        dense
-                        tone={(oldestOpenDays ?? 0) >= 14 ? "danger" : "neutral"}
-                        label={`${openCount} waiting · longest ${dayWord(oldestOpenDays ?? 0)}`}
-                    />
-                </span>
-            </Tooltip>
+                <ToneChip
+                    dense
+                    tone={(oldestOpenDays ?? 0) >= 14 ? "danger" : "neutral"}
+                    label={`${openCount} waiting · longest ${dayWord(oldestOpenDays ?? 0)}`}
+                />
+            </WtTooltip>
         )}
     </Stack>
 );
@@ -115,24 +146,80 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
     }, []);
     const range = { from: period.from, to: period.to };
 
-    const { data, isLoading } = useQuery({
+    const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
         queryKey: queryKeys.recruitment.overview({ ...range, companyId }),
         queryFn: () => getRecruitmentOverview(range, companyId),
+        // Moving between periods keeps the last figures on screen while the next ones load,
+        // instead of blanking the page to a spinner for every click of an arrow.
+        placeholderData: keepPreviousData,
     });
 
-    if (isLoading) return <Stack alignItems="center" sx={{ py: 8 }}><CircularProgress size={30} /></Stack>;
-    if (!data) return <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>Nothing to show yet.</Box>;
+    /**
+     * Which bar the user opened. Every count on this page used to be a dead end: the
+     * tooltip repeated the number and nothing said WHO. One piece of state rather than one
+     * per chart, because only one drill-down can be open at a time.
+     */
+    const [drillDown, setDrillDown] = useState<{ title: string; statusId?: string; sourceId?: string } | null>(null);
+
+    // NEVER return early above the header. The period filter lives in it, and an early-return
+    // spinner unmounted the filter on every change: it lost its place, snapped back to today, and a
+    // custom range could never be finished because picking "From" remounted it empty.
+    const header = (
+        <ListHeader
+            title="Recruitment Overview"
+            subtitle={
+                period.label === "Pick a range"
+                    ? "Choose a start and end date to see that period."
+                    : `How hiring is going — showing ${period.label}.`
+            }
+            actions={
+                <PeriodFilter
+                    initialMode="allyear"
+                    allowedModes={["daily", "weekly", "monthly", "yearly", "allyear", "custom"]}
+                    storageKey="recruitment:overview:period"
+                    // Compact labels: this control sits in a header that also carries a
+                    // title, and its own docblock recommends compact where width is tight.
+                    dateStyle="compact"
+                    navMinWidth={150}
+                    onChange={onPeriodChange}
+                />
+            }
+        />
+    );
+
+    if (!data) {
+        return (
+            <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
+                {header}
+                {isLoading ? (
+                    <Stack alignItems="center" sx={{ py: 8 }}><CircularProgress size={30} /></Stack>
+                ) : isError ? (
+                    <WtEmptyState variant="error" title="Could not load the overview" hint={apiErrorMessage(error, "Check your connection and try again.")} actionLabel="Retry" onAction={() => refetch()} />
+                ) : (
+                    <WtEmptyState title="Nothing to Show Yet" hint="Numbers appear here once requisitions and applications exist." />
+                )}
+            </Box>
+        );
+    }
 
     const { kpis, funnel, candidatesBySource, requisitionsByStatus, offersByAcceptance, stageDurations, timeToHire } = data;
     const funnelMax = Math.max(1, ...funnel.map((f) => f.count));
     const sourceMax = Math.max(1, ...candidatesBySource.map((s) => s.count));
     const conversion = kpis.totalApplications > 0 ? Math.round((kpis.hires / kpis.totalApplications) * 100) : 0;
 
-    const kpiTiles: Array<{ label: string; value: number | string; trio: Trio; icon: string }> = [
+    const kpiTiles: Array<{ label: string; value: number | string; trio: Trio; icon: React.ReactNode }> = [
         { label: "Open Roles", value: kpis.openRequisitions, trio: TRIO.blue, icon: "questionnaire-tablet" },
         { label: "In Process", value: kpis.activeCandidates, trio: TRIO.purple, icon: "profile-circle" },
-        { label: "Interviews", value: kpis.interviewsScheduled, trio: TRIO.cyan, icon: "message-text-2" },
-        { label: "Offers Out", value: kpis.offersOutstanding, trio: TRIO.amber, icon: "dollar" },
+                // "Interviews" sat directly above a funnel bar also called Interview and meant
+        // something else entirely: this counts BOOKINGS still to happen, the bar counts people
+        // parked in that stage. Reading 0 beside a bar of 5 looked broken and was not. The
+        // longer label is the fix — and the gap between the two is the useful signal, because
+        // five people waiting with nothing booked is the thing worth seeing.
+        { label: "Interviews Booked", value: kpis.interviewsScheduled, trio: TRIO.cyan, icon: "message-text-2" },
+        // The branch's own currency, not the icon font's `dollar` — that glyph was showing a
+        // `$` to an office that pays in rupees purely because it is the only money shape the
+        // font ships.
+        { label: "Offers Out", value: kpis.offersOutstanding, trio: TRIO.amber, icon: <CurrencySymbol /> },
         { label: "Hired", value: kpis.hires, trio: TRIO.green, icon: "user-tick" },
         // The median, not the average: one long-running role drags an average away from
         // reality, so "typical" is both the plainer word and the accurate one.
@@ -141,26 +228,14 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
 
     return (
         <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
-            <ListHeader
-                title="Recruitment Overview"
-                subtitle={
-                    period.label === "Pick a range"
-                        ? "Choose a start and end date to see that period."
-                        : `How hiring is going — showing ${period.label}.`
-                }
-                actions={
-                    <PeriodFilter
-                        initialMode="allyear"
-                        allowedModes={["daily", "weekly", "monthly", "yearly", "allyear", "custom"]}
-                        storageKey="recruitment:overview:period"
-                        // Compact labels: this control sits in a header that also carries a
-                        // title, and its own docblock recommends compact where width is tight.
-                        dateStyle="compact"
-                        navMinWidth={150}
-                        onChange={onPeriodChange}
-                    />
-                }
-            />
+            {header}
+            {/* The previous period stays readable while the next loads; this line says it is updating. */}
+            <Box sx={{ height: 3, mb: 1 }}>{isFetching && <LinearProgress sx={{ height: 3, borderRadius: 2 }} aria-label="Updating" />}</Box>
+            {isError && (
+                <Typography sx={{ mb: 1.5, fontSize: 13, color: "error.main" }}>
+                    Could not load {period.label}. Showing the last figures that loaded. {apiErrorMessage(error, "")}
+                </Typography>
+            )}
 
             <AutoGrid
                 min={200}
@@ -179,14 +254,23 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                 <CardTitle
                     tone={TRIO.blue}
                     icon="chart-simple"
-                    title="Where Applicants Are"
+                    title="Where Candidates Are"
                     hint={`${kpis.totalApplications} people applied · ${conversion} in every 100 were hired · ${kpis.publishedPostings} jobs live on the careers page`}
                 />
                 {funnel.length === 0 ? (
                     <EmptyHint text="No hiring steps set up yet. Add them in the Configure tab." />
                 ) : (
                     <Stack spacing={1}>
-                        {funnel.map((f) => <BarRow key={f.id} label={f.name} count={f.count} max={funnelMax} color={f.color} />)}
+                        {funnel.map((f) => (
+                            <BarRow
+                                key={f.id}
+                                label={f.name}
+                                count={f.count}
+                                max={funnelMax}
+                                color={f.color}
+                                onOpen={() => setDrillDown({ title: `${f.name} — ${f.count} ${f.count === 1 ? "candidate" : "candidates"}`, statusId: f.id })}
+                            />
+                        ))}
                     </Stack>
                 )}
             </GlassCard>
@@ -240,7 +324,13 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                         <Stack spacing={1}>
                             {candidatesBySource.map((s) => (
                                 <Box key={s.id}>
-                                    <BarRow label={s.name} count={s.count} max={sourceMax} color={s.color} />
+                                    <BarRow
+                                        label={s.name}
+                                        count={s.count}
+                                        max={sourceMax}
+                                        color={s.color}
+                                        onOpen={() => setDrillDown({ title: `From ${s.name} — ${s.count} ${s.count === 1 ? "candidate" : "candidates"}`, sourceId: s.id })}
+                                    />
                                     {s.hires > 0 && (
                                         <Typography sx={{ fontSize: 11.5, color: "text.secondary", pl: { xs: 12.5, sm: 17 }, mt: -0.25 }}>
                                             {s.hires} hired — {s.hireRatePct} in every 100 who applied
@@ -281,6 +371,18 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                     </Stack>
                 </GlassCard>
             </AutoGrid>
+
+            {/* Mounted only while a bar is open, so a closed drill-down costs nothing. */}
+            {drillDown && (
+                <ApplicationsDrillDown
+                    open
+                    onClose={() => setDrillDown(null)}
+                    title={drillDown.title}
+                    statusId={drillDown.statusId}
+                    sourceId={drillDown.sourceId}
+                    companyId={companyId}
+                />
+            )}
         </Box>
     );
 };

@@ -4,6 +4,8 @@ import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { store } from '@redux/store';
 import { setCustomColors, type ICustomColorCode } from '@redux/slices/customColors';
+import { saveCurrentCompanyInfo } from '@redux/slices/company';
+import { saveCurrentEmployee } from '@redux/slices/employee';
 
 /**
  * Mounted once at the App root when authenticated.
@@ -127,8 +129,45 @@ export function useRealtimeSync(
       if (payload?.colors) store.dispatch(setCustomColors(payload.colors));
     };
 
+    /**
+     * The 12/24h format is app-wide, so a change has to reach every open session, not
+     * just the tab that saved it. The personal layer already broadcasts through
+     * localStorage; this carries the org and branch layers.
+     *
+     * Both slices are REPLACED rather than merged by their reducers, so each patch
+     * spreads the current value. `null` is passed straight through: it means the layer
+     * has no opinion and defers to the one below, which is not the same as 24-hour.
+     */
+    const onTimeFormatUpdated = (payload: {
+      scope?: 'org' | 'branch';
+      id?: string;
+      showDateIn12HourFormat?: boolean | null;
+    }) => {
+      const state: any = store.getState();
+      const flag = payload?.showDateIn12HourFormat ?? null;
+
+      if (payload?.scope === 'org') {
+        const company = state?.company?.currentCompany;
+        // Ignore another tenant's org.
+        if (!company?.id || company.id !== payload.id) return;
+        store.dispatch(saveCurrentCompanyInfo({ ...company, showDateIn12HourFormat: flag }));
+        return;
+      }
+
+      if (payload?.scope === 'branch') {
+        const employee = state?.employee?.currentEmployee;
+        // Only this employee's own branch changes what this employee reads.
+        if (!employee?.branchId || employee.branchId !== payload.id) return;
+        store.dispatch(saveCurrentEmployee({
+          ...employee,
+          branches: { ...employee.branches, showDateIn12HourFormat: flag },
+        }));
+      }
+    };
+
     socket.on('connect', onConnect);
     socket.on('colors_updated', onColorsUpdated);
+    socket.on('settings:time_format_updated', onTimeFormatUpdated);
     socket.on('faqs_updated', onFaqsUpdated);
     socket.on('attendanceRequests:updated', onAttendanceRequestChanged);
     socket.on('lead_project_synced', onLeadProjectSynced);
@@ -144,6 +183,7 @@ export function useRealtimeSync(
     return () => {
       socket.off('connect', onConnect);
       socket.off('colors_updated', onColorsUpdated);
+      socket.off('settings:time_format_updated', onTimeFormatUpdated);
       socket.off('faqs_updated', onFaqsUpdated);
       socket.off('attendanceRequests:updated', onAttendanceRequestChanged);
       socket.off('lead_project_synced', onLeadProjectSynced);
