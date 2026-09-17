@@ -20,6 +20,9 @@ import EmployeeAccessTab from "./EmployeeAccessTab";
 import EmployeeProject from "./EmployeeProject";
 import MeetingsList from "@app/modules/common/components/MeetingsList";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { WtButton } from "@app/modules/common/components/ui/tw";
+import { KTIcon } from "@metronic/helpers";
+import AssignToProjectsDialog from "@app/modules/common/components/AssignToProjectsDialog";
 
 const ShowEmployeeDetailsToggle = () => {
   const { employeeId } = useParams<{ employeeId: string }>();
@@ -30,6 +33,8 @@ const ShowEmployeeDetailsToggle = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("details");
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [projectsReloadKey, setProjectsReloadKey] = useState(0);
   const canManageAccess = usePermission("users.manage.all");
   const dispatch = useDispatch<AppDispatch>();
   const employeeStatus = getEmployeeStatusString(employee);
@@ -240,7 +245,19 @@ const ShowEmployeeDetailsToggle = () => {
           {canManageAccess && <ToggleButton value="access">Access</ToggleButton>}
           {/* <ToggleButton value="configure">Configure</ToggleButton> */}
         </ToggleButtonGroup>
+        {activeTab === "projects" && (
+          <WtButton className="ml-auto shrink-0 self-center" startIcon={<KTIcon iconName="plus" className="fs-4 text-white" />} onClick={() => setAssignOpen(true)}>
+            Add to projects
+          </WtButton>
+        )}
       </div>
+      <AssignToProjectsDialog
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        target={{ employeeId: employeeId! }}
+        name={`${users.firstName} ${users.lastName}`}
+        onAssigned={() => setProjectsReloadKey((k) => k + 1)}
+      />
 
       {/* Tab Content */}
       <div className="tab-content">
@@ -251,7 +268,7 @@ const ShowEmployeeDetailsToggle = () => {
         )}
         {activeTab === "projects" && (
           <div className="tab-pane fade show active">
-            <EmployeeProject employeeId={employeeId!} />
+            <EmployeeProject employeeId={employeeId!} reloadKey={projectsReloadKey} />
           </div>
         )}
         {activeTab === "meetings" && (

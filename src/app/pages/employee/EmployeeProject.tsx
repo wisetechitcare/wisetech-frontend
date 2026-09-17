@@ -25,7 +25,7 @@ import { useNavigate } from "react-router-dom";
  * team member, or an explicit per-lead internal roster member (resolved backend
  * side in getProjectsByEmployeeId).
  */
-const EmployeeProject = ({ employeeId }: { employeeId: string }) => {
+const EmployeeProject = ({ employeeId, reloadKey = 0 }: { employeeId: string; reloadKey?: number }) => {
   const currentUserId = useSelector(
     (state: RootState) => state.auth?.currentUser?.id
   );
@@ -71,7 +71,7 @@ const EmployeeProject = ({ employeeId }: { employeeId: string }) => {
   useEffect(() => {
     getAllProjectsData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employeeId]);
+  }, [employeeId, reloadKey]);
 
   const findClientCompanyName = (companyId: string | undefined) => {
     if (!companyId) return null;
@@ -108,6 +108,16 @@ const EmployeeProject = ({ employeeId }: { employeeId: string }) => {
           {row.original.title}
         </button>
       ),
+    },
+    {
+      id: "memberStatus",
+      accessorFn: (row: any) => (row.membership ? (row.membership.isActive ? "Active" : "Inactive") : "Not on team"),
+      header: "Team Status",
+      Cell: ({ row }: any) => {
+        const m = row.original.membership;
+        if (!m) return "Not on team";
+        return `${m.isActive ? "Active" : "Inactive"}${m.wasProjectManager ? " · Past Manager" : ""}`;
+      },
     },
     {
       accessorKey: "clientCompanies",
@@ -168,20 +178,25 @@ const EmployeeProject = ({ employeeId }: { employeeId: string }) => {
         );
       },
     },
+    // THIS employee's dates on the project (their Internal Team row on the Teams tab),
+    // not the project's own start/end. Ids kept as startDate/endDate so saved column
+    // order and visibility carry over.
     {
-      accessorKey: "startDate",
+      id: "startDate",
+      accessorFn: (row: any) => row.membership?.startDate ?? null,
       header: "Start Date",
-      Cell: ({ renderedCellValue }: any) =>
-        renderedCellValue
-          ? dayjs(new Date(renderedCellValue)).format("DD-MM-YYYY")
+      Cell: ({ row }: any) =>
+        row.original.membership?.startDate
+          ? dayjs(row.original.membership.startDate).format("DD-MM-YYYY")
           : "N/A",
     },
     {
-      accessorKey: "endDate",
+      id: "endDate",
+      accessorFn: (row: any) => row.membership?.endDate ?? null,
       header: "End Date",
-      Cell: ({ renderedCellValue }: any) =>
-        renderedCellValue
-          ? dayjs(new Date(renderedCellValue)).format("DD-MM-YYYY")
+      Cell: ({ row }: any) =>
+        row.original.membership?.endDate
+          ? dayjs(row.original.membership.endDate).format("DD-MM-YYYY")
           : "N/A",
     },
     {

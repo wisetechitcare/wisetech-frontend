@@ -10,6 +10,9 @@ import ContactHeader from "./ContactHeader";
 import CompanyReferences from "../../companies/components/CompanyReferences";
 import ProjectMeetings from "@app/pages/employee/entity/detail/sections/ProjectMeetings";
 import { UnderlineTabs } from "@app/modules/common/components/ui";
+import { WtButton } from "@app/modules/common/components/ui/tw";
+import { KTIcon } from "@metronic/helpers";
+import AssignToProjectsDialog from "@app/modules/common/components/AssignToProjectsDialog";
 
 type TabType = "overview" | "lead-reference" | "company-references" | "projects" | "meetings";
 
@@ -24,6 +27,8 @@ const ContactMainToggle = () => {
   const [contact, setContact] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [show, setShow] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [projectsReloadKey, setProjectsReloadKey] = useState(0);
 
   const fetchCompanyDetails = async () => {
     if (!contactId) return;
@@ -73,7 +78,7 @@ const ContactMainToggle = () => {
         // Companies this contact referred (it is the external referrer).
         return <CompanyReferences referredCompanies={contact?.companyReferences} />;
       case "projects":
-        return <ContactProject contact={contact}/>;
+        return <ContactProject contact={contact} reloadKey={projectsReloadKey} />;
       case "meetings":
         // Meetings where this contact is an external participant — with the same actions as
         // the calendar and the project tab, and new ones pre-inviting this contact.
@@ -115,11 +120,28 @@ const ContactMainToggle = () => {
         onScheduleMeeting={() => setActiveTab("meetings")}
       />
 
-      <UnderlineTabs
-        tabs={tabs}
-        value={activeTab}
-        onChange={setActiveTab}
-        ariaLabel="Contact sections"
+      <div className="flex items-center gap-3 mb-[18px]">
+        <div className="min-w-0 flex-1">
+          <UnderlineTabs
+            tabs={tabs}
+            value={activeTab}
+            onChange={setActiveTab}
+            ariaLabel="Contact sections"
+            sx={{ mb: 0 }}
+          />
+        </div>
+        {activeTab === "projects" && (
+          <WtButton className="shrink-0" startIcon={<KTIcon iconName="plus" className="fs-4 text-white" />} onClick={() => setAssignOpen(true)}>
+            Add to projects
+          </WtButton>
+        )}
+      </div>
+      <AssignToProjectsDialog
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        target={{ contactId: contact.id }}
+        name={contact.fullName || "This contact"}
+        onAssigned={() => setProjectsReloadKey((k) => k + 1)}
       />
 
       <div className="tab-content">{renderTabContent()}</div>

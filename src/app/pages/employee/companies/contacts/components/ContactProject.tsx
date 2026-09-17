@@ -5,7 +5,8 @@ import { getProjectsByContactId } from "@services/companies";
 import Loader from "@app/modules/common/utils/Loader";
 import { ProjectListTable } from "@app/pages/employee/projects/table/ProjectListTable";
 
-const ContactProject = ({ contact }: { contact: any }) => {
+/** `reloadKey` — bump it to refetch (the tab bar's "Add to projects" does). */
+const ContactProject = ({ contact, reloadKey = 0 }: { contact: any; reloadKey?: number }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [allProjects, setAllProjects] = useState<any[]>([]);
 
@@ -17,7 +18,7 @@ const ContactProject = ({ contact }: { contact: any }) => {
       .then((response: any) => setAllProjects(response.data?.projects || []))
       .catch((error) => console.log(error))
       .finally(() => setLoading(false));
-  }, [contact]);
+  }, [contact, reloadKey]);
 
   if (loading) {
     return <Loader />;
