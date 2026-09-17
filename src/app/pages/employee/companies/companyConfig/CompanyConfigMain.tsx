@@ -382,11 +382,7 @@ const CompanyConfigMain = () => {
   return (
     <>
       <style>{KEYFRAMES}</style>
-      <ConfigPageLayout
-        title="Company Configuration"
-        subtitle="Manage company settings, services, types, and rating factors"
-        icon="bi-building"
-      >
+      <ConfigPageLayout>
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
 
           {/* Prefix Settings Card */}

@@ -122,10 +122,7 @@ const ContactConfigMain = () => {
   return (
     <>
       <style>{KEYFRAMES}</style>
-      <ConfigPageLayout
-        title="Contact Configuration"
-        subtitle="Manage contact role types and status definitions"
-      >
+      <ConfigPageLayout>
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
 
           {/* Contact Roles */}

@@ -82,6 +82,10 @@ export const MEETING_HALF_PM='meetingHalfPm';
 export const MEETING_STATUS_CANCELLED='meetingStatusCancelled';
 export const MEETING_STATUS_AWAITING='meetingStatusAwaiting';
 export const MEETING_STATUS_HELD='meetingStatusHeld';
+// A PAST meeting on the meetings calendar, by whether every internal attendee has logged
+// time against it. Same {enabled, color} shape; the chip tint is derived from the colour.
+export const MEETING_TIMESHEET_FILLED='meetingTimesheetFilled';
+export const MEETING_TIMESHEET_PENDING='meetingTimesheetPending';
 // Public-holiday appearance on the workspace calendar ({enabled, color, icon}).
 // enabled defaults to TRUE when unset — holidays always showed historically.
 export const SHOW_HOLIDAYS_ON_CALENDAR='showHolidaysOnCalendar';

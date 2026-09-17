@@ -10,6 +10,7 @@ import { mapsUrl } from '@app/pages/employee/meetingAddress';
 import {
     MEETING_HALF_PM, MEETING_HALF_FREE_COLOR, MEETING_HALF_AM,
     MEETING_STATUS_CANCELLED, MEETING_STATUS_AWAITING, MEETING_STATUS_HELD,
+    MEETING_TIMESHEET_FILLED, MEETING_TIMESHEET_PENDING,
 } from '@constants/configurations-key';
 import { Box, Dialog, DialogContent, useMediaQuery } from '@mui/material';
 import { MRT_ColumnDef } from 'material-react-table';
@@ -17,6 +18,7 @@ import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { SegmentedControl } from '@app/modules/common/components/ui/SegmentedControl';
 import { getTimeTokens } from '@utils/timeFormat';
+import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 /**
  * MeetingsList — the meetings surface, shared by the project (entity), contact and employee
@@ -58,6 +60,8 @@ interface MeetingRow {
     /** Time actually logged against this meeting, and by how many people. 0 = unrecorded. */
     loggedMinutes?: number;
     loggedBy?: number;
+    /** Internal attendees who have not logged time yet. Absent on rows from an older server. */
+    pendingTimesheetNames?: string[];
     cancelReason?: string | null;
     /** The organizer. Who may edit or cancel is decided against this. */
     employeeId?: string;
@@ -218,6 +222,25 @@ const isHeld = (m: MeetingState) => m.lifecycle === 'COMPLETED';
 const isAwaitingTime = (m: MeetingState) => isHeld(m) && !(m.loggedMinutes ?? 0);
 
 /**
+ * A past meeting on the calendar: has every internal attendee logged their time?
+ * Null for meetings still to come, cancelled ones, and rows from a server that does not send
+ * the pending list — those keep their half-day colour rather than guessing.
+ */
+export const timesheetStateOf = (m: Pick<MeetingRow, 'lifecycle' | 'pendingTimesheetNames'>): 'filled' | 'pending' | null =>
+    (!isHeld(m) || !Array.isArray(m.pendingTimesheetNames)
+        ? null
+        : m.pendingTimesheetNames.length ? 'pending' : 'filled');
+
+/** The tooltip line naming who still owes time, or '' when there is nothing to say. */
+const timesheetNote = (m: MeetingRow) => {
+    const ts = timesheetStateOf(m);
+    if (!ts) return '';
+    return ts === 'filled'
+        ? '\nAll timesheets filled'
+        : `\nTimesheet pending: ${m.pendingTimesheetNames!.join(', ')}`;
+};
+
+/**
  * The three states a meeting can be READ in — ONE colour each, and everything else derived.
  *
  * These used to be three hand-picked hexes per state (badge fill, badge ink, row edge). That
@@ -234,6 +257,9 @@ export const LIFECYCLE_DEFAULT_COLORS = {
     cancelled: '#DC2626',
     awaiting: '#D97706',
     held: '#15803D',
+    /** Calendar only: a past meeting everyone has logged, and one someone still owes. */
+    filled: '#0F766E',
+    pending: '#BE123C',
 } as const;
 
 export type LifecycleState = keyof typeof LIFECYCLE_DEFAULT_COLORS;
@@ -523,12 +549,16 @@ const useLifecycleColors = (): LifecycleColors => {
             readConfig(MEETING_STATUS_CANCELLED),
             readConfig(MEETING_STATUS_AWAITING),
             readConfig(MEETING_STATUS_HELD),
-        ]).then(([cancel, awaiting, held]) => {
+            readConfig(MEETING_TIMESHEET_FILLED),
+            readConfig(MEETING_TIMESHEET_PENDING),
+        ]).then(([cancel, awaiting, held, filled, pending]) => {
             if (cancelled) return;
             setColors({
                 cancelled: configuredColor(cancel, LIFECYCLE_DEFAULT_COLORS.cancelled),
                 awaiting: configuredColor(awaiting, LIFECYCLE_DEFAULT_COLORS.awaiting),
                 held: configuredColor(held, LIFECYCLE_DEFAULT_COLORS.held),
+                filled: configuredColor(filled, LIFECYCLE_DEFAULT_COLORS.filled),
+                pending: configuredColor(pending, LIFECYCLE_DEFAULT_COLORS.pending),
             });
         });
         return () => { cancelled = true; };
@@ -690,7 +720,9 @@ interface MeetingAnalytics {
     byMeeting: Array<{ id: string; title: string; startDate: string; minutes: number; attendees: number; cost: number }>;
 }
 
-const inr = (n: number) => `\u20B9${Math.round(n).toLocaleString('en-IN')}`;
+// Named for money, not for rupees. The symbol was written as the escape `\u20B9`, which is
+// why a search for the character walked straight past it.
+const money = (n: number) => `${currencyPrefix()}${Math.round(n).toLocaleString(getCurrencyLocale())}`;
 const hm = (mins: number) => {
     const h = Math.floor(mins / 60);
     const m = Math.round(mins % 60);
@@ -853,7 +885,7 @@ const CostSummary: React.FC<{
         },
         {
             label: 'Total cost',
-            value: data.costVisible ? inr(data.heldCost ?? 0) : 'Hidden',
+            value: data.costVisible ? money(data.heldCost ?? 0) : 'Hidden',
             // The denominator is the meetings that ACTUALLY have time logged. Saying "across 5
             // held meetings" over a total drawn from two of them reads as precise and is not.
             sub: !data.costVisible
@@ -879,7 +911,7 @@ const CostSummary: React.FC<{
         },
         {
             label: 'Average meeting',
-            value: data.costVisible ? inr(data.avgCostPerMeeting ?? 0) : hm(data.avgMinutes),
+            value: data.costVisible ? money(data.avgCostPerMeeting ?? 0) : hm(data.avgMinutes),
             sub: data.costVisible
                 ? `${hm(data.avgMinutes)} with about ${Math.round(data.avgAttendees)} people`
                 : `about ${Math.round(data.avgAttendees)} people in the room`,
@@ -972,7 +1004,7 @@ const CostSummary: React.FC<{
                     <div>
                         The most expensive was{' '}
                         <strong style={{ color: '#1E293B' }}>{data.costliestMeeting.title}</strong>, at{' '}
-                        {inr(data.costliestMeeting.cost)}.
+                        {money(data.costliestMeeting.cost)}.
                     </div>
                 )}
                 {data.costVisible && data.externalAttendees > 0 && (
@@ -1004,7 +1036,7 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
             <div>
                 <div style={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 600, color: '#BFD2F5' }}>Total meeting cost</div>
                 <div style={{ fontFamily: 'Inter', fontSize: 26, fontWeight: 800, color: '#fff', lineHeight: 1.15 }}>
-                    {inr(data.heldCost ?? 0)}
+                    {money(data.heldCost ?? 0)}
                 </div>
                 <div style={{ fontFamily: 'Inter', fontSize: 12, color: '#9DB6E8', marginTop: 2 }}>
                     across {data.heldCount} held meeting{data.heldCount === 1 ? '' : 's'}
@@ -1032,7 +1064,7 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
                                 <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>{e.name}</div>
                                 <div style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 2 }}>
                                     {e.meetings} meeting{e.meetings === 1 ? '' : 's'}, {hm(e.minutes)} of their time
-                                    {e.rate > 0 && ` at ${inr(e.rate)}/hr`}
+                                    {e.rate > 0 && ` at ${money(e.rate)}/hr`}
                                 </div>
                                 {/* The arithmetic, spelled out. An hourly rate nobody can check is
                                     an hourly rate somebody has to raise a ticket about — this line
@@ -1040,11 +1072,11 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
                                     you can go and look at. */}
                                 {e.monthlySalary != null && (
                                     <div style={{ fontSize: 11, color: '#CBD5E1', marginTop: 1 }}>
-                                        {inr(e.monthlySalary)}/mo ÷ {e.daysInMonth} days ÷ {e.workingHours}h
+                                        {money(e.monthlySalary)}/mo ÷ {e.daysInMonth} days ÷ {e.workingHours}h
                                     </div>
                                 )}
                             </div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: '#1E3A8A', whiteSpace: 'nowrap' }}>{inr(e.cost)}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#1E3A8A', whiteSpace: 'nowrap' }}>{money(e.cost)}</div>
                         </div>
                     ))}
                 </div>
@@ -1064,7 +1096,7 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
                                     {dayjs(m.startDate).format('DD MMM YYYY, hh:mm A')} — {hm(m.minutes)}, {m.attendees} attending
                                 </div>
                             </div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: '#1E3A8A', whiteSpace: 'nowrap' }}>{inr(m.cost)}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#1E3A8A', whiteSpace: 'nowrap' }}>{money(m.cost)}</div>
                         </div>
                     ))}
                 </div>
@@ -1255,6 +1287,16 @@ const DayDetail: React.FC<{
                                     {isCancelled(m) && <CancelledTag reason={m.cancelReason} color={stateColors.cancelled} />}
                                     {isAwaitingTime(m) && <AwaitingTag color={stateColors.awaiting} />}
                                 </div>
+                                {timesheetStateOf(m) && (
+                                    <div style={{
+                                        fontSize: 11.5, fontWeight: 600, marginTop: 2,
+                                        color: lifecycleTone(stateColors[timesheetStateOf(m)!]).ink,
+                                    }}>
+                                        {timesheetStateOf(m) === 'filled'
+                                            ? 'All timesheets filled'
+                                            : `Timesheet pending: ${m.pendingTimesheetNames!.join(', ')}`}
+                                    </div>
+                                )}
                                 {m.projectName && (
                                     <div style={{ fontSize: 12, fontWeight: 600, color: '#1E3A8A', marginTop: 2 }}>
                                         <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId, m.isLead)} />
@@ -1450,6 +1492,11 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     // What cancelled, unlogged and held look like — configured on Calendar Configuration →
     // Meetings, and applied identically to the badges and the table rows below.
     const stateColors = useLifecycleColors();
+    /** A past meeting's timesheet colour, otherwise the colour of the half it starts in. */
+    const chipColor = (m: MeetingRow) => {
+        const ts = timesheetStateOf(m);
+        return ts ? stateColors[ts] : halfColors[startHalf(m)];
+    };
     // The day a dragged meeting is currently over, so the grid can show where it would land.
     const [dragOverDay, setDragOverDay] = useState<string | null>(null);
     /**
@@ -2095,11 +2142,11 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                             // because dragging changes the DAY and never the clock.
                                             // Cancelled wins the tooltip: the chip is too narrow for a
                                             // tag, so this is where the reason can be read.
-                                            title={isCancelled(m)
+                                            title={`${isCancelled(m)
                                                 ? `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}\nCancelled${m.cancelReason ? ` — ${m.cancelReason}` : ''}`
                                                 : dragEnabled
                                                 ? `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}\nDrag to another day — the time stays ${dayjs(m.startDate).format('h:mm A')}`
-                                                : `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}`}
+                                                : `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}`}${timesheetNote(m)}`}
                                             style={{
                                                 // One fixed box per meeting, whatever it is
                                                 // called. Height and line-height are set rather
@@ -2113,11 +2160,13 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                                 // start order, and which side of lunch each one
                                                 // falls on was the thing you had to read the
                                                 // times to work out.
-                                                color: rowTone(halfColors[startHalf(m)]).fg,
-                                                background: rowTone(halfColors[startHalf(m)]).bg,
+                                                // Once it has happened, the chip says whether
+                                                // everyone has logged their time instead.
+                                                color: rowTone(chipColor(m)).fg,
+                                                background: rowTone(chipColor(m)).bg,
                                                 // 2px, not 3: a month cell is ~120px wide and
                                                 // every pixel of it is title.
-                                                borderLeft: `2px solid ${halfColors[startHalf(m)]}`,
+                                                borderLeft: `2px solid ${chipColor(m)}`,
                                                 borderRadius: 4, padding: isPhone ? '0 3px' : '0 4px',
                                                 // The three that make an ellipsis happen, and the
                                                 // display that makes it apply to a span.
@@ -2200,6 +2249,20 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                 <span style={{ display: 'inline-flex', width: 30 }}>
                                     <HalfPill half={sample.half} count={sample.count} colors={halfColors} labels={halfLabels} showCount={false} />
                                 </span>
+                                {sample.label}
+                            </span>
+                        ))}
+                        {/* Past meetings trade their half colour for these two. */}
+                        {([
+                            { key: 'filled', label: 'Timesheets filled' },
+                            { key: 'pending', label: 'Timesheets pending' },
+                        ] as const).map((sample) => (
+                            <span key={sample.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: '#64748B' }}>
+                                <span style={{
+                                    width: 22, height: 12, borderRadius: 3,
+                                    background: rowTone(stateColors[sample.key]).bg,
+                                    borderLeft: `2px solid ${stateColors[sample.key]}`,
+                                }} />
                                 {sample.label}
                             </span>
                         ))}

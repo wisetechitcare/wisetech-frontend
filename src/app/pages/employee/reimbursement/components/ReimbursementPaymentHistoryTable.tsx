@@ -6,7 +6,7 @@ import { fetchReimbursementPayments, fetchReimbursementBatchById, fetchApprovalI
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
-import { fmtDate, fmtAmount, formatINR } from '../utils/reimbursementFormat';
+import { fmtDate, fmtAmount, formatMoney } from '../utils/reimbursementFormat';
 import PaymentDetailPanel from './PaymentDetailPanel';
 import { clickableRowProps, CLICKABLE_ROW_SX } from '../utils/rowInteraction';
 import LoadErrorState from './LoadErrorState';
@@ -15,6 +15,7 @@ import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { useMediaQuery, useTheme } from '@mui/material';
+import { currencyPrefix } from '@utils/currency';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
 
@@ -31,7 +32,7 @@ interface ReimbursementPaymentHistoryTableProps {
     periodDate: dayjs.Dayjs;
 }
 
-// Rows and footers render the SAME column, so they must agree to the paisa. `formatINR`
+// Rows and footers render the SAME column, so they must agree to the paisa. `formatMoney`
 // used maximumFractionDigits: 0 while the row formatter used 2 — a footer literally did not
 // equal the sum of the rows above it.
 
@@ -272,12 +273,12 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 size: 200,
                 Cell: ({ renderedCellValue }: any) => (
                     <span className={`fw-bold fs-7 ${sensitiveCls}`} style={{ color: '#475569' }}>
-                        ₹{fmtAmount(Number(renderedCellValue))}
+                        {currencyPrefix()}{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
                 Footer: () => (
                     <span className={sensitiveCls} style={{ color: '#475569', fontWeight: 700, fontSize: '1rem' }}>
-                        {formatINR(grandTotalRequestAmount)}
+                        {formatMoney(grandTotalRequestAmount)}
                     </span>
                 ),
             },
@@ -287,12 +288,12 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 size: 185,
                 Cell: ({ renderedCellValue }: any) => (
                     <span className={`fw-bolder fs-6 ${sensitiveCls}`} style={{ color: '#16a34a' }}>
-                        ₹{fmtAmount(Number(renderedCellValue))}
+                        {currencyPrefix()}{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
                 Footer: () => (
                     <span className={sensitiveCls} style={{ color: '#16a34a', fontWeight: 700, fontSize: '1rem' }}>
-                        {formatINR(grandTotalPaid)}
+                        {formatMoney(grandTotalPaid)}
                     </span>
                 ),
             },
@@ -307,12 +308,12 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                             color: Number(renderedCellValue) > 0 ? '#1E3A8A' : '#16a34a',
                         }}
                     >
-                        ₹{fmtAmount(Number(renderedCellValue))}
+                        {currencyPrefix()}{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
                 Footer: () => (
                     <span className={sensitiveCls} style={{ color: '#1E3A8A', fontWeight: 700, fontSize: '1rem' }}>
-                        {formatINR(grandTotalRemainingAmount)}
+                        {formatMoney(grandTotalRemainingAmount)}
                     </span>
                 ),
             },
@@ -370,16 +371,16 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                                   </div>
                                   <div>
                                     <span style={{ color: '#64748b' }}>Amount Paid</span>
-                                    <div className={`fw-bold ${sensitiveCls}`} style={{ color: '#16a34a' }}>₹{fmtAmount(row.original.totalAmountPaid)}</div>
+                                    <div className={`fw-bold ${sensitiveCls}`} style={{ color: '#16a34a' }}>{currencyPrefix()}{fmtAmount(row.original.totalAmountPaid)}</div>
                                   </div>
                                   <div>
                                     <span style={{ color: '#64748b' }}>Request Amount</span>
-                                    <div className={`fw-bold ${sensitiveCls}`}>₹{fmtAmount(row.original.totalRequestAmount)}</div>
+                                    <div className={`fw-bold ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(row.original.totalRequestAmount)}</div>
                                   </div>
                                   <div>
                                     <span style={{ color: '#64748b' }}>Remaining</span>
                                     <div className={`fw-bold ${sensitiveCls}`} style={{ color: row.original.totalRemainingAmount > 0 ? '#1E3A8A' : '#16a34a' }}>
-                                      ₹{fmtAmount(row.original.totalRemainingAmount)}
+                                      {currencyPrefix()}{fmtAmount(row.original.totalRemainingAmount)}
                                     </div>
                                   </div>
                                 </div>

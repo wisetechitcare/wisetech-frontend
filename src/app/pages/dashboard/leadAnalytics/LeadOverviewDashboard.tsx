@@ -14,6 +14,7 @@ import {
   computeExecutiveKpis,
   generateServiceInsights,
 } from "./leadAnalyticsUtils";
+import { getCurrencySymbol } from '@utils/currency';
 
 /**
  * Period-specific sections the wrapper pages (Monthly / Yearly / All Time) inject
@@ -117,10 +118,10 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
 
   const kpiCards = useMemo(
     () => [
-      { label: "Total Revenue", value: kpis.totalRevenue, prefix: "₹", accent: "#22C55E", icon: "bi-cash-stack" },
+      { label: "Total Revenue", value: kpis.totalRevenue, prefix: getCurrencySymbol(), accent: "#22C55E", icon: "bi-cash-stack" },
       { label: "New Leads", value: kpis.received, accent: "#0EA5E9", icon: "bi-plus-circle" },
       { label: "Conversion Rate", value: kpis.conversionRate, suffix: "%", decimals: 1, accent: "#10B981", icon: "bi-graph-up-arrow" },
-      { label: "Avg Deal Value", value: kpis.avgLeadValue, prefix: "₹", accent: "#F59E0B", icon: "bi-tag" },
+      { label: "Avg Deal Value", value: kpis.avgLeadValue, prefix: getCurrencySymbol(), accent: "#F59E0B", icon: "bi-tag" },
       { label: "Success Rate", value: 100 - (kpis.lostRate || 0), suffix: "%", decimals: 1, accent: "#6366F1", icon: "bi-check-circle" },
       { label: "Active Opportunities", value: kpis.pipeline, accent: "#8B5CF6", icon: "bi-hourglass-split" },
     ],

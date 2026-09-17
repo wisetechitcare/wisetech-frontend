@@ -5,6 +5,8 @@ import {
   deleteOrganizationConfigurationById,
 } from "@services/configurations";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 import { Box } from "@mui/material";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -70,6 +72,7 @@ interface EmployeeConfigItem {
 }
 
 const EmployeeConfigure = () => {
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   /** Flips once the first load settles; from then on refreshes happen behind the content. */
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -326,6 +329,8 @@ const EmployeeConfigure = () => {
    * The column is `role`; it is mapped to `name` so the shared tree renders it unchanged.
    */
   const fetchJobProfiles = async () => {
+    // Job profiles changed (or are loading): every Department → Designation picker reads the shared copy.
+    queryClient.invalidateQueries({ queryKey: queryKeys.masters.all });
     try {
       setLoading(true);
       const response = await fetchDesignations();
@@ -516,6 +521,7 @@ const EmployeeConfigure = () => {
   };
 
   const fetchDepartments = async () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.masters.all });
     try {
       setLoading(true);
       const response = await fetchAllDepartments();
@@ -753,11 +759,7 @@ const EmployeeConfigure = () => {
           page, banner and all) inside the flex child, so two page headers competed for
           the same column and squeezed the rail. This mirrors FaqsBoard: header, then
           `rail | stack of cards`. */}
-      <ConfigPageLayout
-        title="Configuration"
-        subtitle="Everything the onboarding form offers, plus the company's shift list"
-        icon="bi-sliders"
-      >
+      <ConfigPageLayout>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: { xs: 2, lg: 3 }, alignItems: 'flex-start' }}>
           <ConfigSectionRail
             groups={railGroups}

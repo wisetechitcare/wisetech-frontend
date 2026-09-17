@@ -9,8 +9,9 @@ import {
     buildTrend, buildStatusSlices, buildCategories, buildInsight, buildCycleTimes,
     PeriodGrain, TrendPoint, StatusSlice,
 } from '../utils/reimbursementChartData';
-import { formatINR } from '../utils/reimbursementFormat';
+import { formatMoney } from '../utils/reimbursementFormat';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { currencyPrefix } from '@utils/currency';
 
 /**
  * The three analytics — trend, status, categories — in one row. One set of components for all
@@ -74,7 +75,7 @@ const FIGURE: React.CSSProperties = { fontVariantNumeric: 'tabular-nums', fontWe
 const FOOTER: React.CSSProperties = { borderTop: `1px solid ${LINE}`, marginTop: 8, paddingTop: 8, flexShrink: 0 };
 
 const axisTick = { fontSize: 11, fill: MUTED } as const;
-const money = (v: number) => (v >= 1000 ? `₹${Math.round(v / 1000)}k` : `₹${v}`);
+const money = (v: number) => (v >= 1000 ? `${currencyPrefix()}${Math.round(v / 1000)}k` : `${currencyPrefix()}${v}`);
 
 /**
  * A currency figure that obeys the page's eye toggle.
@@ -86,7 +87,7 @@ const money = (v: number) => (v >= 1000 ? `₹${Math.round(v / 1000)}k` : `₹${
  */
 function Money({ value, style }: { value: number; style?: React.CSSProperties }) {
     const { cls } = useSensitiveData();
-    return <span className={cls} style={{ ...FIGURE, ...style }}>{formatINR(value)}</span>;
+    return <span className={cls} style={{ ...FIGURE, ...style }}>{formatMoney(value)}</span>;
 }
 
 /** A body that keeps its height when empty, so switching period never makes the row jump. */

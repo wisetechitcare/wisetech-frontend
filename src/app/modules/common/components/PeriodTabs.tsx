@@ -103,6 +103,8 @@ const PeriodTabs = ({
                 flex: isMobile ? '1 0 auto' : 'none',
                 px: isMobile ? 1.25 : 1.75,
                 py: 0,
+                // Unselected tabs sit on the lightest grey so the white selected tab stands out.
+                backgroundColor: dark ? 'transparent' : '#F8FAFC',
                 color: 'text.secondary',
                 fontSize: 12,
                 fontWeight: 600,
@@ -123,14 +125,16 @@ const PeriodTabs = ({
                 borderLeftColor: 'divider',
             },
             '& .MuiToggleButton-root:hover': {
-                backgroundColor: 'action.hover',
+                backgroundColor: dark ? 'action.hover' : '#F1F5F9',
             },
             '& .MuiToggleButton-root.Mui-focusVisible': {
                 outline: `2px solid ${selectedColor}`,
                 outlineOffset: '-2px',
             },
             '& .Mui-selected': {
-                backgroundColor: `${tint(selectedColor, dark ? 0.24 : 0.08, theme.palette.action.selected)} !important`,
+                // Pure white in light mode: the seat rule and the accent label carry the
+                // selection. Dark mode keeps a tint, since white would glare on a dark page.
+                backgroundColor: `${dark ? tint(selectedColor, 0.24, theme.palette.action.selected) : '#ffffff'} !important`,
                 color: `${dark ? theme.palette.text.primary : selectedColor} !important`,
                 fontWeight: 700,
                 // Seat rule — the same device the status rail uses for its selected segment.
@@ -140,7 +144,7 @@ const PeriodTabs = ({
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    height: '2px',
+                    height: '3px',
                     backgroundColor: selectedColor,
                 },
             },

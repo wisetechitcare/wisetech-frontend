@@ -188,8 +188,6 @@ const SalaryConfiguration: React.FC = () => {
         style={{ maxWidth: '100%', backgroundColor: C.bgPage }}
       >
         <ConfigPageLayout
-          title="Salary Configuration"
-          subtitle="Manage salary structures, deduction rules, and payroll formulas"
           tabs={TABS}
           activeTab={activeTab}
           onTabChange={setActiveTab}

@@ -144,6 +144,46 @@ module.exports = {
         selector: "CallExpression[callee.property.name='toLocaleDateString']",
         message: 'Use formatDate() from @utils/dateFormats — the company standard is YYYY.MM.DD. toLocaleDateString renders in the OS locale.',
       },
+      /* Currency. The app bills per BRANCH: `Branches.currency`, falling back to the branch
+       * country's currency, falling back to INR. A hardcoded rupee or an inline
+       * `{ style: 'currency', currency: 'INR' }` silently mislabels every figure for a branch
+       * that bills in anything else, and 186 of them had accumulated before this rule.
+       * Use formatCurrency / formatCurrencyDecimal / formatCurrencyRounded / getCurrencySymbol
+       * from @utils/currency, or <CurrencySymbol /> in a glyph slot. See hooks/useCurrency. */
+      {
+        selector: "Property[key.name='style'] > Literal[value='currency']",
+        message: 'Do not build your own currency formatter. Use formatCurrency / formatCurrencyDecimal / formatCurrencyRounded from @utils/currency — they follow the branch. An inline Intl.NumberFormat hardcodes one currency forever.',
+      },
+      {
+        selector: "Literal[value=/₹/]",
+        message: 'Hardcoded currency symbol. Use getCurrencySymbol() from @utils/currency, or a formatCurrency* helper. The ONLY exception is a statutory amount fixed by law (e.g. professional-tax slabs), which belongs in a file listed in the override below.',
+      },
+      {
+        selector: "TemplateElement[value.raw=/₹/]",
+        message: 'Hardcoded currency symbol in a template literal. Interpolate ${getCurrencySymbol()} from @utils/currency instead.',
+      },
+      /* `raw` is the SOURCE text, so the rule above never saw a rupee written as the escape
+       * `\u20B9` — and one was hiding in MeetingsList exactly that way. `cooked` is the
+       * character the template actually produces, which is what matters. */
+      {
+        selector: "TemplateElement[value.cooked=/₹/]",
+        message: 'Hardcoded currency symbol in a template literal (written as an escape). Interpolate ${getCurrencySymbol()} from @utils/currency instead.',
+      },
+      {
+        selector: "JSXText[value=/₹/]",
+        message: 'Hardcoded currency symbol in JSX. Use {getCurrencySymbol()} or <CurrencySymbol /> from the ui kit.',
+      },
+      {
+        selector: "JSXAttribute[name.name=/^(icon|iconName)$/] > Literal[value='dollar']",
+        message: 'The `dollar` keenicon is a currency-specific glyph. If it stands for an AMOUNT use <CurrencySymbol /> (IconBox and StatTile take a node); if it is a category icon use `wallet`.',
+      },
+      /* The same glyph, written as an object property in a config map rather than a JSX
+       * attribute. The selector above never looked at these, which is how three of them sat
+       * in the approval domain registry putting a $ on every offer and reimbursement card. */
+      {
+        selector: "Property[key.name=/^(icon|iconName)$/] > Literal[value='dollar']",
+        message: 'The `dollar` keenicon is a currency-specific glyph. For a category icon use `wallet`; for an AMOUNT use <CurrencySymbol />.',
+      },
     ],
   },
   overrides: [
@@ -180,6 +220,25 @@ module.exports = {
        * Net effect: new code cannot regress, and the list can only shrink. */
       files: require('./.eslint-ui-baseline.cjs'),
       rules: { 'no-restricted-syntax': 'warn' },
+    },
+    {
+      /* PLACED AFTER THE RATCHET ON PURPOSE. ESLint applies overrides in order and the last
+       * match wins, so an `off` before the ratchet is re-enabled by it as a warning. */
+      /* currency.ts IMPLEMENTS the formatters, so it is the one place an Intl currency
+       * option and a literal rupee (the fallback for an unknown ISO code) are correct. */
+      files: ['src/utils/currency.ts'],
+      rules: { 'no-restricted-syntax': 'off' },
+    },
+    {
+      /* India's professional-tax slabs. These rupee amounts are set by statute — they do
+       * not change because a Dubai branch is looking at them, so they must NOT follow the
+       * active currency. The two files are duplicates of each other and worth collapsing,
+       * but that is a separate job. */
+      files: [
+        'src/app/pages/company/organisationInfo/rule/mockData.ts',
+        'src/app/pages/employee/personal-rules/components/SalarySection.tsx',
+      ],
+      rules: { 'no-restricted-syntax': 'off' },
     },
   ],
 }

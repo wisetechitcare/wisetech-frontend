@@ -165,10 +165,7 @@ const OrganizationConfigure = () => {
   return (
     <>
       <style>{KEYFRAMES}</style>
-      <ConfigPageLayout
-        title="Company Configuration"
-        subtitle="Manage shifts and working location types"
-      >
+      <ConfigPageLayout>
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
 
           {/* Shifts */}

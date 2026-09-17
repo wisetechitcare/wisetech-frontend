@@ -22,8 +22,6 @@ const ReimbursementConfiguration: React.FC = () => {
         style={{ maxWidth: '100%', backgroundColor: C.bgPage }}
       >
         <ConfigPageLayout
-          title="Reimbursement Configuration"
-          subtitle="Manage reimbursement categories, per-request employee limits and query topics"
           tabs={TABS}
           activeTab={activeTab}
           onTabChange={setActiveTab}

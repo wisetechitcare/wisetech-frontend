@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { formatCurrencyRounded } from '@utils/currency';
+import { formatCurrencyRounded, currencyPrefix } from '@utils/currency';
 import { T } from '@app/modules/common/components/ui/tokens';
 import { SkeletonBlock } from '@app/modules/common/components/Skeleton';
 import { Panel, EmptyState } from './widgets';
@@ -86,7 +86,7 @@ const IncrementGrowthChart = ({
                                 axisLine={false}
                                 tickLine={false}
                                 tick={{ fill: T.color.inkFaint, fontSize: 11, fontWeight: 600 }}
-                                tickFormatter={(v) => showSensitiveData ? `₹${(v / 1000).toFixed(0)}k` : '•••'}
+                                tickFormatter={(v) => showSensitiveData ? `${currencyPrefix()}${(v / 1000).toFixed(0)}k` : '•••'}
                                 width={58}
                             />
                             <Tooltip

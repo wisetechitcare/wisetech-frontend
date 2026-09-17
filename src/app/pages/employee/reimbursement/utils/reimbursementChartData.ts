@@ -1,6 +1,6 @@
 import dayjs, { Dayjs } from 'dayjs';
 import { summariseReimbursements } from './reimbursementSummary';
-import { formatINR, resolveStatusNum, STATUS } from './reimbursementFormat';
+import { formatMoney, resolveStatusNum, STATUS } from './reimbursementFormat';
 
 /**
  * Chart data, derived from the rows the page already has.
@@ -291,7 +291,7 @@ export const buildInsight = (rows: any[]): { icon: string; text: string; tone: '
         return {
             icon: '⏳',
             tone: 'warn',
-            text: `${stale.length} request${stale.length === 1 ? '' : 's'} worth ${formatINR(amount)} ` +
+            text: `${stale.length} request${stale.length === 1 ? '' : 's'} worth ${formatMoney(amount)} ` +
                 `${stale.length === 1 ? 'has' : 'have'} been awaiting approval for more than ` +
                 `${STALE_AFTER_DAYS} days — the oldest for ${oldest}.`,
         };
@@ -301,7 +301,7 @@ export const buildInsight = (rows: any[]): { icon: string; text: string; tone: '
         return {
             icon: '💸',
             tone: 'info',
-            text: `${formatINR(s.remainingAmount)} has been approved and is awaiting payment.`,
+            text: `${formatMoney(s.remainingAmount)} has been approved and is awaiting payment.`,
         };
     }
 
@@ -310,7 +310,7 @@ export const buildInsight = (rows: any[]): { icon: string; text: string; tone: '
             icon: '🕒',
             tone: 'info',
             text: `${s.pendingCount} request${s.pendingCount === 1 ? '' : 's'} worth ` +
-                `${formatINR(s.pendingAmount)} ${s.pendingCount === 1 ? 'is' : 'are'} still with your approver.`,
+                `${formatMoney(s.pendingAmount)} ${s.pendingCount === 1 ? 'is' : 'are'} still with your approver.`,
         };
     }
 
@@ -319,7 +319,7 @@ export const buildInsight = (rows: any[]): { icon: string; text: string; tone: '
             icon: '⚠',
             tone: 'warn',
             text: `${s.rejectedCount} request${s.rejectedCount === 1 ? '' : 's'} worth ` +
-                `${formatINR(s.rejectedAmount)} ${s.rejectedCount === 1 ? 'was' : 'were'} rejected this period.`,
+                `${formatMoney(s.rejectedAmount)} ${s.rejectedCount === 1 ? 'was' : 'were'} rejected this period.`,
         };
     }
 
@@ -327,6 +327,6 @@ export const buildInsight = (rows: any[]): { icon: string; text: string; tone: '
         icon: '✅',
         tone: 'good',
         text: `All ${s.totalRequests} expense${s.totalRequests === 1 ? '' : 's'} for this period ` +
-            `(${formatINR(s.totalAmount)}) have been approved and paid.`,
+            `(${formatMoney(s.totalAmount)}) have been approved and paid.`,
     };
 };

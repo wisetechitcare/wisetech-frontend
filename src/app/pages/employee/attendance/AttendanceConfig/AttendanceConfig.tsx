@@ -422,8 +422,6 @@ const AttendanceConfig: React.FC = () => {
         sx={{ py: 3, px: 0, maxWidth: '100%', backgroundColor: C.bgPage }}
       >
         <ConfigPageLayout
-          title="Attendance Configuration"
-          subtitle="Configure shift timings, grace periods, leave policies, and attendance rules"
           tabs={TABS}
           activeTab={activeTab}
           onTabChange={setActiveTab}

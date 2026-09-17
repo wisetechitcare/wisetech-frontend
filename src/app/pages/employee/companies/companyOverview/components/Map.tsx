@@ -34,6 +34,7 @@ import { Modal, Form, Button } from "react-bootstrap";
 import { successConfirmation } from "@utils/modal";
 import { mapStyles } from "./mapTheme";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { currencyPrefix } from '@utils/currency';
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -134,15 +135,15 @@ function ViewportTracker({ onChange }: { onChange: (bounds: L.LatLngBounds) => v
   return null;
 }
 
-// Forces Leaflet to recalculate tile coverage after the container finishes layout
+// Keeps Leaflet's tile coverage in step with its container. The container is resized
+// by the viewport fit in Maps, by window resizes and by the sidebar collapsing — a
+// one-off invalidate after mount left grey, untiled strips after any of those.
 function MapInvalidator() {
   const map = useMap();
   useEffect(() => {
-    // Small delay lets the parent container finish its CSS layout before invalidation
-    const t = setTimeout(() => {
-      map.invalidateSize({ animate: false });
-    }, 150);
-    return () => clearTimeout(t);
+    const ro = new ResizeObserver(() => map.invalidateSize({ animate: false }));
+    ro.observe(map.getContainer());
+    return () => ro.disconnect();
   }, [map]);
   return null;
 }
@@ -845,7 +846,7 @@ const LocationMarker = React.memo(({
                 {isProject && loc.item?.cost && (
                   <div className="info-item">
                     <RupeeIcon className="info-icon" />
-                    <span className="info-text highlight">₹{loc.item.cost.toLocaleString()}</span>
+                    <span className="info-text highlight">{currencyPrefix()}{loc.item.cost.toLocaleString()}</span>
                   </div>
                 )}
 
@@ -1158,6 +1159,52 @@ export default function Maps({
 
   const [isLabelPanelExpanded, setIsLabelPanelExpanded] = useState(false);
   const labelPanelRef = useRef<HTMLDivElement>(null);
+
+  // Fit the map to the page: flush with the tab bar's left/right edges, down to the
+  // footer, and exactly as tall as the viewport leaves — so the page itself never
+  // scrolls (scrolling a full-bleed map is what dragged the filter bar across the tab
+  // bar) and no padding band shows under it. Measured rather than rem guesses: the
+  // panel padding, masthead and footer all differ per breakpoint.
+  const mapWrapperRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const MIN_HEIGHT = 380; // below this the map is unusable; a short page scroll is the lesser evil
+    const fit = () => {
+      const el = mapWrapperRef.current;
+      if (!el) return;
+      const s = el.style;
+
+      // Horizontal: the sticky tab bar is an earlier sibling of this tab's panel.
+      let bar = el.parentElement?.previousElementSibling ?? null;
+      while (bar && getComputedStyle(bar).position !== "sticky") bar = bar.previousElementSibling;
+      if (bar) {
+        s.marginLeft = "0px";
+        s.width = "100%";
+        const own = el.getBoundingClientRect();
+        const b = bar.getBoundingClientRect();
+        const left = own.left - b.left;
+        const right = b.right - own.right;
+        // calc() rather than px so the map still tracks the container if the sidebar collapses.
+        s.marginLeft = `${-left}px`;
+        s.width = `calc(100% + ${left + right}px)`;
+      }
+
+      // Vertical: over-size first so the page is guaranteed to overflow — only then do
+      // the gap to the footer and the chrome below the map read their natural sizes.
+      s.marginBottom = "0px";
+      s.height = `${window.innerHeight}px`;
+      const rect = el.getBoundingClientRect();
+      const footer = document.getElementById("kt_footer");
+      // Padding band between map and footer: swallow it with a negative margin.
+      const gap = footer ? Math.max(0, footer.getBoundingClientRect().top - rect.bottom) : 0;
+      const below = document.documentElement.scrollHeight - (rect.bottom + window.scrollY) - gap;
+      const top = rect.top + window.scrollY;
+      s.marginBottom = `${-gap}px`;
+      s.height = `${Math.max(MIN_HEIGHT, Math.floor(window.innerHeight - top - below))}px`;
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
   // ── Custom map search ──────────────────────────────────────────────────────
@@ -1665,7 +1712,10 @@ export default function Maps({
   );
 
   return (
-    <div className="map-outer-wrapper" style={{ height: "calc(100vh - 160px)", minHeight: "560px", fontFamily: "Inter, sans-serif", position: "relative", overflow: "hidden" }}>
+    // isolation: every Leaflet pane (z 400–1000) and the floating filter bar stack INSIDE
+    // the map, so on scroll they slide under the sticky masthead / tab bar (z 99–100)
+    // instead of painting over them.
+    <div ref={mapWrapperRef} className="map-outer-wrapper" style={{ fontFamily: "Inter, sans-serif", position: "relative", overflow: "hidden", isolation: "isolate" }}>
       <style>{`
         ${mapStyles}
 
@@ -1674,6 +1724,8 @@ export default function Maps({
            padding and each panel inside "px-5 py-0 lg:px-9" — so cancel exactly
            that: 1.25rem, and 2.25rem from Tailwind's lg (1024px) up. ── */
         .map-outer-wrapper {
+          /* Pre-measure fallback only — the fit effect sets the real height inline. */
+          height: calc(100dvh - 240px);
           width: calc(100% + 2.5rem);
           margin-left: -1.25rem;
           margin-top: -1.5rem;
@@ -2800,8 +2852,9 @@ export default function Maps({
         </div>
       )}
 
-      {/* ── Mobile filter bottom-sheet (position:fixed escapes the overflow:hidden wrapper) ── */}
-      {isMobileFilterOpen && isProject && (
+      {/* ── Mobile filter bottom-sheet — portaled to <body>: the wrapper's isolation
+          would otherwise trap its fixed overlay under the sticky tab bar. ── */}
+      {isMobileFilterOpen && isProject && createPortal(
         <div className="mobile-filter-overlay" onClick={() => setIsMobileFilterOpen(false)}>
           <div className="mobile-filter-sheet" onClick={e => e.stopPropagation()}>
             <div className="mobile-filter-drag-handle" />
@@ -2925,7 +2978,8 @@ export default function Maps({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Header for company / contact maps — title + working, responsive search */}
@@ -2946,7 +3000,7 @@ export default function Maps({
         maxBoundsViscosity={0.65}
         worldCopyJump={true}
         className={isProject ? "map-leaflet--project" : "map-leaflet--entity"}
-        style={{ width: "100%", minHeight: "500px" }}
+        style={{ width: "100%" }}
         zoomControl={false}
         preferCanvas={true}
       >

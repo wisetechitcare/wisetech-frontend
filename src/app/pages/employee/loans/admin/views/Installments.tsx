@@ -7,6 +7,7 @@ import InstallmentPayments from "./InstallmentPayments";
 import { fetchEmpMonthlyInstallmentsStatistics } from "@services/company";
 import DateSelector from "@components/DateSelector";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 const Installments: React.FC = () => {
   const [month, setMonth] = useState<Dayjs>(dayjs());
@@ -69,11 +70,11 @@ const Installments: React.FC = () => {
           <div className="mb-6">
             <h5>Total Due This Month</h5>
             <h3 style={{ fontSize: "19px", fontWeight: "600" }}>
-              ₹{" "}
+              {getCurrencySymbol()}{" "}
               {loanStats?.activeLoansOverview?.totalDueThisMonth
                 ? Math.round(
                     loanStats.activeLoansOverview.totalDueThisMonth
-                  ).toLocaleString("en-IN")
+                  ).toLocaleString(getCurrencyLocale())
                 : "0"}
             </h3>
           </div>
@@ -86,27 +87,27 @@ const Installments: React.FC = () => {
               },
               {
                 label: "Bill Due This Month",
-                value: `₹ ${
+                value: `${getCurrencySymbol()} ${
                   loanStats?.activeLoansOverview?.billDueThisMonth?.toLocaleString(
-                    "en-IN"
+                    getCurrencyLocale()
                   ) ?? "0"
                 }`,
                 borderColor: "#CB2C2C",
               },
               {
                 label: "Previous Dues",
-                value: `₹ ${
+                value: `${getCurrencySymbol()} ${
                   loanStats?.activeLoansOverview?.previousDue?.toLocaleString(
-                    "en-IN"
+                    getCurrencyLocale()
                   ) ?? "0"
                 }`,
                 borderColor: "#1DD12C",
               },
               {
                 label: "Amount Collected",
-                value: `₹ ${
+                value: `${getCurrencySymbol()} ${
                   loanStats?.activeLoansOverview?.amountCollected?.toLocaleString(
-                    "en-IN"
+                    getCurrencyLocale()
                   ) ?? "0"
                 }`,
                 borderColor: "#CB2C2C",

@@ -14,6 +14,10 @@ export type { WtButtonProps, WtIconButtonProps, WtCtaTone } from './Buttons';
 export { WtCloseButton } from './WtCloseButton';
 export type { WtCloseButtonProps } from './WtCloseButton';
 export { IconBox, StatusBadge, StatTile, Eyebrow, SectionHead } from './Patterns';
+// Shared with the MUI kit rather than twinned: it renders a bare <span> and pulls in no MUI,
+// so one component serves both. Pass it as an `icon` instead of typing a currency glyph.
+export { CurrencySymbol } from '../CurrencySymbol';
+export { ICON_BOX_CLASS, TILE_LABEL_CLASS } from '../classNames';
 export { Spinner } from './Spinner';
 export { ErrorState } from './ErrorState';
 export type { ErrorStateProps } from './ErrorState';

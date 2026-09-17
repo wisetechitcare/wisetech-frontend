@@ -14,11 +14,11 @@ export interface ConfigBreadcrumb {
   href?: string;
 }
 
+/**
+ * No title band: the page title already sits in the app header and the module tab strip,
+ * so a second navy "X Configuration" banner only pushed the settings down the screen.
+ */
 export interface ConfigPageLayoutProps {
-  title: string;
-  subtitle?: string;
-  icon?: string;
-  iconColor?: string;
   breadcrumbs?: ConfigBreadcrumb[];
   tabs?: ConfigTab[];
   activeTab?: string;
@@ -30,10 +30,6 @@ export interface ConfigPageLayoutProps {
 }
 
 const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
-  title,
-  subtitle,
-  icon,
-  breadcrumbs,
   tabs,
   activeTab,
   onTabChange,
@@ -43,77 +39,38 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
   className = '',
 }) => {
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
+  const hasTabs = !!tabs && tabs.length > 0;
+  const hasHeader = hasTabs || !!actions || !!statsBar;
 
   return (
     <div className={`cfg-layout ${className}`} style={{ backgroundColor: C.bgPage, minHeight: '100vh' }}>
       <style>{KEYFRAMES}</style>
 
-      {/* ── Header ─────────────────────────────────────────────────────── */}
+      {/* ── Header: only what a page actually passes (actions, stats, tabs) ── */}
+      {hasHeader && (
       <div
         style={{
           backgroundColor: '#fff',
-          borderRadius: tabs ? `${RADIUS.xl} ${RADIUS.xl} 0 0` : RADIUS.xl,
+          borderRadius: hasTabs ? `${RADIUS.xl} ${RADIUS.xl} 0 0` : RADIUS.xl,
           border: `1px solid ${C.border}`,
-          borderBottom: tabs ? 'none' : `1px solid ${C.border}`,
+          borderBottom: hasTabs ? 'none' : `1px solid ${C.border}`,
           boxShadow: '0 1px 0 #e8eaf0, 0 4px 24px rgba(24,28,50,0.06)',
           position: 'relative',
           overflow: 'hidden',
         }}
       >
-        {/* Title + actions row — navy gradient band */}
-        <div className="cfg-header-row" style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: `26px ${SP.xl} ${subtitle ? '20px' : SP.xl} ${SP.xl}`,
-          flexWrap: 'wrap',
-          gap: SP.sm,
-          background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            {icon && (
-              <div className="cfg-header-icon" style={{
-                width: '44px', height: '44px',
-                borderRadius: RADIUS.lg,
-                background: 'rgba(255,255,255,0.16)',
-                border: '1px solid rgba(255,255,255,0.22)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-                boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
-              }}>
-                <AppIcon name={icon} className="fs-2" color="#fff" />
-              </div>
-            )}
-            <div>
-              <h1 className="cfg-header-title" style={{
-                fontFamily: FONT.heading,
-                fontWeight: 700,
-                fontSize: '22px',
-                color: '#ffffff',
-                letterSpacing: '-0.4px',
-                margin: 0,
-                lineHeight: 1.2,
-              }}>
-                {title}
-              </h1>
-              {subtitle && (
-                <p style={{
-                  fontFamily: FONT.body,
-                  fontSize: '13px',
-                  color: 'rgba(255,255,255,0.82)',
-                  fontWeight: 400,
-                  margin: '4px 0 0 0',
-                  lineHeight: 1.4,
-                }}>
-                  {subtitle}
-                </p>
-              )}
-            </div>
+        {actions && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: SP.sm,
+            flexWrap: 'wrap',
+            padding: `${SP.md} ${SP.xl}`,
+          }}>
+            {actions}
           </div>
-          {actions && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexWrap: 'wrap' }}>{actions}</div>
-          )}
-        </div>
+        )}
 
         {/* Stats bar */}
         {statsBar && (
@@ -121,7 +78,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
         )}
 
         {/* Tab bar */}
-        {tabs && tabs.length > 0 && (
+        {hasTabs && (
           <div className="cfg-tab-bar" style={{
             display: 'flex',
             gap: '4px',
@@ -200,17 +157,20 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
           </div>
         )}
       </div>
+      )}
 
       {/* ── Body ───────────────────────────────────────────────────────── */}
       <div
         className="cfg-fade-in cfg-body-wrap"
         style={{
-          backgroundColor: tabs ? '#fff' : 'transparent',
-          borderRadius: tabs ? `0 0 ${RADIUS.xl} ${RADIUS.xl}` : 0,
-          border: tabs ? `1px solid ${C.border}` : 'none',
+          backgroundColor: hasTabs ? '#fff' : 'transparent',
+          borderRadius: hasTabs ? `0 0 ${RADIUS.xl} ${RADIUS.xl}` : 0,
+          border: hasTabs ? `1px solid ${C.border}` : 'none',
           borderTop: 'none',
-          boxShadow: tabs ? '0 4px 24px rgba(24,28,50,0.05)' : 'none',
-          padding: tabs ? `${SP.xl} ${SP.xl}` : `${SP.lg} 0`,
+          boxShadow: hasTabs ? '0 4px 24px rgba(24,28,50,0.05)' : 'none',
+          // With no header above, the body starts flush — the gap was only ever there to
+          // separate it from the title band.
+          padding: hasTabs ? `${SP.xl} ${SP.xl}` : `${hasHeader ? SP.lg : 0} 0 ${SP.lg}`,
         }}
       >
         {children}

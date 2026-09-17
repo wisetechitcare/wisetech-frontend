@@ -22,7 +22,9 @@ import {
   MEETING_HALF_PM,
   MEETING_STATUS_CANCELLED,
   MEETING_STATUS_AWAITING,
-  MEETING_STATUS_HELD
+  MEETING_STATUS_HELD,
+  MEETING_TIMESHEET_FILLED,
+  MEETING_TIMESHEET_PENDING
 } from '@constants/configurations-key'
 import { fetchConfiguration, createNewConfiguration, updateConfigurationById } from '@services/company'
 // The calendar's own tint helpers, not a second copy: a preview derived independently is a
@@ -86,6 +88,8 @@ interface EventItem {
    * tints its row without labelling it.
    */
   rowBadge?: string
+  /** Previews as a MEETINGS CALENDAR CHIP — the only place a timesheet colour is painted. */
+  chip?: boolean
 }
 
 interface EventSection {
@@ -184,6 +188,15 @@ const MEETING_SECTIONS: EventSection[] = [
       { key: MEETING_STATUS_CANCELLED, rowBadge: 'CANCELLED', label: 'Cancelled', desc: 'Called off, and kept on the project record.', sample: 'Site walkthrough', defaultColor: LIFECYCLE_DEFAULT_COLORS.cancelled, defaultEnabled: true },
       { key: MEETING_STATUS_AWAITING, rowBadge: 'AWAITING TIMESHEETS', label: 'Awaiting timesheets', desc: 'Held, but nobody has logged their time against it yet.', sample: 'Design review', defaultColor: LIFECYCLE_DEFAULT_COLORS.awaiting, defaultEnabled: true },
       { key: MEETING_STATUS_HELD, rowBadge: '', label: 'Held', desc: 'Went ahead, with time logged against it.', sample: 'Client call', defaultColor: LIFECYCLE_DEFAULT_COLORS.held, defaultEnabled: true },
+    ],
+  },
+  {
+    id: 'timesheets', tone: TRIO.cyan, icon: 'calendar-tick', showCount: false,
+    title: 'Timesheet colours',
+    desc: 'How past meetings are coloured on the meetings calendar, by whether every attendee has logged their time. Upcoming meetings keep their half-day colour.',
+    items: [
+      { key: MEETING_TIMESHEET_FILLED, chip: true, label: 'Timesheets filled', desc: 'The meeting is over and everyone in it has logged their time.', sample: '10:00 AM Design review', defaultColor: LIFECYCLE_DEFAULT_COLORS.filled, defaultEnabled: true },
+      { key: MEETING_TIMESHEET_PENDING, chip: true, label: 'Timesheets pending', desc: 'The meeting is over, but at least one attendee has not logged their time yet.', sample: '4:30 PM Client call', defaultColor: LIFECYCLE_DEFAULT_COLORS.pending, defaultEnabled: true },
     ],
   },
 ]
@@ -296,6 +309,22 @@ function StatusRowPreview({ setting, item }: { setting: CalendarConfigItem; item
   )
 }
 
+/** A timesheet colour, drawn exactly as the meetings calendar draws a past meeting's chip. */
+function ChipPreview({ setting, item }: { setting: CalendarConfigItem; item: EventItem }) {
+  const color = setting.enabled ? setting.color : item.defaultColor
+  const tone = rowTone(color)
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', px: 1, py: 0.625, minWidth: 0,
+      borderRadius: '6px', bgcolor: tone.bg, color: tone.fg, borderLeft: `3px solid ${color}`,
+    }}>
+      <Typography component="span" noWrap sx={{ fontSize: 11.5, fontWeight: 600, color: 'inherit' }}>
+        {item.sample}
+      </Typography>
+    </Box>
+  )
+}
+
 function EventPreview({ setting, sample }: { setting: CalendarConfigItem; sample: string }) {
   const dark = useTheme().palette.mode === 'dark'
   const base = {
@@ -356,6 +385,8 @@ function EventSettingCard({ item, setting, tone, onOpen }: {
 
       {item.half
         ? <HalfPreview setting={setting} item={item} />
+        : item.chip
+        ? <ChipPreview setting={setting} item={item} />
         : item.rowBadge !== undefined
           ? <StatusRowPreview setting={setting} item={item} />
           : <EventPreview setting={setting} sample={item.sample} />}
@@ -521,9 +552,6 @@ function CalendarConfigure() {
     <>
       <Box className="cfg-fade-in" sx={{ py: 3, backgroundColor: C.bgPage }}>
         <ConfigPageLayout
-          title="Calendar Configuration"
-          subtitle="Manage event visibility, public holidays and weekend schedules"
-          icon="bi-calendar3"
           tabs={TABS}
           activeTab={activeTab}
           onTabChange={setActiveTab}

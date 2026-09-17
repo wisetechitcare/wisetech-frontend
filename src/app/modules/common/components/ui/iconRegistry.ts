@@ -37,7 +37,7 @@ import {
     ChevronUp, ChevronsLeft, ChevronsRight, CircleCheck, CircleMinus, CircleUser, CircleX,
     Clock, CloudCog, CloudDownload, CloudUpload, Compass, Component, Contact, CreditCard,
     Crown, DollarSign, Euro, Eye, EyeOff, File, FileDown, FilePlus, FileText, Funnel,
-    FingerprintPattern, Flag, Folder, Frame, Gift, Grid2x2, Heart, Info, LayoutGrid, Layers,
+    FingerprintPattern, Flag, Folder, FolderPlus, Frame, Gift, Grid2x2, Heart, Info, LayoutGrid, Layers,
     Landmark, ListFilter, Lock, LogOut, Mail, Map, MapPin, MessageSquareText, Minus,
     Monitor, Moon, MousePointerClick, NotebookPen, Package, PaintBucket, Paperclip,
     Pencil, Percent, Phone, Plus, ReceiptText, RefreshCw, Route, Rows3, Save, ScrollText,
@@ -52,7 +52,7 @@ import {
     ShieldAlert, SlidersHorizontal, SquareCheck, SquareMinus, TextAlignStart,
     TextCursorInput, ToggleLeft, TrendingUp, UserPen, UserRound, Venus, Video, VideoOff,
     Wifi, Zap,
-    CircleArrowLeft, PanelLeft,
+    CircleArrowLeft, PanelLeft, Minimize,
     CirclePause, Pause, CirclePlay, Play,
 } from 'lucide-react';
 
@@ -118,7 +118,10 @@ const KEENICON: Record<string, AppIconComponent> = {
     'down': ChevronDown, 'entity': Building2, 'euro': Euro, 'exit-right-corner': LogOut,
     'exit-up': Upload, 'eye': Eye, 'eye-slash': EyeOff, 'file': File, 'file-down': FileDown,
     'file-invoice': ReceiptText, 'filter': Funnel, 'fingerprint-scanning': FingerprintPattern,
-    'flag': Flag, 'folder': Folder, 'geolocation': MapPin, 'gift': Gift, 'heart': Heart,
+    // 'folder-added' is WtEmptyState's DEFAULT glyph, so every empty state in the app that does
+    // not name its own icon was drawing a blank square. Its own test caught it and it went
+    // unfixed; registering the name is the fix, because the name is what call sites already say.
+    'flag': Flag, 'folder': Folder, 'folder-added': FolderPlus, 'geolocation': MapPin, 'gift': Gift, 'heart': Heart,
     'information': Info, 'information-5': Info, 'left': ChevronLeft, 'lock': Lock,
     'magic': Wand, 'magic-star': WandSparkles, 'magnifier': Search, 'map': Map,
     'message-text-2': MessageSquareText, 'minus': Minus, 'minus-circle': CircleMinus,
@@ -172,7 +175,7 @@ const KEENICON_VIA_BI: Record<string, AppIconComponent> = {
     'dots-horizontal': Ellipsis, 'dots-square': Grip, 'entrance-left': LogIn,
     'entrance-right': LogOut, 'exit-down': Download, 'file-deleted': FileX,
     'file-up': FileUp, 'flash-circle': Zap, 'grid-frame': LayoutGrid, 'home': House,
-    'information-2': Info, 'information-3': Info, 'kanban': Columns3, 'maximize': Maximize,
+    'information-2': Info, 'information-3': Info, 'kanban': Columns3, 'maximize': Maximize, 'minimize': Minimize,
     'minus-square': SquareMinus, 'notepad': Notebook, 'notification-status': BellDot,
     'picture': Image, 'plus-circle': CirclePlus, 'profile-user': UserRound,
     'question': CircleQuestionMark, 'setting-4': SlidersHorizontal, 'teacher': GraduationCap,

@@ -14,6 +14,7 @@ import {
   computeLeadStatusKpis,
   InsightTone,
 } from "./leadAnalyticsUtils";
+import { currencyPrefix } from '@utils/currency';
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
@@ -25,14 +26,14 @@ export const MONTH_SHORT = [
 /* ── Indian short-form money / number formatting ────────────────────────── */
 
 /** "₹1.25Cr" / "₹3.4L" / "₹12K" / "₹420" — compact, executive-friendly. */
-export const formatINRShort = (val: number): string => {
+export const formatMoneyShort = (val: number): string => {
   const n = Number(val) || 0;
   const sign = n < 0 ? "-" : "";
   const a = Math.abs(n);
-  if (a >= 1e7) return `${sign}₹${round1(a / 1e7)}Cr`;
-  if (a >= 1e5) return `${sign}₹${round1(a / 1e5)}L`;
-  if (a >= 1e3) return `${sign}₹${round1(a / 1e3)}K`;
-  return `${sign}₹${Math.round(a)}`;
+  if (a >= 1e7) return `${sign}${currencyPrefix()}${round1(a / 1e7)}Cr`;
+  if (a >= 1e5) return `${sign}${currencyPrefix()}${round1(a / 1e5)}L`;
+  if (a >= 1e3) return `${sign}${currencyPrefix()}${round1(a / 1e3)}K`;
+  return `${sign}${currencyPrefix()}${Math.round(a)}`;
 };
 
 /** "1.2K" / "12.4M"-style for counts (rare, but keeps axes tidy). */
@@ -211,7 +212,7 @@ export const computeYearlyKpis = (
       icon: "bi-cash-stack",
       delta: pctChange(cur.receivedValue, prev.receivedValue),
       sparkline: sparkReceivedValue,
-      valueFormatter: formatINRShort,
+      valueFormatter: formatMoneyShort,
     },
     {
       label: "Avg Deal Size",
@@ -220,7 +221,7 @@ export const computeYearlyKpis = (
       icon: "bi-tag",
       delta: pctChange(avgDeal, prevAvgDeal),
       sparkline: sparkReceivedValue,
-      valueFormatter: formatINRShort,
+      valueFormatter: formatMoneyShort,
     },
     {
       label: "Win Rate",
@@ -247,7 +248,7 @@ export const computeYearlyKpis = (
       icon: "bi-wallet2",
       delta: pctChange(cur.inquiryValue, prev.inquiryValue),
       sparkline: sparkInquiryValue,
-      valueFormatter: formatINRShort,
+      valueFormatter: formatMoneyShort,
     },
   ];
 };
@@ -320,7 +321,7 @@ export const generateYearlyInsights = (
       revGrowth >= 0 ? "positive" : "critical",
       `Realized revenue ${revGrowth >= 0 ? "rose" : "fell"} ${Math.abs(
         revGrowth
-      )}% YoY to ${formatINRShort(cur.receivedValue)}.`
+      )}% YoY to ${formatMoneyShort(cur.receivedValue)}.`
     );
   }
 

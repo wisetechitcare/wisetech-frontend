@@ -25,6 +25,7 @@ import { WtSwitch, AppIcon } from "@app/modules/common/components/ui";
 import { useDispatch, useSelector } from 'react-redux';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppDispatch, RootState } from '@redux/store';
+import { getCurrencySymbol, getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 /** Company-wide employees, loaded once into redux and shared by the picker + cards. */
 function useEmployeeOptions() {
@@ -60,7 +61,7 @@ const DIRECTION_COLORS: Record<string, { color: string; label: string }> = {
 };
 
 const CALC_TYPE_LABELS: Record<string, string> = {
-  FIXED:          'Fixed ₹',
+  FIXED:          `Fixed ${getCurrencySymbol()}`,
   PERCENTAGE:     '% Based',
   HOURLY:         'Hourly',
   DAILY:          'Daily',
@@ -542,7 +543,7 @@ function ComponentFormModal({
                     value={form.calculationType}
                     onChange={e => setForm(f => ({ ...f, calculationType: e.target.value }))}
                   >
-                    <option value="FIXED">Fixed Amount (₹)</option>
+                    <option value="FIXED">Fixed Amount ({getCurrencySymbol()})</option>
                     <option value="PERCENTAGE">Percentage (%)</option>
                     <option value="HOURLY">Hourly Rate</option>
                     <option value="DAILY">Daily Rate</option>
@@ -557,7 +558,7 @@ function ComponentFormModal({
                 {/* Default value fields */}
                 {isAmountBased && (
                   <div className="col-md-6">
-                    <label className="form-label fw-semibold text-gray-700 fs-7 mb-1">Default Amount (₹)</label>
+                    <label className="form-label fw-semibold text-gray-700 fs-7 mb-1">Default Amount ({getCurrencySymbol()})</label>
                     <input
                       className="form-control form-control-sm"
                       type="number" min="0" step="0.01"
@@ -1104,7 +1105,7 @@ function ComponentCard({
   const durLabel  = APPLY_DURATION_LABELS[item.applyDuration]?.label || item.applyDuration;
 
   const defaultLabel = item.defaultAmount != null
-    ? `₹${Number(item.defaultAmount).toLocaleString('en-IN')}`
+    ? `${currencyPrefix()}${Number(item.defaultAmount).toLocaleString(getCurrencyLocale())}`
     : item.defaultPercentage != null
       ? `${item.defaultPercentage}%`
       : null;

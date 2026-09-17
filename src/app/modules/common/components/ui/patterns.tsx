@@ -15,6 +15,7 @@ import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 import { KTIcon } from '@metronic/helpers';
 import { GlassSurface } from './glass';
 import { toTitleCase, titleCaseNode } from './text';
+import { ICON_BOX_CLASS, TILE_LABEL_CLASS } from './classNames';
 
 /** Accent tone: foreground / fill / border — drives IconBox, StatusBadge, StatTile, and keylines. */
 export type Trio = { c: string; bg: string; bd: string };
@@ -74,20 +75,81 @@ export const menuOptionSx = (theme: Theme) => {
   };
 };
 
-/** Card hover physics (shared) — a gentle lift + shadow deepen. */
+/** Card hover physics (shared) — matches the aside menu's `.menu-link` transition exactly. */
 export const EASE_200 = 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)';
+
+/**
+ * Re-exported, not declared here. The Tailwind twin stamps the same classes and imports no
+ * MUI, so the strings live in a dependency-free module both kits can reach — see
+ * `./classNames`. Two declarations would drift and the hover selector would silently stop
+ * matching in one kit.
+ */
+export { ICON_BOX_CLASS, TILE_LABEL_CLASS };
+
+/**
+ * The app's hover language for a tinted tile, in one place.
+ *
+ * Taken from the aside menu, which is the surface everyone sees most and therefore the one
+ * that sets the expectation: on hover the SURFACE warms toward the accent, the border picks
+ * up the tone, the GLYPH lifts a pixel and its tint deepens, and the quiet caption sharpens.
+ * The card itself does not move — `.menu-link:hover` lifts its icon, not its chip, and two
+ * different lift behaviours on one screen read as a bug rather than a style.
+ *
+ * There was already a second version of this in `ConfigSettingsRow` (left accent rail, icon
+ * `scale(1.06)`, hand-held `useState` hover). That one predates the MUI standard, paints
+ * `#fff` directly and so is wrong in dark mode; it is left alone here rather than rewritten,
+ * but nothing new should copy it. This is the one to reach for.
+ *
+ * The wash is a `backgroundImage` gradient rather than a `backgroundColor`, because that is
+ * how `glassSx` applies its own tone wash: it layers over the surface's tint instead of
+ * replacing it, so it still reads correctly when the app is switched to the opaque Material
+ * appearance.
+ */
+export function hoverTileSx(trio: Trio, dark: boolean): SxProps<Theme> {
+  const t = toneSurface(trio, dark);
+  const wash = alpha(trio.c, dark ? 0.14 : 0.05);
+  return {
+    transition: EASE_200,
+    boxShadow: SHADOW_REST,
+    '&:hover': {
+      borderColor: t.bd,
+      boxShadow: SHADOW_HOVER,
+      backgroundImage: `linear-gradient(0deg, ${wash}, ${wash})`,
+      [`& .${ICON_BOX_CLASS}`]: {
+        transform: 'translateY(-1px)',
+        backgroundColor: alpha(trio.c, dark ? 0.34 : 0.16),
+        borderColor: alpha(trio.c, dark ? 0.6 : 0.32),
+      },
+      [`& .${TILE_LABEL_CLASS}`]: { color: 'text.primary' },
+    },
+  };
+}
 export const SHADOW_REST = '0 1px 2px rgba(15,23,42,0.04), 0 8px 16px rgba(15,23,42,0.035)';
 export const SHADOW_HOVER = '0 2px 4px rgba(15,23,42,0.04), 0 14px 22px rgba(15,23,42,0.055)';
 
-/** Tinted leading glyph tile. `fs` is a Metronic icon-font size class (fs-1..fs-5). */
-export function IconBox({ icon, trio, size = 40, fs = 'fs-2' }: { icon: string; trio: Trio; size?: number; fs?: string }) {
+/**
+ * Tinted leading glyph tile. `fs` is a Metronic icon-font size class (fs-1..fs-5).
+ *
+ * A string `icon` is a KTIcon name, which is the usual case. Anything else is rendered as
+ * given — for the glyphs the icon font simply does not have. A currency symbol is the one
+ * that forced this: the font ships a `dollar` icon and nothing else, so every money tile in
+ * the app showed a `$` regardless of what the branch actually bills in. Pass
+ * `<CurrencySymbol />` (see `hooks/useCurrency`) and the tile states the real currency.
+ */
+export function IconBox({ icon, trio, size = 40, fs = 'fs-2', className }: { icon: React.ReactNode; trio: Trio; size?: number; fs?: string; className?: string }) {
   const t = toneSurface(trio, useTheme().palette.mode === 'dark');
   return (
-    <Box sx={{
+    <Box
+      // The class is what lets a hovering parent animate this glyph — see `hoverTileSx`.
+      className={className ? `${ICON_BOX_CLASS} ${className}` : ICON_BOX_CLASS}
+      sx={{
       width: size, height: size, borderRadius: '11px', display: 'grid', placeItems: 'center',
       bgcolor: t.bg, color: t.fg, border: `1px solid ${t.bd}`, flexShrink: 0,
+      transition: EASE_200,
+      // Sized for a text glyph; a KTIcon carries its own `fs-*` class and ignores this.
+      fontSize: Math.round(size * 0.45), fontWeight: 700, lineHeight: 1,
     }}>
-      <KTIcon iconName={icon} className={fs} />
+      {typeof icon === 'string' ? <KTIcon iconName={icon} className={fs} /> : icon}
     </Box>
   );
 }
@@ -141,17 +203,18 @@ export function StatusBadge({ trio, label, pulse, title, onClick, disabled }: {
 
 /** KPI stat tile (icon + uppercase eyebrow + big value) on a thin glass surface.
  * Value font is responsive ({xs:16, sm:19}) so it doesn't truncate in 2-up mobile grids. */
-export function StatTile({ label, value, trio, icon }: { label: string; value: React.ReactNode; trio: Trio; icon: string }) {
-  const hoverBd = toneSurface(trio, useTheme().palette.mode === 'dark').bd;
+export function StatTile({ label, value, trio, icon }: { label: string; value: React.ReactNode; trio: Trio; icon: React.ReactNode }) {
+  const dark = useTheme().palette.mode === 'dark';
   return (
     <GlassSurface variant="thin" sx={{
       minWidth: 0, p: 1.5, borderRadius: '14px', display: 'flex', alignItems: 'center', gap: 1.25,
-      borderColor: 'divider', boxShadow: SHADOW_REST, transition: EASE_200,
-      '&:hover': { transform: 'translateY(-2px)', boxShadow: SHADOW_HOVER, borderColor: hoverBd },
+      borderColor: 'divider',
+      // The aside menu's hover, shared — surface warms, glyph lifts, caption sharpens.
+      ...(hoverTileSx(trio, dark) as object),
     }}>
       <IconBox icon={icon} trio={trio} size={40} fs="fs-2" />
       <Box sx={{ minWidth: 0 }}>
-        <Typography noWrap sx={{ fontSize: 10.5, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>{label}</Typography>
+        <Typography noWrap className={TILE_LABEL_CLASS} sx={{ fontSize: 10.5, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700, transition: EASE_200 }}>{label}</Typography>
         <Typography noWrap sx={{ fontSize: { xs: 16, sm: 19 }, fontWeight: 800, lineHeight: 1.2, color: 'text.primary' }}>{value}</Typography>
       </Box>
     </GlassSurface>

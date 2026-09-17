@@ -6,6 +6,7 @@ import PaymentChangeRequests from "./PaymentChangeRequests";
 import PreviousLoans from "./PreviousLoans";
 import LoanApplicationRequests from "./LoanApplicationRequests";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 type LoanSummariesResponse = {
   overview: {
@@ -96,9 +97,9 @@ function Overview() {
               >
                 <span style={commonStyle}>Active Loan Amount given</span>
                 <span>
-                  ₹{" "}
+                  {getCurrencySymbol()}{" "}
                   {loanSummariesData?.overview.activeLoanAmountGiven?.toLocaleString(
-                    "en-IN"
+                    getCurrencyLocale()
                   ) ?? "0"}{" "}
                 </span>
               </div>
@@ -112,9 +113,9 @@ function Overview() {
               >
                 <span style={commonStyle}>Active Loan Amount Collected</span>
                 <span>
-                  ₹{" "}
+                  {getCurrencySymbol()}{" "}
                   {loanSummariesData?.overview.activeLoanAmountCollected?.toLocaleString(
-                    "en-IN"
+                    getCurrencyLocale()
                   ) ?? "0"}
                 </span>
               </div>
@@ -128,9 +129,9 @@ function Overview() {
               >
                 <span style={commonStyle}>Active Loan Amount Due</span>
                 <span>
-                  ₹{" "}
+                  {getCurrencySymbol()}{" "}
                   {loanSummariesData?.overview.activeLoanAmountDue?.toLocaleString(
-                    "en-IN"
+                    getCurrencyLocale()
                   ) ?? "0"}
                 </span>
               </div>
@@ -166,9 +167,9 @@ function Overview() {
               >
                 <span style={commonStyle}>Total Loan Amount given</span>
                 <span>
-                  ₹{" "}
+                  {getCurrencySymbol()}{" "}
                   {loanSummariesData?.overview.totalLoanAmountGiven?.toLocaleString(
-                    "en-IN"
+                    getCurrencyLocale()
                   ) ?? "0"}
                 </span>
               </div>
@@ -182,9 +183,9 @@ function Overview() {
               >
                 <span style={commonStyle}>Total Loan Amount Collected</span>
                 <span>
-                  ₹{" "}
+                  {getCurrencySymbol()}{" "}
                   {loanSummariesData?.overview.totalLoanAmountCollected?.toLocaleString(
-                    "en-IN"
+                    getCurrencyLocale()
                   ) ?? "0"}
                 </span>
               </div>
@@ -198,9 +199,9 @@ function Overview() {
               >
                 <span style={commonStyle}>Total Loan Amount Due</span>
                 <span>
-                  ₹{" "}
+                  {getCurrencySymbol()}{" "}
                   {loanSummariesData?.overview.totalLoanAmountDue?.toLocaleString(
-                    "en-IN"
+                    getCurrencyLocale()
                   ) ?? "0"}
                 </span>
               </div>
@@ -245,25 +246,25 @@ function Overview() {
                 },
                 {
                   label: "Total Loan Taken",
-                  value: `₹ ${
+                  value: `${getCurrencySymbol()} ${
                     loanSummariesData?.allTimeInstallmentStats.totalLoanTaken?.toLocaleString(
-                      "en-IN"
+                      getCurrencyLocale()
                     ) ?? "0"
                   }`,
                 },
                 {
                   label: "Total Loan Collected",
-                  value: `₹ ${
+                  value: `${getCurrencySymbol()} ${
                     loanSummariesData?.allTimeInstallmentStats.totalLoanCollected?.toLocaleString(
-                      "en-IN"
+                      getCurrencyLocale()
                     ) ?? "0"
                   }`,
                 },
                 {
                   label: "Total Loan Pending",
-                  value: `₹ ${
+                  value: `${getCurrencySymbol()} ${
                     loanSummariesData?.allTimeInstallmentStats.totalLoanPending?.toLocaleString(
-                      "en-IN"
+                      getCurrencyLocale()
                     ) ?? "0"
                   }`,
                 },

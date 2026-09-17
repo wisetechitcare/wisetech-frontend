@@ -8,6 +8,7 @@ import { formatDate } from "@utils/dateFormats";
 import { PeriodMode } from "@app/modules/common/components/PeriodFilter";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
+import type { ChartMetric } from "@pages/dashboard/leadAnalytics/leadAnalyticsUtils";
 
 /**
  * The one relationship chart, shared by all six analytics tabs (Lead Reference,
@@ -47,7 +48,11 @@ export interface AnalyticsRow {
 export const referredLeadDate = (rl: { lead?: { inquiryDate?: string | null; createdAt?: string } | null }): string | undefined =>
   rl.lead?.inquiryDate || rl.lead?.createdAt;
 
+export type { ChartMetric } from "@pages/dashboard/leadAnalytics/leadAnalyticsUtils";
+
 interface Props {
+  /** What a bar measures: record count (default) or summed record value. */
+  metric?: ChartMetric;
   /** Already filtered to the active period by the parent. */
   rows: AnalyticsRow[];
   /** Card heading, e.g. "Referred Leads — Business". */
@@ -67,6 +72,21 @@ const plural = (noun: string, n: number): string =>
   n === 1 ? noun : /[^aeiou]y$/i.test(noun) ? `${noun.slice(0, -1)}ies` : `${noun}s`;
 
 const ACCENT = "#1E3A8A";
+// Shared by the status chips and the VALUE / RESULTS summary so the row lines up.
+const chipSx = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 1,
+  height: 32,
+  borderRadius: "8px",
+  border: 1,
+  borderColor: "divider",
+  whiteSpace: "nowrap",
+} as const;
+const chipTextSx = { fontSize: 12, lineHeight: 1, fontVariantNumeric: "tabular-nums" } as const;
+const summaryLabelSx = { fontSize: 10, lineHeight: 1, fontWeight: 600, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.02em" } as const;
+const summaryValueSx = { fontSize: 14, lineHeight: 1, fontWeight: 800, color: ACCENT, fontVariantNumeric: "tabular-nums" } as const;
+
 const FALLBACK_COLORS = ["#3B5BDB", "#2F9E44", "#E8590C", "#7048E8", "#E64980", "#1098AD", "#F08C00", "#868E96"];
 
 // Build the time buckets for the x-axis from the active mode + range (falling
@@ -105,7 +125,8 @@ const buildBuckets = (
   return buckets;
 };
 
-const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-up-arrow", noun, mode, rangeStart, rangeEnd }) => {
+const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-up-arrow", noun, mode, rangeStart, rangeEnd, metric = "count" }) => {
+  const byAmount = metric === "amount";
   const navigate = useNavigate();
   // Which bar was clicked. A bar is a period, so the drill-down shows the whole
   // period rather than only the segment under the cursor — "what is in 2024" is the
@@ -141,9 +162,9 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
     dated.forEach((r) => {
       const idx = bucketOf(dayjs(r.date as string));
       if (idx < 0) return;
-      const s = series.find((x) => x.name === r.series);
-      if (s) (s.data[idx] as number) += 1;
       const v = Number(r.value) || 0;
+      const s = series.find((x) => x.name === r.series);
+      if (s) (s.data[idx] as number) += byAmount ? v : 1;
       bucketValues[idx] += v;
       bucketRows[idx].push(r);
       totalValue += v;
@@ -157,7 +178,7 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       totalValue,
       hasValue: totalValue > 0,
     };
-  }, [rows, mode, rangeStart, rangeEnd]);
+  }, [rows, mode, rangeStart, rangeEnd, byAmount]);
 
   const seriesColor = useMemo(
     () => new Map(series.map((s) => [s.name, s.color as string])),
@@ -179,8 +200,8 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       card.value += Number(r.value) || 0;
       byName.set(r.series, card);
     });
-    return [...byName.values()].sort((a, b) => b.count - a.count);
-  }, [rows, seriesColor]);
+    return [...byName.values()].sort((a, b) => (byAmount ? b.value - a.value : b.count - a.count));
+  }, [rows, seriesColor, byAmount]);
 
   // What the open bar contains, newest first. Indexed defensively: changing the period
   // rebuilds the buckets, and the dialog may still be holding an index from the old set.
@@ -195,6 +216,21 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
     const count = `${records.length} ${plural(noun, records.length)}`;
     return { records, subtitle: value > 0 ? `${count} · ${formatCurrencyCompact(value)}` : count };
   }, [openBucket, bucketRows, noun]);
+
+  // Amount mode: one outlier bucket (₹1,080 Cr beside ₹30 L) flattens every other bar to
+  // nothing on a linear axis. When the tallest bar is >4× the next, cap the axis just
+  // above the runner-up; the tall bar is clipped and its label carries the real total.
+  // ponytail: single-cap heuristic; a true broken axis if several outliers must stay legible.
+  const axisMax = useMemo(() => {
+    if (!byAmount) return undefined;
+    const [top = 0, next = 0] = [...bucketValues].sort((a, b) => b - a);
+    if (!(next > 0 && top > next * 4)) return undefined;
+    // Round up to a 4-divisible multiple of 10ⁿ so the 4 ticks land on even figures
+    // (₹10 L, ₹20 L…) instead of ₹27.38 L.
+    const raw = next * 1.25;
+    const pow = 10 ** Math.floor(Math.log10(raw));
+    return ([1, 2, 4, 6, 8, 10].find((m) => m * pow >= raw) as number) * pow;
+  }, [byAmount, bucketValues]);
 
   const options: ApexCharts.ApexOptions = {
     chart: {
@@ -235,7 +271,8 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       borderColor: "#eef0f3",
       strokeDashArray: 5,
       xaxis: { lines: { show: false } },
-      padding: { top: 10, right: 8, left: 4 },
+      // Extra headroom when capped, so the clipped bar's label is not cut off too.
+      padding: { top: axisMax ? 24 : 10, right: 8, left: 4 },
     },
     xaxis: {
       categories,
@@ -244,33 +281,47 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       labels: { style: { fontSize: "11px", colors: "#8b95a5" }, rotate: -45, hideOverlappingLabels: true },
     },
     yaxis: {
-      labels: { style: { fontSize: "11px", colors: "#8b95a5" }, formatter: (v) => `${Math.round(v)}` },
+      // A fixed max without a min let Apex pad below zero (₹-2.63 L).
+      min: 0,
+      max: axisMax,
+      // Only with the cap — on small counts 4 ticks would round to repeated labels.
+      tickAmount: axisMax ? 4 : undefined,
+      labels: {
+        style: { fontSize: "11px", colors: "#8b95a5" },
+        formatter: (v) => (byAmount ? formatCurrencyCompact(v) : `${Math.round(v)}`),
+      },
     },
     annotations: {
-      // Money labels only where there IS money — a row of ₹0 chips over a referral
-      // count would be noise pretending to be data.
+      // ₹ total on top of every bar that has money, in both modes. Money labels only
+      // where there IS money — a row of ₹0 chips over a referral count would be noise
+      // pretending to be data. A bar clipped by `axisMax` pins its label to the cap
+      // and marks it ▲ so the real figure is never hidden.
       points: hasValue
         ? categories
             .map((label, i) => ({ label, i }))
             .filter(({ i }) => bucketValues[i] > 0)
-            .map(({ label, i }) => ({
-              x: label,
-              y: series.reduce((sum, s) => sum + (s.data[i] as number), 0),
-              marker: { size: 0 },
-              label: {
-                text: formatCurrencyCompact(bucketValues[i]),
-                offsetY: -8,
-                borderWidth: 0,
-                borderRadius: 6,
-                style: {
-                  background: "#fbf3f3",
-                  color: ACCENT,
-                  fontSize: "10.5px",
-                  fontWeight: 700,
-                  padding: { left: 7, right: 7, top: 3, bottom: 3 },
+            .map(({ label, i }) => {
+              const height = series.reduce((sum, s) => sum + (s.data[i] as number), 0);
+              const clipped = axisMax !== undefined && height > axisMax;
+              return {
+                x: label,
+                y: clipped ? axisMax : height,
+                marker: { size: 0 },
+                label: {
+                  text: `${formatCurrencyCompact(bucketValues[i])}${clipped ? " ▲" : ""}`,
+                  offsetY: -8,
+                  borderWidth: 0,
+                  borderRadius: 6,
+                  style: {
+                    background: "#fbf3f3",
+                    color: ACCENT,
+                    fontSize: "10.5px",
+                    fontWeight: 700,
+                    padding: { left: 7, right: 7, top: 3, bottom: 3 },
+                  },
                 },
-              },
-            }))
+              };
+            })
         : [],
     },
     tooltip: {
@@ -278,7 +329,7 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       intersect: false,
       theme: "light",
       style: { fontSize: "12px" },
-      y: { formatter: (val: number) => `${val} ${plural(noun, val)}` },
+      y: { formatter: (val: number) => (byAmount ? formatCurrencyCompact(val) : `${val} ${plural(noun, val)}`) },
     },
   };
 
@@ -287,69 +338,38 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
   return (
     <div className="card border shadow-sm mb-4" style={{ borderRadius: 14 }}>
       <div className="card-body">
-        {/* VALUE / RESULTS bar */}
-        <div className="d-flex flex-wrap align-items-center justify-content-between mb-4" style={{ gap: 12 }}>
-          <div className="d-flex align-items-center" style={{ gap: 10 }}>
+        {/* One line: heading · status chips (wrap in the middle) · VALUE / RESULTS
+            (pinned right). Chips and summary share one chip grammar — same 32px
+            height, border and radius — so the summary reads as their total. On narrow
+            screens the three stack instead of squeezing. */}
+        <Box sx={{ display: "flex", alignItems: { xs: "flex-start", lg: "center" }, gap: 1.5, mb: 2, flexDirection: { xs: "column", lg: "row" } }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flexShrink: 0 }}>
             <span className="d-inline-flex align-items-center justify-content-center" style={{ width: 34, height: 34, borderRadius: 10, background: "#fbf3f3", color: ACCENT }}>
               <AppIcon name={icon} className="fs-4" />
             </span>
-            <span className="fw-bold fs-5 text-gray-900">{title}</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid #E2E8F0", borderRadius: 6, padding: "0 12px", background: "#F8FAFC", height: 36, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-            {hasValue && (
-              <>
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 10, color: "#64748B", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.02em" }}>Value:</span>
-                  <span style={{ fontSize: 14, color: "#1E3A8A", fontWeight: 800, fontFamily: "Inter, sans-serif" }}>{formatCurrencyCompact(totalValue)}</span>
-                </div>
-                <div style={{ width: 1, height: 14, backgroundColor: "#E2E8F0" }} />
-              </>
-            )}
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 10, color: "#64748B", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.02em" }}>Results:</span>
-              <span style={{ fontSize: 14, color: "#1E3A8A", fontWeight: 800, fontFamily: "Inter, sans-serif" }}>{rows.length}</span>
-            </div>
-          </div>
-        </div>
-
-        {statusCards.length > 0 && (
-          // Slim chips, same height and grammar as the VALUE / RESULTS pill.
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: -1.5, mb: 1 }}>
+            <span className="fw-bold fs-5 text-gray-900" style={{ whiteSpace: "nowrap" }}>{title}</span>
+          </Box>
+          {/* Chips hug the summary on wide screens, so they read as its breakdown. */}
+          <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: { lg: "flex-end" }, gap: 1, flex: 1, minWidth: 0 }}>
             {statusCards.map((c) => (
               <Box
                 key={c.name}
                 title={`${c.count} ${plural(noun, c.count)}${c.value > 0 ? ` · ${formatCurrencyCompact(c.value)}` : ""}`}
-                sx={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 1,
-                  height: 32,
-                  pl: 1,
-                  pr: 1.25,
-                  borderRadius: "8px",
-                  border: 1,
-                  borderColor: "divider",
-                  // The status's own colour, faintly, so a chip reads as its chart stack.
-                  bgcolor: (t) => `color-mix(in srgb, ${c.color} 7%, ${t.palette.background.paper})`,
-                  whiteSpace: "nowrap",
-                }}
+                sx={{ ...chipSx, pl: 1, pr: 1.25, bgcolor: (t) => `color-mix(in srgb, ${c.color} 7%, ${t.palette.background.paper})` }}
               >
                 <Box sx={{ width: 4, height: 16, borderRadius: 4, bgcolor: c.color, flexShrink: 0 }} />
                 {/* One size for every part (uppercase caps = digit height, so they line up);
                     hierarchy comes from weight and colour only. */}
-                <Typography sx={{ fontSize: 12, lineHeight: 1, fontWeight: 600, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.02em" }}>
+                <Typography sx={{ ...chipTextSx, fontWeight: 600, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.02em" }}>
                   {c.name}
                 </Typography>
-                <Typography sx={{ fontSize: 12, lineHeight: 1, fontWeight: 800, color: "text.primary", fontVariantNumeric: "tabular-nums" }}>
+                <Typography sx={{ ...chipTextSx, fontWeight: 800, color: "text.primary" }}>
                   {c.count}
-                </Typography>
-                <Typography sx={{ fontSize: 12, lineHeight: 1, fontWeight: 500, color: "text.disabled", fontVariantNumeric: "tabular-nums" }}>
-                  {Math.round((c.count / rows.length) * 100)}%
                 </Typography>
                 {hasValue && c.value > 0 && (
                   <>
                     <Box sx={{ width: "1px", height: 14, bgcolor: "divider" }} />
-                    <Typography sx={{ fontSize: 12, lineHeight: 1, fontWeight: 700, color: ACCENT, fontVariantNumeric: "tabular-nums" }}>
+                    <Typography sx={{ ...chipTextSx, fontWeight: 700, color: ACCENT }}>
                       {formatCurrencyCompact(c.value)}
                     </Typography>
                   </>
@@ -357,13 +377,29 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
               </Box>
             ))}
           </Box>
-        )}
+
+          <Box sx={{ ...chipSx, px: 1.5, gap: 1.25, flexShrink: 0, ml: { lg: "auto" }, bgcolor: "background.paper", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            {hasValue && (
+              <>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  <Typography sx={summaryLabelSx}>Value:</Typography>
+                  <Typography sx={summaryValueSx}>{formatCurrencyCompact(totalValue)}</Typography>
+                </Box>
+                <Box sx={{ width: "1px", height: 14, bgcolor: "divider" }} />
+              </>
+            )}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Typography sx={summaryLabelSx}>Results:</Typography>
+              <Typography sx={summaryValueSx}>{rows.length}</Typography>
+            </Box>
+          </Box>
+        </Box>
 
         {hasData ? (
           // Re-mount on filter change → replays a subtle CSS fade-in instead of
           // ApexCharts' heavier internal transition.
           <div
-            key={`${mode}-${rangeStart?.valueOf() ?? "a"}-${rangeEnd?.valueOf() ?? "b"}`}
+            key={`${mode}-${metric}-${rangeStart?.valueOf() ?? "a"}-${rangeEnd?.valueOf() ?? "b"}`}
             className="lra-fade"
             style={{ cursor: "pointer" }}
           >

@@ -174,9 +174,6 @@ function EmployeeTypes() {
         <>
             <style>{KEYFRAMES}</style>
             <ConfigPageLayout
-              title="Employee Types"
-              subtitle="Manage employee type categories in your organization"
-              icon="bi-people"
               actions={
                 isAdmin ? (
                   <button

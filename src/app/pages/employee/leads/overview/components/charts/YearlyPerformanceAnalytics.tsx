@@ -15,6 +15,7 @@ import { getMonthlyLeadAnalytics, getMonthlyTargets } from "@services/lead";
 import ManageTargetModal from "../modals/ManageTargetModal";
 import dayjs from "dayjs";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
 
 interface YearlyPerformanceAnalyticsProps {
   startDate: dayjs.Dayjs;
@@ -50,7 +51,7 @@ const formatLeadCount = (num: any) => {
   else if (absVal >= 1000)
     short = (val / 1000).toFixed(2).replace(/\.00$/, "") + " K";
 
-  return short ? `₹${fullValue} (${short})` : `₹${fullValue}`;
+  return short ? `${currencyPrefix()}${fullValue} (${short})` : `${currencyPrefix()}${fullValue}`;
 };
 
 const YearlyPerformanceAnalytics: React.FC<YearlyPerformanceAnalyticsProps> = ({
@@ -550,7 +551,7 @@ const YearlyPerformanceAnalytics: React.FC<YearlyPerformanceAnalyticsProps> = ({
                   tickFormatter={(val) => formatShort(val)}
                 >
                   <Label
-                    value="Cumulative Value (₹)"
+                    value={`Cumulative Value (${getCurrencySymbol()})`}
                     angle={-90}
                     position="insideLeft"
                     offset={-20}

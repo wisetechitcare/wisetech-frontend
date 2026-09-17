@@ -46,6 +46,7 @@ import * as S from "./OnboardingSections";
 import type { OnboardingSectionsProps } from "./OnboardingSections";
 import { formatBloodGroup } from "@utils/employeeFormat";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 /**
  * Employee Onboarding wizard configuration.
@@ -735,7 +736,7 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
     if (v.ctcInLpa) {
       push(
         "CTC",
-        `₹ ${Number(String(v.ctcInLpa).replace(/,/g, "")).toLocaleString("en-IN")}`,
+        `${getCurrencySymbol()} ${Number(String(v.ctcInLpa).replace(/,/g, "")).toLocaleString(getCurrencyLocale())}`,
         true
       );
     }

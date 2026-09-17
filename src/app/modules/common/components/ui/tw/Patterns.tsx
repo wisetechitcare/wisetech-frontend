@@ -3,6 +3,8 @@ import { KTIcon } from '@metronic/helpers';
 import { cn } from './cn';
 import { type Trio } from './tokens';
 import { useIsDark, toneSurface } from './useIsDark';
+// Dependency-free on purpose, so importing it does not drag MUI into this kit.
+import { ICON_BOX_CLASS, TILE_LABEL_CLASS } from '../classNames';
 
 /**
  * Tailwind pattern atoms — IconBox / StatusBadge / Eyebrow / SectionHead,
@@ -11,15 +13,27 @@ import { useIsDark, toneSurface } from './useIsDark';
  * utility class can't express an arbitrary runtime hex triple).
  */
 
-/** Tinted rounded icon tile. `fs` is a Metronic KTIcon size class (e.g. "fs-2"). */
-export function IconBox({ icon, trio, size = 40, fs = 'fs-2', className }: { icon: string; trio: Trio; size?: number; fs?: string; className?: string }) {
+/**
+ * Tinted rounded icon tile. `fs` is a Metronic KTIcon size class (e.g. "fs-2").
+ *
+ * A string `icon` is a KTIcon name, the usual case. Anything else renders as given — for the
+ * glyphs the icon font does not have. A currency symbol is the one that forced it: the font
+ * ships `dollar` and nothing else, so every money tile showed a `$` whatever the branch bills
+ * in. Pass `<CurrencySymbol />`. Kept identical to the MUI kit's IconBox so surfaces still
+ * migrate 1:1 between the two.
+ */
+export function IconBox({ icon, trio, size = 40, fs = 'fs-2', className }: { icon: React.ReactNode; trio: Trio; size?: number; fs?: string; className?: string }) {
   const t = toneSurface(trio, useIsDark());
   return (
     <div
-      className={cn('grid place-items-center rounded-[11px] shrink-0 border', className)}
-      style={{ width: size, height: size, backgroundColor: t.bg, color: t.fg, borderColor: t.bd }}
+      className={cn(ICON_BOX_CLASS, 'grid place-items-center rounded-[11px] shrink-0 border transition-all duration-200', className)}
+      style={{
+        width: size, height: size, backgroundColor: t.bg, color: t.fg, borderColor: t.bd,
+        // Sized for a text glyph; a KTIcon carries its own `fs-*` class and ignores this.
+        fontSize: Math.round(size * 0.45), fontWeight: 700, lineHeight: 1,
+      }}
     >
-      <KTIcon iconName={icon} className={fs} />
+      {typeof icon === 'string' ? <KTIcon iconName={icon} className={fs} /> : icon}
     </div>
   );
 }
@@ -55,13 +69,37 @@ export function StatusBadge({ trio, label, pulse, title, className }: { trio: Tr
   );
 }
 
-/** KPI tile — tinted IconBox + uppercase label + big value; thin glass, hover lift. */
-export function StatTile({ label, value, trio, icon }: { label: string; value: React.ReactNode; trio: Trio; icon: string }) {
+/**
+ * KPI tile — tinted IconBox + uppercase label + big value.
+ *
+ * Hover matches the MUI kit's `hoverTileSx`, which took it from the aside menu: the surface
+ * warms toward the accent, the border picks up the tone, the glyph lifts a pixel, the caption
+ * sharpens, and the card itself stays put. It used to lift the whole card instead, which is
+ * what the aside does NOT do.
+ *
+ * The tone is a runtime hex and a utility class cannot express one, so the wash and border
+ * arrive as custom properties off the same `toneSurface` the IconBox uses.
+ */
+export function StatTile({ label, value, trio, icon }: { label: string; value: React.ReactNode; trio: Trio; icon: React.ReactNode }) {
+  const t = toneSurface(trio, useIsDark());
   return (
-    <div className="min-w-0 p-3 rounded-[14px] flex items-center gap-3 bg-white/95 border border-[#E6E9EE] dark:bg-[#161b22] dark:border-[#30363d] shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_16px_rgba(15,23,42,0.035)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgba(15,23,42,0.04),0_14px_22px_rgba(15,23,42,0.055)]">
+    <div
+      style={{ '--wt-wash': t.bg, '--wt-bd': t.bd } as React.CSSProperties}
+      className={cn(
+        'min-w-0 p-3 rounded-[14px] flex items-center gap-3 border transition-all duration-200',
+        'bg-white/95 border-[#E6E9EE] dark:bg-[#161b22] dark:border-[#30363d]',
+        'shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_16px_rgba(15,23,42,0.035)]',
+        'hover:shadow-[0_2px_4px_rgba(15,23,42,0.04),0_14px_22px_rgba(15,23,42,0.055)]',
+        'hover:bg-[var(--wt-wash)] hover:border-[var(--wt-bd)]',
+        `[&:hover_.${ICON_BOX_CLASS}]:-translate-y-px`,
+        // Not `group-hover:` — that needs a `group` class on this element, and adding one here
+        // would also fire for every nested `group-hover:` a caller puts inside the tile.
+        `[&:hover_.${TILE_LABEL_CLASS}]:text-slate-900 dark:[&:hover_.${TILE_LABEL_CLASS}]:text-slate-100`,
+      )}
+    >
       <IconBox icon={icon} trio={trio} size={40} fs="fs-2" />
       <div className="min-w-0">
-        <p className="text-[10.5px] text-slate-500 dark:text-slate-400 uppercase tracking-[0.04em] font-bold truncate m-0">{label}</p>
+        <p className={cn(TILE_LABEL_CLASS, 'text-[10.5px] text-slate-500 dark:text-slate-400 uppercase tracking-[0.04em] font-bold truncate m-0 transition-colors duration-200')}>{label}</p>
         <p className="text-[16px] sm:text-[19px] font-extrabold leading-tight text-slate-900 dark:text-slate-100 truncate m-0">{value}</p>
       </div>
     </div>

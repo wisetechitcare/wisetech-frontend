@@ -33,7 +33,11 @@ are built from.
 | Brand logo glyph (WhatsApp…) | `WhatsAppIcon` from `brandIcons` | `KTIcon iconName="whatsapp"` — the duotone font paints its first layer at 40% opacity, so the mark washes out |
 | Close (×) | `WtCloseButton` (`ui/tw/WtCloseButton`) | a `&times;` in an `IconButton` |
 | **Any labelled input** (text, number, textarea, select) | **`WtField`** | `InputLabel` + `Select`/`TextField` assembled by hand |
+| **An amount of money** (salary, fee, expense) | **`WtMoneyField`** (a `WtField` with the currency inside the frame and a live money read-back) | a number box with the unit in its label — "CTC (LPA)", "Lakhs per year" |
 | Toolbar filter | `ToolbarFilterSelect` + `FILTER_TONES` (a `WtField` adapter) | a bespoke `<select>` or `FormControl` |
+| Currency glyph / code / formatter | `CurrencySymbol` + `useCurrency()` (`hooks/useCurrency`) | `KTIcon iconName="dollar"`, a typed-in `₹`, or `{ style: 'currency', currency: 'INR' }` inline |
+| Tooltip / hint on hover | `WtTooltip` (`wrap` for a DISABLED child; an empty title renders nothing) | MUI `Tooltip` imported per screen — 17 files set their own `arrow`/`placement`/delays — or a native `title=`, which never shows on touch |
+| Hover on a tinted tile / card | `hoverTileSx(trio, dark)` | another `'&:hover': { transform: 'translateY(-2px)' }` — 61 files have their own |
 | Dropdown ENGINE | `WtSelect` | react-select directly, or a new wrapper |
 | Dropdown (in a form) | `DropdownInput` (Formik) | react-select directly |
 | Dropdown (standalone) | `SelectInput` | a new select component |
@@ -66,25 +70,90 @@ row cannot disagree about height, radius, focus ring or error colour.
 <WtField label="Rating scale" value={scale} onChange={setScale}
          options={scales} hint="How each criterion is rated" />
 
-<WtField label="Organization" labelPlacement="inline" icon="bank" size="sm"
-         value={org} onChange={setOrg} options={orgs} tone={FILTER_TONES.blue.icon} />
+<WtField label="Organization" icon="bank" value={org} onChange={setOrg}
+         options={orgs} tone={FILTER_TONES.blue.icon} />
 ```
 
-**It does not use MUI's floating label, on purpose.** That pattern puts the label in
-a gap cut by a `<legend>` in the border, and MUI sizes that gap from the text in the
-FIELD's typography — not the label's. So any label that is bold, uppercase or
-resized is wider than its own gap and sits on the border line. The codebase paid for
-that one file at a time: `ToolbarFilterSelect` restated the legend metrics by hand,
-and `ProjectTablePage` nudged its label with `top: '-3px'`, a number arrived at by
-eye and wrong at any other font size.
+**It renders MUI's outlined field with its floating label** — the same control the
+"Add Rule" dialog in `pages/company/settings/SandwhichLeave.tsx` uses, which is the
+app's reference for a labelled input. There is no second look to choose between.
 
-`WtField` cuts no gap, so the bug cannot occur — at any size, weight or language.
-Use `labelPlacement="inline"` when a toolbar must stay one control tall; the label
-becomes a small uppercase prefix inside the field, still with no notch.
+⚠️ **Never style the label.** MUI cuts the gap with a `<legend><span>` inside the
+outline, and that legend renders in the DEFAULT label metrics — it does not see CSS
+aimed at `.MuiInputLabel-root`. Make a label bold, uppercase, letter-spaced or
+resized and it grows while its gap does not, so it lands on the border line. That is
+exactly the bug this codebase paid for one file at a time: `ToolbarFilterSelect`
+restated the legend metrics by hand, and `ProjectTablePage` nudged its label with
+`top: '-3px'`, a number arrived at by eye and wrong at any other font size.
 
-Searchable / multi / creatable stays `WtSelect` — pass `searchable` and it renders
-inside the same frame. Dates stay `WtDateField`. `WtField` owns the frame, not every
+Uppercase label *text* is fine — MUI measures the characters you pass. Uppercasing
+in CSS is not. Everything else on the control may be themed; the label may not.
+
+`labelPlacement="above"` exists only for a control passed as `children`, which cannot carry a
+notch. It switches on its own, so passing it by hand is rarely right.
+
+A long single-select takes `searchable`: it renders MUI Autocomplete with the same floating
+label, height and outline as a plain select, so the two can share a row. Multi-select and
+creatable stay `WtSelect`. Dates stay `WtDateField`. `WtField` owns the frame, not every
 engine that can sit in it.
+
+**`sx` is layout for the whole field** (`flex`, `minWidth`, margins) and lands on its outer
+frame. Descendant selectors (`'& .MuiOutlinedInput-root'`) still reach the control.
+
+### Money is `WtMoneyField`
+
+```tsx
+<WtMoneyField label="Offered CTC" per="year" currency={offer.currency}
+              value={form.offeredCtc} onChange={(v) => setForm({ ...form, offeredCtc: v })}
+              validate={(v) => annualAmountError('Offered CTC', v)} />
+```
+
+The currency sits inside the frame (`WtField`'s `prefix`), and the hint reads the number
+back as money while it is typed — `12` shows `₹12 per year`, which is the moment someone
+who meant "12 lakh" notices. Pass `currency` with the code the API resolved for the record
+(a requisition, an offer); omit it for the viewer's own. The field knows money, not
+salaries: domain rules come in through `validate` (`utils/ctc` has the salary one).
+
+A salary is always the **full annual amount**. Never label a field in lakhs or LPA.
+
+## Shared components OUTSIDE this folder — check here too
+
+This index used to cover only `ui/`, and the most-used shared component in the entire
+codebase is not in `ui/`. A recruitment drill-down was built on a hand-written `<Table>`
+while `MaterialTable` sat one directory up, imported by 84 other files. Searching the index
+and finding nothing is exactly the failure this file exists to prevent, so the neighbours
+are listed here.
+
+They live in `@app/modules/common/components/` (one level up from `ui/`).
+
+| Need | Use | Imported by | Never |
+|---|---|---|---|
+| **Any data table** | **`MaterialTable`** | **84 files** | a hand-written `<Table>`/`<TableHead>`/`<TableRow>` |
+| Tabbed page shell | `MaterialHeaderTab` | 21 | a bespoke `<Tabs>` row |
+| Date-period tabs / nav / filter | `PeriodTabs`, `PeriodNavigator`, `PeriodFilter` | 16 / 16 / 11 | a hand-rolled month stepper |
+| Export to Excel/CSV | `ExportButton` | 12 | a bespoke download handler |
+| Loading placeholder | `Skeleton` | 11 | a bare `<CircularProgress>` for list content |
+| Avatar with fallback initials | `SmartAvatar` | 10 | `<Avatar>` plus your own initials logic |
+| Summary card | `CommonCard` | 10 | a `GlassCard` with a hand-built header |
+| Employee name + avatar in a cell | `EmployeeIdentityCell` | 8 | re-assembling name and avatar per table |
+| Chart drill-down modal | `DrillDownDialog` | 5 | a raw `<Dialog>` (it also fixes the z-index against fullscreen charts) |
+| Lazy-mounted section | `LazySection` | 5 | rendering an expensive panel eagerly |
+
+**`MaterialTable` is the one to remember.** It is a lazy boundary over a 2,500-line engine
+and brings sorting, per-column search, column show/hide, export, full-screen, and column
+preferences persisted per user. Any table written by hand starts without all of it, and the
+users of that screen quietly get a worse product than everyone else.
+
+Columns are `MRT_ColumnDef[]` in a `useMemo`. Two rules worth stating, because both have
+been got wrong:
+
+- **Sort on the value, render what you like.** Give `accessorFn` the number or date and put
+  the chip in `Cell`. Sorting a rendered label orders `"9d"` after `"40d"`.
+- **An actions column is not data.** Set `enableSorting`, `enableColumnFilter` and
+  `enableGlobalFilter` to `false` on it, or you offer three controls that do nothing.
+
+**If the engine is missing something you need, add it to the engine.** Do not work around
+it in a page — that is how the second table gets written.
 
 Icons are **KTIcon** (keenicons duotone). Verify a name exists before using it —
 an unknown name renders as an empty box:

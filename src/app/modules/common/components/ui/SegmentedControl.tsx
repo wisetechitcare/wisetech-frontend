@@ -35,13 +35,13 @@ export interface SegmentedControlProps<T extends string> {
  * One choice from a short, mutually exclusive set — the app's standard segmented
  * control.
  *
- * This is the same visual language as `TimePeriodSelector` (Monthly · Yearly ·
- * All Time · Custom): a tinted track, a white raised pill on the selection, and a
- * small caret above it. That component is hardwired to time periods — its modes
- * are a fixed union and its labels are internal — so anything that is NOT a period
- * had to hand-roll its own row of pills, which is how the same control ended up
- * with several different looks across the app. This is that control with the
- * choices left open.
+ * This is the same visual language as `PeriodTabs` (Monthly · Yearly · All Time):
+ * a bordered track, unselected segments on the lightest grey, and the selection in
+ * white with a blue label and a 3px blue line under it. The period component is
+ * hardwired to time periods — its modes are a fixed union and its labels are
+ * internal — so anything that is NOT a period had to hand-roll its own row of
+ * pills, which is how the same control ended up with several different looks
+ * across the app. This is that control with the choices left open.
  *
  * Use it for status filters, view switches, or any 2–5 way exclusive choice. For
  * more options than that, or non-exclusive ones, use a select or chips instead —
@@ -51,14 +51,13 @@ export function SegmentedControl<T extends string>({
   options, value, onChange, ariaLabel, fullWidth = false, sx,
 }: SegmentedControlProps<T>) {
   /**
-   * The palette was three hardcoded light-mode greys, so the track stayed pale
-   * and the labels stayed dark on any screen that offers dark mode. Light values
-   * are unchanged — every existing consumer looks exactly as it did.
+   * Mode-aware palette, so the track and labels stay legible on a dark page. In light
+   * mode the selection is pure white over the lightest-grey unselected segments.
    */
   const dark = useTheme().palette.mode === 'dark';
   const C = dark
-    ? { track: '#161b22', pill: '#21262d', idle: '#8b949e', on: '#8AA3EC', caret: '#8AA3EC' }
-    : { track: '#F1F5F9', pill: '#ffffff', idle: '#64748B', on: '#1E3A8A', caret: '#1E3A8A' };
+    ? { track: '#161b22', pill: '#21262d', hover: '#1c2128', border: '#30363d', idle: '#8b949e', on: '#8AA3EC', line: '#8AA3EC' }
+    : { track: '#F8FAFC', pill: '#ffffff', hover: '#F1F5F9', border: '#E2E8F0', idle: '#64748B', on: '#1E3A8A', line: '#1E3A8A' };
 
   return (
     <Box
@@ -66,14 +65,13 @@ export function SegmentedControl<T extends string>({
       aria-label={ariaLabel}
       sx={[{
         display: 'inline-flex',
-        alignItems: 'center',
-        gap: '2px',
-        p: '2px',
-        borderRadius: '6px',
+        alignItems: 'stretch',
+        minHeight: 32,
+        borderRadius: '8px',
+        border: `1px solid ${C.border}`,
         bgcolor: C.track,
         width: fullWidth ? '100%' : 'fit-content',
-        // The caret sits above the track, so the track must not clip it.
-        overflow: 'visible',
+        overflow: 'hidden',
       }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
     >
       {options.map((option) => {
@@ -91,28 +89,26 @@ export function SegmentedControl<T extends string>({
             onClick={() => { if (!off) onChange(option.value); }}
             sx={{
               position: 'relative',
-              // Not `hidden`: the caret is positioned outside the button's box.
-              overflow: 'visible',
               flex: fullWidth ? 1 : 'none',
               border: 0,
+              '&:not(:first-of-type)': { borderLeft: `1px solid ${C.border}` },
               // Metronic's unlayered Bootstrap button rules outrank a utility
               // class, so the radius has to be stated here to hold.
-              borderRadius: '4px',
-              px: 1.25,
+              borderRadius: 0,
+              px: 1.75,
               py: 0.5,
               fontFamily: 'Inter, sans-serif',
               fontSize: 12,
-              fontWeight: active ? 600 : 500,
+              fontWeight: active ? 700 : 600,
               whiteSpace: 'nowrap',
               cursor: off ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s ease',
-              bgcolor: active ? C.pill : 'transparent',
+              transition: 'background-color 150ms ease, color 150ms ease',
+              bgcolor: active ? C.pill : C.track,
               color: active ? C.on : C.idle,
               // Dimmed rather than greyed to a fourth colour: the segment keeps
               // its own colour so it still reads as one of the set.
               opacity: off ? 0.42 : 1,
-              boxShadow: active ? '0 1px 2px rgba(16, 24, 40, 0.06)' : 'none',
-              '&:hover': { color: off ? undefined : C.on },
+              '&:hover': { bgcolor: active || off ? undefined : C.hover },
             }}
           >
             {option.label}
@@ -130,21 +126,18 @@ export function SegmentedControl<T extends string>({
               </Box>
             )}
 
-            {/* The caret. Purely decorative — `aria-selected` already carries the
-                selection for assistive tech. */}
+            {/* The blue line under the selection. Purely decorative — `aria-selected`
+                already carries the selection for assistive tech. */}
             {active && (
               <Box
                 aria-hidden
                 sx={{
                   position: 'absolute',
-                  top: -5,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 0,
-                  height: 0,
-                  borderLeft: '5px solid transparent',
-                  borderRight: '5px solid transparent',
-                  borderTop: `5px solid ${C.caret}`,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: '3px',
+                  bgcolor: C.line,
                   pointerEvents: 'none',
                 }}
               />
