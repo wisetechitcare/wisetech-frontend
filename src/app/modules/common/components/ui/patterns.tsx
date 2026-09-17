@@ -397,3 +397,131 @@ export function ListHeader({
     </Box>
   );
 }
+
+/** One tab in an `UnderlineTabs` bar. */
+export interface UnderlineTabItem<K extends string = string> {
+  key: K;
+  label: string;
+  /** Bootstrap-icon name, with or without the `bi ` prefix (`bi bi-people` / `bi-people`). */
+  icon?: string;
+  /** Rendered as a pill after the label when greater than zero. */
+  count?: number;
+}
+
+/**
+ * The app's primary detail-page tab bar: a hairline rule with the active tab
+ * carrying a brand underline.
+ *
+ * This is the *primary* level of navigation. Where a screen also needs a second
+ * level inside a tab, that one is `SegmentedControl` — the two read as a
+ * hierarchy precisely because they do not look alike, so don't swap them.
+ *
+ * Extracted from the lead/project detail page, which had it inline; the contact
+ * detail page then wanted the same bar, and a second copy is how two tab bars
+ * start drifting apart.
+ */
+export function UnderlineTabs<K extends string>({
+  tabs, value, onChange, sticky = false, ariaLabel, sx,
+}: {
+  tabs: ReadonlyArray<UnderlineTabItem<K>>;
+  value: K;
+  onChange: (key: K) => void;
+  /** Pin to the top of the scroll container while the tab's content scrolls under it. */
+  sticky?: boolean;
+  ariaLabel?: string;
+  sx?: SxProps<Theme>;
+}) {
+  return (
+    <Box
+      sx={[
+        sticky && {
+          position: 'sticky',
+          top: 0,
+          zIndex: 20,
+          bgcolor: 'background.default',
+          backdropFilter: 'blur(6px)',
+          mx: -1,
+          px: 1,
+        },
+        { mb: 2.25 },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ] as SxProps<Theme>}
+    >
+      <Box
+        role="tablist"
+        aria-label={ariaLabel}
+        sx={{
+          display: 'flex',
+          flexWrap: 'nowrap',
+          gap: 0.5,
+          // The rule the active indicator sits on; tabs overlap it by 1px.
+          borderBottom: 1,
+          borderColor: 'divider',
+          overflowX: 'auto',
+          // The scrollbar under a tab bar is chrome nobody needs; the row still scrolls.
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
+        {tabs.map((tab) => {
+          const isActive = tab.key === value;
+          const count = tab.count ?? 0;
+          return (
+            <Box
+              key={tab.key}
+              component="button"
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => onChange(tab.key)}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 1.5,
+                pt: 1,
+                pb: 1.25,
+                mb: '-1px',
+                border: 0,
+                background: 'transparent',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                fontSize: '13.5px',
+                fontWeight: isActive ? 700 : 500,
+                color: isActive ? 'primary.main' : 'text.secondary',
+                borderBottom: '2px solid',
+                borderBottomColor: isActive ? 'primary.main' : 'transparent',
+                transition: 'color .15s ease, border-color .15s ease',
+                '&:hover': { color: isActive ? 'primary.main' : 'text.primary' },
+                '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
+              }}
+            >
+              {tab.icon && <i className={tab.icon.startsWith('bi ') ? tab.icon : `bi ${tab.icon}`} />}
+              {tab.label}
+              {count > 0 && (
+                <Box
+                  component="span"
+                  sx={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    borderRadius: 999,
+                    minWidth: 18,
+                    height: 18,
+                    px: 0.625,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: isActive ? 'primary.contrastText' : 'text.secondary',
+                    bgcolor: isActive ? 'primary.main' : 'action.selected',
+                  }}
+                >
+                  {count}
+                </Box>
+              )}
+            </Box>
+          );
+        })}
+      </Box>
+    </Box>
+  );
+}

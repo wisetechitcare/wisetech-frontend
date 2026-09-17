@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Box, Stack, Typography, TextField, MenuItem, CircularProgress, DialogContent, DialogActions, InputAdornment,
@@ -6,19 +6,22 @@ import {
 import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip,
-    WtSwitchField, toast, confirmDialog,
+    WtSwitchField, toast, confirmDialog, controlHeightSx,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
+import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
 import { formatDate } from "@utils/dateFormats";
 import {
     getApplicants, createApplicant, updateApplicant, getApplicantSources,
-    type Applicant, type ApplicantPayload, type ApplicantSource,
+    type Applicant, type ApplicantPayload, type ApplicantSource, type OrgScoped,
+    uploadApplicantResume,
 } from "@services/recruitment";
 
-/** Blank create form. Only firstName + email are required by the API. */
+/** Blank create form. The API requires a first name plus EITHER an email or a phone. */
 const emptyForm = (): ApplicantPayload => ({
     firstName: "", lastName: "", email: "", phone: "",
-    currentEmployer: "", currentTitle: "", totalExperienceMonths: null,
+    currentEmployer: "", currentTitle: "", currentLocation: "", qualification: "", employeeLevelId: null,
+    totalExperienceMonths: null, currentCtcInLpa: null,
     expectedCtcInLpa: null, noticePeriodDays: null, sourceId: null,
 });
 
@@ -50,8 +53,9 @@ const fullName = (a: Applicant) => [a.firstName, a.lastName].filter(Boolean).joi
  * data-retention and the audit trail both require the row to survive, so the destructive action
  * is "blacklist" (an update), not a delete.
  */
-const CandidatesView = () => {
+const CandidatesView = ({ companyId }: OrgScoped) => {
     const qc = useQueryClient();
+    const { levels, isEmpty: noLevels } = useEmployeeLevels();
     const [search, setSearch] = useState("");
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Applicant | null>(null);
@@ -60,8 +64,8 @@ const CandidatesView = () => {
 
     // The server does the searching, so the key includes the term — each term caches separately.
     const { data: applicants = [], isLoading } = useQuery({
-        queryKey: queryKeys.recruitment.applicants(search),
-        queryFn: () => getApplicants(search || undefined),
+        queryKey: queryKeys.recruitment.applicants(search, companyId),
+        queryFn: () => getApplicants(search || undefined, companyId),
     });
     const { data: sources = [] } = useQuery({
         queryKey: queryKeys.recruitment.applicantSources(),
@@ -71,13 +75,77 @@ const CandidatesView = () => {
     // Invalidate the whole applicants branch: a rename changes which search terms match.
     const invalidate = () => qc.invalidateQueries({ queryKey: [...queryKeys.recruitment.all, "applicants"] });
 
+    // Resume upload. A hidden file input is triggered per candidate rather than rendering
+    // one input per tile — the browser control cannot be styled, and dozens of them make the
+    // grid unusable. `uploadingFor` drives the per-tile spinner so a large CV on a slow
+    // connection does not look like nothing happened.
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const [uploadFor, setUploadFor] = useState<Applicant | null>(null);
+    const [uploadingId, setUploadingId] = useState<string | null>(null);
+
+    // resume chosen INSIDE the form. A new candidate has no id yet — the upload endpoint is
+    // /applicants/:id/resume — so the file is held here and sent once the record exists.
+    // Without this, attaching a CV meant saving, finding the tile, then uploading: two
+    // steps for one intention.
+    const formFileRef = useRef<HTMLInputElement | null>(null);
+    const [formFile, setFormFile] = useState<File | null>(null);
+
+    const pickResume = (a: Applicant) => {
+        setUploadFor(a);
+        // Clearing the value first means picking the SAME file twice still fires onChange.
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        fileInputRef.current?.click();
+    };
+
+    const onResumeChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        const target = uploadFor;
+        if (!file || !target) return;
+        setUploadingId(target.id);
+        try {
+            await uploadApplicantResume(target.id, file);
+            invalidate();
+            toast({ icon: "success", title: `Resume attached to ${target.firstName}` });
+        } catch (err: any) {
+            // The server validates type, size and magic bytes; surface its reason rather
+            // than a generic failure, because it tells HR what to do differently.
+            toast({ icon: "error", title: err?.response?.data?.message ?? "Could not upload the resume" });
+        } finally {
+            setUploadingId(null);
+            setUploadFor(null);
+        }
+    };
+
+    /**
+     * Attach the form-chosen resume to a candidate that now exists. Deliberately not fatal:
+     * the candidate was saved either way, and losing the save because the file failed would
+     * be the worse outcome. The failure is reported so it can be retried from the tile.
+     */
+    const attachFormFile = async (applicantId: string) => {
+        if (!formFile) return;
+        try {
+            await uploadApplicantResume(applicantId, formFile);
+        } catch (err: any) {
+            toast({ icon: "error", title: err?.response?.data?.message ?? "Candidate saved, but the resume did not upload" });
+        }
+    };
+
     const createMut = useMutation({
-        mutationFn: () => createApplicant(form),
+        mutationFn: async () => {
+            const created = await createApplicant(form);
+            const id = created?.applicant?.id;
+            if (id) await attachFormFile(id);
+            return created;
+        },
         onSuccess: () => { toast({ icon: "success", title: "Candidate added" }); close(); invalidate(); },
         onError: () => toast({ icon: "error", title: "Could not add candidate (a candidate with this email may already exist)" }),
     });
     const updateMut = useMutation({
-        mutationFn: () => updateApplicant(editing!.id, { ...form, isBlacklisted: blacklisted }),
+        mutationFn: async () => {
+            const updated = await updateApplicant(editing!.id, { ...form, isBlacklisted: blacklisted });
+            await attachFormFile(editing!.id);
+            return updated;
+        },
         onSuccess: () => { toast({ icon: "success", title: "Candidate updated" }); close(); invalidate(); },
         onError: () => toast({ icon: "error", title: "Could not update candidate" }),
     });
@@ -87,21 +155,27 @@ const CandidatesView = () => {
         onError: () => toast({ icon: "error", title: "Could not update candidate" }),
     });
 
-    const openNew = () => { setEditing(null); setForm(emptyForm()); setBlacklisted(false); setOpen(true); };
+    const openNew = () => { setEditing(null); setForm(emptyForm()); setBlacklisted(false); setFormFile(null); setOpen(true); };
     const openEdit = (a: Applicant) => {
         setEditing(a);
         setForm({
             firstName: a.firstName ?? "", lastName: a.lastName ?? "", email: a.email ?? "", phone: a.phone ?? "",
             currentEmployer: a.currentEmployer ?? "", currentTitle: a.currentTitle ?? "",
+            // Every field the form edits must be repopulated here. A field left out renders
+            // blank on edit even though the record holds a value, which reads as data loss.
+            currentLocation: a.currentLocation ?? "", qualification: a.qualification ?? "",
+            employeeLevelId: a.employeeLevelId ?? null,
             totalExperienceMonths: a.totalExperienceMonths ?? null,
+            currentCtcInLpa: a.currentCtcInLpa == null ? null : Number(a.currentCtcInLpa),
             expectedCtcInLpa: a.expectedCtcInLpa == null ? null : Number(a.expectedCtcInLpa),
             noticePeriodDays: a.noticePeriodDays ?? null,
             sourceId: a.sourceId ?? null,
         });
         setBlacklisted(a.isBlacklisted);
+        setFormFile(null);
         setOpen(true);
     };
-    const close = () => { setOpen(false); setEditing(null); };
+    const close = () => { setOpen(false); setEditing(null); setFormFile(null); };
 
     const toggleBlacklist = async (a: Applicant) => {
         if (a.isBlacklisted) { blacklistMut.mutate({ id: a.id, isBlacklisted: false }); return; }
@@ -114,12 +188,16 @@ const CandidatesView = () => {
     };
 
     const saving = createMut.isPending || updateMut.isPending;
-    const canSave = Boolean(form.firstName.trim() && form.email.trim()) && !saving;
+    // A candidate is identified by email OR phone — the same rule the server enforces.
+    // Requiring an email here would block the real intake outright: candidates arriving by
+    // WhatsApp, walk-in or referral routinely have a number and no address.
+    const hasIdentity = Boolean((form.email ?? "").trim() || (form.phone ?? "").trim());
+    const canSave = Boolean(form.firstName.trim()) && hasIdentity && !saving;
 
     const set = <K extends keyof ApplicantPayload>(key: K, value: ApplicantPayload[K]) =>
         setForm((f) => ({ ...f, [key]: value }));
     /** Numeric fields: "" must become null, not 0 — 0 years' experience is a real value. */
-    const setNum = (key: "totalExperienceMonths" | "expectedCtcInLpa" | "noticePeriodDays", raw: string) =>
+    const setNum = (key: "totalExperienceMonths" | "currentCtcInLpa" | "expectedCtcInLpa" | "noticePeriodDays", raw: string) =>
         set(key, raw === "" ? null : Number(raw));
 
     const sourceName = useMemo(
@@ -129,6 +207,15 @@ const CandidatesView = () => {
 
     return (
         <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
+        {/* One hidden picker for the whole grid — see pickResume. accept is a hint only;
+            the server re-validates type, extension and magic bytes before storing. */}
+        <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,application/pdf"
+            hidden
+            onChange={onResumeChosen}
+        />
             <ListHeader
                 title="Candidates"
                 subtitle="Every applicant on record — searchable across name, email and employer."
@@ -139,7 +226,9 @@ const CandidatesView = () => {
                             placeholder="Search candidates…"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            sx={{ minWidth: { xs: "100%", sm: 260 } }}
+                            // Matches the New Candidate button beside it — MUI's small size
+                            // is 40px against the kit's 46, which is the mismatch you see otherwise.
+                            sx={{ minWidth: { xs: "100%", sm: 260 }, ...controlHeightSx }}
                             InputProps={{
                                 startAdornment: (
                                     <InputAdornment position="start">
@@ -213,6 +302,16 @@ const CandidatesView = () => {
                                         Added {formatDate(a.createdAt)}
                                     </Typography>
                                     <Box sx={{ flex: 1 }} />
+                                    <WtIconButton
+                                        title={a.resumeS3Url ? "Replace resume" : "Attach resume"}
+                                        disabled={uploadingId === a.id}
+                                        onClick={() => pickResume(a)}
+                                        sx={{ width: 34, height: 34, borderRadius: "10px" }}
+                                    >
+                                        {uploadingId === a.id
+                                            ? <CircularProgress size={15} />
+                                            : <KTIcon iconName={a.resumeS3Url ? "arrows-circle" : "cloud-add"} className="fs-5" />}
+                                    </WtIconButton>
                                     {a.resumeS3Url && (
                                         <WtIconButton
                                             title={a.resumeFileName ? `Resume — ${a.resumeFileName}` : "Resume"}
@@ -260,21 +359,48 @@ const CandidatesView = () => {
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <TextField
-                                label="Email" required type="email" size="small" sx={{ flex: 1 }}
+                                label="Email" type="email" size="small" sx={{ flex: 1 }}
                                 value={form.email} onChange={(e) => set("email", e.target.value)}
-                                helperText={editing ? undefined : "Used to de-duplicate — re-applying updates the same candidate."}
+                                error={!hasIdentity}
+                                helperText={hasIdentity ? "Either an email or a phone number is enough." : "Enter an email or a phone number."}
                             />
-                            <TextField label="Phone" size="small" sx={{ flex: 1 }} value={form.phone ?? ""} onChange={(e) => set("phone", e.target.value)} />
+                            <TextField
+                                label="Phone" size="small" sx={{ flex: 1 }}
+                                value={form.phone ?? ""} onChange={(e) => set("phone", e.target.value)}
+                                error={!hasIdentity}
+                                helperText="Used to de-duplicate — re-applying updates the same candidate."
+                            />
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <TextField label="Current title" size="small" sx={{ flex: 1 }} value={form.currentTitle ?? ""} onChange={(e) => set("currentTitle", e.target.value)} />
                             <TextField label="Current employer" size="small" sx={{ flex: 1 }} value={form.currentEmployer ?? ""} onChange={(e) => set("currentEmployer", e.target.value)} />
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                            <TextField label="Current location" size="small" sx={{ flex: 1 }} value={form.currentLocation ?? ""} onChange={(e) => set("currentLocation", e.target.value)} />
+                            <TextField label="Qualification" size="small" sx={{ flex: 1 }} value={form.qualification ?? ""} onChange={(e) => set("qualification", e.target.value)} />
+                            {/* Same ladder the requisition picks from — a level comparison only
+                                means something if both sides chose from one list. */}
+                            {!noLevels && (
+                                <TextField
+                                    select label="Seniority" size="small" sx={{ flex: 1 }}
+                                    value={form.employeeLevelId ?? ""}
+                                    onChange={(e) => set("employeeLevelId", e.target.value || null)}
+                                >
+                                    <MenuItem value="">— Not set —</MenuItem>
+                                    {levels.map((l) => <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>)}
+                                </TextField>
+                            )}
+                        </Stack>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <TextField
                                 label="Experience (months)" type="number" size="small" sx={{ flex: 1 }}
                                 inputProps={{ min: 0 }}
                                 value={form.totalExperienceMonths ?? ""} onChange={(e) => setNum("totalExperienceMonths", e.target.value)}
+                            />
+                            <TextField
+                                label="Current CTC (LPA)" type="number" size="small" sx={{ flex: 1 }}
+                                inputProps={{ min: 0, step: 0.5 }}
+                                value={form.currentCtcInLpa ?? ""} onChange={(e) => setNum("currentCtcInLpa", e.target.value)}
                             />
                             <TextField
                                 label="Expected CTC (LPA)" type="number" size="small" sx={{ flex: 1 }}
@@ -294,6 +420,25 @@ const CandidatesView = () => {
                             <MenuItem value="">— None —</MenuItem>
                             {sources.map((s: ApplicantSource) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
                         </TextField>
+                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                            <input
+                                ref={formFileRef}
+                                type="file"
+                                accept=".pdf,.doc,.docx,application/pdf"
+                                hidden
+                                onChange={(e) => setFormFile(e.target.files?.[0] ?? null)}
+                            />
+                            <WtButton
+                                ghost size="small"
+                                startIcon={<KTIcon iconName="cloud-add" className="fs-5" />}
+                                onClick={() => { if (formFileRef.current) formFileRef.current.value = ""; formFileRef.current?.click(); }}
+                            >
+                                {formFile ? "Choose a different resume" : editing?.resumeS3Url ? "Replace resume" : "Attach resume"}
+                            </WtButton>
+                            <Typography sx={{ fontSize: 12.5, color: "text.secondary", minWidth: 0, flex: 1 }} noWrap>
+                                {formFile?.name ?? (editing?.resumeFileName ?? "PDF, DOC or DOCX")}
+                            </Typography>
+                        </Stack>
                         {editing && (
                             <WtSwitchField
                                 title="Blacklisted"

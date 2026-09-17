@@ -16,6 +16,7 @@ import {
 import { fetchAllUsers } from "@services/users";
 import Loader from "@app/modules/common/utils/Loader";
 import MeetingViewModal from "@pages/employee/MeetingViewModal";
+import { getTimeTokens } from '@utils/timeFormat';
 
 interface Meetings {
   title: string;
@@ -48,19 +49,10 @@ interface FormattedItem {
 }
 
 const formatDateRange = (startDate: string, endDate: string) => {
-  return `${new Date(startDate).toLocaleString("en-GB", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  })} - ${new Date(endDate).toLocaleString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  })}`;
+  // Was two `toLocaleString` calls hardwired to `hour12: true`, which also meant the
+  // date rendered in the BROWSER's locale rather than the company format.
+  const { TIME } = getTimeTokens();
+  return `${dayjs(startDate).format(`dddd, DD MMMM YYYY, ${TIME}`)} - ${dayjs(endDate).format(TIME)}`;
 };
 
 // Create a memoized Event Item component

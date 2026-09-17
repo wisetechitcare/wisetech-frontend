@@ -227,7 +227,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                         // The Accounts workspace IS Billing Operations filtered to the
                         // queue — there is no separate /billing/accounts route.
                         onGenerateProforma={() =>
-                            go(`/billing/operations?projectId=${projectId}&status=READY_FOR_PROFORMA`)
+                            go(`/billing/tracker?projectId=${projectId}&status=READY_FOR_PROFORMA`)
                         }
                         onRecordPayment={() => go(`/billing/payments?projectId=${projectId}`)}
                         onGenerateInvoice={() => go(`/billing/payments?projectId=${projectId}&readyForInvoice=true`)}

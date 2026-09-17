@@ -2,11 +2,17 @@ import dayjs, { Dayjs } from "dayjs";
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import duration from 'dayjs/plugin/duration';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { store } from "@redux/store";
+import { getTimeTokens } from "./timeFormat";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(duration);
+// Extended HERE, not left to whichever screen happens to import it first: the
+// time-string helpers below parse with an explicit format, and without this
+// plugin dayjs silently ignores that argument and falls back to Date parsing.
+dayjs.extend(customParseFormat);
 
 /**
  * Default business timezone — the fallback used when a record's own branch
@@ -94,32 +100,24 @@ export function decimalHoursToHHMM(decimalStr: string): string {
 }
 
 
-// export const formatTime = (dtTime: Dayjs) => {
-//     if (!dtTime || !dtTime.isValid()) {
-//         return '';
-//     }
-
-//     // Get the 12-hour format setting from Redux store
-//     const state = store.getState();
-//     const showIn12HourFormat = state?.company?.currentCompany?.showDateIn12HourFormat === "1";
-
-//     // Format based on the setting
-//     if (showIn12HourFormat) {
-//         const formattedTime = dtTime.format('h:mm:ss A');
-//         return formattedTime === "Invalid Date" ? '' : formattedTime;
-//     } else {
-//         const formattedTime = dtTime.format('HH:mm:ss');
-//         return formattedTime === "Invalid Date" ? '' : formattedTime;
-//     }
-// }
-
+/**
+ * Display a time with seconds, in whichever format the viewer reads —
+ * `2:30:45 PM` or `14:30:45`.
+ *
+ * This used to consult `company.currentCompany.showDateIn12HourFormat` directly,
+ * was commented out, and was replaced by a hardcoded 12h format. The preference is
+ * back, but it now comes from `utils/timeFormat.ts`, which resolves the full
+ * personal → branch → org → 12h chain instead of one org field.
+ *
+ * DISPLAY ONLY — for anything that gets parsed or compared, use
+ * {@link formatTime24Hour}.
+ */
 export const formatTime = (dtTime: Dayjs) => {
     if (!dtTime || !dtTime.isValid()) {
         return '';
     }
 
-    // Always use 12-hour format with AM/PM
-    const formattedTime = dtTime.format('h:mm:ss A');
+    const formattedTime = dtTime.format(getTimeTokens().TIME_WITH_SECONDS);
     return formattedTime === "Invalid Date" ? '' : formattedTime;
 }
 
@@ -208,16 +206,60 @@ export const getWeekDay = (transformedDate: string, timezone?: string) => {
 export const formatNotificationDate = (dateString: string) => {
     const date = dayjs(dateString).tz("Asia/Kolkata");
 
+    const { TIME } = getTimeTokens();
     if (date.isSame(dayjs(), 'day')) {
-        return `Today, ${date.format('h:mm A')}`;   // e.g., Today, 4:30 PM
+        return `Today, ${date.format(TIME)}`;         // e.g., Today, 4:30 PM · Today, 16:30
     } else {
-        return date.format('D MMMM, h:mm A');        // e.g., 20 March, 10:00 PM
+        return date.format(`D MMMM, ${TIME}`);        // e.g., 20 March, 10:00 PM · 20 March, 22:00
     }
 };
 
 
 /**
+ * Render an already-formatted time STRING in whichever format the viewer reads.
+ *
+ * The display counterpart of {@link convertTo12HourFormat}, and what almost every
+ * caller of that function actually wanted: attendance rows carry times as strings
+ * (`"09:15"` off the API, sometimes `"9:15 AM"` after an earlier conversion), and
+ * those strings have to end up in the user's chosen format rather than always in
+ * 12h. Accepts either shape and preserves whether seconds were present, so a
+ * column that showed `09:15:30` doesn't quietly lose its seconds.
+ *
+ * Anything it cannot parse is handed back untouched — these values include
+ * sentinels like `-NA-` and `N/A` that must survive to the cell as-is.
+ *
+ * DISPLAY ONLY. Never feed the result back into a parser: the shape changes with
+ * the viewer's preference, which is exactly what breaks shift and salary maths.
+ *
+ * @example formatTimeString('14:30')     // '2:30 PM'  or  '14:30'
+ * @example formatTimeString('2:30:45 PM')// '2:30:45 PM' or '14:30:45'
+ */
+export const formatTimeString = (time: string | null | undefined, fallback = 'N/A'): string => {
+    if (!time || time === '-NA-' || time === 'N/A') return time || fallback;
+
+    const raw = time.trim();
+    const isMeridiem = /[AP]\.?M\.?$/i.test(raw);
+    // Count the colons on the TIME part only — `2:30:45 PM` has two, `2:30 PM` one.
+    const hasSeconds = (raw.match(/:/g) || []).length >= 2;
+
+    const parsed = isMeridiem
+        ? dayjs(raw, ['h:mm:ss A', 'h:mm A', 'hh:mm:ss A', 'hh:mm A'])
+        : dayjs(raw, ['HH:mm:ss', 'HH:mm', 'H:mm:ss', 'H:mm']);
+
+    if (!parsed.isValid()) return time;
+
+    const tokens = getTimeTokens();
+    return parsed.format(hasSeconds ? tokens.TIME_WITH_SECONDS : tokens.TIME);
+};
+
+/**
  * Converts 24-hour time format to 12-hour format with AM/PM
+ *
+ * ⚠️ Forces 12h regardless of the viewer's preference. Kept for the callers that
+ * genuinely mean "12-hour" (a fixed label, a value compared against one). For a
+ * time a USER READS, use {@link formatTimeString} instead so it follows the
+ * app-wide 12/24h setting.
+ *
  * @param time24 - Time in 24-hour format (e.g., "14:30", "14:30:45", "09:15")
  * @returns Time in 12-hour format with AM/PM (e.g., "2:30 PM", "2:30:45 PM", "9:15 AM")
  */

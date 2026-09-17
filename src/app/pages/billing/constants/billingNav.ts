@@ -30,8 +30,10 @@ export const BILLING_TABS: BillingTabDef[] = [
     // The Accounts workspace: one row per approved request, carrying its whole
     // financial journey. Pre-filter with ?status=READY_FOR_PROFORMA to see the queue.
     // Renamed from "Billing Operations" — it is the sheet you watch, not a thing you
-    // operate. Path and access key stay: bookmarks and grants outlive a label.
-    { path: "operations", title: "Billing Tracker", icon: "bi-diagram-3", accessKey: "billing.operations" },
+    // operate — and the path followed the name. /billing/operations still redirects
+    // (BillingRoutes), so old bookmarks land. The ACCESS KEY stays `billing.operations`:
+    // grants are stored per key, and renaming one revokes everybody who holds it.
+    { path: "tracker", title: "Billing Tracker", icon: "bi-diagram-3", accessKey: "billing.operations" },
     // { path: "proformas", title: "Proformas", icon: "bi-receipt", accessKey: "billing.proformas" },
     // Record, verify and track client payments against issued proformas.
     // { path: "payments", title: "Payment Collection", icon: "bi-cash-coin", accessKey: "billing.payments" },

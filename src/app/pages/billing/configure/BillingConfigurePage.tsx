@@ -137,11 +137,7 @@ const BillingConfigurePage: React.FC = () => {
   );
 
   return (
-    <ConfigPageLayout
-      title="Billing Configuration"
-      subtitle="How Billing statuses, stages and bill payment states are named and coloured across the module."
-      icon="bi-gear"
-    >
+    <ConfigPageLayout>
       <Stack spacing={2}>
         {(data?.groups ?? []).map((group) => (
           <ConfigSectionCard

@@ -146,7 +146,7 @@ const ProformasPage: React.FC = () => {
         action={
           <WtButton
             ghost size="small"
-            onClick={() => navigate("/billing/operations?status=READY_FOR_PROFORMA")}
+            onClick={() => navigate("/billing/tracker?status=READY_FOR_PROFORMA")}
             startIcon={<KTIcon iconName="inbox" className="fs-6" />}
             sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
           >

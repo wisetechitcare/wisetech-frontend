@@ -256,3 +256,75 @@ Later phases each verified the same way: build green, then intentional before/af
 
 - Revamp plan (visual): https://claude.ai/code/artifact/f0b132bf-3e39-43e0-a304-13abf7e445b8
 - Token module spec (visual): https://claude.ai/code/artifact/a7fea572-45a3-4529-80b9-c5251fd24bb2
+
+---
+
+## The labelled control — `WtField` · **BUILT 2026-09-07**
+
+One component owns every labelled input in the app: the label, the field, and the
+hint or error beneath it. `@app/modules/common/components/ui` → `WtField`.
+
+### The bug it ends
+
+MUI's outlined field puts the label INSIDE the border, in a gap cut by a `<legend>`
+in the outline — and MUI sizes that legend from the text rendered in the FIELD's
+typography, not the label's. So the moment a label is bold, uppercase, letter-spaced
+or resized, it is wider than the gap reserved for it and lands on the border line.
+
+It is not a bug in one screen. It is what the pattern does, and the codebase was
+paying for it one file at a time:
+
+- `ToolbarFilterSelect` carried a hand-maintained copy of the legend's font metrics.
+- `ProjectTablePage` nudges its label with `{ fontSize: '11px', top: '-3px' }` — a
+  magic number arrived at by eye, and wrong at any other font size.
+- Twelve files build their own `InputLabel` + control pairing, each free to drift the
+  same way.
+
+### The fix is structural, not another patch
+
+**`WtField` cuts no gap in anything.** The label sits above the field, so it cannot
+overflow a notch — at any weight, size, length or language. That is also what every
+product worth benchmarking against does, and it reads better: the label stays at full
+size instead of shrinking to 75% and competing with the value.
+
+The compactness that made the notched pattern attractive is kept, without the
+fragility. `labelPlacement="inline"` puts the label inside the control as a small
+uppercase prefix — `ORGANIZATION  Wisetech MEP` — so a filter toolbar still stands
+exactly one control tall. Neither placement uses a legend.
+
+### One frame, many controls
+
+Text, number, textarea and select share a single frame, so two fields on one row
+cannot disagree about height, radius, focus ring or error colour — the drift this
+was built to end. Colours come from the MUI theme, so it is correct in dark mode
+without a second definition of itself.
+
+```tsx
+<WtField label="Rating scale" value={scale} onChange={setScale}
+         options={scales} hint="How each criterion is rated" />
+
+<WtField label="Organization" labelPlacement="inline" icon="bank" size="sm"
+         value={org} onChange={setOrg} options={orgs} tone={FILTER_TONES.blue.icon} />
+```
+
+**Delegation, not reimplementation.** Searchable / multi / creatable stays `WtSelect`
+(react-select) — pass `searchable` and it renders inside the same frame, so it still
+gets the same label, hint and error treatment. Dates stay `WtDateField`. `WtField`
+owns the frame, not every engine that can sit in it.
+
+This is why one component for *everything* was the wrong ask: react-select and MUI
+Select are different engines, and collapsing them behind one name loses either the
+search or the label. One component for the FRAME is the part that was genuinely
+duplicated, and that is what got consolidated.
+
+### What is migrated
+
+| Surface | State |
+|---|---|
+| `ToolbarFilterSelect` | Now a thin adapter over `WtField`, public API unchanged. Fixes the payroll, employee-list, documents, reimbursement, dashboard and recruitment toolbars at once — no call site was touched. |
+| Recruitment scorecard + rubric editor | Migrated. |
+| The other 11 custom `InputLabel` pairings | **Not yet.** Each is a small mechanical swap; none is blocking. |
+| ~55 plain `TextField label=` call sites | **Not a defect.** Those use MUI's own notched label, which is one implementation, not a duplicated one. Migrate opportunistically when a file is open for other reasons. |
+
+The kit index (`ui/README.md`) now names `WtField` as the first stop for any labelled
+input, so the next person does not build the pairing again.

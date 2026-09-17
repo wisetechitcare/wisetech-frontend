@@ -753,11 +753,7 @@ const EmployeeConfigure = () => {
           page, banner and all) inside the flex child, so two page headers competed for
           the same column and squeezed the rail. This mirrors FaqsBoard: header, then
           `rail | stack of cards`. */}
-      <ConfigPageLayout
-        title="Configuration"
-        subtitle="Everything the onboarding form offers, plus the company's shift list"
-        icon="bi-sliders"
-      >
+      <ConfigPageLayout>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: { xs: 2, lg: 3 }, alignItems: 'flex-start' }}>
           <ConfigSectionRail
             groups={railGroups}

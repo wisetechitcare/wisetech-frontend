@@ -1801,17 +1801,18 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px',
-            marginTop: isDrillDown ? '0px' : '4px',
-            flexWrap: 'wrap'
+            justifyContent: 'flex-start',
+            gap: '12px',
+            marginTop: '4px',
+            flexWrap: 'wrap',
+            rowGap: '10px'
           }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '12px',
               flexWrap: 'wrap',
-              width: isMobile ? '100%' : 'auto'
+              width: '100%'
             }}>
               {/* Period Selector Tabs */}
               <div style={{
@@ -1824,8 +1825,6 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                 <TimePeriodSelector
                   value={alignment as TimePeriodMode}
                   onChange={(mode) => handleAlignmentChange({} as any, mode)}
-                  isMobile={isMobile}
-                  variant="light"
                 />
               </div>
 
@@ -1863,7 +1862,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                 />
               )}
               {alignment === "custom" && (
-                <div className="d-flex align-items-center gap-2">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DatePicker
                       label="Start"

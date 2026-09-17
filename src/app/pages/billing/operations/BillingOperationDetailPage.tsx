@@ -47,7 +47,7 @@ const BillingOperationDetailPage: React.FC = () => {
   const navigate = useNavigate();
   // Falls back to this page\'s own parent when nobody handed us an origin,
   // so arriving from the Billing list behaves exactly as it always did.
-  const back = useReturnContext({ pathname: "/billing/operations", label: "All Operations" });
+  const back = useReturnContext({ pathname: "/billing/tracker", label: "Billing Tracker" });
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState(0);

@@ -6,6 +6,7 @@ import NoteModal from "./NoteModal";
 import { getClientBranchesByCompanyId } from "@services/lead";
 import { getAllCompanyTypes } from "@services/companies";
 import dayjs from "dayjs";
+import { getTimeTokens } from '@utils/timeFormat';
 
 // Resolve an audit relation (createdBy/updatedBy) — loaded via getById — into a display name.
 const auditName = (rel: any): string => {
@@ -158,7 +159,7 @@ const Overview = ({ company }: OverviewProps) => {
                 <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Created Date</div>
               </div>
               <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{(company as any).createdAt ? dayjs((company as any).createdAt).format("DD/MM/YYYY, h:mm A") : 'N/A'}</div>
+                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{(company as any).createdAt ? dayjs((company as any).createdAt).format(`DD/MM/YYYY, ${getTimeTokens().TIME}`) : 'N/A'}</div>
               </div>
             </div>
 
@@ -176,7 +177,7 @@ const Overview = ({ company }: OverviewProps) => {
                 <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Last Edited Date</div>
               </div>
               <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{(company as any).updatedAt ? dayjs((company as any).updatedAt).format("DD/MM/YYYY, h:mm A") : 'N/A'}</div>
+                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{(company as any).updatedAt ? dayjs((company as any).updatedAt).format(`DD/MM/YYYY, ${getTimeTokens().TIME}`) : 'N/A'}</div>
               </div>
             </div>
           </div>

@@ -1,19 +1,16 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Box, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Box, MenuItem, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { TRIO, WtButton, ToneChip } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
-import {
-  listProjectOverview,
-  type ProjectOverviewRow, type ProjectOverviewParams, type ProjectOverviewSort,
-  type PaymentStatus,
+import dayjs from "dayjs";
+import {listProjectOverview,type ProjectOverviewRow, type ProjectOverviewParams, type ProjectOverviewSort,
 } from "@services/billingOperations";
-import { BillingPageHeader, BillingStatusBadge } from "../components";
-import { STAGE_LABEL } from "./operationUi";
+import {  useBillingLabels, BILLING_LABEL_GROUP } from "../components";
+import { TrackerStatusCell, TrackerStageCell, TrackerBillPaymentCell } from "./TrackerCells";
 
 /**
  * Billing Operations — the Accounts team's workspace, at PROJECT grain.
@@ -37,51 +34,43 @@ import { STAGE_LABEL } from "./operationUi";
 
 const DASH = "—";
 
-const STATUS_OPTIONS = [
-  { value: "", label: "All statuses" },
-  { value: "READY_FOR_PROFORMA", label: "Ready for Proforma" },
-  { value: "PROFORMA_DRAFT", label: "Proforma Draft" },
-  { value: "PROFORMA_GENERATED", label: "Proforma Generated" },
-  { value: "PROFORMA_SENT", label: "Proforma Sent" },
-  { value: "CLIENT_VIEWED", label: "Client Viewed" },
-  { value: "PAYMENT_PENDING", label: "Payment Pending" },
-  { value: "PARTIALLY_PAID", label: "Partially Paid" },
-  { value: "FULLY_PAID", label: "Fully Paid" },
-  { value: "PAYMENT_VERIFIED", label: "Payment Verified" },
-  { value: "READY_FOR_INVOICE", label: "Ready for Invoice" },
-  { value: "INVOICE_GENERATED", label: "Invoice Generated" },
-  { value: "INVOICE_SENT", label: "Invoice Sent" },
-  { value: "COMPLETED", label: "Completed" },
-  { value: "ON_HOLD", label: "On Hold" },
-  { value: "CANCELLED", label: "Cancelled" },
-];
-
-const STAGE_OPTIONS = [
-  { value: "", label: "All stages" },
-  { value: "PROFORMA", label: "Proforma" },
-  { value: "PAYMENT", label: "Payment" },
-  { value: "INVOICE", label: "Invoice" },
-  { value: "CLOSED", label: "Closed" },
-];
-
-const PO_OPTIONS = [
-  { value: "", label: "Any PO status" },
-  { value: "true", label: "PO approved only" },
-];
-
 /** Only these can be ordered in SQL; a header click on anything else is ignored. */
 const SERVER_SORTABLE: ProjectOverviewSort[] = [
   "projectNumber", "projectName", "poValue", "receivedAmount",
   "pendingAmount", "lastPaymentAt", "nextFollowUpDate",
 ];
 
-const BILL_STATUS_TONE: Record<PaymentStatus, "success" | "warning" | "indigo" | "cyan" | "neutral"> = {
-  PENDING: "warning",
-  PARTIALLY_PAID: "indigo",
-  FULLY_PAID: "success",
-  OVERPAID: "cyan",
-  CANCELLED: "neutral",
-};
+/**
+ * What the three workflow columns mean, on the column header.
+ *
+ * They were the part of this sheet nobody could read off the screen: three chips
+ * per row, each with a real source and a hand-set fallback. Saying so in a tooltip
+ * is cheaper than a legend, and it sits where the question gets asked. The naming
+ * matches Billing → Configure's three groups exactly — Payment Stage, Billing
+ * Status, Bill Payment Status — because that is where they are renamed.
+ */
+const STAGE_HINT =
+  "Configure → Payment Stage. Which of the four bands this project's billing is in. " +
+  "Normally it follows the Status; set one here to override that, or clear it to follow again.";
+
+const STATUS_HINT =
+  "Configure → Billing Status. Where the billing stands. A project billed through an approved " +
+  "request offers only the moves its workflow allows; one that isn't billed yet can be set to " +
+  "anything, and the real status takes over later.";
+
+const BILL_PAYMENT_HINT =
+  "Configure → Bill Payment Status. How much of the issued bill has been collected. Counted " +
+  "from real payments once a bill exists; until then it can be set here.";
+
+/** Column header with a tooltip. `Header` overrides the plain string in MaterialTable. */
+const HintHeader: React.FC<{ title: string; hint: string }> = ({ title, hint }) => (
+  <Tooltip title={hint} placement="top">
+    <Stack direction="row" alignItems="center" spacing={0.5} sx={{ cursor: "help" }}>
+      <span>{title}</span>
+      <KTIcon iconName="information-2" className="fs-8 text-muted" />
+    </Stack>
+  </Tooltip>
+);
 
 const Money: React.FC<{ value: number | null | undefined; bold?: boolean; tone?: string }> = ({
   value, bold, tone,
@@ -98,11 +87,15 @@ const DateCell: React.FC<{ value: string | null | undefined }> = ({ value }) => 
 const BillingOperationsPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const labels = useBillingLabels();
 
-  const [filters, setFilters] = useState({ status: "", stage: "", poApprovedOnly: "" });
+  const [filters, setFilters] = useState({
+    status: "", stage: "", billPaymentStatus: "", projectManagerId: "",
+  });
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([
-    { id: "projectNumber", desc: false },
+    // Newest project first.
+    { id: "projectNumber", desc: true },
   ]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 });
 
@@ -124,35 +117,76 @@ const BillingOperationsPage: React.FC = () => {
     search: search || undefined,
     status: (filters.status || undefined) as ProjectOverviewParams["status"],
     stage: (filters.stage || undefined) as ProjectOverviewParams["stage"],
-    poApprovedOnly: filters.poApprovedOnly === "true" ? true : undefined,
+    billPaymentStatus: filters.billPaymentStatus || undefined,
+    projectManagerId: filters.projectManagerId || undefined,
     sortBy,
     sortDir: active?.desc ? "desc" : "asc",
     page: pagination.pageIndex + 1,
     pageSize: pagination.pageSize,
   };
 
-  // TEMPORARY: the Tracker shows an empty table on purpose while the sheet it is
-  // meant to present is still being worked out. The query is disabled rather than
-  // the rows being thrown away after fetching, so this costs no request either.
-  // To restore: delete SHOW_DATA and the two lines that read it.
-  const SHOW_DATA = false;
-
   const { data, isLoading } = useQuery({
     queryKey: ["billing-project-overview", params],
     queryFn: () => listProjectOverview(params),
-    enabled: SHOW_DATA,
+    // Keeps the Manager options on screen while the next filter's page loads.
+    placeholderData: keepPreviousData,
   });
 
-  const projects = SHOW_DATA ? data?.projects ?? [] : [];
-  const total = SHOW_DATA ? data?.pagination?.total ?? 0 : 0;
+  const projects = data?.projects ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   const setFilter = (key: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   };
 
+  // Both dropdowns are the Configure catalogue, not a second hand-typed copy of
+  // it: rename a status there and the filter that selects it renames with it.
+  const statusOptions = [
+    { value: "", label: "All statuses" },
+    ...labels.options(BILLING_LABEL_GROUP.STATUS),
+  ];
+  const stageOptions = [
+    { value: "", label: "All stages" },
+    ...labels.options(BILLING_LABEL_GROUP.STAGE),
+  ];
+  const billPaymentOptions = [
+    { value: "", label: "All bill payments" },
+    ...labels.options(BILLING_LABEL_GROUP.BILL_PAYMENT),
+  ];
+  // Only people who manage a project, from the server — the same person the Handled By
+  // column shows. A full employee list offered names that could only ever return nothing.
+  const managerOptions = [
+    { value: "", label: "All managers" },
+    ...(data?.managers ?? []).map((m) => ({ value: m.id, label: m.name })),
+  ];
+
+  const filterSelects: Array<{ key: keyof typeof filters; label: string; width: number; options: { value: string; label: string }[] }> = [
+    { key: "stage", label: "Bill Stage", width: 150, options: stageOptions },
+    { key: "status", label: "Payment Status", width: 170, options: statusOptions },
+    { key: "billPaymentStatus", label: "Bill Payment", width: 160, options: billPaymentOptions },
+    { key: "projectManagerId", label: "Manager", width: 170, options: managerOptions },
+  ];
+
   const columns = useMemo(
     () => [
+      {
+        accessorKey: "projectStartDate",
+        header: "Project Start Date",
+        size: 150,
+        enableSorting: false,
+        meta: { defaultVisible: true },
+        Cell: ({ cell }: any) => {
+          try {
+            const v = cell.getValue();
+            if (!v) return DASH;
+            const date = dayjs(v);
+            return date.isValid() ? date.format("DD-MM-YYYY") : DASH;
+          } catch (err) {
+            return DASH;
+          }
+        },
+      },
       {
         accessorKey: "projectNumber",
         header: "Project No",
@@ -163,11 +197,6 @@ const BillingOperationsPage: React.FC = () => {
             <Box sx={{ minWidth: 0 }}>
               <Typography sx={{ fontSize: "inherit", fontWeight: 700 }}>
                 {project.projectNumber ?? DASH}
-              </Typography>
-              <Typography
-                sx={{ fontSize: 11, color: project.poApproved ? "success.main" : "text.secondary" }}
-              >
-                PO: {project.poStatus ?? DASH}
               </Typography>
             </Box>
           );
@@ -181,37 +210,50 @@ const BillingOperationsPage: React.FC = () => {
       },
       {
         accessorKey: "handledByName",
-        header: "Handled By",
+        header: "Project Manager",
         size: 160,
         enableSorting: false,
         Cell: ({ cell }: any) => cell.getValue() || DASH,
       },
       {
-        accessorKey: "stage",
-        header: "Stage",
-        size: 120,
+        accessorKey: "projectStatus",
+        header: "Project Status",
+        size: 150,
         enableSorting: false,
+        meta: { defaultVisible: true },
         Cell: ({ row }: any) => {
-          const stage: ProjectOverviewRow["stage"] = row.original.stage;
-          // No operation yet is a real, common state — not missing data.
-          return stage ? (
-            <ToneChip
-              tone={stage === "CLOSED" ? "success" : stage === "PAYMENT" ? "warning" : "indigo"}
-              label={STAGE_LABEL[stage]}
-              dense
-            />
+          const st = row?.original?.projectStatus;
+          return st?.name ? (
+            <Box sx={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              backgroundColor: st.color || 'action.hover',
+              borderRadius: '16px', padding: '4px 10px 4px 8px',
+            }}>
+              <Box sx={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'common.white' }} />
+              <Typography sx={{ fontSize: '12px', fontWeight: 600, color: 'common.white' }}>
+                {st.name}
+              </Typography>
+            </Box>
           ) : (
-            <ToneChip tone="neutral" label="Not billed" dense />
+            DASH
           );
         },
       },
       {
-        accessorKey: "status",
-        header: "Status",
-        size: 175,
+        accessorKey: "billStage",
+        header: "Bill Stage",
+        Header: () => <HintHeader title="Bill Stage" hint={STAGE_HINT} />,
+        size: 150,
         enableSorting: false,
-        Cell: ({ row }: any) =>
-          row.original.status ? <BillingStatusBadge status={row.original.status} /> : DASH,
+        Cell: ({ row }: any) => <TrackerStageCell row={row.original as ProjectOverviewRow} />,
+      },
+      {
+        accessorKey: "paymentStatus",
+        header: "Payment Status",
+        Header: () => <HintHeader title="Payment Status" hint={STATUS_HINT} />,
+        size: 195,
+        enableSorting: false,
+        Cell: ({ row }: any) => <TrackerStatusCell row={row.original as ProjectOverviewRow} />,
       },
       {
         accessorKey: "followUpManagerName",
@@ -306,56 +348,34 @@ const BillingOperationsPage: React.FC = () => {
       },
       {
         id: "billStatus",
-        accessorFn: (row: ProjectOverviewRow) => row.bill?.paymentStatus ?? null,
+        // The resolved value, not the bill's — a project with no bill yet can carry
+        // a hand-set state, and the column has to search and export what it shows.
+        accessorFn: (row: ProjectOverviewRow) => row.billPaymentStatus ?? null,
         header: "Bill Payment",
-        size: 150,
+        Header: () => <HintHeader title="Bill Payment" hint={BILL_PAYMENT_HINT} />,
+        size: 175,
         enableSorting: false,
-        Cell: ({ row }: any) => {
-          const status: PaymentStatus | null | undefined = row.original.bill?.paymentStatus;
-          return status ? (
-            <ToneChip
-              tone={BILL_STATUS_TONE[status]}
-              label={status.replace(/_/g, " ").toLowerCase()}
-              dense
-            />
-          ) : (
-            DASH
-          );
-        },
+        Cell: ({ row }: any) => <TrackerBillPaymentCell row={row.original as ProjectOverviewRow} />,
       },
     ],
     [],
   );
 
   return (
-    <Box sx={{ maxWidth: 1600, mx: "auto", pb: 4 }}>
-      <BillingPageHeader
-        icon="chart-simple"
-        trio={TRIO.blue}
-        title="Billing Tracker"
-        description="Every project and where its money stands — PO value, collected, pending and the latest bill."
-        action={
-          <WtButton
-            ghost size="small"
-            onClick={() => navigate("/billing/operations?status=READY_FOR_PROFORMA")}
-            startIcon={<KTIcon iconName="inbox" className="fs-6" />}
-            sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
-          >
-            Accounts Queue
-          </WtButton>
-        }
-      />
+
 
       <MaterialTable
         data={projects}
         columns={columns}
-        tableName="BillingProjectOverview"
+        // V2: fresh prefs bucket — a saved column order outranks the code's, so
+        // Project Start Date moving to the front would never reach existing users.
+        tableName="BillingProjectOverviewV2"
         isLoading={isLoading}
         searchPlaceholder="Search project number or name…"
         enableColumnSpecificSearch={true}
         enableColumnResizing={true}
         layoutMode="semantic"
-        defaultSorting={[{ id: "projectNumber", desc: false }]}
+        defaultSorting={[{ id: "projectNumber", desc: true }]}
         // The server owns all three. `data` is one page, so any local pass would
         // search, sort and count only the rows already on screen.
         manualFiltering={true}
@@ -368,33 +388,18 @@ const BillingOperationsPage: React.FC = () => {
         onPaginationChange={setPagination}
         renderTopToolbarRightActions={() => (
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ py: 0.5 }}>
-            <TextField
-              select size="small" label="Status" value={filters.status}
-              onChange={(e) => setFilter("status", e.target.value)}
-              sx={{ minWidth: 170 }}
-            >
-              {STATUS_OPTIONS.map((o) => (
-                <MenuItem key={o.value} value={o.value} sx={{ fontSize: 13 }}>{o.label}</MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select size="small" label="Stage" value={filters.stage}
-              onChange={(e) => setFilter("stage", e.target.value)}
-              sx={{ minWidth: 140 }}
-            >
-              {STAGE_OPTIONS.map((o) => (
-                <MenuItem key={o.value} value={o.value} sx={{ fontSize: 13 }}>{o.label}</MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select size="small" label="PO" value={filters.poApprovedOnly}
-              onChange={(e) => setFilter("poApprovedOnly", e.target.value)}
-              sx={{ minWidth: 160 }}
-            >
-              {PO_OPTIONS.map((o) => (
-                <MenuItem key={o.value} value={o.value} sx={{ fontSize: 13 }}>{o.label}</MenuItem>
-              ))}
-            </TextField>
+            {filterSelects.map((f) => (
+              <TextField
+                key={f.key} select size="small" label={f.label} value={filters[f.key]}
+                onChange={(e) => setFilter(f.key, e.target.value)}
+                sx={{ minWidth: f.width }}
+                SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 360 } } } }}
+              >
+                {f.options.map((o) => (
+                  <MenuItem key={o.value} value={o.value} sx={{ fontSize: 13 }}>{o.label}</MenuItem>
+                ))}
+              </TextField>
+            ))}
           </Stack>
         )}
         muiTableContainerProps={{ sx: { maxHeight: "700px", overflowX: "auto" } }}
@@ -447,7 +452,6 @@ const BillingOperationsPage: React.FC = () => {
           },
         }}
       />
-    </Box>
   );
 };
 

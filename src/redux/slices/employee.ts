@@ -18,7 +18,15 @@ interface Branch {
     latitude?: string,
     longitude?: string,
     workingAndOffDays?: string,
-    showDateIn12HourFormat?: boolean,
+    /**
+     * The branch's 12/24h time setting. `null`/absent means THIS BRANCH HAS NO
+     * OPINION and the org's setting applies — it is not the same as `false`
+     * (an explicit 24-hour). The initial state below must therefore stay null:
+     * seeding it `false` made an unloaded profile assert '24 hour', so the app
+     * painted 24h times until the employee arrived and then flipped.
+     * See utils/timeFormat.ts.
+     */
+    showDateIn12HourFormat?: boolean | null,
     currency?: string,
     dateFormat?: string,
     timezone?: string,
@@ -125,7 +133,7 @@ const initialState: EmployeeState = {
             address: "",
             location: "",
             workingAndOffDays: "",
-            showDateIn12HourFormat: false,
+            showDateIn12HourFormat: null,
             currency: "",
             dateFormat: "",
         },
@@ -173,7 +181,7 @@ const initialState: EmployeeState = {
         branches: {
             location: "",
             address: "",
-            showDateIn12HourFormat: false,
+            showDateIn12HourFormat: null,
             currency: "",
             dateFormat: "",
         },

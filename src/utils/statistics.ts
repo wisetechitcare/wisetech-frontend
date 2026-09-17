@@ -27,6 +27,7 @@ import { errorConfirmation, successConfirmation } from "./modal";
 
 import axios from "axios";
 import { EMPLOYEE } from "@constants/api-endpoint";
+import { getTimeTokens } from './timeFormat';
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 // functions for fetching statistics for daily, weekly, monthly, yearly ------ starts here -----
 
@@ -3953,7 +3954,7 @@ export async function getTotalDaysInYear(year: string | number): Promise<number>
 //     if (!dateString) return '-';
 //     try {
 //         const cleaned = dateString.replace(/Z$/, '');
-//         return dayjs(cleaned).format('DD MMM YYYY, hh:mm A');
+//         return dayjs(cleaned).format(`DD MMM YYYY, ${getTimeTokens().TIME}`);
 //     } catch (e) {
 //         return '-';
 //     }
@@ -3966,7 +3967,7 @@ export const formatDateFromISTString = (dateString: string | undefined | null): 
     if (!dateString) return '-';
     try {
         // Parse as UTC, convert to IST for display
-        return dayjs.utc(dateString).tz('Asia/Kolkata').format('DD MMM YYYY, hh:mm A');
+        return dayjs.utc(dateString).tz('Asia/Kolkata').format(`DD MMM YYYY, ${getTimeTokens().TIME}`);
     } catch (e) {
         return '-';
     }

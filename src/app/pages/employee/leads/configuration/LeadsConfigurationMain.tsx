@@ -569,8 +569,6 @@ const LeadsConfigurationMain = () => {
     <>
       <style>{KEYFRAMES}</style>
       <ConfigPageLayout
-        title="Lead Configuration"
-        subtitle="Everything the lead form offers, plus the project configuration leads convert into"
         tabs={TABS}
         activeTab={activeTab}
         onTabChange={setActiveTab}

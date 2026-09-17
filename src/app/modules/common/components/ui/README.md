@@ -32,7 +32,8 @@ are built from.
 | Edit / delete / share on a row, card or chip | `ActionIconButton` (`size="sm"` in chips; `tone="success"` for share/send; `icon=` for a non-font glyph) | a `bi bi-pencil` / `fab fa-whatsapp` in a bare `<button>` |
 | Brand logo glyph (WhatsApp…) | `WhatsAppIcon` from `brandIcons` | `KTIcon iconName="whatsapp"` — the duotone font paints its first layer at 40% opacity, so the mark washes out |
 | Close (×) | `WtCloseButton` (`ui/tw/WtCloseButton`) | a `&times;` in an `IconButton` |
-| Toolbar filter | `ToolbarFilterSelect` + `FILTER_TONES` | a bespoke `<select>` or `FormControl` |
+| **Any labelled input** (text, number, textarea, select) | **`WtField`** | `InputLabel` + `Select`/`TextField` assembled by hand |
+| Toolbar filter | `ToolbarFilterSelect` + `FILTER_TONES` (a `WtField` adapter) | a bespoke `<select>` or `FormControl` |
 | Dropdown ENGINE | `WtSelect` | react-select directly, or a new wrapper |
 | Dropdown (in a form) | `DropdownInput` (Formik) | react-select directly |
 | Dropdown (standalone) | `SelectInput` | a new select component |
@@ -54,6 +55,36 @@ are built from.
 | Toast / confirm | `toast` / `confirmDialog` / `alertDialog` | react-toastify, sweetalert2 directly |
 | Employee picker | `EmployeeSelectionDialog` | a bespoke picker |
 | Org filter data | `useOrgScope` | re-deriving an org list per feature |
+
+## Labelled inputs — never build the pairing yourself
+
+`WtField` is the one labelled control. A label, a field, and a hint or error, laid
+out once and shared by every control type, so a select and a text box on the same
+row cannot disagree about height, radius, focus ring or error colour.
+
+```tsx
+<WtField label="Rating scale" value={scale} onChange={setScale}
+         options={scales} hint="How each criterion is rated" />
+
+<WtField label="Organization" labelPlacement="inline" icon="bank" size="sm"
+         value={org} onChange={setOrg} options={orgs} tone={FILTER_TONES.blue.icon} />
+```
+
+**It does not use MUI's floating label, on purpose.** That pattern puts the label in
+a gap cut by a `<legend>` in the border, and MUI sizes that gap from the text in the
+FIELD's typography — not the label's. So any label that is bold, uppercase or
+resized is wider than its own gap and sits on the border line. The codebase paid for
+that one file at a time: `ToolbarFilterSelect` restated the legend metrics by hand,
+and `ProjectTablePage` nudged its label with `top: '-3px'`, a number arrived at by
+eye and wrong at any other font size.
+
+`WtField` cuts no gap, so the bug cannot occur — at any size, weight or language.
+Use `labelPlacement="inline"` when a toolbar must stay one control tall; the label
+becomes a small uppercase prefix inside the field, still with no notch.
+
+Searchable / multi / creatable stays `WtSelect` — pass `searchable` and it renders
+inside the same frame. Dates stay `WtDateField`. `WtField` owns the frame, not every
+engine that can sit in it.
 
 Icons are **KTIcon** (keenicons duotone). Verify a name exists before using it —
 an unknown name renders as an empty box:

@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import { EmptyState } from '../widgets';
 import { employeeUserName, employeeNameById, DASH } from '../entityViewModel';
+import { getTimeTokens } from '@utils/timeFormat';
 
 const TYPE_META: Record<string, { icon: string; color: string }> = {
   call: { icon: 'bi bi-telephone-fill', color: '#3b82f6' },
@@ -94,7 +95,7 @@ const ActivitiesSection: React.FC<{ lead: any }> = ({ lead }) => {
               </div>
               {it.body && <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#475569', marginTop: 3, whiteSpace: 'pre-wrap' }}>{it.body}</div>}
               <div style={{ fontFamily: 'Inter', fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
-                {isFinite(it.ts) ? dayjs(it.ts).format('DD MMM YYYY, h:mm A') : DASH}
+                {isFinite(it.ts) ? dayjs(it.ts).format(`DD MMM YYYY, ${getTimeTokens().TIME}`) : DASH}
                 {it.who ? ` · ${it.who}` : ''}
               </div>
             </div>

@@ -29,7 +29,7 @@ import { saveLeaveRequests } from "@redux/slices/attendance";
 import { LeaveStatus } from "@constants/attendance";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import dayjs from "dayjs";
-import { convertTo12HourFormat } from "@utils/date";
+import { formatTimeString } from "@utils/date";
 import { getGraceBasedThresholds } from "@utils/getGraceBasedThresholds";
 import { markWeekendOrHoliday } from "@utils/statistics";
 import { fetchConfiguration } from "@services/company";
@@ -45,6 +45,7 @@ import {
   fmtDate,
   fmtAmount,
 } from "@app/pages/employee/reimbursement/shared/ReimbursementBatchShared";
+import { useTimeFormat } from '@hooks/useTimeFormat';
 
 // ---------------------------------------------------------------------------
 
@@ -80,7 +81,10 @@ const PendingRequestsTable = () => {
   const [employeeThresholds, setEmployeeThresholds] = useState<any>([]);
   const [earlyCheckOutThreshold, setEarlyCheckOutThreshold] = useState('');
 
-  const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
+  // Subscribes this screen to the resolved 12/24h format so it re-renders when the
+    // preference changes. Replaces a selector that read the raw branch flag and was
+    // never actually used to decide anything. See utils/timeFormat.ts.
+    const timeFormat = useTimeFormat();
   const getAllWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
   const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
   const leaveTypeColors = useSelector((state: RootState) => state.customColors?.leaveTypes);
@@ -375,7 +379,7 @@ const PendingRequestsTable = () => {
           if (!thresholdTime) return <span>{checkIn || "N/A"}</span>;
           if (!checkInTime) return <span>{checkIn || "N/A"}</span>;
           const isLateCheckIn = checkInTime.isAfter(thresholdTime, 'minute');
-          const finalCheckIn = convertTo12HourFormat(checkIn);
+          const finalCheckIn = formatTimeString(checkIn);
           return (
             <span style={{
               color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : isLateCheckIn ? 'red' : 'green',
@@ -395,7 +399,7 @@ const PendingRequestsTable = () => {
           const checkOut = employee.checkOut;
           const isWeekendOrHolidays = employee.isWeekendOrHoliday;
           if (!checkOut || checkOut === '-NA-' || !earlyCheckOutThreshold) {
-            return <span>{checkOut ? convertTo12HourFormat(checkOut) : "N/A"}</span>;
+            return <span>{checkOut ? formatTimeString(checkOut) : "N/A"}</span>;
           }
           const employeeData = employeeThresholds.find((emp: any) => emp.id === employee.id);
           const employeeThreshold = employeeData?.earlyCheckOutThreshold;
@@ -403,10 +407,10 @@ const PendingRequestsTable = () => {
           const isOnSiteSettingsOn = leaveConfiguration?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
           const checkOutTime = checkOut.includes(':') ? dayjs(checkOut, ['HH:mm', 'HH:mm:ss']) : null;
           const thresholdTime = employeeThreshold ? dayjs(employeeThreshold, 'HH:mm:ss') : null;
-          if (!thresholdTime) return <span>{checkOut ? convertTo12HourFormat(checkOut) : "N/A"}</span>;
-          if (!checkOutTime) return <span>{checkOut ? convertTo12HourFormat(checkOut) : "N/A"}</span>;
+          if (!thresholdTime) return <span>{checkOut ? formatTimeString(checkOut) : "N/A"}</span>;
+          if (!checkOutTime) return <span>{checkOut ? formatTimeString(checkOut) : "N/A"}</span>;
           const isEarlyCheckOut = checkOutTime.isBefore(thresholdTime, 'minute');
-          const finalCheckOut = convertTo12HourFormat(checkOut);
+          const finalCheckOut = formatTimeString(checkOut);
           return (
             <span style={{
               color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : isEarlyCheckOut ? 'red' : 'green',
@@ -477,7 +481,7 @@ const PendingRequestsTable = () => {
         },
       },
     ],
-    [employeeThresholds, leaveConfiguration, showDateIn12HourFormat, earlyCheckOutThreshold, actionableApprovals, approvalProcessingId, approveWorkflowRequest, fetchAttendanceRequests]
+    [employeeThresholds, leaveConfiguration, timeFormat, earlyCheckOutThreshold, actionableApprovals, approvalProcessingId, approveWorkflowRequest, fetchAttendanceRequests]
   );
 
   // Leave columns

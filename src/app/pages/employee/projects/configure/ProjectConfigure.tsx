@@ -532,8 +532,6 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
         settingsSections
       ) : (
         <ConfigPageLayout
-          title="Project Configuration"
-          subtitle="Manage project statuses, stakeholders, prefix, and UI settings"
           tabs={TABS}
           activeTab={activeTab}
           onTabChange={setActiveTab}

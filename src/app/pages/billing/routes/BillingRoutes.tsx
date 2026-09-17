@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import TopBarProgress from "react-topbar-progress-indicator";
 import { isSectionBlocked } from "@utils/accessAreas";
 import BillingLayout from "../BillingLayout";
@@ -45,7 +45,7 @@ const ProjectReportPage = lazy(() => import("../reports/ProjectReportPage"));
 const PAGES: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
     dashboard: BillingDashboard,
     requests: BillingRequestsPage,
-    operations: BillingOperationsPage,
+    tracker: BillingOperationsPage,
     proformas: ProformasPage,
     payments: PaymentCollectionPage,
     invoices: InvoicesPage,
@@ -56,6 +56,19 @@ const PAGES: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
 const Suspensed: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <Suspense fallback={<TopBarProgress />}>{children}</Suspense>
 );
+
+/**
+ * /billing/operations[/:id] → /billing/tracker[/:id], query string intact.
+ *
+ * The tab was "operations" until it was renamed to Billing Tracker. The query string has to
+ * survive: the pre-filtered links people bookmark are `?status=READY_FOR_PROFORMA`, and a
+ * redirect that dropped it would land them on an unfiltered sheet with no sign anything was lost.
+ */
+const LegacyOperationsRedirect: React.FC = () => {
+    const { id } = useParams();
+    const { search } = useLocation();
+    return <Navigate to={`/billing/tracker${id ? `/${id}` : ""}${search}`} replace />;
+};
 
 const BillingRoutes: React.FC = () => {
     const allowed = (key: string) => !isSectionBlocked(key);
@@ -88,9 +101,15 @@ const BillingRoutes: React.FC = () => {
                     </>
                 )}
 
-                {/* One operation, end to end. Keeps the Billing Operations tab highlighted. */}
+                {/* One tracked project, end to end. Keeps the Billing Tracker tab highlighted. */}
                 {allowed("billing.operations") && (
-                    <Route path="operations/:id" element={<Suspensed><BillingOperationDetailPage /></Suspensed>} />
+                    <>
+                        <Route path="tracker/:id" element={<Suspensed><BillingOperationDetailPage /></Suspensed>} />
+                        {/* The tab was /billing/operations until the rename. Bookmarks and any
+                            link already sent out still resolve, rather than hitting the catch-all. */}
+                        <Route path="operations" element={<LegacyOperationsRedirect />} />
+                        <Route path="operations/:id" element={<LegacyOperationsRedirect />} />
+                    </>
                 )}
 
                 {/* Proforma repository. `/edit` is the document editor (drafts only);

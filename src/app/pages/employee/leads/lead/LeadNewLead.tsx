@@ -1342,123 +1342,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   return (
     <>
-      <Box sx={{ p: { xs: 2, md: 3 }, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
-        {/* --- ROW 1: PRIMARY TOOLBAR --- */}
-        <div style={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: isMobile ? 'stretch' : 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          marginBottom: '20px',
-          flexWrap: 'wrap'
-        }}>
-          {/* Left: Title & Subtitle */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <h1 style={{ fontFamily: "Barlow", fontSize: "20px", fontWeight: 700, margin: 0, color: '#1E293B', letterSpacing: '-0.02em', lineHeight: '1.2' }}>
-              Leads Management
-            </h1>
-            <p style={{ color: '#64748B', margin: 0, fontSize: '12px', fontWeight: 500 }}>
-              Manage and track your inquiries and lead pipeline
-            </p>
-          </div>
-
-          {/* Right Section: KPI summary, Bulk Import, and + New Lead */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            flexWrap: 'wrap',
-            marginLeft: isMobile ? '0' : 'auto',
-            width: isMobile ? '100%' : 'auto',
-            justifyContent: isMobile ? 'space-between' : 'flex-end',
-            marginTop: isMobile ? '8px' : '0'
-          }}>
-            {/* Primary Buttons */}
-            {!hideNewLeadButton && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                width: isMobile ? '100%' : 'auto'
-              }}>
-                <button
-                  className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
-                  onClick={() => setShowBulkImport(true)}
-                  style={{
-                    backgroundColor: "#fff",
-                    color: "#1E3A8A",
-                    border: "1px solid #E2E8F0",
-                    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                    borderRadius: "6px",
-                    padding: "0 12px",
-                    fontSize: "12px",
-                    height: "32px",
-                    display: 'flex',
-                    alignItems: 'center',
-                    flex: isMobile ? 1 : 'none',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <KTIcon iconName="cloud-download" className="fs-6 me-1" />
-                  Bulk Import
-                </button>
-                <button
-                  className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
-                  onClick={() => setShowOrgPicker(true)}
-                  style={{
-                    backgroundColor: "#1E3A8A",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "6px",
-                    padding: "0 12px",
-                    fontSize: "12px",
-                    height: "32px",
-                    display: 'flex',
-                    alignItems: 'center',
-                    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                    flex: isMobile ? 1 : 'none',
-                    justifyContent: 'center'
-                  }}
-                >
-                  + New Lead
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Custom missing-date hint for Custom Alignment */}
-        {alignment === "custom" && (!customStartDate || !customEndDate) && (
-          <div className="d-flex justify-content-center my-2">
-            <div
-              className="text-center p-2"
-              style={{
-                background: "#FEF2F2",
-                borderRadius: "6px",
-                border: "1px solid #FEE2E2",
-                maxWidth: 420,
-                width: "100%"
-              }}
-            >
-              <h6 style={{ fontFamily: "Inter", fontWeight: 600, color: "#1E3A8A", fontSize: "12px", marginBottom: "2px" }}>
-                Custom Date Range
-              </h6>
-              <p className="mb-0" style={{ fontSize: "11px", color: "#64748B" }}>
-                Please select both <strong>Start Date</strong> and <strong>End Date</strong> to query custom period.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* --- ROW 2: COMPACT FILTER TOOLBAR --- */}
-        {!hideNewLeadButton && (
+      {!hideNewLeadButton && (
+      <Box sx={{ px: { xs: 2, md: 3 }, py: 1.5, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
+        {/* ONE ROW: period selector on the left; Bulk Import, + New Lead and the KPI
+            summary on the right. */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '10px',
-            marginTop: '8px',
             flexWrap: 'wrap'
           }}>
             <div style={{
@@ -1473,8 +1365,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 <TimePeriodSelector
                   value={alignment as TimePeriodMode}
                   onChange={(mode) => handleAlignmentChange({} as any, mode)}
-                  isMobile={isMobile}
-                  variant="boxed"
                 />
               </div>
 
@@ -1565,10 +1455,18 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   </LocalizationProvider>
                 </div>
               )}
-
             </div>
 
-            {/* Right side: KPI summary */}
+            {/* Right side: Bulk Import, + New Lead, then the KPI summary */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
+              width: isMobile ? '100%' : 'auto',
+              justifyContent: isMobile ? 'space-between' : 'flex-end'
+            }}>
+            {/* KPI summary */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -1594,12 +1492,78 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 </span>
               </div>
             </div>
+            </div>
+          </div>
+                          <button
+                  className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+                  onClick={() => setShowBulkImport(true)}
+                  style={{
+                    backgroundColor: "#fff",
+                    color: "#1E3A8A",
+                    border: "1px solid #E2E8F0",
+                    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+                    borderRadius: "6px",
+                    padding: "0 12px",
+                    fontSize: "12px",
+                    height: "32px",
+                    display: 'flex',
+                    alignItems: 'center',
+                    flex: isMobile ? 1 : 'none',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <KTIcon iconName="cloud-download" className="fs-6 me-1" />
+                  Bulk Import
+                </button>
+                <button
+                  className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+                  onClick={() => setShowOrgPicker(true)}
+                  style={{
+                    backgroundColor: "#1E3A8A",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "0 12px",
+                    fontSize: "12px",
+                    height: "32px",
+                    display: 'flex',
+                    alignItems: 'center',
+                    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+                    flex: isMobile ? 1 : 'none',
+                    justifyContent: 'center'
+                  }}
+                >
+                  + New Lead
+                </button>
 
-
+        {/* Custom missing-date hint for Custom Alignment */}
+        {alignment === "custom" && (!customStartDate || !customEndDate) && (
+          <div className="d-flex justify-content-center my-2">
+            <div
+              className="text-center p-2"
+              style={{
+                background: "#FEF2F2",
+                borderRadius: "6px",
+                border: "1px solid #FEE2E2",
+                maxWidth: 420,
+                width: "100%"
+              }}
+            >
+              <h6 style={{ fontFamily: "Inter", fontWeight: 600, color: "#1E3A8A", fontSize: "12px", marginBottom: "2px" }}>
+                Custom Date Range
+              </h6>
+              <p className="mb-0" style={{ fontSize: "11px", color: "#64748B" }}>
+                Please select both <strong>Start Date</strong> and <strong>End Date</strong> to query custom period.
+              </p>
+            </div>
           </div>
         )}
       </Box>
+      )}
 
+      {/* MaterialTable opens with a shared `pt-6` (24px) gutter; tightened here, same as
+          Projects. `!important` because Bootstrap's own `.pt-6` utility carries it. */}
+      <Box sx={{ "& > .pt-6": { paddingTop: "8px !important" } }}>
       <MaterialTable
         columns={columns}
         data={quickFilteredData}
@@ -1942,6 +1906,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           }),
         }}
       />
+      </Box>
 
       <SelectLeadOrganizationDialog
         open={showOrgPicker}

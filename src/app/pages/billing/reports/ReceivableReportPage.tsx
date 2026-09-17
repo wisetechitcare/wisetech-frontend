@@ -125,7 +125,7 @@ const ReceivableReportPage: React.FC = () => {
         columns={columns}
         getRowId={(row) => row.id}
         loading={isLoading}
-        onRowClick={(row) => navigate(`/billing/operations/${row.id}`)}
+        onRowClick={(row) => navigate(`/billing/tracker/${row.id}`)}
         emptyTitle="Nothing receivable"
         emptyDescription="Approved work that hasn't yet become revenue will appear here."
         minWidth={900}

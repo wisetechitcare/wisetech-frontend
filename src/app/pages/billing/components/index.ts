@@ -16,6 +16,11 @@ export {
 } from "./BillingPrimitives";
 export type { BillingStatsCardProps, BillingSummaryRow } from "./BillingPrimitives";
 
+// The configured wording and colour behind every Billing code. Exported here so a
+// screen that needs the raw label (a dropdown, an export column) reaches the same
+// resolver the chips do, rather than re-listing the codes.
+export { useBillingLabels, BILLING_LABEL_GROUP, BILLING_LABELS_KEY } from "./useBillingLabels";
+
 export { default as BillingTable, BillingFilters } from "./BillingTable";
 export type { BillingColumn, BillingFilterDef, BillingTableProps } from "./BillingTable";
 

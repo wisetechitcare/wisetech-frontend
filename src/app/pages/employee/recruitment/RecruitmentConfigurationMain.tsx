@@ -10,6 +10,7 @@ import {
     IconBox, ToneChip, TRIO, toast, confirmDialog, type Trio, type SemanticTone,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
+import ScorecardTemplateSection from "./ScorecardTemplateSection";
 import {
     getApplicationStatuses, createApplicationStatus, updateApplicationStatus, deleteApplicationStatus,
     getRequisitionStages, createRequisitionStage, updateRequisitionStage, deleteRequisitionStage,
@@ -390,6 +391,7 @@ const RecruitmentConfigurationMain = () => (
             ]}
             emailConfig
         />
+        <ScorecardTemplateSection />
         <MasterSection
             title="Requisition Stages" description="Lifecycle of a job requisition (open / on-hold / filled)." icon="questionnaire-tablet" trio={TRIO.cyan}
             configType="requisition-stages" queryKey={queryKeys.recruitment.requisitionStages()} labelField="name"

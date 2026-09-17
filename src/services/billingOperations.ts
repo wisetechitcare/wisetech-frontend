@@ -218,6 +218,8 @@ export interface ProjectOverviewRow {
   projectNumber: string | null;
   projectName: string | null;
   handledByName: string | null;
+  projectStartDate: string | null;
+  projectStatus: { name: string; color: string | null } | null;
   poStatus: string | null;
   poApproved: boolean;
   /** Null until the PO is approved — the contract is not agreed, so there is no value. */
@@ -230,6 +232,27 @@ export interface ProjectOverviewRow {
   stage: BillingOperationStage | null;
   status: BillingOperationStatus | null;
   statusLabel: string | null;
+  /** The operation behind the status — null for a project nothing is billed against. */
+  operationId: string | null;
+  /**
+   * Where the `status` came from: a real billing operation, a value typed into the
+   * Tracker, or nothing yet. Decides which editor the Status column offers.
+   */
+  statusSource: "OPERATION" | "MANUAL" | null;
+  /**
+   * Where the `stage` came from. DERIVED is the normal answer — stage follows the
+   * status; MANUAL means it was set on the Tracker and no longer follows.
+   */
+  stageSource: "OPERATION" | "MANUAL" | "DERIVED" | null;
+  /** The bill's payment state, from the bill's own arithmetic or typed in. */
+  billPaymentStatus: PaymentStatus | null;
+  billPaymentSource: "BILL" | "MANUAL" | null;
+  /**
+   * Where the status may legally go next. Codes only — the wording comes from
+   * Billing → Configure. Empty for a manual or terminal row, which is offered the
+   * full list or nothing at all rather than a subset.
+   */
+  allowedTransitions: BillingOperationStatus[];
   lastPaymentAt: string | null;
   nextFollowUpDate: string | null;
   /** Always null today — no follow-up owner exists in the schema yet. */
@@ -246,6 +269,7 @@ export interface ProjectOverviewParams {
   status?: BillingOperationStatus | "";
   stage?: BillingOperationStage | "";
   projectManagerId?: string;
+  billPaymentStatus?: string;
   poApprovedOnly?: boolean;
   sortBy?: ProjectOverviewSort;
   sortDir?: "asc" | "desc";
@@ -255,12 +279,12 @@ export interface ProjectOverviewParams {
 
 export const listProjectOverview = async (
   params: ProjectOverviewParams = {},
-): Promise<{ projects: ProjectOverviewRow[]; pagination: Pagination }> => {
+): Promise<{ projects: ProjectOverviewRow[]; managers: Array<{ id: string; name: string }>; pagination: Pagination }> => {
   const { data } = await axios.get(url(BILLING_OPERATION.PROJECTS), {
     params: clean(params),
     withCredentials: true,
   });
-  return { projects: data.projects ?? [], pagination: data.pagination };
+  return { projects: data.projects ?? [], managers: data.managers ?? [], pagination: data.pagination };
 };
 
 export const getBillingOperationStatistics = async (): Promise<OperationStatistics> => {
@@ -281,6 +305,37 @@ export const updateOperationStatus = async (
     withCredentials: true,
   });
   return data.operation;
+};
+
+/**
+ * What the Tracker can have typed into it for one project.
+ *
+ * Send any subset — an omitted key is left alone, an explicit `null` clears it.
+ * That distinction is load-bearing: without it, setting the stage would wipe the
+ * status.
+ */
+export interface ProjectBillingPatch {
+  status?: BillingOperationStatus | null;
+  stage?: BillingOperationStage | null;
+  billPaymentStatus?: PaymentStatus | null;
+}
+
+/**
+ * Set the Tracker's own billing fields on a project with no operation yet.
+ *
+ * The server refuses a project that already has an operation — from then on
+ * `updateOperationStatus` is the only way, so this cannot become a back door
+ * around the workflow.
+ */
+export const setProjectBillingFields = async (
+  leadId: string,
+  patch: ProjectBillingPatch,
+): Promise<void> => {
+  await axios.patch(
+    url(BILLING_OPERATION.PROJECT_STATUS.replace(":leadId", encodeURIComponent(leadId))),
+    patch,
+    { withCredentials: true },
+  );
 };
 
 export const getOperationTimeline = async (id: string): Promise<OperationTimelineStep[]> => {

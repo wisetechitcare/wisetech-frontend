@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import { saveAs } from 'file-saver';
 import { formatValue } from './payrollFormatters';
+import { getTimeTokens } from '@utils/timeFormat';
 
 /**
  * Spreadsheet export of a month's salary slip.
@@ -559,7 +560,7 @@ export function buildSlipModel(input: SalarySlipExportInput): SlipModel {
         payMonth: start.format('MMMM YYYY'),
         payPeriod: `${start.format('D MMM')} - ${end.format('D MMM')}`,
         payslipId: `PS-${year}-${String(month).padStart(2, '0')}-${employeeCode || '0000'}`,
-        generatedOn: dayjs().format('DD MMM YYYY, hh:mm A'),
+        generatedOn: dayjs().format(`DD MMM YYYY, ${getTimeTokens().TIME}`),
         generatedBy: safe(input.generatedBy, 'Payroll System'),
 
         employeeName,

@@ -71,8 +71,29 @@ export interface RequisitionStagePayload {
 }
 
 // ─── Requisitions ────────────────────────────────────────────────────────────
-export const getRequisitions = async (): Promise<JobRequisition[]> => {
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_REQUISITIONS}`);
+/**
+ * Query string for a recruitment list read. Blank values are dropped, so `companyId`
+ * is simply absent when the org filter is on "All" — which the API reads as the
+ * caller's whole organization family. Replaces three hand-rolled param builders that
+ * each did this slightly differently.
+ */
+/**
+ * Props for a recruitment view that honours the shell's organization filter.
+ * `undefined` means "no filter" — the API then reads the whole org family.
+ */
+export interface OrgScoped {
+    companyId?: string;
+}
+
+const listQuery = (params: Record<string, string | undefined> = {}): string => {
+    const qs = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) if (value) qs.set(key, value);
+    const s = qs.toString();
+    return s ? `?${s}` : "";
+};
+
+export const getRequisitions = async (companyId?: string): Promise<JobRequisition[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_REQUISITIONS}${listQuery({ companyId })}`);
     return data?.requisitions ?? [];
 };
 
@@ -140,6 +161,8 @@ export interface ApplicationStatus {
 export interface Applicant {
     id: string; firstName: string; lastName?: string | null; email: string; phone?: string | null;
     currentEmployer?: string | null; currentTitle?: string | null; totalExperienceMonths?: number | null;
+    currentLocation?: string | null; qualification?: string | null; employeeLevelId?: string | null;
+    currentCtcInLpa?: number | string | null;
     expectedCtcInLpa?: number | string | null; noticePeriodDays?: number | null; resumeS3Url?: string | null;
     resumeFileName?: string | null; linkedInUrl?: string | null; sourceId?: string | null; source?: ApplicantSource | null;
     isBlacklisted: boolean; isActive: boolean; createdAt: string;
@@ -156,9 +179,27 @@ export interface Application {
 }
 
 export interface ApplicantPayload {
-    firstName: string; lastName?: string | null; email: string; phone?: string | null;
-    currentEmployer?: string | null; currentTitle?: string | null; totalExperienceMonths?: number | null;
-    expectedCtcInLpa?: number | null; noticePeriodDays?: number | null; sourceId?: string | null;
+    firstName: string;
+    lastName?: string | null;
+    /**
+     * Optional, because a candidate is identified by email OR phone. Most real intake —
+     * WhatsApp, walk-in, referral — arrives with a number and no address, and the API
+     * rejects only a record carrying neither.
+     */
+    email: string;
+    phone?: string | null;
+    currentEmployer?: string | null;
+    currentTitle?: string | null;
+    currentLocation?: string | null;
+    qualification?: string | null;
+    /** Seniority, from the same ladder a requisition picks from. */
+    employeeLevelId?: string | null;
+    totalExperienceMonths?: number | null;
+    /** What they earn now. `expectedCtcInLpa` is what they are asking for; both are LPA. */
+    currentCtcInLpa?: number | null;
+    expectedCtcInLpa?: number | null;
+    noticePeriodDays?: number | null;
+    sourceId?: string | null;
 }
 export interface ApplicationCreatePayload {
     applicantId?: string | null;
@@ -173,13 +214,8 @@ export interface StageMovePayload {
 }
 
 // ─── Applications ────────────────────────────────────────────────────────────
-export const getApplications = async (filters: { requisitionId?: string; statusId?: string; search?: string } = {}): Promise<Application[]> => {
-    const params = new URLSearchParams();
-    if (filters.requisitionId) params.set("requisitionId", filters.requisitionId);
-    if (filters.statusId) params.set("statusId", filters.statusId);
-    if (filters.search) params.set("search", filters.search);
-    const qs = params.toString();
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${qs ? `?${qs}` : ""}`);
+export const getApplications = async (filters: { requisitionId?: string; statusId?: string; search?: string } = {}, companyId?: string): Promise<Application[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${listQuery({ ...filters, companyId })}`);
     return data?.applications ?? [];
 };
 
@@ -281,9 +317,28 @@ export const linkConvertedEmployee = async (applicationId: string, employeeId: s
 };
 
 // ─── Applicants ──────────────────────────────────────────────────────────────
-export const getApplicants = async (search?: string): Promise<Applicant[]> => {
-    const qs = search ? `?search=${encodeURIComponent(search)}` : "";
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICANTS}${qs}`);
+/**
+ * Attach a resume to a candidate entered by hand.
+ *
+ * Multipart, because the file is the payload. The browser must set its own
+ * multipart boundary, so Content-Type is deliberately NOT specified here — naming it
+ * would send a boundary-less header and the server would reject every upload.
+ *
+ * The response carries the applicant with a short-lived signed URL already in
+ * resumeS3Url, so the caller can open what it just uploaded without a second request.
+ */
+export const uploadApplicantResume = async (applicantId: string, file: File): Promise<Applicant> => {
+    const form = new FormData();
+    form.append("resume", file);
+    const { data } = await axios.post(
+        `${API_BASE_URL}/${RECRUITMENT.UPLOAD_APPLICANT_RESUME.replace(":id", applicantId)}`,
+        form,
+    );
+    return data?.applicant;
+};
+
+export const getApplicants = async (search?: string, companyId?: string): Promise<Applicant[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICANTS}${listQuery({ search, companyId })}`);
     return data?.applicants ?? [];
 };
 
@@ -388,6 +443,12 @@ export const saveRecruitmentSettings = async (payload: Partial<RecruitmentSettin
 // ─── Interviews + scorecards (Phase 4) ───────────────────────────────────────
 export interface InterviewScorecard {
     id: string; interviewId: string; panelistId: string; overallRating: number; recommendation: string;
+    /**
+     * The vocabulary this card was scored under, frozen at submission. Read these
+     * rather than the template's: the template can be edited afterwards, and a Good
+     * on a three-point form must never be redisplayed as 3 out of 5.
+     */
+    ratingScale?: string | null; decisionSet?: string | null;
     factorScoresJson?: Record<string, number> | null; comments?: string | null; submittedAt: string;
 }
 export interface Interview {
@@ -399,11 +460,193 @@ export interface InterviewPayload {
     applicationId: string; round?: number; type?: string; mode?: string;
     scheduledStart: string; scheduledEnd: string; meetingLink?: string | null; location?: string | null; panelistIds: string[];
 }
+
+
+// ─── HR tracker import ───────────────────────────────────────────────────────
+export type TrackerSheet = "candidates" | "requisitions";
+
+export interface RowIssue { level: "error" | "warning"; field: string; message: string }
+
+/** One row as the server resolved it, with everything it found wrong. */
+export interface ImportRow {
+    importable: boolean;
+    issues: RowIssue[];
+    mapped: {
+        sourceRef?: string | null;
+        applicant?: { firstName: string; lastName?: string | null; phone?: string | null };
+        application?: { positionName?: string | null; statusName?: string | null };
+        positionName?: string | null;
+        headcount?: number;
+    };
+}
+
+export interface ImportPreview {
+    sheet: TrackerSheet;
+    /** Which line the header was found on — a mis-read shows up here before anyone commits. */
+    headerLine: number;
+    headers: string[];
+    preview: {
+        total: number;
+        importable: number;
+        blocked: number;
+        withWarnings?: number;
+        rows: ImportRow[];
+        questions?: {
+            ambiguousNames: { name: string; employeeIds: string[]; employees: { id: string; label: string }[] }[];
+            unmappedStatuses: { value: string; rowCount: number }[];
+        };
+    };
+}
+
+export interface ImportAnswers {
+    nameOverrides?: Record<string, string>;
+    statusAliases?: Record<string, string>;
+}
+
+/** Answers ride as a JSON field because the request is a file upload. */
+const importForm = (file: File, answers?: ImportAnswers): FormData => {
+    const form = new FormData();
+    form.append("file", file);
+    if (answers && (answers.nameOverrides || answers.statusAliases)) {
+        form.append("answers", JSON.stringify(answers));
+    }
+    return form;
+};
+
+/** Reads the file and reports. Writes nothing. */
+export const previewTrackerImport = async (sheet: TrackerSheet, file: File, answers?: ImportAnswers): Promise<ImportPreview> => {
+    const { data } = await axios.post(
+        `${API_BASE_URL}/${RECRUITMENT.IMPORT_PREVIEW.replace(":sheet", sheet)}`,
+        importForm(file, answers),
+    );
+    return data;
+};
+
+export const executeTrackerImport = async (sheet: TrackerSheet, file: File, answers?: ImportAnswers) => {
+    const { data } = await axios.post(
+        `${API_BASE_URL}/${RECRUITMENT.IMPORT_EXECUTE.replace(":sheet", sheet)}`,
+        importForm(file, answers),
+    );
+    return data?.result;
+};
+// ─── Scorecard templates (the interview rubric) ──────────────────────────────
+
+/**
+ * The rubric vocabularies. These SHAPES are declared here; the VALUES are never
+ * authored on the client — every scale and decision set arrives from the API,
+ * whose registry (utils/scorecardRubric.ts) is the only definition of what is
+ * valid. A hardcoded list here would be a second source of truth, and the one
+ * users see, so it would win arguments it should lose.
+ */
+export interface RatingLevel {
+    value: number;
+    label: string;
+}
+export interface RatingScale {
+    id: string;
+    label: string;
+    min: number;
+    max: number;
+    /** Present when the scale is worded (Good / Average / Poor) rather than numeric. */
+    levels?: RatingLevel[];
+}
+export type DecisionOutcome = "ADVANCE" | "HOLD" | "REJECT";
+export interface DecisionOption {
+    value: string;
+    label: string;
+    outcome: DecisionOutcome;
+}
+export interface DecisionSet {
+    id: string;
+    label: string;
+    options: DecisionOption[];
+}
+/** What a scorecard dialog needs in order to render itself. */
+export interface ResolvedRubric {
+    template: ScorecardTemplate | null;
+    scale: RatingScale;
+    decisions: DecisionSet;
+}
+export interface ScorecardFactor {
+    id: string;
+    label: string;
+    /** Relative weight; the panel score normalises by the sum, so these need not total anything. */
+    weight: number | string;
+    sortOrder: number;
+}
+export interface ScorecardTemplate {
+    id: string;
+    name: string;
+    designationId?: string | null;
+    isDefault: boolean;
+    isActive: boolean;
+    /** Registry ids. Null means the server default — not "no scale". */
+    ratingScale?: string | null;
+    decisionSet?: string | null;
+    factors: ScorecardFactor[];
+}
+export interface ScorecardTemplatePayload {
+    name?: string;
+    designationId?: string | null;
+    isDefault?: boolean;
+    isActive?: boolean;
+    ratingScale?: string | null;
+    decisionSet?: string | null;
+    /** Sent whole — the API replaces the factor set rather than diffing it. */
+    factors?: { label: string; weight?: number; sortOrder?: number }[];
+}
+
+export interface ScorecardTemplateList {
+    templates: ScorecardTemplate[];
+    /** The ids the API accepts, so the editor cannot offer one it would reject. */
+    scales: RatingScale[];
+    decisionSets: DecisionSet[];
+}
+export const getScorecardTemplates = async (): Promise<ScorecardTemplateList> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATES}`);
+    return {
+        templates: data?.templates ?? [],
+        scales: data?.rubricOptions?.scales ?? [],
+        decisionSets: data?.rubricOptions?.decisionSets ?? [],
+    };
+};
+export const createScorecardTemplate = async (payload: ScorecardTemplatePayload) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATES}`, payload);
+    return data;
+};
+export const updateScorecardTemplate = async (id: string, payload: ScorecardTemplatePayload) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATE_BY_ID.replace(":id", id)}`, payload);
+    return data;
+};
+export const deleteScorecardTemplate = async (id: string) => {
+    const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATE_BY_ID.replace(":id", id)}`);
+    return data;
+};
+
+/**
+ * The rubric to show for one interview: the criteria, and the vocabulary to score
+ * them in. A null template is an ordinary answer, not an error — an interview with
+ * no matching template still records an overall rating, and the server still says
+ * which scale and decisions apply to it.
+ */
+export const getScorecardTemplateForInterview = async (interviewId: string): Promise<ResolvedRubric> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.SCORECARD_TEMPLATE_FOR_INTERVIEW.replace(":id", interviewId)}`);
+    return { template: data?.template ?? null, scale: data?.rubric?.scale, decisions: data?.rubric?.decisions };
+};
 export interface ScorecardPayload {
     overallRating: number; recommendation: string; factorScores?: Record<string, number> | null; comments?: string | null;
 }
 export interface EvaluationAggregate {
-    scorecardCount: number; averageOverall: number | null; recommendation: string | null; byRecommendation: Record<string, number>;
+    scorecardCount: number;
+    /** In scale units. Null when the panel used more than one scale. */
+    averageOverall: number | null;
+    /** Which scale averageOverall is in, so it renders as "2/3" and not "2/5". */
+    ratingScale: string | null;
+    /** Mean position 0..1 within each card's own scale — always comparable. */
+    averagePercent: number | null;
+    /** The panel verdict by meaning, so it survives a vocabulary change. */
+    verdict: "ADVANCE" | "HOLD" | "REJECT" | "MIXED" | null;
+    byRecommendation: Record<string, number>;
 }
 
 export const getApplicationInterviews = async (applicationId: string): Promise<Interview[]> => {
@@ -479,8 +722,8 @@ export interface PostingPayload {
     showSalary?: boolean;
 }
 
-export const getPostings = async (): Promise<JobPosting[]> => {
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_POSTINGS}`);
+export const getPostings = async (companyId?: string): Promise<JobPosting[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_POSTINGS}${listQuery({ companyId })}`);
     return data?.postings ?? [];
 };
 export const createPosting = async (payload: PostingPayload) => {
@@ -524,11 +767,7 @@ export interface RecruitmentOverview {
     range: { from: string | null; to: string | null };
 }
 
-export const getRecruitmentOverview = async (range: { from?: string; to?: string } = {}): Promise<RecruitmentOverview | null> => {
-    const qs = new URLSearchParams();
-    if (range.from) qs.set("from", range.from);
-    if (range.to) qs.set("to", range.to);
-    const suffix = qs.toString() ? `?${qs}` : "";
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_OVERVIEW}${suffix}`);
+export const getRecruitmentOverview = async (range: { from?: string; to?: string } = {}, companyId?: string): Promise<RecruitmentOverview | null> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_OVERVIEW}${listQuery({ ...range, companyId })}`);
     return data?.overview ?? null;
 };

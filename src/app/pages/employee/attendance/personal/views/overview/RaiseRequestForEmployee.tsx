@@ -442,13 +442,22 @@
 
 // export default RaiseRequestForEmployee;
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import { WtButton } from "@app/modules/common/components/ui/tw/Buttons";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import TimePickerInput from "@app/modules/common/inputs/TimeInput";
 import { RootState } from "@redux/store";
 import { createUpdateAttendanceRequest, fetchAllEmployees, getAllKpiFactors, createKpiScore } from "@services/employee";
 import { fetchWorkingMethods } from "@services/options";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
-import { isValidTime } from "@utils/statistics";
+// The ONE rule set for what makes a correction request valid — shared with the
+// employee's own correction form in the attendance calendar.
+import {
+  TIME_24H,
+  validateAttendanceRequest,
+  wantsCheckIn,
+  wantsCheckOut,
+  type RequestKind,
+} from "@app/modules/common/components/attendance/attendanceRequest";
 import dayjs from "dayjs";
 import { Formik, useField } from "formik";
 import { useState, useEffect, useMemo } from "react";
@@ -609,6 +618,10 @@ const RaiseRequestForEmployee = ({
   const initialValues = useMemo(() => {
     return {
       employeeId: "",
+      // Which punch(es) this request is for. `both` keeps the existing
+      // behaviour as the default — an admin adding a whole missing day should
+      // still file one request, not two.
+      kind: "both",
       checkIn: "",
       checkOut: "",
       workingMethodId: "",
@@ -617,12 +630,39 @@ const RaiseRequestForEmployee = ({
     };
   }, []);
 
+  /**
+   * The schema required BOTH times while `handleSubmit` below is written
+   * end-to-end for either-or — it has an "at least one" guard, formats each
+   * time only `if` present, and sends `checkIn: ... || null`. The schema won,
+   * so that guard could never run and an admin simply could not raise a
+   * check-in-only correction: the form refused before the handler was reached.
+   *
+   * What is required now follows the chosen kind, which is what the handler
+   * always assumed. `both` stays the default, so an admin filling in a whole
+   * missing day still does it in one request rather than two.
+   */
+  // Sourced from the shared module, not restated here. Three local copies of
+  // "what does this kind want" is exactly how this form's schema came to
+  // disagree with its own submit handler.
+  const TIME_FORMAT = TIME_24H;
+
   const validationSchema = Yup.object({
     employeeId: Yup.string().required("Employee is required"),
-    checkIn: Yup.string()
-      .matches(/^([01]\d|2[0-3]):([0-5]\d)$/, "Time must be in 24h format HH:mm").required("Check In Time is required"),
-    checkOut: Yup.string()
-      .matches(/^([01]\d|2[0-3]):([0-5]\d)$/, "Time must be in 24h format HH:mm").required("Check Out Time is required"),
+    kind: Yup.string().oneOf(["both", "checkin", "checkout"]).required(),
+    checkIn: Yup.string().matches(TIME_FORMAT, {
+      message: "Time must be in 24h format HH:mm",
+      excludeEmptyString: true,
+    }).when("kind", {
+      is: wantsCheckIn,
+      then: (s) => s.required("Check In Time is required"),
+    }),
+    checkOut: Yup.string().matches(TIME_FORMAT, {
+      message: "Time must be in 24h format HH:mm",
+      excludeEmptyString: true,
+    }).when("kind", {
+      is: wantsCheckOut,
+      then: (s) => s.required("Check Out Time is required"),
+    }),
     workingMethodId: Yup.string().required("Working Method is required"),
     remarks: Yup.string().required("Remarks are required"),
     status: Yup.string().required("Status is required"),
@@ -643,41 +683,35 @@ const RaiseRequestForEmployee = ({
         return;
       }
 
-      // Validate at least one time is provided
-      if (!values.checkIn && !values.checkOut) {
-        errorConfirmation("Please provide at least Check In or Check Out time.");
+      // The SHARED rules — the same call the employee's correction form makes,
+      // so the two cannot disagree about what a valid request is. The Yup
+      // schema above still drives the inline per-field messages; this is the
+      // authority that decides whether the payload is built.
+      const problem = validateAttendanceRequest({
+        kind: values.kind as RequestKind,
+        checkIn: values.checkIn ?? "",
+        checkOut: values.checkOut ?? "",
+        workingMethodId: values.workingMethodId ?? "",
+        remarks: values.remarks ?? "",
+      });
+      if (problem) {
+        errorConfirmation(problem);
         return;
       }
 
       const formattedDate = dayjs(selectedDate).format("YYYY-MM-DD");
       const updatedValues = { ...values };
 
-      // Validate & format Check-In
+      // Format only — the shared validator above has already established that
+      // any time present here is a well-formed HH:mm and correctly ordered.
       if (values.checkIn) {
-        if (!isValidTime(values.checkIn)) {
-          errorConfirmation("Enter Check In in HH:MM (24 hr format)");
-          return;
-        }
         const checkInUTC = dayjs(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm").toISOString();
         updatedValues.checkIn = checkInUTC;
       }
 
-      // Validate & format Check-Out
       if (values.checkOut) {
-        if (!isValidTime(values.checkOut)) {
-          errorConfirmation("Enter Check Out in HH:MM (24 hr format)");
-          return;
-        }
         const checkOutUTC = dayjs(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm").toISOString();
         updatedValues.checkOut = checkOutUTC;
-      }
-
-      // Validate time sequence
-      if (updatedValues.checkIn && updatedValues.checkOut) {
-        if (!dayjs(updatedValues.checkOut).isAfter(dayjs(updatedValues.checkIn))) {
-          errorConfirmation("Check Out must be after Check In");
-          return;
-        }
       }
 
       // Final payload
@@ -823,25 +857,73 @@ const RaiseRequestForEmployee = ({
                   )}
                 </div>
 
-                {/* Check In Time */}
+                {/* What is being corrected. Asked BEFORE the times, because it
+                    decides which of them the form needs — the same order the
+                    employee's own correction flow uses. Switching clears the
+                    field that is no longer part of the request, so a value typed
+                    and then excluded can never be submitted. */}
                 <div className="col-lg mb-5">
-                  <TimePickerInput
-                    isRequired={true}
-                    label="Check In (24 hr HH:MM)"
-                    formikField="checkIn"
-                    placeholder="HH MM"
-                  />
+                  <label className="form-label required">What are you correcting?</label>
+                  <div className="d-flex flex-wrap gap-2">
+                    {([
+                      { value: "both", label: "Both" },
+                      { value: "checkin", label: "Check-in only" },
+                      { value: "checkout", label: "Check-out only" },
+                    ] as const).map((opt) => {
+                      const active = formikProps.values.kind === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => {
+                            formikProps.setFieldValue("kind", opt.value);
+                            if (!wantsCheckIn(opt.value as RequestKind)) formikProps.setFieldValue("checkIn", "");
+                            if (!wantsCheckOut(opt.value as RequestKind)) formikProps.setFieldValue("checkOut", "");
+                          }}
+                          style={{
+                            border: `1px solid ${active ? "#1E3A8A" : "#E5E7EB"}`,
+                            background: active ? "#1E3A8A" : "#ffffff",
+                            color: active ? "#ffffff" : "#334155",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            padding: "7px 14px",
+                            cursor: "pointer",
+                            // Bootstrap Reboot's unlayered `button { border-radius: 0 }`
+                            // outranks any class, so the radius has to be inline.
+                            borderRadius: 8,
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
+                {/* Check In Time */}
+                {wantsCheckIn(formikProps.values.kind as RequestKind) && (
+                  <div className="col-lg mb-5">
+                    <TimePickerInput
+                      isRequired={true}
+                      label="Check In (24 hr HH:MM)"
+                      formikField="checkIn"
+                      placeholder="HH MM"
+                    />
+                  </div>
+                )}
+
                 {/* Check Out Time */}
-                <div className="col-lg mb-5">
-                  <TimePickerInput
-                    isRequired={true}
-                    label="Check Out (24 hr HH:MM)"
-                    formikField="checkOut"
-                    placeholder="HH MM"
-                  />
-                </div>
+                {wantsCheckOut(formikProps.values.kind as RequestKind) && (
+                  <div className="col-lg mb-5">
+                    <TimePickerInput
+                      isRequired={true}
+                      label="Check Out (24 hr HH:MM)"
+                      formikField="checkOut"
+                      placeholder="HH MM"
+                    />
+                  </div>
+                )}
 
                 {/* Working Method */}
                 <div className="col-lg mb-5">
@@ -876,23 +958,21 @@ const RaiseRequestForEmployee = ({
                   />
                 </div>
 
-                {/* Submit Button */}
-                <div className="d-flex justify-content-end mt-4">
-                  <button
-                    type="button"
-                    className="btn btn-secondary me-3"
-                    onClick={onHide}
-                  >
+                {/* Both actions come from the kit now. `btn btn-secondary` is
+                    Bootstrap's grey-blue, which sat beside the navy primary
+                    looking like a third, unrelated colour — and the primary was
+                    a Bootstrap button with the brand hex hand-painted onto it,
+                    so neither followed the theme. */}
+                <div className="d-flex justify-content-end gap-2 mt-4">
+                  <WtButton ghost onClick={onHide}>
                     Cancel
-                  </button>
-                  <button
+                  </WtButton>
+                  <WtButton
                     type="submit"
                     disabled={formikProps.isSubmitting}
-                    className="btn btn-primary"
-                    style={{ backgroundColor: "#1E3A8A", borderColor: "#1E3A8A" }}
                   >
                     {formikProps.isSubmitting ? "Saving..." : "Raise Request"}
-                  </button>
+                  </WtButton>
                 </div>
               </Box>
             )}

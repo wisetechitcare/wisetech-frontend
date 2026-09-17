@@ -11,10 +11,11 @@ import {
 } from "@app/modules/common/components/ui";
 import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
 import { queryKeys } from "@/lib/queryKeys";
+import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
 import {
     getRequisitions, createRequisition, updateRequisition, archiveRequisition, submitRequisitionApproval,
     getRequisitionStages,
-    type JobRequisition, type RequisitionPayload,
+    type JobRequisition, type RequisitionPayload, type OrgScoped,
 } from "@services/recruitment";
 
 const STATUS_META: Record<number, { label: string; tone: SemanticTone }> = {
@@ -27,6 +28,7 @@ const emptyForm = (): RequisitionPayload => ({
     title: "",
     jobDescription: "",
     headcount: 1,
+    employeeLevelId: null,
     hiringManagerId: "",
     recruiterId: "",
     minCtcInLpa: null,
@@ -60,15 +62,16 @@ const MetaPill = ({ text }: { text: string }) => (
     </Box>
 );
 
-const RequisitionsView = () => {
+const RequisitionsView = ({ companyId }: OrgScoped) => {
+    const { levels, isEmpty: noLevels } = useEmployeeLevels();
     const qc = useQueryClient();
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<JobRequisition | null>(null);
     const [form, setForm] = useState<RequisitionPayload>(emptyForm());
 
     const { data: requisitions = [], isLoading } = useQuery({
-        queryKey: queryKeys.recruitment.requisitions(),
-        queryFn: getRequisitions,
+        queryKey: queryKeys.recruitment.requisitions(companyId),
+        queryFn: () => getRequisitions(companyId),
     });
     const { data: stages = [] } = useQuery({
         queryKey: queryKeys.recruitment.requisitionStages(),
@@ -112,6 +115,7 @@ const RequisitionsView = () => {
             title: r.title,
             jobDescription: r.jobDescription ?? "",
             headcount: r.headcount ?? 1,
+            employeeLevelId: r.employeeLevelId ?? null,
             hiringManagerId: r.hiringManagerId ?? "",
             recruiterId: r.recruiterId ?? "",
             minCtcInLpa: r.minCtcInLpa == null ? null : Number(r.minCtcInLpa),
@@ -286,6 +290,18 @@ const RequisitionsView = () => {
                                 value={form.targetStartDate}
                                 onChange={(v) => setForm({ ...form, targetStartDate: v || null })}
                             />
+                            {/* Same ladder the candidate form reads. A level comparison between
+                                the two sides only means anything if both picked from one list. */}
+                            {!noLevels && (
+                                <TextField
+                                    select label="Seniority" size="small" sx={{ flex: 1 }}
+                                    value={form.employeeLevelId ?? ""}
+                                    onChange={(e) => setForm({ ...form, employeeLevelId: e.target.value || null })}
+                                >
+                                    <MenuItem value="">— Not set —</MenuItem>
+                                    {levels.map((l) => <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>)}
+                                </TextField>
+                            )}
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <TextField

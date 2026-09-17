@@ -11,7 +11,7 @@ import {
 import { queryKeys } from "@/lib/queryKeys";
 import {
     getPostings, createPosting, updatePosting, deletePosting, getRequisitions,
-    type JobPosting, type PostingPayload, type JobRequisition,
+    type JobPosting, type PostingPayload, type JobRequisition, type OrgScoped,
 } from "@services/recruitment";
 
 // The candidate-facing careers page lives on the marketing site; recruiters share this URL.
@@ -29,16 +29,16 @@ const MetaPill = ({ text }: { text: string }) => (
     </Box>
 );
 
-const PostingsView = () => {
+const PostingsView = ({ companyId }: OrgScoped) => {
     const qc = useQueryClient();
     const [open, setOpen] = useState(false);
     const [form, setForm] = useState<PostingPayload>(emptyForm());
 
-    const { data: postings = [], isLoading } = useQuery({ queryKey: queryKeys.recruitment.postings(), queryFn: getPostings });
-    const { data: requisitions = [] } = useQuery({ queryKey: queryKeys.recruitment.requisitions(), queryFn: getRequisitions });
+    const { data: postings = [], isLoading } = useQuery({ queryKey: queryKeys.recruitment.postings(companyId), queryFn: () => getPostings(companyId) });
+    const { data: requisitions = [] } = useQuery({ queryKey: queryKeys.recruitment.requisitions(companyId), queryFn: () => getRequisitions(companyId) });
     const approved = useMemo(() => requisitions.filter((r: JobRequisition) => r.status === 1), [requisitions]);
 
-    const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.recruitment.postings() });
+    const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.recruitment.postings(companyId) });
 
     const createMut = useMutation({
         mutationFn: () => createPosting(form),

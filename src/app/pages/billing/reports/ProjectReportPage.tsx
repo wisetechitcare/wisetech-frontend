@@ -133,7 +133,7 @@ const ProjectReportPage: React.FC = () => {
             columns={columns}
             getRowId={(row) => row.id}
             loading={isLoading}
-            onRowClick={(row) => navigate(`/billing/operations/${row.id}`)}
+            onRowClick={(row) => navigate(`/billing/tracker/${row.id}`)}
             emptyTitle="No billing history"
             emptyDescription="This project has no approved billing requests yet."
             minWidth={1100}

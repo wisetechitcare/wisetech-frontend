@@ -124,6 +124,15 @@ export const BILLING_STATUS_TONES: Record<string, SemanticTone> = {
   PROFORMA_SENT: "indigo",
   CLIENT_VIEWED: "indigo",
   ON_HOLD: "warning",
+  // Billing Operations STAGE — the four bands, same tones the statuses above
+  // follow, so the Stage column and the Status column agree at a glance. These
+  // mirror the server's own defaults (`services/billing/statusLabels.ts`
+  // DEFAULT_TONE); Configure overrides both, this is only what shows while the
+  // config is still on the wire.
+  PROFORMA: "indigo",
+  PAYMENT: "warning",
+  INVOICE: "cyan",
+  CLOSED: "success",
 };
 
 /**

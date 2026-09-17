@@ -1,6 +1,5 @@
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Spinner } from "react-bootstrap";
 import { fetchSubCompaniesByCompanyId, deleteSubCompany } from "@services/company";
 import SubCompanyForm from "./SubCompanryForm";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -55,7 +54,19 @@ interface SubCompany {
   subClientType: any;
 }
 
-const SubCompanies = ({companyId, companyTypeId}: {companyId: string; companyTypeId?: string}) => {
+const SubCompanies = ({
+  companyId,
+  companyTypeId,
+  addRequested,
+  onAddHandled,
+}: {
+  companyId: string;
+  companyTypeId?: string;
+  /** Raised by the page header's create button. */
+  addRequested?: boolean;
+  /** Called once the form is open, so the header can lower the request. */
+  onAddHandled?: () => void;
+}) => {
   const [showModal, setShowModal] = useState(false);
   const [subCompanies, setSubCompanies] = useState<SubCompany[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -107,6 +118,15 @@ const SubCompanies = ({companyId, companyTypeId}: {companyId: string; companyTyp
     fetchSubCompanies();
     handleCloseModal();
   };
+
+  // The create button lives in the page header (beside Add New), so the request to open
+  // this tab's form arrives as a prop rather than a click in here.
+  useEffect(() => {
+    if (!addRequested) return;
+    setEditingSubCompanyId(null);
+    setShowModal(true);
+    onAddHandled?.();
+  }, [addRequested]);
 
   const handleDelete = async (subCompany: SubCompany) => {
     try {
@@ -292,13 +312,6 @@ const SubCompanies = ({companyId, companyTypeId}: {companyId: string; companyTyp
 
   return (
     <div className="p-4">
-      <div className="d-flex justify-content-end align-items-center mb-4">
-        {/* <h5 className="mb-0">Sub-Companies ({subCompanies.length})</h5> */}
-        <Button variant="primary" onClick={() => setShowModal(true)}>
-          Add New Sub-Company
-        </Button>
-      </div>
-
       <MaterialTable
         columns={columns}
         data={subCompanies}

@@ -202,7 +202,7 @@ const PaymentCollectionPage: React.FC = () => {
         action={
           <WtButton
             ghost size="small"
-            onClick={() => navigate("/billing/operations")}
+            onClick={() => navigate("/billing/tracker")}
             startIcon={<KTIcon iconName="chart-simple" className="fs-6" />}
             sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
           >

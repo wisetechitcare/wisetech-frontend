@@ -23,6 +23,7 @@ import { ToneChip } from '@app/modules/common/components/ui/chips';
 import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 import { tonePair, type SemanticTone } from '@app/theme/tokens';
 import { CircularProgress } from '@mui/material';
+import { formatTime } from '@utils/dateFormats';
 
 // A single leave segment within a multi-segment (sandwich) group request — one LeaveTracker row.
 type LeaveSegment = {
@@ -112,10 +113,11 @@ function formatDateWithDay(dateStr?: string | null): string {
   return new Date(dateStr).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// Time-only, e.g. "09:15 AM". Used for attendance punches where the time matters.
+// Time-only, e.g. "9:15 AM" or "09:15". Used for attendance punches where the time
+// matters — rendered in whichever format the viewer reads.
 function formatTimeOnly(dateStr?: string | null): string {
   if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return formatTime(dateStr);
 }
 
 // Worked span between check-in and check-out, e.g. "8h 45m". Empty if either is missing.

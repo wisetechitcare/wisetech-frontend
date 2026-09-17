@@ -460,9 +460,6 @@ function CalendarConfigure() {
     <>
       <Box className="cfg-fade-in" sx={{ py: 3, backgroundColor: C.bgPage }}>
         <ConfigPageLayout
-          title="Calendar Configuration"
-          subtitle="Manage event visibility, public holidays and weekend schedules"
-          icon="bi-calendar3"
           tabs={TABS}
           activeTab={activeTab}
           onTabChange={setActiveTab}
