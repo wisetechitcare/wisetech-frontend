@@ -40,7 +40,7 @@ const BillingRequestDetailDialog: React.FC<{
       header={
         <GlassHeader
           title={request ? request.requestNumber : "Billing Request"}
-          icon={<KTIcon iconName="dollar" className="fs-2" />}
+          icon={<KTIcon iconName="wallet" className="fs-2" />}
           onClose={onClose}
         />
       }

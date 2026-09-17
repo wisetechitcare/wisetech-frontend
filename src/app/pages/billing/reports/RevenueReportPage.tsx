@@ -13,6 +13,7 @@ import ReportExportToolbar from "./shared/ReportExportToolbar";
 import ColumnSelector, { useColumnVisibility } from "./shared/ColumnSelector";
 import SavedFiltersMenu from "./shared/SavedFiltersMenu";
 import { useSavedFilters } from "./shared/useSavedFilters";
+import { CurrencySymbol } from "@app/modules/common/components/ui";
 
 const PAGE_SIZE = 25;
 
@@ -125,7 +126,7 @@ const RevenueReportPage: React.FC = () => {
       />
 
       <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-        <BillingStatsCard label="Total Revenue" icon="dollar" trio={TRIO.green} value={formatCurrencyDecimal(stats?.totalRevenue ?? 0)} />
+        <BillingStatsCard label="Total Revenue" icon={<CurrencySymbol />} trio={TRIO.green} value={formatCurrencyDecimal(stats?.totalRevenue ?? 0)} />
         <BillingStatsCard label="This Month" icon="calendar" trio={TRIO.blue} value={formatCurrencyDecimal(stats?.revenueThisMonth ?? 0)} />
         <BillingStatsCard label="This Year" icon="calendar-tick" trio={TRIO.purple} value={formatCurrencyDecimal(stats?.revenueThisYear ?? 0)} />
         <BillingStatsCard label="Avg Invoice" icon="chart-pie-simple" trio={TRIO.amber} value={formatCurrencyDecimal(stats?.averageInvoiceValue ?? 0)} />

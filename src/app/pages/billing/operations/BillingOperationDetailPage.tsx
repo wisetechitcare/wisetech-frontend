@@ -306,7 +306,7 @@ const BillingOperationDetailPage: React.FC = () => {
         {/* ── Right column: money, due, workflow action ─────────────────────── */}
         <Stack spacing={2} sx={{ position: { lg: "sticky" }, top: { lg: 16 } }}>
           <GlassCard sx={{ p: 2 }}>
-            <PanelTitle icon="dollar" title="Financial Summary" />
+            <PanelTitle icon="wallet" title="Financial Summary" />
             <Stack spacing={0.5}>
               <Figure label="Contract Value" value={formatCurrencyDecimal(financial.contractValue)} />
               <Figure label="Billing Request" value={formatCurrencyDecimal(financial.billingRequestAmount)} />

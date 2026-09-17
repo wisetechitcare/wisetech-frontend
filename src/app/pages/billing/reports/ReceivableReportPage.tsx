@@ -11,6 +11,7 @@ import ReportFilterBar, { EMPTY_REPORT_FILTERS, type ReportFilterValues } from "
 import ReportExportToolbar from "./shared/ReportExportToolbar";
 import SavedFiltersMenu from "./shared/SavedFiltersMenu";
 import { useSavedFilters } from "./shared/useSavedFilters";
+import { CurrencySymbol } from "@app/modules/common/components/ui";
 
 const PAGE_SIZE = 25;
 
@@ -84,7 +85,7 @@ const ReceivableReportPage: React.FC = () => {
       />
 
       <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-        <BillingStatsCard label="Receivable Amount" icon="dollar" trio={TRIO.amber} value={formatCurrencyDecimal(stats?.receivableAmount ?? 0)} />
+        <BillingStatsCard label="Receivable Amount" icon={<CurrencySymbol />} trio={TRIO.amber} value={formatCurrencyDecimal(stats?.receivableAmount ?? 0)} />
         <BillingStatsCard label="Pending Billing" icon="document" trio={TRIO.blue} value={stats?.pendingBillingCount ?? 0} />
         <BillingStatsCard label="Pending Proformas" icon="send" trio={TRIO.purple} value={stats?.pendingProformaCount ?? 0} />
         <BillingStatsCard label="Pending Payments" icon="wallet" trio={TRIO.rose} value={stats?.pendingPaymentCount ?? 0} />

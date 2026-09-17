@@ -19,7 +19,8 @@ import { useBillingLabels } from "./useBillingLabels";
 export interface BillingStatsCardProps {
   label: string;
   value: React.ReactNode;
-  icon: string;
+  /** A keenicon name, or a node — pass `<CurrencySymbol />` for a money tile. */
+  icon: React.ReactNode;
   trio?: Trio;
   /** Small muted line under the value — a period, a comparison, a hint. */
   hint?: string;

@@ -100,7 +100,7 @@ const PaymentDetailPage: React.FC = () => {
   return (
     <Box sx={{ maxWidth: 1700, mx: "auto", pb: 4 }}>
       <BillingPageHeader
-        icon="dollar"
+        icon="wallet"
         trio={TRIO.green}
         title={collection.operationNumber}
         description={`${project?.name ?? "—"} · ${collection.requestNumber}${proforma ? ` · ${proforma.documentNumber}` : ""}`}
@@ -303,7 +303,7 @@ const PaymentDetailPage: React.FC = () => {
         {/* ── Right: financial + outstanding + due ───────────────────────────── */}
         <Stack spacing={2} sx={{ position: { lg: "sticky" }, top: { lg: 16 } }}>
           <GlassCard sx={{ p: 2 }}>
-            <PanelTitle icon="dollar" title="Financial Summary" />
+            <PanelTitle icon="wallet" title="Financial Summary" />
             <Stack spacing={0.5}>
               <Figure label="Contract Value" value={formatCurrencyDecimal(financial.contractValue ?? 0)} />
               <Figure label="Billing Request" value={formatCurrencyDecimal(financial.billingRequestAmount)} />

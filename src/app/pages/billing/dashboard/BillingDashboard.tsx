@@ -10,6 +10,7 @@ import {
   BillingStatsCard, BillingStatusBadge, BillingPageHeader, BillingEmptyState, BillingLoadingState,
 } from "../components";
 import { BILLING_BASE } from "../constants/billingNav";
+import { CurrencySymbol } from "@app/modules/common/components/ui";
 
 /**
  * Billing dashboard.
@@ -91,7 +92,7 @@ const BillingDashboard: React.FC = () => {
           hint={formatCurrencyDecimal(stats.readyForProformaValue)} onClick={go("accounts")}
         />
         <BillingStatsCard
-          label="Total Requested" icon="dollar" trio={TRIO.purple}
+          label="Total Requested" icon={<CurrencySymbol />} trio={TRIO.purple}
           value={formatCurrencyDecimal(stats.requestedValue)} loading={isLoading}
           hint="Across all billing requests"
         />

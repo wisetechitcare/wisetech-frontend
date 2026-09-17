@@ -9,6 +9,7 @@ import GridOnIcon from "@mui/icons-material/GridOn";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import PrintIcon from "@mui/icons-material/Print";
 import ExportButton, { exportXlsx, exportCsv, type ExportColumn } from "@app/modules/common/components/ExportButton";
+import { getCurrencySymbol, getCurrencyLocale } from "@utils/currency";
 
 /**
  * Export + print, shared by every report page.
@@ -58,7 +59,7 @@ async function exportPdf<T>(data: T[], columns: ExportColumn<T>[], filename: str
       const raw = getRaw(row, col);
       if (col.format) return col.format(raw, row);
       if (raw === null || raw === undefined || raw === "") return "-";
-      if (col.type === "currency") return `₹${Number(raw).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+      if (col.type === "currency") return `${getCurrencySymbol()}${Number(raw).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2 })}`;
       return String(raw);
     })),
     styles: { fontSize: 8, cellPadding: 3 },

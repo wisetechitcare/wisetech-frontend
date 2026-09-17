@@ -186,7 +186,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
     return (
         <Stack spacing={1.5} sx={{ maxWidth: 1600, mx: "auto" }}>
             <BillingPageHeader
-                icon="dollar"
+                icon="wallet"
                 trio={TRIO.green}
                 title="Project Billing"
                 description="This project's complete financial position, read from the Billing module."
@@ -205,7 +205,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
 
             {!readiness.hasBilling ? (
                 <BillingEmptyState
-                    icon="dollar"
+                    icon="wallet"
                     title="Nothing billed on this project yet"
                     description="Complete some billable deliverables in the Execution tab, then raise a billing request."
                     actionLabel="Raise Billing Request"
