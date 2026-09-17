@@ -19,7 +19,6 @@ import { useTableFilters } from "@app/hooks/useTableFilters";
 import { projectManagerIds } from "@app/pages/employee/entity/detail/entityViewModel";
 import { flexibleTextMatch, searchAcrossFields } from "@app/utils/robustSearch";
 import Loader from "@app/modules/common/utils/Loader";
-import { dateSortingFn } from "@app/modules/common/components/table/dateSort";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
@@ -47,7 +46,8 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
-import { formatCompactCurrency, getProjectPhase, isDelayedProject, projectNumberOf, PHASE_THEMES } from "../../entity/entityUtils";
+import { formatCompactCurrency, getProjectPhase, isDelayedProject, projectNumberOf } from "../../entity/entityUtils";
+import { buildProjectColumns, projectTableProps } from "./ProjectListTable";
 import PeriodNavigationButtons from "@pages/employee/leads/table/PeriodNavigationButtons";
 import "./ProjectTablePage.css";
 
@@ -457,244 +457,15 @@ const ProjectTablePage = () => {
   useEventBus(EVENT_KEYS.projectCreated, () => fetchAllData());
   useEventBus(EVENT_KEYS.projectUpdated, () => fetchAllData());
 
-  const columns = useMemo(() => {
-    const base: any[] = [
-      {
-        accessorKey: "projectStartDate",
-        header: "Start Date",
-        // Explicit defaultVisible:true — with the Inquiry Date column removed the
-        // preference reconciliation re-applies meta rules, forcing this column on
-        // even for users whose saved prefs still have it hidden.
-        meta: { defaultVisible: true },
-        size: 140,
-        enableSorting: true,
-        // "N/A" sorts as oldest so dated rows lead the default (desc) view, and
-        // same-date rows break the tie on project number instead of arriving in
-        // whatever order the DB returned. See dateSort.ts.
-        sortingFn: dateSortingFn,
-        Cell: ({ cell }: { cell: any }) => {
-          try {
-            const v = cell.getValue();
-            if (!v || v === "N/A") return "N/A";
-            const date = dayjs(v);
-            return date.isValid() ? date.format("DD-MM-YYYY") : "N/A";
-          } catch (err) {
-            return "N/A";
-          }
-        },
-      },
-      {
-        accessorKey: "projectPrefix",
-        header: "Project Number",
-        size: 220,
-        Cell: ({ row }: { row: any }) => (
-          <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
-            {row.original.projectPrefix || "N/A"}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "projectName",
-        header: "Project Name",
-        size: 360,
-        minSize: 360,
-        Cell: ({ cell }: { cell: any }) => {
-          const v = cell.getValue();
-          return (
-            <span style={{ whiteSpace: "nowrap" }}>
-              {typeof v === "object" ? JSON.stringify(v) : v || "N/A"}
-            </span>
-          );
-        },
-      },
-      {
-        accessorKey: "client",
-        header: "Client Company",
-        meta: { defaultVisible: false },
-        size: 150,
-        Cell: ({ cell }: { cell: any }) => {
-          const v = cell.getValue();
-          return typeof v === "object" ? v.name || "N/A" : v || "N/A";
-        },
-      },
-      {
-        accessorKey: "contact",
-        header: "Contact",
-        meta: { defaultVisible: false },
-        size: 150,
-        Cell: ({ cell }: { cell: any }) => {
-          const v = cell.getValue();
-          return typeof v === "object" ? v?.name || v?.email || "N/A" : v || "N/A";
-        },
-      },
-      {
-        accessorKey: "category",
-        header: "Category",
-        meta: { defaultVisible: false },
-        size: 150,
-        Cell: ({ cell }: { cell: any }) =>
-          projectCategories?.find((c: any) => c.id === cell.getValue())?.name || "N/A",
-      },
-      {
-        accessorKey: "subCategory",
-        header: "Subcategory",
-        meta: { defaultVisible: false },
-        size: 150,
-        Cell: ({ cell }: { cell: any }) =>
-          projectSubcategories?.find((s: any) => s.id === cell.getValue())?.name || "N/A",
-      },
-      {
-        accessorKey: "projectStatus",
-        header: "Project Status",
-        size: 150,
-        Cell: ({ row }: any) => {
-          const st = row?.original?.projectStatus;
-          return st?.name ? (
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              backgroundColor: st.color || '#64748B',
-              borderRadius: '16px', padding: '4px 10px 4px 8px',
-            }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#fff' }} />
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#fff' }}>{st.name}</span>
-            </div>
-          ) : (
-            "N/A"
-          );
-        },
-      },
-      {
-        accessorKey: "poStatus",
-        header: "PO Status",
-        meta: { defaultVisible: false },
-        size: 130,
-        Cell: ({ cell }: { cell: any }) => {
-          const poStatus = cell.getValue();
-          if (!poStatus) return "N/A";
-          const color = poStatus === "Received" ? "#28A745" : "#FFC107";
-          return (
-            <div className="badge badge-light" style={{ backgroundColor: color, color: poStatus === "Received" ? "white" : "#333" }}>
-              {poStatus}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "projectEndDate",
-        header: "End Date",
-        meta: { defaultVisible: false },
-        size: 150,
-        enableSorting: true,
-        sortingFn: dateSortingFn,
-        Cell: ({ row }: { row: any }) => {
-          try {
-            const v = row.original.projectEndDate;
-            if (!v || v === "N/A") return "N/A";
-            const date = dayjs(v);
-            if (!date.isValid()) return "N/A";
-            return (
-              <span style={{ color: row.original.isDelayed ? "#D92D20" : undefined, fontWeight: row.original.isDelayed ? 600 : undefined }}>
-                {date.format("DD-MM-YYYY")}
-                {row.original.isDelayed ? " ⚠" : ""}
-              </span>
-            );
-          } catch (err) {
-            return "N/A";
-          }
-        },
-      },
-      {
-        accessorKey: "duration",
-        header: "Timeline",
-        meta: { defaultVisible: false },
-        size: 120,
-        Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
-      },
-      {
-        accessorKey: "projectCost",
-        header: "Budget",
-        meta: { defaultVisible: false },
-        size: 130,
-        Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
-      },
-      {
-        accessorKey: "totalCost",
-        header: "Cost",
-        meta: { defaultVisible: false },
-        size: 130,
-        Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
-      },
-      {
-        accessorKey: "projectArea",
-        header: "Area",
-        meta: { defaultVisible: false },
-        size: 120,
-        Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? `${Number(cell.getValue()).toLocaleString()} SFT` : "N/A",
-      },
-      {
-        accessorKey: "projectRate",
-        header: "Rate",
-        meta: { defaultVisible: false },
-        size: 110,
-        Cell: ({ cell }: { cell: any }) => {
-          const v = Number(cell.getValue());
-          return v ? `₹${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "N/A";
-        },
-      },
-      {
-        accessorKey: "projectManagerId",
-        header: "Project Manager",
-        meta: { defaultVisible: true },
-        size: 160,
-        accessorFn: (row: any) => pmNames(row) || "",
-        Cell: ({ row }: { row: any }) => pmNames(row.original) || "N/A",
-      },
-      {
-        accessorKey: "projectTeamName",
-        header: "Team",
-        meta: { defaultVisible: false },
-        size: 140,
-        Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
-      },
-      {
-        accessorKey: "service",
-        header: "Service",
-        meta: { defaultVisible: false },
-        size: 150,
-        Cell: ({ cell }: { cell: any }) =>
-          projectServices?.find((s: any) => s.id === cell.getValue())?.name || "N/A",
-      },
-      {
-        accessorKey: "createdAt",
-        header: "Created Date",
-        meta: { defaultVisible: false },
-        size: 150,
-        Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
-      },
-      {
-        accessorKey: "updatedAt",
-        header: "Updated Date",
-        meta: { defaultVisible: false },
-        size: 150,
-        Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
-      },
-      {
-        accessorKey: "projectIsLive",
-        header: "Live",
-        meta: { defaultVisible: false },
-        size: 80,
-        Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? <span style={{ color: "#0A5C2A", fontWeight: 600 }}>Live</span> : <span style={{ color: "#64748B" }}>On Hold</span>,
-      },
-    ];
-
-    return base;
-  }, [projectServices, projectCategories, projectSubcategories, allemployees]);
+  const columns = useMemo(
+    () => buildProjectColumns({
+      categories: projectCategories,
+      subcategories: projectSubcategories,
+      services: projectServices,
+      pmNames,
+    }),
+    [projectServices, projectCategories, projectSubcategories, pmNames],
+  );
 
   const exportColumns = useMemo(
     () => [
@@ -826,11 +597,6 @@ const ProjectTablePage = () => {
         },
       },
     },
-  };
-
-  const rowBackground = (row: any) => {
-    const statusColor = row?.projectStatus?.color || row?.status?.color;
-    return statusColor ? `${statusColor}20` : "#F1F5F9";
   };
 
   return (
@@ -1138,57 +904,7 @@ const ProjectTablePage = () => {
         viewOthers={true}
         checkOwnWithOthers={true}
         onVisibleColumnsChange={handleVisibleColumnsChange}
-        enableColumnResizing={true}
-        layoutMode="semantic"
-        muiTableContainerProps={{
-          sx: { maxHeight: "700px", overflowX: "auto" },
-        }}
-        muiTableProps={{
-          sx: {
-            borderCollapse: "separate",
-            borderSpacing: "0 4px !important",
-            minWidth: "1600px",
-          },
-          muiTableBodyRowProps: ({ row }: any) => ({
-            sx: {
-              cursor: "pointer",
-              backgroundColor: rowBackground(row.original),
-              transition: "all 0.2s ease",
-              "& .MuiTableCell-root": {
-                fontSize: "15.5px",
-                fontFamily: "Inter",
-                fontWeight: "500",
-                padding: "4px 8px !important",
-                border: "none",
-                color: "#333",
-                whiteSpace: "nowrap",
-              },
-              "& .MuiTableCell-root:first-of-type": {
-                borderTopLeftRadius: "12px",
-                borderBottomLeftRadius: "12px",
-                borderLeft: `3px solid ${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A"} !important`,
-                transition: "border-color 0.2s ease-in-out !important",
-              },
-              "& .MuiTableCell-root:last-of-type": {
-                borderTopRightRadius: "12px",
-                borderBottomRightRadius: "12px",
-              },
-              "&:hover": {
-                backgroundColor: "#F8FAFC !important",
-                transform: "translateY(-2px)",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                "& .MuiTableCell-root": {
-                  backgroundColor: "#F8FAFC !important",
-                },
-                "& .MuiTableCell-root:first-of-type": {
-                  borderLeftColor: `${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A"} !important`,
-                },
-              },
-            },
-            // The path carries the project context — see the /project/:id route.
-            onClick: () => navigate(`/project/${row.original.id}`),
-          }),
-        }}
+        {...projectTableProps((row) => navigate(`/project/${row.id}`))}
       />
     </>
   );
