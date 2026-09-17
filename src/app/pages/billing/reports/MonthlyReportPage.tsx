@@ -69,7 +69,7 @@ const MonthlyReportPage: React.FC = () => {
         <BillingStatsCard label="Proformas" icon="send" trio={TRIO.purple} value={totals?.proformas ?? 0} />
         <BillingStatsCard label="Payments" icon="wallet" trio={TRIO.amber} value={totals?.payments ?? 0} />
         <BillingStatsCard label="Invoices" icon="receipt-cutoff" trio={TRIO.cyan} value={totals?.invoices ?? 0} />
-        <BillingStatsCard label="Revenue" icon="dollar" trio={TRIO.green} value={formatCurrencyDecimal(totals?.revenue ?? 0)} />
+        <BillingStatsCard label="Revenue" icon="wallet" trio={TRIO.green} value={formatCurrencyDecimal(totals?.revenue ?? 0)} />
       </Box>
 
       <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" } }}>

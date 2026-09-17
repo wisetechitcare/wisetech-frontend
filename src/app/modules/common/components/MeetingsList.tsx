@@ -10,6 +10,7 @@ import { mapsUrl } from '@app/pages/employee/meetingAddress';
 import {
     MEETING_HALF_PM, MEETING_HALF_FREE_COLOR, MEETING_HALF_AM,
     MEETING_STATUS_CANCELLED, MEETING_STATUS_AWAITING, MEETING_STATUS_HELD,
+    MEETING_TIMESHEET_FILLED, MEETING_TIMESHEET_PENDING,
 } from '@constants/configurations-key';
 import { Box, Dialog, DialogContent, useMediaQuery } from '@mui/material';
 import { MRT_ColumnDef } from 'material-react-table';
@@ -59,6 +60,8 @@ interface MeetingRow {
     /** Time actually logged against this meeting, and by how many people. 0 = unrecorded. */
     loggedMinutes?: number;
     loggedBy?: number;
+    /** Internal attendees who have not logged time yet. Absent on rows from an older server. */
+    pendingTimesheetNames?: string[];
     cancelReason?: string | null;
     /** The organizer. Who may edit or cancel is decided against this. */
     employeeId?: string;
@@ -219,6 +222,25 @@ const isHeld = (m: MeetingState) => m.lifecycle === 'COMPLETED';
 const isAwaitingTime = (m: MeetingState) => isHeld(m) && !(m.loggedMinutes ?? 0);
 
 /**
+ * A past meeting on the calendar: has every internal attendee logged their time?
+ * Null for meetings still to come, cancelled ones, and rows from a server that does not send
+ * the pending list — those keep their half-day colour rather than guessing.
+ */
+export const timesheetStateOf = (m: Pick<MeetingRow, 'lifecycle' | 'pendingTimesheetNames'>): 'filled' | 'pending' | null =>
+    (!isHeld(m) || !Array.isArray(m.pendingTimesheetNames)
+        ? null
+        : m.pendingTimesheetNames.length ? 'pending' : 'filled');
+
+/** The tooltip line naming who still owes time, or '' when there is nothing to say. */
+const timesheetNote = (m: MeetingRow) => {
+    const ts = timesheetStateOf(m);
+    if (!ts) return '';
+    return ts === 'filled'
+        ? '\nAll timesheets filled'
+        : `\nTimesheet pending: ${m.pendingTimesheetNames!.join(', ')}`;
+};
+
+/**
  * The three states a meeting can be READ in — ONE colour each, and everything else derived.
  *
  * These used to be three hand-picked hexes per state (badge fill, badge ink, row edge). That
@@ -235,6 +257,9 @@ export const LIFECYCLE_DEFAULT_COLORS = {
     cancelled: '#DC2626',
     awaiting: '#D97706',
     held: '#15803D',
+    /** Calendar only: a past meeting everyone has logged, and one someone still owes. */
+    filled: '#0F766E',
+    pending: '#BE123C',
 } as const;
 
 export type LifecycleState = keyof typeof LIFECYCLE_DEFAULT_COLORS;
@@ -524,12 +549,16 @@ const useLifecycleColors = (): LifecycleColors => {
             readConfig(MEETING_STATUS_CANCELLED),
             readConfig(MEETING_STATUS_AWAITING),
             readConfig(MEETING_STATUS_HELD),
-        ]).then(([cancel, awaiting, held]) => {
+            readConfig(MEETING_TIMESHEET_FILLED),
+            readConfig(MEETING_TIMESHEET_PENDING),
+        ]).then(([cancel, awaiting, held, filled, pending]) => {
             if (cancelled) return;
             setColors({
                 cancelled: configuredColor(cancel, LIFECYCLE_DEFAULT_COLORS.cancelled),
                 awaiting: configuredColor(awaiting, LIFECYCLE_DEFAULT_COLORS.awaiting),
                 held: configuredColor(held, LIFECYCLE_DEFAULT_COLORS.held),
+                filled: configuredColor(filled, LIFECYCLE_DEFAULT_COLORS.filled),
+                pending: configuredColor(pending, LIFECYCLE_DEFAULT_COLORS.pending),
             });
         });
         return () => { cancelled = true; };
@@ -1258,6 +1287,16 @@ const DayDetail: React.FC<{
                                     {isCancelled(m) && <CancelledTag reason={m.cancelReason} color={stateColors.cancelled} />}
                                     {isAwaitingTime(m) && <AwaitingTag color={stateColors.awaiting} />}
                                 </div>
+                                {timesheetStateOf(m) && (
+                                    <div style={{
+                                        fontSize: 11.5, fontWeight: 600, marginTop: 2,
+                                        color: lifecycleTone(stateColors[timesheetStateOf(m)!]).ink,
+                                    }}>
+                                        {timesheetStateOf(m) === 'filled'
+                                            ? 'All timesheets filled'
+                                            : `Timesheet pending: ${m.pendingTimesheetNames!.join(', ')}`}
+                                    </div>
+                                )}
                                 {m.projectName && (
                                     <div style={{ fontSize: 12, fontWeight: 600, color: '#1E3A8A', marginTop: 2 }}>
                                         <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId, m.isLead)} />
@@ -1453,6 +1492,11 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     // What cancelled, unlogged and held look like — configured on Calendar Configuration →
     // Meetings, and applied identically to the badges and the table rows below.
     const stateColors = useLifecycleColors();
+    /** A past meeting's timesheet colour, otherwise the colour of the half it starts in. */
+    const chipColor = (m: MeetingRow) => {
+        const ts = timesheetStateOf(m);
+        return ts ? stateColors[ts] : halfColors[startHalf(m)];
+    };
     // The day a dragged meeting is currently over, so the grid can show where it would land.
     const [dragOverDay, setDragOverDay] = useState<string | null>(null);
     /**
@@ -2098,11 +2142,11 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                             // because dragging changes the DAY and never the clock.
                                             // Cancelled wins the tooltip: the chip is too narrow for a
                                             // tag, so this is where the reason can be read.
-                                            title={isCancelled(m)
+                                            title={`${isCancelled(m)
                                                 ? `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}\nCancelled${m.cancelReason ? ` — ${m.cancelReason}` : ''}`
                                                 : dragEnabled
                                                 ? `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}\nDrag to another day — the time stays ${dayjs(m.startDate).format('h:mm A')}`
-                                                : `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}`}
+                                                : `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}`}${timesheetNote(m)}`}
                                             style={{
                                                 // One fixed box per meeting, whatever it is
                                                 // called. Height and line-height are set rather
@@ -2116,11 +2160,13 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                                 // start order, and which side of lunch each one
                                                 // falls on was the thing you had to read the
                                                 // times to work out.
-                                                color: rowTone(halfColors[startHalf(m)]).fg,
-                                                background: rowTone(halfColors[startHalf(m)]).bg,
+                                                // Once it has happened, the chip says whether
+                                                // everyone has logged their time instead.
+                                                color: rowTone(chipColor(m)).fg,
+                                                background: rowTone(chipColor(m)).bg,
                                                 // 2px, not 3: a month cell is ~120px wide and
                                                 // every pixel of it is title.
-                                                borderLeft: `2px solid ${halfColors[startHalf(m)]}`,
+                                                borderLeft: `2px solid ${chipColor(m)}`,
                                                 borderRadius: 4, padding: isPhone ? '0 3px' : '0 4px',
                                                 // The three that make an ellipsis happen, and the
                                                 // display that makes it apply to a span.
@@ -2203,6 +2249,20 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                 <span style={{ display: 'inline-flex', width: 30 }}>
                                     <HalfPill half={sample.half} count={sample.count} colors={halfColors} labels={halfLabels} showCount={false} />
                                 </span>
+                                {sample.label}
+                            </span>
+                        ))}
+                        {/* Past meetings trade their half colour for these two. */}
+                        {([
+                            { key: 'filled', label: 'Timesheets filled' },
+                            { key: 'pending', label: 'Timesheets pending' },
+                        ] as const).map((sample) => (
+                            <span key={sample.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: '#64748B' }}>
+                                <span style={{
+                                    width: 22, height: 12, borderRadius: 3,
+                                    background: rowTone(stateColors[sample.key]).bg,
+                                    borderLeft: `2px solid ${stateColors[sample.key]}`,
+                                }} />
                                 {sample.label}
                             </span>
                         ))}

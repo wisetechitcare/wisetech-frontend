@@ -94,7 +94,7 @@ const RecordPaymentDialog: React.FC<RecordPaymentDialogProps> = ({
         <GlassHeader
           title="Record Payment"
           subtitle={`${operationNumber} · Outstanding ${formatCurrencyDecimal(outstandingAmount)}`}
-          icon={<KTIcon iconName="dollar" className="fs-1" />}
+          icon={<KTIcon iconName="wallet" className="fs-1" />}
           onClose={onClose}
         />
       }

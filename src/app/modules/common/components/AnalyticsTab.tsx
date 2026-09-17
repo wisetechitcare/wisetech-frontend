@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from "react";
 import dayjs from "dayjs";
-import { Box } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import PeriodFilter, { PeriodRange } from "@app/modules/common/components/PeriodFilter";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import LeadReferralAnalytics, {
   type AnalyticsRow,
+  type ChartMetric,
 } from "@app/pages/employee/companies/companies/components/LeadReferralAnalytics";
 
 /**
@@ -44,6 +46,8 @@ function AnalyticsTab<T>({ items, toRow, title, icon, noun, storageKey, children
     end: null,
     label: "All time",
   });
+  // Chart-only measure: bars stack record COUNT or record VALUE. The table is unaffected.
+  const [metric, setMetric] = useState<ChartMetric>("count");
 
   // Map once and keep each record beside its charted row, so the table and the chart
   // can never disagree about which period a record falls in.
@@ -51,6 +55,10 @@ function AnalyticsTab<T>({ items, toRow, title, icon, noun, storageKey, children
     () => (items || []).map((item) => ({ item, row: toRow(item) })),
     [items, toRow]
   );
+
+  // Judged over every record, not the period, so the toggle does not blink in and out
+  // as the period changes. Datasets with no money (company referrals) never show it.
+  const hasValue = useMemo(() => paired.some(({ row }) => Number(row.value) > 0), [paired]);
 
   const kept = useMemo(() => {
     if (!range.start || !range.end) return paired; // "All Time" → everything
@@ -65,8 +73,24 @@ function AnalyticsTab<T>({ items, toRow, title, icon, noun, storageKey, children
 
   return (
     <Box>
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ mb: 2, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
         <PeriodFilter onChange={setRange} initialMode="allyear" storageKey={storageKey} />
+        {hasValue && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: "text.disabled", whiteSpace: "nowrap" }}>
+              Based on
+            </Typography>
+            <PeriodTabs
+              value={metric}
+              options={[
+                { label: "Number", value: "count" },
+                { label: "Amount", value: "amount" },
+              ]}
+              onChange={(val) => setMetric(val as ChartMetric)}
+              ariaLabel="measure selection"
+            />
+          </Box>
+        )}
       </Box>
 
       <LeadReferralAnalytics
@@ -75,6 +99,7 @@ function AnalyticsTab<T>({ items, toRow, title, icon, noun, storageKey, children
         icon={icon}
         noun={noun}
         mode={range.mode}
+        metric={hasValue ? metric : "count"}
         rangeStart={range.start}
         rangeEnd={range.end}
       />
