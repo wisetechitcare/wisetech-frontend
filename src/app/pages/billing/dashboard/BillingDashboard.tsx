@@ -91,7 +91,7 @@ const BillingDashboard: React.FC = () => {
           hint={formatCurrencyDecimal(stats.readyForProformaValue)} onClick={go("accounts")}
         />
         <BillingStatsCard
-          label="Total Requested" icon="dollar" trio={TRIO.purple}
+          label="Total Requested" icon="wallet" trio={TRIO.purple}
           value={formatCurrencyDecimal(stats.requestedValue)} loading={isLoading}
           hint="Across all billing requests"
         />

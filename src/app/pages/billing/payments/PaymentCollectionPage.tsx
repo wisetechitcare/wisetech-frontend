@@ -195,7 +195,7 @@ const PaymentCollectionPage: React.FC = () => {
   return (
     <Box sx={{ maxWidth: 1700, mx: "auto", pb: 4 }}>
       <BillingPageHeader
-        icon="dollar"
+        icon="wallet"
         trio={TRIO.green}
         title="Payment Collection"
         description="Record, verify and track client payments against every issued proforma."

@@ -89,7 +89,7 @@ const ClientReportPage: React.FC = () => {
         <>
           <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
             <BillingStatsCard label="Total Projects" icon="abstract-26" trio={TRIO.blue} value={summary.totalProjects} />
-            <BillingStatsCard label="Total Revenue" icon="dollar" trio={TRIO.green} value={formatCurrencyDecimal(summary.totalRevenue)} />
+            <BillingStatsCard label="Total Revenue" icon="wallet" trio={TRIO.green} value={formatCurrencyDecimal(summary.totalRevenue)} />
             <BillingStatsCard label="Outstanding" icon="wallet" trio={TRIO.rose} value={formatCurrencyDecimal(summary.outstanding)} />
             <BillingStatsCard label="Paid" icon="check-square" trio={TRIO.green} value={formatCurrencyDecimal(summary.paid)} />
             <BillingStatsCard label="Pending" icon="information-5" trio={TRIO.amber} value={formatCurrencyDecimal(summary.pending)} />
