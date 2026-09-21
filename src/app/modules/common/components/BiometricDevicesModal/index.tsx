@@ -22,7 +22,7 @@ import { IBiometricDevice, ICreateBiometricDevice, IUpdateBiometricDevice, Conne
 import { KTIcon } from '@metronic/helpers';
 import {
   toast, alertDialog, confirmDialog, WtDateField,
-  GlassDialog, GlassHeader, ToneChip, StatTile, TRIO, WtTooltip,
+  GlassDialog, GlassHeader, ToneChip, StatTile, TRIO, WtTooltip, WtButton,
 } from '@app/modules/common/components/ui';
 import { tonePair, type SemanticTone } from '@app/theme/tokens';
 import dayjs from 'dayjs';
@@ -577,15 +577,19 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
           subtitle={`${branchName} · ${loading ? 'Loading…' : `${devices.length} device${devices.length !== 1 ? 's' : ''}`}`}
           icon={<KTIcon iconName="fingerprint-scanning" className="fs-1" />}
           onClose={onClose}
+          // `inverted` IS this button: the kit's docblock calls it "the
+          // gradient-header Add pill generalized". What stood here was a white
+          // MUI Button with the pill's colours typed out again by hand — so it
+          // had no hover lift, no press, no focus ring and no dark-mode variant,
+          // all of which the kit recipe carries.
           action={!showForm && !isMobile ? (
-            <Button
-              variant="contained" size="small"
+            <WtButton
+              inverted size="small"
               startIcon={<KTIcon iconName="plus" className="fs-5" />}
               onClick={openCreate}
-              sx={{ fontFamily: T.font.family, textTransform: 'none', fontWeight: 600, borderRadius: '9px', bgcolor: '#fff', color: 'primary.main', '&:hover': { bgcolor: '#EAF0FA' } }}
             >
               Add Device
-            </Button>
+            </WtButton>
           ) : undefined}
         />
       }
@@ -595,13 +599,13 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
       <Box sx={{ bgcolor: T.color.panel, p: { xs: 1.5, sm: 2 }, maxHeight: isMobile ? 'none' : '74vh', flex: isMobile ? 1 : 'none', overflowY: 'auto' }}>
         {/* Mobile: primary action lives in the body (header stays uncluttered). */}
         {isMobile && !showForm && devices.length > 0 && (
-          <Button
-            fullWidth variant="contained" onClick={openCreate}
+          <WtButton
+            fullWidth onClick={openCreate}
             startIcon={<KTIcon iconName="plus" className="fs-5" />}
-            sx={{ fontFamily: T.font.family, textTransform: 'none', fontWeight: 700, fontSize: 14, borderRadius: '10px', py: 1.15, mb: 2, boxShadow: 'none' }}
+            sx={{ mb: 2 }}
           >
             Add Device
-          </Button>
+          </WtButton>
         )}
         {/* KPI stat strip — responsive: 2 columns on phones, 4 on wider screens. */}
         {!loading && devices.length > 0 && (
