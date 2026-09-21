@@ -47,7 +47,7 @@ import {
   updateRejoinHistoryDetails,
   deleteAllRejoinHistoryByEmployeeId,
 } from "@services/employee";
-import { approvalChainsFromConfigs, persistApprovalChains } from "@app/components/ApprovalSettings";
+import { approvalChainsFromConfigs, emptyApprovalChains, persistApprovalChains } from "@app/components/ApprovalSettings";
 import { fetchCompanyOverview } from "@services/company";
 import { takeConversion, clearConversion, linkConvertedEmployee } from "@services/recruitment";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
@@ -836,7 +836,8 @@ const initialState = {
   // Approval chains picked during onboarding. Declared here (not written in by the
   // section) so the key survives Formik's `enableReinitialize` and so a blank set
   // compares equal to the pristine form — otherwise it would look like a draft.
-  approvalChains: { attendance: ["", "", "", "", ""], leave: ["", "", "", "", ""], reimbursement: ["", "", "", "", ""] },
+  // From the form's own list, never hand-written: a module added there has to arrive here too.
+  approvalChains: emptyApprovalChains(),
   leaveAllocations: [] as any[],
   workExpInfo: [createDefaultWorkExpInfo()],
   // The company's configured onboarding document types. Declared here (rather than

@@ -148,9 +148,11 @@ export const TaskDetailPage = () => {
      * which is the scope the workspace uses for one. Falls back to the bare route when the task
      * has neither — nothing to point at, so the workspace picks its own default.
      */
+    // `tab=tasks` names the board tab: /tasks alone opens the section's Overview, which is
+    // not where the reader was, and leaves the scope below unread because the board never mounts.
     const backToBoard = task
-        ? `/tasks?scope=${encodeURIComponent(task.leadId || `${GENERAL_PREFIX}${task.id}`)}`
-        : '/tasks';
+        ? `/tasks?tab=tasks&scope=${encodeURIComponent(task.leadId || `${GENERAL_PREFIX}${task.id}`)}`
+        : '/tasks?tab=tasks';
 
     /**
      * Who could be sent a WhatsApp note about this task — everybody on it except the reader.
@@ -177,7 +179,7 @@ export const TaskDetailPage = () => {
                         apiErrorMessage(taskQuery.error, "This task does not exist, or you do not have access to it.")
                     }
                     action={
-                        <Button onClick={() => navigate('/tasks')} sx={{ textTransform: 'none', fontWeight: 600 }}>
+                        <Button onClick={() => navigate('/tasks?tab=tasks')} sx={{ textTransform: 'none', fontWeight: 600 }}>
                             Back to tasks
                         </Button>
                     }

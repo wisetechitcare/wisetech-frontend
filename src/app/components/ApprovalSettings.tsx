@@ -55,6 +55,14 @@ const MODULES: Array<{ key: WorkflowType; label: string }> = [
   { key: 'billing_request', label: 'Billing Request' },
 ];
 
+/**
+ * The workflow types this form edits, in display order. Exported because callers used to
+ * keep their own copy of the list: the wizard seeded three chains and the onboarding gate
+ * checked three, while MODULES had grown a fourth (billing_request) — so the fourth row
+ * rendered off an undefined chain and took the step down. One list, no drift.
+ */
+export const WORKFLOW_TYPES: WorkflowType[] = MODULES.map((m) => m.key);
+
 const emptyChain = (): string[] => ['', '', '', '', ''];
 
 const emptyRecord = (): Record<WorkflowType, string[]> => ({
@@ -250,7 +258,10 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({
         // Level 1 is the requirement — without it the module has no approver at all.
         // Surfaced inline so the user sees it while filling the row, not when the
         // wizard's save is refused.
-        const isMissing = !chainsInUse[key][0];
+        // A chain can be missing outright — a draft saved before this module existed, or
+        // a caller seeding its own object — and an absent chain is an empty one, not a crash.
+        const chain = chainsInUse[key] ?? emptyChain();
+        const isMissing = !chain[0];
 
         return (
         <div key={key} className="border rounded p-4">
@@ -272,7 +283,7 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({
                 <Select
                   {...FLOATING_MENU_PROPS}
                   options={approverOptions}
-                  value={approverOptions.find(opt => opt.value === chainsInUse[key][idx]) ?? null}
+                  value={approverOptions.find(opt => opt.value === chain[idx]) ?? null}
                   onChange={selected => handleLevelChange(key, idx, selected?.value ?? '')}
                   placeholder={idx === 0 ? 'Select approver' : 'N/A'}
                   isClearable
