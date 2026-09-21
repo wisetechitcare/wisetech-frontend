@@ -89,7 +89,10 @@ export { WtTooltip } from './WtTooltip';
 export type { WtTooltipProps } from './WtTooltip';
 export type { WtColorPickerProps, ColorSwatch } from './WtColorPicker';
 // Headline capitalisation, applied by the kit's heading components.
-export { toTitleCase } from './text';
+// HEADING_CASE_SX carries the uppercase house style for a structural heading —
+// spread it only where a screen renders its own region title instead of using
+// GlassHeader / ListHeader / SectionHead / SettingsSection.
+export { toTitleCase, HEADING_CASE_SX } from './text';
 // The accent-topped configuration card every settings/config engine is built
 // from (Leave Policy, Sandwich Leave, FAQ sections). Owns the frame — surface,
 // accent rule, icon tile, header, spacing — so those screens stop drifting apart.

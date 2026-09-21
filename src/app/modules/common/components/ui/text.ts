@@ -81,3 +81,42 @@ export const toTitleCase = (value: string): string => {
  */
 export const titleCaseNode = <T,>(value: T): T =>
     (typeof value === 'string' ? (toTitleCase(value) as unknown as T) : value);
+
+/**
+ * The house style for a STRUCTURAL HEADING — a title that names a region of the
+ * screen: a dialog header, a page/list header, a section lead-in, a column
+ * header, a stat caption. Those read as uppercase.
+ *
+ * WHY CSS AND NOT AN UPPERCASED STRING:
+ *   • The accessible name stays the real words. A screen reader given "DEVICES"
+ *     as text may spell it D-E-V-I-C-E-S; given `text-transform` it reads the
+ *     word and announces the heading normally.
+ *   • Copying a heading out of the page yields "Biometric Devices", not
+ *     "BIOMETRIC DEVICES" — what a person pastes into an email still reads.
+ *   • Search-in-page keeps matching what the user typed.
+ *   • It is reversible in one place. An uppercased STRING loses the original
+ *     casing forever, so acronyms and user-entered names could never be
+ *     recovered if the style changes again.
+ *
+ * Pair it with `toTitleCase`, never instead of it: the string stays title-cased
+ * underneath, so the two answers agree if this style is ever lifted.
+ *
+ * The small letter-spacing is not decoration. Capitals set at normal tracking
+ * read tighter than lowercase because every glyph is full height; a little air
+ * restores the word shape that capitals take away.
+ *
+ * DELIBERATELY NOT APPLIED TO:
+ *   • Buttons. All-caps labels are measurably slower to read (the word outline
+ *     that the eye matches on is flattened), they truncate sooner, and they
+ *     shout on a destructive action. Material moved away from them in v3 for
+ *     exactly this. `WtButton` stays title-cased.
+ *   • Input labels. MUI measures the label text to cut the notch in the outline,
+ *     and it does not see CSS — an uppercased label grows while its gap does
+ *     not, and lands on the border. See the kit README.
+ *   • Card and tile titles that carry CONTENT (a device name, a person, a
+ *     navigation destination). Those are data, not a region name.
+ */
+export const HEADING_CASE_SX = {
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.02em',
+};
