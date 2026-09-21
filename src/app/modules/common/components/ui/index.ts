@@ -5,6 +5,7 @@
 //     plus WT_CONTROL_HEIGHT / controlHeightSx — the one height a control row shares
 //   - glass: reusable glassmorphism primitives (GlassSurface / GlassDialog / GlassHeader / GlassCard)
 //   - feedback: branded Swal helpers (toast / alertDialog / confirmDialog)
+//   - safeHtml: tagged template that escapes interpolations for any html: string
 export { T, tonePair, label, glassTokens } from './tokens';
 export type { SemanticTone, VividTone, GlassVariant, ThemeMode, LabelTier } from './tokens';
 export * from './buttons';
@@ -113,6 +114,13 @@ export { pageWindow, ELLIPSIS } from './pageWindow';
 export { GlassNotification, GlassToastProvider, useGlassToast } from './GlassNotification';
 export type { GlassNotificationProps, GlassToastOptions } from './GlassNotification';
 export { toast, alertDialog, confirmDialog } from './feedback';
+// Build any html: string with safeHtml — it escapes every interpolation, so a name
+// or server message cannot become markup. See safeHtml.ts for why it is a tagged
+// template rather than an escape() helper.
+export { safeHtml, escapeHtml } from './safeHtml';
+// A line of explanation INSIDE a form or panel: toned notice, or a quiet info hint.
+export { InlineNotice, InlineHint } from './InlineNotice';
+export type { InlineNoticeProps } from './InlineNotice';
 export type { FeedbackOptions } from './feedback';
 // App-wide single-select picker modal (glass kit, theme-aware) — use instead of bootstrap <Modal>.
 export { OptionPickerDialog, OptionRow, OptionCard } from './pickers';

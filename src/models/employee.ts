@@ -484,6 +484,10 @@ export interface IAttendanceRequests {
   checkOut: string,
   rawCheckIn?: string,
   rawCheckOut?: string,
+  /** The request's own stored instants and status — see transformAttendanceRequest. */
+  requestCheckIn?: string | null,
+  requestCheckOut?: string | null,
+  requestStatus?: number | null,
   workingMethod: string,
   workingMethodId: string,
   remarks: string,

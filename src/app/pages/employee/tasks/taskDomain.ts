@@ -108,18 +108,34 @@ export const isTaskFinal = (task: Pick<TaskRow, 'status'>): boolean => task.stat
 export const isTaskOverdue = (task: Pick<TaskRow, 'dueDate' | 'status'>, now: Date): boolean => {
     if (!task.dueDate) return false;
     if (isTaskFinal(task)) return false;
-    const due = new Date(task.dueDate);
-    if (Number.isNaN(due.getTime())) return false;
-    return due.getTime() < now.getTime();
+    // WHOLE DAYS, not instants. A due date is a calendar day stored at midnight, so comparing
+    // the instant made a task late from 00:00 on the very day it was due — the card went red
+    // under a label that still read "Due today". You are late the day AFTER.
+    const days = daysUntilDue(task.dueDate, now);
+    return days !== null && days < 0;
 };
+
+/**
+ * The colour a FINISHED task is drawn in — its stage's own configured colour.
+ *
+ * Read from the stage rather than a fixed green so a board that renames and recolours
+ * "Task Completed" is answered everywhere the card marks itself done. `fallback` is only
+ * reached by a stage nobody has given a colour.
+ */
+export const finalColorOf = (task: Pick<TaskRow, 'status'>, fallback: string): string =>
+    task.status?.color || fallback;
 
 /** Days until due. Negative means overdue. `null` when there is no due date. */
 export const daysUntilDue = (dueDate: string | null | undefined, now: Date): number | null => {
     if (!dueDate) return null;
     const due = new Date(dueDate);
     if (Number.isNaN(due.getTime())) return null;
-    const startOfDay = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-    return Math.round((startOfDay(due) - startOfDay(now)) / 86_400_000);
+    // The due date is a calendar day pinned to UTC midnight, so its day is read in UTC — but
+    // "today" is the reader's own day, which is why the clock is read locally. Reading both in
+    // UTC put an IST reader a day ahead of themselves until 05:30 every morning.
+    const dueDay = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((dueDay - today) / 86_400_000);
 };
 
 /** Short human label for a due date — what a card shows next to the clock icon. */

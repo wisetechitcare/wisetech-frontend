@@ -14,7 +14,7 @@ import { KTIcon } from '@metronic/helpers';
 import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
 import { EASE_200, IconBox, SHADOW_HOVER, SHADOW_REST, TRIO, toneSurface, type Trio } from '@app/modules/common/components/ui/patterns';
 import {
-    TaskScope, TaskStatusRef, employeeName, initialsOf, clampProgress, dueLabel, isTaskOverdue, isTaskFinal,
+    TaskScope, TaskStatusRef, employeeName, initialsOf, clampProgress, dueLabel, isTaskOverdue, isTaskFinal, finalColorOf,
 } from '../taskDomain';
 
 /**
@@ -491,10 +491,17 @@ export const TaskDueDate = ({
     pill?: boolean;
 }) => {
     const theme = useTheme();
-    const label = dueLabel(task.dueDate, now);
+    // A finished task has no deadline left to report: "Due today" on something already done
+    // reads as work still owed, and it is what put a red date under a green card.
+    const done = isTaskFinal(task);
+    const label = done ? 'Completed' : dueLabel(task.dueDate, now);
     if (!label) return null;
     const overdue = isTaskOverdue(task, now);
-    const color = overdue ? theme.palette.error.main : theme.palette.text.secondary;
+    // The stage's configured colour, so "Completed" matches the card it sits on.
+    const doneColor = finalColorOf(task, theme.palette.success.main);
+    const color = done
+        ? doneColor
+        : overdue ? theme.palette.error.main : theme.palette.text.secondary;
     return (
         <Stack
             direction="row"
@@ -507,21 +514,23 @@ export const TaskDueDate = ({
                     px: 0.75,
                     py: 0.3,
                     borderRadius: 1,
-                    bgcolor: overdue
-                        ? alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.2 : 0.1)
-                        : alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.1 : 0.05),
+                    bgcolor: done
+                        ? alpha(doneColor, theme.palette.mode === 'dark' ? 0.2 : 0.12)
+                        : overdue
+                            ? alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.2 : 0.1)
+                            : alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.1 : 0.05),
                 }),
             }}
         >
             <KTIcon
-                iconName={overdue ? 'information-5' : 'calendar'}
+                iconName={done ? 'check-circle' : overdue ? 'information-5' : 'calendar'}
                 className="fs-8"
                 // KTIcon has no colour prop; the wrapper carries it.
             />
             <Typography
                 variant="caption"
                 noWrap
-                sx={{ fontWeight: overdue ? 700 : 500, color: 'inherit', fontSize: 11 }}
+                sx={{ fontWeight: overdue || done ? 700 : 500, color: 'inherit', fontSize: 11 }}
             >
                 {label}
             </Typography>
@@ -586,13 +595,14 @@ export const TaskStateBlock = ({
     );
 };
 
-/** Terminal-stage tick. Derived from `isFinal`, so renaming a stage cannot break it. */
+/** Terminal-stage tick, in the status' own configured colour. */
 export const FinalStageMark = ({ task }: { task: { status?: TaskStatusRef | null } }) => {
     const theme = useTheme();
     if (!isTaskFinal(task)) return null;
+    const color = task.status?.color || theme.palette.success.main;
     return (
-        <Tooltip title="Terminal stage">
-            <Box sx={{ color: theme.palette.success.main, display: 'inline-flex' }}>
+        <Tooltip title={`${task.status?.name || 'Completed'} — this status closes the task`}>
+            <Box sx={{ color, display: 'inline-flex' }}>
                 <KTIcon iconName="check-circle" className="fs-7" />
             </Box>
         </Tooltip>

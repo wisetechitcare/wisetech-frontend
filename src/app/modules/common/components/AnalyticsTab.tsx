@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import dayjs from "dayjs";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, type Theme } from "@mui/material";
 import PeriodFilter, { PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import LeadReferralAnalytics, {
@@ -76,9 +76,10 @@ function AnalyticsTab<T>({ items, toRow, title, icon, noun, storageKey, children
       <Box sx={{ mb: 2, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
         <PeriodFilter onChange={setRange} initialMode="allyear" storageKey={storageKey} />
         {hasValue && (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: "text.disabled", whiteSpace: "nowrap" }}>
-              Based on
+          // Same look and right-end placement as the Leads Overview toggle.
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: "auto", height: 40 }}>
+            <Typography sx={{ fontFamily: "Inter, sans-serif", fontSize: 11.5, fontWeight: 600, color: "#94A3B8", whiteSpace: "nowrap" }}>
+              Graph based on
             </Typography>
             <PeriodTabs
               value={metric}
@@ -88,6 +89,22 @@ function AnalyticsTab<T>({ items, toRow, title, icon, noun, storageKey, children
               ]}
               onChange={(val) => setMetric(val as ChartMetric)}
               ariaLabel="measure selection"
+              sx={{
+                height: 32,
+                // Theme tokens, not fixed greys: the sunken track and the raised selected
+                // tab have to invert together in dark mode, or the pill goes white-on-dark.
+                bgcolor: "action.hover",
+                border: "none",
+                p: "3px",
+                borderRadius: "10px",
+                "& .MuiToggleButtonGroup-grouped": { px: 2.2, borderRadius: "8px !important" },
+                "& .Mui-selected": {
+                  bgcolor: (t: Theme) => `${t.palette.background.paper} !important`,
+                  color: "#1E3A8A !important",
+                  boxShadow: "0 1px 3px rgba(15,23,42,0.10)",
+                  "&::after": { display: "none" },
+                },
+              }}
             />
           </Box>
         )}

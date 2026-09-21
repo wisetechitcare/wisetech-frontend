@@ -83,9 +83,31 @@ const chipSx = {
   borderColor: "divider",
   whiteSpace: "nowrap",
 } as const;
-const chipTextSx = { fontSize: 12, lineHeight: 1, fontVariantNumeric: "tabular-nums" } as const;
-const summaryLabelSx = { fontSize: 10, lineHeight: 1, fontWeight: 600, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.02em" } as const;
-const summaryValueSx = { fontSize: 14, lineHeight: 1, fontWeight: 800, color: ACCENT, fontVariantNumeric: "tabular-nums" } as const;
+/**
+ * Every word and figure in the chip row, on ONE line box.
+ *
+ * `lineHeight: 1` is what kept them off each other's centre: it makes each element's box
+ * exactly its own font-size, so a label and a figure are two different-sized boxes that
+ * centre at two different heights, and the glyphs spill out of them by however much the
+ * font's ascent exceeds the box. A FIXED 16px line box — the height of the colour bar beside
+ * it — gives every part the same box and the same baseline, so the bar, the label, the count
+ * and the money line up because they cannot do anything else.
+ */
+const chipTextSx = {
+  fontSize: 12,
+  lineHeight: "16px",
+  display: "block",
+  fontVariantNumeric: "tabular-nums",
+} as const;
+/**
+ * The total's figures, at the SAME size as everything else in the row.
+ *
+ * They were 14px beside a 10px label and a 12px chip, and three type sizes on one line do not
+ * share a centre: the label rode high, the number sat low, and only the colour bar looked
+ * centred. One size lines them up by construction — the hierarchy is carried by weight and
+ * colour, exactly as the status chips beside it already do.
+ */
+const summaryValueSx = { ...chipTextSx, fontWeight: 800, color: ACCENT } as const;
 
 const FALLBACK_COLORS = ["#3B5BDB", "#2F9E44", "#E8590C", "#7048E8", "#E64980", "#1098AD", "#F08C00", "#868E96"];
 
@@ -292,23 +314,24 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       },
     },
     annotations: {
-      // ₹ total on top of every bar that has money, in both modes. Money labels only
-      // where there IS money — a row of ₹0 chips over a referral count would be noise
-      // pretending to be data. A bar clipped by `axisMax` pins its label to the cap
-      // and marks it ▲ so the real figure is never hidden.
-      points: hasValue
+      // The label on top of a bar speaks the toggle: the record count in Number mode, the
+      // ₹ total in Amount mode (only where there IS money — a row of ₹0 chips would be
+      // noise pretending to be data). A bar clipped by `axisMax` pins its label to the
+      // cap and marks it ▲ so the real figure is never hidden.
+      points: !byAmount || hasValue
         ? categories
-            .map((label, i) => ({ label, i }))
-            .filter(({ i }) => bucketValues[i] > 0)
-            .map(({ label, i }) => {
-              const height = series.reduce((sum, s) => sum + (s.data[i] as number), 0);
+            .map((label, i) => ({ label, i, height: series.reduce((sum, s) => sum + (s.data[i] as number), 0) }))
+            .filter(({ i, height }) => (byAmount ? bucketValues[i] > 0 : height > 0))
+            .map(({ label, height }) => {
               const clipped = axisMax !== undefined && height > axisMax;
               return {
                 x: label,
                 y: clipped ? axisMax : height,
                 marker: { size: 0 },
                 label: {
-                  text: `${formatCurrencyCompact(bucketValues[i])}${clipped ? " ▲" : ""}`,
+                  text: byAmount
+                    ? `${formatCurrencyCompact(height)}${clipped ? " ▲" : ""}`
+                    : `${height} ${plural(noun, height)}`,
                   offsetY: -8,
                   borderWidth: 0,
                   borderRadius: 6,
@@ -378,21 +401,22 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
             ))}
           </Box>
 
-          <Box sx={{ ...chipSx, px: 1.5, gap: 1.25, flexShrink: 0, ml: { lg: "auto" }, bgcolor: "background.paper", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-            {hasValue && (
-              <>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                  <Typography sx={summaryLabelSx}>Value:</Typography>
-                  <Typography sx={summaryValueSx}>{formatCurrencyCompact(totalValue)}</Typography>
-                </Box>
-                <Box sx={{ width: "1px", height: 14, bgcolor: "divider" }} />
-              </>
-            )}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <Typography sx={summaryLabelSx}>Results:</Typography>
+          {/* Only when there is something to total — an empty period used to leave the
+              pill's bare outline floating in the corner. The ₹ half needs money too. */}
+          {rows.length > 0 && (
+            // Same padding and flat layout as a status chip, so its bar sits exactly where theirs do.
+            <Box sx={{ ...chipSx, pl: 1, pr: 1.25, flexShrink: 0, ml: { lg: "auto" }, bgcolor: "background.paper", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <Box sx={{ width: 4, height: 16, borderRadius: 4, bgcolor: "#8a8181ff", flexShrink: 0 }} />
+              <Typography sx={{ ...chipTextSx, fontWeight: 600, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.02em" }}>Total:</Typography>
               <Typography sx={summaryValueSx}>{rows.length}</Typography>
+              {hasValue && (
+                <>
+                  <Box sx={{ width: "1px", height: 14, bgcolor: "divider" }} />
+                  <Typography sx={summaryValueSx}>{formatCurrencyCompact(totalValue)}</Typography>
+                </>
+              )}
             </Box>
-          </Box>
+          )}
         </Box>
 
         {hasData ? (

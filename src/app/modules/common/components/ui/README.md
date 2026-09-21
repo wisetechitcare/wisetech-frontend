@@ -57,6 +57,8 @@ are built from.
 | Date / time | `WtDateField` / `WtDateTimeField` / `TimeWheelField` | `<input type="date">` |
 | Wizard | `WtStepper` | hand-rolled circles |
 | Toast / confirm | `toast` / `confirmDialog` / `alertDialog` | react-toastify, sweetalert2 directly |
+| User data inside an `html:` string | ``safeHtml`…${name}…` `` (or `escapeHtml(v)` for a generated list) | a plain template literal — see below |
+| Explanation inside a form or panel (why it is closed, what to fix first, what will happen) | `InlineNotice` (toned, `TRIO`) / `InlineHint` (quiet info line) | a Bootstrap `.alert` div with hard-coded hex, or a private `Notice` per screen |
 | Employee picker | `EmployeeSelectionDialog` | a bespoke picker |
 | Org filter data | `useOrgScope` | re-deriving an org list per feature |
 
@@ -323,3 +325,40 @@ opening downward into nothing on some screens and behind the dialog on others.
 `DropdownInput`. It always painted a status circle on every option, defaulting to amber,
 so lists whose options carried no colour showed a uniform dot that meant nothing. Colour is
 now shown only where it carries meaning, via `showColor`.
+
+## `html:` strings — escape at the interpolation, always
+
+React escapes `{value}` in JSX for you. The moment a string leaves JSX — SweetAlert's
+`html:`, `dangerouslySetInnerHTML`, a Leaflet `divIcon` — that protection is gone and
+the browser parses whatever you hand it as markup. SweetAlert2 says so in its own
+typings: *"SweetAlert2 does NOT sanitize this parameter."*
+
+Four dialogs shipped this bug: an employee name, a branch name, an organisation name
+and a server error message, each interpolated straight into `html:`. A name of
+`<img src=x onerror=…>` then executes in the browser of whoever opens the dialog —
+planted once, fired later, usually at someone with more access.
+
+```tsx
+// NO — the natural thing to type, and the unsafe thing to type
+html: `Delete <b>${org.name}</b>?`
+
+// YES — same markup, every ${…} escaped, nothing to remember
+html: safeHtml`Delete <b>${org.name}</b>?`
+```
+
+Both arms of a ternary need it. A literal with no interpolation is fine as-is — static
+markup carries no user data.
+
+**Generating a list** is the one case `safeHtml` cannot express, because the `<li>` tags
+are yours and a tagged template would escape them into visible text. Escape the parts
+and join, then silence the lint rule on that line with a comment saying why:
+
+```tsx
+// eslint-disable-next-line no-restricted-syntax
+html: `<ul>${rows.map((r) => `<li>${escapeHtml(r.message)}</li>`).join('')}</ul>`,
+```
+
+Two safety nets sit behind this, and neither is a reason to skip `safeHtml`: the kit's
+`toast` / `alertDialog` / `confirmDialog` run every `html` through DOMPurify, and ESLint
+rejects an untagged interpolating template assigned to `html:`. Escaping at the
+interpolation is still the one that shows intent at the call site.

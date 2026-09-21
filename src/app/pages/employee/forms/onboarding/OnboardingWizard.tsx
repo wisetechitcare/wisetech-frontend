@@ -618,7 +618,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                             </span>
                             <span className="ob-tree-child-label">
                               {leaf.label}
-                              {leaf.requiredFields && leaf.requiredFields.length > 0 && status !== "completed" && (
+                              {/* The mark says "this section has required fields", which stays
+                                  true once they are filled — a required INPUT keeps its
+                                  asterisk when answered, and dropping it here made a finished
+                                  section look optional. Completion is the tick, not the mark. */}
+                              {((leaf.requiredFields && leaf.requiredFields.length > 0) || leaf.isComplete) && (
                                 <span style={{ color: "#ef4444", marginLeft: "4px", fontWeight: "bold" }} title="Required section">*</span>
                               )}
                             </span>

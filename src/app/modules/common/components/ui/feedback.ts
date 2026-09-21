@@ -1,11 +1,40 @@
 import Swal, { SweetAlertIcon } from 'sweetalert2';
+import DOMPurify from 'dompurify';
 import { T } from './tokens';
 
 /**
  * Branded SweetAlert wrappers — premium toasts, alerts and confirms that match
  * the UI kit (tokens, radius, brand buttons). Reusable everywhere in place of
  * raw `Swal.fire`, so feedback is consistent across the app.
+ *
+ * These are also the app's XSS chokepoint for dialogs. SweetAlert2 assigns
+ * `html` to the DOM as markup and, in its own words, "does NOT sanitize this
+ * parameter". Every dialog that goes through this file is sanitised below, so a
+ * name or server message carrying `<img onerror=…>` renders as text rather than
+ * running. Build the string with `safeHtml` as well — that escapes at the point
+ * of interpolation, where the intent is visible; this is the net underneath.
  */
+
+/**
+ * Strip anything executable before SweetAlert parses it.
+ *
+ * Deliberately NOT a whitelist of tags: these dialogs legitimately carry `<b>`,
+ * `<ul>`, `<div class=…>` and inline SVG icons, and a tag whitelist would have to
+ * be revisited every time a dialog gains a layout. DOMPurify's default profile
+ * already removes scripts, event handlers and `javascript:` URLs, which is the
+ * property we need. `dompurify` is already a dependency — no new weight.
+ *
+ * `undefined` passes straight through so `html:` stays optional: sanitising it
+ * would turn "no html" into an empty string and make SweetAlert render an empty
+ * body instead of falling back to `text`.
+ */
+function sanitizeHtml(html: string | undefined): string | undefined {
+    if (html === undefined) return undefined;
+    // No DOM (tests, any future SSR pass) means nothing can execute anyway, and
+    // DOMPurify has no document to work against.
+    if (typeof window === 'undefined') return html;
+    return DOMPurify.sanitize(html);
+}
 
 let injected = false;
 function ensureStyles() {
@@ -77,7 +106,7 @@ export interface FeedbackOptions {
 export function toast(opts: FeedbackOptions & { timer?: number }) {
   ensureStyles();
   return Swal.fire({
-    icon: opts.icon, title: opts.title, text: opts.text, html: opts.html,
+    icon: opts.icon, title: opts.title, text: opts.text, html: sanitizeHtml(opts.html),
     toast: true,
     position: 'bottom-start',
     backdrop: false,
@@ -94,7 +123,7 @@ export function toast(opts: FeedbackOptions & { timer?: number }) {
 export function alertDialog(opts: FeedbackOptions & { confirmText?: string }) {
   ensureStyles();
   return Swal.fire({
-    icon: opts.icon, title: opts.title, text: opts.text, html: opts.html,
+    icon: opts.icon, title: opts.title, text: opts.text, html: sanitizeHtml(opts.html),
     confirmButtonText: opts.confirmText ?? 'OK', buttonsStyling: false,
     customClass: baseClass,
   });
@@ -104,7 +133,7 @@ export function alertDialog(opts: FeedbackOptions & { confirmText?: string }) {
 export async function confirmDialog(opts: FeedbackOptions & { confirmText?: string; cancelText?: string; danger?: boolean }): Promise<boolean> {
   ensureStyles();
   const res = await Swal.fire({
-    icon: opts.icon ?? 'warning', title: opts.title, text: opts.text, html: opts.html,
+    icon: opts.icon ?? 'warning', title: opts.title, text: opts.text, html: sanitizeHtml(opts.html),
     showCancelButton: true,
     confirmButtonText: opts.confirmText ?? 'Confirm',
     cancelButtonText: opts.cancelText ?? 'Cancel',
