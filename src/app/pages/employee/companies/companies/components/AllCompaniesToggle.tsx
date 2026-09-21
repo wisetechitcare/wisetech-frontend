@@ -370,20 +370,12 @@ const CompanyDetails = () => {
         </div>
 
         {/* Desktop actions — the tab bar below spans the full width, as on the lead page. */}
-        <div className="d-none d-md-flex justify-content-end align-items-center">
+        <div className="md-flex items-center">
           {/* Tabs */}
           {/* Desktop Action Buttons */}
-          <div className="d-flex align-items-center gap-2">
-            {addLabel && (
-                <Button
-                  variant="primary"
-                  onClick={() => setAddRequested(true)}
-                  style={{ fontFamily: "Inter", fontWeight: "600", fontSize: "14px", whiteSpace: "nowrap" }}
-                >
-                  {addLabel}
-                </Button>
-              )}
-              <div className="dropdown">
+          
+          <div className="d-flex align-items-center gap-2 justify-end">
+            <div className="dropdown position-relative -bottom-8">
               <Button
                 variant="primary"
                 className="dropdown-toggle"
@@ -431,6 +423,18 @@ const CompanyDetails = () => {
                 </li>
               </ul>
             </div>
+            {addLabel && (
+                <Button
+                  variant="primary"
+                  onClick={() => setAddRequested(true)}
+                  style={{ fontFamily: "Inter", fontWeight: "600", fontSize: "14px", whiteSpace: "nowrap" }}
+                >
+                  
+                  {addLabel}
+                </Button>
+              )}
+            
+              
             {/* Edit Button show only for tab overview */}
             {activeTab === "overview" && (
               <Button
