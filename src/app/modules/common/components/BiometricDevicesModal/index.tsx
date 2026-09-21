@@ -2,10 +2,11 @@ import { useEffect, useState, ReactNode } from 'react';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import {
-  Dialog, Box, Stack, Typography, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Chip, Tooltip, IconButton, Button, TextField, Select,
+  Box, Stack, Typography, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, IconButton, Button, TextField, Select,
   MenuItem, ListItemText, CircularProgress, InputAdornment, Paper,
   FormControl, FormHelperText, Skeleton, Drawer, Divider, useMediaQuery,
+  Menu, ListItemIcon,
 } from '@mui/material';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
@@ -16,9 +17,13 @@ import {
 import { fetchAllBranches } from '@services/company';
 import { IBiometricDevice, ICreateBiometricDevice, IUpdateBiometricDevice, ConnectionMode, IBiometricSyncLog } from '@models/biometric';
 import { KTIcon } from '@metronic/helpers';
-import { toast, alertDialog, confirmDialog, WtDateField } from '@app/modules/common/components/ui';
+import {
+  toast, alertDialog, confirmDialog, WtDateField,
+  GlassDialog, GlassHeader, ToneChip, StatTile, TRIO, WtTooltip,
+} from '@app/modules/common/components/ui';
+import { tonePair, type SemanticTone } from '@app/theme/tokens';
 import dayjs from 'dayjs';
-import { DATE_FORMATS } from '@utils/dateFormats';
+import { DATE_FORMATS, formatDateTime } from '@utils/dateFormats';
 import { T } from '@app/modules/common/components/ui/tokens';
 
 interface Props {
@@ -43,61 +48,53 @@ const deviceSchema = Yup.object({
 
 const EMPTY_FORM = { branchId: '', name: '', deviceIp: '', devicePort: '88', serialNumber: '', username: 'essl', password: '', connectionMode: 'BOTH' as ConnectionMode };
 
-const MODE_META: Record<ConnectionMode, { label: string; color: string; desc: string; hint: string }> = {
-  PUSH: { label: 'Push', color: T.color.indigo, desc: 'Device sends punches to the server (recommended for cloud)', hint: 'Server never dials the device. The device must POST to the webhook.' },
-  PULL: { label: 'Pull', color: T.color.warning, desc: 'Server fetches logs from the device (LAN-reachable)', hint: 'Server SOAP-polls the device IP. Requires the device to be reachable.' },
-  BOTH: { label: 'Push + Pull', color: T.color.cyan, desc: 'Push primary, periodic pull backfills missed punches', hint: 'Webhook is the lifeline; the cron also pulls to backfill any missed punches.' },
+const MODE_META: Record<ConnectionMode, { label: string; tone: SemanticTone; desc: string; hint: string }> = {
+  PUSH: { label: 'Push', tone: 'indigo', desc: 'Device sends punches to the server (recommended for cloud)', hint: 'Server never dials the device. The device must POST to the webhook.' },
+  PULL: { label: 'Pull', tone: 'warning', desc: 'Server fetches logs from the device (LAN-reachable)', hint: 'Server SOAP-polls the device IP. Requires the device to be reachable.' },
+  BOTH: { label: 'Push + Pull', tone: 'cyan', desc: 'Push primary, periodic pull backfills missed punches', hint: 'Webhook is the lifeline; the cron also pulls to backfill any missed punches.' },
 };
 
-const chipSx = (color: string) => ({
-  color, borderColor: `${color}59`, bgcolor: 'transparent', fontWeight: 600,
-  height: 22, fontSize: 11, '& .MuiChip-label': { px: 1 },
-});
-
+// Chips, tiles and the dialog shell come from the kit (ToneChip / StatTile /
+// GlassDialog + GlassHeader). This file used to hand-roll all three: a `chipSx`
+// helper that rebuilt the chip frame, a local StatTile that duplicated the kit's
+// down to the icon square, and a Dialog with its own copy of GlassHeader's
+// gradient and accent rule. Three copies of components the kit already owns is
+// exactly how the app ends up with four close buttons — see ui/README.md.
 function StatusChip({ device }: { device: IBiometricDevice }) {
-  if (!device.isActive) return <Chip variant="outlined" size="small" label="Inactive" sx={chipSx(T.color.neutral)} />;
+  if (!device.isActive) return <ToneChip dense tone="neutral" label="Inactive" />;
   if (device.consecutiveFailures > 0)
-    return <Chip variant="outlined" size="small" label={`${device.consecutiveFailures} failure${device.consecutiveFailures !== 1 ? 's' : ''}`} sx={chipSx(T.color.warning)} />;
-  return <Chip variant="outlined" size="small" label="● Active" sx={chipSx(T.color.success)} />;
+    return <ToneChip dense tone="warning" label={`${device.consecutiveFailures} Failure${device.consecutiveFailures !== 1 ? 's' : ''}`} />;
+  return <ToneChip dense tone="success" label="Active" />;
 }
 
 function ModeChip({ mode }: { mode: ConnectionMode }) {
   const m = MODE_META[mode] ?? MODE_META.PUSH;
-  return <Chip variant="outlined" size="small" label={m.label} sx={chipSx(m.color)} />;
+  return <ToneChip dense tone={m.tone} label={m.label} />;
 }
 
 function SyncChip({ status }: { status: IBiometricDevice['lastSyncStatus'] }) {
-  if (!status) return <Typography sx={{ color: T.color.inkFaint, fontSize: 12 }}>—</Typography>;
-  const map: Record<string, string> = { SUCCESS: T.color.success, FAILED: T.color.danger, PARTIAL: T.color.warning };
-  return <Chip variant="outlined" size="small" label={status} sx={chipSx(map[status] ?? T.color.neutral)} />;
+  if (!status) return <Typography sx={{ color: 'text.disabled', fontSize: 12 }}>—</Typography>;
+  const map: Record<string, SemanticTone> = { SUCCESS: 'success', FAILED: 'danger', PARTIAL: 'warning' };
+  // Sentence-cased: the server's SUCCESS/FAILED is a wire value, not a label to show as-is.
+  const label = status.charAt(0) + status.slice(1).toLowerCase();
+  return <ToneChip dense tone={map[status] ?? 'neutral'} label={label} />;
 }
 
 function LastSynced({ ts }: { ts: string | null }) {
-  if (!ts) return <Typography sx={{ color: T.color.inkFaint, fontSize: 12 }}>Never</Typography>;
+  if (!ts) return <Typography sx={{ color: 'text.disabled', fontSize: 12 }}>Never</Typography>;
   const age = (Date.now() - new Date(ts).getTime()) / 3600000;
   const color = age < 1 ? T.color.success : age < 6 ? T.color.warning : T.color.danger;
   return (
-    <Stack direction="row" spacing={0.6} alignItems="center">
-      <Box sx={{ width: 6, height: 6, borderRadius: 999, bgcolor: color }} />
-      <Typography sx={{ color, fontSize: 12, fontWeight: 600 }}>
-        {new Date(ts).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-      </Typography>
-    </Stack>
-  );
-}
-
-// No hardcoded background here: the gradient this used to carry was white-to-near-white,
-// so the tile stayed white on a dark page. `Paper variant="outlined"` already resolves
-// `background.paper` for the active theme — the override was defeating it.
-function StatTile({ label, value, tone, icon }: { label: string; value: ReactNode; tone: string; icon: ReactNode }) {
-  return (
-    <Paper variant="outlined" sx={{ minWidth: 0, p: 1.5, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: 1.25 }}>
-      <Box sx={{ width: 42, height: 42, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: `${tone}1A`, color: tone, border: `1px solid ${tone}2E`, flexShrink: 0 }}>{icon}</Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography noWrap sx={{ fontSize: 19, fontWeight: 750, lineHeight: 1.15, color: 'text.primary' }}>{value}</Typography>
-        <Typography noWrap sx={{ fontSize: 10.5, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>{label}</Typography>
-      </Box>
-    </Paper>
+    // The dot carries the staleness; the text carries the fact. `formatDateTime`
+    // renders the company date format and follows the viewer's 12/24h setting —
+    // the hand-rolled `toLocaleString('en-IN', …)` here did neither, which is why
+    // this cell printed a different shape of date from every other screen.
+    <WtTooltip title={`Last Synced ${formatDateTime(ts)}`}>
+      <Stack direction="row" spacing={0.6} alignItems="center" sx={{ cursor: 'default' }}>
+        <Box sx={{ width: 6, height: 6, borderRadius: 999, bgcolor: color, flexShrink: 0 }} />
+        <Typography noWrap sx={{ color, fontSize: 12, fontWeight: 600 }}>{relTime(ts)}</Typography>
+      </Stack>
+    </WtTooltip>
   );
 }
 
@@ -114,14 +111,26 @@ function LabeledField({ label, value, mono }: { label: string; value: ReactNode;
   );
 }
 
+/**
+ * "6 hours ago", not "6h ago".
+ *
+ * The abbreviated form saves four characters in a place that has room for them,
+ * and costs a beat of decoding on every read — "6h" has to be expanded by the
+ * reader before it means anything, and "6d" is routinely misread as hours. The
+ * exact timestamp is always one hover away (see LastSynced), so this line only
+ * has to answer "recent, or not?" at a glance.
+ */
 const relTime = (ts: string | null): string => {
   if (!ts) return '—';
-  const mins = (Date.now() - new Date(ts).getTime()) / 60000;
-  if (mins < 1) return 'now';
-  if (mins < 60) return `${Math.floor(mins)}m ago`;
-  const hrs = mins / 60;
-  if (hrs < 24) return `${Math.floor(hrs)}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? '' : 's'} ago`;
+  const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return plural(mins, 'minute');
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return plural(hrs, 'hour');
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return plural(days, 'day');
+  return plural(Math.floor(days / 30), 'month');
 };
 
 export default function BiometricDevicesModal({ show, branchId, branchName, onClose }: Props) {
@@ -202,11 +211,49 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
     } finally { setSubmitting(false); }
   };
 
+  /**
+   * The result is written HERE, from the structured fields the endpoint already
+   * returns (mode / pullReachable / pullOk / pushHealthy / lastPushAt) — not from
+   * the server's prose.
+   *
+   * What the server sends is a diagnostic line for a developer:
+   *   `Device "WT-VASHI" — pull connected; stale — last push 1/7/2026, 6:56:26 pm`
+   * Three facts, two clauses and a dash, and a date the server pre-formatted with
+   * its own locale — which is how a date in this dialog came to look nothing like
+   * a date anywhere else in the app, and why it ignored the 12/24-hour setting.
+   *
+   * Formatting is the client's job, so the two paths are now one line each, and
+   * the timestamp goes through `formatDateTime` like every other date on screen.
+   */
   const handleTest = async (d: IBiometricDevice) => {
     setAction(d.id, 'test');
     try {
       const res = await testDeviceById(d.id);
-      alertDialog({ icon: res.connected ? 'success' : 'error', title: res.connected ? 'Connected' : 'Connection Failed', text: res.message });
+      const lines: string[] = [];
+
+      if (res.mode !== 'PUSH') {
+        lines.push(res.pullOk
+          ? 'Pull: connected. The server can fetch logs from this device.'
+          : res.pullReachable
+            ? 'Pull: the device answered, but the sign-in was refused. Check the username and password.'
+            : `Pull: no answer from ${d.deviceIp}:${d.devicePort}. Check the device, the network and any port forwarding.`);
+      }
+
+      if (res.mode !== 'PULL') {
+        lines.push(res.lastPushAt
+          ? res.pushHealthy
+            ? `Push: working. Last punch received ${formatDateTime(res.lastPushAt)}.`
+            : `Push: silent since ${formatDateTime(res.lastPushAt)} (${relTime(res.lastPushAt)}). The device has stopped posting to the webhook.`
+          : 'Push: nothing received yet. Configure the device to post punches to the webhook.');
+      }
+
+      alertDialog({
+        icon: res.connected ? 'success' : 'error',
+        title: res.connected ? 'Device Connected' : 'Device Not Reachable',
+        // Each fact on its own line: a reader looking for "is push alive?" should
+        // not have to parse a sentence to find it.
+        text: lines.join('\n\n') || res.message,
+      });
     } catch (err: any) {
       alertDialog({ icon: 'error', title: 'Test Failed', text: err?.response?.data?.message ?? err?.message });
     } finally { setAction(d.id, null); }
@@ -303,58 +350,107 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
   const busy = (id: string) => !!actionLoading[id];
   const isMobile = useMediaQuery('(max-width:899.95px)');
 
-  // Larger, tactile action buttons (tinted, ~40px hit targets) — reused by the desktop table
-  // and the mobile cards so behaviour and sizing stay identical everywhere.
+  /** Newest `lastSyncedAt` across the listed devices — the value behind the Last Sync tile. */
+  const lastSyncedAcrossDevices = devices.reduce<string | null>(
+    (acc, d) => (d.lastSyncedAt && (!acc || new Date(d.lastSyncedAt) > new Date(acc)) ? d.lastSyncedAt : acc),
+    null,
+  );
+
+  // Which row's overflow menu is open, and where to anchor it.
+  const [menuFor, setMenuFor] = useState<{ device: IBiometricDevice; anchor: HTMLElement } | null>(null);
+  const closeMenu = () => setMenuFor(null);
+  /** Run a menu action and close the menu first, so the sheet never hangs over a dialog it opened. */
+  const fromMenu = (run: () => void) => () => { closeMenu(); run(); };
+
+  /**
+   * Two labelled buttons, then everything else behind one "More" menu.
+   *
+   * This row used to be SEVEN icon-only buttons, each in its own colour, wrapping
+   * onto a second line in the actions column. Three problems, all avoidable:
+   *
+   *  • Seven equal-weight choices is a Hick's-law tax on every visit. Test and
+   *    Sync are what an admin came to do; Edit, History, Backfill, Activate and
+   *    Delete are occasional, and occasional actions belong one level down.
+   *  • Icon-only works for a couple of familiar glyphs and fails at seven. Nobody
+   *    decodes "pulse", "arrows-circle" and "switch" without hovering each one,
+   *    and hover does not exist on touch.
+   *  • Seven tinted colours read as seven severities. Delete (destructive) and
+   *    Backfill (routine) were the same size, a pixel apart — the classic setup
+   *    for the wrong click. Delete now sits alone at the foot of the menu, behind
+   *    a divider, in the danger tone, and still asks for confirmation.
+   *
+   * Labels come with the icons in the menu, so the glyphs stop carrying meaning
+   * on their own. Shared by the desktop table and the mobile cards.
+   */
   const renderActions = (d: IBiometricDevice) => {
-    const btnSx = (tone: string) => ({
-      width: 40, height: 40, borderRadius: '10px', color: tone,
-      bgcolor: `${tone}1A`, border: `1px solid ${tone}3D`,
-      transition: 'background-color .15s, border-color .15s',
-      '&:hover': { bgcolor: `${tone}30`, borderColor: `${tone}66` },
-      '&.Mui-disabled': { color: `${tone}59`, bgcolor: `${tone}0D`, borderColor: `${tone}1F` },
-    });
+    const canPull = d.connectionMode !== 'PUSH';
+    const running = actionLoading[d.id];
     return (
-      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ rowGap: 0.75 }}>
-        <Tooltip title="Test connection">
-          <span><IconButton sx={btnSx(T.color.indigo)} disabled={busy(d.id)} onClick={() => handleTest(d)}>
-            {actionLoading[d.id] === 'test' ? <CircularProgress size={18} /> : <KTIcon iconName="pulse" className="fs-3" />}
-          </IconButton></span>
-        </Tooltip>
-        {d.connectionMode !== 'PUSH' && (
-          <Tooltip title="Pull today's logs">
-            <span><IconButton sx={btnSx(T.color.success)} disabled={busy(d.id)} onClick={() => handleSync(d)}>
-              {actionLoading[d.id] === 'sync' ? <CircularProgress size={18} /> : <KTIcon iconName="arrows-circle" className="fs-3" />}
-            </IconButton></span>
-          </Tooltip>
+      <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap>
+        <Button
+          size="small" variant="outlined"
+          disabled={busy(d.id)} onClick={() => handleTest(d)}
+          startIcon={running === 'test' ? <CircularProgress size={14} color="inherit" /> : <KTIcon iconName="pulse" className="fs-5" />}
+          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '9px', minHeight: 36, px: 1.5 }}
+        >
+          {running === 'test' ? 'Testing…' : 'Test'}
+        </Button>
+        {canPull && (
+          <Button
+            size="small" variant="outlined" color="success"
+            disabled={busy(d.id)} onClick={() => handleSync(d)}
+            startIcon={running === 'sync' ? <CircularProgress size={14} color="inherit" /> : <KTIcon iconName="arrows-circle" className="fs-5" />}
+            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '9px', minHeight: 36, px: 1.5 }}
+          >
+            {running === 'sync' ? 'Syncing…' : 'Sync'}
+          </Button>
         )}
-        {d.connectionMode !== 'PUSH' && (
-          <Tooltip title="Backfill a past date — pull logs the device already has for a date the app missed">
-            <span><IconButton sx={btnSx(T.color.cyan)} disabled={busy(d.id)} onClick={() => openBackfill(d)}>
-              <KTIcon iconName="calendar" className="fs-3" />
-            </IconButton></span>
-          </Tooltip>
-        )}
-        <Tooltip title="Sync history">
-          <span><IconButton sx={btnSx(T.color.inkSoft)} disabled={busy(d.id)} onClick={() => openHistory(d)}>
-            <KTIcon iconName="time" className="fs-3" />
-          </IconButton></span>
-        </Tooltip>
-        <Tooltip title="Edit device">
-          <span><IconButton sx={btnSx(T.color.warning)} disabled={busy(d.id)} onClick={() => openEdit(d)}>
-            <KTIcon iconName="pencil" className="fs-3" />
-          </IconButton></span>
-        </Tooltip>
-        <Tooltip title={d.isActive ? 'Deactivate' : 'Activate'}>
-          <span><IconButton sx={btnSx(d.isActive ? T.color.danger : T.color.success)} disabled={busy(d.id)} onClick={() => handleToggle(d)}>
-            {actionLoading[d.id] === 'toggle' ? <CircularProgress size={18} /> : <KTIcon iconName="switch" className="fs-3" />}
-          </IconButton></span>
-        </Tooltip>
-        <Tooltip title="Delete device">
-          <span><IconButton sx={btnSx(T.color.danger)} disabled={busy(d.id)} onClick={() => handleDelete(d)}>
-            {actionLoading[d.id] === 'delete' ? <CircularProgress size={18} /> : <KTIcon iconName="trash" className="fs-3" />}
-          </IconButton></span>
-        </Tooltip>
+        <WtTooltip title="More Actions">
+          <span>
+            <IconButton
+              aria-label="More actions"
+              aria-haspopup="menu"
+              aria-expanded={menuFor?.device.id === d.id}
+              disabled={busy(d.id)}
+              onClick={(e) => setMenuFor({ device: d, anchor: e.currentTarget })}
+              sx={{ width: 36, height: 36, borderRadius: '9px', border: '1px solid', borderColor: 'divider', color: 'text.secondary' }}
+            >
+              {running === 'toggle' || running === 'delete'
+                ? <CircularProgress size={16} />
+                : <KTIcon iconName="dots-horizontal" className="fs-3" />}
+            </IconButton>
+          </span>
+        </WtTooltip>
       </Stack>
+    );
+  };
+
+  /** The overflow menu for whichever row opened it. One instance, not one per row. */
+  const renderActionMenu = () => {
+    if (!menuFor) return null;
+    const { device: d, anchor } = menuFor;
+    const canPull = d.connectionMode !== 'PUSH';
+    const item = (icon: string, label: string, onClick: () => void, danger?: boolean) => (
+      <MenuItem onClick={fromMenu(onClick)} sx={danger ? { color: 'error.main' } : undefined}>
+        <ListItemIcon sx={{ minWidth: 32, color: 'inherit' }}><KTIcon iconName={icon} className="fs-4" /></ListItemIcon>
+        <ListItemText primaryTypographyProps={{ fontSize: 13.5, fontWeight: 500 }}>{label}</ListItemText>
+      </MenuItem>
+    );
+    return (
+      <Menu
+        open anchorEl={anchor} onClose={closeMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ zIndex: (theme) => theme.zIndex.modal + 2 }}
+        slotProps={{ paper: { sx: { borderRadius: '12px', minWidth: 216 } } }}
+      >
+        {canPull && item('calendar', 'Backfill Past Dates', () => openBackfill(d))}
+        {item('time', 'Sync History', () => openHistory(d))}
+        {item('pencil', 'Edit Device', () => openEdit(d))}
+        {item('switch', d.isActive ? 'Deactivate Device' : 'Activate Device', () => handleToggle(d))}
+        <Divider sx={{ my: 0.5 }} />
+        {item('trash', 'Delete Device', () => handleDelete(d), true)}
+      </Menu>
     );
   };
 
@@ -389,29 +485,31 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
 
   return (
     <>
-    <Dialog open={show} onClose={onClose} maxWidth="lg" fullWidth fullScreen={isMobile} disableEnforceFocus PaperProps={{ sx: { borderRadius: isMobile ? 0 : '16px', fontFamily: T.font.family, display: 'flex', flexDirection: 'column' } }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, px: { xs: 2, sm: 2.75 }, py: { xs: 1.5, sm: 1.75 }, background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)', borderBottom: '3px solid #3B82F6', color: '#fff', flexShrink: 0 }}>
-        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
-          <Box sx={{ width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', flexShrink: 0 }}>
-            <KTIcon iconName="fingerprint-scanning" className="fs-1" />
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontFamily: T.font.family, fontWeight: 700, fontSize: { xs: 15.5, sm: 17 }, color: '#fff', lineHeight: 1.25 }}>
-              Biometric Devices
-            </Typography>
-            <Typography sx={{ fontFamily: T.font.family, fontSize: 12.5, color: 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {branchName} · {loading ? 'Loading…' : `${devices.length} device${devices.length !== 1 ? 's' : ''}`}
-            </Typography>
-          </Box>
-        </Stack>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-          {!showForm && !isMobile && (
-            <Button variant="contained" size="small" startIcon={<KTIcon iconName="plus" className="fs-5" />} onClick={openCreate} sx={{ fontFamily: T.font.family, textTransform: 'none', fontWeight: 600, borderRadius: '9px', bgcolor: '#fff', color: 'primary.main', '&:hover': { bgcolor: '#EAF0FA' } }}>Add Device</Button>
-          )}
-          <IconButton onClick={onClose} aria-label="Close" sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.10)', width: 38, height: 38, '&:hover': { bgcolor: 'rgba(255,255,255,0.20)' } }}><KTIcon iconName="cross" className="fs-3" /></IconButton>
-        </Stack>
-      </Box>
+    <GlassDialog
+      open={show} onClose={onClose} maxWidth="lg" fullWidth
+      // The shell and its header are the kit's. What stood here was a Dialog plus a
+      // Box that re-implemented GlassHeader — the same gradient, the same 3px accent
+      // rule, its own icon tile and its own close button — so this dialog drifted
+      // from every other dialog in the app one style tweak at a time.
+      header={
+        <GlassHeader
+          title="Biometric Devices"
+          subtitle={`${branchName} · ${loading ? 'Loading…' : `${devices.length} device${devices.length !== 1 ? 's' : ''}`}`}
+          icon={<KTIcon iconName="fingerprint-scanning" className="fs-1" />}
+          onClose={onClose}
+          action={!showForm && !isMobile ? (
+            <Button
+              variant="contained" size="small"
+              startIcon={<KTIcon iconName="plus" className="fs-5" />}
+              onClick={openCreate}
+              sx={{ fontFamily: T.font.family, textTransform: 'none', fontWeight: 600, borderRadius: '9px', bgcolor: '#fff', color: 'primary.main', '&:hover': { bgcolor: '#EAF0FA' } }}
+            >
+              Add Device
+            </Button>
+          ) : undefined}
+        />
+      }
+    >
 
       {/* Body */}
       <Box sx={{ bgcolor: T.color.panel, p: { xs: 1.5, sm: 2 }, maxHeight: isMobile ? 'none' : '74vh', flex: isMobile ? 1 : 'none', overflowY: 'auto' }}>
@@ -428,18 +526,18 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
         {/* KPI stat strip — responsive: 2 columns on phones, 4 on wider screens. */}
         {!loading && devices.length > 0 && (
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1.5, mb: 2 }}>
-            <StatTile label="Devices" value={devices.length} tone={T.color.brand} icon={<KTIcon iconName="fingerprint-scanning" className="fs-2" />} />
-            <StatTile label="Active" value={devices.filter(d => d.isActive).length} tone={T.color.success} icon={<KTIcon iconName="check-circle" className="fs-2" />} />
+            <StatTile label="Devices" value={devices.length} trio={TRIO.blue} icon={<KTIcon iconName="fingerprint-scanning" className="fs-2" />} />
+            <StatTile label="Active" value={devices.filter(d => d.isActive).length} trio={TRIO.green} icon={<KTIcon iconName="check-circle" className="fs-2" />} />
             <StatTile
-              label="Needs attention"
+              label="Needs Attention"
               value={devices.filter(d => !d.isActive || d.consecutiveFailures > 0).length}
-              tone={devices.some(d => !d.isActive || d.consecutiveFailures > 0) ? T.color.danger : T.color.neutral}
+              trio={devices.some(d => !d.isActive || d.consecutiveFailures > 0) ? TRIO.rose : TRIO.slate}
               icon={<KTIcon iconName="information-5" className="fs-2" />}
             />
             <StatTile
-              label="Last sync"
-              value={relTime(devices.reduce<string | null>((acc, d) => (d.lastSyncedAt && (!acc || new Date(d.lastSyncedAt) > new Date(acc)) ? d.lastSyncedAt : acc), null))}
-              tone={T.color.indigo}
+              label="Last Sync"
+              value={relTime(lastSyncedAcrossDevices)}
+              trio={TRIO.purple}
               icon={<KTIcon iconName="time" className="fs-2" />}
             />
           </Box>
@@ -449,7 +547,7 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
           <Paper variant="outlined" sx={{ p: 2.5, mb: 2, borderRadius: '12px' }}>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
               <Typography sx={{ fontWeight: 700, fontSize: 14 }}>{editMode ? 'Edit Device' : 'Add New Device'}</Typography>
-              <Chip size="small" label={editMode ? 'Editing' : 'New'} sx={chipSx(T.color.brand)} variant="outlined" />
+              <ToneChip dense tone="brand" label={editMode ? 'Editing' : 'New'} />
             </Stack>
 
             <Formik initialValues={formInit} validationSchema={deviceSchema} onSubmit={handleSubmit} enableReinitialize>
@@ -590,7 +688,7 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
           </TableContainer>
         )}
       </Box>
-    </Dialog>
+    </GlassDialog>
 
     {/* Sync-history drawer — opened from within the device Dialog, so it must sit
         ABOVE it. MUI Drawer defaults to zIndex.drawer (1200) < Dialog (1300), which
@@ -602,13 +700,14 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
       sx={{ zIndex: (theme) => theme.zIndex.modal + 2 }}
       PaperProps={{ sx: { width: { xs: '100%', sm: 420 } } }}
     >
-      <Box sx={{ px: 2.25, py: 1.75, background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)', borderBottom: '3px solid #3B82F6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 750, fontSize: 15, color: '#fff' }}>Sync History</Typography>
-          <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{history.device?.name}</Typography>
-        </Box>
-        <IconButton onClick={closeHistory} size="small" aria-label="Close" sx={{ color: '#fff' }}><KTIcon iconName="cross" className="fs-3" /></IconButton>
-      </Box>
+      {/* Third copy of that gradient header lived here. GlassHeader is a plain
+          Box, so a Drawer takes it exactly as a Dialog does. */}
+      <GlassHeader
+        title="Sync History"
+        subtitle={history.device?.name}
+        icon={<KTIcon iconName="time" className="fs-1" />}
+        onClose={closeHistory}
+      />
       <Box sx={{ p: 2, overflowY: 'auto' }}>
         {history.loading ? (
           <Stack sx={{ gap: 1.25 }}>{[0, 1, 2, 3].map(i => <Skeleton key={i} variant="rounded" height={64} />)}</Stack>
@@ -617,17 +716,22 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
         ) : (
           <Stack sx={{ gap: 1.25 }}>
             {history.logs.map(log => {
-              const tone = log.status === 'SUCCESS' ? T.color.success : log.status === 'FAILED' ? T.color.danger : T.color.warning;
+              const tone: SemanticTone = log.status === 'SUCCESS' ? 'success' : log.status === 'FAILED' ? 'danger' : 'warning';
+              // Wire values are sentence-cased for display: CRON/WEBHOOK/MANUAL and
+              // SUCCESS/FAILED are how the server stores them, not how a person reads them.
+              const sentence = (v: string) => v.charAt(0) + v.slice(1).toLowerCase();
               return (
-                <Paper key={log.id} variant="outlined" sx={{ p: 1.5, borderRadius: '10px', borderLeft: '3px solid', borderLeftColor: tone }}>
+                <Paper key={log.id} variant="outlined" sx={{ p: 1.5, borderRadius: '10px', borderLeft: '3px solid', borderLeftColor: tonePair(tone).fg }}>
                   <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5, gap: 1 }}>
                     <Stack direction="row" spacing={0.75} alignItems="center">
-                      <Chip size="small" variant="outlined" label={log.triggeredBy} sx={chipSx(T.color.neutral)} />
-                      <Chip size="small" variant="outlined" label={log.status} sx={chipSx(tone)} />
+                      <ToneChip dense tone="neutral" label={sentence(log.triggeredBy)} />
+                      <ToneChip dense tone={tone} label={sentence(log.status)} />
                     </Stack>
-                    <Typography sx={{ fontSize: 11.5, color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                      {new Date(log.startedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </Typography>
+                    <WtTooltip title={formatDateTime(log.startedAt)}>
+                      <Typography sx={{ fontSize: 11.5, color: 'text.secondary', whiteSpace: 'nowrap', cursor: 'default' }}>
+                        {relTime(log.startedAt)}
+                      </Typography>
+                    </WtTooltip>
                   </Stack>
                   <Typography sx={{ fontSize: 12.5, color: 'text.primary' }}>
                     {log.recordCount ?? 0} record{(log.recordCount ?? 0) !== 1 ? 's' : ''}{log.errorMessage ? '' : ' synced'}
@@ -643,21 +747,22 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
 
     {/* Backfill dialog — sits ABOVE the device Dialog, same reasoning as the
         sync-history Drawer above. */}
-    <Dialog
+    <GlassDialog
       open={!!backfillTarget}
       onClose={backfillSubmitting ? undefined : closeBackfill}
       maxWidth="xs"
       fullWidth
       sx={{ zIndex: (theme) => theme.zIndex.modal + 2 }}
-      PaperProps={{ sx: { borderRadius: '14px' } }}
+      // Second copy of the same hand-rolled gradient header, now also the kit's.
+      header={
+        <GlassHeader
+          title="Backfill Past Punches"
+          subtitle={backfillTarget?.name}
+          icon={<KTIcon iconName="calendar" className="fs-1" />}
+          onClose={backfillSubmitting ? undefined : closeBackfill}
+        />
+      }
     >
-      <Box sx={{ px: 2.25, py: 1.75, background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)', borderBottom: '3px solid #3B82F6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 750, fontSize: 15, color: '#fff' }}>Backfill Past Punches</Typography>
-          <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{backfillTarget?.name}</Typography>
-        </Box>
-        <IconButton onClick={closeBackfill} disabled={backfillSubmitting} size="small" aria-label="Close" sx={{ color: '#fff' }}><KTIcon iconName="cross" className="fs-3" /></IconButton>
-      </Box>
       <Box sx={{ p: 2.25 }}>
         <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mb: 2 }}>
           Re-pulls attendance logs the device already has for the date range below —
@@ -695,7 +800,9 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
           </Button>
         </Stack>
       </Box>
-    </Dialog>
+    </GlassDialog>
+
+    {renderActionMenu()}
     </>
   );
 }
