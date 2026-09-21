@@ -15,6 +15,7 @@ import {
   type BillingLabelEntry, type BillingTone, type BillingStatusColour,
 } from "@services/billingConfig";
 import { BILLING_LABELS_KEY } from "../components/useBillingLabels";
+import TaxRateSections from "./TaxRateSections";
 
 /**
  * Billing → Configure.
@@ -176,6 +177,12 @@ const BillingConfigurePage: React.FC = () => {
             </ConfigChipGrid>
           </ConfigSectionCard>
         ))}
+
+        {/* The rate lists. Below the labels because they are configured once and
+            then left alone, while the wording above is what people come here to
+            fiddle with — and unlike the codes above, these rows CAN be added and
+            deleted, which their own copy explains. */}
+        <TaxRateSections />
       </Stack>
 
       <GlassDialog

@@ -36,6 +36,16 @@ export interface ConfigColorChipProps {
     action?: ConfigChipAction;
     /** Muted, non-interactive caption under the name (e.g. the status code). */
     caption?: string;
+    /**
+     * Render the caption as real content rather than a whisper.
+     *
+     * The default styling is built for a status CODE — something you glance at
+     * only when the label is ambiguous, so it is 10px monospace in the disabled
+     * tone. That is wrong when the caption carries the row's actual value, like a
+     * tax rate and the section it is deducted under: there the caption is the
+     * point of the row, and rendering it as a whisper makes the list unreadable.
+     */
+    captionStrong?: boolean;
     /** Hover title for the whole chip. Defaults to `name`. */
     title?: string;
     /** Short pill after the name — "Default", "Internal". Omit for none. */
@@ -64,7 +74,7 @@ const REST_SHADOW = '0 1px 3px rgba(24,28,50,0.04)';
 const HOVER_SHADOW = '0 4px 14px rgba(24,28,50,0.09)';
 
 export const ConfigColorChip: React.FC<ConfigColorChipProps> = ({
-    name, color, onEdit, action, caption, title, badge, disabled = false,
+    name, color, onEdit, action, caption, captionStrong = false, title, badge, disabled = false,
 }) => {
     const theme = useTheme();
     // No colour configured → the divider tone, which is legible in both modes.
@@ -161,7 +171,11 @@ export const ConfigColorChip: React.FC<ConfigColorChipProps> = ({
                 {caption && (
                     <Typography
                         noWrap
-                        sx={{ fontSize: 10, color: 'text.disabled', fontFamily: 'monospace' }}
+                        sx={
+                            captionStrong
+                                ? { fontSize: 12.5, fontWeight: 600, color: 'text.secondary', mt: 0.25 }
+                                : { fontSize: 10, color: 'text.disabled', fontFamily: 'monospace' }
+                        }
                         title={caption}
                     >
                         {caption}

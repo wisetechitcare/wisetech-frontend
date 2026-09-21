@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Box, Menu, MenuItem, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, WtButton, ToneChip, toast } from "@app/modules/common/components/ui";
+import { GlassDialog, GlassHeader, WtButton, isHexColor, toast } from "@app/modules/common/components/ui";
+import { tonePair } from "@app/theme/tokens";
 import {
   updateOperationStatus,
   setProjectBillingFields,
@@ -10,7 +11,7 @@ import {
   type ProjectBillingPatch,
   type ProjectOverviewRow,
 } from "@services/billingOperations";
-import { BillingStatusBadge, useBillingLabels, BILLING_LABEL_GROUP } from "../components";
+import { BILLING_STATUS_TONES, useBillingLabels, BILLING_LABEL_GROUP } from "../components";
 
 /**
  * The Billing Tracker's three editable workflow columns.
@@ -34,6 +35,45 @@ import { BillingStatusBadge, useBillingLabels, BILLING_LABEL_GROUP } from "../co
 
 /** Menu value for "clear it" — not a code, so it cannot collide with one. */
 const CLEAR = "__CLEAR__";
+
+/** Grey for a chip with no value ("Not billed"), so an empty cell still reads as a chip. */
+const EMPTY_CHIP = "#94A3B8";
+
+/**
+ * The tracker's chip: solid colour, white dot, white label, 6px corners — the same
+ * chip the Project Status column and the Leads / Projects tables use, so every
+ * workflow column on the sheet reads as one set.
+ */
+export const SolidChip: React.FC<{ label: string; color?: string | null; dropdown?: boolean }> = ({
+  label, color, dropdown,
+}) => (
+  <Box sx={{
+    display: "inline-flex", alignItems: "center", gap: "6px",
+    backgroundColor: color || EMPTY_CHIP,
+    borderRadius: "6px", padding: dropdown ? "4px 6px 4px 8px" : "4px 10px 4px 8px", whiteSpace: "nowrap",
+  }}>
+    <Box sx={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "common.white", flexShrink: 0 }} />
+    <Typography sx={{ fontSize: 12, fontWeight: 600, color: "common.white" }}>{label}</Typography>
+    {/* The dropdown arrow lives inside the chip, so the control reads as one piece. */}
+    {dropdown && <KTIcon iconName="down" className="fs-8 text-white" />}
+  </Box>
+);
+
+/**
+ * A billing code as a solid chip. Wording and colour still come from Billing →
+ * Configure — a configured tone resolves to its hex, a hand-picked hex is used as-is.
+ */
+const BillingSolidChip: React.FC<{ code: string; dropdown?: boolean }> = ({ code, dropdown }) => {
+  const labels = useBillingLabels();
+  const colour = labels.tone(code) ?? BILLING_STATUS_TONES[code] ?? "neutral";
+  return (
+    <SolidChip
+      label={labels.label(code)}
+      color={isHexColor(colour) ? colour : tonePair(colour).fg}
+      dropdown={dropdown}
+    />
+  );
+};
 
 // ─── the shared control ──────────────────────────────────────────────────────
 
@@ -74,31 +114,27 @@ const EditableChip: React.FC<EditableChipProps> = ({
   return (
     <>
       <Tooltip title={hint} placement="top">
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={0.5}
+        <Box
           onClick={(e) => {
             stop(e);
             if (editable) setAnchor(e.currentTarget);
           }}
           sx={{
-            minWidth: 0,
             width: "fit-content",
+            // Centred in its column, like the Project Status chip beside it.
+            mx: "auto",
+            lineHeight: 0,
             cursor: editable ? "pointer" : "default",
-            borderRadius: "8px",
-            px: editable ? 0.5 : 0,
-            mx: editable ? -0.5 : 0,
-            "&:hover": editable ? { backgroundColor: "action.hover" } : undefined,
+            transition: "filter 0.15s ease",
+            "&:hover": editable ? { filter: "brightness(0.92)" } : undefined,
           }}
         >
           {value ? (
-            <BillingStatusBadge status={value} />
+            <BillingSolidChip code={value} dropdown={editable} />
           ) : (
-            <ToneChip tone="neutral" label={placeholder} dense />
+            <SolidChip label={placeholder} dropdown={editable} />
           )}
-          {editable && <KTIcon iconName="down" className="fs-8 text-muted" />}
-        </Stack>
+        </Box>
       </Tooltip>
 
       <Menu
@@ -119,7 +155,7 @@ const EditableChip: React.FC<EditableChipProps> = ({
             selected={choice.value === highlighted}
             sx={{ py: 0.75 }}
           >
-            <BillingStatusBadge status={choice.value} />
+            <BillingSolidChip code={choice.value} />
           </MenuItem>
         ))}
         {clearLabel && value && (
@@ -128,7 +164,7 @@ const EditableChip: React.FC<EditableChipProps> = ({
             disabled={busy}
             sx={{ py: 0.75 }}
           >
-            <ToneChip tone="neutral" label={clearLabel} dense />
+            <SolidChip label={clearLabel} />
           </MenuItem>
         )}
       </Menu>
@@ -288,7 +324,9 @@ export const TrackerStageCell: React.FC<{ row: ProjectOverviewRow }> = ({ row })
   return (
     <EditableChip
       value={stage}
-      placeholder="Not billed"
+      // Each empty column says what is missing in ITS terms — three identical
+      // "Not billed" chips in a row told the reader nothing about any of them.
+      placeholder="Not started"
       choices={labels.options(BILLING_LABEL_GROUP.STAGE)}
       defaultCode={labels.defaultCode(BILLING_LABEL_GROUP.STAGE)}
       heading="SET STAGE"
@@ -320,12 +358,13 @@ export const TrackerBillPaymentCell: React.FC<{ row: ProjectOverviewRow }> = ({ 
   return (
     <EditableChip
       value={billPaymentStatus}
-      placeholder="—"
+      // No value here means no bill has gone out yet, so there is nothing to collect against.
+      placeholder="No bill issued"
       choices={labels.options(BILLING_LABEL_GROUP.BILL_PAYMENT)}
       defaultCode={labels.defaultCode(BILLING_LABEL_GROUP.BILL_PAYMENT)}
       heading="SET BILL PAYMENT"
       hint={hint}
-      clearLabel={billPaymentSource === "MANUAL" ? "Clear" : undefined}
+      clearLabel={billPaymentSource === "MANUAL" ? "No bill issued" : undefined}
       locked={locked}
       busy={patch.isPending}
       onPick={(value) =>

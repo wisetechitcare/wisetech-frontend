@@ -723,6 +723,13 @@ export const BILLING_OPERATION = {
 export const BILLING_CONFIG = {
     STATUS_LABELS: "api/billing/config/status-labels",
     RESET_STATUS_LABEL: "api/billing/config/status-labels/:code",
+    // The GST and TDS rate lists. One GET returns both — the Configure screen
+    // draws them together and would otherwise make two calls for one page.
+    TAX_RATES: "api/billing/config/tax-rates",
+    GST_SLABS: "api/billing/config/gst-slabs",
+    GST_SLAB: "api/billing/config/gst-slabs/:id",
+    TDS_SECTIONS: "api/billing/config/tds-sections",
+    TDS_SECTION: "api/billing/config/tds-sections/:id",
 }
 
 // Financial Reporting Center — every route is read-only.
@@ -778,6 +785,21 @@ export const PROFORMA = {
 // existing Billing services for one project; every write navigates into Billing.
 export const PROJECT_BILLING = {
     WORKSPACE: "api/billing/projects/:projectId/workspace",
+    /** The simplified tab: three totals plus one row per deliverable. */
+    OVERVIEW: "api/billing/projects/:projectId/billing",
+}
+
+// Direct billing — one bill per deliverable. Unlike PROJECT_BILLING these are
+// writes: a bill is raised, paid and closed here, not in another module.
+export const BILLS = {
+    RAISE: "api/billing/bills",
+    GET_BY_ID: "api/billing/bills/:id",
+    PROFORMA: "api/billing/bills/:id/proforma",
+    INVOICE: "api/billing/bills/:id/invoice",
+    CANCEL: "api/billing/bills/:id/cancel",
+    PAYMENTS: "api/billing/bills/:id/payments",
+    PAYMENT: "api/billing/bills/payments/:paymentId",
+    TDS: "api/billing/bills/:id/tds",
 }
 
 // Tax Invoice repository — MANAGEMENT ONLY. Generation lives on the Payment

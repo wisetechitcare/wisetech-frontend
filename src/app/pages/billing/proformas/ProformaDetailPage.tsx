@@ -32,8 +32,20 @@ import { Figure, PanelTitle } from "../operations/operationUi";
  * to the document.
  */
 
-const ProformaDetailPage: React.FC = () => {
-  const { id = "" } = useParams();
+/**
+ * Embeddable, for the same reason as the editor: one project's documents are
+ * managed from that project's Billing tab, not from the module-wide repository.
+ * `onEdit` lets the host open its own editor instead of routing away.
+ */
+export interface ProformaDetailPageProps {
+  documentId?: string;
+  onBack?: () => void;
+  onEdit?: (documentId: string) => void;
+}
+
+const ProformaDetailPage: React.FC<ProformaDetailPageProps> = ({ documentId, onBack, onEdit }) => {
+  const params = useParams();
+  const id = documentId ?? params.id ?? "";
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   // Falls back to this page\'s own parent when nobody handed us an origin,
@@ -104,7 +116,8 @@ const ProformaDetailPage: React.FC = () => {
       setRevisionReason("");
       refresh();
       // Straight into the editor — a revision exists to be edited.
-      navigate(`/billing/proformas/${detail.document.id}/edit`);
+      if (onEdit) onEdit(detail.document.id);
+      else navigate(`/billing/proformas/${detail.document.id}/edit`);
     },
     onError: (error: any) =>
       toast({ icon: "error", title: error?.response?.data?.message ?? "Could not open a revision" }),
@@ -187,11 +200,11 @@ const ProformaDetailPage: React.FC = () => {
             {isArchived && <ToneChip tone="neutral" label="Archived" dense={false} />}
             <WtButton
               ghost size="small"
-              onClick={back.goBack}
+              onClick={onBack ?? back.goBack}
               startIcon={<KTIcon iconName="arrow-left" className="fs-6" />}
               sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
             >
-              {back.label}
+              {onBack ? "Back" : back.label}
             </WtButton>
             <WtButton
               ghost size="small" disabled={access.isPending}
