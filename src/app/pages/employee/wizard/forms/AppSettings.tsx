@@ -24,8 +24,14 @@ function AppSettings() {
 
     useEffect(() => {
         const fetchAllRoles = async () => {
-            const response = await fetchRoles();
-            const rolesData = response?.data;
+            // The roles endpoint is permission-gated (`users.view.all`) and can answer 403 or
+            // an envelope with no list. Either way that is an empty picker, never a thrown
+            // read on `undefined` that takes the whole step down with it.
+            const response = await fetchRoles().catch((err) => {
+                console.error('Failed to load app roles:', err);
+                return null;
+            });
+            const rolesData = Array.isArray(response?.data) ? response.data : [];
             setRoleOptions(rolesData.map((role: any) => ({ value: role.id, label: role.name })));
         };
         fetchAllRoles();
