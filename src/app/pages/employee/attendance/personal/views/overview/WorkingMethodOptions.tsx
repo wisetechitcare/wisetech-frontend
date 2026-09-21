@@ -1095,6 +1095,7 @@ import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { createKpiScore, checkAttendanceMarked, fetchAttendanceDetails, getAllKpiFactors, getAttendanceRequest, saveCheckIn, saveCheckOut, validateTokenInOut, fetchEmployeesOnLeaveToday } from "@services/employee";
 import { saveBtnText, savePersonalAttendance, toggleDisableBtn, toggleOpenModal } from '@redux/slices/attendance';
+import { isCheckButtonDisabled } from './checkButtonState';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -1154,6 +1155,11 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     const [allTheFactorDetails, setAllTheFactorDetails] = useState<any>([])
     const [selectedWorkingMethod, setSelectedWorkingMethod] = useState(workingMethodOptions[0]?.type);
     const [distanceAllowedFromOfficeInMeters, setDistanceAllowedFromOfficeInMeters] = useState(0);
+    /**
+     * Today's attendance as the server reports it, and the single input that decides what the
+     * button may do. It starts 'unknown', which must never be treated as "blocked".
+     */
+    const [dayState, setDayState] = useState<'unknown' | 'not-in' | 'in' | 'done'>('unknown');
     const [graceTimeOnSite, setGraceTimeOnSite] = useState<string>('');
     const allEmpDetails = useSelector((state: RootState) => state.employee.currentEmployee);
     const branchLatitude = allEmpDetails.branches?.latitude;
@@ -1928,46 +1934,85 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
         fetchGraceTimeOnSite();
     }, [])
 
+    /**
+     * The ONE owner of the button's enabled state.
+     *
+     * Three effects used to write `disableBtn` independently and the last to resolve won, so
+     * whether an employee could act depended on the order their GPS, their status fetch and a
+     * localStorage token happened to settle in. Everything that decides is now here.
+     *
+     * The rule that cost real attendance: GEOFENCING CONSTRAINS ARRIVING, NEVER LEAVING.
+     * Being away from the office is a reason to refuse a check-IN; it is never a reason to
+     * refuse a check-OUT. Blocking the exit does not keep anyone at their desk — it only
+     * loses the record of the day they worked. WT-107 lost 16 Sept and 21 Sept 2026 this way:
+     * checked in at the office, left, and found a greyed-out button, so nothing was ever sent
+     * (there is no server error for either day, because no request was made).
+     */
     useEffect(()=>{
         const branchLatitudeFinal = parseFloat(Number(branchLatitude).toFixed(6));
         const branchLongitudeFinal = parseFloat(Number(branchLongitude).toFixed(6));
         const myLatitudeFinal = parseFloat(Number(latitude).toFixed(6));
         const myLongitudeFinal = parseFloat(Number(longitude).toFixed(6));
-        
-        const dist = distanceInMeters(branchLatitudeFinal, branchLongitudeFinal, myLatitudeFinal, myLongitudeFinal);
-        if(dist>=distanceAllowedFromOfficeInMeters && (selectedWorkingMethod==='Office' || selectedWorkingMethod==='office')){
-            dispatch(toggleDisableBtn(true));
-        }
-        else{
-            dispatch(toggleDisableBtn(false));
-        }
 
-    },[latitude,longitude,branchLatitude,branchLongitude, selectedWorkingMethod, distanceAllowedFromOfficeInMeters]);
+        const dist = distanceInMeters(branchLatitudeFinal, branchLongitudeFinal, myLatitudeFinal, myLongitudeFinal);
+
+        dispatch(toggleDisableBtn(isCheckButtonDisabled({
+            dayState,
+            isOfficeMethod: selectedWorkingMethod === 'Office' || selectedWorkingMethod === 'office',
+            distanceFromBranch: dist,
+            allowedRadius: distanceAllowedFromOfficeInMeters,
+        })));
+
+    },[latitude,longitude,branchLatitude,branchLongitude, selectedWorkingMethod, distanceAllowedFromOfficeInMeters, dayState]);
 
     useEffect(() => {
+        /**
+         * Today's row as the SERVER reports it — the only authority on what the button means.
+         * This sets `dayState`; the effect above turns that into enabled/disabled, so the two
+         * can no longer contradict each other.
+         */
         async function attendanceMarked() {
             const date = dayjs().format('YYYY/MM/DD');
             try {
                 const res = await checkAttendanceMarked(date, employeeId);
-                if (res.data.attendance) {
-                    const { attendance: { checkIn, checkOut } } = res.data;
-                    if (checkIn) dispatch(saveBtnText('Check out'));
-                    if (checkOut) dispatch(toggleDisableBtn(true));
+                const { checkIn, checkOut } = res.data?.attendance ?? {};
+                if (checkOut) {
+                    setDayState('done');
+                } else if (checkIn) {
+                    // Checked in and still out there. Whatever the punch came from — the face
+                    // reader, another device, the app — the only thing left to do is check out.
+                    setDayState('in');
+                    dispatch(saveBtnText('Check out'));
+                } else {
+                    setDayState('not-in');
                 }
             }
             catch (err: any) {
+                // A failed status fetch leaves the day UNKNOWN, never "blocked": the employee
+                // keeps a working button and the server remains the thing that decides.
                 console.error(err);
+                setDayState('unknown');
             }
         }
 
+        /**
+         * The in-out marker is now only cleaned up here — it no longer decides anything.
+         *
+         * `isDisabled` does not mean "this employee is finished"; the endpoint computes
+         * `expiryTime > now`, and the token is minted at check-in with `getSecondsUntilMidnight()`.
+         * So it reads TRUE for the whole rest of the day, and this block used to answer that by
+         * disabling the button and relabelling it "Check in" — at exactly the moment the employee
+         * needed an enabled one saying "Check out". Today's row (above) is the authority; a
+         * browser-local marker never was one.
+         */
         async function validateToken() {
             const lsCheckIn = getKey("check_in_token");
             if (!lsCheckIn || !employeeId) return;
-            const { data: { isDisabled } } = await validateTokenInOut({ id: employeeId, token: lsCheckIn });
-            if (isDisabled) {
-                dispatch(toggleDisableBtn(isDisabled));
-                dispatch(saveBtnText("Check in"));
-                localStorage.removeItem("check_in_token");
+            try {
+                const { data: { isDisabled } } = await validateTokenInOut({ id: employeeId, token: lsCheckIn });
+                if (isDisabled) localStorage.removeItem("check_in_token");
+            } catch (err: any) {
+                console.error(err);
             }
         }
 
