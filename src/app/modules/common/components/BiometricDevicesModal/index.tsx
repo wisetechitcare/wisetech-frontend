@@ -1,13 +1,16 @@
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useMemo, useState, ReactNode } from 'react';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import {
-  Box, Stack, Typography, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, IconButton, Button, TextField, Select,
+  Box, Stack, Typography, IconButton, Button, TextField, Select,
   MenuItem, ListItemText, CircularProgress, InputAdornment, Paper,
   FormControl, FormHelperText, Skeleton, Drawer, Divider, useMediaQuery,
   Menu, ListItemIcon,
 } from '@mui/material';
+// Type-only: erased at build, so the MRT vendor chunk stays behind MaterialTable's
+// lazy boundary (see MaterialTable.tsx — importing the runtime here would undo the split).
+import type { MRT_ColumnDef } from 'material-react-table';
+import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import {
@@ -454,6 +457,83 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
     );
   };
 
+  /**
+   * Columns for the shared table engine.
+   *
+   * Two rules from ui/README.md drive the shapes here:
+   *
+   *  • SORT ON THE VALUE, RENDER WHAT YOU LIKE. `accessorFn` hands the engine the
+   *    raw value — a timestamp for Last Synced, a rank for Status — and `Cell`
+   *    draws the chip. Sorting the rendered label would order "10 failures"
+   *    before "2 failures" and put "Just now" next to "Inactive".
+   *  • AN ACTIONS COLUMN IS NOT DATA. Sorting, filtering and global search are
+   *    off for it, or the toolbar offers three controls that do nothing.
+   */
+  const deviceColumns = useMemo<MRT_ColumnDef<IBiometricDevice>[]>(() => [
+    {
+      accessorKey: 'name',
+      header: 'Device',
+      Cell: ({ row }) => (
+        <Typography sx={{ fontWeight: 650, fontSize: 13, color: 'text.primary' }}>{row.original.name}</Typography>
+      ),
+    },
+    {
+      id: 'address',
+      accessorFn: (d) => `${d.deviceIp}:${d.devicePort}`,
+      header: 'IP : Port',
+      Cell: ({ cell }) => (
+        <Typography sx={{ fontFamily: 'monospace', fontSize: 12, color: 'text.secondary' }}>{cell.getValue<string>()}</Typography>
+      ),
+    },
+    {
+      accessorKey: 'serialNumber',
+      header: 'Serial #',
+      Cell: ({ cell }) => (
+        <Typography sx={{ fontFamily: 'monospace', fontSize: 12, color: 'text.secondary' }}>{cell.getValue<string>()}</Typography>
+      ),
+    },
+    {
+      id: 'mode',
+      // The LABEL, not the enum: searching "push + pull" should find a BOTH device.
+      accessorFn: (d) => MODE_META[d.connectionMode]?.label ?? d.connectionMode,
+      header: 'Mode',
+      Cell: ({ row }) => <ModeChip mode={row.original.connectionMode} />,
+    },
+    {
+      id: 'status',
+      // Worst first when sorted descending: inactive, then failing, then healthy.
+      accessorFn: (d) => (!d.isActive ? 'Inactive' : d.consecutiveFailures > 0 ? `${d.consecutiveFailures} failures` : 'Active'),
+      header: 'Status',
+      Cell: ({ row }) => <StatusChip device={row.original} />,
+    },
+    {
+      id: 'lastSyncedAt',
+      // A timestamp, so the column sorts chronologically. The cell shows "6 hours
+      // ago"; sorting that text would put "9 minutes" after "40 minutes".
+      accessorFn: (d) => (d.lastSyncedAt ? new Date(d.lastSyncedAt).getTime() : 0),
+      header: 'Last Synced',
+      Cell: ({ row }) => <LastSynced ts={row.original.lastSyncedAt} />,
+    },
+    {
+      id: 'lastSyncStatus',
+      accessorFn: (d) => d.lastSyncStatus ?? '',
+      header: 'Sync',
+      Cell: ({ row }) => <SyncChip status={row.original.lastSyncStatus} />,
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      enableColumnFilter: false,
+      enableGlobalFilter: false,
+      enableHiding: false,
+      size: 260,
+      Cell: ({ row }) => renderActions(row.original),
+    },
+    // actionLoading drives the in-row spinners and the delete fade, so the cells
+    // must re-render when it changes.
+  ], [actionLoading, menuFor]);
+
   // Mobile/tablet card — a device shown as a self-contained card so nothing is clipped by a
   // horizontally-scrolling table on small screens.
   const renderDeviceCard = (d: IBiometricDevice) => (
@@ -629,22 +709,12 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
           </Paper>
         )}
 
-        {/* Device list */}
-        {loading ? (
-          <Paper variant="outlined" sx={{ borderRadius: '12px', p: 1.5 }}>
-            {[0, 1, 2].map(i => (
-              <Stack key={i} direction="row" spacing={2} alignItems="center" sx={{ py: 1.25, px: 1 }}>
-                <Skeleton variant="rounded" width={150} height={18} />
-                <Skeleton variant="rounded" width={120} height={16} />
-                <Skeleton variant="rounded" width={88} height={20} sx={{ borderRadius: 999 }} />
-                <Box sx={{ flex: 1 }} />
-                <Skeleton variant="circular" width={28} height={28} />
-                <Skeleton variant="circular" width={28} height={28} />
-                <Skeleton variant="circular" width={28} height={28} />
-              </Stack>
-            ))}
-          </Paper>
-        ) : devices.length === 0 ? (
+        {/* Device list. The loading skeleton is the engine's (`isLoading`), not a
+            third hand-rolled one — it already renders skeleton rows when there is
+            no data and a progress bar when there is, in card mode as well as table
+            mode. The empty state below stays local because it carries a product
+            decision the engine cannot: the "Add Device" call to action. */}
+        {!loading && devices.length === 0 ? (
           <Stack alignItems="center" justifyContent="center" sx={{ py: 7, textAlign: 'center' }}>
             <Box sx={{ width: 56, height: 56, borderRadius: '16px', display: 'grid', placeItems: 'center', bgcolor: T.color.panelAlt, color: T.color.inkFaint, mb: 1.5 }}>
               <KTIcon iconName="fingerprint-scanning" className="fs-2x" />
@@ -655,37 +725,38 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
             </Typography>
             <Button variant="contained" size="small" startIcon={<KTIcon iconName="plus" className="fs-5" />} onClick={openCreate} sx={{ mt: 2 }}>Add Device</Button>
           </Stack>
-        ) : isMobile ? (
-          // Small screens: card list — no horizontal scroll, full-size action buttons.
-          <Stack spacing={1.5}>
-            {devices.map(renderDeviceCard)}
-          </Stack>
         ) : (
-          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: '12px' }}>
-            <Table size="small" sx={{ minWidth: 820 }}>
-              <TableHead>
-                <TableRow sx={{ bgcolor: 'rgba(30, 58, 138, 0.05)' }}>
-                  {['Device', 'IP : Port', 'Serial #', 'Mode', 'Status', 'Last Synced', 'Sync', 'Actions'].map(h => (
-                    <TableCell key={h} sx={{ fontWeight: 700, fontSize: 10.5, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {devices.map(d => (
-                  <TableRow key={d.id} hover sx={{ opacity: actionLoading[d.id] === 'delete' ? 0.5 : 1 }}>
-                    <TableCell sx={{ fontWeight: 650, color: 'text.primary' }}>{d.name}</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontFamily: 'monospace', fontSize: 12 }}>{d.deviceIp}:{d.devicePort}</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontFamily: 'monospace', fontSize: 12 }}>{d.serialNumber}</TableCell>
-                    <TableCell><ModeChip mode={d.connectionMode} /></TableCell>
-                    <TableCell><StatusChip device={d} /></TableCell>
-                    <TableCell><LastSynced ts={d.lastSyncedAt} /></TableCell>
-                    <TableCell><SyncChip status={d.lastSyncStatus} /></TableCell>
-                    <TableCell sx={{ minWidth: 300 }}>{renderActions(d)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          // The shared engine, not a hand-written <Table>. What stood here was
+          // eight <TableCell>s and a second, separate branch that rebuilt the
+          // rows as cards below 900px — so this screen was the only one in the
+          // app without sorting, per-column search, column show/hide, export or
+          // full-screen, and it maintained its own mobile layout to boot.
+          //
+          // `renderMobileCard` takes the card renderer this file already had, so
+          // the narrow-screen layout is reused rather than re-implemented; the
+          // engine decides when to switch to it (≤600px, the same point as every
+          // other table) instead of this modal keeping a private breakpoint.
+          //
+          // persistPreferences={false}: column preferences are saved per table
+          // NAME, and this table is opened once per branch from a modal. Persisting
+          // would let one branch's column tweak reappear on another and outrank the
+          // defaults here — the same reason the drill-down dialogs opt out.
+          <MaterialTable
+            columns={deviceColumns}
+            data={devices}
+            tableName="BiometricDevices"
+            isLoading={loading}
+            persistPreferences={false}
+            hidePagination
+            searchPlaceholder="Search device, IP or serial number…"
+            renderMobileCard={({ row }: { row: { original: IBiometricDevice } }) => renderDeviceCard(row.original)}
+            muiTableProps={{
+              muiTableBodyRowProps: ({ row }: any) => ({
+                // Deleting fades the row it is removing, as before.
+                sx: { opacity: actionLoading[row.original?.id] === 'delete' ? 0.5 : 1 },
+              }),
+            }}
+          />
         )}
       </Box>
     </GlassDialog>
