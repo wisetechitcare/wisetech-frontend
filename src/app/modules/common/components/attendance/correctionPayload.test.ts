@@ -8,7 +8,7 @@
  * timezone; now everything does.
  */
 import { describe, expect, it } from 'vitest';
-import { buildCorrectionPayload, draftFromRequest } from './correctionPayload';
+import { buildCorrectionPayload, calendarMonthKey, draftFromRequest } from './correctionPayload';
 import type { AttendanceRequestDraft } from './attendanceRequest';
 
 const draft = (over: Partial<AttendanceRequestDraft> = {}): AttendanceRequestDraft => ({
@@ -116,5 +116,35 @@ describe('draftFromRequest — reading a request back onto the form', () => {
   it('ignores a display string instead of misreading it', () => {
     const d = draftFromRequest({ checkIn: '9:59 AM', checkOut: '-NA-' } as never, 'Asia/Kolkata');
     expect([d.checkIn, d.checkOut]).toEqual(['', '']);
+  });
+});
+
+describe('calendarMonthKey — never ask the server for "Invalid Date"', () => {
+  /**
+   * The bug this exists for: the correction engine derived its month with
+   * `dayjs(date).format('YYYY-MM')`. With no day selected yet, `date` is '' and dayjs
+   * formats that as the literal string "Invalid Date" — which is TRUTHY, so the
+   * calendar query enabled itself and fired
+   * `GET /attendance/calendar?...&month=Invalid%20Date` at the server, over and over
+   * (React Query refetches on every socket event). The server answered 400 each time.
+   */
+  it('returns the month of a business day', () => {
+    expect(calendarMonthKey('2026-09-15')).toBe('2026-09');
+    expect(calendarMonthKey('2026-01-01')).toBe('2026-01');
+  });
+
+  it('returns an empty string for anything that is not a date, so the query stays off', () => {
+    expect(calendarMonthKey('')).toBe('');
+    expect(calendarMonthKey(null)).toBe('');
+    expect(calendarMonthKey(undefined)).toBe('');
+    expect(calendarMonthKey('Invalid Date')).toBe('');
+    expect(calendarMonthKey('not a date')).toBe('');
+  });
+
+  /** Never emit the string the bug was made of, whatever it is handed. */
+  it('never emits "Invalid Date"', () => {
+    for (const input of ['', 'x', 'Invalid Date', '2026-13-45', null, undefined]) {
+      expect(calendarMonthKey(input as never)).not.toMatch(/Invalid/);
+    }
   });
 });

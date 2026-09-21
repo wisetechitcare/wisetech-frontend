@@ -57,7 +57,7 @@ import {
   type AttendanceRequestDraft,
   type RequestKind,
 } from './attendanceRequest';
-import { buildCorrectionPayload, draftFromRequest, type CorrectionMode } from './correctionPayload';
+import { buildCorrectionPayload, calendarMonthKey, draftFromRequest, type CorrectionMode } from './correctionPayload';
 
 /** Offered in this order: correcting ONE punch is the common case. */
 export const CORRECTION_KINDS: readonly RequestKind[] = ['checkin', 'checkout', 'both'];
@@ -126,7 +126,14 @@ export function useAttendanceCorrection(args: UseAttendanceCorrectionArgs) {
   const [saving, setSaving] = useState(false);
 
   /* ── The day, from the calendar's own query ─────────────────────────────── */
-  const { data: calendar, isLoading: loadingDay } = useAttendanceCalendar(employeeId, dayjs(date).format('YYYY-MM'));
+  /**
+   * Only while the form is OPEN and the day is readable. `useAttendanceCalendar`
+   * enables itself on `Boolean(employeeId && month)`, and the day panel mounts with no
+   * day selected — so an unguarded month asked the server for `month=Invalid Date` on
+   * every render and socket refetch, and was answered 400 each time.
+   */
+  const month = useMemo(() => (open ? calendarMonthKey(date) : ''), [open, date]);
+  const { data: calendar, isLoading: loadingDay } = useAttendanceCalendar(month ? employeeId : '', month);
   const day = useMemo(() => calendar?.days?.find((d) => d.date === date) ?? null, [calendar, date]);
   const timezone = calendar?.timezone || me?.branches?.timezone || MUMBAI_TZ;
 
