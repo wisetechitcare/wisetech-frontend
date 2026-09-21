@@ -83,8 +83,31 @@ const chipSx = {
   borderColor: "divider",
   whiteSpace: "nowrap",
 } as const;
-const chipTextSx = { fontSize: 12, lineHeight: 1, fontVariantNumeric: "tabular-nums" } as const;
-const summaryValueSx = { fontSize: 14, lineHeight: 1, fontWeight: 800, color: ACCENT, fontVariantNumeric: "tabular-nums" } as const;
+/**
+ * Every word and figure in the chip row, on ONE line box.
+ *
+ * `lineHeight: 1` is what kept them off each other's centre: it makes each element's box
+ * exactly its own font-size, so a label and a figure are two different-sized boxes that
+ * centre at two different heights, and the glyphs spill out of them by however much the
+ * font's ascent exceeds the box. A FIXED 16px line box — the height of the colour bar beside
+ * it — gives every part the same box and the same baseline, so the bar, the label, the count
+ * and the money line up because they cannot do anything else.
+ */
+const chipTextSx = {
+  fontSize: 12,
+  lineHeight: "16px",
+  display: "block",
+  fontVariantNumeric: "tabular-nums",
+} as const;
+/**
+ * The total's figures, at the SAME size as everything else in the row.
+ *
+ * They were 14px beside a 10px label and a 12px chip, and three type sizes on one line do not
+ * share a centre: the label rode high, the number sat low, and only the colour bar looked
+ * centred. One size lines them up by construction — the hierarchy is carried by weight and
+ * colour, exactly as the status chips beside it already do.
+ */
+const summaryValueSx = { ...chipTextSx, fontWeight: 800, color: ACCENT } as const;
 
 const FALLBACK_COLORS = ["#3B5BDB", "#2F9E44", "#E8590C", "#7048E8", "#E64980", "#1098AD", "#F08C00", "#868E96"];
 

@@ -113,6 +113,9 @@ export { pageWindow, ELLIPSIS } from './pageWindow';
 export { GlassNotification, GlassToastProvider, useGlassToast } from './GlassNotification';
 export type { GlassNotificationProps, GlassToastOptions } from './GlassNotification';
 export { toast, alertDialog, confirmDialog } from './feedback';
+// A line of explanation INSIDE a form or panel: toned notice, or a quiet info hint.
+export { InlineNotice, InlineHint } from './InlineNotice';
+export type { InlineNoticeProps } from './InlineNotice';
 export type { FeedbackOptions } from './feedback';
 // App-wide single-select picker modal (glass kit, theme-aware) — use instead of bootstrap <Modal>.
 export { OptionPickerDialog, OptionRow, OptionCard } from './pickers';

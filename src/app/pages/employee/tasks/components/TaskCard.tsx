@@ -187,6 +187,14 @@ const TaskCardBase = ({
     const overdue = !meeting && isTaskOverdue(task, now);
     // Finished work, read off the STORED property of its stage — never the stage's name.
     const done = isTaskFinal(task);
+    /**
+     * The card's own colour IS its task status' colour — the one set under Configure >
+     * Task Statuses (Completed green, In Progress blue, On Hold yellow…). Read straight off
+     * the row, so recolouring a status in Configure recolours every card wearing it, and a
+     * completed card is recognisable on sight instead of being told apart by which lane it
+     * happens to sit in. Meetings have no status and stay plain.
+     */
+    const statusColor = !meeting ? task.status?.color || null : null;
     const logged = loggedSeconds(task.timesheets);
     const subtaskCount = task._count?.subtasks ?? 0;
     return (
@@ -196,7 +204,12 @@ const TaskCardBase = ({
             onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(task.id); }
             }}
-            role="button"
+            // NOT `role="button"`. The drag engine refuses to start a gesture on anything
+            // operable — `closest('button,a,input,…,[role="button"]')` — so a card that
+            // called itself a button could never be picked up, while the lane (whose drag
+            // starts on its header) still could. It was also a lie twice over: this card
+            // CONTAINS buttons, and nesting interactive roles is invalid ARIA. The card
+            // stays focusable and Enter/Space still opens it.
             tabIndex={0}
             aria-label={`${task.taskName}, ${task.taskScope.toLowerCase()} task`}
             sx={{
@@ -206,16 +219,17 @@ const TaskCardBase = ({
                 cursor: 'inherit',
                 borderRadius: 2,
                 border: '1px solid',
-                // Overdue outranks finished: a card can only be one of them, and a late card is
-                // the one worth interrupting for. The finished tint is deliberately faint — a
-                // wash, not a highlight — because a done card is something the eye should be
-                // able to SKIP, not something competing for attention.
+                // Late outranks the status colour: a card the reader must act on is the one
+                // interruption worth making. Everything else wears its status.
                 borderColor: overdue
                     ? alpha(theme.palette.error.main, 0.35)
-                    : done ? alpha(theme.palette.success.main, 0.3) : 'divider',
-                bgcolor: !overdue && done
-                    ? alpha(theme.palette.success.main, dark ? 0.09 : 0.045)
+                    : statusColor ? alpha(statusColor, 0.5) : 'divider',
+                bgcolor: !overdue && statusColor
+                    ? alpha(statusColor, dark ? 0.16 : 0.09)
                     : 'background.paper',
+                // The solid edge is what carries down a lane of cards — a tint alone washes
+                // out at these widths, which is why the finished card still read as untouched.
+                ...(!overdue && statusColor && { borderLeft: `3px solid ${statusColor}` }),
                 // The dragged card's slot is dimmed by SortableItem, so nothing is needed here.
                 boxShadow: `0 1px 2px ${alpha(theme.palette.common.black, theme.palette.mode === 'dark' ? 0.4 : 0.06)}`,
                 transition: theme.transitions.create(
