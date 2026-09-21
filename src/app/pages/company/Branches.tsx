@@ -32,6 +32,7 @@ import {
   Dialog, Box, Stack, Typography, Button as MuiButton, Paper, CircularProgress, IconButton,
 } from '@mui/material'
 import Swal from 'sweetalert2'
+import { safeHtml } from '@app/modules/common/components/ui/safeHtml'
 import TextInput from '@app/modules/common/inputs/TextInput'
 import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle'
 import { useDispatch, useSelector } from 'react-redux'
@@ -249,7 +250,9 @@ function Branches({ companyId, embedded = false, hideHeading = false }: Branches
     const empCount = branch._count?.Employees ?? 0
     const result = await Swal.fire({
       title: 'Promote to Sub-Organization?',
-      html: `This will create a sub-organization <b>"${branch.name}"</b> under the current organization and move this branch${empCount ? ` and its ${empCount} employee(s)` : ''} into it. Employees stay in this branch.`,
+      // safeHtml: `branch.name` is user-entered and SweetAlert parses `html` as
+      // markup, so a name containing tags would otherwise become elements.
+      html: safeHtml`This will create a sub-organization <b>"${branch.name}"</b> under the current organization and move this branch${empCount ? ` and its ${empCount} employee(s)` : ''} into it. Employees stay in this branch.`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Promote',

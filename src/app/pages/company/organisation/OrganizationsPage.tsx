@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import Swal from 'sweetalert2';
+import { safeHtml } from '@app/modules/common/components/ui/safeHtml';
 import { IOrgNode, IOrgStats, IOrgBranchNode } from '@models/company';
 import { fetchOrganizationTree, fetchOrganizationStats, deleteOrganizationById } from '@services/company';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
@@ -70,9 +71,13 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
     const blocked = org.childCount > 0 || org.branchCount > 0 || org.employeeCount > 0;
     const res = await Swal.fire({
       title: blocked ? 'Cannot delete yet' : 'Delete organization?',
+      // safeHtml on BOTH arms: `org.name` is user-entered, and SweetAlert parses
+      // `html` as markup. The counts are numbers, but escaping them costs nothing
+      // and keeps the rule "every interpolation into html goes through safeHtml"
+      // free of exceptions to argue about.
       html: blocked
-        ? `<b>${org.name}</b> still has ${org.childCount} sub-org(s), ${org.branchCount} branch(es) and ${org.employeeCount} employee(s).<br/>Reassign or remove them first.`
-        : `This will permanently delete <b>${org.name}</b>. This cannot be undone.`,
+        ? safeHtml`<b>${org.name}</b> still has ${org.childCount} sub-org(s), ${org.branchCount} branch(es) and ${org.employeeCount} employee(s).<br/>Reassign or remove them first.`
+        : safeHtml`This will permanently delete <b>${org.name}</b>. This cannot be undone.`,
       icon: 'warning',
       showCancelButton: !blocked,
       confirmButtonText: blocked ? 'OK' : 'Delete',
