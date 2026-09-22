@@ -33,13 +33,23 @@ const REQUIRED = [
         name: 'VITE_APP_WISE_TECH_BACKEND',
         why: 'base URL for the API — 54 call sites, only 7 guard against absence',
     },
-    {
-        name: 'VITE_APP_API_URL',
-        why: 'auth endpoints (src/app/modules/auth/core/_requests.ts) — login breaks without it',
-    },
 ];
 
 const RECOMMENDED = [
+    // Was briefly listed as REQUIRED on the claim that "login breaks without it". That was
+    // wrong, and the first Amplify build caught it: production has never set this variable
+    // and login has always worked.
+    //
+    // The live login is services/auth.ts, which builds its endpoints from
+    // VITE_APP_WISE_TECH_BACKEND. VITE_APP_API_URL only feeds
+    // modules/auth/core/_requests.ts — Metronic template code, still carrying the comment
+    // "IN OUR EXAMPLE IT'S API_TOKEN", whose one live caller (AuthInit in Auth.tsx) wraps
+    // it in try/catch and carries on. Nothing a user does depends on it.
+    //
+    // The lesson is in the tiers, not the list: REQUIRED must mean "production has
+    // demonstrably never run without this", not "reading the code suggests it matters".
+    // A guard that blocks deploys on a guess is worse than no guard.
+    { name: 'VITE_APP_API_URL', why: 'Metronic template auth — unused by the live login path' },
     { name: 'VITE_APP_THEME_API_URL', why: 'user-management requests' },
     { name: 'VITE_APP_GOOGLE_MAP_KEY', why: 'branch map picker renders blank' },
     { name: 'VITE_APP_PREVIEW_DOCS_URL', why: 'changelog link resolves to "undefined/changelog"' },
