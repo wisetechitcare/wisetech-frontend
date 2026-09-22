@@ -113,6 +113,15 @@ export interface MaterialTableProps {
   enableSorting?: boolean;
   enableGrouping?: boolean;
   /**
+   * Columns the table opens already grouped by, e.g. `["stageName"]`.
+   *
+   * MRT can group from its column menu, but a table whose whole point is
+   * "deliverables, under their stage" should not need the reader to assemble
+   * that themselves. Paired with `groupedColumnMode: "remove"`, so the grouped
+   * value shows once on the group row instead of repeating down a column.
+   */
+  initialGrouping?: string[];
+  /**
    * Column drag-and-drop, ON by default.
    *
    * main turned this OFF for a specific defect: MRT's own grab handle sat beside the sort
@@ -343,6 +352,7 @@ function MaterialTable({
   enableFilters = true,
   enableSorting = true,
   enableGrouping = true,
+  initialGrouping,
   enableColumnDragging = true,
   enableColumnResizing = false,
   enableColumnPinning = true,
@@ -1902,7 +1912,9 @@ function MaterialTable({
             enableDensityToggle={false}
             initialState={{
               density: "comfortable",
+              ...(initialGrouping?.length ? { grouping: initialGrouping } : {}),
             }}
+            groupedColumnMode="remove"
             data={tableData}
             columns={sizedColumns}
             muiTableFooterProps={{

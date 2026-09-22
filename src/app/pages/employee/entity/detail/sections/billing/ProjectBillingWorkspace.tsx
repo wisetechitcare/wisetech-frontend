@@ -221,6 +221,30 @@ const MiniCard: React.FC<{
     </Tooltip>
 );
 
+/**
+ * A money subtotal on a stage's group row.
+ *
+ * Quieter than the rows it totals — a subtotal that shouts competes with the
+ * figures it is summarising, and the reader is scanning the leaves.
+ */
+const Subtotal: React.FC<{ value: number; tone?: string }> = ({ value, tone }) => (
+    <Typography
+        sx={{
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: tone ?? "text.secondary",
+            whiteSpace: "nowrap",
+            fontVariantNumeric: "tabular-nums",
+        }}
+    >
+        {formatCurrencyDecimal(value)}
+    </Typography>
+);
+
+/** Sum one number off every deliverable under a stage's group row. */
+const sumRows = (subRows: any[], pick: (row: ProjectBillingRow) => number) =>
+    subRows.reduce((total, sub) => total + pick(sub.original as ProjectBillingRow), 0);
+
 /** The em dash, so an empty cell reads as "nothing yet" rather than as a gap. */
 const Muted: React.FC = () => (
     <Typography sx={{ fontSize: 13, color: "text.disabled" }}>{DASH}</Typography>
@@ -479,9 +503,42 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
     const columns = useMemo(
         () => [
             {
+                /*
+                 * The column the table is grouped by. `groupedColumnMode:
+                 * "remove"` takes it out of the body, so it exists only as the
+                 * stage header row — the stage is named once, above its
+                 * deliverables, instead of repeating down a column.
+                 */
+                accessorKey: "stageName",
+                header: "Stage",
+                size: 300,
+                GroupedCell: ({ row }: any) => {
+                    const subRows = row.subRows ?? [];
+                    const deliverables = subRows.map((sub: any) => sub.original as ProjectBillingRow);
+                    const done = deliverables.filter((d: ProjectBillingRow) => d.workStatus === "COMPLETED").length;
+                    const value = sumRows(subRows, (d) => d.amount);
+                    const percentage = deliverables.reduce(
+                        (t: number, d: ProjectBillingRow) => t + d.percentage, 0,
+                    );
+                    return (
+                        <Box sx={{ minWidth: 0, py: 0.25 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                                {row.groupingValue as string}
+                            </Typography>
+                            <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+                                {done} of {deliverables.length} done
+                                {percentage > 0 ? ` · ${Math.round(percentage)}% of stage` : ""}
+                                {` · ${formatCurrencyDecimal(value)}`}
+                            </Typography>
+                        </Box>
+                    );
+                },
+            },
+            {
                 accessorKey: "deliverableName",
                 header: "Deliverable",
                 size: 240,
+                enableGrouping: false,
                 Cell: ({ row }: any) => {
                     const r: ProjectBillingRow = row.original;
                     return (
@@ -490,7 +547,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                                 {r.deliverableName}
                             </Typography>
                             <Typography sx={{ fontSize: 11.5, color: "text.disabled" }}>
-                                {r.stageName} - {r.percentage}%
+                                {r.percentage}% of stage
                             </Typography>
                         </Box>
                     );
@@ -507,11 +564,19 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                 accessorKey: "amount",
                 header: "Amount",
                 size: 130,
+                aggregationFn: "sum",
+                AggregatedCell: ({ row }: any) => (
+                    <Subtotal value={sumRows(row.subRows ?? [], (d) => d.amount)} tone="text.primary" />
+                ),
                 ...RIGHT,
                 Cell: ({ row }: any) => <Money value={row.original.amount} bold />,
             },
             {
                 id: "gst",
+                aggregationFn: "sum",
+                AggregatedCell: ({ row }: any) => (
+                    <Subtotal value={sumRows(row.subRows ?? [], (d) => d.bill?.gstAmount ?? 0)} />
+                ),
                 accessorFn: (r: ProjectBillingRow) => r.bill?.gstAmount ?? 0,
                 header: "GST",
                 size: 120,
@@ -531,6 +596,10 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
             },
             {
                 id: "tds",
+                aggregationFn: "sum",
+                AggregatedCell: ({ row }: any) => (
+                    <Subtotal value={sumRows(row.subRows ?? [], (d) => d.bill?.tdsAmount ?? 0)} />
+                ),
                 accessorFn: (r: ProjectBillingRow) => r.bill?.tdsAmount ?? 0,
                 header: "TDS",
                 size: 120,
@@ -596,6 +665,10 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
             },
             {
                 id: "received",
+                aggregationFn: "sum",
+                AggregatedCell: ({ row }: any) => (
+                    <Subtotal value={sumRows(row.subRows ?? [], (d) => d.bill?.receivedAmount ?? 0)} tone="success.main" />
+                ),
                 accessorFn: (r: ProjectBillingRow) => r.bill?.receivedAmount ?? 0,
                 header: "Received",
                 size: 145,
@@ -780,6 +853,9 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     enableColumnResizing={true}
                     layoutMode="semantic"
                     muiTableHeadCellStyle={HEAD_CELL_SX}
+                    // Deliverables live under their stage, which is how the
+                    // project is planned and how the client is billed.
+                    initialGrouping={["stageName"]}
                     renderTopToolbarRightActions={() => (
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ py: 0.5 }}>
                             <TextField
