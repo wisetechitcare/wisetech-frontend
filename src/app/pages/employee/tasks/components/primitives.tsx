@@ -11,14 +11,14 @@
  */
 import { Box, Chip, LinearProgress, Stack, Tooltip, Typography, Avatar, AvatarGroup, alpha, useTheme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
+import { TimePickerField } from '@app/modules/common/components/TimePickerField';
 import { EASE_200, IconBox, SHADOW_HOVER, SHADOW_REST, TRIO, toneSurface, type Trio } from '@app/modules/common/components/ui/patterns';
 import {
     TaskScope, TaskStatusRef, employeeName, initialsOf, clampProgress, dueLabel, isTaskOverdue, isTaskFinal, finalColorOf,
 } from '../taskDomain';
 
 /**
- * A labelled TimeWheelField. The wheel is a bare control by design — every other field in this
+ * A labelled TimePickerField. The wheel is a bare control by design — every other field in this
  * column carries a floating label, so one is put above it here rather than teaching the kit
  * component about labels it does not need anywhere else.
  *
@@ -43,7 +43,7 @@ export const LabelledTimeField = ({ label, value, onChange, disabled, trio }: {
                 {label}
             </Typography>
         </Stack>
-        <TimeWheelField value={value} onChange={onChange} disabled={disabled} tone={trio} />
+        <TimePickerField value={value} onChange={onChange} disabled={disabled} tone={trio} />
     </>
 );
 

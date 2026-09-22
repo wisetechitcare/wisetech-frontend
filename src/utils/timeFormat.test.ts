@@ -80,7 +80,7 @@ describe('TIME_TOKENS', () => {
   });
 });
 
-// TimeWheelField renders 12-hour wheels while its `value` stays 24h "HH:MM", so
+// TimePickerField renders a 12-hour dial while its `value` stays 24h "HH:MM", so
 // these sit between what the user touches and what every form and payload gets.
 describe('12-hour wheel conversion', () => {
   test('midnight is 12 AM and noon is 12 PM — not 00', () => {

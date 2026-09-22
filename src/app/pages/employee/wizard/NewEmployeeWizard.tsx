@@ -706,11 +706,13 @@ const newEmployeeWizardSchema = [
     // Same deal: marked required in the UI, enforced here so the asterisk is honest.
     // Defaults to "0" (not exempt) in initialState, so this never blocks a real submission.
     exemptFromSiteHybridApproval: Yup.string().required().label("Exempt from Site & Hybrid Attendance Approval"),
-    // Optional, and zero is a legitimate value — an unpaid intern or a joiner whose
-    // package is not agreed yet. Only the shape is checked; the backend's old
+    // Required — the field and the sidebar both star it, and leaving the schema
+    // optional is what let Continue walk straight past an empty CTC. Zero is still a
+    // legitimate value (an unpaid intern, or a joiner whose package is not agreed yet):
+    // `required()` rejects only the empty string, and "0" passes. The backend's old
     // `min(1000)` floor (which 422'd a zero CTC after the whole onboarding had already
-    // run) has been dropped to match.
-    ctcInLpa: optionalString().label("CTC In LPA")
+    // run) stays dropped.
+    ctcInLpa: Yup.string().required().label("CTC In LPA")
       .test("ctc-numeric", "CTC must be a number", (value) => {
         if (!value) return true;
         return Number.isFinite(Number(String(value).replace(/,/g, "").trim()));

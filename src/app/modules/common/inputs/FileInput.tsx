@@ -8,6 +8,8 @@ interface FileInputProps {
     hidden?: boolean;
     path?: string;
     setFile: (documentId: string, file: File) => void;
+    /** Clear the attachment. Fired by the upload field's X — without it the X was inert. */
+    onRemove?: () => void;
     existingDocument?: any;
     fieldName?: string;
     disabled?: boolean;
@@ -20,6 +22,7 @@ function FileInput({
     placeholder,
     documentId,
     setFile,
+    onRemove,
     hidden,
     path,
     existingDocument,
@@ -84,9 +87,7 @@ function FileInput({
                     existingFileName={existingDocument?.fileName || existingDocument?.path?.split("/").pop()}
                     existingFileUrl={existingDocument?.path}
                     onDisabledClick={onDisabledClick}
-                    onChange={(file) => {
-                        if (file) setFile(documentId, file);
-                    }}
+                    onChange={(file) => (file ? setFile(documentId, file) : onRemove?.())}
                 />
             </div>
         );

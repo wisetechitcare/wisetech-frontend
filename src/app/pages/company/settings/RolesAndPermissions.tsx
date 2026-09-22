@@ -1003,6 +1003,7 @@ function EditRole({ handleCloseEditModal, roleDetails, setRefetch }: { handleClo
       </div>
       <div className='row my-3 d-none d-lg-flex'>
         <div className='col-8'>
+          <PermissionsList rolesData={roleDetails} setRefetch={setRefetch} />
           <RoleAccessEditor roleId={roleDetails?.id} roleName={roleDetails?.name} setRefetch={setRefetch} />
         </div>
         <div className='col-4' >
@@ -1018,7 +1019,7 @@ function EditRole({ handleCloseEditModal, roleDetails, setRefetch }: { handleClo
           <StaffMemberForGivenRole handleCloseEditModal={handleCloseEditModal} setRefetch={setRefetch} roleDetails={roleDetails} />
         </div>
         <div className='col-12'>
-          <PermissionsList rolesData={roleDetails} />
+          <PermissionsList rolesData={roleDetails} setRefetch={setRefetch} />
         </div>
       </div>
     </div>

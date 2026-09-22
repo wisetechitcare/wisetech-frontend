@@ -10,13 +10,20 @@ name: ✅ Frontend CI
 # lint gate would block every merge. We hard-gate on the typecheck and lint ONLY the files
 # a change touches, so new errors block while legacy ones don't.
 #
-# This job does NOT bundle. Amplify builds the artifact that ships (see amplify.yml), so
-# a `vite build` here would be a second bundle nothing consumes.
+# This job bundles on PULL REQUESTS ONLY. On a push, Amplify builds the artifact that
+# ships (see amplify.yml), so bundling here too would be a second bundle nothing
+# consumes. On a PR there is no Amplify build at all — and `main` is the only branch
+# that reaches production, so the PR into it is the last gate before users see the code.
+#
+# Runs on `dev` too. `dev` is the integration branch — every feature merges there first,
+# so that is where a break should surface, not when the release PR is opened days later.
+# A dev run CANNOT deploy: Amplify is connected to `main` only, and nothing in this
+# workflow talks to Amplify — the two react to the same push independently.
 on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, dev]
 
 # Least privilege: this job only reads the repo. Without this block the job would
 # inherit whatever the repo default is, which on older repos is read/write.
@@ -31,7 +38,9 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15 # no bundle here any more — Amplify builds; this job only checks
+    # 25 to match the backend: a PR run now bundles, and the Vite build needs a 4 GB heap.
+    # Push runs (main/dev) skip the bundle and finish well inside this.
+    timeout-minutes: 25
 
     steps:
       - name: ⬇️ Checkout code
@@ -98,18 +107,32 @@ jobs:
       - name: 🧩 Run task-domain tests
         run: pnpm run test:tasks
 
-      # TYPECHECK ONLY — Amplify owns the build.
-      #
-      # `pnpm run build` is `tsc && vite build`, and amplify.yml runs exactly that
-      # again on every deploy. Bundling here produced a dist that nothing consumed:
-      # the artifact that actually ships is the one Amplify builds. `--noEmit` keeps
-      # the identical compile gate and drops the bundle, which was the single longest
-      # step in this job.
-      #
-      # If this repo ever stops deploying through Amplify, restore the full build and
-      # promote ITS artifact rather than rebuilding downstream.
+      # Runs on every trigger: it is the hard gate and it is far cheaper than a bundle.
       - name: 🔎 Typecheck
         run: pnpm exec tsc --noEmit
+
+      # BUNDLE ON PULL REQUESTS ONLY.
+      #
+      # `--noEmit` above is an identical gate for TYPE errors, but not for bundling
+      # ones. Rollup resolves imports, assets and dynamic `import()` paths that tsc
+      # never looks at, so a build can fail with a perfectly clean typecheck.
+      #
+      # On a push that failure surfaces in the Amplify build — which happens AFTER the
+      # merge, on `main`, i.e. in the deploy itself. Amplify is not gated on this
+      # workflow; the two react to the same push independently. So a bad bundle cannot
+      # be caught by anything before it is already on the production branch.
+      #
+      # On a PR there is no Amplify build to consume a dist, which is exactly why the
+      # earlier "second bundle nothing consumes" reasoning does not apply here: this is
+      # the only bundle that exists before production. The artifact is not the point —
+      # the proof that it builds is.
+      #
+      # Deliberately `pnpm run build`, the same command amplify.yml runs, rather than
+      # `vite build` alone. Reproducing the deploy command is the whole purpose; saving
+      # the duplicated tsc would reintroduce the drift amplify.yml exists to prevent.
+      - name: 🏗️ Build (PR only — proves the bundle before it can reach main)
+        if: github.event_name == 'pull_request'
+        run: pnpm run build
 
       # Mirrors the backend gate. Blocks on high/critical only; moderate and low are
       # reported without blocking a merge. When a fix isn't published yet, pin the floor

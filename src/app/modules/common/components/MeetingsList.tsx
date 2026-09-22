@@ -12,7 +12,14 @@ import {
     MEETING_STATUS_CANCELLED, MEETING_STATUS_AWAITING, MEETING_STATUS_HELD,
     MEETING_TIMESHEET_FILLED, MEETING_TIMESHEET_PENDING,
 } from '@constants/configurations-key';
-import { Box, Dialog, DialogContent, useMediaQuery } from '@mui/material';
+import { Avatar, Box, Dialog, DialogContent, Tooltip, useMediaQuery } from '@mui/material';
+// Direct module, NOT the `ui` barrel. The barrel re-exports 58 symbols, one of which
+// transitively loads _metronic/layout/core — and that module calls getLayout() at import
+// time, which reads localStorage. Pulling the barrel in here made halfColors.test.ts and
+// meetingLifecycleTone.test.ts fail at import with "localStorage is not defined", before a
+// single assertion ran. chips.tsx itself imports only MUI and the theme tokens.
+// Same rule as AppIcon and SegmentedControl below — see ui/README.md.
+import { toneAlpha } from '@app/modules/common/components/ui/chips';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -82,6 +89,21 @@ interface MeetingRow {
     organizerName?: string;
     participantNames?: string[];
     externalParticipantNames?: string[];
+    /**
+     * The roster as objects, which the `*Names` arrays above cannot safely be.
+     *
+     * Those two are parallel lists that each drop unresolvable entries, so one missing
+     * employee shifts every later index and the name beside a face stops being that person's.
+     * Fine for a comma-joined sentence, not fine for a list of avatars.
+     *
+     * Optional: a row from an older server does not carry it, and the roster simply does not
+     * render rather than the card failing.
+     */
+    attendees?: Array<{
+        id: string; name: string; avatar?: string | null;
+        isOrganizer?: boolean; pendingTimesheet?: boolean;
+    }>;
+    externalAttendees?: Array<{ id: string; name: string }>;
 }
 
 const th: React.CSSProperties = {
@@ -636,15 +658,21 @@ const MODE_COL_W = 220;
 const dayKey = (d: Dayjs | string) => dayjs(d).format('YYYY-MM-DD');
 
 /**
- * Opening a project from a meeting.
+ * Opening the linked row from a meeting — as a PROJECT or as a LEAD.
  *
- * `isProject` in the nav state is load-bearing, not decoration: the entity page hides its
- * project-only tabs (Meetings among them) unless it is told it was entered from a project, so
- * without it the link lands on the lead view and bounces off the tab it asked for.
+ * THE PATH DECIDES THE LENS, and nothing else does. `EntityDetailPage` reads
+ * `pathname.startsWith('/project/')` and defaults its tab to `projects` or `leads` from that
+ * alone. Lead-as-master means both are the same row and the same id; only the URL says which
+ * way to read it.
  *
- * Which is exactly why a meeting booked from the Leads table must pass `isLead`: claiming
- * `isProject` for a lead that has not become one opens the lead behind a set of project tabs
- * it has nothing to fill.
+ * This used to navigate to `/leads/:id?tab=meetings` and pass `{ isProject: true }` in
+ * history state, which is the one thing the route's own comment warns against — state is lost
+ * on a refresh, is not shareable, and was never read here anyway. The result was that clicking
+ * a project on a meeting opened it in the LEAD view, which is the bug this fixes. Every other
+ * caller in the app already navigates to `/project/:id`; this was the last one that did not.
+ *
+ * `isLead` still matters, and is the reason this takes it: sending a lead that has not become
+ * a project to `/project/:id` would open it behind project tabs it has nothing to fill.
  */
 const useOpenProject = () => {
     const navigate = useNavigate();
@@ -652,10 +680,7 @@ const useOpenProject = () => {
     // rebuild every column on every render — which is the cost this table was moved off.
     return useCallback((projectId?: string | null, isLead?: boolean) => {
         if (!projectId) return;
-        navigate(
-            isLead ? `/leads/${projectId}` : `/leads/${projectId}?tab=meetings`,
-            { state: { leadData: projectId, isProject: !isLead } },
-        );
+        navigate(isLead ? `/leads/${projectId}` : `/project/${projectId}`);
     }, [navigate]);
 };
 
@@ -1158,6 +1183,9 @@ const DayDetail: React.FC<{
                 ? 'afternoon is free'
                 : 'both halves booked';
     return (
+        // `md`. `lg` was tried to give the roster room and overshot: on a day with one meeting
+        // the free half became a column of empty space as wide as the card beside it, which
+        // reads as a layout that failed rather than a morning that is free.
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isPhone}
             PaperProps={{ sx: { borderRadius: isPhone ? 0 : 3, overflow: 'hidden' } }}>
             <div style={{ background: '#1E3A8A', padding: isPhone ? '12px 14px' : '16px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1268,50 +1296,66 @@ const DayDetail: React.FC<{
                                 cursor: onEdit ? 'pointer' : 'default',
                             }}
                         >
-                            <div style={{ padding: '10px 12px 10px', minWidth: 0 }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: rowTone(colors[half.key]).fg, whiteSpace: 'nowrap', marginBottom: 4 }}>
-                                <AppIcon name="bi-clock" className="fs-7" />
-                                {timeRange(m)}
-                            </div>
-                            <div style={{ minWidth: 0 }}>
-                                {/* Struck through and tagged, exactly as the table row reads it.
-                                    The row is kept — a cancelled meeting is still part of what
-                                    the day and the project had booked — but it has to be
-                                    unmistakable, and the tag carries the reason on hover. */}
-                                <div style={{
-                                    fontSize: 13, fontWeight: 700,
-                                    color: isCancelled(m) ? '#94A3B8' : '#1E293B',
-                                    textDecoration: isCancelled(m) ? 'line-through' : 'none',
-                                }}>
-                                    {m.title}
-                                    {isCancelled(m) && <CancelledTag reason={m.cancelReason} color={stateColors.cancelled} />}
-                                    {isAwaitingTime(m) && <AwaitingTag color={stateColors.awaiting} />}
-                                </div>
-                                {timesheetStateOf(m) && (
-                                    <div style={{
-                                        fontSize: 11.5, fontWeight: 600, marginTop: 2,
-                                        color: lifecycleTone(stateColors[timesheetStateOf(m)!]).ink,
+                            <div style={{ padding: '10px 12px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+
+                                {/* ROW 1 — when it is, and what state it is in.
+                                    The state tags used to trail the title, so a long name
+                                    pushed "AWAITING TIMESHEETS" onto its own line in the middle
+                                    of the card. Pinned right of the clock they always sit in
+                                    the same place, which is what makes a column of cards
+                                    scannable for the ones that need something doing. */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                    <span style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                                        fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+                                        color: rowTone(colors[half.key]).fg,
                                     }}>
-                                        {timesheetStateOf(m) === 'filled'
-                                            ? 'All timesheets filled'
-                                            : `Timesheet pending: ${m.pendingTimesheetNames!.join(', ')}`}
-                                    </div>
-                                )}
-                                {m.projectName && (
-                                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1E3A8A', marginTop: 2 }}>
-                                        <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId, m.isLead)} />
-                                        {m.isLead && <LeadTag />}
-                                    </div>
-                                )}
+                                        <AppIcon name="bi-clock" className="fs-7" />
+                                        {timeRange(m)}
+                                    </span>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+                                        {isCancelled(m) && <CancelledTag reason={m.cancelReason} color={stateColors.cancelled} />}
+                                        {isAwaitingTime(m) && <AwaitingTag color={stateColors.awaiting} />}
+                                    </span>
+                                </div>
+
+                                {/* ROW 2 — the name, and what it belongs to, on one line.
+                                    They answer "which meeting" together; stacked, the project
+                                    read as a caption of the title rather than its own fact.
+                                    Wraps rather than truncating, because a project number cut
+                                    in half identifies nothing. */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+                                    <span style={{
+                                        fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.3,
+                                        color: isCancelled(m) ? '#94A3B8' : '#0F172A',
+                                        textDecoration: isCancelled(m) ? 'line-through' : 'none',
+                                    }}>
+                                        {m.title}
+                                    </span>
+                                    {m.projectName && (
+                                        <span style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                                            padding: '3px 8px', borderRadius: 7, maxWidth: '100%',
+                                            background: toneAlpha('#1E3A8A', 0.07),
+                                            border: `1px solid ${toneAlpha('#1E3A8A', 0.16)}`,
+                                            fontSize: 11.5, fontWeight: 700, color: '#1E3A8A',
+                                        }}>
+                                            <AppIcon name={m.isLead ? 'bi-lightning-charge' : 'bi-briefcase'} className="fs-8" />
+                                            <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId, m.isLead)} />
+                                        </span>
+                                    )}
+                                    {m.isLead && <LeadTag />}
+                                </div>
+
+                                {/* ROW 3 — how to attend, and who called it. */}
                                 <div
-                                    // A ceiling, not a routine trim: at full width this line is
-                                    // one or two lines already, and the clamp is only there so a
-                                    // pasted paragraph in the location field cannot do to the
-                                    // card what the address used to. The whole line stays on the
-                                    // tooltip either way.
+                                    // A ceiling, not a routine trim: the clamp is only there so
+                                    // a pasted paragraph in the location field cannot do to the
+                                    // card what the address used to. The whole line stays on
+                                    // the tooltip either way.
                                     title={`${m.isOnline ? 'Online' : (m.location || 'Offline')}${m.organizerName ? ` · ${m.organizerName}` : ''}`}
                                     style={{
-                                        fontSize: 12, color: '#64748B', marginTop: 2,
+                                        fontSize: 12, color: '#64748B',
                                         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                                         overflow: 'hidden',
                                     }}
@@ -1319,7 +1363,36 @@ const DayDetail: React.FC<{
                                     {modeCell(m)}
                                     {m.organizerName && <span style={{ marginLeft: 10 }}>· {m.organizerName}</span>}
                                 </div>
-                            </div>
+
+                                {/* The old "Timesheet pending: A, B, C" sentence, kept ONLY for
+                                    rows an older server sent without a roster. Where the roster
+                                    renders it marks each person individually and counts them,
+                                    so printing the same names again as prose is one fact stated
+                                    twice and the longer of the two to read. */}
+                                {!m.attendees?.length && timesheetStateOf(m) && (
+                                    <div style={{
+                                        fontSize: 11.5, fontWeight: 600,
+                                        color: lifecycleTone(stateColors[timesheetStateOf(m)!]).ink,
+                                    }}>
+                                        {timesheetStateOf(m) === 'filled'
+                                            ? 'All timesheets filled'
+                                            : `Timesheet pending: ${m.pendingTimesheetNames!.join(', ')}`}
+                                    </div>
+                                )}
+                            {/* Who is actually coming. The card named the organiser and, when
+                                time was owed, listed the debtors as a sentence — so a meeting's
+                                own attendee list was the one thing you had to open the edit
+                                form to see. */}
+                            {m.attendees?.length ? (
+                                <AttendeeRoster
+                                    attendees={m.attendees}
+                                    external={m.externalAttendees}
+                                    // Only once it has happened. Marking a stopwatch against
+                                    // everyone invited to next Tuesday's meeting reports a debt
+                                    // nobody could have paid yet.
+                                    showPending={isHeld(m) && !isCancelled(m)}
+                                />
+                            ) : null}
                             </div>
                             {/* The SAME actions the table row offers. They were only in the
                                 table, so which of them existed depended on which view you
@@ -1355,6 +1428,23 @@ const DayDetail: React.FC<{
                                             label={isCancelled(m) ? 'Restore' : 'Cancel'}
                                             color={isCancelled(m) ? '#16A34A' : '#B45309'}
                                             onClick={() => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
+                                            /*
+                                             * Time logged means it happened. Cancelling says it
+                                             * did not, and a project billing hours against a
+                                             * meeting its own record calls off is a
+                                             * contradiction whichever half you believe.
+                                             *
+                                             * RESTORE is never blocked — putting a meeting back
+                                             * can only resolve that, never create it.
+                                             *
+                                             * The server refuses this too; this is what stops
+                                             * somebody discovering the rule by being refused.
+                                             */
+                                            disabledReason={
+                                                !isCancelled(m) && (m.loggedMinutes ?? 0) > 0
+                                                    ? 'Time has been logged against this meeting, so it cannot be cancelled. Remove the timesheets first.'
+                                                    : undefined
+                                            }
                                         />
                                     )}
                                     {onDelete && (
@@ -1376,32 +1466,162 @@ const DayDetail: React.FC<{
 };
 
 /**
+ * Who is coming.
+ *
+ * FACES, because a name alone is correct and not scannable: on a card listing five people the
+ * photo is recognised before any of the names have been read. 36 of 37 staff have one, so the
+ * initials fallback is the exception rather than the usual case.
+ *
+ * The organiser is first and tagged. Anyone still owing time on a meeting that has happened is
+ * marked individually — the card already says "Timesheet pending: A, B, C, D" as a sentence,
+ * which at four names is a line of text nobody reads to the end and which does not tell you
+ * whether YOU are one of them.
+ *
+ * External contacts sit in their own row, tinted differently. A client and a colleague on one
+ * undifferentiated list is the distinction this whole module is built on, quietly discarded.
+ */
+const AttendeeRoster: React.FC<{
+    attendees: NonNullable<MeetingRow['attendees']>;
+    external?: MeetingRow['externalAttendees'];
+    showPending: boolean;
+}> = ({ attendees, external, showPending }) => {
+    const pending = attendees.filter((a) => a.pendingTimesheet);
+    if (!attendees.length && !external?.length) return null;
+
+    /*
+     * Each person is a CHIP, not a row in a grid.
+     *
+     * Laid out on an auto-fit grid, a name with nothing around it floats: the eye cannot tell
+     * where one person ends and the next begins, and a short name beside a long one reads as a
+     * column that failed to align. A bordered surface per person gives the list its unit.
+     */
+    const person = (name: string, avatar: string | null | undefined, tag?: string, owes?: boolean) => (
+        <div
+            key={`${name}-${tag ?? ''}`}
+            style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0,
+                padding: '4px 10px 4px 4px', borderRadius: 999,
+                background: owes ? toneAlpha('#B45309', 0.07) : '#FFFFFF',
+                border: `1px solid ${owes ? toneAlpha('#B45309', 0.28) : '#E2E8F0'}`,
+            }}
+        >
+            <Avatar
+                src={avatar || undefined}
+                sx={{
+                    width: 26, height: 26, fontSize: 10.5, fontWeight: 700, flexShrink: 0,
+                    bgcolor: tag ? '#1E3A8A' : '#CBD5E1', color: tag ? '#fff' : '#334155',
+                }}
+            >
+                {name.charAt(0).toUpperCase()}
+            </Avatar>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#1E293B', whiteSpace: 'nowrap' }}>
+                {name}
+            </span>
+            {tag && (
+                <span style={{
+                    flexShrink: 0, fontSize: 8.5, fontWeight: 800, letterSpacing: '.05em',
+                    // `toneAlpha`, not an `#RRGGBBAA` literal: an 8-digit hex is opaque to the
+                    // dark-mode lint rule and to anyone reading it, and the kit already owns
+                    // this exact operation.
+                    padding: '2px 5px', borderRadius: 4, background: toneAlpha('#1E3A8A', 0.08), color: '#1E3A8A',
+                }}>
+                    {tag}
+                </span>
+            )}
+            {owes && (
+                // A glyph, not a word: it marks one person in a grid of them, and the count
+                // underneath already says how many in total. Tooltip rather than a raw `title`
+                // so it is styled like the rest of the app and lint stays clean.
+                <Tooltip title="Timesheet not logged yet">
+                    <span style={{ flexShrink: 0, color: '#B45309', lineHeight: 0 }}>
+                        <AppIcon name="bi-stopwatch" className="fs-8" />
+                    </span>
+                </Tooltip>
+            )}
+        </div>
+    );
+
+    return (
+        // No margin of its own: the card is a flex column with its own gap, and a margin here
+        // stacked on top of it left the roster floating further from the meeting than the
+        // meeting's own lines are from each other.
+        <div style={{
+            borderRadius: 9, background: 'rgba(255,255,255,0.72)',
+            border: '1px solid #E2E8F0', padding: '9px 11px', marginTop: 2,
+        }}>
+            <div style={{
+                fontSize: 9.5, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase',
+                color: '#94A3B8', marginBottom: 7,
+            }}>
+                Participants
+            </div>
+            {/* Wrapped, not a grid: chips are their own width, and a fixed track left a short
+                name padded out to the length of the longest one beside it. */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {attendees.map((a) => person(a.name, a.avatar, a.isOrganizer ? 'ORGANIZER' : undefined, showPending && a.pendingTimesheet))}
+                {external?.map((c) => person(c.name, null, 'CLIENT'))}
+            </div>
+            {showPending && pending.length > 0 && (
+                <div style={{
+                    marginTop: 8, paddingTop: 7, borderTop: '1px dashed #E2E8F0',
+                    fontSize: 11.5, fontWeight: 700, color: '#B45309',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                }}>
+                    <AppIcon name="bi-stopwatch" className="fs-8" />
+                    Timesheets pending ({pending.length})
+                </div>
+            )}
+        </div>
+    );
+};
+
+/**
  * One labelled action in a day-card footer: icon AND word, a 30px target, tinted in its own
  * colour so Cancel and Delete read as different weights before they are read as words.
  * `color` is a 6-digit hex (the alpha suffixes below depend on it).
  */
 const CardAction: React.FC<{
     icon: string; label: string; color: string; onClick: () => void; pushRight?: boolean;
-}> = ({ icon, label, color, onClick, pushRight }) => (
+    /**
+     * Why this action cannot be taken right now. Present means disabled.
+     *
+     * Stated rather than hidden: Cancel is normally here, so removing it leaves somebody
+     * hunting for a button that used to exist. A greyed control that says why is the shorter
+     * conversation.
+     */
+    disabledReason?: string;
+}> = ({ icon, label, color, onClick, pushRight, disabledReason }) => {
+    const button = (
     <Box
         component="button"
         type="button"
-        onClick={onClick}
+        disabled={!!disabledReason}
+        onClick={disabledReason ? undefined : onClick}
         sx={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
             height: 30, px: 1.25, ml: pushRight ? 'auto' : 0,
             borderRadius: '8px', border: `1px solid ${color}33`, bgcolor: `${color}0D`, color,
             fontSize: 12, fontWeight: 600, fontFamily: 'inherit', lineHeight: 1, whiteSpace: 'nowrap',
-            cursor: 'pointer', transition: 'background-color .15s, border-color .15s, transform .1s',
-            '&:hover': { bgcolor: `${color}1F`, borderColor: `${color}66` },
-            '&:active': { transform: 'scale(0.97)' },
+            cursor: disabledReason ? 'not-allowed' : 'pointer',
+            transition: 'background-color .15s, border-color .15s, transform .1s',
+            // Dimmed, not removed. It still occupies its place in the row so the footer does
+            // not reflow as a meeting's state changes under the reader.
+            opacity: disabledReason ? 0.42 : 1,
+            '&:hover': disabledReason ? {} : { bgcolor: `${color}1F`, borderColor: `${color}66` },
+            '&:active': disabledReason ? {} : { transform: 'scale(0.97)' },
             '&:focus-visible': { outline: `2px solid ${color}`, outlineOffset: 1 },
         }}
     >
         <AppIcon name={icon} className="fs-6" />
         {label}
     </Box>
-);
+    );
+    // A disabled button fires no pointer events, so the tooltip needs a wrapper that does -
+    // otherwise the explanation is unreachable by exactly the people who need it.
+    return disabledReason
+        ? <Tooltip title={disabledReason}><span style={{ display: 'inline-flex', marginLeft: pushRight ? 'auto' : 0 }}>{button}</span></Tooltip>
+        : button;
+};
 
 export interface MeetingsListProps {
     mode: 'project' | 'contact' | 'employee';
@@ -1703,7 +1923,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             // Both kinds land in this column now that a meeting can be booked from the Leads
             // table, and a header that names only one of them is the sort of small lie that
             // makes people distrust the rest of the row.
-            header: 'Project / Lead',
+            header: 'Project',
             Cell: ({ row }: any) => {
                 const m = row.original as MeetingRow;
                 if (!m.projectName) return <span style={{ color: '#94A3B8' }}>Not linked</span>;
@@ -1826,16 +2046,30 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                 <AppIcon name="bi-pencil" className="fs-5" />
                             </button>
                         )}
-                        {onCancel && (
-                            <button
-                                type="button"
-                                onClick={() => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
-                                title={isCancelled(m) ? 'Restore meeting' : 'Cancel meeting'}
-                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: isCancelled(m) ? '#16A34A' : '#B45309' }}
-                            >
-                                <AppIcon name={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'} className="fs-5" />
-                            </button>
-                        )}
+                        {onCancel && (() => {
+                            // The SAME rule the day card applies, because this is the same act
+                            // through a different button. Leaving it only on the card would mean
+                            // the table is where you go to do the thing the card refuses.
+                            const blocked = !isCancelled(m) && (m.loggedMinutes ?? 0) > 0;
+                            return (
+                                <button
+                                    type="button"
+                                    disabled={blocked}
+                                    onClick={blocked ? undefined : () => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
+                                    title={blocked
+                                        ? 'Time has been logged against this meeting, so it cannot be cancelled'
+                                        : (isCancelled(m) ? 'Restore meeting' : 'Cancel meeting')}
+                                    style={{
+                                        border: 0, background: 'transparent',
+                                        cursor: blocked ? 'not-allowed' : 'pointer',
+                                        opacity: blocked ? 0.35 : 1,
+                                        color: isCancelled(m) ? '#16A34A' : '#B45309',
+                                    }}
+                                >
+                                    <AppIcon name={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'} className="fs-5" />
+                                </button>
+                            );
+                        })()}
                         {onDelete && (
                             <button
                                 type="button"

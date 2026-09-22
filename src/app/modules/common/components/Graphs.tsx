@@ -5,6 +5,7 @@ import AttendanceCheckCell, {
     AttendanceCoordinates,
     formatAttendanceCheckExport,
     hasValidMapCoordinates,
+    resolveAttendanceCoordinates,
 } from './AttendanceCheckCell';
 import AttendanceDurationCell from './AttendanceDurationCell';
 import {
@@ -1257,23 +1258,6 @@ export const HeatMap = ({ heatMapSeries, height, totalDays }: { heatMapSeries: a
     // );
 };
 
-function resolveAttendanceCoordinates(
-    rowId: string | undefined,
-    locationProp: any[] | undefined,
-    lat?: number | null,
-    lng?: number | null
-): AttendanceCoordinates | null {
-    const entry =
-        Array.isArray(locationProp) && rowId
-            ? locationProp.find((item) => item.id === rowId)
-            : undefined;
-    const resolvedLat = lat ?? entry?.latitude;
-    const resolvedLng = lng ?? entry?.longitude;
-    if (resolvedLat == null || resolvedLng == null) return null;
-    const coords = { lat: Number(resolvedLat), lng: Number(resolvedLng) };
-    return hasValidMapCoordinates(coords) ? coords : null;
-}
-
 export const StatisticsTable = ({
     approvedLeaves,
     attendance,
@@ -1661,11 +1645,18 @@ export const StatisticsTable = ({
                     displayTime = formatTimeString(checkOut);
                 }
 
+                /**
+                 * No row fallback for a CHECK-OUT. The row entry in `location` holds the
+                 * CHECK-IN's coordinates, so falling back drew the morning pin in an empty
+                 * evening cell — a row could read "Check out missing" and still offer a live
+                 * Maps link, which is exactly how a missing checkout went unnoticed.
+                 */
                 const coords = resolveAttendanceCoordinates(
                     employee.id,
                     location,
                     employee.checkOutLatitude,
-                    employee.checkOutLongitude
+                    employee.checkOutLongitude,
+                    false
                 );
 
                 const checkOutColor = resolveCheckOutColor(checkOut);

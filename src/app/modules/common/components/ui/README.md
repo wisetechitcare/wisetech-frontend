@@ -230,6 +230,29 @@ Headlines and button labels are title-cased by the KIT, not by call sites:
 (both twins) all run their text through `toTitleCase`. Write labels naturally —
 `"add question"` renders as "Add Question".
 
+**A structural heading then renders UPPERCASE.** `GlassHeader`, `ListHeader`,
+`SectionHead`, `SettingsSection` and `ConfigSectionCard` spread `HEADING_CASE_SX`
+over the title, so a dialog header, page header or section lead-in reads as
+"BIOMETRIC DEVICES". Stat captions, eyebrows and column headers were already
+uppercase and stay that way.
+
+The uppercasing is **CSS, over a title-cased string** — never an uppercased
+string. The accessible name stays "Biometric Devices" (a screen reader announces
+the words instead of spelling the capitals), copying a heading pastes normally,
+find-in-page still matches, and the style is reversible in one constant. An
+uppercased string throws the original casing away for good.
+
+Three things stay title-cased, deliberately:
+
+| Not uppercased | Why |
+|---|---|
+| Buttons (`WtButton`) | Capitals flatten the word outline the eye matches on, so labels read slower and truncate sooner — and a destructive action should not shout. Material dropped all-caps buttons in v3 for the same reason. |
+| Input labels | MUI measures the label to cut the notch in the outline and never sees CSS, so an uppercased label outgrows its gap and lands on the border. See the warning above. |
+| Card / tile titles carrying CONTENT | A device name, a person, a navigation destination is data, not a region name. `NavCard` keeps title case. |
+
+Where a screen renders its own region title rather than using a kit header,
+spread `HEADING_CASE_SX` so it matches.
+
 `WtIconButton` is deliberately NOT wrapped: its children are a glyph, not a label.
 
 Any word already carrying a capital is left exactly as written, so `FAQ`, `HR`,

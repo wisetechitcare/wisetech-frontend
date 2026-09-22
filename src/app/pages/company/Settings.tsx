@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle';
-import { Modal } from 'react-bootstrap';
+import { Box, Typography } from '@mui/material';
+import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
 import Appearance from './settings/Appearance';
 import RolesAndPermissions from './settings/RolesAndPermissions';
 import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
@@ -70,9 +71,13 @@ function Settings() {
   return (
     <>
         <PageTitle breadcrumbs={settingsBreadCrumb}>Settings</PageTitle>
-        <div className='container bg-light px-lg-9 px-4 py-6'>
+        {/* `bg-light` is a fixed Bootstrap grey — it painted this page light in dark
+            mode. The theme's own background follows whichever mode is active. */}
+        <Box sx={{ bgcolor: 'background.default', px: { xs: 2, lg: 4 }, py: 3 }}>
             <PageHeadingTitle/>
-            <div className='my-2'>Configure services and frame your organization's policies, enabling seamless administration and effective employee management.</div>
+            <Typography sx={{ my: 1, color: 'text.secondary' }}>
+                Configure services and frame your organization's policies, enabling seamless administration and effective employee management.
+            </Typography>
             <div className='d-flex flex-row align-items-center justify-content-start gap-4 flex-wrap my-9'>
                 {/* <div className="card d-flex flex-row align-items-center justify-content-start"
                 onClick={() => handleShowCustomSelectionForm()}
@@ -168,19 +173,30 @@ function Settings() {
             </Modal.Body>
             </Modal> */}
 
-           {/* Roles And Permissions Modal */}
-            <Modal size='xl' show={showRolesAndPermissionsModal} onHide={handleCloseRolesAndPermissionsModal} centered>
-            {/* <Modal.Header closeButton>
-                <Modal.Title></Modal.Title>
-            </Modal.Header> */}
-            <Modal.Body style={{backgroundColor: '#F7F9FC', borderRadius: '10px'}}>
-                <div className='d-flex flex-row align-items-center justify-content-start gap-2'>
-                    <img src={miscellaneousIcons.leftArrow} alt="" style={{width: "36px", height: "36px", cursor: 'pointer'}} onClick={handleCloseRolesAndPermissionsModal}/>
-                    <h2 className='my-auto'>Roles and Permissions</h2>
-                </div>
-                <RolesAndPermissions/>
-            </Modal.Body>
-            </Modal>
+           {/* Roles And Permissions Modal.
+               Was a react-bootstrap Modal whose only way out was a back-arrow IMAGE
+               with an onClick — not a button, so it could not be reached by keyboard
+               or announced as a control — over a hardcoded #F7F9FC panel that stayed
+               light in dark mode. GlassHeader keeps the back affordance (`onBack`
+               renders a real button) AND adds the standard close, so the dialog now
+               behaves like every other one. */}
+            <GlassDialog
+                open={showRolesAndPermissionsModal}
+                onClose={handleCloseRolesAndPermissionsModal}
+                maxWidth="xl" fullWidth
+                header={
+                    <GlassHeader
+                        title="Roles and Permissions"
+                        subtitle="Who can see and change what"
+                        onBack={handleCloseRolesAndPermissionsModal}
+                        onClose={handleCloseRolesAndPermissionsModal}
+                    />
+                }
+            >
+                <Box sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: 'background.default' }}>
+                    <RolesAndPermissions/>
+                </Box>
+            </GlassDialog>
 
             {/* Leads, Companies, Projects Settings Modal */}
             {/* <Modal show={showLeadsProjectsCompanyModal} onHide={handleCloseLeadsProjectsCompanyModal} centered size='xl'>
@@ -207,8 +223,7 @@ function Settings() {
             {/* </Modal.Body> */}
             {/* </Modal> */}
 
-         
-        </div>
+        </Box>
     </>
   )
 }
