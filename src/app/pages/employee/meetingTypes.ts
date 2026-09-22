@@ -28,7 +28,7 @@ export const isMeetingKind = (v: unknown): v is MeetingKind =>
  */
 export const MEETING_KIND_META: Record<MeetingKind, { label: string; icon: string; hint: string }> = {
     PROJECT: {
-        label: 'Project / Lead',
+        label: 'Project',
         icon: 'briefcase',
         hint: 'Filed against a project or a lead, and shown on its record.',
     },
