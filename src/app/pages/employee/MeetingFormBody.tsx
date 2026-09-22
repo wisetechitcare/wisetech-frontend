@@ -18,8 +18,9 @@ import { openingRange, type SelectedDateTimeInfo } from './meetingOpening';
 import {
     MEETING_KINDS, MEETING_KIND_META, kindOfExisting, validateMeetingKind, type MeetingKind,
 } from './meetingTypes';
-import { getAllClientContacts } from '@services/companies';
+import { getAllClientContacts, getClientContactById } from '@services/companies';
 import { SegmentedControl, ToneChip, WtDateField, WtSwitch } from '@app/modules/common/components/ui';
+import { SkeletonList } from '@app/modules/common/components/Skeleton';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
 import { KTIcon } from '@metronic/helpers';
 import { TRIO, menuOptionSx, type Trio } from '@app/modules/common/components/ui/patterns';
@@ -131,6 +132,48 @@ interface Option {
 const OTHER_LOCATION = 'other';
 const filterAddresses = createFilterOptions<Option>({ stringify: (o) => `${o.label} ${o.value}` });
 
+/**
+ * One page of contacts. Enough to fill the dropdown and a little to scroll into.
+ *
+ * The address book is thousands of rows; fetching all of them to populate a list that shows
+ * seven is a multi-megabyte payload for a screen nobody has scrolled yet.
+ */
+const CONTACT_PAGE_SIZE = 25;
+
+/** A contact row as the picker shows it. Module scope: it closes over nothing. */
+const toContactOption = (c: any): Option => ({
+    value: c.id,
+    label: c.fullName || 'Unnamed contact',
+    avatar: c.profilePhoto ?? null,
+    // The number is what tells two people with the same name apart, which is most of why
+    // anybody is searching this list.
+    caption: [c.phone, c.email].filter(Boolean).join('  ·  ') || undefined,
+});
+
+/**
+ * One page of the address book, A-Z.
+ *
+ * Module scope so it is not rebuilt each render — an effect depending on it would otherwise
+ * re-run on every keystroke of every other field in this form.
+ *
+ * Sorted by name because the endpoint's default is newest-first, which is right for a table of
+ * recent activity and wrong for a list somebody is scanning for a name they already know.
+ */
+const fetchContactPage = async (query: string, page: number) => {
+    const res: any = await getAllClientContacts({
+        search: query.trim() || undefined,
+        pageSize: CONTACT_PAGE_SIZE,
+        page,
+        sortBy: 'fullName',
+        sortOrder: 'asc',
+    }, true);
+    const body = res?.data ?? res ?? {};
+    return {
+        rows: (body.contacts ?? []).map(toContactOption) as Option[],
+        total: Number(body.total ?? 0),
+    };
+};
+
 
 /** The two halves the pickers speak: a wire date and a 24h clock time, off one ISO value. */
 const datePart = (iso: string) => (iso ? dayjs(iso).format('YYYY-MM-DD') : '');
@@ -173,6 +216,18 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const [contactQuery, setContactQuery] = useState('');
         const [contactOptions, setContactOptions] = useState<Option[]>([]);
         const [contactLoading, setContactLoading] = useState(false);
+        /** Rows fetched so far vs rows that exist — the only thing that says "keep scrolling". */
+        const [contactTotal, setContactTotal] = useState(0);
+        const [contactPage, setContactPage] = useState(1);
+        /**
+         * The chosen contacts, held APART from the search results.
+         *
+         * They cannot be derived by filtering `contactOptions`, which is what the first version
+         * did: that list is whatever the last search returned, so picking Rahul and then
+         * searching "Priya" removed Rahul's chip while he was still selected. The chips have to
+         * outlive the search that found them.
+         */
+        const [selectedContacts, setSelectedContacts] = useState<Option[]>([]);
         const [internal, setInternal] = useState<string[]>([]);
         // An edit overwrites this from the meeting itself (below).
         const [external, setExternal] = useState<string[]>(defaultExternalParticipant ? [defaultExternalParticipant.id] : []);
@@ -699,34 +754,104 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
          * Debounced at 250ms — a request per keystroke on a six-letter name is five wasted
          * round trips and a list that flickers through four wrong answers on the way.
          */
+        /**
+         * First page, on open and on every change of the search term.
+         *
+         * Debounced at 250ms — a request per keystroke on a six-letter name is five wasted
+         * round trips and a list that flickers through four wrong answers on the way.
+         */
         useEffect(() => {
             if (kind !== 'CONTACT') return;
             let cancelled = false;
+            setContactLoading(true);
             const timer = setTimeout(async () => {
-                setContactLoading(true);
                 try {
-                    const res: any = await getAllClientContacts(
-                        { search: contactQuery.trim() || undefined, pageSize: 25, page: 1 },
-                        true,
-                    );
+                    const { rows, total } = await fetchContactPage(contactQuery, 1);
                     if (cancelled) return;
-                    const rows: any[] = res?.data?.contacts ?? res?.contacts ?? [];
-                    setContactOptions(rows.map((c) => ({
-                        value: c.id,
-                        label: c.fullName || 'Unnamed contact',
-                        avatar: c.profilePhoto ?? null,
-                        // The number is what tells two people with the same name apart, which
-                        // is most of why somebody is searching this list at all.
-                        caption: [c.phone, c.email].filter(Boolean).join('  ·  ') || undefined,
-                    })));
+                    setContactOptions(rows);
+                    setContactTotal(total);
+                    setContactPage(1);
                 } catch {
-                    if (!cancelled) setContactOptions([]);
+                    if (!cancelled) { setContactOptions([]); setContactTotal(0); }
                 } finally {
                     if (!cancelled) setContactLoading(false);
                 }
             }, 250);
             return () => { cancelled = true; clearTimeout(timer); };
         }, [kind, contactQuery]);
+
+        /**
+         * The next page, when the list has been scrolled near its end.
+         *
+         * Guarded on `contactLoading` as well as the total: a fast scroll fires this repeatedly
+         * before the first response lands, and without the guard page 2 is requested four times
+         * and appended four times.
+         */
+        /**
+         * The chips for a contact meeting being EDITED.
+         *
+         * The row stores contact IDS; the chips need names. Without this an edit opens with the
+         * right contacts selected and an empty-looking box — and saving from there would look
+         * like it had dropped them.
+         *
+         * Fetches only the ids on the meeting, not a page of the address book, and only while
+         * they are still unresolved — so it runs once per edit rather than on every keystroke.
+         */
+        useEffect(() => {
+            if (kind !== 'CONTACT') return;
+            const missing = external.filter((id) => !selectedContacts.some((c) => c.value === id));
+            if (!missing.length) return;
+            let cancelled = false;
+            (async () => {
+                /*
+                 * BY ID, one call each. The first version asked for a page of the address book
+                 * and filtered it for these ids — which, on a list sorted A-Z across thousands
+                 * of rows, would almost never contain them. `missing` is the contacts on one
+                 * meeting, so this is one or two calls, not a page scan.
+                 */
+                const found = await Promise.all(missing.map(async (id) => {
+                    try {
+                        const res: any = await getClientContactById(id);
+                        const c = res?.data?.contact ?? res?.contact ?? null;
+                        return c ? toContactOption(c) : null;
+                    } catch {
+                        // A contact since deleted. Its id is still on the meeting, so it keeps
+                        // its place as a chip rather than vanishing without explanation.
+                        return { value: id, label: 'Contact no longer in the CRM' } as Option;
+                    }
+                }));
+                if (cancelled) return;
+                const resolved = found.filter((f): f is Option => !!f);
+                if (!resolved.length) return;
+                setSelectedContacts((prev) => [
+                    ...prev,
+                    ...resolved.filter((f) => !prev.some((p) => p.value === f.value)),
+                ]);
+            })();
+            return () => { cancelled = true; };
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [kind, external.join(',')]);
+
+        const loadMoreContacts = async () => {
+            if (contactLoading || contactOptions.length >= contactTotal) return;
+            const next = contactPage + 1;
+            setContactLoading(true);
+            try {
+                const { rows, total } = await fetchContactPage(contactQuery, next);
+                setContactOptions((prev) => {
+                    // De-duplicated on append: a contact created between two page requests
+                    // shifts every later row, which otherwise shows one of them twice.
+                    const seen = new Set(prev.map((o) => o.value));
+                    return [...prev, ...rows.filter((r) => !seen.has(r.value))];
+                });
+                setContactTotal(total);
+                setContactPage(next);
+            } catch {
+                /* Leave what is already listed; the next scroll tries again. */
+            } finally {
+                setContactLoading(false);
+            }
+        };
 
         /**
          * Switching type clears the link the previous type owned.
@@ -739,7 +864,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const changeKind = (next: MeetingKind) => {
             setKind(next);
             if (next !== 'PROJECT') setProjectId('');
-            if (next === 'INTERNAL') setExternal([]);
+            if (next === 'INTERNAL') { setExternal([]); setSelectedContacts([]); }
             if (next !== 'CONTACT') setContactQuery('');
         };
 
@@ -978,18 +1103,44 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                         <L text="Contact *" icon="profile-user" trio={TRIO.cyan} />
                         <Autocomplete
                             multiple size="small" fullWidth disableCloseOnSelect
-                            options={contactOptions}
-                            // Keep chosen contacts visible even once the search has moved on —
-                            // otherwise typing a second name makes the first selection vanish
-                            // from the box while still being selected.
-                            value={contactOptions.filter((o) => external.includes(o.value))}
-                            onChange={(_, picked) => setExternal(picked.map((x) => x.value))}
+                            // Selected contacts are part of the option list even when the
+                            // current search does not contain them, so MUI can still resolve
+                            // every chip it is asked to render.
+                            options={[
+                                ...selectedContacts,
+                                ...contactOptions.filter((o) => !external.includes(o.value)),
+                            ]}
+                            value={selectedContacts}
+                            onChange={(_, picked) => {
+                                setSelectedContacts(picked as Option[]);
+                                setExternal((picked as Option[]).map((x) => x.value));
+                            }}
                             onInputChange={(_, v, reason) => { if (reason === 'input') setContactQuery(v); }}
                             getOptionLabel={(o) => o.label}
                             isOptionEqualToValue={(o, v) => o.value === v.value}
+                            // The SERVER filters. Re-filtering here would hide rows that matched
+                            // on a phone number or an email, since neither is in the label.
                             filterOptions={(x) => x}
                             loading={contactLoading}
-                            ListboxProps={{ sx: menuOptionSx }}
+                            // The skeleton stands in for the rows about to arrive, rather than a
+                            // spinner that says only "something is happening". Same component the
+                            // rest of the app loads lists with.
+                            loadingText={<SkeletonList items={5} showAvatar />}
+                            ListboxProps={{
+                                sx: menuOptionSx,
+                                /*
+                                 * Load the next page as the list nears its end, instead of
+                                 * fetching six thousand rows to fill a box that shows seven.
+                                 * 120px of runway so the rows are there by the time the scroll
+                                 * reaches them, rather than after a visible stall.
+                                 */
+                                onScroll: (e: React.SyntheticEvent) => {
+                                    const el = e.currentTarget as HTMLElement;
+                                    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 120) {
+                                        void loadMoreContacts();
+                                    }
+                                },
+                            }}
                             noOptionsText={contactQuery.trim()
                                 ? 'No contact matches'
                                 : 'Type a name, number or email'}
@@ -1019,6 +1170,16 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                                 />
                             )}
                         />
+                        {/* How much of the list you are looking at. Without it a dropdown that
+                            stops at 25 of 6,000 looks like the whole address book, and somebody
+                            concludes their contact is not in the CRM. */}
+                        {contactOptions.length > 0 && (
+                            <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mt: -1.75, ml: 0.25 }}>
+                                {contactOptions.length >= contactTotal
+                                    ? `${contactTotal} contact${contactTotal === 1 ? '' : 's'}`
+                                    : `${contactOptions.length} of ${contactTotal} — scroll for more`}
+                            </Typography>
+                        )}
                     </Box>
                 )}
 
