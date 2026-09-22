@@ -12,7 +12,8 @@ import {
     MEETING_STATUS_CANCELLED, MEETING_STATUS_AWAITING, MEETING_STATUS_HELD,
     MEETING_TIMESHEET_FILLED, MEETING_TIMESHEET_PENDING,
 } from '@constants/configurations-key';
-import { Box, Dialog, DialogContent, useMediaQuery } from '@mui/material';
+import { Avatar, Box, Dialog, DialogContent, Tooltip, useMediaQuery } from '@mui/material';
+import { toneAlpha } from '@app/modules/common/components/ui';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -82,6 +83,21 @@ interface MeetingRow {
     organizerName?: string;
     participantNames?: string[];
     externalParticipantNames?: string[];
+    /**
+     * The roster as objects, which the `*Names` arrays above cannot safely be.
+     *
+     * Those two are parallel lists that each drop unresolvable entries, so one missing
+     * employee shifts every later index and the name beside a face stops being that person's.
+     * Fine for a comma-joined sentence, not fine for a list of avatars.
+     *
+     * Optional: a row from an older server does not carry it, and the roster simply does not
+     * render rather than the card failing.
+     */
+    attendees?: Array<{
+        id: string; name: string; avatar?: string | null;
+        isOrganizer?: boolean; pendingTimesheet?: boolean;
+    }>;
+    externalAttendees?: Array<{ id: string; name: string }>;
 }
 
 const th: React.CSSProperties = {
@@ -636,15 +652,21 @@ const MODE_COL_W = 220;
 const dayKey = (d: Dayjs | string) => dayjs(d).format('YYYY-MM-DD');
 
 /**
- * Opening a project from a meeting.
+ * Opening the linked row from a meeting — as a PROJECT or as a LEAD.
  *
- * `isProject` in the nav state is load-bearing, not decoration: the entity page hides its
- * project-only tabs (Meetings among them) unless it is told it was entered from a project, so
- * without it the link lands on the lead view and bounces off the tab it asked for.
+ * THE PATH DECIDES THE LENS, and nothing else does. `EntityDetailPage` reads
+ * `pathname.startsWith('/project/')` and defaults its tab to `projects` or `leads` from that
+ * alone. Lead-as-master means both are the same row and the same id; only the URL says which
+ * way to read it.
  *
- * Which is exactly why a meeting booked from the Leads table must pass `isLead`: claiming
- * `isProject` for a lead that has not become one opens the lead behind a set of project tabs
- * it has nothing to fill.
+ * This used to navigate to `/leads/:id?tab=meetings` and pass `{ isProject: true }` in
+ * history state, which is the one thing the route's own comment warns against — state is lost
+ * on a refresh, is not shareable, and was never read here anyway. The result was that clicking
+ * a project on a meeting opened it in the LEAD view, which is the bug this fixes. Every other
+ * caller in the app already navigates to `/project/:id`; this was the last one that did not.
+ *
+ * `isLead` still matters, and is the reason this takes it: sending a lead that has not become
+ * a project to `/project/:id` would open it behind project tabs it has nothing to fill.
  */
 const useOpenProject = () => {
     const navigate = useNavigate();
@@ -652,10 +674,7 @@ const useOpenProject = () => {
     // rebuild every column on every render — which is the cost this table was moved off.
     return useCallback((projectId?: string | null, isLead?: boolean) => {
         if (!projectId) return;
-        navigate(
-            isLead ? `/leads/${projectId}` : `/leads/${projectId}?tab=meetings`,
-            { state: { leadData: projectId, isProject: !isLead } },
-        );
+        navigate(isLead ? `/leads/${projectId}` : `/project/${projectId}`);
     }, [navigate]);
 };
 
@@ -1158,7 +1177,10 @@ const DayDetail: React.FC<{
                 ? 'afternoon is free'
                 : 'both halves booked';
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isPhone}
+        // `lg`, not `md`: the two halves sit side by side and each card now carries a roster,
+        // so at md the participant grid collapsed to one name per line and the card grew taller
+        // than the meeting it described.
+        <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth fullScreen={isPhone}
             PaperProps={{ sx: { borderRadius: isPhone ? 0 : 3, overflow: 'hidden' } }}>
             <div style={{ background: '#1E3A8A', padding: isPhone ? '12px 14px' : '16px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
@@ -1320,6 +1342,20 @@ const DayDetail: React.FC<{
                                     {m.organizerName && <span style={{ marginLeft: 10 }}>· {m.organizerName}</span>}
                                 </div>
                             </div>
+                            {/* Who is actually coming. The card named the organiser and, when
+                                time was owed, listed the debtors as a sentence — so a meeting's
+                                own attendee list was the one thing you had to open the edit
+                                form to see. */}
+                            {m.attendees?.length ? (
+                                <AttendeeRoster
+                                    attendees={m.attendees}
+                                    external={m.externalAttendees}
+                                    // Only once it has happened. Marking a stopwatch against
+                                    // everyone invited to next Tuesday's meeting reports a debt
+                                    // nobody could have paid yet.
+                                    showPending={isHeld(m) && !isCancelled(m)}
+                                />
+                            ) : null}
                             </div>
                             {/* The SAME actions the table row offers. They were only in the
                                 table, so which of them existed depended on which view you
@@ -1372,6 +1408,96 @@ const DayDetail: React.FC<{
             </div>
             </DialogContent>
         </Dialog>
+    );
+};
+
+/**
+ * Who is coming.
+ *
+ * FACES, because a name alone is correct and not scannable: on a card listing five people the
+ * photo is recognised before any of the names have been read. 36 of 37 staff have one, so the
+ * initials fallback is the exception rather than the usual case.
+ *
+ * The organiser is first and tagged. Anyone still owing time on a meeting that has happened is
+ * marked individually — the card already says "Timesheet pending: A, B, C, D" as a sentence,
+ * which at four names is a line of text nobody reads to the end and which does not tell you
+ * whether YOU are one of them.
+ *
+ * External contacts sit in their own row, tinted differently. A client and a colleague on one
+ * undifferentiated list is the distinction this whole module is built on, quietly discarded.
+ */
+const AttendeeRoster: React.FC<{
+    attendees: NonNullable<MeetingRow['attendees']>;
+    external?: MeetingRow['externalAttendees'];
+    showPending: boolean;
+}> = ({ attendees, external, showPending }) => {
+    const pending = attendees.filter((a) => a.pendingTimesheet);
+    if (!attendees.length && !external?.length) return null;
+
+    const person = (name: string, avatar: string | null | undefined, tag?: string, owes?: boolean) => (
+        <div key={`${name}-${tag ?? ''}`} style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+            <Avatar
+                src={avatar || undefined}
+                sx={{
+                    width: 26, height: 26, fontSize: 10.5, fontWeight: 700, flexShrink: 0,
+                    bgcolor: tag ? '#1E3A8A' : '#CBD5E1', color: tag ? '#fff' : '#334155',
+                }}
+            >
+                {name.charAt(0).toUpperCase()}
+            </Avatar>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#1E293B', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {name}
+            </span>
+            {tag && (
+                <span style={{
+                    flexShrink: 0, fontSize: 8.5, fontWeight: 800, letterSpacing: '.05em',
+                    // `toneAlpha`, not an `#RRGGBBAA` literal: an 8-digit hex is opaque to the
+                    // dark-mode lint rule and to anyone reading it, and the kit already owns
+                    // this exact operation.
+                    padding: '2px 5px', borderRadius: 4, background: toneAlpha('#1E3A8A', 0.08), color: '#1E3A8A',
+                }}>
+                    {tag}
+                </span>
+            )}
+            {owes && (
+                // A glyph, not a word: it marks one person in a grid of them, and the count
+                // underneath already says how many in total. Tooltip rather than a raw `title`
+                // so it is styled like the rest of the app and lint stays clean.
+                <Tooltip title="Timesheet not logged yet">
+                    <span style={{ flexShrink: 0, color: '#B45309', lineHeight: 0 }}>
+                        <AppIcon name="bi-stopwatch" className="fs-8" />
+                    </span>
+                </Tooltip>
+            )}
+        </div>
+    );
+
+    return (
+        <div style={{
+            marginTop: 8, borderRadius: 9, background: 'rgba(255,255,255,0.72)',
+            border: '1px solid #E2E8F0', padding: '9px 11px',
+        }}>
+            <div style={{
+                fontSize: 9.5, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase',
+                color: '#94A3B8', marginBottom: 7,
+            }}>
+                Participants
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '7px 12px' }}>
+                {attendees.map((a) => person(a.name, a.avatar, a.isOrganizer ? 'ORGANIZER' : undefined, showPending && a.pendingTimesheet))}
+                {external?.map((c) => person(c.name, null, 'CLIENT'))}
+            </div>
+            {showPending && pending.length > 0 && (
+                <div style={{
+                    marginTop: 8, paddingTop: 7, borderTop: '1px dashed #E2E8F0',
+                    fontSize: 11.5, fontWeight: 700, color: '#B45309',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                }}>
+                    <AppIcon name="bi-stopwatch" className="fs-8" />
+                    Timesheets pending ({pending.length})
+                </div>
+            )}
+        </div>
     );
 };
 
@@ -1703,7 +1829,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             // Both kinds land in this column now that a meeting can be booked from the Leads
             // table, and a header that names only one of them is the sort of small lie that
             // makes people distrust the rest of the row.
-            header: 'Project / Lead',
+            header: 'Project',
             Cell: ({ row }: any) => {
                 const m = row.original as MeetingRow;
                 if (!m.projectName) return <span style={{ color: '#94A3B8' }}>Not linked</span>;
