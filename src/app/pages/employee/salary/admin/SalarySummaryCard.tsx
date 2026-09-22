@@ -105,24 +105,26 @@ const KpiCard = ({ item }: { item: CardItem }) => (
       }}
     />
 
-    <Box sx={{ p: '18px 20px 18px 24px' }}>
+    {/* Phones: tighter padding, no sub-label, smaller icon and figure — six tall cards took a
+        whole screen before the table even started. */}
+    <Box sx={{ p: { xs: '10px 10px 10px 14px', sm: '18px 20px 18px 24px' } }}>
       {/* Top row: label + icon */}
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
-        <Box>
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1} mb={{ xs: 0.75, sm: 2 }}>
+        <Box sx={{ minWidth: 0 }}>
           <Typography
             sx={{
-              fontSize: '0.72rem',
+              fontSize: { xs: '0.64rem', sm: '0.72rem' },
               fontWeight: 700,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
               color: '#94a3b8',
               lineHeight: 1.2,
-              mb: 0.3,
+              mb: { xs: 0, sm: 0.3 },
             }}
           >
             {item.label}
           </Typography>
-          <Typography sx={{ fontSize: '0.72rem', color: '#b0bec5', fontWeight: 500, lineHeight: 1.2 }}>
+          <Typography sx={{ display: { xs: 'none', sm: 'block' }, fontSize: '0.72rem', color: '#b0bec5', fontWeight: 500, lineHeight: 1.2 }}>
             {item.sublabel}
           </Typography>
         </Box>
@@ -130,9 +132,10 @@ const KpiCard = ({ item }: { item: CardItem }) => (
         {/* Icon badge */}
         <Box
           sx={{
-            width: 40,
-            height: 40,
-            borderRadius: '12px',
+            width: { xs: 30, sm: 40 },
+            height: { xs: 30, sm: 40 },
+            borderRadius: { xs: '9px', sm: '12px' },
+            '& svg': { width: { xs: 16, sm: 20 }, height: { xs: 16, sm: 20 } },
             display: 'grid',
             placeItems: 'center',
             backgroundColor: item.iconBg,
@@ -147,7 +150,9 @@ const KpiCard = ({ item }: { item: CardItem }) => (
       {/* Value */}
       <Typography
         sx={{
-          fontSize: typeof item.value === 'number' ? '2rem' : '1.55rem',
+          fontSize: typeof item.value === 'number'
+            ? { xs: '1.35rem', sm: '2rem' }
+            : { xs: '1.1rem', sm: '1.55rem' },
           fontWeight: 800,
           color: item.accent,
           lineHeight: 1.1,
@@ -260,7 +265,7 @@ const SalarySummaryCard: React.FC<SalarySummaryCardProps> = ({
           sm: 'repeat(3, 1fr)',
           lg: `repeat(${count}, 1fr)`,
         },
-        gap: '14px',
+        gap: { xs: '8px', sm: '14px' },
       }}
     >
       {cards.map((item, i) => (

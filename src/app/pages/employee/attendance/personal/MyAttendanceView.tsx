@@ -7,7 +7,7 @@ import { fetchConfiguration } from '@services/company';
 import { DATE_SETTINGS_KEY, DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { useEffect, useState } from 'react';
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
-import { IconBox, TRIO, Spinner } from '@app/modules/common/components/ui/tw';
+import { Spinner } from '@app/modules/common/components/ui/tw';
 import { setFeatureConfiguration } from '@redux/slices/featureConfiguration';
 import { useDispatch } from 'react-redux';
 
@@ -107,10 +107,6 @@ const MyAttendanceView = ({ fromAdmin = false, resourseAndView, checkOwnWithOthe
 
     return (
         <>
-            <div className="flex items-center gap-3 mb-6">
-                <IconBox icon="time" trio={TRIO.blue} size={44} fs="fs-1" />
-                <h3 className="fw-bold fs-1 mb-0 font-barlow">My Attendance</h3>
-            </div>
             <AttendanceGraphicalToggle 
                 toggleItemsActions={toggleItemsActions} 
                 fromAdmin={fromAdmin} 

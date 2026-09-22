@@ -29,6 +29,7 @@ import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -85,6 +86,8 @@ const distinctValues = (rows: EmployeeSummary[], field: keyof EmployeeSummary, e
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function AllEmployee() {
+  // Every amount on this tab follows the eye in the Reimbursements tab bar.
+  const sensitive = useSensitiveData();
   const navigate = useNavigate();
   const [alignment, setAlignment] = useState<PeriodAlignment>('monthly');
   const [month, setMonth] = useState<Dayjs>(dayjs());
@@ -443,8 +446,6 @@ function AllEmployee() {
 
   return (
     <>
-      <h3 className="fw-bold fs-1 mb-5 font-barlow">Reimbursement Details</h3>
-
       {/* Period toolbar */}
       <SalaryPeriodToolbar
         alignment={alignment}
@@ -558,9 +559,9 @@ function AllEmployee() {
               header: 'Total Requested Amount',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
-                return val > 0 ? fmtMoney(val) : `${currencyPrefix()}0`;
+                return <span className={sensitive.cls}>{val > 0 ? fmtMoney(val) : `${currencyPrefix()}0`}</span>;
               },
-              Footer: () => fmtMoney(columnTotals.totalRequestAmount),
+              Footer: () => <span className={sensitive.cls}>{fmtMoney(columnTotals.totalRequestAmount)}</span>,
             },
             {
               accessorKey: 'totalApprovedAmount',
@@ -568,18 +569,18 @@ function AllEmployee() {
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
-                return <span style={{ color: '#16a34a', fontWeight: 600 }}>{fmtMoney(val)}</span>;
+                return <span className={sensitive.cls} style={{ color: '#16a34a', fontWeight: 600 }}>{fmtMoney(val)}</span>;
               },
-              Footer: () => <span style={{ color: '#16a34a' }}>{fmtMoney(columnTotals.totalApprovedAmount)}</span>,
+              Footer: () => <span className={sensitive.cls} style={{ color: '#16a34a' }}>{fmtMoney(columnTotals.totalApprovedAmount)}</span>,
             },
             {
               accessorKey: 'totalPendingAmount',
               header: 'Total Pending Amount',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
-                return <span style={{ color: '#0891b2', fontWeight: 600 }}>{fmtMoney(val)}</span>;
+                return <span className={sensitive.cls} style={{ color: '#0891b2', fontWeight: 600 }}>{fmtMoney(val)}</span>;
               },
-              Footer: () => <span style={{ color: '#0891b2' }}>{fmtMoney(columnTotals.totalPendingAmount)}</span>,
+              Footer: () => <span className={sensitive.cls} style={{ color: '#0891b2' }}>{fmtMoney(columnTotals.totalPendingAmount)}</span>,
             },
             {
               accessorKey: 'totalPaidAmount',
@@ -587,9 +588,9 @@ function AllEmployee() {
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
-                return <span style={{ color: '#7c3aed', fontWeight: 600 }}>{fmtMoney(val)}</span>;
+                return <span className={sensitive.cls} style={{ color: '#7c3aed', fontWeight: 600 }}>{fmtMoney(val)}</span>;
               },
-              Footer: () => <span style={{ color: '#7c3aed' }}>{fmtMoney(columnTotals.totalPaidAmount)}</span>,
+              Footer: () => <span className={sensitive.cls} style={{ color: '#7c3aed' }}>{fmtMoney(columnTotals.totalPaidAmount)}</span>,
             },
             {
               accessorKey: 'totalRemainingAmount',
@@ -597,9 +598,9 @@ function AllEmployee() {
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
-                return <span style={{ color: '#ea580c', fontWeight: 600 }}>{fmtMoney(val)}</span>;
+                return <span className={sensitive.cls} style={{ color: '#ea580c', fontWeight: 600 }}>{fmtMoney(val)}</span>;
               },
-              Footer: () => <span style={{ color: '#ea580c' }}>{fmtMoney(columnTotals.totalRemainingAmount)}</span>,
+              Footer: () => <span className={sensitive.cls} style={{ color: '#ea580c' }}>{fmtMoney(columnTotals.totalRemainingAmount)}</span>,
             },
             {
               accessorKey: 'totalRejectedAmount',
@@ -607,9 +608,9 @@ function AllEmployee() {
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
-                return <span style={{ color: '#dc2626', fontWeight: 600 }}>{fmtMoney(val)}</span>;
+                return <span className={sensitive.cls} style={{ color: '#dc2626', fontWeight: 600 }}>{fmtMoney(val)}</span>;
               },
-              Footer: () => <span style={{ color: '#dc2626' }}>{fmtMoney(columnTotals.totalRejectedAmount)}</span>,
+              Footer: () => <span className={sensitive.cls} style={{ color: '#dc2626' }}>{fmtMoney(columnTotals.totalRejectedAmount)}</span>,
             },
             {
               accessorKey: 'totalRequests',

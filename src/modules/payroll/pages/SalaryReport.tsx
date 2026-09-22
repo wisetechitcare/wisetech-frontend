@@ -213,15 +213,22 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                             {/* Breakdown tables */}
                             <Row className="g-4 g-lg-6 mb-4 mb-lg-6">
                                 <Col xs={12} lg={6}>
-                                    <div className="p-4 p-lg-6 rounded-4 h-100 bg-white border border-gray-200 d-flex flex-column">
-                                        <div className="d-flex align-items-center mb-5 mb-lg-6">
-                                            <div className="symbol symbol-40px me-4">
-                                                <div className="symbol-label bg-light-success">
-                                                    <KTIcon iconName="wallet" className="fs-2 text-success" />
+                                    {/* Earnings and deductions are two different sections, so each card
+                                        carries its own colour: a faint green or red border matching its
+                                        icon, and a centred heading — enough to tell them apart at a
+                                        glance without shouting. */}
+                                    <div className="rounded-4 h-100 bg-white d-flex flex-column overflow-hidden" style={{ border: '1px solid #bfe8cd' }}>
+                                        {/* Filled header band in the section's colour; the icon sits on a white tile so it
+                                            still reads against the tint. */}
+                                        <div className="d-flex align-items-center justify-content-center px-4 py-2" style={{ backgroundColor: '#f0fdf4', borderBottom: '1px solid #bfe8cd' }}>
+                                            <div className="symbol symbol-30px me-2">
+                                                <div className="symbol-label bg-white" style={{ border: '1px solid #bfe8cd' }}>
+                                                    <KTIcon iconName="wallet" className="fs-4 text-success" />
                                                 </div>
                                             </div>
-                                            <h5 className="fw-bolder mb-0 text-gray-800">Salary Breakdown</h5>
+                                            <h5 className="fw-bolder mb-0 text-gray-800 fs-6">Salary Breakdown</h5>
                                         </div>
+                                        <div className="p-4 p-lg-6 d-flex flex-column flex-grow-1">
                                         <BreakdownTable
                                             data={apiSalaryData?.grossPayBreakdown || { fixed: {}, variable: {} }}
                                             type={BREAKDOWN_TYPES.GROSS}
@@ -232,18 +239,22 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                             resolveName={resolveName}
                                             resolveComponent={resolveComponent}
                                         />
+                                        </div>
                                     </div>
                                 </Col>
                                 <Col xs={12} lg={6}>
-                                    <div className="p-4 p-lg-6 rounded-4 h-100 bg-white border border-gray-200 d-flex flex-column">
-                                        <div className="d-flex align-items-center mb-5 mb-lg-6">
-                                            <div className="symbol symbol-40px me-4">
-                                                <div className="symbol-label bg-light-danger">
-                                                    <KTIcon iconName="minus-circle" className="fs-2 text-danger" />
+                                    <div className="rounded-4 h-100 bg-white d-flex flex-column overflow-hidden" style={{ border: '1px solid #f3c9c9' }}>
+                                        {/* Filled header band in the section's colour; the icon sits on a white tile so it
+                                            still reads against the tint. */}
+                                        <div className="d-flex align-items-center justify-content-center px-4 py-2" style={{ backgroundColor: '#fef2f2', borderBottom: '1px solid #f3c9c9' }}>
+                                            <div className="symbol symbol-30px me-2">
+                                                <div className="symbol-label bg-white" style={{ border: '1px solid #f3c9c9' }}>
+                                                    <KTIcon iconName="minus-circle" className="fs-4 text-danger" />
                                                 </div>
                                             </div>
-                                            <h5 className="fw-bolder mb-0 text-gray-800">Salary Deductions</h5>
+                                            <h5 className="fw-bolder mb-0 text-gray-800 fs-6">Salary Deductions</h5>
                                         </div>
+                                        <div className="p-4 p-lg-6 d-flex flex-column flex-grow-1">
                                         <DeductionPanel
                                             deductionBreakdown={apiSalaryData?.deductionBreakdown || { fixed: {}, variable: {} }}
                                             grossPay={finalTotalGrossPayAmount}
@@ -252,6 +263,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                             resolveName={resolveName}
                                             resolveComponent={resolveComponent}
                                         />
+                                        </div>
                                     </div>
                                 </Col>
                             </Row>

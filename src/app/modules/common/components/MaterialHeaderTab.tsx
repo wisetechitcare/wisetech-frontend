@@ -1,6 +1,6 @@
-import { Box, SvgIconProps, Tab, Tabs } from '@mui/material';
+import { Box, SvgIconProps, Tab, Tabs, useMediaQuery, useTheme } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { T } from './ui/tokens';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
@@ -10,6 +10,9 @@ export type TabItem = {
     component: any;
     /** Optional count shown as a pill next to the tab title (hidden when 0). */
     badge?: number;
+    /** Shorter name for the phone tab bar, where the selected tab shows its name beside its
+     *  icon when there is room. Omitted: the full title, truncated if needed. */
+    shortTitle?: string;
 };
 
 interface MaterialTabProps {
@@ -110,8 +113,9 @@ const tabsSx: SxProps<Theme> = {
         width: 28,
         '&.Mui-disabled': { opacity: 0.22 },
     },
-    // Vertically centre the tabs so the selected pill has even top/bottom gaps.
-    '& .MuiTabs-flexContainer': { alignItems: 'center', minHeight: 44 },
+    // 52px bar around 34px tabs: 9px of air above and below the selected pill. At 44px the
+    // pill all but touched both edges of the bar, which is what made it look cramped.
+    '& .MuiTabs-flexContainer': { alignItems: 'center', minHeight: 52, gap: '4px', paddingInline: '12px' },
     '& .MuiTabs-indicator': {
         // The selected tab is highlighted with a filled "pill" (below),
         // mirroring the aside menu's active item — so the bottom underline
@@ -120,16 +124,19 @@ const tabsSx: SxProps<Theme> = {
         display: 'none',
     },
     '& .MuiTab-root': {
-        px: { xs: '11px', sm: '16px' },
-        py: '3px',
+        px: { xs: '12px', sm: '14px' },
+        py: 0,
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 32,
-        mx: '3px',
+        minHeight: 34,
+        height: 34,
+        minWidth: 0,
+        mx: 0,
         borderRadius: '8px',
-        transition: 'background-color .15s ease, color .15s ease',
+        transition: 'background-color .15s ease, color .15s ease, box-shadow .15s ease',
+        '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
         /* MUI icon (the `icon` prop given a component) — sized to match the Lucide icon
          * below so the two icon shapes never render at two sizes.
          *
@@ -179,31 +186,93 @@ const tabsSx: SxProps<Theme> = {
             // legibility given away for nothing.
             color: '#ffffff',
         },
-        // Underline lives on the text label ONLY (.mht-label wraps just the
-        // title text — never the icon). Always underlined but transparent, so
-        // selecting simply fades the underline colour in (line position never
-        // jumps, and text-decoration-color is animatable).
-        '& .mht-label': {
-            textDecoration: 'underline',
-            textDecorationColor: 'transparent',
-            textDecorationThickness: '2px',
-            textUnderlineOffset: '5px',
-            transition: 'text-decoration-color 0.25s ease',
+        // Selected: a soft frosted fill with bold white text. A solid white tab was too loud on
+        // the gradient, a hairline border washed out, and an underline bar was one mark too many.
+        '&.Mui-selected': {
+            color: '#ffffff',
+            fontWeight: 700,
+            backgroundColor: 'rgba(255, 255, 255, 0.16)',
         },
-        // Selected: white text + white underline under the text only.
-        '&.Mui-selected': { color: '#ffffff', fontWeight: 700 },
-        '&.Mui-selected .mht-label': { textDecorationColor: '#ffffff' },
-        // The selected/hover rules that used to lift a duotone backdrop layer
-        // (`.path1:before`) are gone with the font — a Lucide glyph is one tone, and the
-        // `&.Mui-selected` colour rule below already carries the emphasis.
-        // Subtle feedback when hovering a non-selected tab.
-        '&:hover': { color: '#ffffff', backgroundColor: 'rgba(255, 255, 255, 0.12)' },
-        // Hovering the selected tab keeps it as-is (no light pill fill).
-        '&.Mui-selected:hover': { color: '#ffffff', backgroundColor: 'transparent' },
+        // Hover on an unselected tab: a fainter fill than the selection, so the two never read alike.
+        '&:hover': { color: '#ffffff', backgroundColor: 'rgba(255, 255, 255, 0.08)' },
+        '&.Mui-selected:hover': { color: '#ffffff', backgroundColor: 'rgba(255, 255, 255, 0.20)' },
     },
 };
 
+/** A tab's icon for the phone switcher and its menu. Colour comes from the parent (`currentColor`). */
+const switcherIcon = (item: TabItem) => {
+    if (!item.icon) return null;
+    if (typeof item.icon === 'string') {
+        return item.icon.startsWith('bi-') || item.icon.startsWith('bi ')
+            ? <AppIcon name={item.icon} className="fs-3" />
+            : <img src={item.icon} alt="" width={20} height={20} />;
+    }
+    const Icon = item.icon as React.ElementType<SvgIconProps>;
+    return <Icon fontSize="small" />;
+};
+
+const countBadge = (count: number | undefined) =>
+    typeof count === 'number' && count > 0 ? (
+        <Box
+            component="span"
+            className="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none"
+            // Deliberately white in BOTH modes: the badge sits on the brand-coloured
+            // header bar, which stays dark either way, so a surface token would
+            // lose its contrast in dark mode.
+            sx={{ bgcolor: 'common.white', color: T.color.brand }}
+        >
+            {count > 99 ? '99+' : count}
+        </Box>
+    ) : null;
+
 const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hideScrollButtons, headerAction }: MaterialTabProps) => {
+    /**
+     * Phones get a bar that says as much as fits: every tab as icon + name on one line; failing
+     * that, bottom-navigation style (icon over name); failing that, icons with the selected tab
+     * named; failing that, icons alone. A row of full-width desktop tabs plus an action cannot
+     * fit ~360px and scrolled sideways, hiding most sections. Tablet and desktop keep the tab row.
+     */
+    const theme = useTheme();
+    const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
+
+    /**
+     * How much the phone row can say, measured from its real width (not guessed), in four steps:
+     *   'row'  — every tab fits as icon + name on one line (the names are measured in the bar's font).
+     *   'nav'  — room for every tab at NAV_CELL: bottom-navigation style, icon over name, all named.
+     *   'icons' — not enough for that: icon squares, and the selected tab also shows its name.
+     *   'bare' — not even that (Recruitment: seven tabs and an organisation filter): icons only,
+     *            the selected tab marked by its fill.
+     * Layout effect, so the first paint is already the right mode.
+     */
+    const tablistRef = useRef<HTMLDivElement | null>(null);
+    const [tablistWidth, setTablistWidth] = useState(0);
+    useLayoutEffect(() => {
+        const el = tablistRef.current;
+        if (!isPhone || !el) return;
+        setTablistWidth(el.getBoundingClientRect().width);
+        const observer = new ResizeObserver(([entry]) => setTablistWidth(entry.contentRect.width));
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [isPhone]);
+    const ICON_CELL = 36;
+    const ICON_GAP = 4;
+    const NAME_ROOM = 92;
+    const NAV_CELL = 64;
+    const gaps = (tabItems.length - 1) * ICON_GAP;
+    // One line needs: padding 10+10, icon 20, gap 6, and the name at the bar's bold 12.5px.
+    const namesKey = tabItems.map((t) => t.shortTitle ?? t.title).join('|');
+    const rowNeeded = useMemo(() => {
+        const ctx = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
+        if (!ctx) return Infinity;
+        ctx.font = '700 12.5px Inter, sans-serif';
+        return namesKey.split('|').reduce((sum, name) => sum + Math.ceil(ctx.measureText(name).width) + 46, 0);
+    }, [namesKey]);
+    const phoneMode: 'row' | 'nav' | 'icons' | 'bare' =
+        tablistWidth === 0 || tablistWidth >= rowNeeded + gaps ? 'row'
+        : tablistWidth >= tabItems.length * NAV_CELL + gaps ? 'nav'
+            : tablistWidth >= tabItems.length * ICON_CELL + gaps + NAME_ROOM ? 'icons'
+                : 'bare';
+
     // Seeded from the prop, not 0. Pages that keep the active tab in the URL
     // remount on every back-navigation, and starting at 0 painted — and mounted,
     // and fetched — the first tab for a frame before the effect corrected it.
@@ -230,7 +299,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
             indicatorColor="primary"
             variant="scrollable"
             scrollButtons={hideScrollButtons ? false : "auto"}
-            className={headerAction ? 'mht-tabs--in-bar min-h-11' : 'min-h-11'}
+            className={headerAction ? 'mht-tabs--in-bar min-h-13' : 'min-h-13'}
             sx={tabsSx}
         >
             {tabItems.map((tabItem, index) => {
@@ -257,8 +326,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
 
                     const hasBadge = typeof tabItem.badge === 'number' && tabItem.badge > 0;
                     const isSelected = value === index;
-                    // Title text always sits in .mht-label so the selected
-                    // underline applies to the text only (never icon/badge).
+                    // Title text always sits in .mht-label, apart from the icon and badge.
                     const label = hasBadge ? (
                         <span className="inline-flex items-center">
                             <span className="mht-label">{tabItem.title}</span>
@@ -284,30 +352,168 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
         </Tabs>
     );
 
+    const phoneBar = (
+        <Box
+            className="flex items-center gap-2 px-2"
+            // Height in sx, not a utility: 52px bar around 36px tabs leaves 8px above and below the
+            // selected pill, so it never runs into the top and bottom edges of the bar.
+            sx={{ ...stickySx, background: T.color.brandGradientLeftToRight, minHeight: 52, py: '8px' }}
+        >
+            <Box
+                ref={tablistRef}
+                role="tablist"
+                aria-label="Sections"
+                sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    // Spread across the whole bar when there is spare room, so a module with few
+                    // tabs (or no header action) fills the row evenly instead of bunching left.
+                    // space-between, not space-evenly: when content overflows it falls back to
+                    // flex-start, so the first tab can never be pushed off-screen.
+                    justifyContent: phoneMode === 'nav' || phoneMode === 'row' ? 'stretch' : 'space-between',
+                    gap: `${ICON_GAP}px`,
+                    // Last resort only: more icons than even the icon-only row can hold.
+                    overflowX: 'auto',
+                    scrollbarWidth: 'none',
+                    '&::-webkit-scrollbar': { display: 'none' },
+                }}
+            >
+                {tabItems.map((item, index) => {
+                    const selected = index === value;
+                    const row = phoneMode === 'row';
+                    const nav = phoneMode === 'nav';
+                    const named = selected && phoneMode === 'icons';
+                    return (
+                        <Box
+                            key={`${item.title}-phone-${index}`}
+                            component="button"
+                            type="button"
+                            role="tab"
+                            aria-selected={selected}
+                            aria-label={item.title}
+                            // Icon-only tabs say their name on long-press / hover.
+                            title={item.title}
+                            onClick={(e: React.MouseEvent<HTMLElement>) => handleChange(e, index)}
+                            sx={{
+                                // nav: equal share of the row, icon over name.
+                                // icons/bare: an icon square; in 'icons' the selected tab widens to
+                                // name itself and gives way (ellipsis) before overflowing.
+                                // row: icon + name on one line, cells share the spare width.
+                                flex: row ? '1 0 auto' : nav ? '1 1 0' : named ? '0 1 auto' : `0 0 ${ICON_CELL}px`,
+                                minWidth: row || nav || named ? 0 : ICON_CELL,
+                                height: nav ? 'auto' : ICON_CELL,
+                                minHeight: ICON_CELL,
+                                display: 'flex',
+                                flexDirection: nav ? 'column' : 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: nav ? '3px' : row ? '6px' : '8px',
+                                px: nav ? '4px' : row ? '10px' : named ? '12px' : 0,
+                                py: nav ? '6px' : 0,
+                                border: 0,
+                                borderRadius: '10px',
+                                backgroundColor: selected ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
+                                color: selected ? '#ffffff' : 'rgba(255, 255, 255, 0.78)',
+                                fontFamily: 'inherit',
+                                fontSize: row ? 12.5 : 13,
+                                fontWeight: row && !selected ? 600 : 700,
+                                cursor: 'pointer',
+                                transition: 'background-color .15s ease, color .15s ease',
+                                '&:active': { backgroundColor: 'rgba(255, 255, 255, 0.24)' },
+                                '&:focus-visible': { outline: '2px solid rgba(255, 255, 255, 0.8)', outlineOffset: '-2px' },
+                                '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+                            }}
+                        >
+                            <Box component="span" sx={{ position: 'relative', display: 'inline-flex', lineHeight: 1, flexShrink: 0 }}>
+                                {switcherIcon(item)}
+                                {typeof item.badge === 'number' && item.badge > 0 && (
+                                    <Box component="span" sx={{ position: 'absolute', top: -7, left: '100%', ml: '-7px' }}>
+                                        {countBadge(item.badge)}
+                                    </Box>
+                                )}
+                            </Box>
+                            {nav && (
+                                <Box
+                                    component="span"
+                                    sx={{
+                                        maxWidth: '100%',
+                                        fontSize: 10.5,
+                                        fontWeight: selected ? 700 : 600,
+                                        lineHeight: 1.15,
+                                        textAlign: 'center',
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden',
+                                    }}
+                                >
+                                    {item.shortTitle ?? item.title}
+                                </Box>
+                            )}
+                            {(named || row) && (
+                                <Box
+                                    component="span"
+                                    sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                >
+                                    {item.shortTitle ?? item.title}
+                                </Box>
+                            )}
+                        </Box>
+                    );
+                })}
+            </Box>
+
+            {headerAction && (
+                // The action is a peer of the tabs, not one of them: a hairline divider sets it
+                // apart, and it stretches to the tabs' height in whichever mode is active (36px
+                // one-line, ~47px icon-over-name) so it never sits as a small square beside tall
+                // cells.
+                <Box
+                    className="mht-phone-action"
+                    sx={{
+                        display: 'flex',
+                        alignSelf: 'stretch',
+                        alignItems: 'stretch',
+                        flexShrink: 0,
+                        pl: '8px',
+                        borderLeft: '1px solid rgba(255, 255, 255, 0.18)',
+                        '& > button': { height: 'auto', minHeight: ICON_CELL },
+                    }}
+                >
+                    {headerAction}
+                </Box>
+            )}
+        </Box>
+    );
+
     return (
         <>
-            {/* With a headerAction, wrap the strip + action in the sticky gradient
-                bar (flex row). Without one, render the strip on its own. */}
-            {headerAction
+            {/* Phone: the icon row. Otherwise, with a headerAction, wrap the strip + action
+                in the sticky gradient bar (flex row); without one, render the strip on its own. */}
+            {isPhone ? phoneBar : headerAction
                 ? (
                     <Box
-                        className="flex min-h-11 items-center"
+                        className="flex min-h-13 items-center"
                         sx={{ ...stickySx, background: T.color.brandGradientLeftToRight }}
                     >
                         {tabsStrip}
-                        <div className="flex shrink-0 items-center gap-2 pl-2.5 pr-3.5">{headerAction}</div>
+                        {/* pr-6: the action lines up with the page content's right edge
+                            instead of hugging the end of the bar. */}
+                        <div className="flex shrink-0 items-center gap-2 pl-2.5 pr-6">{headerAction}</div>
                     </Box>
                 )
                 : tabsStrip}
 
             {aboveContent
-                ? <div className="px-5 py-5 lg:px-9">{aboveContent}</div>
-                : <div className="mt-7" />
+                ? <div className="px-3 py-4 sm:px-5 sm:py-5 lg:px-9">{aboveContent}</div>
+                : <div className="mt-3 sm:mt-7" />
             }
 
             {tabItems.map((tabItem, index) => {
                 return (
-                    <div key={`${tabItem.title}-panel-${index}`} className="px-5 py-0 lg:px-9">
+                    <div key={`${tabItem.title}-panel-${index}`} className="px-3 py-0 sm:px-5 lg:px-9">
                         {value === index && tabItem.component}
                     </div>
                 )

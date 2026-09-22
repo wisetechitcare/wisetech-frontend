@@ -91,11 +91,8 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
   return (
     <div style={{ background: C.panel, borderRadius: 14, padding: 'clamp(16px, 3vw, 26px)' }}>
       {/* Header */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-        <div>
-          <h2 style={{ fontSize: 20, fontWeight: 800, color: C.ink, margin: 0 }}>Organizations</h2>
-          <div style={{ fontSize: 13, color: C.inkFaint, marginTop: 2 }}>Manage your organizations, sub-organizations and branches.</div>
-        </div>
+      {/* No page title here: the page header and breadcrumb already say "Organizations". */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center', justifyContent: 'flex-end', marginBottom: 18 }}>
         <button type="button" onClick={() => setModal({ show: true, parent: null })}
           style={{ background: C.brand, border: 'none', borderRadius: 10, padding: '10px 20px', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 2px 8px rgba(30, 58, 138,.25)' }}>
           <IconPlus size={17} /> New Organization

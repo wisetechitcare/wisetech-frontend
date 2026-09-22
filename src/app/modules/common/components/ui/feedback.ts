@@ -26,12 +26,63 @@ function ensureStyles() {
     .wt-swal-cancel{background:#fff;color:${T.color.inkSoft};border:1px solid ${T.color.line};border-radius:9px;font-weight:600;font-size:13.5px;padding:9px 20px;transition:background .15s;}
     .wt-swal-cancel:hover{background:${T.color.panel};color:${T.color.ink};}
 
-    /* Toast variant — same skin, dialog proportions stripped out. The shared
-       .wt-swal-popup padding and 18px title are sized for a modal and make a
-       one-line notice look like an announcement. */
-    .wt-swal-toast{padding:4px 6px;margin:0 0 20px 20px;max-width:min(380px,calc(100vw - 40px));}
-    .wt-swal-toast .wt-swal-title{font-size:14px;font-weight:650;margin:0;}
-    .wt-swal-toast .wt-swal-html{font-size:12.5px;}
+    /* Toast variant — a notice card, not a dialog. The shared .wt-swal-popup padding
+       and 18px title are sized for a modal and make a one-line notice look like an
+       announcement. Swal already lays a toast out as an "icon | text" grid, so only
+       the spacing, the skin and the timer bar are set here — redefining the grid
+       would move the check mark off its own strokes. */
+    .wt-swal-toast{align-items:center;column-gap:12px;padding:12px 14px;margin:0 0 20px 20px;
+      max-width:min(400px,calc(100vw - 40px));border:1px solid ${T.color.line};
+      border-radius:14px;box-shadow:${T.shadow.pop};overflow:hidden;}
+    /* A hairline border, because a white toast over a white form has no edge of its own. */
+    .wt-swal-toast .wt-swal-title{font-size:13.5px;font-weight:650;line-height:1.35;margin:0;
+      text-align:left;overflow-wrap:anywhere;}
+    .wt-swal-toast .wt-swal-html{font-size:12.5px;line-height:1.45;margin:2px 0 0;
+      text-align:left;overflow-wrap:anywhere;}
+
+    /* Icon: Swal positions the check/cross strokes against its own toast geometry, so
+       only the palette changes here — no size, and no fill behind the success mark,
+       whose animation masks are painted in the popup's own colour. */
+    .wt-swal-toast .swal2-icon{margin:0;}
+    .wt-swal-toast .swal2-success,
+    .wt-swal-toast .swal2-success .swal2-success-ring{border-color:rgba(47,125,95,.30);}
+    .wt-swal-toast .swal2-success [class^='swal2-success-line']{background:${T.color.success};}
+    .wt-swal-toast .swal2-error{border-color:rgba(178,58,48,.30);}
+    .wt-swal-toast .swal2-error [class^='swal2-x-mark-line']{background:${T.color.danger};}
+    .wt-swal-toast .swal2-warning{border-color:rgba(166,106,42,.30);color:${T.color.warning};}
+    .wt-swal-toast .swal2-info,
+    .wt-swal-toast .swal2-question{border-color:rgba(44,115,133,.30);color:${T.color.cyan};}
+
+    /* Timer bar: a hairline the eye can ignore, clipped by the card (Swal's own
+       container carries a fixed 5px radius that squares off a 14px corner). */
+    .wt-swal-toast .swal2-timer-progress-bar-container{height:3px;border-radius:0;
+      background:${T.color.lineSoft};}
+    .wt-swal-toast .swal2-timer-progress-bar{background:${T.color.brand};}
+
+    /* Phones: the bottom navigation owns the bottom-left corner, and the toast
+       outranks it on z-index, so it would land on top of the tab bar. */
+    @media (max-width:991.98px){
+      .wt-swal-toast{margin:0 12px calc(var(--bn-content-offset, 82px) + 12px) 12px;
+        max-width:calc(100vw - 24px);}
+    }
+
+    /* Enters from the edge it is anchored to rather than zooming out of nothing. */
+    @keyframes wt-toast-in{from{opacity:0;transform:translate3d(-12px,8px,0) scale(.98)}
+      to{opacity:1;transform:none}}
+    @keyframes wt-toast-out{from{opacity:1;transform:none}
+      to{opacity:0;transform:translate3d(0,6px,0) scale(.98)}}
+    .wt-toast-in{animation:wt-toast-in .22s cubic-bezier(.22,.61,.36,1) both;}
+    .wt-toast-out{animation:wt-toast-out .16s ease-in both;}
+    @media (prefers-reduced-motion: reduce){
+      .wt-toast-in,.wt-toast-out{animation-duration:.01ms;}
+    }
+
+    html[data-theme="dark"] .wt-swal-toast{border-color:#30363d;}
+    html[data-theme="dark"] .wt-swal-toast .swal2-timer-progress-bar-container{background:rgba(255,255,255,.10);}
+    html[data-theme="dark"] .wt-swal-toast .swal2-timer-progress-bar{background:#6E9BFF;}
+    html[data-theme="dark"] .wt-swal-toast .swal2-success,
+    html[data-theme="dark"] .wt-swal-toast .swal2-success .swal2-success-ring{border-color:rgba(48,209,88,.35);}
+    html[data-theme="dark"] .wt-swal-toast .swal2-success [class^='swal2-success-line']{background:#30D158;}
 
     /* Dark mode — scoped to the app-wide [data-theme="dark"] signal set by ColorModeProvider.
        Swal portals to <body>, so these descendant selectors match. */
@@ -81,8 +132,12 @@ export function toast(opts: FeedbackOptions & { timer?: number }) {
     toast: true,
     position: 'bottom-start',
     backdrop: false,
-    timer: opts.timer ?? 2200, showConfirmButton: false, timerProgressBar: true,
+    // 2200ms is under the time it takes to read back a reference like BILL/2026/0004,
+    // which is exactly what these notices carry. Hovering still pauses it.
+    timer: opts.timer ?? 3200, showConfirmButton: false, timerProgressBar: true,
     customClass: { ...baseClass, popup: 'wt-swal-popup wt-swal-toast' },
+    showClass: { popup: 'wt-toast-in' },
+    hideClass: { popup: 'wt-toast-out' },
     didOpen: (el) => {
       el.addEventListener('mouseenter', Swal.stopTimer);
       el.addEventListener('mouseleave', Swal.resumeTimer);

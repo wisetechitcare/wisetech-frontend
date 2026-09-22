@@ -5,7 +5,6 @@ import { isWorkspacePath, WORKSPACE_ROOT } from '@components/workspace/appSlug'
 import { useLayout } from '../../core'
 import { useSidebarCollapse } from '../../core/SidebarCollapseContext'
 import { HeaderToolbar } from './HeaderToolbar'
-import { KTIcon } from '@metronic/helpers'
 import { useIsMobile } from '@components/navigation/BottomNavigation/useIsMobile'
 import { useNavTransform } from '@/contexts/NavTransformContext'
 
@@ -50,14 +49,22 @@ export function HeaderWrapper() {
 
         {isMobile && (
           <div className='d-flex w-100 justify-content-between align-items-center ps-3 pe-2 h-100'>
-            {/* Left side: Hamburger menu */}
-            <div
-              className='btn btn-icon btn-active-color-primary w-30px h-30px'
+            {/* Left side: the menu button. A real hamburger — the abstract-shapes glyph it
+                replaced read as an apps grid, not "open the navigation". Metronic's drawer binds
+                to the id, so the element type can change without rewiring anything. */}
+            <button
+              type='button'
+              className='wt-menu-toggle'
               id='kt_aside_mobile_toggle'
-              title='Show aside menu'
+              aria-label='Open menu'
+              title='Menu'
             >
-              <KTIcon iconName='abstract-14' className='fs-1' />
-            </div>
+              <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.2' strokeLinecap='round' aria-hidden='true'>
+                <path d='M4 6h16' />
+                <path d='M4 12h11' />
+                <path d='M4 18h16' />
+              </svg>
+            </button>
 
             {/* Right side: HeaderToolbar */}
             <HeaderToolbar />

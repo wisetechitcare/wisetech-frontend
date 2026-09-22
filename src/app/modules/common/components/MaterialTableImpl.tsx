@@ -1239,27 +1239,28 @@ function MaterialTable({
   return (
     <ThemeProvider theme={tableTheme}>
      <SearchQueryContext.Provider value={debouncedFilterValue}>
-      <div className="pt-6 pb-3">
+      {/* Phones: 8px above the table area, not 24.  because Bootstrap's own .pt-6
+          carries !important (Tailwind's important utility still outranks it from its layer). The
+          class name stays .pt-6 so pages that tune it (Leads, Projects) keep working. */}
+      <div className="pt-6 pb-3 max-sm:pt-2!">
         {/* Mobile Search Section - Full Width */}
         {enableColumnSpecificSearch &&
           isMobile &&
           effectiveSearchableColumns &&
           effectiveSearchableColumns.length > 0 && (
-            <div style={{ marginBottom: "16px" }}>
-              {/* Mobile Search Toggle Button */}
+            <div style={{ marginBottom: "10px" }}>
+              {/* Mobile Search Toggle Button — edge to edge with the table below, no inset band. */}
               <div
                 style={{
                   display: "flex",
                   justifyContent: "flex-start",
-                  padding: "8px 16px",
-                  borderBottom: "1px solid #F3F4F6",
                 }}
               >
                 <div
                   onClick={toggleMobileSearch}
                   style={{
                     cursor: "pointer",
-                    padding: "10px 16px",
+                    padding: "8px 16px",
                     borderRadius: "10px",
                     backgroundColor: isMobileSearchVisible ? "#FEF2F2" : "#FAFAFA",
                     border: `1px solid ${isMobileSearchVisible ? "#FECACA" : "#E5E7EB"}`,

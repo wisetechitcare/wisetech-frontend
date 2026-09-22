@@ -106,8 +106,6 @@ const SalaryEmployeeData = () => {
 
   return (
     <>
-      <h3 className="fw-bold fs-1 mb-5 font-barlow">Employee Payrolls Data</h3>
-
       {/* Toggle and Date Selection */}
       <SalaryPeriodToolbar
         alignment={alignment}

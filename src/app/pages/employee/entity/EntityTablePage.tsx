@@ -942,7 +942,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '6px',
               backgroundColor: st.color || '#64748B',
-              borderRadius: '16px', padding: '4px 10px 4px 8px',
+              borderRadius: '6px', padding: '4px 10px 4px 8px',
             }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#fff' }} />
               <span style={{ fontSize: '12px', fontWeight: 600, color: '#fff' }}>{st.name}</span>
@@ -1025,7 +1025,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                 backgroundColor: st.color || '#64748B',
-                borderRadius: '16px', padding: '4px 10px 4px 8px',
+                borderRadius: '6px', padding: '4px 10px 4px 8px',
               }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#fff' }} />
                 <span style={{ fontSize: '12px', fontWeight: 600, color: '#fff' }}>{st.name}</span>

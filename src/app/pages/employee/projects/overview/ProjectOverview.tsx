@@ -32,9 +32,7 @@ import { ProjectLeadAnalyticsDashboard } from "@pages/dashboard/projectAnalytics
 import { ChartMetric } from "@pages/dashboard/leadAnalytics";
 import ProjectTeamsSection from "./ProjectTeamsSection";
 import Loader from "@app/modules/common/utils/Loader";
-import { Modal } from "react-bootstrap";
-import { Typography } from "@mui/material";
-import ChartVisibilitySettings from "@pages/company/settings/ChartVisibilitySettings";
+import ChartVisibilityModal from "@pages/company/settings/ChartVisibilityModal";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -461,11 +459,11 @@ const ProjectOverview = () => {
         {/* Sub-tabs (Summary / Services & Insights / Teams) portal into here,
             sharing the same row and sitting on the right — mirrors the Leads Overview.
             flexShrink:0 keeps the tabs at natural width so they never clip on desktop;
-            on mobile the row stacks and the slot can scroll on tiny screens. */}
+            on phones the slot spans the row and the tabs collapse to icons (active one named). */}
         <div
           id="projectOverviewTabSlot"
-          className="d-flex justify-content-center justify-content-lg-end"
-          style={{ flexShrink: 0, minWidth: 0, overflowX: "auto" }}
+          className="d-flex justify-content-center justify-content-lg-end w-100 w-lg-auto"
+          style={{ flexShrink: 0, minWidth: 0 }}
         />
       </div>
 
@@ -599,38 +597,11 @@ const ProjectOverview = () => {
       />
 
 
-      <Modal
+      <ChartVisibilityModal
         show={showChartSettingsModal}
         onHide={handleCloseChartSettingsModal}
-        size="xl"
-        centered
-        className="responsive-modal"
-      >
-        <Modal.Body style={{
-          backgroundColor: 'white',
-          padding: 'clamp(12px, 3vw, 20px)',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-        }}>
-            <div style={{
-                backgroundColor: 'white',
-                padding: 0,
-                borderRadius: '8px',
-            }}>
-              <Typography
-                  style={{ 
-                  fontFamily: 'Inter', 
-                  fontWeight: 600, 
-                  fontSize: '18px', 
-                  color: '#333' 
-              }}
-              >
-                Customize Cards Visibility
-              </Typography>
-              <ChartVisibilitySettings type={PROJECT_CHART_SETTINGS_MODAL_TYPE.PROJECT} />
-            </div>
-        </Modal.Body>
-      </Modal>
+        type={PROJECT_CHART_SETTINGS_MODAL_TYPE.PROJECT}
+      />
         </>
       )}
     </div>

@@ -18,10 +18,8 @@ import Monthly from "./Monthly";
 import Yearly from "./Yearly";
 import Custom from "./Custom";
 import AllTime from "./AllTime";
-import ChartVisibilitySettings from "@pages/company/settings/ChartVisibilitySettings";
+import ChartVisibilityModal from "@pages/company/settings/ChartVisibilityModal";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
-import { Modal } from "react-bootstrap";
-import { Typography } from "@mui/material";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import LeadBulkImport from "../../lead/LeadBulkImport";
@@ -181,7 +179,8 @@ const LeadsOverviewToggle = ({
       </div>
 
       <div className="d-flex flex-column flex-lg-row justify-content-between align-items-stretch align-items-lg-start mb-6 gap-3 w-100">
-        <div className="d-flex align-items-center gap-4 flex-wrap" style={{ flex: "1 1 auto", minWidth: 0 }}>
+        {/* Same stacking as Projects Overview: full-width controls on phones, one row from md up. */}
+        <div className="d-flex flex-column flex-md-row flex-md-wrap align-items-stretch align-items-md-center gap-3" style={{ flex: "1 1 auto", minWidth: 0 }}>
           <PeriodFilter
             onChange={setPeriodRange}
             initialMode="yearly"
@@ -214,9 +213,9 @@ const LeadsOverviewToggle = ({
         </div>
 
         {/* Right side controls: Metric selector & Tab slot grouped together */}
-        <div className="d-flex align-items-center gap-3 flex-wrap justify-content-start justify-content-lg-end mt-2 mt-lg-0" style={{ flexShrink: 0, minWidth: 0 }}>
+        <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-3 justify-content-lg-end" style={{ flexShrink: 0, minWidth: 0 }}>
           {["monthly", "yearly", "allyear"].includes(periodRange.mode) && (
-            <div className="d-flex align-items-center gap-2" style={{ height: "40px" }}>
+            <div className="d-flex align-items-center gap-2">
               <span
                 style={{
                   fontFamily: "Inter, sans-serif",
@@ -232,34 +231,17 @@ const LeadsOverviewToggle = ({
                 value={metric}
                 options={metricOptions}
                 onChange={(val) => setMetric(val as ChartMetric)}
+                // The app's standard selection look, same as Projects Overview's measure switch.
                 ariaLabel="measure selection"
-                sx={{
-                  height: 32,
-                  bgcolor: '#EEF2F7',
-                  border: 'none',
-                  p: '3px',
-                  borderRadius: '10px',
-                  '& .MuiToggleButtonGroup-grouped': {
-                    px: 2.2,
-                    borderRadius: '8px !important',
-                  },
-                  '& .Mui-selected': {
-                    bgcolor: '#FFFFFF !important',
-                    color: '#1E3A8A !important',
-                    boxShadow: '0 1px 3px rgba(15,23,42,0.10)',
-                    '&::after': {
-                      display: 'none',
-                    }
-                  }
-                }}
               />
             </div>
           )}
 
           {/* Sub-tabs (Summary / Services / Sources / Insights) portal into here */}
+          {/* Full width on phones so the tab bar spans the screen; natural width on desktop. */}
           <div
             id="leadOverviewTabSlot"
-            className="d-flex align-items-center"
+            className="d-flex align-items-center w-100 w-lg-auto"
             style={{ minWidth: 0 }}
           />
         </div>
@@ -350,41 +332,11 @@ const LeadsOverviewToggle = ({
       />
 
       {/* Chart Settings Modal */}
-      <Modal
+      <ChartVisibilityModal
         show={showChartSettingsModal}
         onHide={handleCloseChartSettingsModal}
-        size="xl"
-        centered
-        className="responsive-modal"
-      >
-        {/* <Modal.Header closeButton style={{ backgroundColor: '#F3F4F7', borderBottom: '1px solid #e0e0e0' }}>
-            
-        </Modal.Header> */}
-        <Modal.Body style={{
-          backgroundColor: 'white',
-          padding: 'clamp(12px, 3vw, 20px)',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-        }}>
-            <div style={{
-                backgroundColor: 'white',
-                padding: 0,
-                borderRadius: '8px',
-            }}>
-              <Typography
-                  style={{ 
-                  fontFamily: 'Inter', 
-                  fontWeight: 600, 
-                  fontSize: '18px', 
-                  color: '#333' 
-              }}
-              >
-                Customize Cards Visisbility
-              </Typography>
-              <ChartVisibilitySettings type={PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD} />
-            </div>
-        </Modal.Body>
-      </Modal>
+        type={PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD}
+      />
     </>
   );
 };
