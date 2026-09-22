@@ -1177,10 +1177,10 @@ const DayDetail: React.FC<{
                 ? 'afternoon is free'
                 : 'both halves booked';
     return (
-        // `lg`, not `md`: the two halves sit side by side and each card now carries a roster,
-        // so at md the participant grid collapsed to one name per line and the card grew taller
-        // than the meeting it described.
-        <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth fullScreen={isPhone}
+        // `md`. `lg` was tried to give the roster room and overshot: on a day with one meeting
+        // the free half became a column of empty space as wide as the card beside it, which
+        // reads as a layout that failed rather than a morning that is free.
+        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isPhone}
             PaperProps={{ sx: { borderRadius: isPhone ? 0 : 3, overflow: 'hidden' } }}>
             <div style={{ background: '#1E3A8A', padding: isPhone ? '12px 14px' : '16px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
@@ -1300,9 +1300,13 @@ const DayDetail: React.FC<{
                                     The row is kept — a cancelled meeting is still part of what
                                     the day and the project had booked — but it has to be
                                     unmistakable, and the tag carries the reason on hover. */}
+                                {/* The meeting's NAME, and it should look like one. At 13px it
+                                    sat at the same weight as the timesheet warning under it and
+                                    the organiser beside it, so the card had no first thing to
+                                    read. */}
                                 <div style={{
-                                    fontSize: 13, fontWeight: 700,
-                                    color: isCancelled(m) ? '#94A3B8' : '#1E293B',
+                                    fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.3,
+                                    color: isCancelled(m) ? '#94A3B8' : '#0F172A',
                                     textDecoration: isCancelled(m) ? 'line-through' : 'none',
                                 }}>
                                     {m.title}
@@ -1320,8 +1324,22 @@ const DayDetail: React.FC<{
                                     </div>
                                 )}
                                 {m.projectName && (
-                                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1E3A8A', marginTop: 2 }}>
-                                        <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId, m.isLead)} />
+                                    // A CHIP, not a bare underlined string. What it links to is
+                                    // a different KIND of thing from the meeting's own text, and
+                                    // an icon plus a tinted surface says so before the words are
+                                    // read — which is also what stops it being mistaken for the
+                                    // address line two rows below.
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 5 }}>
+                                        <span style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                                            padding: '3px 8px', borderRadius: 7,
+                                            background: toneAlpha('#1E3A8A', 0.07),
+                                            border: `1px solid ${toneAlpha('#1E3A8A', 0.16)}`,
+                                            fontSize: 11.5, fontWeight: 700, color: '#1E3A8A', maxWidth: '100%',
+                                        }}>
+                                            <AppIcon name={m.isLead ? 'bi-lightning-charge' : 'bi-briefcase'} className="fs-8" />
+                                            <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId, m.isLead)} />
+                                        </span>
                                         {m.isLead && <LeadTag />}
                                     </div>
                                 )}
@@ -1391,6 +1409,23 @@ const DayDetail: React.FC<{
                                             label={isCancelled(m) ? 'Restore' : 'Cancel'}
                                             color={isCancelled(m) ? '#16A34A' : '#B45309'}
                                             onClick={() => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
+                                            /*
+                                             * Time logged means it happened. Cancelling says it
+                                             * did not, and a project billing hours against a
+                                             * meeting its own record calls off is a
+                                             * contradiction whichever half you believe.
+                                             *
+                                             * RESTORE is never blocked — putting a meeting back
+                                             * can only resolve that, never create it.
+                                             *
+                                             * The server refuses this too; this is what stops
+                                             * somebody discovering the rule by being refused.
+                                             */
+                                            disabledReason={
+                                                !isCancelled(m) && (m.loggedMinutes ?? 0) > 0
+                                                    ? 'Time has been logged against this meeting, so it cannot be cancelled. Remove the timesheets first.'
+                                                    : undefined
+                                            }
                                         />
                                     )}
                                     {onDelete && (
@@ -1434,8 +1469,23 @@ const AttendeeRoster: React.FC<{
     const pending = attendees.filter((a) => a.pendingTimesheet);
     if (!attendees.length && !external?.length) return null;
 
+    /*
+     * Each person is a CHIP, not a row in a grid.
+     *
+     * Laid out on an auto-fit grid, a name with nothing around it floats: the eye cannot tell
+     * where one person ends and the next begins, and a short name beside a long one reads as a
+     * column that failed to align. A bordered surface per person gives the list its unit.
+     */
     const person = (name: string, avatar: string | null | undefined, tag?: string, owes?: boolean) => (
-        <div key={`${name}-${tag ?? ''}`} style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+        <div
+            key={`${name}-${tag ?? ''}`}
+            style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0,
+                padding: '4px 10px 4px 4px', borderRadius: 999,
+                background: owes ? toneAlpha('#B45309', 0.07) : '#FFFFFF',
+                border: `1px solid ${owes ? toneAlpha('#B45309', 0.28) : '#E2E8F0'}`,
+            }}
+        >
             <Avatar
                 src={avatar || undefined}
                 sx={{
@@ -1445,7 +1495,7 @@ const AttendeeRoster: React.FC<{
             >
                 {name.charAt(0).toUpperCase()}
             </Avatar>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#1E293B', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#1E293B', whiteSpace: 'nowrap' }}>
                 {name}
             </span>
             {tag && (
@@ -1483,7 +1533,9 @@ const AttendeeRoster: React.FC<{
             }}>
                 Participants
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '7px 12px' }}>
+            {/* Wrapped, not a grid: chips are their own width, and a fixed track left a short
+                name padded out to the length of the longest one beside it. */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {attendees.map((a) => person(a.name, a.avatar, a.isOrganizer ? 'ORGANIZER' : undefined, showPending && a.pendingTimesheet))}
                 {external?.map((c) => person(c.name, null, 'CLIENT'))}
             </div>
@@ -1508,26 +1560,46 @@ const AttendeeRoster: React.FC<{
  */
 const CardAction: React.FC<{
     icon: string; label: string; color: string; onClick: () => void; pushRight?: boolean;
-}> = ({ icon, label, color, onClick, pushRight }) => (
+    /**
+     * Why this action cannot be taken right now. Present means disabled.
+     *
+     * Stated rather than hidden: Cancel is normally here, so removing it leaves somebody
+     * hunting for a button that used to exist. A greyed control that says why is the shorter
+     * conversation.
+     */
+    disabledReason?: string;
+}> = ({ icon, label, color, onClick, pushRight, disabledReason }) => {
+    const button = (
     <Box
         component="button"
         type="button"
-        onClick={onClick}
+        disabled={!!disabledReason}
+        onClick={disabledReason ? undefined : onClick}
         sx={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
             height: 30, px: 1.25, ml: pushRight ? 'auto' : 0,
             borderRadius: '8px', border: `1px solid ${color}33`, bgcolor: `${color}0D`, color,
             fontSize: 12, fontWeight: 600, fontFamily: 'inherit', lineHeight: 1, whiteSpace: 'nowrap',
-            cursor: 'pointer', transition: 'background-color .15s, border-color .15s, transform .1s',
-            '&:hover': { bgcolor: `${color}1F`, borderColor: `${color}66` },
-            '&:active': { transform: 'scale(0.97)' },
+            cursor: disabledReason ? 'not-allowed' : 'pointer',
+            transition: 'background-color .15s, border-color .15s, transform .1s',
+            // Dimmed, not removed. It still occupies its place in the row so the footer does
+            // not reflow as a meeting's state changes under the reader.
+            opacity: disabledReason ? 0.42 : 1,
+            '&:hover': disabledReason ? {} : { bgcolor: `${color}1F`, borderColor: `${color}66` },
+            '&:active': disabledReason ? {} : { transform: 'scale(0.97)' },
             '&:focus-visible': { outline: `2px solid ${color}`, outlineOffset: 1 },
         }}
     >
         <AppIcon name={icon} className="fs-6" />
         {label}
     </Box>
-);
+    );
+    // A disabled button fires no pointer events, so the tooltip needs a wrapper that does -
+    // otherwise the explanation is unreachable by exactly the people who need it.
+    return disabledReason
+        ? <Tooltip title={disabledReason}><span style={{ display: 'inline-flex', marginLeft: pushRight ? 'auto' : 0 }}>{button}</span></Tooltip>
+        : button;
+};
 
 export interface MeetingsListProps {
     mode: 'project' | 'contact' | 'employee';
@@ -1952,16 +2024,30 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                 <AppIcon name="bi-pencil" className="fs-5" />
                             </button>
                         )}
-                        {onCancel && (
-                            <button
-                                type="button"
-                                onClick={() => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
-                                title={isCancelled(m) ? 'Restore meeting' : 'Cancel meeting'}
-                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: isCancelled(m) ? '#16A34A' : '#B45309' }}
-                            >
-                                <AppIcon name={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'} className="fs-5" />
-                            </button>
-                        )}
+                        {onCancel && (() => {
+                            // The SAME rule the day card applies, because this is the same act
+                            // through a different button. Leaving it only on the card would mean
+                            // the table is where you go to do the thing the card refuses.
+                            const blocked = !isCancelled(m) && (m.loggedMinutes ?? 0) > 0;
+                            return (
+                                <button
+                                    type="button"
+                                    disabled={blocked}
+                                    onClick={blocked ? undefined : () => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
+                                    title={blocked
+                                        ? 'Time has been logged against this meeting, so it cannot be cancelled'
+                                        : (isCancelled(m) ? 'Restore meeting' : 'Cancel meeting')}
+                                    style={{
+                                        border: 0, background: 'transparent',
+                                        cursor: blocked ? 'not-allowed' : 'pointer',
+                                        opacity: blocked ? 0.35 : 1,
+                                        color: isCancelled(m) ? '#16A34A' : '#B45309',
+                                    }}
+                                >
+                                    <AppIcon name={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'} className="fs-5" />
+                                </button>
+                            );
+                        })()}
                         {onDelete && (
                             <button
                                 type="button"
