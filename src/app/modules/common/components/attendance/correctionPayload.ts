@@ -116,3 +116,18 @@ export function draftFromRequest(request: RequestLike, tz: string): AttendanceRe
     remarks: request.remarks ?? '',
   };
 }
+
+/**
+ * The `YYYY-MM` a business day belongs to, or '' when there is no readable day.
+ *
+ * Empty is deliberate and load-bearing: the calendar query enables itself on
+ * `Boolean(employeeId && month)`, and `dayjs('').format('YYYY-MM')` returns the literal
+ * string "Invalid Date" — truthy. That turned "no day selected yet" into a real request
+ * for `month=Invalid%20Date`, which the server answered 400, repeatedly, because React
+ * Query refetches on every socket event.
+ */
+export function calendarMonthKey(date: string | Date | null | undefined): string {
+  if (date == null || date === '') return '';
+  const d = dayjs(date);
+  return d.isValid() ? d.format('YYYY-MM') : '';
+}

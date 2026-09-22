@@ -2,7 +2,6 @@ import { resolveActiveOrgId } from '@utils/activeOrg';
 import React, { useEffect, useState } from 'react'
 import { Form, Formik, FormikValues, useField, useFormik } from 'formik'
 import * as Yup from 'yup'
-import { Col, Row } from 'react-bootstrap'
 import { KTIcon } from '@metronic/helpers'
 import { PageLink, PageTitle } from '@metronic/layout/core'
 import {
@@ -29,9 +28,11 @@ import BranchEmployeesModal from '@app/modules/common/components/BranchEmployees
 import BiometricDevicesModal from '@app/modules/common/components/BiometricDevicesModal'
 import BranchCard from '@app/modules/common/components/BranchCard'
 import {
-  Dialog, Box, Stack, Typography, Button as MuiButton, Paper, CircularProgress, IconButton,
+  Box, Stack, Typography, Paper, CircularProgress, IconButton,
 } from '@mui/material'
+import { GlassDialog, GlassHeader, WtButton, AutoGrid, ListHeader, Eyebrow } from '@app/modules/common/components/ui'
 import Swal from 'sweetalert2'
+import { safeHtml } from '@app/modules/common/components/ui/safeHtml'
 import TextInput from '@app/modules/common/inputs/TextInput'
 import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle'
 import { useDispatch, useSelector } from 'react-redux'
@@ -249,7 +250,9 @@ function Branches({ companyId, embedded = false, hideHeading = false }: Branches
     const empCount = branch._count?.Employees ?? 0
     const result = await Swal.fire({
       title: 'Promote to Sub-Organization?',
-      html: `This will create a sub-organization <b>"${branch.name}"</b> under the current organization and move this branch${empCount ? ` and its ${empCount} employee(s)` : ''} into it. Employees stay in this branch.`,
+      // safeHtml: `branch.name` is user-entered and SweetAlert parses `html` as
+      // markup, so a name containing tags would otherwise become elements.
+      html: safeHtml`This will create a sub-organization <b>"${branch.name}"</b> under the current organization and move this branch${empCount ? ` and its ${empCount} employee(s)` : ''} into it. Employees stay in this branch.`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Promote',
@@ -779,28 +782,40 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
  
   const newBranchButton = isAdmin &&
     hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.create) && (
-      <MuiButton
-        variant="contained"
-        color="primary"
+      // The kit's button, so this one matches every other primary action. The
+      // native `title="Add a branch"` is gone with it: a browser tooltip never
+      // appears on touch, and it only restated the label next to it.
+      <WtButton
         size="small"
-        title="Add a branch"
         startIcon={<KTIcon iconName="plus" className="fs-5" />}
         onClick={() => handleNew()}
       >
         New Branch
-      </MuiButton>
+      </WtButton>
     )
 
   return (
     <>
       {embedded ? (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, px: { xs: 2, lg: 3 }, pt: 2.5, pb: 1 }}>
-          {!hideHeading
-            ? <Typography sx={{ fontFamily: 'Barlow', fontWeight: 600, fontSize: 'clamp(18px, 4vw, 24px)', letterSpacing: '0.24px', color: '#000' }}>Branches</Typography>
-            : <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.secondary' }}>
-                {Array.isArray(branches) ? branches.length : 0} {Array.isArray(branches) && branches.length === 1 ? 'branch' : 'branches'}
-              </Typography>}
-          {newBranchButton}
+        // ListHeader is the kit's toolbar: title left, actions right, wrapping to a
+        // stacked layout on mobile so the button never clips. The heading it replaces
+        // hardcoded `color: '#000'` and a font family, which is why it stayed black
+        // on a dark background.
+        //
+        // With `hideHeading` the dialog's own header already says BRANCHES, so this
+        // row carries only the count — as an Eyebrow, not a second heading competing
+        // with the one directly above it.
+        <Box sx={{ px: { xs: 2, lg: 3 }, pt: 2.5, pb: 1 }}>
+          {hideHeading ? (
+            <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1.5}>
+              <Eyebrow>
+                {Array.isArray(branches) ? branches.length : 0} {Array.isArray(branches) && branches.length === 1 ? 'Branch' : 'Branches'}
+              </Eyebrow>
+              {newBranchButton}
+            </Stack>
+          ) : (
+            <ListHeader title="Branches" actions={newBranchButton} sx={{ mb: 0 }} />
+          )}
         </Box>
       ) : (
         <div className="d-flex flex-wrap justify-content-between align-items-center px-lg-9 px-4 py-5">
@@ -812,59 +827,62 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
         </div>
       )}
         
-<div className="px-lg-6 px-4 pb-6 pt-1">
-  <Row>
-    {hasPermission(
-      resourceNameMapWithCamelCase.branch,
-      permissionConstToUseWithHasPermission.readOthers
-    ) ? (
-      Array.isArray(branches) && branches.length > 0 ? (
-        branches.map((branch: any, index: number) => (
-          <Col key={`branch-${index}`} xs={12} sm={12} md={6} lg={4} className="pt-4">
-            <BranchCard
-              branch={branch}
-              isAdmin={isAdmin}
-              canManage={hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers)}
-              onViewEmployees={() => setEmpModal({ show: true, branch })}
-              onManageDevices={() => setDevicesModal({ show: true, branch })}
-              onPromote={() => handlePromoteBranch(branch)}
-              onEdit={() => handleEdit(branch.id)}
-              onDelete={() => handleDeleteBranch(branch)}
-            />
-          </Col>
-        ))
-      ) : (
-        <Col xs={12} className="pt-4">
-          <Paper variant="outlined" sx={{ borderRadius: 2, minHeight: '46vh', display: 'grid', placeItems: 'center' }}>
-            <Stack alignItems="center" sx={{ textAlign: 'center', p: 4 }}>
-              <Box component="img" src={sidePanelIcons.company} alt="" sx={{ maxHeight: 64, mb: 2 }} />
-              <Typography sx={{ fontWeight: 700, fontSize: 15 }}>No branches yet</Typography>
-              <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.5, maxWidth: 360 }}>
-                Branches you create will appear here. Use “New Branch” to add your first location.
-              </Typography>
-            </Stack>
-          </Paper>
-        </Col>
-      )
-    ) : null}
-  </Row>
-</div>
-        {/* MUI Dialog (z-index 1300) naturally stacks above the host Bootstrap Branches modal. */}
+{/* AutoGrid, the kit's standard collection layout, instead of a Bootstrap
+    Row/Col with hand-picked breakpoints. It auto-fits as many columns as the
+    width allows, so a wide screen stops leaving a dead right-hand gutter and a
+    narrow one collapses to a single column without another breakpoint to keep
+    in sync. The Bootstrap spacing classes go with it — those are banned in new
+    and edited UI, and they are why this page could not follow the theme. */}
+<Box sx={{ px: { xs: 2, lg: 3 }, pt: 1, pb: 3 }}>
+  {hasPermission(
+    resourceNameMapWithCamelCase.branch,
+    permissionConstToUseWithHasPermission.readOthers
+  ) ? (
+    Array.isArray(branches) && branches.length > 0 ? (
+      <AutoGrid min={320} gap={16}>
+        {branches.map((branch: any, index: number) => (
+          <BranchCard
+            key={`branch-${index}`}
+            branch={branch}
+            isAdmin={isAdmin}
+            canManage={hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers)}
+            onViewEmployees={() => setEmpModal({ show: true, branch })}
+            onManageDevices={() => setDevicesModal({ show: true, branch })}
+            onPromote={() => handlePromoteBranch(branch)}
+            onEdit={() => handleEdit(branch.id)}
+            onDelete={() => handleDeleteBranch(branch)}
+          />
+        ))}
+      </AutoGrid>
+    ) : (
+      <Paper variant="outlined" sx={{ borderRadius: 2, minHeight: '46vh', display: 'grid', placeItems: 'center' }}>
+        <Stack alignItems="center" sx={{ textAlign: 'center', p: 4 }}>
+          <Box component="img" src={sidePanelIcons.company} alt="" sx={{ maxHeight: 64, mb: 2 }} />
+          <Typography sx={{ fontWeight: 700, fontSize: 15 }}>No branches yet</Typography>
+          <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.5, maxWidth: 360 }}>
+            Branches you create will appear here. Use “New Branch” to add your first location.
+          </Typography>
+        </Stack>
+      </Paper>
+    )
+  ) : null}
+</Box>
         {/* disableEnforceFocus/RestoreFocus: let the portaled react-select menus
             (Country/State/Town/Org) receive focus & clicks inside the dialog. */}
-        <Dialog open={show} onClose={handleClose} maxWidth="md" fullWidth disableEnforceFocus disableRestoreFocus PaperProps={{ sx: { borderRadius: '16px' } }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, px: 2.75, py: 1.75, background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)', borderBottom: '3px solid #3B82F6', color: '#fff' }}>
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <Box sx={{ width: 42, height: 42, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)' }}>
-                <KTIcon iconName="bank" className="fs-1" />
-              </Box>
-              <Box>
-                <Typography sx={{ fontWeight: 750, fontSize: 16.5, color: '#fff' }}>{editMode ? 'Edit Branch' : 'Create a New Branch'}</Typography>
-                <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.72)' }}>Location, address &amp; attendance coordinates</Typography>
-              </Box>
-            </Stack>
-            <IconButton onClick={handleClose} size="small" aria-label="Close" sx={{ color: '#fff' }}><KTIcon iconName="cross" className="fs-3" /></IconButton>
-          </Box>
+        <GlassDialog
+          open={show} onClose={handleClose} maxWidth="md" fullWidth
+          disableEnforceFocus disableRestoreFocus
+          // Fifth and last copy of that gradient header in this feature. Same
+          // gradient, same accent rule, its own icon tile and close button.
+          header={
+            <GlassHeader
+              title={editMode ? 'Edit Branch' : 'Create a New Branch'}
+              subtitle="Location, address & attendance coordinates"
+              icon={<KTIcon iconName="bank" className="fs-1" />}
+              onClose={handleClose}
+            />
+          }
+        >
           <Box sx={{ bgcolor: 'background.default', p: 2, maxHeight: '74vh', overflowY: 'auto' }}>
           <Formik
             initialValues={initialState}
@@ -1177,30 +1195,34 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                     </Box>
                   )}
 
+                  {/* Kit buttons: `ghost` is the standard Cancel, `inverted` the
+                      secondary. The three used to be a text/outlined/contained MUI
+                      trio styled here, which is how a footer ends up not matching
+                      the footer one dialog over. */}
                   <Stack direction="row" spacing={1.25} justifyContent="flex-end" sx={{ flexWrap: 'wrap', gap: 1.25 }}>
-                    <MuiButton variant="text" color="inherit" onClick={handleClose}>Cancel</MuiButton>
-                    <MuiButton
-                      variant="outlined" color="primary"
+                    <WtButton ghost onClick={handleClose}>Cancel</WtButton>
+                    <WtButton
+                      inverted
                       disabled={loading || !isDeviceNotDesktop}
                       startIcon={detectingLocation ? <CircularProgress size={14} /> : undefined}
                       onClick={(e: any) => { e.preventDefault(); handleDetectLocation(formikProps); }}
                     >
                       Detect Location
-                    </MuiButton>
-                    <MuiButton
-                      type="submit" variant="contained"
+                    </WtButton>
+                    <WtButton
+                      type="submit"
                       disabled={loading || !formikProps.isValid}
                       startIcon={loading ? <CircularProgress size={14} color="inherit" /> : undefined}
                     >
                       {editMode ? 'Save Changes' : 'Create Branch'}
-                    </MuiButton>
+                    </WtButton>
                   </Stack>
                 </Form>
               )
             }}
           </Formik>
           </Box>
-        </Dialog>
+        </GlassDialog>
 
       <BranchEmployeesModal
         show={empModal.show}

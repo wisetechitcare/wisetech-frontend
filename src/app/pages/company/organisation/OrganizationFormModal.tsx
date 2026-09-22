@@ -1,14 +1,32 @@
 import { useEffect, useState } from 'react';
-import { Modal } from 'react-bootstrap';
-import Flatpickr from 'react-flatpickr';
+import { Box, Stack, TextField, Typography } from '@mui/material';
+import dayjs from 'dayjs';
 import { createCompanyOverview } from '@services/company';
 import { uploadCompanyAsset } from '@services/uploader';
 import { dateFormatter } from '@utils/date';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
-import { IconBuilding, IconHierarchy, IconImage, IconClose } from '@app/modules/common/components/icons/OrgIcons';
-import './OrganizationFormModal.responsive.css';
+import { GlassDialog, GlassHeader, WtButton, WtDateField } from '@app/modules/common/components/ui';
+import { IconBuilding, IconHierarchy, IconImage } from '@app/modules/common/components/icons/OrgIcons';
 
-const C = { brand: '#1E3A8A', brandSoft: '#FBEEEE', brandBorder: '#EBD2D2', ink: '#1F2430', inkSoft: '#5A6172', line: '#E7E9EF', panel: '#F7F7F9' };
+/**
+ * Create an organization, or a sub-organization under one.
+ *
+ * REBUILT ON THE KIT. What this file used to be, and why none of it survived:
+ *
+ *  • a react-bootstrap <Modal> with an inline <style> block — banned, because it
+ *    leaks global CSS and targets a class name from inside a component;
+ *  • its own seven-colour palette (`const C = { brand: '#1E3A8A', … }`) and a
+ *    white panel, so the whole dialog stayed light-mode whatever the theme said;
+ *  • hand-styled <label> + <input> pairs via `labelStyle`/`inputStyle` objects,
+ *    which is precisely what made this form look like a different application
+ *    from every other form in the app;
+ *  • two hand-rolled <button>s and a third close button of its own;
+ *  • a sibling .responsive.css file to re-do what a breakpoint object does.
+ *
+ * The behaviour is unchanged: same validation, same upload, and the fiscal year
+ * is still stored as "<start> to <end>" in `dateFormatter`'s format, which is
+ * what the API and the profile screen read.
+ */
 
 interface Props {
   show: boolean;
@@ -20,7 +38,6 @@ interface Props {
 
 interface FormState {
   name: string;
-  fiscalYear: string;
   logo: string;
   workingHrs: string;
   workingDays: string;
@@ -29,23 +46,30 @@ interface FormState {
   address: string;
 }
 
-const blank: FormState = { name: '', fiscalYear: '', logo: '', workingHrs: '8', workingDays: '5', businessType: '', contactNumber: '', address: '' };
-
-const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 5, letterSpacing: '.3px' };
-const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 8, fontSize: 13.5, border: `1px solid ${C.line}`, background: '#fff', outline: 'none' };
+const blank: FormState = { name: '', logo: '', workingHrs: '8', workingDays: '5', businessType: '', contactNumber: '', address: '' };
 
 export default function OrganizationFormModal({ show, parentOrg, onCreated, onClose }: Props) {
   const [form, setForm] = useState<FormState>(blank);
+  // The fiscal year is a RANGE. Held as two wire-format dates and composed on
+  // submit, so the picker is the app's own date field instead of Flatpickr's.
+  const [fiscalFrom, setFiscalFrom] = useState('');
+  const [fiscalTo, setFiscalTo] = useState('');
   const [logoPreview, setLogoPreview] = useState('');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (show) { setForm(blank); setLogoPreview(''); setErrors({}); }
+    if (show) {
+      setForm(blank); setLogoPreview(''); setErrors({});
+      setFiscalFrom(''); setFiscalTo('');
+    }
   }, [show]);
 
-  const set = (k: keyof FormState, v: string) => { setForm(p => ({ ...p, [k]: v })); if (errors[k]) setErrors(e => { const n = { ...e }; delete n[k]; return n; }); };
+  const set = (k: keyof FormState, v: string) => {
+    setForm(p => ({ ...p, [k]: v }));
+    if (errors[k]) setErrors(e => { const n = { ...e }; delete n[k]; return n; });
+  };
 
   async function handleLogo(file?: File) {
     if (!file) return;
@@ -68,7 +92,8 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
   function validate(): boolean {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = 'Organization name is required';
-    if (!form.fiscalYear) e.fiscalYear = 'Fiscal year is required';
+    if (!fiscalFrom || !fiscalTo) e.fiscalYear = 'Fiscal year is required';
+    else if (fiscalFrom > fiscalTo) e.fiscalYear = 'The start date must be on or before the end date';
     if (!form.workingHrs.trim()) e.workingHrs = 'Required';
     if (!form.workingDays.trim()) e.workingDays = 'Required';
     setErrors(e);
@@ -79,7 +104,10 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
     if (!validate()) return;
     setSaving(true);
     try {
-      const payload: any = { ...form, ...(parentOrg ? { parentOrganizationId: parentOrg.id } : {}) };
+      // Same string the old Flatpickr range produced — the API and the profile
+      // screen both parse this shape, so it is not ours to modernise here.
+      const fiscalYear = `${dateFormatter.format(dayjs(fiscalFrom).toDate())} to ${dateFormatter.format(dayjs(fiscalTo).toDate())}`;
+      const payload: any = { ...form, fiscalYear, ...(parentOrg ? { parentOrganizationId: parentOrg.id } : {}) };
       const res = await createCompanyOverview(payload);
       if (res && !res.hasError) {
         successConfirmation(parentOrg ? 'Sub-organization created successfully' : 'Organization created successfully');
@@ -91,87 +119,108 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
   }
 
   return (
-    <Modal show={show} onHide={onClose} centered size="lg" contentClassName="org-form-modal-content">
-      <style>{`.org-form-modal-content{border:none;border-radius:16px;overflow:hidden;box-shadow:0 30px 80px rgba(8,10,18,.4);}`}</style>
-
-      <div style={{ padding: '18px 24px', borderBottom: `1px solid ${C.line}`, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: C.brandSoft, border: `1px solid ${C.brandBorder}`, display: 'grid', placeItems: 'center', color: C.brand }}>{parentOrg ? <IconHierarchy size={20} /> : <IconBuilding size={20} />}</div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 17, color: C.ink }}>{parentOrg ? 'Add Sub-Organization' : 'New Organization'}</div>
-            {parentOrg && <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 1 }}>under <b>{parentOrg.name}</b></div>}
-          </div>
-        </div>
-        <button type="button" onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.inkSoft, cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconClose size={16} /></button>
-      </div>
-
-      <div style={{ padding: 24, background: C.panel, maxHeight: '66vh', overflowY: 'auto' }}>
+    <GlassDialog
+      open={show} onClose={onClose} maxWidth="md" fullWidth
+      header={
+        <GlassHeader
+          title={parentOrg ? 'Add Sub-Organization' : 'New Organization'}
+          subtitle={parentOrg ? `Under ${parentOrg.name}` : 'Create an organization and its working calendar'}
+          icon={parentOrg ? <IconHierarchy size={22} /> : <IconBuilding size={22} />}
+          onClose={onClose}
+        />
+      }
+    >
+      <Box sx={{ p: { xs: 2, sm: 2.75 }, maxHeight: '66vh', overflowY: 'auto' }}>
         {/* Logo */}
-        <div style={{ marginBottom: 18, display: 'flex', gap: 14, alignItems: 'center' }}>
-          <div style={{ width: 64, height: 64, borderRadius: 12, overflow: 'hidden', border: `1px solid ${C.line}`, background: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-            {logoPreview ? <img src={logoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconImage size={26} color="#C4C9D4" />}
-          </div>
-          <div>
-            <span style={labelStyle}>Logo <span style={{ color: '#98A0B0', fontWeight: 500 }}>(optional)</span></span>
-            <label style={{ display: 'inline-block', background: C.brand, color: '#fff', borderRadius: 8, padding: '7px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+        <Stack direction="row" spacing={1.75} alignItems="center" sx={{ mb: 2.5 }}>
+          <Box sx={{
+            width: 64, height: 64, borderRadius: '12px', overflow: 'hidden', flexShrink: 0,
+            border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
+            display: 'grid', placeItems: 'center', color: 'text.disabled',
+          }}>
+            {logoPreview
+              ? <Box component="img" src={logoPreview} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <IconImage size={26} />}
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            {/* The upload control is a real button that happens to wrap a file
+                input — `component="label"` keeps the native picker without a
+                second button style existing anywhere in the app. */}
+            <WtButton
+              inverted size="small" component="label" disabled={uploading}
+              sx={{ mb: 0.5 }}
+            >
               {uploading ? 'Uploading…' : logoPreview ? 'Change Logo' : 'Upload Logo'}
-              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleLogo(e.target.files?.[0])} />
-            </label>
-            <div style={{ fontSize: 11.5, color: '#98A0B0', marginTop: 5 }}>You can add a logo later from the profile.</div>
-          </div>
-        </div>
+              <input type="file" accept="image/*" hidden onChange={e => handleLogo(e.target.files?.[0])} />
+            </WtButton>
+            <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>
+              Optional. You can add a logo later from the profile.
+            </Typography>
+          </Box>
+        </Stack>
 
-        <div className="org-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div style={{ gridColumn: '1 / -1' }}>
-            <label style={labelStyle}>Organization Name <span style={{ color: C.brand }}>*</span></label>
-            <input style={{ ...inputStyle, borderColor: errors.name ? '#F3B4B4' : C.line }} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Wisetech Interiors Pvt. Ltd." />
-            {errors.name && <div style={{ fontSize: 11.5, color: '#D14343', marginTop: 4 }}>{errors.name}</div>}
-          </div>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+          <TextField
+            label="Organization Name" required size="small" fullWidth
+            sx={{ gridColumn: '1 / -1' }}
+            placeholder="e.g. Wisetech Interiors Pvt. Ltd."
+            value={form.name} onChange={e => set('name', e.target.value)}
+            error={Boolean(errors.name)} helperText={errors.name}
+          />
 
-          <div>
-            <label style={labelStyle}>Fiscal Year <span style={{ color: C.brand }}>*</span></label>
-            <Flatpickr
-              value={form.fiscalYear ? [new Date(form.fiscalYear.split(' to ')[0]), new Date(form.fiscalYear.split(' to ')[1])] : []}
-              className="form-control" style={inputStyle as any} placeholder="Set fiscal year"
-              onChange={(dates: Date[]) => { if (dates.length === 2) set('fiscalYear', `${dateFormatter.format(dates[0])} to ${dateFormatter.format(dates[1])}`); }}
-              options={{ dateFormat: 'Y-m-d', altInput: true, altFormat: 'F j, Y', mode: 'range' }}
-            />
-            {errors.fiscalYear && <div style={{ fontSize: 11.5, color: '#D14343', marginTop: 4 }}>{errors.fiscalYear}</div>}
-          </div>
+          {/* Two fields, not a range picker: the app has one date control, and it
+              is the one that renders the company format and stays themed. */}
+          <WtDateField
+            label="Fiscal Year Start" value={fiscalFrom}
+            onChange={(v: string) => { setFiscalFrom(v); if (errors.fiscalYear) setErrors(e => { const n = { ...e }; delete n.fiscalYear; return n; }); }}
+            maxDate={fiscalTo || undefined}
+          />
+          <WtDateField
+            label="Fiscal Year End" value={fiscalTo}
+            onChange={(v: string) => { setFiscalTo(v); if (errors.fiscalYear) setErrors(e => { const n = { ...e }; delete n.fiscalYear; return n; }); }}
+            minDate={fiscalFrom || undefined}
+          />
+          {errors.fiscalYear && (
+            <Typography sx={{ gridColumn: '1 / -1', mt: -1, fontSize: 12, color: 'error.main' }}>{errors.fiscalYear}</Typography>
+          )}
 
-          <div>
-            <label style={labelStyle}>Business Type</label>
-            <input style={inputStyle} value={form.businessType} onChange={e => set('businessType', e.target.value)} placeholder="e.g. Consultancy" />
-          </div>
+          <TextField
+            label="Business Type" size="small" fullWidth placeholder="e.g. Consultancy"
+            value={form.businessType} onChange={e => set('businessType', e.target.value)}
+          />
+          <TextField
+            label="Contact Number" size="small" fullWidth placeholder="+91 …"
+            value={form.contactNumber} onChange={e => set('contactNumber', e.target.value)}
+          />
+          <TextField
+            label="Working Hours per Day" required type="number" size="small" fullWidth
+            value={form.workingHrs} onChange={e => set('workingHrs', e.target.value)}
+            error={Boolean(errors.workingHrs)} helperText={errors.workingHrs}
+          />
+          <TextField
+            label="Working Days per Week" required type="number" size="small" fullWidth
+            value={form.workingDays} onChange={e => set('workingDays', e.target.value)}
+            error={Boolean(errors.workingDays)} helperText={errors.workingDays}
+          />
+          <TextField
+            label="Address" size="small" fullWidth sx={{ gridColumn: '1 / -1' }}
+            placeholder="Registered address"
+            value={form.address} onChange={e => set('address', e.target.value)}
+          />
+        </Box>
 
-          <div>
-            <label style={labelStyle}>Working Hours / day <span style={{ color: C.brand }}>*</span></label>
-            <input type="number" style={{ ...inputStyle, borderColor: errors.workingHrs ? '#F3B4B4' : C.line }} value={form.workingHrs} onChange={e => set('workingHrs', e.target.value)} />
-          </div>
-          <div>
-            <label style={labelStyle}>Working Days / week <span style={{ color: C.brand }}>*</span></label>
-            <input type="number" style={{ ...inputStyle, borderColor: errors.workingDays ? '#F3B4B4' : C.line }} value={form.workingDays} onChange={e => set('workingDays', e.target.value)} />
-          </div>
+        <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mt: 2 }}>
+          GST, bank details, certificates and custom fields are filled in from the organization’s
+          profile once it exists.
+        </Typography>
 
-          <div>
-            <label style={labelStyle}>Contact Number</label>
-            <input style={inputStyle} value={form.contactNumber} onChange={e => set('contactNumber', e.target.value)} placeholder="+91 …" />
-          </div>
-          <div style={{ gridColumn: '1 / -1' }}>
-            <label style={labelStyle}>Address</label>
-            <input style={inputStyle} value={form.address} onChange={e => set('address', e.target.value)} placeholder="Registered address" />
-          </div>
-        </div>
-
-        <div style={{ fontSize: 11.5, color: '#98A0B0', marginTop: 14 }}>You can fill the remaining details (GST, bank, certificates, custom fields) from the organization’s profile after it’s created.</div>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 24px', borderTop: `1px solid ${C.line}`, background: '#fff' }}>
-        <button type="button" onClick={onClose} style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 8, padding: '9px 22px', fontWeight: 600, color: C.inkSoft, cursor: 'pointer' }}>Cancel</button>
-        <button type="button" onClick={handleSubmit} disabled={saving || uploading} style={{ background: C.brand, border: 'none', borderRadius: 8, padding: '9px 26px', fontWeight: 700, color: '#fff', cursor: saving ? 'wait' : 'pointer', opacity: saving || uploading ? 0.7 : 1 }}>
-          {saving ? 'Creating…' : parentOrg ? 'Create Sub-Org' : 'Create Organization'}
-        </button>
-      </div>
-    </Modal>
+        <Stack direction="row" spacing={1.25} justifyContent="flex-end" sx={{ mt: 2.5, flexWrap: 'wrap', gap: 1.25 }}>
+          <WtButton ghost onClick={onClose}>Cancel</WtButton>
+          <WtButton onClick={handleSubmit} disabled={saving || uploading}>
+            {saving ? 'Creating…' : parentOrg ? 'Create Sub-Organization' : 'Create Organization'}
+          </WtButton>
+        </Stack>
+      </Box>
+    </GlassDialog>
   );
 }

@@ -4,7 +4,7 @@ import { C, FONT, T, SP, RADIUS, BTN, ICON_COLORS } from './ConfigDesignSystem';
 import { keeniconFor } from '@app/modules/common/components/ui/iconMap';
 // Imported from the module, NOT the ui barrel — pulling the barrel into a widely-imported
 // primitive is what makes tsc crawl.
-import { toTitleCase } from '@app/modules/common/components/ui/text';
+import { toTitleCase, HEADING_CASE_SX } from '@app/modules/common/components/ui/text';
 
 /**
  * One icon renderer for the whole config surface.
@@ -212,7 +212,7 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
                 // heading reads the same whichever design-system module renders it.
                 // toTitleCase never touches a word that already has a capital, so acronyms
                 // and proper nouns ("WISETECH", "MEP") survive untouched.
-                : <span style={{ ...T.cardTitle, fontSize: '15px', fontWeight: 600 }}>{toTitleCase(title)}</span>
+                : <span style={{ ...T.cardTitle, fontSize: '15px', fontWeight: 600, ...HEADING_CASE_SX }}>{toTitleCase(title)}</span>
               }
               {!loading && badge && (
                 <span style={{

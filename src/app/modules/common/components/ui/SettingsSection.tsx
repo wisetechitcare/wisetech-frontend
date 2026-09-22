@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Stack } from '@mui/material';
 import { GlassSurface } from './glass';
 import { IconBox, type Trio } from './patterns';
-import { toTitleCase } from './text';
+import { toTitleCase, HEADING_CASE_SX } from './text';
 import { Typography } from '@mui/material';
 
 /**
@@ -67,7 +67,7 @@ export function SettingsSection({
                 <IconBox icon={icon} trio={tone} size={36} fs="fs-3" />
 
                 <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.25 }}>
+                    <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.25, ...HEADING_CASE_SX }}>
                         {toTitleCase(title)}
                     </Typography>
                     {description && (

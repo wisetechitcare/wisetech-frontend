@@ -57,6 +57,7 @@ are built from.
 | Date / time | `WtDateField` / `WtDateTimeField` / `TimeWheelField` | `<input type="date">` |
 | Wizard | `WtStepper` | hand-rolled circles |
 | Toast / confirm | `toast` / `confirmDialog` / `alertDialog` | react-toastify, sweetalert2 directly |
+| User data inside an `html:` string | ``safeHtml`…${name}…` `` (or `escapeHtml(v)` for a generated list) | a plain template literal — see below |
 | Explanation inside a form or panel (why it is closed, what to fix first, what will happen) | `InlineNotice` (toned, `TRIO`) / `InlineHint` (quiet info line) | a Bootstrap `.alert` div with hard-coded hex, or a private `Notice` per screen |
 | Employee picker | `EmployeeSelectionDialog` | a bespoke picker |
 | Org filter data | `useOrgScope` | re-deriving an org list per feature |
@@ -229,6 +230,29 @@ Headlines and button labels are title-cased by the KIT, not by call sites:
 (both twins) all run their text through `toTitleCase`. Write labels naturally —
 `"add question"` renders as "Add Question".
 
+**A structural heading then renders UPPERCASE.** `GlassHeader`, `ListHeader`,
+`SectionHead`, `SettingsSection` and `ConfigSectionCard` spread `HEADING_CASE_SX`
+over the title, so a dialog header, page header or section lead-in reads as
+"BIOMETRIC DEVICES". Stat captions, eyebrows and column headers were already
+uppercase and stay that way.
+
+The uppercasing is **CSS, over a title-cased string** — never an uppercased
+string. The accessible name stays "Biometric Devices" (a screen reader announces
+the words instead of spelling the capitals), copying a heading pastes normally,
+find-in-page still matches, and the style is reversible in one constant. An
+uppercased string throws the original casing away for good.
+
+Three things stay title-cased, deliberately:
+
+| Not uppercased | Why |
+|---|---|
+| Buttons (`WtButton`) | Capitals flatten the word outline the eye matches on, so labels read slower and truncate sooner — and a destructive action should not shout. Material dropped all-caps buttons in v3 for the same reason. |
+| Input labels | MUI measures the label to cut the notch in the outline and never sees CSS, so an uppercased label outgrows its gap and lands on the border. See the warning above. |
+| Card / tile titles carrying CONTENT | A device name, a person, a navigation destination is data, not a region name. `NavCard` keeps title case. |
+
+Where a screen renders its own region title rather than using a kit header,
+spread `HEADING_CASE_SX` so it matches.
+
 `WtIconButton` is deliberately NOT wrapped: its children are a glyph, not a label.
 
 Any word already carrying a capital is left exactly as written, so `FAQ`, `HR`,
@@ -324,3 +348,40 @@ opening downward into nothing on some screens and behind the dialog on others.
 `DropdownInput`. It always painted a status circle on every option, defaulting to amber,
 so lists whose options carried no colour showed a uniform dot that meant nothing. Colour is
 now shown only where it carries meaning, via `showColor`.
+
+## `html:` strings — escape at the interpolation, always
+
+React escapes `{value}` in JSX for you. The moment a string leaves JSX — SweetAlert's
+`html:`, `dangerouslySetInnerHTML`, a Leaflet `divIcon` — that protection is gone and
+the browser parses whatever you hand it as markup. SweetAlert2 says so in its own
+typings: *"SweetAlert2 does NOT sanitize this parameter."*
+
+Four dialogs shipped this bug: an employee name, a branch name, an organisation name
+and a server error message, each interpolated straight into `html:`. A name of
+`<img src=x onerror=…>` then executes in the browser of whoever opens the dialog —
+planted once, fired later, usually at someone with more access.
+
+```tsx
+// NO — the natural thing to type, and the unsafe thing to type
+html: `Delete <b>${org.name}</b>?`
+
+// YES — same markup, every ${…} escaped, nothing to remember
+html: safeHtml`Delete <b>${org.name}</b>?`
+```
+
+Both arms of a ternary need it. A literal with no interpolation is fine as-is — static
+markup carries no user data.
+
+**Generating a list** is the one case `safeHtml` cannot express, because the `<li>` tags
+are yours and a tagged template would escape them into visible text. Escape the parts
+and join, then silence the lint rule on that line with a comment saying why:
+
+```tsx
+// eslint-disable-next-line no-restricted-syntax
+html: `<ul>${rows.map((r) => `<li>${escapeHtml(r.message)}</li>`).join('')}</ul>`,
+```
+
+Two safety nets sit behind this, and neither is a reason to skip `safeHtml`: the kit's
+`toast` / `alertDialog` / `confirmDialog` run every `html` through DOMPurify, and ESLint
+rejects an untagged interpolating template assigned to `html:`. Escaping at the
+interpolation is still the one that shows intent at the call site.
