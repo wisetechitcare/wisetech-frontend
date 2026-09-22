@@ -10,7 +10,7 @@ import {
   WtButton, WtIconButton, WtSwitch, GlassSurface, GlassDialog, GlassHeader,
   TRIO, IconBox, StatTile, T,
 } from '@app/modules/common/components/ui';
-import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
+import { TimePickerField } from '@app/modules/common/components/TimePickerField';
 import { CurrencySymbol } from '@app/modules/common/components/ui';
 import { getCurrencySymbol } from '@utils/currency';
 
@@ -444,7 +444,7 @@ export function LeavePolicyModal({ open, onClose, readOnly, scope }: LeavePolicy
                 <Grid container spacing={2} sx={{ pt: 1, borderTop: `1px solid ${divider}` }}>
                   <Grid item xs={12} sm={6} md={4}>
                     <FieldLabel icon="time" tone={TRIO.amber}>Cutoff Time (24h, IST)</FieldLabel>
-                    <TimeWheelField
+                    <TimePickerField
                       value={state.penaltyCutoffTime}
                       disabled={readOnly}
                       tone={TRIO.amber}

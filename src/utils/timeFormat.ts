@@ -227,7 +227,7 @@ export const getTimeFormat = (): TimeFormat => {
 /**
  * Split a 24-hour hour into what a 12-hour clock shows.
  *
- * For TimeWheelField, whose wheels render 12-hour while its `value` stays 24h
+ * For TimePickerField, whose dial renders 12-hour while its `value` stays 24h
  * "HH:MM". Lives here rather than in the component because it is the same 12/24h
  * policy as everything else in this file — and because a component module drags
  * Metronic in, which makes the logic untestable.
