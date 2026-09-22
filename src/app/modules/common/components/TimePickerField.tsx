@@ -32,6 +32,20 @@ const EASE_OUT = 'cubic-bezier(0.3, 0, 0.8, 0.15)';
 const DUR_IN = 300;
 const DUR_OUT = 200;
 
+/**
+ * The hand's sweep round the dial.
+ *
+ * SLOWER THAN THE DIALOG, deliberately. 300ms is right for a panel that appears — it is either
+ * there or it is not, and you are waiting for it. The hand is different: you are watching it
+ * travel, and travel that finishes before the eye has followed it does not read as movement at
+ * all, it reads as a jump between two positions. Half a second is long enough to see an arc.
+ *
+ * `decelerate` rather than the ease-in-out MUI uses by default: a clock hand under a finger
+ * should leave immediately and settle gently, not creep away and stop dead.
+ */
+const DUR_SWEEP = 500;
+const EASE_SWEEP = 'cubic-bezier(0.16, 1, 0.3, 1)';
+
 type Mode = 'dial' | 'keyboard';
 type View = 'hours' | 'minutes';
 
@@ -407,7 +421,18 @@ export function TimePickerField({
                                     from: { opacity: 0, transform: 'scale(0.86)' },
                                     to: { opacity: 1, transform: 'scale(1)' },
                                 },
-                                animation: `wtClockIn ${DUR_IN + 60}ms ${EASE_IN} both`,
+                                // The sweep's CURVE, but not its duration. Opening is a
+                                // different moment from choosing: you are waiting for the dial
+                                // to arrive, so it should be prompt, whereas you are watching
+                                // the hand travel and want to see the arc. Sharing the easing
+                                // keeps them the same family of movement without making the
+                                // picker feel slow to open.
+                                animation: `wtClockIn ${DUR_IN + 60}ms ${EASE_SWEEP} both`,
+                                willChange: 'transform, opacity',
+                                '@media (prefers-reduced-motion: reduce)': {
+                                    animation: 'none',
+                                    willChange: 'auto',
+                                },
                             }}
                         >
                             <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -427,10 +452,59 @@ export function TimePickerField({
                                             bgcolor: accent,
                                             color: theme.palette.getContrastText(accent),
                                         },
-                                        [`& .${clockPointerClasses.root}`]: { bgcolor: accent },
+                                        /*
+                                         * THE HAND'S OWN TRANSITION, replacing MUI's.
+                                         *
+                                         * The default is `transitions.create(['transform',
+                                         * 'height'])` — 300ms ease-in-out over BOTH properties.
+                                         * `height` is the problem: it is not a compositor
+                                         * property, so every frame of the sweep relayouts the
+                                         * pointer and repaints the dial under it. On a phone
+                                         * that is the stutter; on a desktop it is hidden by
+                                         * spare frames.
+                                         *
+                                         * Only `transform` is animated here. The hand's length
+                                         * changes only between the inner and outer rings of a
+                                         * 24h dial, where snapping is imperceptible next to the
+                                         * rotation happening beside it.
+                                         *
+                                         * `will-change` promotes the layer BEFORE the first
+                                         * frame rather than during it, which is where the
+                                         * initial hitch comes from — the same reasoning the
+                                         * kit's `riseInSx` records.
+                                         */
+                                        [`& .${clockPointerClasses.root}`]: {
+                                            bgcolor: accent,
+                                            transition: `transform ${DUR_SWEEP}ms ${EASE_SWEEP}`,
+                                            willChange: 'transform',
+                                        },
                                         [`& .${clockPointerClasses.thumb}`]: {
                                             bgcolor: accent,
                                             borderColor: accent,
+                                            // The thumb rides the hand, so it must not run its
+                                            // own clock — a different duration here makes the
+                                            // knob appear to lag behind the arm it sits on.
+                                            transition: `background-color ${DUR_IN}ms ${EASE_IN}, border-color ${DUR_IN}ms ${EASE_IN}`,
+                                        },
+                                        /*
+                                         * The numeral lighting up under the hand. Matched to the
+                                         * sweep so the colour lands as the hand arrives, instead
+                                         * of 200ms before it and giving away the destination.
+                                         */
+                                        [`& .${clockNumberClasses.root}`]: {
+                                            transition: `background-color ${DUR_SWEEP}ms ${EASE_SWEEP}, color ${DUR_SWEEP}ms ${EASE_SWEEP}`,
+                                        },
+                                        /*
+                                         * Someone who has asked for less motion gets the same
+                                         * picker with the travel removed, not a broken one: the
+                                         * hand still moves, it simply arrives at once.
+                                         */
+                                        '@media (prefers-reduced-motion: reduce)': {
+                                            [`& .${clockPointerClasses.root}`]: {
+                                                transition: 'none',
+                                                willChange: 'auto',
+                                            },
+                                            [`& .${clockNumberClasses.root}`]: { transition: 'none' },
                                         },
                                     }}
                                 />
