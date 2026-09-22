@@ -104,7 +104,7 @@ export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
 export type { ToolbarFilterSelectProps, FilterSelectTheme } from './ToolbarFilterSelect';
 export { OrgFilterToolbar, useOrgFilters } from './OrgFilterToolbar';
 export type { OrgFilterState, OrgFilterableRow, EmployeeStatusFilter } from './OrgFilterToolbar';
-export { hoverLiftSx, pressableSx, riseInSx, MOTION_KEYFRAMES } from './motion';
+export { hoverLiftSx, pressableSx, riseInSx, disclosureSx, DISCLOSURE, MOTION_KEYFRAMES } from './motion';
 // Numbered pager for views that page server-side WITHOUT MaterialTable (card grids,
 // tiles). The table draws its own footer; everything else uses this.
 export { Pager } from './Pager';

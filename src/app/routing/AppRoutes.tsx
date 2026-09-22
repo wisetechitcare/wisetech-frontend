@@ -10,6 +10,7 @@ import { Routes, Route, BrowserRouter, Navigate } from 'react-router-dom'
 import { PrivateRoutes } from './PrivateRoutes'
 import { ErrorsPage } from '../modules/errors/ErrorsPage'
 import { Logout, AuthPage, getAuth } from '../modules/auth'
+import GoogleContactsCallback from '@pages/employee/companies/contacts/components/GoogleContactsCallback'
 import { App } from '../App'
 import { useSelector } from 'react-redux'
 import { RootState } from '@redux/store'
@@ -42,6 +43,15 @@ const AppRoutes: FC = () => {
         <Route element={<App />}>
           <Route path='error/*' element={<ErrorsPage />} />
           <Route path='logout' element={<Logout />} />
+          {/*
+            * Google Contacts OAuth return. Deliberately OUTSIDE the authentication branch
+            * below: this is a pop-up that reads `code`/`state` out of its own URL, posts them
+            * to the window that opened it and closes. A gated route can lose a race with the
+            * session check and redirect the pop-up to /auth, losing the code and showing a
+            * login screen in a window nobody expected one in. Nothing here is worth guarding —
+            * the exchange happens on the backend under the opener's own session.
+            */}
+          <Route path='google/contacts/callback' element={<GoogleContactsCallback />} />
           {currentUser && redirect && !isTokenExpired ? (
             <>
               <Route path='/*' element={<PrivateRoutes />} />
