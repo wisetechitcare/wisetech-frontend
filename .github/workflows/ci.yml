@@ -12,11 +12,16 @@ name: ✅ Frontend CI
 #
 # This job does NOT bundle. Amplify builds the artifact that ships (see amplify.yml), so
 # a `vite build` here would be a second bundle nothing consumes.
+#
+# Runs on `dev` too. `dev` is the integration branch — every feature merges there first,
+# so that is where a break should surface, not when the release PR is opened days later.
+# A dev run CANNOT deploy: Amplify is connected to `main` only, and nothing in this
+# workflow talks to Amplify — the two react to the same push independently.
 on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, dev]
 
 # Least privilege: this job only reads the repo. Without this block the job would
 # inherit whatever the repo default is, which on older repos is read/write.
