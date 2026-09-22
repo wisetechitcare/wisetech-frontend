@@ -1290,68 +1290,66 @@ const DayDetail: React.FC<{
                                 cursor: onEdit ? 'pointer' : 'default',
                             }}
                         >
-                            <div style={{ padding: '10px 12px 10px', minWidth: 0 }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: rowTone(colors[half.key]).fg, whiteSpace: 'nowrap', marginBottom: 4 }}>
-                                <AppIcon name="bi-clock" className="fs-7" />
-                                {timeRange(m)}
-                            </div>
-                            <div style={{ minWidth: 0 }}>
-                                {/* Struck through and tagged, exactly as the table row reads it.
-                                    The row is kept — a cancelled meeting is still part of what
-                                    the day and the project had booked — but it has to be
-                                    unmistakable, and the tag carries the reason on hover. */}
-                                {/* The meeting's NAME, and it should look like one. At 13px it
-                                    sat at the same weight as the timesheet warning under it and
-                                    the organiser beside it, so the card had no first thing to
-                                    read. */}
-                                <div style={{
-                                    fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.3,
-                                    color: isCancelled(m) ? '#94A3B8' : '#0F172A',
-                                    textDecoration: isCancelled(m) ? 'line-through' : 'none',
-                                }}>
-                                    {m.title}
-                                    {isCancelled(m) && <CancelledTag reason={m.cancelReason} color={stateColors.cancelled} />}
-                                    {isAwaitingTime(m) && <AwaitingTag color={stateColors.awaiting} />}
-                                </div>
-                                {timesheetStateOf(m) && (
-                                    <div style={{
-                                        fontSize: 11.5, fontWeight: 600, marginTop: 2,
-                                        color: lifecycleTone(stateColors[timesheetStateOf(m)!]).ink,
+                            <div style={{ padding: '10px 12px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+
+                                {/* ROW 1 — when it is, and what state it is in.
+                                    The state tags used to trail the title, so a long name
+                                    pushed "AWAITING TIMESHEETS" onto its own line in the middle
+                                    of the card. Pinned right of the clock they always sit in
+                                    the same place, which is what makes a column of cards
+                                    scannable for the ones that need something doing. */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                    <span style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                                        fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+                                        color: rowTone(colors[half.key]).fg,
                                     }}>
-                                        {timesheetStateOf(m) === 'filled'
-                                            ? 'All timesheets filled'
-                                            : `Timesheet pending: ${m.pendingTimesheetNames!.join(', ')}`}
-                                    </div>
-                                )}
-                                {m.projectName && (
-                                    // A CHIP, not a bare underlined string. What it links to is
-                                    // a different KIND of thing from the meeting's own text, and
-                                    // an icon plus a tinted surface says so before the words are
-                                    // read — which is also what stops it being mistaken for the
-                                    // address line two rows below.
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 5 }}>
+                                        <AppIcon name="bi-clock" className="fs-7" />
+                                        {timeRange(m)}
+                                    </span>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+                                        {isCancelled(m) && <CancelledTag reason={m.cancelReason} color={stateColors.cancelled} />}
+                                        {isAwaitingTime(m) && <AwaitingTag color={stateColors.awaiting} />}
+                                    </span>
+                                </div>
+
+                                {/* ROW 2 — the name, and what it belongs to, on one line.
+                                    They answer "which meeting" together; stacked, the project
+                                    read as a caption of the title rather than its own fact.
+                                    Wraps rather than truncating, because a project number cut
+                                    in half identifies nothing. */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+                                    <span style={{
+                                        fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.3,
+                                        color: isCancelled(m) ? '#94A3B8' : '#0F172A',
+                                        textDecoration: isCancelled(m) ? 'line-through' : 'none',
+                                    }}>
+                                        {m.title}
+                                    </span>
+                                    {m.projectName && (
                                         <span style={{
                                             display: 'inline-flex', alignItems: 'center', gap: 5,
-                                            padding: '3px 8px', borderRadius: 7,
+                                            padding: '3px 8px', borderRadius: 7, maxWidth: '100%',
                                             background: toneAlpha('#1E3A8A', 0.07),
                                             border: `1px solid ${toneAlpha('#1E3A8A', 0.16)}`,
-                                            fontSize: 11.5, fontWeight: 700, color: '#1E3A8A', maxWidth: '100%',
+                                            fontSize: 11.5, fontWeight: 700, color: '#1E3A8A',
                                         }}>
                                             <AppIcon name={m.isLead ? 'bi-lightning-charge' : 'bi-briefcase'} className="fs-8" />
                                             <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId, m.isLead)} />
                                         </span>
-                                        {m.isLead && <LeadTag />}
-                                    </div>
-                                )}
+                                    )}
+                                    {m.isLead && <LeadTag />}
+                                </div>
+
+                                {/* ROW 3 — how to attend, and who called it. */}
                                 <div
-                                    // A ceiling, not a routine trim: at full width this line is
-                                    // one or two lines already, and the clamp is only there so a
-                                    // pasted paragraph in the location field cannot do to the
-                                    // card what the address used to. The whole line stays on the
-                                    // tooltip either way.
+                                    // A ceiling, not a routine trim: the clamp is only there so
+                                    // a pasted paragraph in the location field cannot do to the
+                                    // card what the address used to. The whole line stays on
+                                    // the tooltip either way.
                                     title={`${m.isOnline ? 'Online' : (m.location || 'Offline')}${m.organizerName ? ` · ${m.organizerName}` : ''}`}
                                     style={{
-                                        fontSize: 12, color: '#64748B', marginTop: 2,
+                                        fontSize: 12, color: '#64748B',
                                         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                                         overflow: 'hidden',
                                     }}
@@ -1359,7 +1357,22 @@ const DayDetail: React.FC<{
                                     {modeCell(m)}
                                     {m.organizerName && <span style={{ marginLeft: 10 }}>· {m.organizerName}</span>}
                                 </div>
-                            </div>
+
+                                {/* The old "Timesheet pending: A, B, C" sentence, kept ONLY for
+                                    rows an older server sent without a roster. Where the roster
+                                    renders it marks each person individually and counts them,
+                                    so printing the same names again as prose is one fact stated
+                                    twice and the longer of the two to read. */}
+                                {!m.attendees?.length && timesheetStateOf(m) && (
+                                    <div style={{
+                                        fontSize: 11.5, fontWeight: 600,
+                                        color: lifecycleTone(stateColors[timesheetStateOf(m)!]).ink,
+                                    }}>
+                                        {timesheetStateOf(m) === 'filled'
+                                            ? 'All timesheets filled'
+                                            : `Timesheet pending: ${m.pendingTimesheetNames!.join(', ')}`}
+                                    </div>
+                                )}
                             {/* Who is actually coming. The card named the organiser and, when
                                 time was owed, listed the debtors as a sentence — so a meeting's
                                 own attendee list was the one thing you had to open the edit
@@ -1523,9 +1536,12 @@ const AttendeeRoster: React.FC<{
     );
 
     return (
+        // No margin of its own: the card is a flex column with its own gap, and a margin here
+        // stacked on top of it left the roster floating further from the meeting than the
+        // meeting's own lines are from each other.
         <div style={{
-            marginTop: 8, borderRadius: 9, background: 'rgba(255,255,255,0.72)',
-            border: '1px solid #E2E8F0', padding: '9px 11px',
+            borderRadius: 9, background: 'rgba(255,255,255,0.72)',
+            border: '1px solid #E2E8F0', padding: '9px 11px', marginTop: 2,
         }}>
             <div style={{
                 fontSize: 9.5, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase',
