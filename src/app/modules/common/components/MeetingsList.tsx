@@ -8,6 +8,9 @@ import { fetchConfiguration } from '@services/company';
 import { safeJsonParse } from '@utils/safeJson';
 import { mapsUrl } from '@app/pages/employee/meetingAddress';
 import {
+    meetingWhere, modeHasLink, modeHasPlace, modeOfExisting,
+} from '@app/pages/employee/meetingModes';
+import {
     MEETING_HALF_PM, MEETING_HALF_FREE_COLOR, MEETING_HALF_AM,
     MEETING_STATUS_CANCELLED, MEETING_STATUS_AWAITING, MEETING_STATUS_HELD,
     MEETING_TIMESHEET_FILLED, MEETING_TIMESHEET_PENDING,
@@ -57,7 +60,10 @@ interface MeetingRow {
     id: string;
     title: string;
     description?: string;
+    /** The legacy mirror of `meetingMode`, still sent by the API. */
     isOnline: boolean;
+    /** ONLINE | OFFLINE | HYBRID. Absent on a row from an older server — see `modeOfExisting`. */
+    meetingMode?: string | null;
     meetingLink?: string | null;
     location?: string | null;
     startDate: string;
@@ -145,20 +151,37 @@ const EMPTY_HINTS: Record<keyof typeof FETCHERS, string> = {
  * day that has two independently usable halves. AM/PM is also the vocabulary the product
  * already uses: leave stores its half-day sessions as exactly these two values.
  *
- * The boundary is noon. A meeting counts against a half if it OVERLAPS it, so 11:30–12:30
- * takes both — it genuinely blocks the end of the morning and the start of the afternoon,
- * and rounding it into one would offer a slot that is not really there.
+ * ─── A MEETING IS IN ONE HALF: THE ONE IT STARTS IN ──────────────────────────
+ * The boundary is noon, and a meeting counts against the half its START time falls in — so
+ * 11:00–12:10 is a MORNING meeting and appears once.
+ *
+ * It used to count against every half it OVERLAPPED, on the reasoning that 11:30–12:30
+ * genuinely blocks the end of the morning and the start of the afternoon. What that produced
+ * on screen was the same meeting listed twice, in two panels, ten minutes of overrun making a
+ * whole afternoon look committed — and a person reading "2 meetings" on a day that has one.
+ * A row printed twice is not a warning, it is a row somebody has to work out is the same row.
+ *
+ * The half a meeting BELONGS to is the hour it is booked at, which is also the time the row
+ * prints and the time anyone would name it by. `startHalf` is that rule for a single meeting
+ * and this is the same rule over a list — one definition, so the tint on a row and the panel
+ * it is filed under cannot disagree.
  */
 const HALF_BOUNDARY_HOUR = 12;
 
-const splitHalves = (list: MeetingRow[], day: Dayjs) => {
-    const noon = day.startOf('day').add(HALF_BOUNDARY_HOUR, 'hour');
-    const am: MeetingRow[] = [];
-    const pm: MeetingRow[] = [];
-    for (const m of list) {
-        if (dayjs(m.startDate).isBefore(noon)) am.push(m);
-        if (dayjs(m.endDate).isAfter(noon)) pm.push(m);
-    }
+/**
+ * Which half a meeting is in: the one it STARTS in, which is the time the row prints.
+ *
+ * Declared here rather than beside the tint that also uses it, because `splitHalves` below is
+ * the same rule applied to a list and the two must not be able to drift apart.
+ */
+const startHalf = (m: Pick<MeetingRow, 'startDate'>): 'am' | 'pm' =>
+    (dayjs(m.startDate).hour() < HALF_BOUNDARY_HOUR ? 'am' : 'pm');
+
+/** The day is no longer an argument: the meeting's own start hour answers it. */
+export const splitHalves = <T extends Pick<MeetingRow, 'startDate'>>(list: T[]) => {
+    const am: T[] = [];
+    const pm: T[] = [];
+    for (const m of list) (startHalf(m) === 'am' ? am : pm).push(m);
     return { am, pm };
 };
 
@@ -411,6 +434,7 @@ export const toEditableMeeting = (m: MeetingRow) => ({
     title: m.title,
     description: m.description,
     isOnline: m.isOnline,
+    meetingMode: m.meetingMode,
     meetingLink: m.meetingLink,
     location: m.location,
     startDate: m.startDate,
@@ -518,6 +542,59 @@ export const rowTone = (color: string) => {
     return { bg, fg: readableOn(bg), edge: color };
 };
 
+/**
+ * TODAY — a wash that fades down the cell, not a ring drawn round it.
+ *
+ * ─── WHY THE OUTLINE WENT ────────────────────────────────────────────────────
+ * It was `inset 0 0 0 2px` in the green below, and a hard 2px ring is the SAME device this
+ * grid already spends on two other things: the picked day wears a 2px navy border and a drop
+ * target wears a 2px dashed one. Three rings in three colours, and the only way to tell which
+ * of them a cell is wearing is to remember the key — on a grid whose whole job is to be read
+ * at a glance. The ring also sat *outside* the content, so today looked like a cell someone
+ * had selected rather than a cell that is now.
+ *
+ * A fill reads before an edge does. The wash is strongest at the top, where the date and the
+ * AM/PM pills are, and gone by roughly three quarters down so the meeting chips below it stay
+ * on their own background — the tint must never compete with the half colours, which are the
+ * thing the cell is actually reporting.
+ *
+ * The hairline that remains is 1px at 45%: enough to close the shape off, not enough to be
+ * mistaken for the picked day's border. Plus a soft drop glow, so today sits very slightly
+ * forward of the 41 cells around it.
+ *
+ * `rgba(…, 0)` for the last stop, never the keyword `transparent`: that keyword is
+ * transparent BLACK, and interpolating a colour to it greys the middle of the gradient out.
+ */
+const TODAY_COLOR = '#16A34A';
+
+/**
+ * The cell's paint, given whatever background it would otherwise have had.
+ *
+ * Takes the base rather than assuming white, because a wholly clear day is grey — and a wash
+ * laid over the wrong base is how today ends up the one cell that contradicts the "is this day
+ * free" reading the background is there to give.
+ */
+export const todayCellStyle = (base: string) => ({
+    background: [
+        `linear-gradient(180deg,`,
+        `${toneAlpha(TODAY_COLOR, 0.22)} 0%,`,
+        `${toneAlpha(TODAY_COLOR, 0.07)} 46%,`,
+        `${toneAlpha(TODAY_COLOR, 0)} 78%)`,
+        `, ${base}`,
+    ].join(' '),
+    boxShadow: `inset 0 0 0 1px ${toneAlpha(TODAY_COLOR, 0.45)}, 0 2px 10px -4px ${toneAlpha(TODAY_COLOR, 0.5)}`,
+});
+
+/**
+ * Today's date numeral.
+ *
+ * The wash is deliberately quiet, and a quiet marker on its own would make today HARDER to
+ * find than the ring did — so the number it is attached to carries the colour too. Darkened
+ * first: the green above is 3.3:1 on white, which is under AA for 12px text, and `darkOf`
+ * brings it to about 7:1.
+ */
+export const todayInk = darkOf(TODAY_COLOR, 0.42);
+
 const halfStyle = (
     half: 'am' | 'pm', count: number, colors: HalfColors = DEFAULT_HALF_COLORS,
 ) => {
@@ -530,10 +607,6 @@ const halfStyle = (
         border: count === 0 ? '1px dashed #CBD5E1' : `1px solid ${bg}`,
     };
 };
-
-/** Which half colours a row: the one it STARTS in, which is the time the row prints. */
-const startHalf = (m: MeetingRow): 'am' | 'pm' =>
-    (dayjs(m.startDate).hour() < HALF_BOUNDARY_HOUR ? 'am' : 'pm');
 
 /**
  * The configured half-day colours and names, falling back to the built-in ones.
@@ -716,6 +789,31 @@ const ProjectLink: React.FC<{
     </span>
 );
 
+/**
+ * "8 of these were held online, 3 in person and 1 as a hybrid."
+ *
+ * Only the modes that actually happened are named. The previous version was a two-branch
+ * ternary over `onlineCount` and `inPersonCount`, which could not phrase a third mode at all —
+ * and its "all of them" branches would have announced "All 5 were held online" on a month
+ * whose five meetings included two hybrids.
+ *
+ * Exported for its own test: it is a sentence with a comma, an "and" and a singular/plural,
+ * which is exactly the kind of thing that reads fine in review and wrong on screen.
+ */
+export const modeSentence = (
+    counts: { onlineCount: number; inPersonCount: number; hybridCount?: number },
+): string => {
+    const parts: string[] = [];
+    if (counts.onlineCount > 0) parts.push(`${counts.onlineCount} online`);
+    if (counts.inPersonCount > 0) parts.push(`${counts.inPersonCount} in person`);
+    if (counts.hybridCount) parts.push(`${counts.hybridCount} as a hybrid`);
+    if (!parts.length) return '';
+    // One mode covers the lot: say so, rather than restating the total as a breakdown of itself.
+    if (parts.length === 1) return `All of these were held ${parts[0].replace(/^\d+ /, '')}.`;
+    const last = parts.pop() as string;
+    return `Of these, ${parts.join(', ')} and ${last}.`;
+};
+
 interface MeetingAnalytics {
     costVisible: boolean;
     totalMeetings: number;
@@ -729,7 +827,10 @@ interface MeetingAnalytics {
     loggedMinutes: number;
     cancelledCount: number;
     onlineCount: number;
+    /** OFFLINE only. It was `total - onlineCount` until HYBRID existed and broke the subtraction. */
     inPersonCount: number;
+    /** Absent from an older server, which had no third mode to count. */
+    hybridCount?: number;
     internalAttendees: number;
     externalAttendees: number;
     avgMinutes: number;
@@ -1011,13 +1112,12 @@ const CostSummary: React.FC<{
                 what is left here is the reasoning a colleague would add when handing the
                 numbers over — why a figure is missing, and which meeting to go and look at. */}
             <div style={{ marginTop: 10, fontSize: 12, color: '#64748B', lineHeight: 1.7 }}>
-                <div>
-                    {data.onlineCount > 0 && data.inPersonCount > 0
-                        ? `${data.onlineCount} of these were held online and ${data.inPersonCount} in person.`
-                        : data.onlineCount > 0
-                            ? `All ${data.onlineCount} were held online.`
-                            : `All ${data.inPersonCount} were held in person.`}
-                </div>
+                {/* How they were attended, as a sentence rather than three more cards.
+                    Built from the modes that actually OCCUR, so a month of online meetings
+                    reads "All 12 were held online" and does not also announce two zeroes —
+                    the previous version could only phrase two, and counted every hybrid
+                    meeting as online while reporting it as not in person. */}
+                <div>{modeSentence(data)}</div>
                 {data.awaitingTimesheets > 0 && (
                     <div style={{ color: darkOf(stateColors.awaiting) }}>
                         {data.awaitingTimesheets} held meeting{data.awaitingTimesheets === 1 ? ' has' : 's have'} no
@@ -1353,7 +1453,7 @@ const DayDetail: React.FC<{
                                     // a pasted paragraph in the location field cannot do to the
                                     // card what the address used to. The whole line stays on
                                     // the tooltip either way.
-                                    title={`${m.isOnline ? 'Online' : (m.location || 'Offline')}${m.organizerName ? ` · ${m.organizerName}` : ''}`}
+                                    title={`${meetingWhere(modeOfExisting(m), m.location)}${m.organizerName ? ` · ${m.organizerName}` : ''}`}
                                     style={{
                                         fontSize: 12, color: '#64748B',
                                         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
@@ -1829,7 +1929,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             // A day with any meeting has at most ONE free half — the meeting has to land in
             // the morning or the afternoon — so counting free halves here is the same as
             // counting these days, and the day is the thing you actually schedule against.
-            const { am, pm } = splitHalves(list, d);
+            const { am, pm } = splitHalves(list);
             const halfOpen = !am.length || !pm.length;
             // FUTURE only. A free morning last Tuesday is not a slot, and counting it inflated
             // the figure with capacity nobody can use.
@@ -1855,20 +1955,24 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
      */
     const modeCell = (m: MeetingRow) => {
         const stop = (e: React.MouseEvent) => e.stopPropagation();
-        if (m.isOnline) {
-            return m.meetingLink ? (
-                <a href={m.meetingLink} target="_blank" rel="noreferrer" onClick={stop} style={{ color: '#1E3A8A', fontWeight: 600 }}>
-                    <AppIcon name="bi-camera-video" className="me-1" />Online · Join
-                </a>
-            ) : (
-                <span><AppIcon name="bi-camera-video" className="me-1" />Online</span>
-            );
-        }
+        const mode = modeOfExisting(m);
         const maps = mapsUrl(m.location);
+        /*
+         * A HYBRID row offers BOTH ways in, side by side.
+         *
+         * This used to branch on `isOnline`, a boolean asked to describe three modes: a hybrid
+         * meeting printed its join link and said nothing about the room, so the half of the
+         * guests walking there had no address on the row they were reading. Each half is drawn
+         * if the MODE owns it, which is how both can appear.
+         */
+        const join = modeHasLink(mode) && m.meetingLink ? (
+            <a href={m.meetingLink} target="_blank" rel="noreferrer" onClick={stop} style={{ color: '#1E3A8A', fontWeight: 600 }}>
+                <AppIcon name="bi-camera-video" className="me-1" />{mode === 'HYBRID' ? 'Join' : 'Online · Join'}
+            </a>
+        ) : null;
         // No address, no link: a maps search for an empty string lands on nowhere, which is a
-        // worse answer than saying the meeting is simply in person.
-        if (!maps) return <span><AppIcon name="bi-geo-alt" className="me-1" />Offline</span>;
-        return (
+        // worse answer than saying the meeting is simply offline.
+        const go = modeHasPlace(mode) && maps ? (
             <a
                 href={maps}
                 target="_blank"
@@ -1879,6 +1983,15 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             >
                 <AppIcon name="bi-geo-alt" className="me-1" />{m.location}
             </a>
+        ) : null;
+        if (join && go) return <>{join}<span style={{ margin: '0 6px', color: '#CBD5E1' }}>·</span>{go}</>;
+        if (join || go) return join ?? go;
+        // Neither half is actionable: say which mode it is and stop there.
+        return (
+            <span>
+                <AppIcon name={modeHasPlace(mode) ? 'bi-geo-alt' : 'bi-camera-video'} className="me-1" />
+                {meetingWhere(mode, m.location)}
+            </span>
         );
     };
 
@@ -1967,7 +2080,9 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
         },
         {
             id: 'mode',
-            accessorFn: (m: MeetingRow) => (m.isOnline ? 'Online' : m.location || 'In person'),
+            // The same sentence the cell prints, so search and sort agree with the eye — and
+            // so a hybrid is findable by typing "hybrid" as well as by typing the address.
+            accessorFn: (m: MeetingRow) => meetingWhere(modeOfExisting(m), m.location),
             header: 'Mode',
             /**
              * ONE LINE, ellipsised — and still a link.
@@ -2116,7 +2231,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     }, [stateColors]);
 
     const pickedList = byDay.get(picked) ?? [];
-    const pickedHalves = splitHalves(pickedList, dayjs(picked));
+    const pickedHalves = splitHalves(pickedList);
     const todayKey = dayKey(dayjs());
 
     if (loading) {
@@ -2268,7 +2383,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                         {gridDays.map((d) => {
                             const k = dayKey(d);
                             const list = byDay.get(k) ?? [];
-                            const { am, pm } = splitHalves(list, d);
+                            const { am, pm } = splitHalves(list);
                             const clear = list.length === 0;
                             const outside = d.month() !== cursor.month();
                             const isToday = k === todayKey;
@@ -2322,7 +2437,16 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                         // A wholly clear day still reads grey at a glance; once either
                                         // half is taken the cell goes white and the two bars carry the
                                         // detail, so the background never contradicts them.
-                                        background: dragOverDay === k ? '#EFF4FF' : (clear ? '#F1F5F9' : '#FFFFFF'),
+                                        //
+                                        // Today lays its wash OVER that base rather than replacing it —
+                                        // see `todayCellStyle`. A drag still wins: while one is in
+                                        // flight the only question is which cell the card lands on.
+                                        ...(isToday && dragOverDay !== k
+                                            ? todayCellStyle(clear ? '#F1F5F9' : '#FFFFFF')
+                                            : {
+                                                background: dragOverDay === k ? '#EFF4FF' : (clear ? '#F1F5F9' : '#FFFFFF'),
+                                                boxShadow: 'none',
+                                            }),
                                         // The drop target states itself. Without it a drag across
                                         // a 42-cell grid is a guess about which cell is under the
                                         // cursor.
@@ -2332,7 +2456,6 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                         // Days outside the month recede, so the month's own shape is
                                         // still the first thing read.
                                         opacity: outside ? 0.35 : 1,
-                                        boxShadow: isToday ? 'inset 0 0 0 2px #16A34A' : 'none',
                                         display: 'flex', flexDirection: 'column', gap: 3,
                                     }}
                                 >
@@ -2345,7 +2468,10 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                     <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                                         <span style={{
                                             fontSize: 12, fontWeight: 800, minWidth: 15,
-                                            color: clear ? '#94A3B8' : '#1E293B',
+                                            // Today's number carries the colour as well, because the
+                                            // wash it replaced a ring with is deliberately quiet —
+                                            // see `todayInk` for why it is darkened first.
+                                            color: isToday ? todayInk : (clear ? '#94A3B8' : '#1E293B'),
                                         }}>
                                             {d.format('D')}
                                         </span>
@@ -2501,7 +2627,9 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                             </span>
                         ))}
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#64748B' }}>
-                            <span style={{ width: 14, height: 14, borderRadius: 4, background: '#fff', boxShadow: 'inset 0 0 0 2px #16A34A' }} />
+                            {/* The same paint the cell wears, so the key cannot describe a
+                                marker the grid no longer draws. */}
+                            <span style={{ width: 14, height: 14, borderRadius: 4, ...todayCellStyle('#FFFFFF') }} />
                             Today
                         </span>
                     </div>
