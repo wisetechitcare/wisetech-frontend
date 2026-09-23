@@ -1,5 +1,4 @@
 import { permissionConstToUseWithHasPermission, ResourceMapWithName, resourceNameMapWithCamelCase, uiControlResourceNameMapWithCamelCase } from '@constants/statistics';
-import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import { KTIcon } from '@metronic/helpers';
 import { createRole, fetchRoles, getRoleById, createPermissionForRoleById, updatePermissionForRoleById, updateRoleById, deleteRoleById, deletePermissionForRoleById, addEmployeeToRole, removeEmployeeFromRole } from '@services/roles';
 import { fetchAllEmployees } from '@services/employee';
@@ -7,7 +6,8 @@ import { getAvatar } from '@utils/avatar';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react'
-import { Button, Modal, Spinner, Accordion } from 'react-bootstrap';
+import { Button, Spinner, Accordion } from 'react-bootstrap';
+import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
 import RoleAccessEditor from './RoleAccessEditor';
 
 const PermissionConts = {
@@ -992,15 +992,14 @@ function PermissionsList({ rolesData, setRefetch }: PermissionsListProps) {
   );
 }
 
+/**
+ * The second level of the Roles dialog. It carries no title or back control of its
+ * own — the dialog's GlassHeader shows both, so there is one header on screen and one
+ * way back to the list.
+ */
 function EditRole({ handleCloseEditModal, roleDetails, setRefetch }: { handleCloseEditModal: () => void, roleDetails: any, setRefetch: (show: boolean) => void }) {
-  console.log("roleDetails in EditRole::======================> ", roleDetails);
-
   return (
     <div className='px-3'>
-      <div className='d-flex flex-row align-items-center justify-content-start gap-2'>
-        <img src={miscellaneousIcons.leftArrow} alt="" style={{ width: "36px", height: "36px", cursor: 'pointer' }} onClick={handleCloseEditModal} />
-        <h2 className='my-auto'>Edit Role "{roleDetails?.name}"</h2>
-      </div>
       <div className='row my-3 d-none d-lg-flex'>
         <div className='col-8'>
           <PermissionsList rolesData={roleDetails} setRefetch={setRefetch} />
@@ -1238,11 +1237,22 @@ function AddNewRole({ setShowAddNewRole, setRefetch }: { setShowAddNewRole: (sho
   )
 }
 
-function RolesAndPermissions() {
+/**
+ * Roles list, and the role editor as a SECOND LEVEL of the same dialog.
+ *
+ * The editor used to be a react-bootstrap <Modal> opened from inside the MUI
+ * GlassDialog that hosts this list. Bootstrap stacks its modal at z-index 1055 and MUI
+ * stacks Dialog at 1300, so the editor always rendered BEHIND the list that opened it —
+ * visible through the scrim, and unreachable. Raising the number would only have made
+ * two scrims fight; GlassHeader's `onBack` exists for exactly this, and on a phone (where
+ * both dialogs go full-screen) it is the only thing that works.
+ *
+ * So which role is being edited is owned by the dialog's host, which needs it to title
+ * the header and to point Back at the list rather than at the close button.
+ */
+function RolesAndPermissions({ editingRole, onEditRole }: { editingRole: any, onEditRole: (role: any) => void }) {
   const [allRoles, setallRoles] = useState([]);
   const [showAddNewRole, setShowAddNewRole] = useState(false);
-  const [showEditModal, setshowEditModal] = useState(false)
-  const [roleToEdit, setRoleToEdit] = useState(null);
   const [refetch, setRefetch] = useState(false);
   useEffect(() => {
     const fetchAllRoles = async () => {
@@ -1254,9 +1264,7 @@ function RolesAndPermissions() {
     fetchAllRoles();
   }, [refetch])
 
-  const handleCloseEditModal = () => {
-    setshowEditModal(false);
-  }
+  const handleCloseEditModal = () => onEditRole(null);
 
   const handleDeleteRole = async (roleId: string) => {
     try {
@@ -1273,6 +1281,10 @@ function RolesAndPermissions() {
       console.log("error: ", error);
       errorConfirmation("Error: Something went wrong please try again");
     }
+  }
+
+  if (editingRole) {
+    return <EditRole handleCloseEditModal={handleCloseEditModal} roleDetails={editingRole} setRefetch={setRefetch} />;
   }
 
   return (
@@ -1299,7 +1311,7 @@ function RolesAndPermissions() {
               {!role?.isSystem && (
                 <div
                   className="btn p-0 btn-active-color-primary btn-sm"
-                  onClick={() => { setRoleToEdit(role); setshowEditModal(true) }}
+                  onClick={() => onEditRole(role)}
                 >
                   <KTIcon
                     iconName="pencil"
@@ -1310,7 +1322,7 @@ function RolesAndPermissions() {
               {role?.isSystem && (
                 <div
                   className="btn p-0 btn-active-color-info btn-sm"
-                  onClick={() => { setRoleToEdit(role); setshowEditModal(true) }}
+                  onClick={() => onEditRole(role)}
                   title="View permissions"
                 >
                   <KTIcon
@@ -1337,19 +1349,18 @@ function RolesAndPermissions() {
           onClick={() => setShowAddNewRole(true)}
         >New Role</button>
       </div>
-      {/* Add New Role Modal */}
-      <Modal show={showAddNewRole} onHide={() => setShowAddNewRole(false)} aria-labelledby="contained-modal-title-vcenter" centered>
-        <Modal.Body className='d-flex flex-column gap-6'>
-          <Modal.Title>Add New Role</Modal.Title>
+      {/* One field, so this stays a small dialog rather than a third level — but on the
+          kit, so it stacks ABOVE the roles dialog instead of behind it. */}
+      <GlassDialog
+        open={showAddNewRole}
+        onClose={() => setShowAddNewRole(false)}
+        maxWidth="xs"
+        header={<GlassHeader title="New role" onClose={() => setShowAddNewRole(false)} variant="plain" />}
+      >
+        <div className='p-5'>
           <AddNewRole setShowAddNewRole={setShowAddNewRole} setRefetch={setRefetch} />
-        </Modal.Body>
-      </Modal>
-      {/* Edit Role Modal */}
-      <Modal show={showEditModal} onHide={handleCloseEditModal} size="xl" aria-labelledby="contained-modal-title-vcenter" centered>
-        <Modal.Body style={{ backgroundColor: '#F7F9FC', borderRadius: '10px' }}>
-          <EditRole handleCloseEditModal={handleCloseEditModal} roleDetails={roleToEdit} setRefetch={setRefetch} />
-        </Modal.Body>
-      </Modal>
+        </div>
+      </GlassDialog>
     </>
   )
 }
