@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import CopyToClipboard from "react-copy-to-clipboard";
 import { useSelector } from "react-redux";
-import EditMeetingModal from "./EditMeetingModal";
+import MeetingDialog from "./MeetingDialog";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { getTimeTokens } from '@utils/timeFormat';
@@ -260,11 +260,31 @@ const MeetingViewModal = ({ show, onClose, meetingId }: MeetingViewModalProps) =
       </Modal.Body>
     </Modal>
 
-        <EditMeetingModal
-            isEditModalOpen={isEditModalOpen}
-            setIsEditModalOpen={setIsEditModalOpen}
-            editingMeeting={editingMeeting}
-            participants={participants}
+        {/* THE SAME FORM the calendar, the task board and every project page open.
+            This used to be `EditMeetingModal` — a second, react-bootstrap edit form over the
+            same row, with its own validation and its own idea of the fields. Two forms over
+            one table is a standing bet that both get every change, and this one lost it: its
+            Online / Offline radio pair could not say HYBRID, so editing a hybrid meeting from
+            the dashboard silently demoted it to online. Routing here deletes the duplicate
+            rather than teaching it a third value it would only fall behind on again. */}
+        <MeetingDialog
+            open={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            onSaved={() => { setIsEditModalOpen(false); void fetchMeetingById(); }}
+            editing={editingMeeting && {
+                id: editingMeeting.id,
+                title: editingMeeting.title,
+                description: editingMeeting.description,
+                isOnline: editingMeeting.isOnline,
+                meetingMode: (editingMeeting as any).meetingMode,
+                meetingLink: editingMeeting.meetingLink,
+                location: editingMeeting.location,
+                startDate: editingMeeting.startDate,
+                endDate: editingMeeting.endDate,
+                projectId: editingMeeting.projectId,
+                participantIds: editingMeeting.participants || [],
+                externalParticipantIds: editingMeeting.externalParticipants || [],
+            }}
         />
     </>
   );

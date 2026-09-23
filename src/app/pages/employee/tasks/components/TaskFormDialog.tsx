@@ -32,6 +32,7 @@ import {
 } from '../useTaskQueries';
 import { FormSectionHead, LabelledTimeField, choiceCardSx, type SectionTone } from './primitives';
 import { IconBox, TRIO, menuOptionSx, type Trio } from '@app/modules/common/components/ui/patterns';
+import { popperInside } from '@app/modules/common/components/ui/dropdownBoundary';
 import { GlassDialog, PlainDialogHeader, WtButton, WtDateField, toast } from '@app/modules/common/components/ui';
 import MeetingFormBody, { type MeetingFormBodyHandle } from '@pages/employee/MeetingFormBody';
 import { useSelector } from 'react-redux';
@@ -322,27 +323,17 @@ export const TaskFormDialog = ({
     /**
      * The dialog's scroll port, used as the boundary for both dropdowns below.
      *
-     * MUI renders an Autocomplete's list in a PORTAL at document.body, so nothing about the
-     * dialog constrains it: with the field near the bottom of the sheet the list opened downward
-     * and ran straight past the footer and off the dialog. Popper's default boundary is the
-     * viewport, which the list was still inside — so it never flipped.
-     *
-     * Handing it this element instead means "stay inside the form": the list flips above the
-     * field when there is not room below it, and is capped to what remains either way.
+     * The rule itself is `popperInside` in the kit — it was written here, the meeting form then
+     * grew the same bug, and a fix living in one screen's file is not something another screen
+     * reaches for. The note on that module says what it is for. Only the ref stays here,
+     * because this dialog already owns its scroll port explicitly.
      */
     const scrollPortRef = useRef<HTMLDivElement | null>(null);
 
     // Rebuilt every render ON PURPOSE, not memoised: the boundary is read off a ref, which is
     // still null on the first render. A memo would capture that null and the constraint would
     // silently never apply — the exact bug this code exists to fix.
-    const dropdownSlotProps = {
-        popper: {
-            modifiers: [
-                { name: 'flip', options: { boundary: scrollPortRef.current ?? 'clippingParents', padding: 8 } },
-                { name: 'preventOverflow', options: { boundary: scrollPortRef.current ?? 'clippingParents', padding: 8 } },
-            ],
-        },
-    };
+    const dropdownSlotProps = popperInside(scrollPortRef.current);
 
     /** The three `select` fields get the same menu as the two Autocompletes. */
     const selectMenuProps = { MenuProps: { PaperProps: { sx: menuOptionSx } } };

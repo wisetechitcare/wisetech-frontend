@@ -28,6 +28,9 @@ const settingsBreadCrumb: Array<PageLink> = [
 function Settings() {
     const [showColorSelectionModal, setShowColorSelectionModal] = useState(false);
     const [showRolesAndPermissionsModal, setShowRolesAndPermissionsModal] = useState(false);
+    // Which role the Roles dialog is drilled into, or null for the list. Held here
+    // because the header — its title, and where Back goes — belongs to the dialog.
+    const [editingRole, setEditingRole] = useState<any>(null);
     const [showGeneralSettingsModal, setShowGeneralSettingsModal] = useState(false);
     const [showSandWhichLeaveModal, setShowSandWhichLeaveModal] = useState(false);
     const [showLeadsProjectsCompanyModal, setShowLeadsProjectsCompanyModal] = useState(false);
@@ -45,6 +48,8 @@ function Settings() {
     }
     const handleCloseRolesAndPermissionsModal = ()=>{
         setShowRolesAndPermissionsModal(false);
+        // Reopen on the list, never on whichever role was last open.
+        setEditingRole(null);
     }
 
 
@@ -185,16 +190,20 @@ function Settings() {
                 onClose={handleCloseRolesAndPermissionsModal}
                 maxWidth="xl" fullWidth
                 header={
+                    /* Back used to duplicate the close button. It now carries the drill-in:
+                       inside a role it returns to the list, and only at the list does it
+                       leave the dialog. */
                     <GlassHeader
-                        title="Roles and Permissions"
-                        subtitle="Who can see and change what"
-                        onBack={handleCloseRolesAndPermissionsModal}
+                        title={editingRole ? `Edit role “${editingRole?.name}”` : "Roles and Permissions"}
+                        subtitle={editingRole ? "Permissions, access and the people who hold it" : "Who can see and change what"}
+                        onBack={editingRole ? () => setEditingRole(null) : handleCloseRolesAndPermissionsModal}
+                        backLabel={editingRole ? "Back to all roles" : "Close"}
                         onClose={handleCloseRolesAndPermissionsModal}
                     />
                 }
             >
                 <Box sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: 'background.default' }}>
-                    <RolesAndPermissions/>
+                    <RolesAndPermissions editingRole={editingRole} onEditRole={setEditingRole} />
                 </Box>
             </GlassDialog>
 
