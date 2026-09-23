@@ -25,22 +25,29 @@ export const isMeetingKind = (v: unknown): v is MeetingKind =>
  *
  * `hint` is what the type is FOR, in the case a person would recognise — the switch is the one
  * place someone decides this, and "Contact" alone does not say when to reach for it.
+ *
+ * ─── THE HINTS CHANGED WHEN THE TABS STOPPED SWAPPING FIELDS ─────────────────────────
+ * They used to describe the shape of the form each tab produced ("Nothing to file it against"),
+ * which stopped being true once all three showed the same fields. Each now says what the type
+ * is CLAIMING about the meeting, and names the one field it insists on — because that is the
+ * only difference left between them, and a switch whose effect is invisible is one people
+ * choose at random.
  */
 export const MEETING_KIND_META: Record<MeetingKind, { label: string; icon: string; hint: string }> = {
     PROJECT: {
         label: 'Project',
         icon: 'briefcase',
-        hint: 'Filed against a project or a lead, and shown on its record.',
+        hint: 'About a project or a lead, and shown on its record. Needs the project.',
     },
     CONTACT: {
         label: 'Contact',
         icon: 'profile-user',
-        hint: 'Someone from the CRM with no project yet — a first call, a pitch, an introduction.',
+        hint: 'About the person — a first call, a pitch, an introduction. Needs the contact.',
     },
     INTERNAL: {
         label: 'Internal',
         icon: 'people',
-        hint: 'Your own team. Nothing to file it against — the agenda says what it is about.',
+        hint: 'Ours. Needs nothing, but may still name a project and outside guests.',
     },
 };
 
@@ -51,6 +58,11 @@ export interface MeetingKindLinks {
 
 /**
  * The one field this kind requires. Null when the meeting is fine to save.
+ *
+ * This is now the ONLY thing the kind decides. It used to also clear the links a kind "did not
+ * own" — see the server's `normalizeMeetingLinks` for why that stopped: an internal review of a
+ * project is both, and the form shows every field on every tab precisely because such meetings
+ * are ordinary.
  *
  * Worded as an instruction rather than "X is required", because the reader has just chosen a
  * type and the useful sentence names what to do next.

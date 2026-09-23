@@ -18,9 +18,14 @@ import { openingRange, type SelectedDateTimeInfo } from './meetingOpening';
 import {
     MEETING_KINDS, MEETING_KIND_META, kindOfExisting, validateMeetingKind, type MeetingKind,
 } from './meetingTypes';
-import { getAllClientContacts, getClientContactById } from '@services/companies';
+import {
+    MEETING_MODES, MEETING_MODE_META, isOnlineFor, modeHasLink, modeHasPlace, modeOfExisting,
+    type MeetingMode,
+} from './meetingModes';
 import { SegmentedControl, ToneChip, WtDateField, WtSwitch } from '@app/modules/common/components/ui';
-import { SkeletonList } from '@app/modules/common/components/Skeleton';
+import { ContactPicker } from '@app/modules/common/components/ui/ContactPicker';
+import { contactLabel } from '@app/modules/common/components/ui/contactLabel';
+import { useDropdownBoundary } from '@app/modules/common/components/ui/dropdownBoundary';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
 import { KTIcon } from '@metronic/helpers';
 import { TRIO, menuOptionSx, type Trio } from '@app/modules/common/components/ui/patterns';
@@ -71,7 +76,9 @@ export interface MeetingFormBodyProps {
       * caller decides whether to offer editing at all.
       */
      editing?: {
-         id: string; title: string; description?: string; isOnline: boolean;
+         id: string; title: string; description?: string;
+         /** `isOnline` is the legacy mirror; `meetingMode` wins where the row carries one. */
+         isOnline: boolean; meetingMode?: string | null;
          meetingLink?: string | null; location?: string | null;
          startDate: string; endDate: string; projectId?: string | null;
          participantIds?: string[]; externalParticipantIds?: string[];
@@ -126,54 +133,13 @@ interface Option {
     value: string; label: string; avatar?: string | null;
     /** Location picker only: its section, and the second line when it is not the address. */
     group?: string; caption?: string;
+    /** Contact pickers only — see `ContactOption`, which this feeds. */
+    name?: string; hasEmail?: boolean;
 }
 
 /** The location picker's "Other location" row — picking it empties the field to type into. */
 const OTHER_LOCATION = 'other';
 const filterAddresses = createFilterOptions<Option>({ stringify: (o) => `${o.label} ${o.value}` });
-
-/**
- * One page of contacts. Enough to fill the dropdown and a little to scroll into.
- *
- * The address book is thousands of rows; fetching all of them to populate a list that shows
- * seven is a multi-megabyte payload for a screen nobody has scrolled yet.
- */
-const CONTACT_PAGE_SIZE = 25;
-
-/** A contact row as the picker shows it. Module scope: it closes over nothing. */
-const toContactOption = (c: any): Option => ({
-    value: c.id,
-    label: c.fullName || 'Unnamed contact',
-    avatar: c.profilePhoto ?? null,
-    // The number is what tells two people with the same name apart, which is most of why
-    // anybody is searching this list.
-    caption: [c.phone, c.email].filter(Boolean).join('  ·  ') || undefined,
-});
-
-/**
- * One page of the address book, A-Z.
- *
- * Module scope so it is not rebuilt each render — an effect depending on it would otherwise
- * re-run on every keystroke of every other field in this form.
- *
- * Sorted by name because the endpoint's default is newest-first, which is right for a table of
- * recent activity and wrong for a list somebody is scanning for a name they already know.
- */
-const fetchContactPage = async (query: string, page: number) => {
-    const res: any = await getAllClientContacts({
-        search: query.trim() || undefined,
-        pageSize: CONTACT_PAGE_SIZE,
-        page,
-        sortBy: 'fullName',
-        sortOrder: 'asc',
-    }, true);
-    const body = res?.data ?? res ?? {};
-    return {
-        rows: (body.contacts ?? []).map(toContactOption) as Option[],
-        total: Number(body.total ?? 0),
-    };
-};
-
 
 /** The two halves the pickers speak: a wire date and a 24h clock time, off one ISO value. */
 const datePart = (iso: string) => (iso ? dayjs(iso).format('YYYY-MM-DD') : '');
@@ -195,7 +161,27 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
 
         const opening = useMemo(() => openingRange(selectedDateTimeInfo), [selectedDateTimeInfo]);
 
-        const [isOnline, setIsOnline] = useState(true);
+        /**
+         * Every dropdown in this form stays inside the dialog's scroll port.
+         *
+         * MUI portals a list to `document.body`, so the modal around the field constrains
+         * nothing and Popper's default boundary is the whole viewport. Opening the Project
+         * picker and then scrolling left the list clamped to the TOP OF THE PAGE, over the
+         * header and clear of the modal it belongs to, with its field nowhere in sight.
+         *
+         * One hook for the form, spread onto each picker: `ref` goes on the root below and
+         * finds the scroll port by walking up, so this keeps working whichever shell the body
+         * is dropped into. See `dropdownBoundary` — the task form had the same bug.
+         */
+        const dropdown = useDropdownBoundary();
+
+        /**
+         * HOW it is attended — ONLINE | OFFLINE | HYBRID. See `meetingModes`.
+         *
+         * Replaces an `isOnline` boolean, which could not say "some of us in the room and the
+         * rest on the link" — the shape most client reviews actually take.
+         */
+        const [mode, setMode] = useState<MeetingMode>('ONLINE');
         const [title, setTitle] = useState('');
         const [meetingLink, setMeetingLink] = useState('');
         const [location, setLocation] = useState('');
@@ -212,22 +198,6 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
          */
         const [kind, setKind] = useState<MeetingKind>(() =>
             (defaultProjectId || lockProject) ? 'PROJECT' : kindOfExisting(editing as any));
-        /** Global contact search for a CONTACT meeting — this one is not project-derived. */
-        const [contactQuery, setContactQuery] = useState('');
-        const [contactOptions, setContactOptions] = useState<Option[]>([]);
-        const [contactLoading, setContactLoading] = useState(false);
-        /** Rows fetched so far vs rows that exist — the only thing that says "keep scrolling". */
-        const [contactTotal, setContactTotal] = useState(0);
-        const [contactPage, setContactPage] = useState(1);
-        /**
-         * The chosen contacts, held APART from the search results.
-         *
-         * They cannot be derived by filtering `contactOptions`, which is what the first version
-         * did: that list is whatever the last search returned, so picking Rahul and then
-         * searching "Priya" removed Rahul's chip while he was still selected. The chips have to
-         * outlive the search that found them.
-         */
-        const [selectedContacts, setSelectedContacts] = useState<Option[]>([]);
         const [internal, setInternal] = useState<string[]>([]);
         // An edit overwrites this from the meeting itself (below).
         const [external, setExternal] = useState<string[]>(defaultExternalParticipant ? [defaultExternalParticipant.id] : []);
@@ -267,7 +237,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
             if (!editing) return;
             setTitle(editing.title || '');
             setDescription(editing.description || '');
-            setIsOnline(!!editing.isOnline);
+            setMode(modeOfExisting(editing));
             setMeetingLink(editing.meetingLink || '');
             setLocation(editing.location || '');
             setStartDate(dayjs(editing.startDate).format('YYYY-MM-DDTHH:mm'));
@@ -547,7 +517,10 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     const seen = new Set<string>();
                     setUsedLocations(
                         [...((res?.data || []) as any[])]
-                            .filter((m) => !m.isOnline && m.location?.trim())
+                            // Any meeting that HAD a room, which now includes the hybrid ones.
+                            // Filtering on `!isOnline` dropped every hybrid address, so the
+                            // second meeting in the same room still meant retyping it.
+                            .filter((m) => m.location?.trim())
                             .sort((a, b) => dayjs(b.startDate).valueOf() - dayjs(a.startDate).valueOf())
                             .map((m) => ({ address: String(m.location).trim(), on: m.startDate }))
                             .filter((u) => !seen.has(u.address) && seen.add(u.address)),
@@ -582,13 +555,14 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const locationEdited = useRef(false);
         const locationInput = useRef<HTMLInputElement>(null);
 
-        // Opening value for a newly-offline meeting: the first option, which the list orders as
+        // Opening value for a meeting that has just acquired a room — offline OR hybrid, since
+        // a hybrid needs an address exactly as much as an offline one does. The first option is
         // the project's own address where there is one and our office where there is not.
         // Only when the field is still empty — never over a typed one.
         useEffect(() => {
-            if (isOnline || location || locationEdited.current || !addressOptions.length) return;
+            if (!modeHasPlace(mode) || location || locationEdited.current || !addressOptions.length) return;
             setLocation(addressOptions[0].value);
-        }, [isOnline, location, addressOptions]);
+        }, [mode, location, addressOptions]);
 
         /**
          * External roster: the project's client stakeholders.
@@ -606,9 +580,29 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 ? [{ value: defaultExternalParticipant.id, label: defaultExternalParticipant.name, avatar: defaultExternalParticipant.avatar ?? null }]
                 : [];
             if (!projectDetail) return fromCaller;
+            /*
+             * Labelled "Name (Company)", exactly as the CRM search labels the same person.
+             *
+             * `contactLabel` is the shared rule, so a stakeholder who is also in the address
+             * book reads identically whichever source named them — and the picker's local
+             * filter, which matches on the label, narrows the roster by company for the same
+             * "manish a2o" a server search would.
+             *
+             * The team row's own company is offered as a fallback: a roster entry carries it
+             * directly, where the contact record may not have been filled in.
+             */
             const contactOption = (t: any) => ({
                 value: t.contact.id,
-                label: t.contact.fullName || t.company?.companyName || 'Unknown',
+                label: contactLabel({
+                    fullName: t.contact.fullName,
+                    company: t.contact.company ?? t.company,
+                    subCompany: t.contact.subCompany,
+                }),
+                name: t.contact.fullName || undefined,
+                // `getLeadById` includes the WHOLE contact row, so an absent email here is an
+                // absence on the record. A source that did not select the column must leave
+                // this undefined instead — see `ContactOption.hasEmail`.
+                hasEmail: 'email' in (t.contact ?? {}) ? !!t.contact.email : undefined,
                 avatar: t.contact.profilePhoto || t.contact.avatar || null,
             });
             const fromTeams = (projectDetail.leadTeams || [])
@@ -619,7 +613,9 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 .map(contactOption);
             const fromMembers = (projectDetail.externalMembers || [])
                 .filter((m: any) => m.contactId)
-                .map((m: any) => ({ value: m.contactId, label: m.name || 'Unknown', avatar: null }));
+                // `externalMembers` carries a name and an id and nothing else, so whether this
+                // person has an email is NOT KNOWN here — left undefined rather than guessed.
+                .map((m: any) => ({ value: m.contactId, label: m.name || 'Unknown', name: m.name || undefined, avatar: null }));
             const seen = new Set<string>();
             return [...fromTeams, ...fromProjectTeams, ...fromMembers, ...fromCaller]
                 .filter((o: Option) => !seen.has(o.value) && seen.add(o.value))
@@ -744,129 +740,20 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
          * "required" at a person who has nothing to choose from.
          */
         /**
-         * Contacts for a CONTACT meeting.
+         * Switching type clears NOTHING, because the three tabs now show the same fields.
          *
-         * A SEARCH, not a preloaded list: the external-participant picker above is fed from the
-         * chosen project's roster, and a contact meeting has no project to derive one from. The
-         * whole address book is thousands of rows, so it is queried as you type through the
-         * same `light` projection the contacts screen's own pickers use.
+         * It used to clear the links the next type "did not own" — leaving Project wiped the
+         * project, leaving Contact wiped the guests. That was load-bearing while each tab
+         * showed a different set of fields: a form displaying no project while still holding
+         * one is lying about what it is going to save.
          *
-         * Debounced at 250ms — a request per keystroke on a six-letter name is five wasted
-         * round trips and a list that flickers through four wrong answers on the way.
+         * The tabs no longer differ that way, so the clearing had become its own bug: a person
+         * who filled in a project, realised it was really an internal review of that project,
+         * and switched tab, lost the project they had just picked — and lost it silently, to a
+         * control that looks like a filter. The type now decides ONE thing, which field is
+         * required (`validateMeetingKind`), and deciding that is not a reason to throw work away.
          */
-        /**
-         * First page, on open and on every change of the search term.
-         *
-         * Debounced at 250ms — a request per keystroke on a six-letter name is five wasted
-         * round trips and a list that flickers through four wrong answers on the way.
-         */
-        useEffect(() => {
-            if (kind !== 'CONTACT') return;
-            let cancelled = false;
-            setContactLoading(true);
-            const timer = setTimeout(async () => {
-                try {
-                    const { rows, total } = await fetchContactPage(contactQuery, 1);
-                    if (cancelled) return;
-                    setContactOptions(rows);
-                    setContactTotal(total);
-                    setContactPage(1);
-                } catch {
-                    if (!cancelled) { setContactOptions([]); setContactTotal(0); }
-                } finally {
-                    if (!cancelled) setContactLoading(false);
-                }
-            }, 250);
-            return () => { cancelled = true; clearTimeout(timer); };
-        }, [kind, contactQuery]);
-
-        /**
-         * The next page, when the list has been scrolled near its end.
-         *
-         * Guarded on `contactLoading` as well as the total: a fast scroll fires this repeatedly
-         * before the first response lands, and without the guard page 2 is requested four times
-         * and appended four times.
-         */
-        /**
-         * The chips for a contact meeting being EDITED.
-         *
-         * The row stores contact IDS; the chips need names. Without this an edit opens with the
-         * right contacts selected and an empty-looking box — and saving from there would look
-         * like it had dropped them.
-         *
-         * Fetches only the ids on the meeting, not a page of the address book, and only while
-         * they are still unresolved — so it runs once per edit rather than on every keystroke.
-         */
-        useEffect(() => {
-            if (kind !== 'CONTACT') return;
-            const missing = external.filter((id) => !selectedContacts.some((c) => c.value === id));
-            if (!missing.length) return;
-            let cancelled = false;
-            (async () => {
-                /*
-                 * BY ID, one call each. The first version asked for a page of the address book
-                 * and filtered it for these ids — which, on a list sorted A-Z across thousands
-                 * of rows, would almost never contain them. `missing` is the contacts on one
-                 * meeting, so this is one or two calls, not a page scan.
-                 */
-                const found = await Promise.all(missing.map(async (id) => {
-                    try {
-                        const res: any = await getClientContactById(id);
-                        const c = res?.data?.contact ?? res?.contact ?? null;
-                        return c ? toContactOption(c) : null;
-                    } catch {
-                        // A contact since deleted. Its id is still on the meeting, so it keeps
-                        // its place as a chip rather than vanishing without explanation.
-                        return { value: id, label: 'Contact no longer in the CRM' } as Option;
-                    }
-                }));
-                if (cancelled) return;
-                const resolved = found.filter((f): f is Option => !!f);
-                if (!resolved.length) return;
-                setSelectedContacts((prev) => [
-                    ...prev,
-                    ...resolved.filter((f) => !prev.some((p) => p.value === f.value)),
-                ]);
-            })();
-            return () => { cancelled = true; };
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [kind, external.join(',')]);
-
-        const loadMoreContacts = async () => {
-            if (contactLoading || contactOptions.length >= contactTotal) return;
-            const next = contactPage + 1;
-            setContactLoading(true);
-            try {
-                const { rows, total } = await fetchContactPage(contactQuery, next);
-                setContactOptions((prev) => {
-                    // De-duplicated on append: a contact created between two page requests
-                    // shifts every later row, which otherwise shows one of them twice.
-                    const seen = new Set(prev.map((o) => o.value));
-                    return [...prev, ...rows.filter((r) => !seen.has(r.value))];
-                });
-                setContactTotal(total);
-                setContactPage(next);
-            } catch {
-                /* Leave what is already listed; the next scroll tries again. */
-            } finally {
-                setContactLoading(false);
-            }
-        };
-
-        /**
-         * Switching type clears the link the previous type owned.
-         *
-         * Without this, choosing Project, picking one, then switching to Internal would save a
-         * meeting whose type says Internal while it still carries a project id. The server
-         * clears it too — but a form that shows no project while still holding one is lying to
-         * the person about what they are about to save.
-         */
-        const changeKind = (next: MeetingKind) => {
-            setKind(next);
-            if (next !== 'PROJECT') setProjectId('');
-            if (next === 'INTERNAL') { setExternal([]); setSelectedContacts([]); }
-            if (next !== 'CONTACT') setContactQuery('');
-        };
+        const changeKind = setKind;
 
         const validate = (): string | null => {
             if (!title.trim()) return 'Title is required';
@@ -909,9 +796,15 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                         description: description.trim(),
                         startDate: dayjs(startDate).toISOString(),
                         endDate: dayjs(endDate).toISOString(),
-                        isOnline,
-                        meetingLink: isOnline ? meetingLink.trim() : undefined,
-                        location: isOnline ? undefined : location.trim(),
+                        meetingMode: mode,
+                        // The legacy mirror, sent so a row stays readable to the screens still
+                        // on the boolean. The server recomputes it from the mode and ignores
+                        // this — it is about not transmitting a contradiction.
+                        isOnline: isOnlineFor(mode),
+                        // A HYBRID meeting sends BOTH: it has a link AND a room, and dropping
+                        // either leaves half the guests with nowhere to go.
+                        meetingLink: modeHasLink(mode) ? meetingLink.trim() : undefined,
+                        location: modeHasPlace(mode) ? location.trim() : undefined,
                         participants: internal.length ? internal.join(',') : undefined,
                         externalParticipants: external.length ? external.join(',') : undefined,
                     meetingType: kind,
@@ -993,6 +886,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         ) => (
             <Autocomplete
                 multiple size="small" fullWidth disableCloseOnSelect
+                slotProps={dropdown.slotProps}
                 options={options}
                 value={options.filter((o) => selected.includes(o.value))}
                 onChange={(_, picked) => onPick(picked.map((p) => p.value))}
@@ -1029,6 +923,33 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         );
 
         /**
+         * Does THIS tab insist on a project? Only the Project one does.
+         *
+         * The field is on every tab either way — see the note where it renders. This is the one
+         * thing the tab changes about it, and it is read in three places (the label's asterisk,
+         * the error state, the helper), so it is named once rather than spelled
+         * `kind === 'PROJECT'` three times where one could later be missed.
+         */
+        const projectRequired = kind === 'PROJECT';
+
+        /**
+         * The outside guests. ONE picker, on every tab, over one list.
+         *
+         * ─── THE SHARED COMPONENT, NOT A FIELD OF THIS FORM ──────────────────────────
+         * This file had TWO controls writing `external`: a roster picker fed from the chosen
+         * project, shown only on the Project tab, and a global CRM search shown only on
+         * Contact. Two controls over one field is a shape where picking in either silently
+         * rewrites the other, which is why each had to be hidden when the other showed — and
+         * that is what made the three tabs three different forms.
+         *
+         * `ContactPicker` is that question answered once, in the kit. It owns the debounce, the
+         * paging, the chip resolution, the "N of M" count and the "Name (Company)" label, so
+         * the next screen that needs an outside guest consumes it instead of rebuilding three
+         * quarters of it. What stays here is the only part that is about MEETINGS: the
+         * project's own stakeholders, offered above the search results so a project meeting
+         * keeps the two-click roster it has always had.
+         */
+        /**
          * The flat label every field in this column carries, with a small tinted glyph.
          *
          * Colour at LABEL scale, not card scale: enough to give the eye something to land on
@@ -1050,7 +971,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const projectLabel = projectOptions.find((o) => o.value === projectId)?.label;
 
         return (
-            <Box>
+            <Box ref={dropdown.ref}>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
                 {/* TITLE FIRST, and big. It is the meeting's identifier — the string every list,
@@ -1076,11 +997,14 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     decided it. The chip is not decoration: this same line otherwise reads as
                     "some project", and a lead that has not become one is a different thing to
                     everybody downstream of the booking. */}
-                {/* WHAT KIND of meeting, before anything that depends on it.
-                    It decides which field appears underneath, so it cannot sit below that
-                    field — and it is hidden entirely when the caller already named a project,
-                    because "is this a project meeting?" has one answer when you opened the
-                    form from a project. */}
+                {/* WHAT KIND of meeting — what it is FILED AS, and nothing about the layout.
+                    It used to decide which fields appeared, so the three tabs were three
+                    different forms and switching moved the controls under the cursor. Every
+                    field is now on every tab; the kind decides which ONE of them is required,
+                    which its hint says out loud. Still first, because that is the sentence the
+                    rest of the form is an answer to — and still hidden entirely when the
+                    caller already named a project, because "is this a project meeting?" has
+                    one answer when you opened the form from a project. */}
                 {!lockProject && (
                     <Box sx={{ mb: 2 }}>
                         <SegmentedControl
@@ -1098,92 +1022,15 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     </Box>
                 )}
 
-                {kind === 'CONTACT' && (
-                    <Box sx={{ mb: 2 }}>
-                        <L text="Contact *" icon="profile-user" trio={TRIO.cyan} />
-                        <Autocomplete
-                            multiple size="small" fullWidth disableCloseOnSelect
-                            // Selected contacts are part of the option list even when the
-                            // current search does not contain them, so MUI can still resolve
-                            // every chip it is asked to render.
-                            options={[
-                                ...selectedContacts,
-                                ...contactOptions.filter((o) => !external.includes(o.value)),
-                            ]}
-                            value={selectedContacts}
-                            onChange={(_, picked) => {
-                                setSelectedContacts(picked as Option[]);
-                                setExternal((picked as Option[]).map((x) => x.value));
-                            }}
-                            onInputChange={(_, v, reason) => { if (reason === 'input') setContactQuery(v); }}
-                            getOptionLabel={(o) => o.label}
-                            isOptionEqualToValue={(o, v) => o.value === v.value}
-                            // The SERVER filters. Re-filtering here would hide rows that matched
-                            // on a phone number or an email, since neither is in the label.
-                            filterOptions={(x) => x}
-                            loading={contactLoading}
-                            // The skeleton stands in for the rows about to arrive, rather than a
-                            // spinner that says only "something is happening". Same component the
-                            // rest of the app loads lists with.
-                            loadingText={<SkeletonList items={5} showAvatar />}
-                            ListboxProps={{
-                                sx: menuOptionSx,
-                                /*
-                                 * Load the next page as the list nears its end, instead of
-                                 * fetching six thousand rows to fill a box that shows seven.
-                                 * 120px of runway so the rows are there by the time the scroll
-                                 * reaches them, rather than after a visible stall.
-                                 */
-                                onScroll: (e: React.SyntheticEvent) => {
-                                    const el = e.currentTarget as HTMLElement;
-                                    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 120) {
-                                        void loadMoreContacts();
-                                    }
-                                },
-                            }}
-                            noOptionsText={contactQuery.trim()
-                                ? 'No contact matches'
-                                : 'Type a name, number or email'}
-                            renderOption={(props, o) => (
-                                <Box component="li" {...props} key={o.value}>
-                                    <Avatar src={o.avatar || undefined} sx={{ width: 26, height: 26, mr: 1.25, fontSize: 11 }}>
-                                        {o.label.charAt(0).toUpperCase()}
-                                    </Avatar>
-                                    <Box sx={{ minWidth: 0 }}>
-                                        <Typography sx={{ fontSize: 13.5, fontWeight: 600 }} noWrap>{o.label}</Typography>
-                                        {o.caption && (
-                                            <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }} noWrap>
-                                                {o.caption}
-                                            </Typography>
-                                        )}
-                                    </Box>
-                                </Box>
-                            )}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    placeholder="Search a CRM contact by name, number or email"
-                                    error={touched && !external.length}
-                                    helperText={touched && !external.length
-                                        ? 'Pick the contact you are meeting'
-                                        : ' '}
-                                />
-                            )}
-                        />
-                        {/* How much of the list you are looking at. Without it a dropdown that
-                            stops at 25 of 6,000 looks like the whole address book, and somebody
-                            concludes their contact is not in the CRM. */}
-                        {contactOptions.length > 0 && (
-                            <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mt: -1.75, ml: 0.25 }}>
-                                {contactOptions.length >= contactTotal
-                                    ? `${contactTotal} contact${contactTotal === 1 ? '' : 's'}`
-                                    : `${contactOptions.length} of ${contactTotal} — scroll for more`}
-                            </Typography>
-                        )}
-                    </Box>
-                )}
-
-                {kind === 'PROJECT' && (lockProject && projectLabel ? (
+                {/* THE PROJECT, ON EVERY TAB.
+                    It used to appear only on the Project tab and be swapped for a Contact
+                    picker elsewhere, so the three tabs were three different forms and moving
+                    between them moved the controls under the cursor. It is here always, and
+                    the tab decides one thing about it: whether it is REQUIRED. An internal
+                    review of a project is internal AND about that project; a first call with a
+                    contact can already concern a lead somebody else opened. Both were
+                    unsayable while the field was only on one tab. */}
+                {lockProject && projectLabel ? (
                     <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: -1, mb: 2 }}>
                         <Box sx={{ color: leadName ? TRIO.amber.c : TRIO.purple.c, lineHeight: 0 }}>
                             <KTIcon iconName={leadName ? 'abstract-26' : 'briefcase'} className="fs-6" />
@@ -1195,9 +1042,10 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     </Stack>
                 ) : (
                     <Box sx={{ mb: 2 }}>
-                        <L text="Project *" icon="briefcase" trio={TRIO.purple} />
+                        <L text={projectRequired ? 'Project *' : 'Project'} icon="briefcase" trio={TRIO.purple} />
                         <Autocomplete
                             size="small" fullWidth
+                            slotProps={dropdown.slotProps}
                             options={projectOptions}
                             value={projectOptions.find((o) => o.value === projectId) || null}
                             onChange={(_, picked) => setProjectId(picked?.value || '')}
@@ -1207,13 +1055,15 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                             renderInput={(params) => (
                                 <TextField
                                     {...params}
-                                    placeholder="Search project"
-                                    error={touched && !projectId}
+                                    placeholder={projectRequired
+                                        ? 'Search project'
+                                        : 'Search project — optional for this kind of meeting'}
+                                    error={projectRequired && touched && !projectId}
                                     // Named rather than left to the banner: the picker only
                                     // offers projects you are ON, so "required" and "empty"
                                     // can mean you have nothing to pick, which is a different
                                     // problem from not having picked.
-                                    helperText={touched && !projectId
+                                    helperText={projectRequired && touched && !projectId
                                         ? (projectOptions.length
                                             ? 'Choose the project this meeting belongs to'
                                             : 'You are not on any project yet — ask to be added to one')
@@ -1222,25 +1072,24 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                             )}
                         />
                     </Box>
-                ))}
+                )}
 
-                {/* Online / In person, each carrying its own glyph. Two same-sized buttons whose
-                    only difference is a word are read by shape first and word second — and this
-                    choice decides which field appears underneath them. */}
-                <Box role="radiogroup" aria-label="Meeting format" sx={{ display: 'flex', gap: 1.25, mb: 2 }}>
-                    {[
-                        { label: 'Online', on: true, icon: 'video' },
-                        { label: 'In person', on: false, icon: 'geolocation' },
-                    ].map((opt) => {
-                        const active = isOnline === opt.on;
+                {/* Online / Offline / Hybrid, each carrying its own glyph. Three same-sized
+                    buttons whose only difference is a word are read one at a time; with a glyph
+                    they are read by shape and confirmed by the word — and this choice decides
+                    which field appears underneath them. Hybrid shows BOTH. */}
+                <Box role="radiogroup" aria-label="Meeting format" sx={{ display: 'flex', gap: 1.25, mb: 1 }}>
+                    {MEETING_MODES.map((value) => {
+                        const opt = MEETING_MODE_META[value];
+                        const active = mode === value;
                         return (
                             <Box
-                                key={opt.label}
+                                key={value}
                                 component="button"
                                 type="button"
                                 role="radio"
                                 aria-checked={active}
-                                onClick={() => setIsOnline(opt.on)}
+                                onClick={() => setMode(value)}
                                 sx={{
                                     flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
                                     height: 42, borderRadius: 1.5, cursor: 'pointer',
@@ -1261,9 +1110,18 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                         );
                     })}
                 </Box>
+                {/* What the chosen mode MEANS for the guests, in the same place and the same
+                    voice as the meeting-kind hint above. "Hybrid" alone does not say who is
+                    expected where, and this switch is the one place anybody decides it. */}
+                <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 1.5, lineHeight: 1.5 }}>
+                    {MEETING_MODE_META[mode].hint}
+                </Typography>
 
-                <Box sx={{ mb: 2 }}>
-                    {isOnline ? (
+                {/* A field per thing the mode owns — NOT two branches of one ternary. A hybrid
+                    owns both, and a ternary can only ever render one of them. Stacked in the
+                    order a guest decides: can I join from here, and if not, where do I go. */}
+                <Box sx={{ mb: 2, display: 'grid', gap: 1.5 }}>
+                    {modeHasLink(mode) && (
                         <TextField
                             fullWidth size="small"
                             placeholder="meet.google.com/… or a Teams/Zoom link"
@@ -1278,10 +1136,12 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                                 ),
                             }}
                         />
-                    ) : (
+                    )}
+                    {modeHasPlace(mode) && (
                         <Autocomplete
                             freeSolo
                             size="small" fullWidth
+                            slotProps={dropdown.slotProps}
                             options={locationOptions}
                             value={locationOptions.find((o) => o.value === location) ?? location}
                             onChange={(_, picked) => {
@@ -1431,20 +1291,31 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     )}
                 </Stack>
                 <Grid container spacing={1.5} sx={{ mb: 2 }}>
-                    <Grid item xs={12} sm={kind === 'PROJECT' ? 6 : 12}>
+                    <Grid item xs={12} sm={6}>
                         {peoplePicker('Internal Team', internalOptions, internal, setInternal, '', false)}
                     </Grid>
-                    {/* PROJECT only, and for two reasons. Its options come from the chosen
-                        project's roster, so there is nothing to offer without one — and on a
-                        CONTACT meeting it would be a SECOND control writing the same
-                        `external` list the Contact field above already owns, where picking in
-                        one silently rewrites the other. Internal Team takes the full width
-                        when it is alone rather than leaving a gap where a field used to be. */}
-                    {kind === 'PROJECT' && (
-                        <Grid item xs={12} sm={6}>
-                            {peoplePicker('External Team', externalOptions, external, setExternal, '', false)}
-                        </Grid>
-                    )}
+                    {/* EXTERNAL TEAM, ON EVERY TAB — the same control the Contact tab used
+                        to put at the top of the form under its own heading. See the note on
+                        `ContactPicker`'s use above for why there is one of these and not two. */}
+                    <Grid item xs={12} sm={6}>
+                        <ContactPicker
+                            label="External Team"
+                            // Only the Contact tab insists on one, and the asterisk is the
+                            // field's own — the same way Internal Team and Project mark theirs.
+                            required={kind === 'CONTACT'}
+                            value={external}
+                            onChange={setExternal}
+                            // The project's roster, offered above the CRM search. Empty when
+                            // there is no project, which is when the search is all there is.
+                            extraOptions={externalOptions}
+                            loading={teamLoading}
+                            // The same rule the server enforces through `validateMeetingLinks`.
+                            error={kind === 'CONTACT' && touched && !external.length}
+                            helperText={kind === 'CONTACT' && touched && !external.length
+                                ? 'Pick the contact you are meeting'
+                                : undefined}
+                        />
+                    </Grid>
                 </Grid>
 
                 <L text="Agenda" icon="notepad-edit" trio={TRIO.cyan} />
@@ -1508,6 +1379,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                             <Box sx={{ mt: 1.25 }}>
                                 <Autocomplete
                                     multiple size="small" fullWidth disableCloseOnSelect
+                                    slotProps={dropdown.slotProps}
                                     options={notifyOptions}
                                     value={notifyOptions.filter((o) => notifySelection.includes(o.value))}
                                     onChange={(_, picked) => setNotifyIds(picked.map((p) => p.value))}
