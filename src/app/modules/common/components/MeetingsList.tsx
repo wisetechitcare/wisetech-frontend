@@ -13,7 +13,13 @@ import {
     MEETING_TIMESHEET_FILLED, MEETING_TIMESHEET_PENDING,
 } from '@constants/configurations-key';
 import { Avatar, Box, Dialog, DialogContent, Tooltip, useMediaQuery } from '@mui/material';
-import { toneAlpha } from '@app/modules/common/components/ui';
+// Direct module, NOT the `ui` barrel. The barrel re-exports 58 symbols, one of which
+// transitively loads _metronic/layout/core — and that module calls getLayout() at import
+// time, which reads localStorage. Pulling the barrel in here made halfColors.test.ts and
+// meetingLifecycleTone.test.ts fail at import with "localStorage is not defined", before a
+// single assertion ran. chips.tsx itself imports only MUI and the theme tokens.
+// Same rule as AppIcon and SegmentedControl below — see ui/README.md.
+import { toneAlpha } from '@app/modules/common/components/ui/chips';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
