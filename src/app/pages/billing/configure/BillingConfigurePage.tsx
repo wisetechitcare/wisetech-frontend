@@ -14,6 +14,7 @@ import {
   getBillingStatusLabels, saveBillingStatusLabels, resetBillingStatusLabel,
   type BillingLabelEntry, type BillingTone, type BillingStatusColour,
 } from "@services/billingConfig";
+import PerOrgPrefixSettings from "@app/modules/common/components/PerOrgPrefixSettings";
 import { BILLING_LABELS_KEY } from "../components/useBillingLabels";
 import TaxRateSections from "./TaxRateSections";
 
@@ -140,6 +141,34 @@ const BillingConfigurePage: React.FC = () => {
   return (
     <ConfigPageLayout>
       <Stack spacing={2}>
+        {/* Document numbering.
+            The same per-organization grid Leads Configure uses, pointed at the two
+            billing series — so an organization's proformas and its tax invoices
+            each carry its own prefix, and sister organizations can share one
+            counter while keeping separate prefixes.
+
+            The fiscal year is NOT edited here. It comes from the date on the
+            document, so the series rolls over on 1 April by itself. Changing a
+            prefix affects the next number only; everything already issued keeps
+            the number it went out with. */}
+        <ConfigSectionCard
+          title="Proforma Numbering"
+          description="The prefix each organization's proforma numbers carry. The year and the running number are added automatically — WT/PI/26-27/0001 — and the count restarts at 1 each April."
+          icon="bi-hash"
+          iconColor="blue"
+        >
+          <PerOrgPrefixSettings typeLabel="Proforma" typeValue="PROFORMA" />
+        </ConfigSectionCard>
+
+        <ConfigSectionCard
+          title="Tax Invoice Numbering"
+          description="The same, for tax invoices. A separate series from proformas, so the two never share a running number."
+          icon="bi-hash"
+          iconColor="blue"
+        >
+          <PerOrgPrefixSettings typeLabel="Tax Invoice" typeValue="INVOICE" />
+        </ConfigSectionCard>
+
         {(data?.groups ?? []).map((group) => (
           <ConfigSectionCard
             key={group.key}

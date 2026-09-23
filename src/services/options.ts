@@ -90,6 +90,38 @@ export const fetchLeadNumberPreview = async (organizationId: string) => {
     }
 };
 
+/**
+ * The next Proforma or Tax Invoice number for an organization, without consuming
+ * it. `organizationId` is optional — omitted, it previews the global series that
+ * a project with no organization falls back to.
+ */
+export const fetchDocumentNumberPreview = async (
+    identifier: 'PROFORMA' | 'INVOICE',
+    organizationId?: string,
+) => {
+    const params = new URLSearchParams({ identifier });
+    if (organizationId) params.set('organizationId', organizationId);
+    const { data } = await axios.get(`${API_BASE_URL}/${OPTIONS.GET_NUMBER_PREVIEW}?${params.toString()}`);
+    return data;
+};
+
+/**
+ * The next PROJECT number, without consuming it.
+ *
+ * `organizationId` is optional and only picks which prefix TEXT is shown — the
+ * number is ONE continuous company-wide series that never resets on a fiscal-year
+ * rollover, so it reads the same whoever asks.
+ */
+export const fetchProjectNumberPreview = async (organizationId?: string) => {
+  const params = new URLSearchParams();
+  if (organizationId) params.set('organizationId', organizationId);
+  const query = params.toString();
+  const { data } = await axios.get(
+    `${API_BASE_URL}/${OPTIONS.GET_PROJECT_NUMBER_PREVIEW}${query ? `?${query}` : ''}`,
+  );
+  return data;
+};
+
 export const deletePrefixSetting = async (id: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${OPTIONS.DELETE_PREFIX_SETTING.replace(':id', id)}`;

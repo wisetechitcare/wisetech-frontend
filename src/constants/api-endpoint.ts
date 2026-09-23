@@ -385,9 +385,13 @@ export const OPTIONS = {
     GET_ALL_PREFIX_SETTINGS: 'api/options/prefix-settings',
     CREATE_PREFIX_SETTING: 'api/options/prefix-settings',
     UPDATE_PREFIX_SETTING: 'api/options/prefix-settings/:id',
+    GET_PROJECT_NUMBER_PREVIEW: 'api/options/project-number-preview',
     SET_PREFIX_SEQUENCE_LINK: 'api/options/prefix-settings/:id/sequence-link',
     DELETE_PREFIX_SETTING: 'api/options/prefix-settings/:id',
     GET_LEAD_NUMBER_PREVIEW: 'api/options/lead-number-preview',
+    // The billing-document equivalent: what the next Proforma or Tax Invoice
+    // number would be for an organization. Consumes nothing.
+    GET_NUMBER_PREVIEW: 'api/options/number-preview',
     COUNTRIES: 'api/options/countries',
     STATES: 'api/options/states',
     CITIES: 'api/options/cities',

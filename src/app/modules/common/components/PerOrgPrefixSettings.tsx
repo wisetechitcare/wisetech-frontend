@@ -31,24 +31,42 @@ import {
   updatePrefixSetting,
   setPrefixSequenceLink,
   fetchLeadNumberPreview,
+  fetchProjectNumberPreview,
+  fetchDocumentNumberPreview,
 } from '@services/options';
 import { fetchCompanyOverview } from '@services/company';
 import { useOrgScope } from '@hooks/useOrgScope';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { ToneChip } from '@app/modules/common/components/ui/chips';
 import {
-  convertFiscalYearToYearFormat,
   convertFiscalYearToDates,
   toISODateString,
   getDefaultFiscalYear,
   type PrefixSetting,
 } from './PrefixSettingsForm';
+import {
+  FISCAL_YEAR_FORMAT_OPTIONS,
+  asFiscalYearFormat,
+  formatFiscalYearSegment,
+  type FiscalYearFormat,
+} from '@utils/fiscalYearSegment';
 
 interface PerOrgPrefixSettingsProps {
   /** Human label, e.g. 'Lead'. */
   typeLabel: string;
   /** Enum value, e.g. 'LEAD'. */
   typeValue: string;
+  /**
+   * The series is ONE continuous company-wide counter rather than one per
+   * organization. Each organization still sets its own prefix TEXT; the number
+   * runs across all of them and never resets on a fiscal-year rollover.
+   *
+   * PROJECT is the only such series today: 772 is the 772nd project the company
+   * has ever taken on, and the next is 773 whatever the date and whoever takes
+   * it on. The per-organization linking controls are hidden here because there
+   * is nothing to link — every organization is already on the one counter.
+   */
+  singleSeries?: boolean;
 }
 
 interface RowState {
@@ -65,7 +83,11 @@ interface Series {
   followers: RowState[];
 }
 
-const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, typeValue }) => {
+const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
+  typeLabel,
+  typeValue,
+  singleSeries = false,
+}) => {
   const { organizations: allOrganizations, isLoading: orgsLoading } = useOrgScope({
     includeAll: false,
     initialScopeId: '',
@@ -79,6 +101,10 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
   const [rows, setRows] = useState<RowState[]>([]);
   const [fiscalYear, setFiscalYear] = useState('');
   const [savedFiscalYear, setSavedFiscalYear] = useState('');
+  // How the year is PRINTED in the number. One choice for the whole series, fanned
+  // out to every row on save exactly as the fiscal year itself already is.
+  const [yearFormat, setYearFormat] = useState<FiscalYearFormat>('YY-YY');
+  const [savedYearFormat, setSavedYearFormat] = useState<FiscalYearFormat>('YY-YY');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [linkingOrgId, setLinkingOrgId] = useState<string | null>(null);
@@ -123,6 +149,12 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
           getDefaultFiscalYear();
         setFiscalYear(resolvedYear);
         setSavedFiscalYear(existingYear || '');
+
+        // The first configured row decides the shape; a row that has never been
+        // saved carries null and falls back to the pre-feature default.
+        const existingFormat = asFiscalYearFormat(settings.find((s) => s.yearFormat)?.yearFormat);
+        setYearFormat(existingFormat);
+        setSavedYearFormat(existingFormat);
       } catch {
         if (!cancelled) errorConfirmation(`Could not load ${typeLabel.toLowerCase()} prefix settings.`);
       } finally {
@@ -133,17 +165,29 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
     return () => { cancelled = true; };
   }, [organizations, typeValue, typeLabel, reloadToken]);
 
+  // The sample in the "Next ... No." column, straight from the series that will
+  // actually issue it. Each identifier has its own preview endpoint because each
+  // answers differently when nothing is configured — the lead one refuses, the
+  // others fall back — and none of them consume a number.
   useEffect(() => {
-    if (typeValue !== 'LEAD') return;
     const configured = rows.filter((r) => r.settingId);
     if (!configured.length) return;
     let cancelled = false;
+
+    const previewFor = (organizationId: string) => {
+      if (typeValue === 'LEAD') return fetchLeadNumberPreview(organizationId);
+      if (typeValue === 'PROJECT') return fetchProjectNumberPreview(organizationId);
+      if (typeValue === 'PROFORMA' || typeValue === 'INVOICE') {
+        return fetchDocumentNumberPreview(typeValue, organizationId);
+      }
+      return null;
+    };
 
     (async () => {
       const entries = await Promise.all(
         configured.map(async (row) => {
           try {
-            const res = await fetchLeadNumberPreview(row.organizationId);
+            const res = await previewFor(row.organizationId);
             return [row.organizationId, String(res?.data?.preview ?? '')] as const;
           } catch {
             return [row.organizationId, ''] as const;
@@ -162,13 +206,17 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
       prev.map((row) => (row.organizationId === organizationId ? { ...row, prefix: value } : row)),
     );
 
-  const shortYear = convertFiscalYearToYearFormat(fiscalYear);
+  const shortYear = formatFiscalYearSegment(fiscalYear, yearFormat);
   const dirtyRows = rows.filter((row) => row.prefix.trim() !== row.savedPrefix);
   const yearDirty = !!fiscalYear && fiscalYear !== savedFiscalYear;
-  const hasChanges = dirtyRows.length > 0 || yearDirty;
-  const dirtyCount = dirtyRows.length + (yearDirty ? 1 : 0);
+  const formatDirty = yearFormat !== savedYearFormat;
+  const hasChanges = dirtyRows.length > 0 || yearDirty || formatDirty;
+  const dirtyCount = dirtyRows.length + (yearDirty ? 1 : 0) + (formatDirty ? 1 : 0);
 
-  const rowsToSave = yearDirty
+  // Both the year and its shape belong to the whole series, so changing either
+  // widens the save from the edited rows to every configured one — otherwise half
+  // the organizations would keep printing the old shape.
+  const rowsToSave = yearDirty || formatDirty
     ? rows.filter((row) => row.prefix.trim() || row.settingId)
     : dirtyRows;
   const rowFor = (organizationId: string | null | undefined) =>
@@ -208,8 +256,12 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
   const isDuplicate = (row: RowState) =>
     !!row.prefix.trim() && duplicatePrefixes.has(row.prefix.trim().toLowerCase());
 
+  // Nothing to link on a single company-wide series — every organization already
+  // draws from the one counter, so offering to "share" it would be a no-op button.
   const canLink = (row: RowState) =>
-    !!row.settingId && !rows.some((r) => r.sequenceSourceOrganizationId === row.organizationId);
+    !singleSeries
+    && !!row.settingId
+    && !rows.some((r) => r.sequenceSourceOrganizationId === row.organizationId);
 
   const linkTargets = (row: RowState) =>
     rows.filter(
@@ -255,13 +307,14 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
         const prefix = row.prefix.trim();
         if (!prefix) continue;
         if (row.settingId) {
-          await updatePrefixSetting(row.settingId, { prefix, year: fiscalYear });
+          await updatePrefixSetting(row.settingId, { prefix, year: fiscalYear, yearFormat });
         } else {
           await createPrefixSetting({
             identifier: typeValue,
             year: fiscalYear,
             prefix,
             organizationId: row.organizationId,
+            yearFormat,
           });
         }
       }
@@ -295,7 +348,10 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
     } else if (shortYear) {
       tail = `/${shortYear}/001`;
     } else {
-      tail = '/26-27/001';
+      // No fiscal year resolved yet, so there is no segment to show. Printing a
+      // hardcoded "26-27" here would contradict the format dropdown the moment
+      // anyone picked a different shape.
+      tail = '/001';
     }
 
     const currentPrefixText = row.prefix.trim();
@@ -396,6 +452,43 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({ typeLabel, 
                 options={{ dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', mode: 'range' }}
               />
             </Box>
+
+            {/*
+              How that fiscal year is PRINTED in the number. The range above says
+              WHICH year; this says what it looks like. Each option is labelled with
+              the segment it actually produces for the selected range, so the choice
+              is read rather than decoded.
+            */}
+            <Select
+              size="small"
+              value={yearFormat}
+              onChange={(event) => setYearFormat(event.target.value as FiscalYearFormat)}
+              renderValue={(value) => formatFiscalYearSegment(fiscalYear, value as FiscalYearFormat) || String(value)}
+              sx={{
+                height: 32,
+                minWidth: 108,
+                fontSize: 12.5,
+                fontWeight: 600,
+                backgroundColor: 'background.paper',
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: formatDirty ? 'warning.main' : '#cbd5e1',
+                },
+              }}
+              inputProps={{ 'aria-label': 'Year format' }}
+            >
+              {FISCAL_YEAR_FORMAT_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value} sx={{ fontSize: 12.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                    <Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>
+                      {formatFiscalYearSegment(fiscalYear, option.value) || option.sample}
+                    </Typography>
+                    <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                      {option.label}
+                    </Typography>
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
 
             {/* Status chip on desktop */}
             <Box sx={{ display: { xs: 'none', sm: 'block' } }}>

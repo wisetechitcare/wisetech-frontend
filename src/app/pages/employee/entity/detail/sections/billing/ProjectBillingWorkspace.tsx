@@ -118,18 +118,22 @@ const DocCell: React.FC<{
             onClick={id && onOpen ? (e) => { e.stopPropagation(); onOpen(id); } : undefined}
             sx={{ cursor: id && onOpen ? "pointer" : "default", "&:hover": id && onOpen ? { textDecoration: "underline" } : {} }}
         >
-            <Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>{number}</Typography>
-            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.25 }}>
+            {/* Two lines, not three: the number, then everything that qualifies it
+                on one muted line. Stacking the chip, the version and the date
+                separately made a 160px column three rows tall and set every row in
+                the table to the height of its busiest document cell. */}
+            <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 700 }}>{number}</Typography>
+            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.25, minWidth: 0 }}>
                 {status && <BillingStatusBadge status={status} />}
                 {versions > 1 && (
                     <Typography sx={{ fontSize: 10.5, color: "text.disabled" }}>v{versions}</Typography>
                 )}
+                {date && status !== "DRAFT" && (
+                    <Typography noWrap sx={{ fontSize: 10.5, color: "text.disabled" }}>
+                        {dayjs(date).format("DD-MM-YYYY")}
+                    </Typography>
+                )}
             </Stack>
-            {date && status !== "DRAFT" && (
-                <Typography sx={{ fontSize: 11, color: "text.disabled" }}>
-                    {dayjs(date).format("DD-MM-YYYY")}
-                </Typography>
-            )}
         </Box>
     );
 };
@@ -510,8 +514,11 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                  * deliverables, instead of repeating down a column.
                  */
                 accessorKey: "stageName",
-                header: "Stage",
-                size: 300,
+                // "Stage" twice in one header row — here and on the bill's own
+                // status — left the reader working out which was which against a
+                // toolbar that already says "Bill stage" and "Project stage".
+                header: "Project Stage",
+                size: 340,
                 GroupedCell: ({ row }: any) => {
                     const subRows = row.subRows ?? [];
                     const deliverables = subRows.map((sub: any) => sub.original as ProjectBillingRow);
@@ -520,12 +527,23 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     const percentage = deliverables.reduce(
                         (t: number, d: ProjectBillingRow) => t + d.percentage, 0,
                     );
+                    const name = row.groupingValue as string;
                     return (
                         <Box sx={{ minWidth: 0, py: 0.25 }}>
-                            <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
-                                {row.groupingValue as string}
-                            </Typography>
-                            <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+                            {/* Stage names run long ("Advance (To be paid along with
+                                the Work Order)") and were wrapping to three lines,
+                                which pushed every group row to a different height and
+                                buried the summary underneath. One line, the full name
+                                on hover, and the numbers always in the same place. */}
+                            <Tooltip title={name}>
+                                <Typography
+                                    noWrap
+                                    sx={{ fontSize: 13, fontWeight: 700, minWidth: 0 }}
+                                >
+                                    {name}
+                                </Typography>
+                            </Tooltip>
+                            <Typography noWrap sx={{ fontSize: 11.5, color: "text.secondary" }}>
                                 {done} of {deliverables.length} done
                                 {percentage > 0 ? ` · ${Math.round(percentage)}% of stage` : ""}
                                 {` · ${formatCurrencyDecimal(value)}`}
@@ -539,6 +557,36 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                 header: "Deliverable",
                 size: 240,
                 enableGrouping: false,
+                /*
+                 * The stage summary lives HERE, not in the grouped column's
+                 * `GroupedCell`.
+                 *
+                 * With `groupedColumnMode: "remove"` the grouping column's own cell
+                 * renderer never runs — the group row gets MRT's stock "name (3)"
+                 * and nothing else, which is why the tree read as a bare label with
+                 * a stray count. An `AggregatedCell` on a normal column DOES run on
+                 * a group row (that is how the Amount and Received subtotals have
+                 * always appeared), so the progress belongs in the first column
+                 * after the stage name.
+                 */
+                AggregatedCell: ({ row }: any) => {
+                    const subRows = row.subRows ?? [];
+                    const deliverables = subRows.map((sub: any) => sub.original as ProjectBillingRow);
+                    const done = deliverables.filter(
+                        (d: ProjectBillingRow) => d.workStatus === "COMPLETED",
+                    ).length;
+                    const billed = deliverables.filter((d: ProjectBillingRow) => !!d.bill).length;
+                    const percentage = deliverables.reduce(
+                        (t: number, d: ProjectBillingRow) => t + d.percentage, 0,
+                    );
+                    return (
+                        <Typography sx={{ fontSize: 11.5, color: "text.secondary", whiteSpace: "nowrap" }}>
+                            {done} of {deliverables.length} done
+                            {` · ${billed} billed`}
+                            {percentage > 0 ? ` · ${Math.round(percentage)}% of stage` : ""}
+                        </Typography>
+                    );
+                },
                 Cell: ({ row }: any) => {
                     const r: ProjectBillingRow = row.original;
                     return (
@@ -579,18 +627,27 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                 ),
                 accessorFn: (r: ProjectBillingRow) => r.bill?.gstAmount ?? 0,
                 header: "GST",
+                /*
+                 * Hidden by default, not removed. Ten columns of financial data need
+                 * about 1500px, and this table lives inside a project's detail panel
+                 * — so the screen opened on a horizontal scrollbar and the columns
+                 * people actually act on were off the right edge. These three are the
+                 * ones you check on a specific bill rather than scan down, and the
+                 * column menu brings any of them back per user, for good.
+                 */
+                meta: { defaultVisible: false },
                 size: 120,
                 ...RIGHT,
                 Cell: ({ row }: any) => {
                     const bill = (row.original as ProjectBillingRow).bill;
                     if (!bill) return <Muted />;
+                    // The rate lives on hover. Printed under every amount it added a
+                    // second line to every row for a number that is the same on
+                    // almost all of them — the amounts are what people scan.
                     return (
-                        <Box>
-                            <Money value={bill.gstAmount} />
-                            <Typography sx={{ fontSize: 11, color: "text.disabled" }}>
-                                {bill.gstRate}%
-                            </Typography>
-                        </Box>
+                        <Tooltip title={`GST at ${bill.gstRate}%`}>
+                            <Box component="span"><Money value={bill.gstAmount} /></Box>
+                        </Tooltip>
                     );
                 },
             },
@@ -602,25 +659,25 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                 ),
                 accessorFn: (r: ProjectBillingRow) => r.bill?.tdsAmount ?? 0,
                 header: "TDS",
+                meta: { defaultVisible: false },
                 size: 120,
                 ...RIGHT,
                 Cell: ({ row }: any) => {
                     const bill = (row.original as ProjectBillingRow).bill;
                     if (!bill || bill.tdsAmount <= 0) return <Muted />;
                     return (
-                        <Box>
-                            <Money value={bill.tdsAmount} tone="warning.dark" />
-                            <Typography sx={{ fontSize: 11, color: "text.disabled" }}>
-                                {bill.tdsRate}%
-                            </Typography>
-                        </Box>
+                        <Tooltip title={`TDS deducted at ${bill.tdsRate}%`}>
+                            <Box component="span"><Money value={bill.tdsAmount} tone="warning.dark" /></Box>
+                        </Tooltip>
                     );
                 },
             },
             {
                 id: "stage",
                 accessorFn: (r: ProjectBillingRow) => r.bill?.status ?? "",
-                header: "Stage",
+                // Named for what it is — where the BILL stands — matching the
+                // toolbar's own "Bill stage" filter.
+                header: "Bill Stage",
                 size: 135,
                 ...CENTRED,
                 Cell: ({ row }: any) => {
@@ -671,6 +728,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                 ),
                 accessorFn: (r: ProjectBillingRow) => r.bill?.receivedAmount ?? 0,
                 header: "Received",
+                meta: { defaultVisible: false },
                 size: 145,
                 ...RIGHT,
                 Cell: ({ row }: any) => {
@@ -928,8 +986,29 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                             // screens read as one product.
                             borderCollapse: "separate",
                             borderSpacing: "0 4px !important",
-                            minWidth: "1500px",
+                            minWidth: "1080px",
                         },
+                        /*
+                         * A stage row is a heading, so it should look like one. Without
+                         * this it is a body row carrying bold numbers, and the eye has
+                         * to work out where one stage ends and the next begins — the
+                         * thing grouping was supposed to make obvious.
+                         *
+                         * Nested inside `muiTableProps` because that is where the table
+                         * wrapper reads it from; passed at the top level it is silently
+                         * ignored.
+                         */
+                        muiTableBodyRowProps: ({ row }: any) =>
+                            (row?.getIsGrouped?.()
+                                ? {
+                                    sx: {
+                                        "& .MuiTableCell-root": {
+                                            backgroundColor: "action.hover",
+                                            fontWeight: 700,
+                                        },
+                                    },
+                                }
+                                : {}),
                     }}
                 />
             )}

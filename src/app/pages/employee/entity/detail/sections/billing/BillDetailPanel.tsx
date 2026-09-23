@@ -94,7 +94,27 @@ const BillDetailPanel: React.FC<{
     const tdsSection = sectionLabel(bill.tdsSectionCode);
 
     return (
-        <Box sx={{ px: { xs: 1.5, sm: 2 }, py: 1.75, bgcolor: "action.hover" }}>
+        /*
+         * Stuck to the left edge of what is on screen, not to the table.
+         *
+         * A detail panel is as wide as the TABLE, and this table is wider than the
+         * project panel it sits in. So the money card — whose figures are
+         * right-aligned — laid its values out past the right edge and they only
+         * appeared after scrolling sideways: labels with nothing beside them, which
+         * reads as data that failed to load. Sticky keeps the cards in view, and
+         * capping the width to the viewport makes them wrap instead of running off.
+         */
+        <Box
+            sx={{
+                position: "sticky",
+                left: 0,
+                width: "fit-content",
+                maxWidth: "100vw",
+                px: { xs: 1.5, sm: 2 },
+                py: 1.75,
+                bgcolor: "action.hover",
+            }}
+        >
             <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1.5} alignItems="stretch">
                 {/* ── proforma ──────────────────────────────────────────────── */}
                 <Box sx={CARD_SX}>
