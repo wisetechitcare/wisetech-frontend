@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { PageLink, PageTitle } from '@metronic/layout/core';
 import { useSelector } from 'react-redux';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
@@ -8,10 +8,9 @@ import OrganisationProfileForm from '../organisation/OrganisationProfileForm';
 import { RootState } from '@redux/store';
 import RuleMainPage from './rule/RuleMainPage';
 import FaqsMainPage from './faqs/FaqsMainPage';
+import { useTabRoute } from '@app/hooks/useTabRoute';
 
 const OrganisationInfoProfileMain = () => {
-  const [activeTab, setActiveTab] = useState(0);
-  
       const isAdmin = useSelector(
           (state: RootState) => state.auth.currentUser.isAdmin
       );
@@ -30,7 +29,11 @@ const OrganisationInfoProfileMain = () => {
             icon: 'bi-question-circle',
           }
       ];
-  
+
+      // The tab is the URL (/company/organisation-info/faqs), so it survives a refresh, a
+      // shared link, and the remount the header does at the mobile breakpoint.
+      const { activeTab, setActiveTab } = useTabRoute(undefined, tabItems.map((t) => t.title));
+
       const overviewBreadcrumbs: Array<PageLink> = [
           {
               title: 'Company',
@@ -49,7 +52,7 @@ const OrganisationInfoProfileMain = () => {
       return (
           <>
               <PageTitle breadcrumbs={overviewBreadcrumbs}>{tabItems[activeTab].title}</PageTitle>
-              <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} />
+              <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} />
           </>
       )
 }

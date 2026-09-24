@@ -12,9 +12,12 @@ interface SelectInputProps {
     dropdown?: string;
     value: any;
     passData?: (data: any) => any;
+    /** Kit sizes: 'sm' is 34px tall, 'md' (default) 42px. Toolbars use 'sm' so the
+     *  selector lines up with the search box and the filter pills beside it. */
+    size?: 'sm' | 'md';
 }
 
-function SelectInput({ options, placeholder, dropdown, value, passData }: SelectInputProps) {
+function SelectInput({ options, placeholder, dropdown, value, passData, size }: SelectInputProps) {
     const dispatch = useDispatch();
 
     const sortedOptions = useMemo(() => {
@@ -24,6 +27,7 @@ function SelectInput({ options, placeholder, dropdown, value, passData }: Select
 
     return (
         <WtSelect
+            {...(size ? { size } : {})}
             placeholder={placeholder}
             options={sortedOptions}
             {...(!isEmpty(value) ? { value } : {})}

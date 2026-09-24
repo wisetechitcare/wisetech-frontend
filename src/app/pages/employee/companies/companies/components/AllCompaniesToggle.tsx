@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate,  } from "react-router-dom";
+import { useTabKeyRoute } from "@app/hooks/useTabRoute";
 import { Button } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import { getClientCompanyById } from "@services/companies";
@@ -37,12 +38,20 @@ type TabType =
   | "references"
   | "lead-reference";
 
+/** Tab keys in render order — they ARE the path segment (/companies/<id>/branches). */
+const COMPANY_TAB_KEYS: TabType[] = [
+  "overview", "lead-reference", "references", "projects", "contacts", "subcompanies", "branches", "rating",
+];
+
 const CompanyDetails = () => {
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = (searchParams.get("tab") as TabType) || "overview";
-  const setActiveTab = (tab: TabType) => setSearchParams({ tab }, { replace: true });
+  // The tab is a path segment (/companies/<id>/contacts) — shareable, survives a refresh,
+  // and survives the remount the header does at the mobile breakpoint. Old ?tab= links
+  // are rewritten to the path form once.
+  const { activeKey, setActiveKey } = useTabKeyRoute(undefined, COMPANY_TAB_KEYS);
+  const activeTab = activeKey as TabType;
+  const setActiveTab = (tab: TabType) => setActiveKey(tab);
   const [company, setCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);

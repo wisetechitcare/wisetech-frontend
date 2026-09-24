@@ -76,14 +76,32 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
     }
   }, [searchParams, restrictType]);
 
+  /**
+   * Deep-link the search text as `?q=`, and ONLY that param.
+   *
+   * This used to write `{ q: query }` / `{}`, which replaced the entire query string —
+   * so every other param on the page (a list's `?tab=`, its filters) was wiped whenever
+   * this effect ran. It runs on every MOUNT, and this component is remounted by the
+   * header whenever the viewport crosses the mobile breakpoint (991.98px): zooming to
+   * 200% dropped `?tab=projects` and bounced the page back to its first tab.
+   *
+   * Now it merges into the existing params, and returns early when `q` already matches,
+   * so a mount with an empty box writes nothing at all.
+   */
   useEffect(() => {
     if (restrictType) return;
-    if (query.trim()) {
-      setSearchParams({ q: query }, { replace: true });
-    } else {
-      setSearchParams({}, { replace: true });
-    }
-  }, [query, restrictType]);
+    const desired = query.trim();
+    if ((searchParams.get('q') ?? '') === desired) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (desired) next.set('q', desired);
+        else next.delete('q');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [query, restrictType, searchParams, setSearchParams]);
 
   // Load history from localStorage (scoped to restrictType if present)
   const historyKey = restrictType ? `global_search_history_${restrictType.toLowerCase()}` : 'global_search_history';

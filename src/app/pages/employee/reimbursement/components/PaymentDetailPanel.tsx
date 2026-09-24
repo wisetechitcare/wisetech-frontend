@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { fmtDate, formatMoney } from '../utils/reimbursementFormat';
 
 /**
@@ -25,14 +27,73 @@ export interface PaymentDetailRow {
     remarks?: string | null;
 }
 
-const TH: React.CSSProperties = {
-    padding: '8px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700,
-    letterSpacing: '0.04em', textTransform: 'uppercase', color: '#616161',
-    borderBottom: '1px solid #e0e0e0', whiteSpace: 'nowrap',
-};
-const TD: React.CSSProperties = { padding: '10px 16px', borderRight: '1px solid #eeeeee' };
-
 export default function PaymentDetailPanel({ payments }: { payments: PaymentDetailRow[] }) {
+    // Flattened to real values (raw date, numeric amount) so sorting and per-column
+    // search work on the values; the cells render exactly what they rendered before.
+    const rows = useMemo(
+        () => (payments || []).map((p, i) => ({
+            id: p.id ?? String(i),
+            paymentDate: p.paymentDate || '',
+            paymentMadeBy: p.paymentMadeBy || 'N/A',
+            paymentMethod: p.paymentMethod ? String(p.paymentMethod).replace(/_/g, ' ') : '',
+            transactionId: p.transactionId || '',
+            amountPaid: Number(p.amountPaid || 0),
+        })),
+        [payments],
+    );
+
+    const columns = useMemo(() => [
+        {
+            accessorKey: 'paymentDate',
+            header: 'Payment Date',
+            Cell: ({ cell }: any) => (
+                <span style={{ fontSize: 13, color: '#424242' }}>{fmtDate(cell.getValue())}</span>
+            ),
+        },
+        {
+            accessorKey: 'paymentMadeBy',
+            header: 'Payment Made By',
+            Cell: ({ cell }: any) => (
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#424242' }}>{cell.getValue()}</span>
+            ),
+        },
+        {
+            accessorKey: 'paymentMethod',
+            header: 'Method',
+            Cell: ({ cell }: any) => (
+                <span style={{
+                    display: 'inline-block', padding: '3px 10px', borderRadius: 4,
+                    fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
+                    backgroundColor: '#e3f2fd', color: '#1565c0', textTransform: 'uppercase',
+                }}>
+                    {/* A missing method used to render as "Cash" in one of the two
+                        copies, which invents a fact about how money moved. */}
+                    {cell.getValue() || '—'}
+                </span>
+            ),
+        },
+        {
+            // Reference earns a column now that it is captured and required for
+            // bank transfers — a payout you cannot reconcile is not much of a record.
+            accessorKey: 'transactionId',
+            header: 'Reference',
+            Cell: ({ cell }: any) => (
+                <span style={{ fontSize: 12, color: cell.getValue() ? '#424242' : '#9e9e9e' }}>
+                    {cell.getValue() || '—'}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'amountPaid',
+            header: 'Amount',
+            Cell: ({ cell }: any) => (
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#2e7d32' }}>
+                    {formatMoney(cell.getValue())}
+                </span>
+            ),
+        },
+    ], []);
+
     if (!payments || payments.length === 0) {
         return (
             <div style={{
@@ -47,58 +108,14 @@ export default function PaymentDetailPanel({ payments }: { payments: PaymentDeta
 
     return (
         <div style={{ padding: '16px 24px', backgroundColor: '#fafafa', borderTop: '1px solid #e0e0e0' }}>
-            {/* The table scrolls inside its own container rather than widening the page — these
-                panels used to opt out of the scroll wrapper the shared table provides. */}
-            <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #e0e0e0', backgroundColor: '#ffffff' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
-                    <thead style={{ backgroundColor: '#f5f5f5' }}>
-                        <tr>
-                            <th style={TH}>Payment Date</th>
-                            <th style={TH}>Payment Made By</th>
-                            <th style={TH}>Method</th>
-                            {/* Reference earns a column now that it is captured and required for
-                                bank transfers — a payout you cannot reconcile is not much of a record. */}
-                            <th style={TH}>Reference</th>
-                            <th style={TH}>Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {payments.map((p, i) => (
-                            <tr key={p.id ?? i} style={{ borderTop: i === 0 ? 'none' : '1px solid #eeeeee' }}>
-                                <td style={TD}>
-                                    <span style={{ fontSize: 13, color: '#424242' }}>{fmtDate(p.paymentDate)}</span>
-                                </td>
-                                <td style={TD}>
-                                    <span style={{ fontSize: 13, fontWeight: 500, color: '#424242' }}>
-                                        {p.paymentMadeBy || 'N/A'}
-                                    </span>
-                                </td>
-                                <td style={TD}>
-                                    <span style={{
-                                        display: 'inline-block', padding: '3px 10px', borderRadius: 4,
-                                        fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
-                                        backgroundColor: '#e3f2fd', color: '#1565c0', textTransform: 'uppercase',
-                                    }}>
-                                        {/* A missing method used to render as "Cash" in one of the two
-                                            copies, which invents a fact about how money moved. */}
-                                        {p.paymentMethod ? String(p.paymentMethod).replace(/_/g, ' ') : '—'}
-                                    </span>
-                                </td>
-                                <td style={TD}>
-                                    <span style={{ fontSize: 12, color: p.transactionId ? '#424242' : '#9e9e9e' }}>
-                                        {p.transactionId || '—'}
-                                    </span>
-                                </td>
-                                <td style={{ padding: '10px 16px' }}>
-                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#2e7d32' }}>
-                                        {formatMoney(Number(p.amountPaid || 0))}
-                                    </span>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            <MaterialTable
+                tableName="ReimbursementPaymentDetail"
+                data={rows}
+                columns={columns}
+                hidePagination
+                hideExportCenter
+                enableColumnActions={false}
+            />
         </div>
     );
 }

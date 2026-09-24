@@ -424,9 +424,12 @@ export const getReimbursementProjectOptions = async () => {
 // Every project that has coordinates (no pagination) — used by the map only.
 export const getProjectMapPoints = async () => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECT_MAP_POINTS}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        // TTL 0 = share the in-flight request only (a double mount fired it twice), never stale.
+        return await cachedRequest('projectMapPoints', async () => {
+            const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECT_MAP_POINTS}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        }, 0);
     } catch (err) {
         throw err;
     }

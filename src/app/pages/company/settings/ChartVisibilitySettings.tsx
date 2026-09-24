@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
-import { Formik, Form } from "formik";
+import { Alert, Box, Typography } from "@mui/material";
+import { AutoGrid, GlassDialog, GlassHeader, WtButton, WtSwitchField } from "@app/modules/common/components/ui";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -101,203 +102,128 @@ const CONFIG_ITEMS: ConfigItem[] = [
 ];
 
 
+const SECTION_BY_TYPE: Record<string, { section: ConfigItem["section"]; title: string }> = {
+  [PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD]: { section: "Leads", title: "Leads charts" },
+  [PROJECT_CHART_SETTINGS_MODAL_TYPE.PROJECT]: { section: "Projects", title: "Projects charts" },
+  [PROJECT_CHART_SETTINGS_MODAL_TYPE.COMPANY]: { section: "Companies", title: "Companies charts" },
+};
+
 interface ChartVisibilitySettingsProps {
-  type?:string
+  type?: string;
+  /** Renders a Back button beside Save (the dialog passes its close handler). */
+  onBack?: () => void;
 }
-const ChartVisibilitySettings: React.FC<ChartVisibilitySettingsProps> = ({type}) => {
+
+const ChartVisibilitySettings: React.FC<ChartVisibilitySettingsProps> = ({ type, onBack }) => {
   const dispatch = useDispatch<AppDispatch>();
   const chartSettings = useSelector(selectChartSettings);
   const isLoading = useSelector(selectIsLoading);
   const error = useSelector(selectError);
-
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
     dispatch(fetchAllConfigurations());
-    setLoading(false);
   }, [dispatch]);
 
-  const handleSubmit = async (values: Partial<ChartSettings>) => {
+  const handleSave = async () => {
     try {
-      setLoading(true);
-      const resultAction = await dispatch(saveAllConfigurations(values));
-      if (saveAllConfigurations.fulfilled.match(resultAction)) {
-        successConfirmation("Settings saved successfully!");
-        // Emit event to refresh data in other components
-        eventBus.emit(EVENT_KEYS.chartSettingsUpdated, {});
-        // Emit event to close the modal
-        eventBus.emit(EVENT_KEYS.closeChartDialogModal, {});
-      } else {
-        throw new Error();
-      }
+      setSaving(true);
+      const resultAction = await dispatch(saveAllConfigurations(chartSettings as Partial<ChartSettings>));
+      if (!saveAllConfigurations.fulfilled.match(resultAction)) throw new Error();
+      successConfirmation("Settings saved successfully!");
+      // Refresh the charts, then close whichever modal hosts this.
+      eventBus.emit(EVENT_KEYS.chartSettingsUpdated, {});
+      eventBus.emit(EVENT_KEYS.closeChartDialogModal, {});
     } catch {
       errorConfirmation("Something went wrong while saving.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const renderSection = (title: string, items: ConfigItem[]) => (
-    <div className="mb-5">
-      <h5 style={{
-        fontSize: "15px",
-        fontWeight: 700,
-        color: "#64748B",
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
-        borderBottom: "2px solid #E2E8F0",
-        paddingBottom: "10px",
-        marginBottom: "20px"
-      }}>
-        {title}
-      </h5>
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))",
-        gap: "16px"
-      }}>
-        {items.map((item) => (
-          <div key={item.key} style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "16px 20px",
-            backgroundColor: "#F8FAFC",
-            borderRadius: "8px",
-            border: "1px solid #F1F5F9",
-            transition: "all 0.2s ease-in-out",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "#FFFFFF";
-            e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.05)";
-            e.currentTarget.style.borderColor = "#E2E8F0";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "#F8FAFC";
-            e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.02)";
-            e.currentTarget.style.borderColor = "#F1F5F9";
-          }}
-          >
-            <label style={{
-              margin: 0,
-              fontSize: "15px",
-              fontWeight: 600,
-              color: "#334155",
-              cursor: "pointer"
-            }} htmlFor={item.key}>
-              {item.label}
-            </label>
-            <label className="premium-switch">
-              <input
-                type="checkbox"
-                id={item.key}
-                name={item.key}
-                checked={Boolean(chartSettings[item.key as keyof typeof chartSettings])}
-                onChange={(e) => {
-                  dispatch(updateSetting({ key: item.key, value: e.target.checked }));
-                }}
-              />
-              <span className="premium-slider"></span>
-            </label>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  if (isLoading && !chartSettings.configMap) return <Loader />;
 
-  if (isLoading && !chartSettings.configMap && !loading) {
-    return <Loader />;
-  }
+  const sections = type && SECTION_BY_TYPE[type] ? [SECTION_BY_TYPE[type]] : [];
 
   return (
-    <div className="container-fluid py-2">
-      <style>{`
-        .premium-switch {
-          position: relative;
-          display: inline-block;
-          width: 48px;
-          height: 24px;
-        }
-        .premium-switch input {
-          opacity: 0;
-          width: 0;
-          height: 0;
-        }
-        .premium-slider {
-          position: absolute;
-          cursor: pointer;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background-color: #CBD5E1;
-          transition: .3s cubic-bezier(0.4, 0.0, 0.2, 1);
-          border-radius: 4px;
-        }
-        .premium-slider:before {
-          position: absolute;
-          content: "";
-          height: 18px;
-          width: 18px;
-          left: 3px;
-          bottom: 3px;
-          background-color: white;
-          transition: .3s cubic-bezier(0.4, 0.0, 0.2, 1);
-          border-radius: 3px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        .premium-switch input:checked + .premium-slider {
-          background-color: #1E3A8A;
-        }
-        .premium-switch input:checked + .premium-slider:before {
-          transform: translateX(24px);
-        }
-        .premium-switch input:focus + .premium-slider {
-          box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.2);
-        }
-      `}</style>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+      {error && <Alert severity="error">{error}</Alert>}
 
-      {error && (
-        <div className="alert alert-danger" role="alert">
-          {error}
-        </div>
-      )}
+      {sections.map(({ section, title }) => {
+        const items = CONFIG_ITEMS.filter((item) => item.section === section);
+        const onCount = items.filter((i) => Boolean(chartSettings[i.key as keyof typeof chartSettings])).length;
+        return (
+          <Box key={section}>
+            <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", mb: 1.5 }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "text.secondary" }}>
+                {title}
+              </Typography>
+              <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
+                {onCount} of {items.length} visible
+              </Typography>
+            </Box>
+            <AutoGrid min={280} gap={10}>
+              {items.map((item) => (
+                <Box
+                  key={item.key}
+                  sx={{
+                    px: 2, py: 1.25, borderRadius: 2,
+                    border: 1, borderColor: "divider", bgcolor: "background.paper",
+                    transition: "border-color .15s, background-color .15s",
+                    "&:hover": { borderColor: "primary.light", bgcolor: "action.hover" },
+                  }}
+                >
+                  <WtSwitchField
+                    title={item.label}
+                    checked={Boolean(chartSettings[item.key as keyof typeof chartSettings])}
+                    onChange={(_, checked) => dispatch(updateSetting({ key: item.key, value: checked }))}
+                    inputProps={{ "aria-label": item.label }}
+                  />
+                </Box>
+              ))}
+            </AutoGrid>
+          </Box>
+        );
+      })}
 
-      <Formik
-        initialValues={chartSettings}
-        enableReinitialize
-        onSubmit={handleSubmit}
-      >
-        {({ handleSubmit, isSubmitting }) => (
-          <Form>
-            {(type && type == PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD) && renderSection(
-              "Leads Charts",
-              CONFIG_ITEMS.filter((item) => item.section === "Leads")
-            )}
-            {(type && type == PROJECT_CHART_SETTINGS_MODAL_TYPE.PROJECT) && renderSection(
-              "Projects Charts",
-              CONFIG_ITEMS.filter((item) => item.section === "Projects")
-            )}
-            {(type && type == PROJECT_CHART_SETTINGS_MODAL_TYPE.COMPANY) && renderSection(
-              "Companies Charts",
-              CONFIG_ITEMS.filter((item) => item.section === "Companies")
-            )}
-
-            <div className="d-flex justify-content-end mt-4 pt-3 border-top">
-              <button
-                type="button"
-                className="btn text-white fw-bold px-4 py-2 shadow-sm"
-                style={{ backgroundColor: "#1E3A8A", border: "none", borderRadius: "6px" }}
-                onClick={() => handleSubmit()}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Saving..." : "Save Settings"}
-              </button>
-            </div>
-          </Form>
+      <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, pt: 2, borderTop: 1, borderColor: "divider" }}>
+        {onBack && (
+          <WtButton ghost onClick={onBack} disabled={saving}>
+            Back
+          </WtButton>
         )}
-      </Formik>
-    </div>
+        <WtButton onClick={handleSave} disabled={saving}>
+          {saving ? "Saving…" : "Save settings"}
+        </WtButton>
+      </Box>
+    </Box>
   );
 };
+
+/**
+ * The "Customize cards visibility" modal every overview page opens. One component so the
+ * pages stop re-drawing their own react-bootstrap shell around the settings.
+ */
+export const ChartVisibilityDialog: React.FC<{ open: boolean; onClose: () => void; type: string }> = ({ open, onClose, type }) => (
+  <GlassDialog
+    open={open}
+    onClose={onClose}
+    maxWidth="md"
+    header={
+      <GlassHeader
+        variant="plain"
+        title="Customize cards visibility"
+        subtitle="Choose which charts appear on this overview"
+        onBack={onClose}
+        backLabel="Back"
+        onClose={onClose}
+      />
+    }
+  >
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <ChartVisibilitySettings type={type} onBack={onClose} />
+    </Box>
+  </GlassDialog>
+);
 
 export default ChartVisibilitySettings;

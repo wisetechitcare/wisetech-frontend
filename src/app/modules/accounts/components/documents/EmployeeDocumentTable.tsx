@@ -1,22 +1,20 @@
 import MaterialTable from '@app/modules/common/components/MaterialTable'
 import { IconButton } from '@mui/material';
-import PdfLoader from '@pages/employee/PdfLoader'
-import React, { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
-import { Table, Pagination } from "react-bootstrap";
-import { fetchCurrentEmployeeByEmpId, fetchDocumentsField, fetchEmployeeDocuments, fetchEmployeeMediaByUserId } from '@services/employee';
+import { fetchCurrentEmployeeByEmpId, fetchEmployeeMediaByUserId } from '@services/employee';
 import dayjs from 'dayjs';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 function EmployeeDocumentTable({message1='No Documents Uploaded By User', message2='Documents Uploaded By User'}:{message1?: string, message2?: string}) {
     const { employeeId } = useParams();
     const reduxEmployeeId = useSelector((state: RootState) => state.employee.currentEmployee?.id);
+    const currentUserId = useSelector((state: RootState) => state.auth?.currentUser?.id);
     const currentEmployeeId = employeeId || reduxEmployeeId;
     const [userId, setUserId] = useState();
-    const digitalSignature = useSelector((state: RootState) => state.employee.currentEmployee?.digitalSignaturePath);
     const status = useSelector((state: RootState) => state.employee.currentEmployee?.dateOfExit) ? 'Terminated' : 'Active';
     const [documents, setDocuments] = useState<Array<{
         fileName: string,
@@ -28,57 +26,12 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
     }>>([]);
     const [currentFolder, setCurrentFolder] = useState<string | null>(null);
 
-    const [file, setFile] = useState("");
-    const [fileName, setFileName] = useState("");
     // The employee's canonical avatar / signature URLs, used to name stored files by
     // what they are rather than by the name they were uploaded under.
     const [knownAssetPaths, setKnownAssetPaths] = useState<{ avatar: string; signature: string }>({
         avatar: "",
         signature: "",
     });
-    const handleViewDocument = (documentPath: string, documentName: string) => {
-        setFile(documentPath);
-        setFileName(documentName);
-    };
-
-    const handleCloseDialog = () => {
-        setFile("");
-    };
-
-    const columns = [
-        { accessorKey: 'fileName', header: 'File Name' },
-        { accessorKey: 'created', header: 'Created' },
-        {
-            accessorKey: 'status',
-            header: 'Status',
-            Cell: ({ cell }: any) => {
-                const status = cell.getValue();
-                const backgroundColor = status === "Active" ? 'lightgreen' : 'lightcoral';
-                return (
-                    <span style={{
-                        color: status === "Active" ? 'black' : 'red',
-                        backgroundColor,
-                        padding: '2px 5px',
-                        borderRadius: '4px'
-                    }}>
-                        {status}
-                    </span>
-                );
-            },
-        },
-        {
-            accessorKey: 'actions',
-            header: 'Actions',
-            Cell: ({ row }: any) => (
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <IconButton onClick={() => handleViewDocument(row.original.fileUrl, row.original.fileName)}>
-                        <VisibilityIcon />
-                    </IconButton>
-                </div>
-            ),
-        }
-    ];
-
     useEffect(() => {
         const fetchData = async () => {
             if (currentEmployeeId) {
@@ -228,6 +181,65 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
 
     const displayItems = currentFolder ? currentFolderData?.documents || [] : [];
 
+    // ── One shared table for both levels of the browser: folders at the root, files
+    //    inside a folder. Rows carry real values (a raw ISO date, a numeric file count)
+    //    so sorting and per-column search work on those, not on the rendered cells.
+    const rows = useMemo(
+        () => (currentFolder
+            ? displayItems.map((document) => ({
+                isFolder: false,
+                name: document?.fileName || '-',
+                size: document?.size || '-',
+                uploaded: document?.created || '',
+                fileUrl: document?.fileUrl,
+            }))
+            : folders.map((folder) => ({
+                isFolder: true,
+                name: folder.label,
+                size: `${folder.count} files`,
+                uploaded: '',
+                folderName: folder.name,
+            }))),
+        [currentFolder, displayItems, folders],
+    );
+
+    const columns = useMemo(() => [
+        {
+            accessorKey: 'name',
+            header: 'Name',
+            Cell: ({ row }: any) => (
+                <div className="d-flex align-items-center">
+                    <span className="icon-wrapper">
+                        <AppIcon name={row.original.isFolder ? 'folder' : 'file'} className="fs-2x text-primary me-4" />
+                    </span>
+                    <span className={row.original.isFolder ? 'fw-bold' : undefined}>{row.original.name}</span>
+                </div>
+            ),
+        },
+        { accessorKey: 'size', header: 'Size' },
+        {
+            accessorKey: 'uploaded',
+            header: 'Uploaded On',
+            Cell: ({ cell }: any) => (cell.getValue() ? dayjs(cell.getValue()).format('D MMM, YYYY') : '-'),
+        },
+        {
+            accessorKey: 'actions',
+            header: 'Actions',
+            enableSorting: false,
+            Cell: ({ row }: any) => (row.original.isFolder ? (
+                <AppIcon name="right" className="fs-3 text-gray-500" />
+            ) : (
+                <div className="d-flex justify-content-center">
+                    <a href={`${row.original.fileUrl}`} target="_blank" rel="noreferrer">
+                        <IconButton>
+                            <VisibilityIcon />
+                        </IconButton>
+                    </a>
+                </div>
+            )),
+        },
+    ], []);
+
     return (
         <>
             <div className="card card-body">
@@ -258,447 +270,25 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                         </span>
                     </div>
                 </div>
-                <div
-                    id="kt_file_manager_list_wrapper"
-                    className="dt-container dt-bootstrap5 dt-empty-footer"
-                >
-                    <div id="" className="table-responsive">
-                        <div className="dt-scroll">
-
-                            <div
-                                className="dt-scroll-body"
-                                style={{ position: "relative", overflow: "auto", maxHeight: 700 }}
-                            >
-                                <table
-                                    id="kt_file_manager_list"
-                                    data-kt-filemanager-table="folders"
-                                    className="table align-middle table-row-dashed fs-6 gy-5 dataTable"
-                                    style={{ width: "100%" }}
-                                >
-                                    <colgroup style={{ width: "100%" }}>
-                                        {/* <col data-dt-column={0} style={{ width: "1.3906px" }} /> */}
-                                        <col data-dt-column={0} style={{ width: "40%" }} />
-                                        <col data-dt-column={1} style={{ width: "30%" }} />
-                                        <col data-dt-column={2} style={{ width: "20%" }} />
-                                        <col data-dt-column={3} style={{ width: "10%" }} />
-                                    </colgroup>
-                                    <thead>
-                                        <tr className="text-start text-gray-500 fw-bold fs-7 text-uppercase gs-0">
-                                            {/* <th
-                                                className="w-10px pe-2 dt-orderable-none"
-                                                data-dt-column={0}
-                                                rowSpan={1}
-                                                colSpan={1}
-                                            >
-                                                <div className="dt-scroll-sizing">
-                                                    <span className="dt-column-title">
-                                                        <div className="form-check form-check-sm form-check-custom form-check-solid me-3">
-                                                            <input
-                                                                className="form-check-input"
-                                                                type="checkbox"
-                                                                data-kt-check="true"
-                                                                data-kt-check-target="#kt_file_manager_list .form-check-input"
-                                                                defaultValue={1}
-                                                            />
-                                                        </div>
-                                                    </span>
-                                                    <span className="dt-column-order" />
-                                                </div>
-                                            </th> */}
-                                            <th
-                                                className="min-w-250px dt-orderable-none"
-                                                data-dt-column={1}
-                                                rowSpan={1}
-                                                colSpan={1}
-                                            >
-                                                <div className="dt-scroll-sizing">
-                                                    <span className="dt-column-title">Name</span>
-                                                    <span className="dt-column-order" />
-                                                </div>
-                                            </th>
-                                            <th
-                                                className="min-w-10px dt-orderable-none"
-                                                data-dt-column={2}
-                                                rowSpan={1}
-                                                colSpan={1}
-                                            >
-                                                <div className="dt-scroll-sizing">
-                                                    <span className="dt-column-title">Size</span>
-                                                    <span className="dt-column-order" />
-                                                </div>
-                                            </th>
-                                            <th
-                                                className="min-w-125px dt-orderable-none"
-                                                data-dt-column={3}
-                                                rowSpan={1}
-                                                colSpan={1}
-                                            >
-                                                <div className="dt-scroll-sizing">
-                                                    <span className="dt-column-title">Uploaded On</span>
-                                                    <span className="dt-column-order" />
-                                                </div>
-                                            </th>
-                                            <th
-                                                className="w-125px dt-orderable-none"
-                                                data-dt-column={4}
-                                                rowSpan={1}
-                                                colSpan={1}
-                                            >
-                                                <div className="dt-scroll-sizing">
-                                                    <span className="dt-column-title" />
-                                                    Actions
-                                                    <span className="dt-column-order" />
-                                                </div>
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="fw-semibold text-gray-600">
-                                        {/* Show folders when at root level */}
-                                        {!currentFolder && folders.length === 0 && (
-                                            <tr>
-                                                <td colSpan={4}>
-                                                    <div className="text-center py-5">
-                                                        <AppIcon name="folder" className="fs-3x text-muted mb-3" />
-                                                        <div>{message1}</div>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )}
-                                        {!currentFolder && folders.map((folder, index) => (
-                                            <tr
-                                                key={index}
-                                                onClick={() => setCurrentFolder(folder.name)}
-                                                style={{ cursor: 'pointer' }}
-                                                className="hover-bg-light"
-                                            >
-                                                <td data-order="folder">
-                                                    <div className="d-flex align-items-center">
-                                                        <span className="icon-wrapper">
-                                                            <AppIcon name="folder" className="fs-2x text-primary me-4" />
-                                                        </span>
-                                                        <span className="fw-bold">{folder.label}</span>
-                                                    </div>
-                                                </td>
-                                                <td>{folder.count} files</td>
-                                                <td>-</td>
-                                                <td className="text-end">
-                                                    <AppIcon name="right" className="fs-3 text-gray-500" />
-                                                </td>
-                                            </tr>
-                                        ))}
-
-                                        {/* Show files when inside a folder */}
-                                        {currentFolder && displayItems.length === 0 && (
-                                            <tr>
-                                                <td colSpan={4}>
-                                                    <div className="text-center py-5">
-                                                        <AppIcon name="file" className="fs-3x text-muted mb-3" />
-                                                        <div>No files in this folder</div>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )}
-                                        {currentFolder && displayItems.map((document, index) => (
-                                            <tr key={index}>
-                                                <td data-order="index.html">
-                                                    <div className="d-flex align-items-center">
-                                                        <span className="icon-wrapper">
-                                                            <AppIcon name="file" className="fs-2x text-primary me-4" />
-                                                        </span>
-                                                        {document?.fileName || '-'}
-                                                    </div>
-                                                </td>
-                                                <td>{document?.size || '-'}</td>
-                                                <td data-order="2025-05-05T06:43:00+05:30">
-                                                    {dayjs(document?.created).format('D MMM, YYYY') || document?.created || '-'}
-                                                </td>
-                                                <td
-                                                    className="text-end"
-                                                    data-kt-filemanager-table="action_dropdown"
-                                                >
-                                                    <div className='d-flex justify-content-center'>
-                                                        <a href={`${document?.fileUrl}`} target='_blank'>
-                                                        <IconButton >
-                                                            <VisibilityIcon />
-                                                        </IconButton>
-                                                        </a>
-                                                    </div>
-
-                                                    {/* <div className="d-flex justify-content-end">
-                                                        <div className="ms-2" data-kt-filemanger-table="copy_link">
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm btn-icon btn-light btn-active-light-primary"
-                                                                data-kt-menu-trigger="click"
-                                                                data-kt-menu-placement="bottom-end"
-                                                            >
-                                                                <AppIcon name="fasten" className="fs-5 m-0" />{" "}
-                                                            </button>
-                                                            <div
-                                                                className="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-semibold fs-7 w-300px"
-                                                                data-kt-menu="true"
-                                                            >
-                                                                <div className="card card-flush">
-                                                                    <div className="card-body p-5">
-                                                                        <div
-                                                                            className="d-flex"
-                                                                            data-kt-filemanger-table="copy_link_generator"
-                                                                        >
-                                                                            <div className="me-5" data-kt-indicator="on">
-                                                                                <span className="indicator-progress">
-                                                                                    <span className="spinner-border spinner-border-sm align-middle ms-2" />
-                                                                                </span>
-                                                                            </div>
-                                                                            
-                                                                            <div className="fs-6 text-gray-900">
-                                                                                Generating Share Link...
-                                                                            </div>
-                                                                        </div>
-                                                                        
-                                                                        <div
-                                                                            className="d-flex flex-column text-start d-none"
-                                                                            data-kt-filemanger-table="copy_link_result"
-                                                                        >
-                                                                            <div className="d-flex mb-3">
-                                                                                <AppIcon name="check" className="fs-2 text-success me-3" />{" "}
-                                                                                <div className="fs-6 text-gray-900">
-                                                                                    Share Link Generated
-                                                                                </div>
-                                                                            </div>
-                                                                            <input
-                                                                                type="text"
-                                                                                className="form-control form-control-sm"
-                                                                                defaultValue="https://path/to/file/or/folder/"
-                                                                            />
-                                                                            <div className="text-muted fw-normal mt-2 fs-8 px-3">
-                                                                                Read only.{" "}
-                                                                                <a
-                                                                                    href="/metronic8/demo8/apps/file-manager/settings/.html"
-                                                                                    className="ms-2"
-                                                                                >
-                                                                                    Change permissions
-                                                                                </a>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="ms-2">
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm btn-icon btn-light btn-active-light-primary me-2"
-                                                                data-kt-menu-trigger="click"
-                                                                data-kt-menu-placement="bottom-end"
-                                                            >
-                                                                <AppIcon name="dots-square" className="fs-5 m-0" />{" "}
-                                                            </button>
-                                                            <div
-                                                                className="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-semibold fs-7 w-150px py-4"
-                                                                data-kt-menu="true"
-                                                            >
-                                                                <div className="menu-item px-3">
-                                                                    <a
-                                                                        href={document?.fileUrl}
-                                                                        className="menu-link px-3"
-                                                                    >
-                                                                        View
-                                                                    </a>
-                                                                </div>
-
-                                                            </div>
-                                                        </div>
-                                                    </div> */}
-
-                                                </td>
-                                            </tr>
-                                        ))}
-
-                                        {/* Below tr is marked as comment. Because in future we might have to implement delete functionality for the same so please don't remove it */}
-                                        {/* <tr>
-                                            <td>
-                                                <div className="form-check form-check-sm form-check-custom form-check-solid">
-                                                    <input
-                                                        className="form-check-input"
-                                                        type="checkbox"
-                                                        defaultValue={1}
-                                                    />
-                                                </div>
-                                            </td>
-                                            <td data-order="landing.html">
-                                                <div className="d-flex align-items-center">
-                                                    <span className="icon-wrapper">
-                                                        <AppIcon name="files" className="fs-2x text-primary me-4" />
-                                                    </span>
-                                                    <a
-                                                        href="/metronic8/demo8/apps/file-manager/files/.html"
-                                                        className="text-gray-800 text-hover-primary"
-                                                    >
-                                                        landing.html
-                                                    </a>
-                                                </div>
-                                            </td>
-                                            <td>87 KB</td>
-                                            <td data-order="2025-07-25T17:30:00+05:30">
-                                                25 Jul 2025, 5:30 pm
-                                            </td>
-                                            <td
-                                                className="text-end"
-                                                data-kt-filemanager-table="action_dropdown"
-                                            >
-                                                <div className="d-flex justify-content-end">
-                                                    <div className="ms-2" data-kt-filemanger-table="copy_link">
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-sm btn-icon btn-light btn-active-light-primary"
-                                                            data-kt-menu-trigger="click"
-                                                            data-kt-menu-placement="bottom-end"
-                                                        >
-                                                            <AppIcon name="fasten" className="fs-5 m-0" />{" "}
-                                                        </button>
-                                                        <div
-                                                            className="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-semibold fs-7 w-300px"
-                                                            data-kt-menu="true"
-                                                        >
-                                                            <div className="card card-flush">
-                                                                <div className="card-body p-5">
-                                                                    <div
-                                                                        className="d-flex"
-                                                                        data-kt-filemanger-table="copy_link_generator"
-                                                                    >
-                                                                        <div className="me-5" data-kt-indicator="on">
-                                                                            <span className="indicator-progress">
-                                                                                <span className="spinner-border spinner-border-sm align-middle ms-2" />
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="fs-6 text-gray-900">
-                                                                            Generating Share Link...
-                                                                        </div>
-                                                                    </div>
-                                                                    <div
-                                                                        className="d-flex flex-column text-start d-none"
-                                                                        data-kt-filemanger-table="copy_link_result"
-                                                                    >
-                                                                        <div className="d-flex mb-3">
-                                                                            <AppIcon name="check" className="fs-2 text-success me-3" />{" "}
-                                                                            <div className="fs-6 text-gray-900">
-                                                                                Share Link Generated
-                                                                            </div>
-                                                                        </div>
-                                                                        <input
-                                                                            type="text"
-                                                                            className="form-control form-control-sm"
-                                                                            defaultValue="https://path/to/file/or/folder/"
-                                                                        />
-                                                                        <div className="text-muted fw-normal mt-2 fs-8 px-3">
-                                                                            Read only.{" "}
-                                                                            <a
-                                                                                href="/metronic8/demo8/apps/file-manager/settings/.html"
-                                                                                className="ms-2"
-                                                                            >
-                                                                                Change permissions
-                                                                            </a>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="ms-2">
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-sm btn-icon btn-light btn-active-light-primary me-2"
-                                                            data-kt-menu-trigger="click"
-                                                            data-kt-menu-placement="bottom-end"
-                                                        >
-                                                            <AppIcon name="dots-square" className="fs-5 m-0" />{" "}
-                                                        </button>
-                                                        <div
-                                                            className="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-semibold fs-7 w-150px py-4"
-                                                            data-kt-menu="true"
-                                                        >
-                                                            <div className="menu-item px-3">
-                                                                <a
-                                                                    href="/metronic8/demo8/apps/file-manager/files.html"
-                                                                    className="menu-link px-3"
-                                                                >
-                                                                    View
-                                                                </a>
-                                                            </div>
-                                                           
-                                                            <div className="menu-item px-3">
-                                                                <a
-                                                                    href="#"
-                                                                    className="menu-link px-3"
-                                                                    data-kt-filemanager-table="rename"
-                                                                >
-                                                                    Rename
-                                                                </a>
-                                                            </div>
-                                                            
-                                                            <div className="menu-item px-3">
-                                                                <a href="#" className="menu-link px-3">
-                                                                    Download Folder
-                                                                </a>
-                                                            </div>
-                                                            
-                                                            <div className="menu-item px-3">
-                                                                <a
-                                                                    href="#"
-                                                                    className="menu-link px-3"
-                                                                    data-kt-filemanager-table-filter="move_row"
-                                                                    data-bs-toggle="modal"
-                                                                    data-bs-target="#kt_modal_move_to_folder"
-                                                                >
-                                                                    Move to folder
-                                                                </a>
-                                                            </div>
-                                                            
-                                                            <div className="menu-item px-3">
-                                                                <a
-                                                                    href="#"
-                                                                    className="menu-link text-danger px-3"
-                                                                    data-kt-filemanager-table-filter="delete_row"
-                                                                >
-                                                                    Delete
-                                                                </a>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr> */}
-
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div
-                                className="dt-scroll-foot"
-                                style={{ overflow: "hidden", border: 0, width: "100%" }}
-                            >
-                                <div className="dt-scroll-footInner">
-                                    <table
-                                        data-kt-filemanager-table="folders"
-                                        className="table align-middle table-row-dashed fs-6 gy-5 dataTable"
-                                        style={{ marginLeft: 0 }}
-                                    >
-                                        <tfoot />
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
+                {rows.length === 0 ? (
+                    <div className="text-center py-5">
+                        <AppIcon name={currentFolder ? 'file' : 'folder'} className="fs-3x text-muted mb-3" />
+                        <div>{currentFolder ? 'No files in this folder' : message1}</div>
                     </div>
-                    <div id="" className="row">
-                        <div
-                            id=""
-                            className="col-sm-12 col-md-5 d-flex align-items-center justify-content-center justify-content-md-start dt-toolbar"
-                        />
-                        <div
-                            id=""
-                            className="col-sm-12 col-md-7 d-flex align-items-center justify-content-center justify-content-md-end"
-                        />
-                    </div>
-                </div>
+                ) : (
+                    <MaterialTable
+                        tableName="EmployeeDocuments"
+                        employeeId={currentUserId}
+                        data={rows}
+                        columns={columns}
+                        muiTableProps={{
+                            // A folder row still opens the folder it names, as it did before.
+                            muiTableBodyRowProps: ({ row }: any) => (row.original.isFolder
+                                ? { onClick: () => setCurrentFolder(row.original.folderName), sx: { cursor: 'pointer' } }
+                                : {}),
+                        }}
+                    />
+                )}
                 {/*end::Table*/}
             </div>
 

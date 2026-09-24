@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
+import { useTabRoute } from '@app/hooks/useTabRoute';
 import {companyLogoIcons, leadsIcons } from '@metronic/assets/sidepanelicons';
 import { PageLink, PageTitle } from '@metronic/layout/core';
 import EmployeeListContent from './EmployeeListContent';
@@ -24,8 +25,6 @@ const employeesBreadCrumb: Array<PageLink> = [
 ];
 
 function EmployeeList() {
-    const [activeTab, setActiveTab] = useState(0);
-
      const dispatch = useDispatch<AppDispatch>();  
       useEffect(() => {
         dispatch(loadAllEmployeesIfNeeded());
@@ -44,10 +43,16 @@ function EmployeeList() {
         }
     ];
 
+    // The tab is the URL (/employees/configure), so it survives a refresh, a shared link, and
+    // the remount the header does at the mobile breakpoint. The base is spelled out rather than
+    // derived: the first tab's slug is `employees`, which is also this page's own path segment,
+    // so the hook could not tell the two apart.
+    const { activeTab, setActiveTab } = useTabRoute('/employees', tabItems.map((t) => t.title));
+
     return (
         <>
             <PageTitle breadcrumbs={employeesBreadCrumb}>Employees Management</PageTitle>
-            <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} />
+            <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} />
         </>
     )
 }

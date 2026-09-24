@@ -26,6 +26,7 @@ import CareerJourneyHero from './CareerJourneyHero';
 import GrowthPerYearBreakdown from './GrowthPerYearBreakdown';
 import YearSummaryPanel from './YearSummaryPanel';
 import { EmptyState } from './widgets';
+import { useStoredState } from '@app/hooks/useStoredState';
 
 interface IncrementDashboardProps {
     mode: IncrementMode;
@@ -159,7 +160,7 @@ const IncrementDashboard = ({
     const [selectedRecord, setSelectedRecord] = useState<IncrementRecord | null>(null);
     const [showDetailDialog, setShowDetailDialog] = useState(false);
     const [showEditDialog, setShowEditDialog] = useState(false);
-    const [yearFilter, setYearFilter] = useState<string>('all');
+    const [yearFilter, setYearFilter] = useStoredState<string>('filters:IncrementDashboard:yearFilter', 'all');
 
     const isYearly = mode === 'yearly';
 

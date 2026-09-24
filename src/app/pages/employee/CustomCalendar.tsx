@@ -1181,14 +1181,20 @@ function CustomCalendar() {
      * So a meeting chip goes to the Meetings tab, which is the screen that owns all of it.
      *
      * The date rides along because the tab opens on the current month by default, and a
-     * meeting clicked in November is not on it. Same route, only the query changes — the
-     * Meetings tab is a sibling of this one, not another page.
+     * meeting clicked in November is not on it.
+     *
+     * The tab is a PATH segment (see `hooks/useTabRoute`), not `?tab=`, and it is written as
+     * one here rather than left to the hook's legacy `?tab=` rewrite — that rewrite only fires
+     * when the path names no tab, and this screen is reached at `/employees/calendar/calendar`
+     * too (after the user clicks back onto the Calendar tab, which is precisely the re-click
+     * case that has to keep working). The path is spelled out because the Meetings tab exists
+     * on that one page; this component is only ever mounted as its Calendar tab.
      */
     const openMeetingsTab = (startIso: string) => {
         const params = new URLSearchParams(location.search);
-        params.set('tab', 'Meetings');
+        params.delete('tab');
         params.set('date', dayjs(startIso).format('YYYY-MM-DD'));
-        navigate({ pathname: location.pathname, search: params.toString() });
+        navigate({ pathname: '/employees/calendar/meetings', search: params.toString() });
     };
 
     /** The meeting behind an event, or null when the event is not one. */

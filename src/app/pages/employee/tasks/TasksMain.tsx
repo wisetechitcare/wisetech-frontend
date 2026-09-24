@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
-import { useSearchParams } from "react-router-dom";
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
@@ -9,6 +8,7 @@ import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { usePermission } from "@hooks/usePermission";
+import { useTabRoute } from "@app/hooks/useTabRoute";
 import { fetchConfiguration } from "@services/company";
 import { DATE_SETTINGS_KEY } from "@constants/configurations-key";
 import { safeJsonParse } from "@utils/safeJson";
@@ -32,22 +32,7 @@ import TaskOverviewToggle from "./taskOverView/TaskOverviewToggle";
  * ⚠️ The gate is UX only: the backend task-statuses / task-priorities / task-persest write
  * routes still carry no authorize(). See RSK-091.
  */
-/**
- * Which tab the URL is asking for. BY NAME, not index: the Configure tab only exists for
- * users who may configure, so an index would open a different tab for different people.
- */
-const TAB_PARAM = "tab";
-const slugOf = (title: string) => title.toLowerCase();
-
 const TasksMain = () => {
-  /**
-   * The open tab lives in the URL, so returning here lands where you left — a task's
-   * "Back to tasks" used to arrive on Overview, with the board (and the ?scope= it carried)
-   * never mounted. Same `?tab=` precedent as the project detail page, and written with
-   * `replace` so flipping tabs does not stack history entries to walk back through.
-   */
-  const [searchParams, setSearchParams] = useSearchParams();
-  const requestedTab = searchParams.get(TAB_PARAM);
   const [dateSettingsEnabled, setDateSettingsEnabled] = useState(false);
   const canConfigure = usePermission("tasks.manage.all");
 
@@ -103,15 +88,16 @@ const TasksMain = () => {
     return items;
   }, [dateSettingsEnabled, canConfigure]);
 
-  // Resolved from the tab list so an unknown or absent name falls back to the first tab.
-  const activeTab = Math.max(0, tabItems.findIndex((t) => slugOf(t.title) === requestedTab));
-
-  const setActiveTab = (next: number) => {
-    const slug = slugOf(tabItems[next]?.title ?? "");
-    const params = new URLSearchParams(searchParams);
-    if (slug) params.set(TAB_PARAM, slug); else params.delete(TAB_PARAM);
-    setSearchParams(params, { replace: true });
-  };
+  /**
+   * The open tab is the PATH (/tasks/tasks), so returning here lands where you left — a task's
+   * "Back to tasks" used to arrive on Overview, with the board (and the ?scope= it carried)
+   * never mounted. The query string is left alone, so `?scope=` still reaches the board; old
+   * `?tab=` links are rewritten to the path form once.
+   *
+   * Slugs come from the TITLES, not an index: the Configure tab only exists for users who may
+   * configure, so an index would open a different tab for different people.
+   */
+  const { activeTab, setActiveTab } = useTabRoute("/tasks", tabItems.map((t) => t.title));
 
   const TasksBreadcrumbs = [
     {

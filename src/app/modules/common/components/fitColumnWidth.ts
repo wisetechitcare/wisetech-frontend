@@ -49,11 +49,25 @@ const textWidth = (s: string, font: string): number => {
 export const fitColumnWidth = (col: any, data: any[]): number => {
   const key = col.accessorKey ?? col.id;
   let widest = 0;
-  if (key && Array.isArray(data)) {
+  if (Array.isArray(data)) {
     for (let i = 0; i < Math.min(data.length, 300); i++) {
-      const v = String(key)
-        .split(".")
-        .reduce((o: any, k: string) => o?.[k], data[i]);
+      // `accessorFn` first: a column that derives its text (a name looked up from an id,
+      // a joined list) has an accessorFn but no meaningful accessorKey, and reading the
+      // key gave a short id — so the column came out at the minimum width and wrapped its
+      // real content onto three lines. Guarded: an accessorFn may assume a loaded relation.
+      let v: any;
+      if (typeof col.accessorFn === "function") {
+        try {
+          v = col.accessorFn(data[i]);
+        } catch {
+          v = undefined;
+        }
+      }
+      if (v == null && key) {
+        v = String(key)
+          .split(".")
+          .reduce((o: any, k: string) => o?.[k], data[i]);
+      }
       if (v == null || typeof v === "object" || typeof v === "boolean") continue;
       const s = String(v);
       // Avatar/attachment URLs are never rendered as text — sizing to them blows the column out.

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { useTabRoute } from "@app/hooks/useTabRoute";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import MaterialHeaderTab, {
   TabItem,
@@ -23,7 +24,6 @@ function AdminAndEmployeeReimbursementViewer() {
   const dispatch = useDispatch();
   const location = useLocation();
 
-  const [activeTab, setActiveTab] = useState(0);
   useEffect(()=>{
     dispatch(fetchRolesAndPermissions() as any);
   },[])
@@ -91,6 +91,14 @@ function AdminAndEmployeeReimbursementViewer() {
     }]:[]),
   ];
 
+  // The tab is the URL (/finance/reimbursements/payment), so it survives a refresh, a
+  // shared link, and the remount the header does at the mobile breakpoint. Derived from
+  // the titles, so a tab hidden by permissions can't shift the others.
+  const { activeTab, setActiveTab } = useTabRoute(
+    "/finance/reimbursements",
+    tabItems.map((t) => t.title),
+  );
+
   const ReimbursementWizardBreadcrumb: Array<PageLink> = [
     {
       title: "Finance",
@@ -112,7 +120,7 @@ function AdminAndEmployeeReimbursementViewer() {
         Reimbursements
       </PageTitle>
       
-      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab}/>
+      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} />
     </>
   );
 }

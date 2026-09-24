@@ -1,7 +1,7 @@
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
-import { useSearchParams } from "react-router-dom";
+import { useTabRoute } from "@app/hooks/useTabRoute";
 import { PageTitle } from "@metronic/layout/core";
 import { WtField } from "@app/modules/common/components/ui";
 import { useOrgScope, ALL_ORGS, toCompanyIdParam } from "@/hooks/useOrgScope";
@@ -15,8 +15,8 @@ import ImportView from "./ImportView";
 import { TERMS } from "./terms";
 
 /**
- * Recruitment / ATS module shell. Mirrors LeadsMain (MaterialHeaderTab +
- * ?tab= URL sync).
+ * Recruitment / ATS module shell. Mirrors LeadsMain (MaterialHeaderTab + the tab in the
+ * PATH, /recruitment/pipeline — see useTabRoute; old ?tab= links are rewritten once).
  *   Overview     -> funnel analytics dashboard
  *   Requisitions -> requisition list + approvals
  *   Postings     -> public job adverts
@@ -34,16 +34,7 @@ import { TERMS } from "./terms";
  * family root and shared by every sub-org, so filtering them by org would imply an
  * ownership that does not exist.
  */
-const TAB_KEYS = ["overview", "requisitions", "postings", "pipeline", "candidates", "import", "configure"] as const;
-
 const RecruitmentMain = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tabKey = searchParams.get("tab") || "overview";
-  const activeTab = Math.max(0, TAB_KEYS.indexOf(tabKey as any));
-  const setActiveTab = (index: number) => {
-    setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
-  };
-
   const { scopeId, setScopeId, selectOptions, hasChoice } = useOrgScope({
     allLabel: "All organizations",
   });
@@ -88,13 +79,14 @@ const RecruitmentMain = () => {
   /**
    * Import and Configure are not organization-scoped, so the filter would be a control that
    * does nothing on those two tabs. Hiding it there is more honest than disabling it.
+   * Keyed on the TITLE, like the tab slugs — one name per tab, not a parallel key list.
    */
-  const SCOPED_TABS = new Set(["overview", "requisitions", "postings", "pipeline", "candidates"]);
+  const UNSCOPED_TABS = new Set(["Import", "Configure"]);
 
   const tabItems: TabItem[] = [
     { title: "Overview", component: <RecruitmentOverview companyId={companyId} />, icon: "bi-grid-1x2" },
-    // Tab LABELS come from TERMS; the tab KEYS above stay as they are, because they are in
-    // people's URLs. The module used to say "Requisitions" here and "role" inside every
+    // Tab LABELS come from TERMS, and the URL slug is derived from the label, so the two
+    // cannot disagree. The module used to say "Requisitions" here and "role" inside every
     // dialog, which is one thing with two names.
     { title: TERMS.Requisitions, component: <RequisitionsView companyId={companyId} />, icon: "bi-briefcase" },
     { title: TERMS.Postings, component: <PostingsView companyId={companyId} />, icon: "bi-megaphone" },
@@ -105,6 +97,11 @@ const RecruitmentMain = () => {
     { title: "Import", component: <ImportView />, icon: "bi-upload" },
     { title: "Configure", component: <RecruitmentConfigurationMain />, icon: "bi-gear" },
   ];
+
+  // The tab is the path segment (/recruitment/pipeline), so it survives a refresh, a shared
+  // link and the remount the header does at the mobile breakpoint. Slugs come from the titles,
+  // so a renamed tab in TERMS renames its URL — keep routing/tabPaths.ts in step.
+  const { activeTab, setActiveTab } = useTabRoute("/recruitment", tabItems.map((t) => t.title));
 
   const breadcrumbs = [
     { title: "Recruitment", path: "/recruitment", isSeparator: false, isActive: false },
@@ -117,7 +114,7 @@ const RecruitmentMain = () => {
 
 
       <MaterialHeaderTab
-        headerAction={SCOPED_TABS.has(TAB_KEYS[activeTab]) ? orgFilter : undefined}
+        headerAction={UNSCOPED_TABS.has(tabItems[activeTab].title) ? undefined : orgFilter}
         tabItems={tabItems}
         onTabChange={setActiveTab}
         activeTab={activeTab}

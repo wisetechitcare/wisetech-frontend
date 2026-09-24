@@ -1,7 +1,6 @@
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { PageLink, PageTitle } from '@metronic/layout/core';
 import { RootState } from '@redux/store';
-import { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux';
 import MyKpi from "./views/MyKpiView"
 import KPISettings from '@pages/employee/loans/admin/views/KPISettings';
@@ -9,12 +8,12 @@ import SearchEmployee from './views/SearchEmployee';
 import KpiLeaderboard from '../KpiLeaderboard';
 import { kpiIcons, leadsIcons } from '@metronic/assets/sidepanelicons';
 import { isSubsectionVisible } from '@utils/accessAreas';
+import { useTabRoute } from '@app/hooks/useTabRoute';
 
 
 function PersonalKpiMain() {
   const dispatch = useDispatch();
 
-  const [, setActiveTab] = useState(0);
   const isAdmin = useSelector(
     (state: RootState) => state.auth.currentUser.isAdmin
   );
@@ -36,7 +35,10 @@ function PersonalKpiMain() {
     .filter((t) => isSubsectionVisible(t.key, t.baseAllowed))
     .map((t) => t.item);
 
-
+  // The tab is the URL, so it survives a refresh, a shared link, and the remount the
+  // header does at the mobile breakpoint. Derived from the titles, so a tab hidden by
+  // permissions can't shift the others.
+  const { activeTab, setActiveTab } = useTabRoute(undefined, visibleTabs.map((t) => t.title));
 
   const LoanBreadcrumb: Array<PageLink> = [
     {
@@ -59,7 +61,7 @@ function PersonalKpiMain() {
       <PageTitle breadcrumbs={LoanBreadcrumb}>
         Kpi
       </PageTitle>
-      <MaterialHeaderTab tabItems={visibleTabs} onTabChange={setActiveTab} />
+      <MaterialHeaderTab tabItems={visibleTabs} activeTab={activeTab} onTabChange={setActiveTab} />
     </>
   );
 }

@@ -9,6 +9,15 @@ export function getSocket(): Socket {
     socket = io(BACKEND_URL, {
       transports: ['websocket'],
       path: '/socket.io/',
+      // Send the httpOnly auth cookie with the handshake. The server now DERIVES
+      // room membership from that session instead of trusting a client-supplied
+      // employee id, so without this a socket authenticates as nobody and receives
+      // no personal events — approvals, notifications — at all.
+      //
+      // Cross-origin deployments (app and API on different domains) additionally
+      // need COOKIE_SAME_SITE=none on the server, the same condition the HTTP auth
+      // cookie already depends on.
+      withCredentials: true,
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,

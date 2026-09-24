@@ -1,7 +1,7 @@
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { leadsIcons, reimbursementsIcons } from '@metronic/assets/sidepanelicons';
 import { PageLink, PageTitle } from '@metronic/layout/core';
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { useDispatch } from 'react-redux';
 import PersonalLoan from './views/PersonalLoan';
 import Installments from './views/Installments';
@@ -13,11 +13,11 @@ import EmployeeLoanInformation from './EmployeeLoanInformation';
 import { loanIcons } from '@metronic/assets/sidepanelicons';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { hasPermission } from '@utils/authAbac';
+import { useTabRoute } from '@app/hooks/useTabRoute';
 
 function PersonalLoanMain() {
     const dispatch = useDispatch();
 
-    const [activeTab, setActiveTab] = useState(0);
     const viewOwnPermissionLoan = hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.readOwn)
     const viewOthersPermissionLoan = hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.readOthers)
     const viewOwnPermissionLoanInstallment = hasPermission(resourceNameMapWithCamelCase.loanInstallment, permissionConstToUseWithHasPermission.readOwn)
@@ -73,7 +73,12 @@ function PersonalLoanMain() {
         icon: 'bi-gear',
       }]:[]),
     ];
-  
+
+    // The tab is the URL (/finance/loans/personal-installments), so it survives a refresh,
+    // a shared link, and the remount the header does at the mobile breakpoint. Derived from
+    // the titles, so a tab hidden by permissions can't shift the others.
+    const { activeTab, setActiveTab } = useTabRoute('/finance/loans', tabItemsAdmin.map((t) => t.title));
+
     const LoanBreadcrumb: Array<PageLink> = [
       {
         title: "Home",
@@ -94,7 +99,7 @@ function PersonalLoanMain() {
         <PageTitle breadcrumbs={LoanBreadcrumb}>
           Loans
         </PageTitle>
-        <MaterialHeaderTab tabItems={tabItemsAdmin} onTabChange={setActiveTab}/>
+        <MaterialHeaderTab tabItems={tabItemsAdmin} activeTab={activeTab} onTabChange={setActiveTab}/>
         {/* {!isAdmin && <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab}/>} */}
         {/* {isAdmin && } */}
       </>

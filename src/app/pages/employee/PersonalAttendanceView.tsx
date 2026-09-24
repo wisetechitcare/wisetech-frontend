@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect } from 'react';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
+import { useTabRoute } from '@app/hooks/useTabRoute';
 import { PageLink, PageTitle } from '@metronic/layout/core';
 import OverviewView from './attendance/personal/OverviewView';
 import MyAttendanceView from './attendance/personal/MyAttendanceView';
@@ -17,9 +17,6 @@ import { AppDispatch } from '@redux/store';
 
 const PersonalAttendanceView = () => {
     const dispatch = useDispatch();
-    const [searchParams] = useSearchParams();
-    const initialTab = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 4);
-    const [activeTab, setActiveTab] = useState(initialTab);
     const resourseAndView = [
         {
             resource: resourceNameMapWithCamelCase.attendanceRequest,
@@ -60,6 +57,10 @@ const PersonalAttendanceView = () => {
             icon: 'bi-question-circle',
         },
     ];
+
+    // The tab is the URL (/employee/attendance-and-leaves/my-attendance), so it survives a
+    // refresh, a shared link, and the remount the header does at the mobile breakpoint.
+    const { activeTab, setActiveTab } = useTabRoute(undefined, tabItems.map((t) => t.title));
 
     const newAttendanceWizardBreadcrumb: Array<PageLink> = [
         {

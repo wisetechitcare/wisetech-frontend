@@ -7,6 +7,7 @@ import { fetchBranches, fetchDepartments } from '@services/options'
 import axios from 'axios'
 import { LEAD_PROJECT_COMPANY } from '@constants/api-endpoint'
 import { get, set } from 'lodash'
+import { useStoredState } from '@app/hooks/useStoredState';
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
@@ -356,15 +357,15 @@ const TasksMainCalenderPage = () => {
     const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(5)
-    const [searchTerm, setSearchTerm] = useState('')
+    const [searchTerm, setSearchTerm] = useStoredState<string>('filters:TasksMainCalenderPage:search', '')
 
     // Org / branch / department filters (client-side, over each team's members).
     const [orgOptions, setOrgOptions] = useState<FilterOption[]>([])
     const [branchOptions, setBranchOptions] = useState<FilterOption[]>([])
     const [deptOptions, setDeptOptions] = useState<FilterOption[]>([])
-    const [orgFilter, setOrgFilter] = useState('')
-    const [branchFilter, setBranchFilter] = useState('')
-    const [deptFilter, setDeptFilter] = useState('')
+    const [orgFilter, setOrgFilter] = useStoredState('filters:TasksMainCalenderPage:orgFilter', '')
+    const [branchFilter, setBranchFilter] = useStoredState('filters:TasksMainCalenderPage:branchFilter', '')
+    const [deptFilter, setDeptFilter] = useStoredState('filters:TasksMainCalenderPage:deptFilter', '')
 
     // Employee id currently being moved to another team (disables its row control).
     const [movingId, setMovingId] = useState<string | null>(null)

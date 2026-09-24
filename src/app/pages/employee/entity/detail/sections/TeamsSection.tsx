@@ -5,16 +5,17 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { DetailStatusBadge, DetailLink } from '@app/modules/detail-page/DetailPageComponents';
+import { DetailStatusBadge, DetailLink, detailHeaderFade } from '@app/modules/detail-page/DetailPageComponents';
 import {
   EditableDetailCard, SelectEditor, SearchableSelectEditor, DateEditor, ToggleEditor, toDateInputValue,
 } from '@app/modules/detail-page/EditableDetailCard';
 import { updateLeadSection } from '@services/leadService';
-import { getAllCompanyTypes, getAllClientCompanies, getAllClientContacts, getAllSubCompanies } from '@services/companies';
+import { getAllCompanyTypes, getAllClientCompanies, getAllClientContacts, getAllSubCompanies, getAllSubServices } from '@services/companies';
 import { getAllTeams, getAllTeamsMember } from '@services/projects';
 import { EmptyState } from '../widgets';
 import { employeeNameById, fmtDate, DASH } from '../entityViewModel';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import MaterialTable from '@app/modules/common/components/MaterialTable';
 
 /**
  * Teams — the collaboration roster for a lead/project, split in two:
@@ -123,6 +124,40 @@ const managersPayload = (ids: string[], members: any[]) => {
  * both the value and the "Select date" placeholder were clipped mid-word.
  */
 const COL = { employee: 180, date: 152, status: 112, manager: 150, action: 32 };
+
+// The team tables sit INSIDE a card already — drop the table's own card chrome so they
+// read as the card's body, not a second card nested in it.
+// `main.css` styles EVERY table card, header and cell with `!important` (rounded bordered
+// paper, grey header band, column rules), so these overrides need `!important` AND the
+// `&&&` specificity to outrank those global selectors — scoped to these two tables only.
+const FLUSH_TABLE_PAPER = {
+  '&&&': { boxShadow: 'none !important', border: 'none !important', borderRadius: '0 !important', backgroundColor: 'transparent' },
+};
+// …and wear this section's own `th` / `td` look (flat labels, hairline row AND column
+// dividers) instead of the table's grey header band, so the card reads as one piece.
+const COLUMN_RULE = '1px solid #EEF2F6 !important';
+const FLUSH_TABLE_HEAD = {
+  '&&&': {
+    ...th, letterSpacing: '0.5px', minHeight: 0,
+    backgroundColor: 'transparent !important',
+    borderBottom: `${th.borderBottom} !important`,
+    borderRight: COLUMN_RULE,
+  },
+  '&&&:last-of-type': { borderRight: 'none !important' },
+  '&&&:hover': { backgroundColor: 'transparent !important', color: th.color },
+};
+const FLUSH_TABLE_ROWS = {
+  muiTableBodyRowProps: () => ({
+    sx: {
+      '& .MuiTableCell-root': {
+        ...td, minHeight: 0,
+        borderBottom: `${td.borderBottom} !important`,
+        borderRight: COLUMN_RULE,
+      },
+      '& .MuiTableCell-root:last-of-type': { borderRight: 'none !important' },
+    },
+  }),
+};
 
 // Roster ordering: active members first, inactive below (stable within each group).
 // Used for the read-mode table and the Change-Team review list so the split is visible.
@@ -455,6 +490,124 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const persisted = ex.internalRosterSet === true || internal.length > 0;
   const displayMembers: any[] = persisted ? internal : teamRoster;
 
+  // ── The two rosters are MaterialTable now, like every other list in the app, so they
+  //    get sorting, per-column search, column show/hide and saved column preferences that
+  //    the hand-written <table> never had. Cells render exactly what they rendered before.
+  const currentUserId = useSelector((st: RootState) => st.auth?.currentUser?.id);
+  const avatarFor = (name: string, url?: string | null) =>
+    url || `https://ui-avatars.com/api/?name=${encodeURIComponent(name && name !== DASH ? name : '?')}&background=eeeeee&color=888888&size=20&rounded=true`;
+  const RowAvatar = ({ name, url }: { name: string; url?: string | null }) => (
+    <img src={avatarFor(name, url)} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+  );
+
+  // Flattened so the table can sort and search on real values rather than on JSX.
+  const internalRows = useMemo(
+    // Active first — the flat table has no sort headers, so the order is set here.
+    () => sortByActive(displayMembers).map((m: any) => {
+      const isManager = !!m.employeeId && managerIds.includes(String(m.employeeId));
+      return {
+        ...m,
+        employeeName: empName(m.employeeId),
+        status: m.isActive !== false ? 'Active' : 'Inactive',
+        managerLabel: isManager
+          ? (String(m.employeeId) === primaryManagerId ? 'Primary Manager' : 'Manager')
+          : m.wasProjectManager ? 'Past Manager' : DASH,
+      };
+    }),
+    [displayMembers, managerIds, primaryManagerId, allEmployees],
+  );
+
+  const internalColumns = useMemo(() => [
+    {
+      accessorKey: 'employeeName',
+      header: 'Employee',
+      Cell: ({ row }: any) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <RowAvatar name={row.original.employeeName} url={empAvatar(row.original.employeeId)} />
+          {row.original.employeeId ? (
+            <DetailLink href={`/employees/${row.original.employeeId}`} style={{ fontWeight: 700, color: '#1E293B' }}>
+              {row.original.employeeName}
+            </DetailLink>
+          ) : row.original.employeeName}
+        </div>
+      ),
+    },
+    { accessorKey: 'startDate', header: 'Start Date', Cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
+    { accessorKey: 'endDate', header: 'End Date', Cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      Cell: ({ cell }: any) => (
+        <DetailStatusBadge status={cell.getValue()} color={cell.getValue() === 'Active' ? '#16a34a' : '#94A3B8'} />
+      ),
+    },
+    {
+      accessorKey: 'managerLabel',
+      header: 'Manager',
+      Cell: ({ row }: any) => {
+        const label = row.original.managerLabel;
+        if (label === DASH) return DASH;
+        // A PAST manager reads as history, not as a current role.
+        if (label === 'Past Manager') {
+          return <span style={{ ...managerBadge(false), background: '#F1F5F9', color: '#64748B', borderColor: '#E2E8F0' }}>{label}</span>;
+        }
+        return <span style={managerBadge(label === 'Primary Manager')}>{label}</span>;
+      },
+    },
+  ], [allEmployees]);
+
+  const externalColumns = useMemo(() => [
+    {
+      accessorKey: 'name',
+      header: 'Company / Client',
+      Cell: ({ row }: any) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <RowAvatar name={row.original.name} url={row.original.companyAvatar} />
+          {row.original.companyId ? (
+            <DetailLink href={`/companies/${row.original.companyId}`} style={{ fontWeight: 700, color: '#1E293B' }}>
+              {row.original.name}
+            </DetailLink>
+          ) : row.original.name}
+        </div>
+      ),
+    },
+    { accessorKey: 'type', header: 'Type', Cell: ({ cell }: any) => cell.getValue() || DASH },
+    { accessorKey: 'subCompany', header: 'Sub Company', Cell: ({ cell }: any) => cell.getValue() || DASH },
+    { accessorKey: 'subServices', header: 'Sub Service', Cell: ({ cell }: any) => cell.getValue() || DASH },
+    {
+      accessorKey: 'contact',
+      header: 'Contact',
+      Cell: ({ row }: any) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {row.original.contact && row.original.contact !== DASH && (
+            <RowAvatar name={row.original.contact} url={row.original.contactAvatar} />
+          )}
+          {row.original.contactId && row.original.contact ? (
+            <DetailLink href={`/contacts/${row.original.contactId}`}>{row.original.contact}</DetailLink>
+          ) : row.original.contact || DASH}
+        </div>
+      ),
+    },
+    { accessorKey: 'designation', header: 'Designation', Cell: ({ cell }: any) => cell.getValue() || DASH },
+    {
+      accessorKey: 'phone',
+      header: 'Phone',
+      // Links to the contact's page, not tel: — same destination as the name.
+      Cell: ({ row }: any) => (row.original.contactId && row.original.phone
+        ? <DetailLink href={`/contacts/${row.original.contactId}`}>{row.original.phone}</DetailLink>
+        : row.original.phone || DASH),
+    },
+    { accessorKey: 'startDate', header: 'Start Date', Cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
+    { accessorKey: 'endDate', header: 'End Date', Cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
+    {
+      accessorKey: 'isActive',
+      header: 'Status',
+      Cell: ({ cell }: any) => (
+        <DetailStatusBadge status={cell.getValue() ? 'Active' : 'Inactive'} color={cell.getValue() ? '#16a34a' : '#94A3B8'} />
+      ),
+    },
+  ], []);
+
   // ── External roster = the project's OWN stakeholders (projectExternalTeams),
   //    editable here with the SAME cascading dropdowns the lead form uses:
   //    Company Type → Company → Sub Company → Contact Person. FKs are scalar, so
@@ -471,8 +624,10 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const [companies, setCompanies] = useState<any[]>([]);
   const [allSubCompanies, setAllSubCompanies] = useState<any[]>([]);
   const [allContacts, setAllContacts] = useState<any[]>([]);
+  const [subServices, setSubServices] = useState<any[]>([]);
 
   useEffect(() => {
+    getAllSubServices().then((r: any) => setSubServices(r?.subServices || [])).catch(() => {});
     getAllCompanyTypes().then((r: any) => setCompanyTypes(r?.companyTypes || [])).catch(() => {});
     getAllClientCompanies(true).then((r: any) => setCompanies(r?.data?.companies || [])).catch(() => {});
     getAllSubCompanies().then((r: any) => setAllSubCompanies(r?.data?.subCompanies || r?.subCompanies || [])).catch(() => {});
@@ -484,6 +639,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const subCompanyById = useMemo(() => new Map(allSubCompanies.map((s: any) => [String(s.id), s])), [allSubCompanies]);
   const contactById = useMemo(() => new Map(allContacts.map((c: any) => [String(c.id), c])), [allContacts]);
   const companyNameById = useMemo(() => new Map(companies.map((c: any) => [String(c.id), c.companyName])), [companies]);
+  const subServiceNameById = useMemo(() => new Map(subServices.map((s: any) => [String(s.id), s.name])), [subServices]);
   const companyTypeById = useMemo(() => new Map(companyTypes.map((t: any) => [String(t.id), t])), [companyTypes]);
 
   // External roster view model — resolves scalar FKs (companyTypeId/companyId/
@@ -507,6 +663,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             contactId: t?.contactId ? String(t.contactId) : '',
             type: companyType?.name || '',
             subCompany: subCompany?.subCompanyName || subCompany?.name || '',
+            // Read off the company record, so it follows the company — nothing to enter here.
+            subServices: (company?.subServiceMappings || [])
+              .map((m: any) => subServiceNameById.get(String(m.subServiceId)))
+              .filter(Boolean)
+              .join(', '),
             contact: contact?.fullName || contact?.name || '',
             contactAvatar: contact?.profilePhoto || contact?.avatar || contact?.users?.avatar || null,
             // A contact's role lives in EITHER the free-text `roleInCompany` or the
@@ -527,7 +688,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
           if (aActive !== bActive) return aActive - bActive;
           return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
         }),
-    [projectExternalTeams, companyById, subCompanyById, contactById, companyTypeById],
+    [projectExternalTeams, companyById, subCompanyById, contactById, companyTypeById, subServiceNameById],
   );
 
   const byLabel = (a: { label: string }, b: { label: string }) =>
@@ -665,7 +826,8 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
         <div className="col-12">
           <EditableDetailCard
             title="Internal Team"
-            subtitle={team?.name ? `Execution team · ${team.name}` : 'No execution team selected'}
+            // The team itself is named once, in the Execution Team box below — not here too.
+            subtitle="Execution team & members"
             icon="bi bi-person-workspace"
             accentColor="blue"
             values={{
@@ -726,7 +888,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
               // Ownership). Shown in read mode above the roster; nothing is written
               // until Save is clicked.
               const teamPicker = (
-                <div style={{ flex: 1, minWidth: 260, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
+                <div style={{ flex: 1, minWidth: 260, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: '#F8FAFC', borderRadius: 10 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 8, background: '#2563eb14', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <AppIcon name="bi-diagram-3" />
                   </div>
@@ -771,62 +933,21 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         <span>Showing the <strong>{team?.name}</strong>. Click <strong>Edit</strong> to set each member's start/end dates &amp; status, then Save to start tracking.</span>
                       </div>
                     )}
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter' }}>
-                        <thead>
-                          <tr>{['Employee', 'Start Date', 'End Date', 'Status', 'Manager'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
-                        </thead>
-                        <tbody>
-                          {[...displayMembers]
-                            .sort((a, b) => {
-                              // Active before Inactive, then employee name A→Z within each group.
-                              const aActive = a.isActive !== false ? 0 : 1;
-                              const bActive = b.isActive !== false ? 0 : 1;
-                              if (aActive !== bActive) return aActive - bActive;
-                              return empName(a.employeeId).localeCompare(
-                                empName(b.employeeId),
-                                undefined,
-                                { sensitivity: 'base' }
-                              );
-                            })
-                            .map((m, i) => {
-                              const isManager = !!m.employeeId && managerIds.includes(String(m.employeeId));
-                              const isPrimary = isManager && String(m.employeeId) === primaryManagerId;
-                              return (
-                            <tr key={m.id || m.employeeId || i}>
-                              <td style={tdName}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <img
-                                    src={empAvatar(m.employeeId) || `https://ui-avatars.com/api/?name=${encodeURIComponent(empName(m.employeeId) === DASH ? '?' : empName(m.employeeId))}&background=eeeeee&color=888888&size=20&rounded=true`}
-                                    alt=""
-                                    style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
-                                  />
-                                  {m.employeeId ? (
-                                    <DetailLink href={`/employees/${m.employeeId}`} style={{ fontWeight: 700, color: '#1E293B' }}>
-                                      {empName(m.employeeId)}
-                                    </DetailLink>
-                                  ) : (
-                                    empName(m.employeeId)
-                                  )}
-                                </div>
-                              </td>
-                              <td style={td}>{m.startDate ? fmtDate(m.startDate) : DASH}</td>
-                              <td style={td}>{m.endDate ? fmtDate(m.endDate) : DASH}</td>
-                              <td style={td}><DetailStatusBadge status={m.isActive !== false ? 'Active' : 'Inactive'} color={m.isActive !== false ? '#16a34a' : '#94A3B8'} /></td>
-                              <td style={td}>
-                                {isManager ? (
-                                  <span style={managerBadge(isPrimary)}>{isPrimary ? 'Primary Manager' : 'Manager'}</span>
-                                ) : m.wasProjectManager ? (
-                                  // Managed this project until they left the company (handed over on exit).
-                                  <span style={{ ...managerBadge(false), background: '#F1F5F9', color: '#64748B', borderColor: '#E2E8F0' }}>Past Manager</span>
-                                ) : DASH}
-                              </td>
-                            </tr>
-                              );
-                            })}
-                        </tbody>
-                      </table>
-                    </div>
+                    <MaterialTable
+                      tableName="ProjectInternalTeam"
+                      hideFilters
+                      enableBottomToolbar={false}
+                      muiTablePaperStyle={FLUSH_TABLE_PAPER}
+                      muiTableHeadCellStyle={FLUSH_TABLE_HEAD}
+                      muiTableProps={FLUSH_TABLE_ROWS}
+                      enableStatusColorCoding={false}
+                      employeeId={currentUserId}
+                      data={internalRows}
+                      columns={internalColumns}
+                      hidePagination
+                      hideExportCenter
+                      enableColumnActions={false}
+                    />
                   </div>
                 );
                 return <div>{ownershipPickers}{readBody}</div>;
@@ -1107,64 +1228,21 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 return stakeholders.length === 0 ? (
                   <EmptyState icon="bi bi-buildings" title="No external stakeholders" message="Click Edit to link the client — Company Type, Company, Sub Company and Contact Person — just like the lead form." />
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter' }}>
-                      <thead><tr>{['Company / Client', 'Type', 'Sub Company', 'Contact', 'Designation', 'Phone', 'Start Date', 'End Date', 'Status'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
-                      <tbody>
-                        {stakeholders.map((s, i) => (
-                          <tr key={i}>
-                            <td style={tdName}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <img
-                                  src={s.companyAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name === DASH ? 'C' : s.name)}&background=eeeeee&color=888888&size=20&rounded=true`}
-                                  alt=""
-                                  style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
-                                />
-                                {s.companyId ? (
-                                  <DetailLink href={`/companies/${s.companyId}`} style={{ fontWeight: 700, color: '#1E293B' }}>
-                                    {s.name}
-                                  </DetailLink>
-                                ) : (
-                                  s.name
-                                )}
-                              </div>
-                            </td>
-                            <td style={td}>{s.type || DASH}</td>
-                            <td style={td}>{s.subCompany || DASH}</td>
-                            <td style={td}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                {s.contact !== DASH && s.contact !== '' && (
-                                  <img
-                                    src={s.contactAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.contact)}&background=eeeeee&color=888888&size=20&rounded=true`}
-                                    alt=""
-                                    style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
-                                  />
-                                )}
-                                {s.contactId && s.contact ? (
-                                  <DetailLink href={`/contacts/${s.contactId}`}>{s.contact}</DetailLink>
-                                ) : (
-                                  s.contact || DASH
-                                )}
-                              </div>
-                            </td>
-                            <td style={td}>{s.designation || DASH}</td>
-                            <td style={td}>
-                              {/* Phone links to the contact's detail page (not tel:) — the
-                                  request was for it to open the contact, same as the name. */}
-                              {s.contactId && s.phone ? (
-                                <DetailLink href={`/contacts/${s.contactId}`}>{s.phone}</DetailLink>
-                              ) : (
-                                s.phone || DASH
-                              )}
-                            </td>
-                            <td style={td}>{s.startDate ? fmtDate(s.startDate) : DASH}</td>
-                            <td style={td}>{s.endDate ? fmtDate(s.endDate) : DASH}</td>
-                            <td style={td}><DetailStatusBadge status={s.isActive ? 'Active' : 'Inactive'} color={s.isActive ? '#16a34a' : '#94A3B8'} /></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <MaterialTable
+                    tableName="ProjectExternalTeam"
+                    hideFilters
+                    enableBottomToolbar={false}
+                    muiTablePaperStyle={FLUSH_TABLE_PAPER}
+                    muiTableHeadCellStyle={FLUSH_TABLE_HEAD}
+                    muiTableProps={FLUSH_TABLE_ROWS}
+                    enableStatusColorCoding={false}
+                    employeeId={currentUserId}
+                    data={stakeholders}
+                    columns={externalColumns}
+                    hidePagination
+                    hideExportCenter
+                    enableColumnActions={false}
+                  />
                 );
               }
 
