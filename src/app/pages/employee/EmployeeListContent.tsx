@@ -30,6 +30,7 @@ import { useDebounce } from "@metronic/helpers";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import EmployeeIdCardDialog from "./components/idcard/EmployeeIdCardDialog";
 import EmployeeCard from "./components/EmployeeCard";
+import { useStoredState } from "@app/hooks/useStoredState";
 
 type StatusType = "all" | "active" | "inactive";
 type ViewMode = "table" | "cards";
@@ -133,9 +134,9 @@ const EmployeeListContent = () => {
   });
   const [selectedStatus, setSelectedStatus] = useState<StatusType>("active");
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ all: 0, active: 0, inactive: 0 });
-  const [branchFilter, setBranchFilter] = useState<string>('All');
-  const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
-  const [payTypeFilter, setPayTypeFilter] = useState<string>('All');
+  const [branchFilter, setBranchFilter] = useStoredState<string>('filters:EmployeeListContent:branchFilter', 'All');
+  const [subOrgFilter, setSubOrgFilter] = useStoredState<string>('filters:EmployeeListContent:subOrgFilter', 'All');
+  const [payTypeFilter, setPayTypeFilter] = useStoredState<string>('filters:EmployeeListContent:payTypeFilter', 'All');
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const rootOrgNames = useRootOrgNames();
   // Which employee's ID card is on screen. Held as {id, name} rather than a boolean

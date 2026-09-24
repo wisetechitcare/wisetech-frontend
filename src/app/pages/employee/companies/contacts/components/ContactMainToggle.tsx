@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { useTabKeyRoute } from "@app/hooks/useTabRoute";
 import { getClientContactById } from "@services/companies";
 import { useEventBus } from "@hooks/useEventBus";
 import ContactOverview from "./ContactOverview";
@@ -16,14 +17,19 @@ import AssignToProjectsDialog from "@app/modules/common/components/AssignToProje
 
 type TabType = "overview" | "lead-reference" | "company-references" | "projects" | "meetings";
 
+const CONTACT_TAB_KEYS: TabType[] = ["overview", "lead-reference", "company-references", "projects", "meetings"];
+
 const ContactMainToggle = () => {
   const { contactId } = useParams<{ contactId: string }>();
   // console.log("idd", contactId);
 
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = (searchParams.get("tab") as TabType) || "overview";
-  const setActiveTab = (tab: TabType) => setSearchParams({ tab }, { replace: true });
+  // The tab is a path segment (/contacts/<id>/projects) — shareable, survives a refresh,
+  // and survives the remount the header does at the mobile breakpoint. Old ?tab= links
+  // are rewritten to the path form once.
+  const { activeKey, setActiveKey } = useTabKeyRoute(undefined, CONTACT_TAB_KEYS);
+  const activeTab = activeKey as TabType;
+  const setActiveTab = (tab: TabType) => setActiveKey(tab);
   const [contact, setContact] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [show, setShow] = useState(false);

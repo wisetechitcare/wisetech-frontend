@@ -70,6 +70,7 @@ import LeadActionPicker from "./LeadActionPicker";
 import MeetingDialog from "@pages/employee/MeetingDialog";
 import { LeadStatusPill, leadRowSx, leadTableSx, UNASSIGNED_ORG_LABEL } from "./leadTableStyle";
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { useStickyFilters } from "@app/hooks/useStickyFilters";
 
 /**
  * Leads created before organizations existed carry no organizationId. They are
@@ -181,6 +182,9 @@ const NavigationButtons: React.FC<{
 
 // All selectable leads-table column keys (must match the `accessorKey`s below and the
 
+/** Filter params this screen owns; they persist between visits. */
+const LEAD_FILTER_KEYS = ["status", "org", "assignee"] as const;
+
 const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   statusId,
   serviceId,
@@ -277,6 +281,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // Empty = all organizations; UNASSIGNED_ORG_VALUE = leads that predate them.
   const organizationFilter = searchParams.get("org") || "";
   const assignedToFilter = searchParams.get("assignee") || "";
+  // …and they stick: leaving for another section (or logging out) and coming back
+  // restores them, exactly like the Daily/Weekly/Monthly selector. Clear Filters clears
+  // them for good — see useStickyFilters.
+  useStickyFilters("leadFilters", LEAD_FILTER_KEYS);
   const setFilterParam = useCallback(
     (key: string, value: string) => {
       setSearchParams(
@@ -1507,7 +1515,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   };
 
   // ── Shared heights ─────────────────────────────────────────────────────────
-  const FILTER_HEIGHT = "32px";
+  // Matches the table toolbar beside it (kit 'sm' select = 34px).
+  const FILTER_HEIGHT = "34px";
 
   // ── Menu styling for selects ─────────────────────────────────────────────────
   const menuSx = {
@@ -1670,7 +1679,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
               )}
             </div>
 
-            {/* Right side: Bulk Import, + New Lead, then the KPI summary */}
+            {/* Right side: KPI summary, then Bulk Import and + New Lead */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -1679,75 +1688,80 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
               width: isMobile ? '100%' : 'auto',
               justifyContent: isMobile ? 'space-between' : 'flex-end'
             }}>
-            {/* KPI summary */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              border: '1px solid #E2E8F0',
-              borderRadius: '6px',
-              padding: '0 12px',
-              background: '#F8FAFC',
-              height: '32px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-              width: isMobile ? '100%' : 'auto'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
-                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCost(totalFilteredCost)}</span>
+              {/* KPI summary */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                border: '1px solid #E2E8F0',
+                borderRadius: '6px',
+                padding: '0 12px',
+                background: '#F8FAFC',
+                height: '32px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                width: isMobile ? '100%' : 'auto'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
+                  <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCost(totalFilteredCost)}</span>
+                </div>
+                <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
+                  <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
+                    {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
+                  </span>
+                </div>
               </div>
-              <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
-                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
-                  {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
-                </span>
-              </div>
-            </div>
+
+              <button
+                className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+                onClick={() => setShowBulkImport(true)}
+                style={{
+                  backgroundColor: "#fff",
+                  color: "#1E3A8A",
+                  border: "1px solid #E2E8F0",
+                  boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+                  borderRadius: "6px",
+                  padding: "0 12px",
+                  fontSize: "12px",
+                  height: "32px",
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  // Share the row on phones; keep their natural width on desktop and never
+                  // let the label wrap mid-word when the row gets tight.
+                  flex: isMobile ? 1 : '0 0 auto',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <KTIcon iconName="cloud-download" className="fs-6 me-1" />
+                Bulk Import
+              </button>
+              <button
+                className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+                onClick={() => setShowOrgPicker(true)}
+                style={{
+                  backgroundColor: "#1E3A8A",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "0 12px",
+                  fontSize: "12px",
+                  height: "32px",
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+                  flex: isMobile ? 1 : '0 0 auto',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                + New Lead
+              </button>
             </div>
           </div>
-                          <button
-                  className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
-                  onClick={() => setShowBulkImport(true)}
-                  style={{
-                    backgroundColor: "#fff",
-                    color: "#1E3A8A",
-                    border: "1px solid #E2E8F0",
-                    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                    borderRadius: "6px",
-                    padding: "0 12px",
-                    fontSize: "12px",
-                    height: "32px",
-                    display: 'flex',
-                    alignItems: 'center',
-                    flex: isMobile ? 1 : 'none',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <KTIcon iconName="cloud-download" className="fs-6 me-1" />
-                  Bulk Import
-                </button>
-                <button
-                  className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
-                  onClick={() => setShowOrgPicker(true)}
-                  style={{
-                    backgroundColor: "#1E3A8A",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "6px",
-                    padding: "0 12px",
-                    fontSize: "12px",
-                    height: "32px",
-                    display: 'flex',
-                    alignItems: 'center',
-                    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                    flex: isMobile ? 1 : 'none',
-                    justifyContent: 'center'
-                  }}
-                >
-                  + New Lead
-                </button>
 
         {/* Custom missing-date hint for Custom Alignment */}
         {alignment === "custom" && (!customStartDate || !customEndDate) && (

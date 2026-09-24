@@ -98,7 +98,7 @@ const ProjectTablePage = () => {
     updateManagerFilter,
     updateMissingAddress,
     clearAllFilters: clearFiltersURL,
-  } = useTableFilters();
+  } = useTableFilters('projectFilters');
 
   const [day, setDay] = useState<Dayjs>(today);
   const [weekStart, setWeekStart] = useState<Dayjs>(() => {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { useSelector } from "react-redux";
 
 import MaterialHeaderTab, { TabItem } from "@app/modules/common/components/MaterialHeaderTab";
@@ -10,10 +10,9 @@ import SearchEmployee from "./views/SearchEmployee";
 import Installments from "./views/Installments";
 import InstallmentsAdmin from "../admin/views/Installments"
 import Information from "../personal/Information";
+import { useTabRoute } from "@app/hooks/useTabRoute";
 
 const EmployeesLoanMain: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<number>(0);
-
   const tabItems: TabItem[] = [
     {
       title: "Overview",
@@ -37,6 +36,10 @@ const EmployeesLoanMain: React.FC = () => {
     }
   ];
 
+  // The tab is the URL (/finance/loans/installments), so it survives a refresh, a shared
+  // link, and the remount the header does at the mobile breakpoint.
+  const { activeTab, setActiveTab } = useTabRoute("/finance/loans", tabItems.map((t) => t.title));
+
   const loanBreadcrumbs: PageLink[] = [
     { title: "Home", path: "/finance/loans", isSeparator: false, isActive: false },
     { title: "Finance", path: "", isSeparator: true, isActive: false },
@@ -45,7 +48,7 @@ const EmployeesLoanMain: React.FC = () => {
   return (
     <>
       <PageTitle breadcrumbs={loanBreadcrumbs}>Loans</PageTitle>
-      <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} />
+      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} />
     </>
   );
 };
