@@ -3,24 +3,17 @@ import { EMPLOYEE, AUDIT } from "@constants/api-endpoint";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
-export interface AccessOverride {
-    id: string;
-    key: string;
-    resource: string;
-    action: string;
-    condition?: string | null;
-    expiresAt?: string | null;
-}
-
 export type AccessLevel = "default" | "view" | "edit" | "blocked";
+export type TabLevel = "view" | "edit" | "none";
 
+/** Per section tab: what the roles give, this employee's overrides, and the result. */
 export interface EmployeeAccessSummary {
     roles: Array<{ id: string; name: string; code?: string | null; isSystem: boolean }>;
-    inherited: string[];
-    overridesAllow: AccessOverride[];
-    overridesDeny: AccessOverride[];
-    sectionLevels: Record<string, "view" | "edit" | "blocked">;
-    effective: string[];
+    /** Super Admin / Admin: every section, overrides don't apply. */
+    fullAccess: boolean;
+    roleLevels: Record<string, TabLevel>;
+    overrides: Record<string, { level: TabLevel; expiresAt: string | null }>;
+    effectiveLevels: Record<string, TabLevel>;
 }
 
 /**
@@ -35,7 +28,7 @@ export const getEmployeeAccessSummary = async (employeeId: string): Promise<Empl
 
 /**
  * Set one sidebar section's access level (Blocked / View only / Can edit /
- * Default) for an employee in a single atomic call. Returns the refreshed summary.
+ * Default) for an employee in a single atomic call.
  * @api "api/employee/:id/access/section"
  */
 export const setSectionAccessLevel = async (
@@ -43,7 +36,7 @@ export const setSectionAccessLevel = async (
     module: string,
     level: AccessLevel,
     expiresAt?: string | null
-): Promise<EmployeeAccessSummary> => {
+) => {
     const endpoint = `${API_BASE_URL}/${EMPLOYEE.SET_SECTION_ACCESS.replace(":id", employeeId)}`;
     const { data } = await axios.put(endpoint, { module, level, ...(expiresAt ? { expiresAt } : {}) });
     return data?.data;
@@ -56,43 +49,6 @@ export const setSectionAccessLevel = async (
 export const updateEmployeeRoles = async (employeeId: string, roleIds: string[]) => {
     const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_EMPLOYEE_ROLES.replace(":id", employeeId)}`;
     const { data } = await axios.put(endpoint, { roleIds });
-    return data;
-};
-
-/**
- * Create a per-employee permission override (allow grant or deny).
- * @api "api/employee/:id/permissions"
- */
-export const createEmployeeOverride = async (
-    employeeId: string,
-    payload: { resource: string; action: string; allow: boolean; condition?: string; expiresAt?: string | null }
-) => {
-    const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_EMPLOYEE_PERMISSION.replace(":id", employeeId)}`;
-    const { data } = await axios.post(endpoint, payload);
-    return data;
-};
-
-/**
- * Update an existing per-employee override.
- * @api "api/employee/:id/permissions/:permissionId"
- */
-export const updateEmployeeOverride = async (
-    employeeId: string,
-    permissionId: string,
-    payload: { resource?: string; action?: string; allow?: boolean; condition?: string; expiresAt?: string | null }
-) => {
-    const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_EMPLOYEE_PERMISSION.replace(":id", employeeId).replace(":permissionId", permissionId)}`;
-    const { data } = await axios.put(endpoint, payload);
-    return data;
-};
-
-/**
- * Delete a per-employee override (reverts to role-inherited behavior).
- * @api "api/employee/:id/permissions/:permissionId"
- */
-export const deleteEmployeeOverride = async (employeeId: string, permissionId: string) => {
-    const endpoint = `${API_BASE_URL}/${EMPLOYEE.DELETE_EMPLOYEE_PERMISSION.replace(":id", employeeId).replace(":permissionId", permissionId)}`;
-    const { data } = await axios.delete(endpoint);
     return data;
 };
 

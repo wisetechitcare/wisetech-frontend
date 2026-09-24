@@ -31,6 +31,7 @@ import {
 import { errorConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import { canSection } from "@utils/can";
 import CsvUploadStep, { type UploadColumn } from "./CsvUploadStep";
 import ImportModeSelector, {
   type ImportMode,
@@ -144,6 +145,7 @@ function NewMark({ show }: { show?: boolean }) {
 }
 
 const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
+  const canWrite = canSection("crm.leads", "write");
   // null = the mode has not been chosen yet for this opening of the modal.
   const [mode, setMode] = useState<ImportMode | null>(null);
   const [legacyOrganizationId, setLegacyOrganizationId] = useState("");
@@ -600,6 +602,7 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
               <WtButton ghost onClick={() => setCurrentScreen("upload")}>
                 Back to upload
               </WtButton>
+              {canWrite && (
               <WtButton
                 disabled={preview.validRows.length === 0}
                 onClick={handleImport}
@@ -607,6 +610,7 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
               >
                 {`Import ${preview.validRows.length} ${preview.validRows.length === 1 ? "lead" : "leads"}`}
               </WtButton>
+              )}
             </Stack>
           </Stack>
         )}

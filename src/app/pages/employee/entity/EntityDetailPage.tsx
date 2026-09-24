@@ -9,6 +9,7 @@ import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { mapLeadToFormInitialValues } from '@pages/employee/leads/lead/utils';
+import { canSection } from '@utils/can';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import type { AppDispatch } from '@redux/store';
 
@@ -103,6 +104,7 @@ const EntityDetailPage: React.FC = () => {
 
   // The lead IS a project once it reaches a project-trigger status — data-driven, not nav-driven.
   const isProject = isProjectEntity(lead);
+  const canWrite = canSection(isProject ? 'projects' : 'crm.leads', 'write');
   const projectId = lead?.projectId || lead?.project?.id || null;
   const phase = getProjectPhase(lead);
   const phaseTheme = PHASE_THEMES[phase] ?? PHASE_THEMES.none;
@@ -351,7 +353,7 @@ const EntityDetailPage: React.FC = () => {
                 </button>
               )}
 
-              {activeTab === 'leads' && (
+              {canWrite && activeTab === 'leads' && (
                 <>
                   <button
                     type="button"

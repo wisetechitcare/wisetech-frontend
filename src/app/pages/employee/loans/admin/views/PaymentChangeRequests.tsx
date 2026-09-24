@@ -5,7 +5,7 @@ import { MRT_ColumnDef } from "material-react-table";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
-import { usePermission } from "@hooks/usePermission";
+import { canSection } from "@utils/can";
 import { getAllLoanDetails } from "@services/company";
 import { savePersonalLoans } from "@redux/slices/loans";
 import { successConfirmation } from "@utils/modal";
@@ -40,7 +40,7 @@ const PaymentChangeRequests: React.FC<MyComponentProps> = ({
   viewOthers,}) => {
   const [loading, setLoading] = useState(false);
   const loans = useSelector((state: RootState) => state.loan.personalLoans);
-  const isAdmin = usePermission('finance.view.all');
+  const canWrite = canSection('finance.loans', 'write');
   const employeeId = useSelector(
     (state: RootState) => state.employee.currentEmployee.id
   );
@@ -172,7 +172,7 @@ const PaymentChangeRequests: React.FC<MyComponentProps> = ({
           installmentStatusLabels[cell.getValue<number>()] ?? "Pending",
       },
       { accessorKey: "note", header: "Note" },
-      ...(isAdmin
+      ...(canWrite
         ? [
             {
               accessorKey: "actions",
@@ -219,7 +219,7 @@ const PaymentChangeRequests: React.FC<MyComponentProps> = ({
           ]
         : []),
     ],
-    [isAdmin]
+    [canWrite]
   );
 
   const commonButtonStyle: React.CSSProperties = {

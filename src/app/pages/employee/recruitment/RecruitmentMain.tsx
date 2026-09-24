@@ -1,3 +1,4 @@
+import { canSection } from "@utils/can";
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
@@ -39,7 +40,9 @@ const TAB_KEYS = ["overview", "requisitions", "postings", "pipeline", "candidate
 const RecruitmentMain = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabKey = searchParams.get("tab") || "overview";
-  const activeTab = Math.max(0, TAB_KEYS.indexOf(tabKey as any));
+  // Configure changes how the section works, so it shows only with Write on it.
+  const canConfigure = canSection("recruitment", "write");
+  const activeTab = tabKey === "configure" && !canConfigure ? 0 : Math.max(0, TAB_KEYS.indexOf(tabKey as any));
   const setActiveTab = (index: number) => {
     setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
   };
@@ -103,7 +106,7 @@ const RecruitmentMain = () => {
     // Sits before Configure: it is a migration tool, used heavily for a short while and
     // then rarely, so it belongs beside the day-to-day tabs rather than buried in settings.
     { title: "Import", component: <ImportView />, icon: "bi-upload" },
-    { title: "Configure", component: <RecruitmentConfigurationMain />, icon: "bi-gear" },
+    ...(canConfigure ? [{ title: "Configure", component: <RecruitmentConfigurationMain />, icon: "bi-gear" }] : []),
   ];
 
   const breadcrumbs = [

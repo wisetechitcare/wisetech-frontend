@@ -24,6 +24,7 @@ import CompanyReferences from "./CompanyReferences";
 import { UnderlineTabs } from "@app/modules/common/components/ui";
 import LeadReferenceTab from "./LeadReferenceTab";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
+import { canSection } from "@utils/can";
 
 
 type TabType =
@@ -40,6 +41,7 @@ type TabType =
 const CompanyDetails = () => {
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
+  const canWrite = canSection("crm.companies", "write");
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = (searchParams.get("tab") as TabType) || "overview";
   const setActiveTab = (tab: TabType) => setSearchParams({ tab }, { replace: true });
@@ -291,6 +293,7 @@ const CompanyDetails = () => {
         <div className="d-block d-md-none mb-3">
           <div className="d-flex justify-content-end align-items-center gap-2">
             {/* Mobile Action Buttons */}
+            {canWrite && (
             <div className="d-flex align-items-center gap-1">
               {addLabel && (
                 <Button
@@ -366,6 +369,7 @@ const CompanyDetails = () => {
                 </Button>
               )}
             </div>
+            )}
           </div>
         </div>
 
@@ -374,6 +378,7 @@ const CompanyDetails = () => {
           {/* Tabs */}
           {/* Desktop Action Buttons */}
           
+          {canWrite && (
           <div className="d-flex align-items-center gap-2 justify-end">
             <div className="dropdown position-relative -bottom-8">
               <Button
@@ -450,6 +455,7 @@ const CompanyDetails = () => {
               </Button>
             )}
           </div>
+          )}
         </div>
 
         <UnderlineTabs

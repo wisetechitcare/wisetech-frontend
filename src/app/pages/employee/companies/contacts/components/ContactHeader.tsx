@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Link, Stack, Tooltip, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
+import { canSection } from "@utils/can";
 import {
   AppIcon,
   GlassSurface,
@@ -43,6 +44,7 @@ interface Props {
 
 const ContactHeader: React.FC<Props> = ({ contact, onBack, onEdit, onScheduleMeeting }) => {
   const navigate = useNavigate();
+  const canWrite = canSection("crm.contacts", "write");
 
   const phone = contact?.phone || contact?.phone2 || null;
   const tel = telHref(phone);
@@ -236,6 +238,7 @@ const ContactHeader: React.FC<Props> = ({ contact, onBack, onEdit, onScheduleMee
         {action("Call", "phone", tel, "No phone number on file")}
         {action("Send message", "sms", mail, "No email address on file")}
         {action("Schedule meeting", "calendar-add", null, "", onScheduleMeeting)}
+        {canWrite && (
         <WtButton
           size="small"
           onClick={onEdit}
@@ -244,6 +247,7 @@ const ContactHeader: React.FC<Props> = ({ contact, onBack, onEdit, onScheduleMee
         >
           Edit details
         </WtButton>
+        )}
       </Stack>
     </GlassSurface>
   );

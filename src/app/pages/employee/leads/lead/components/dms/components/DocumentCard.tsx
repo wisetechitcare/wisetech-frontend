@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { KTIcon } from '@metronic/helpers';
 import { useDMS } from '../store/DmsContext';
+import { canSection } from '@utils/can';
 import { formatBytes, getStatusConfig } from '../utils/dmsUtils';
 import type { DMSFile } from '../types/dms.types';
 import * as dmsService from '../services/dmsService';
@@ -75,6 +76,7 @@ const FileIcon: React.FC<{ type: string; exportType?: string; size?: number }> =
 
 const FileActionsDropdown: React.FC<{ file: DMSFile; onClose: () => void; onPreview: () => void; onDetails: () => void; onRename: () => void }> = ({ file, onClose, onPreview, onDetails, onRename }) => {
   const { dispatch, deleteFiles } = useDMS();
+  const canWrite = canSection('crm.leads', 'write');
 
   const handleDownload = async () => {
     if (file.s3Url) {
@@ -105,6 +107,7 @@ const FileActionsDropdown: React.FC<{ file: DMSFile; onClose: () => void; onPrev
   const actions = [
     { icon: 'eye', label: 'Preview', action: () => { handlePreview(); onClose(); } },
     { icon: 'cloud-download', label: 'Download', action: handleDownload },
+    ...(canWrite ? [
     { icon: 'pencil', label: 'Rename', action: () => { onRename(); onClose(); } },
     { icon: 'trash', label: 'Delete', action: async () => { 
       try {
@@ -122,6 +125,7 @@ const FileActionsDropdown: React.FC<{ file: DMSFile; onClose: () => void; onPrev
         errorConfirmation('Failed to delete file.');
       }
     }, danger: true },
+    ] : []),
   ];
 
   return (

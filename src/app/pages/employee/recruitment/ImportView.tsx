@@ -9,6 +9,7 @@ import {
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { apiErrorMessage } from "@utils/apiError";
+import { canSection } from "@utils/can";
 import {
     previewTrackerImport, executeTrackerImport, getApplicationStatuses, getRequisitions,
     type ImportPreview, type ImportAnswers, type TrackerSheet, type ApplicationStatus,
@@ -124,6 +125,7 @@ const QuestionRow = ({ label, meta, children }: { label: string; meta?: string; 
 );
 
 const ImportView = () => {
+    const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -242,9 +244,11 @@ const ImportView = () => {
                     <Typography sx={{ flex: 1, fontSize: 13, color: "text.secondary" }}>
                         {SHEETS.find((s) => s.key === sheet)?.hint}
                     </Typography>
-                    <WtButton tone="primary" size="small" onClick={chooseFile} disabled={blockedByOrder || busy}>
-                        {file ? "Choose a different file" : "Choose CSV"}
-                    </WtButton>
+                    {canWrite && (
+                        <WtButton tone="primary" size="small" onClick={chooseFile} disabled={blockedByOrder || busy}>
+                            {file ? "Choose a different file" : "Choose CSV"}
+                        </WtButton>
+                    )}
                 </Stack>
 
                 {blockedByOrder && (
@@ -274,13 +278,15 @@ const ImportView = () => {
                             {p.blocked > 0 && <ToneChip tone="danger" label={`${p.blocked} blocked`} />}
                             {!!p.withWarnings && <ToneChip tone="warning" label={`${p.withWarnings} with warnings`} />}
                         </Stack>
-                        <WtButton
-                            tone="primary"
-                            disabled={p.importable === 0 || importMut.isPending}
-                            onClick={commit}
-                        >
-                            {importMut.isPending ? "Importing…" : `Import ${plural(p.importable, "row")}`}
-                        </WtButton>
+                        {canWrite && (
+                            <WtButton
+                                tone="primary"
+                                disabled={p.importable === 0 || importMut.isPending}
+                                onClick={commit}
+                            >
+                                {importMut.isPending ? "Importing…" : `Import ${plural(p.importable, "row")}`}
+                            </WtButton>
+                        )}
                     </Stack>
 
                     {/* Questions first: answering one can unblock many rows at once. */}

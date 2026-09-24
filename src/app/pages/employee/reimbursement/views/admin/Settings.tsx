@@ -9,6 +9,7 @@ import {
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { deleteConfirmation, successConfirmation, errorConfirmation } from "@utils/modal";
+import { canSection } from "@utils/can";
 import {
   createReimbursementType,
   deleteReimbursementTypeByItsId,
@@ -260,9 +261,7 @@ function Settings() {
     IReimbursementTypeFetch[]
   >([]);
 
-  const isAdmin = useSelector(
-    (state: RootState) => state.auth.currentUser.isAdmin
-  );
+  const canWrite = canSection("finance.reimbursements", "write");
 
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -397,7 +396,7 @@ function Settings() {
         description="Define the expense categories employees can submit reimbursement requests for."
         icon="bi-tag"
         iconColor="primary"
-        primaryAction={{ label: "Add New Category", icon: "bi-plus-lg", onClick: handleNew, variant: "primary" }}
+        primaryAction={canWrite ? { label: "Add New Category", icon: "bi-plus-lg", onClick: handleNew, variant: "primary" } : undefined}
       >
         {reimbursementTypeData.length === 0 ? (
           <EmptyState />
@@ -407,7 +406,7 @@ function Settings() {
               <CategoryChip
                 key={category.id}
                 category={category}
-                canManage={isAdmin}
+                canManage={canWrite}
                 onEdit={() => handleEdit(category)}
                 onDelete={() => handleDelete(category)}
               />

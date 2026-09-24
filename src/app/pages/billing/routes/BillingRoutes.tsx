@@ -1,9 +1,8 @@
 import React, { Suspense, lazy } from "react";
 import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import TopBarProgress from "react-topbar-progress-indicator";
-import { isSectionBlocked } from "@utils/accessAreas";
 import BillingLayout from "../BillingLayout";
-import { BILLING_TABS, billingDefaultPath } from "../constants/billingNav";
+import { BILLING_TABS, billingDefaultPath, canOpenBillingTab } from "../constants/billingNav";
 
 /**
  * Billing module routes.
@@ -71,7 +70,7 @@ const LegacyOperationsRedirect: React.FC = () => {
 };
 
 const BillingRoutes: React.FC = () => {
-    const allowed = (key: string) => !isSectionBlocked(key);
+    const allowed = canOpenBillingTab;
 
     return (
         <Routes>

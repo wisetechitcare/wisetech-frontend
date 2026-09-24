@@ -7,6 +7,7 @@ import {
 import { KTIcon } from "@metronic/helpers";
 import { ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, AppIcon, WtEmptyState } from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
+import { canSection } from "@utils/can";
 import { COPY } from "./terms";
 import { queryKeys } from "@/lib/queryKeys";
 import {
@@ -27,6 +28,7 @@ interface PendingMove {
 }
 
 const PipelineView = ({ companyId }: OrgScoped) => {
+    const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const navigate = useNavigate();
     const [mode, setMode] = useState<"board" | "list">("board");
@@ -75,7 +77,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     <ActionIconButton iconName="profile-circle" size="sm" tone="brand" title="Open Candidate" onClick={() => setOpenCandidate(a)} />
                     <ActionIconButton iconName="message-text-2" size="sm" tone="indigo" title="Interviews" onClick={() => setInterviewsFor(a)} />
                     <ActionIconButton iconName="wallet" size="sm" tone="indigo" title="Offer" onClick={() => setOfferFor(a)} />
-                    {a.status?.isHiredOutcome && (
+                    {a.status?.isHiredOutcome && (a.convertedEmployeeId || canWrite) && (
                         a.convertedEmployeeId
                             ? <ToneChip tone="success" label="Converted" dense />
                             : <ActionIconButton iconName="user-tick" size="sm" tone="success" title="Convert to Employee" onClick={() => convertToEmployee(a)} />
@@ -86,7 +88,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         // convertToEmployee is stable for the life of the component; the setters are
         // React state setters, which never change identity.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [],
+        [canWrite],
     );
 
     const byStatus = useMemo(() => {
@@ -176,9 +178,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                             <ToggleButton value="board"><AppIcon name="bi-kanban" />&nbsp;Board</ToggleButton>
                             <ToggleButton value="list"><AppIcon name="bi-list-ul" />&nbsp;List</ToggleButton>
                         </ToggleButtonGroup>
-                        <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
-                            Add Candidate
-                        </WtButton>
+                        {canWrite && (
+                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
+                                Add Candidate
+                            </WtButton>
+                        )}
                     </>
                 }
             />
@@ -207,8 +211,8 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                         return (
                             <Box
                                 key={s?.id ?? "unassigned"}
-                                onDragOver={s ? (e) => e.preventDefault() : undefined}
-                                onDrop={s ? () => { const app = applications.find((a) => a.id === dragId); if (app) attemptMove(app, s); setDragId(null); } : undefined}
+                                onDragOver={s && canWrite ? (e) => e.preventDefault() : undefined}
+                                onDrop={s && canWrite ? () => { const app = applications.find((a) => a.id === dragId); if (app) attemptMove(app, s); setDragId(null); } : undefined}
                                 sx={{ minWidth: { xs: 210, sm: 250 }, maxWidth: { xs: 240, sm: 280 }, flex: "0 0 auto", bgcolor: "action.hover", borderRadius: 2, p: 1 }}
                             >
                                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1, px: 0.5 }}>
@@ -223,14 +227,14 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                                     {cards.map((a) => (
                                         <Box
                                             key={a.id}
-                                            draggable
+                                            draggable={canWrite}
                                             onDragStart={() => setDragId(a.id)}
                                             onDragEnd={() => setDragId(null)}
                                             onClick={() => { if (!dragId) setOpenCandidate(a); }}
                                             role="button"
                                             tabIndex={0}
                                             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenCandidate(a); } }}
-                                            sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "background.paper", boxShadow: 1, cursor: "grab", opacity: dragId === a.id ? 0.5 : 1, "&:hover": { boxShadow: 3 } }}
+                                            sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "background.paper", boxShadow: 1, cursor: canWrite ? "grab" : "pointer", opacity: dragId === a.id ? 0.5 : 1, "&:hover": { boxShadow: 3 } }}
                                         >
                                             <Typography sx={{ fontWeight: 600, fontSize: 13.5, overflowWrap: "anywhere" }}>
                                                 {applicantName(a)}
@@ -244,7 +248,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                                             </Stack>
                                         </Box>
                                     ))}
-                                    {cards.length === 0 && <Typography sx={{ fontSize: 12, color: "text.disabled", px: 0.5, py: 1 }}>No candidates. Drag one here.</Typography>}
+                                    {cards.length === 0 && <Typography sx={{ fontSize: 12, color: "text.disabled", px: 0.5, py: 1 }}>{canWrite ? "No candidates. Drag one here." : "No candidates."}</Typography>}
                                 </Stack>
                             </Box>
                         );

@@ -9,6 +9,8 @@ import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import GeneralSettings from './settings/GeneralSettings';
 import SandwichLeave from './settings/SandwhichLeave';
 import ChartVisibilitySettings from './settings/ChartVisibilitySettings';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@redux/store';
 
 const settingsBreadCrumb: Array<PageLink> = [
     {
@@ -28,6 +30,11 @@ const settingsBreadCrumb: Array<PageLink> = [
 function Settings() {
     const [showColorSelectionModal, setShowColorSelectionModal] = useState(false);
     const [showRolesAndPermissionsModal, setShowRolesAndPermissionsModal] = useState(false);
+    // Which role the Roles dialog is drilled into, or null for the list. Held here because the
+    // header — its title, and where Back goes — belongs to the dialog.
+    const [editingRole, setEditingRole] = useState<any>(null);
+    // Managing roles is Admin / Super Admin only — the server refuses everyone else.
+    const canManageRoles = useSelector((state: RootState) => (state as any).authz?.tier != null);
     const [showGeneralSettingsModal, setShowGeneralSettingsModal] = useState(false);
     const [showSandWhichLeaveModal, setShowSandWhichLeaveModal] = useState(false);
     const [showLeadsProjectsCompanyModal, setShowLeadsProjectsCompanyModal] = useState(false);
@@ -45,6 +52,8 @@ function Settings() {
     }
     const handleCloseRolesAndPermissionsModal = ()=>{
         setShowRolesAndPermissionsModal(false);
+        // Reopen on the list, never on whichever role was last open.
+        setEditingRole(null);
     }
 
 
@@ -89,6 +98,7 @@ function Settings() {
                         </div>
                     </div>
                 </div> */}
+                {canManageRoles && (
                 <div className="card d-flex flex-row align-items-center justify-content-start">
                     <div className="card-header border-0 cursor-pointer d-flex align-items-center justify-content-between gap-2"
                     onClick={() => handleShowRolesAndPermissionsModal()}>
@@ -98,6 +108,7 @@ function Settings() {
                     </div>
                     </div>
                 </div>
+                )}
                 {/* Admin Settings (Super Admin Email) moved into Organisation Profile → Edit
                     as a built-in Basic Information field, so it is configured per organization. */}
                 {/* <div className="card d-flex flex-row align-items-center justify-content-start">
@@ -185,16 +196,18 @@ function Settings() {
                 onClose={handleCloseRolesAndPermissionsModal}
                 maxWidth="xl" fullWidth
                 header={
+                    /* Inside a role, Back returns to the list; only at the list does it leave the dialog. */
                     <GlassHeader
-                        title="Roles and Permissions"
-                        subtitle="Who can see and change what"
-                        onBack={handleCloseRolesAndPermissionsModal}
+                        title={editingRole ? `Edit role “${editingRole?.name}”` : "Roles and Permissions"}
+                        subtitle={editingRole ? "Access, and the people who hold it" : "Who can see and change what"}
+                        onBack={editingRole ? () => setEditingRole(null) : handleCloseRolesAndPermissionsModal}
+                        backLabel={editingRole ? "Back to all roles" : "Close"}
                         onClose={handleCloseRolesAndPermissionsModal}
                     />
                 }
             >
                 <Box sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: 'background.default' }}>
-                    <RolesAndPermissions/>
+                    <RolesAndPermissions editingRole={editingRole} onEditRole={setEditingRole} />
                 </Box>
             </GlassDialog>
 

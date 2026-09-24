@@ -8,6 +8,7 @@ import {
 } from "@app/modules/common/components/ui";
 import { annualAmountError } from "@utils/ctc";
 import { apiErrorMessage } from "@utils/apiError";
+import { canSection } from "@utils/can";
 import { useRecruitmentBranches } from "@/hooks/useRecruitmentBranches";
 import { RecruitmentBranchField } from "./RecruitmentBranchField";
 import { queryKeys } from "@/lib/queryKeys";
@@ -70,6 +71,7 @@ interface Props {
  * so it reads the same inside the candidate modal and in its own dialog.
  */
 const OfferPanel = ({ applicationId, applicantName }: Props) => {
+    const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const { data, isLoading, isError } = useQuery({ queryKey: queryKeys.recruitment.offer(applicationId), queryFn: () => getApplicationOffer(applicationId) });
     const offer = data?.offer ?? null;
@@ -123,7 +125,8 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
     const meta = offer ? stageOf(offer) : null;
     const acceptance = offer && offer.status === 1 ? ACCEPTANCE[offer.acceptanceStatus] ?? null : null;
     // Frozen while signed off or out for sign-off — the server refuses those edits too.
-    const locked = !!offer && (offer.status === 1 || !!offer.approvalPending);
+    // Read-only access freezes it the same way (fields disabled, actions hidden).
+    const locked = !canWrite || !!offer && (offer.status === 1 || !!offer.approvalPending);
     // The same rule the field shows, so the button cannot send what the API will refuse.
     const ctcError = annualAmountError("Offered CTC", form.offeredCtc);
     const saved = termsOf(offer);
@@ -220,7 +223,7 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
                                 Offer Letter
                             </WtButton>
                         )}
-                        {offer && offer.status === 1 && offer.acceptanceStatus === "PENDING" && (
+                        {canWrite && offer && offer.status === 1 && offer.acceptanceStatus === "PENDING" && (
                             <>
                                 <WtButton size="small" tone="success" disabled={respondMut.isPending} onClick={() => respond("ACCEPTED")}>Mark accepted</WtButton>
                                 {/* Solid, not ghost: a ghost WtButton ignores its tone and rendered this grey. */}

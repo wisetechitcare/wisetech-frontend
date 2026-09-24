@@ -1,3 +1,4 @@
+import { canSection } from "@utils/can";
 import { useEffect, useState } from 'react';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import {companyLogoIcons, leadsIcons } from '@metronic/assets/sidepanelicons';
@@ -37,11 +38,12 @@ function EmployeeList() {
             component: <EmployeeListContent />,
             icon: 'bi-people',
         },
-        {
+        // Configure changes the employee masters: Write on People.
+        ...(canSection("users", "write") ? [{
             title: "Configure",
             component: <EmployeeConfigure />,
             icon: 'bi-gear',
-        }
+        }] : []),
     ];
 
     return (

@@ -9,6 +9,7 @@ import { RootState } from "@redux/store";
 import { useSelector } from "react-redux";
 import dayjs from "dayjs";
 import { deleteConfirmation } from "@utils/modal";
+import { canSection } from "@utils/can";
 import Loader from "@app/modules/common/utils/Loader";
 
 interface SubCompanyType {
@@ -67,6 +68,7 @@ const SubCompanies = ({
   /** Called once the form is open, so the header can lower the request. */
   onAddHandled?: () => void;
 }) => {
+  const canWrite = canSection("crm.companies", "write");
   const [showModal, setShowModal] = useState(false);
   const [subCompanies, setSubCompanies] = useState<SubCompany[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -278,10 +280,10 @@ const SubCompanies = ({
           </span>
         ),
       },
-      {
+      ...(canWrite ? [{
         accessorKey: "actions",
         header: "Actions",
-        Cell: ({ row }) => (
+        Cell: ({ row }: any) => (
           <div className="d-flex align-items-center gap-2">
             <button
               className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
@@ -299,9 +301,9 @@ const SubCompanies = ({
             </button>
           </div>
         ),
-      },
+      }] : []),
     ],
-    [handleEditSubCompany]
+    [handleEditSubCompany, canWrite]
   );
 
   if (isLoading) {

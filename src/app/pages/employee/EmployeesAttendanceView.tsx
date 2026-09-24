@@ -1,3 +1,4 @@
+import { canSection } from '@utils/can';
 import { BarChart, CalendarToday, AirplaneTicket, Rule } from '@mui/icons-material';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { PageLink, PageTitle } from '@metronic/layout/core';
@@ -12,8 +13,6 @@ import FaqsMainPage from '@pages/company/organisationInfo/faqs/FaqsMainPage';
 import DailyShiftTime from './attendance/AttendanceConfig/component/DailyShiftTime';
 import AttendanceConfig from './attendance/AttendanceConfig/AttendanceConfig';
 import AttendanceAdminFaqs from './adminFaqs/AttendaceAdminFaqs';
-import { hasPermission } from '@utils/authAbac';
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppDispatch } from '@redux/store';
 
@@ -61,7 +60,8 @@ const EmployeesAttendanceView = () => {
         //     icon: activeTab === 3 ? faqsIcons.faqDefualtIcon?.active
         //               : faqsIcons.faqDefualtIcon?.default, // Can be SVG or Image URL
         // },
-         ...(hasPermission(resourceNameMapWithCamelCase.attendanceConfig, permissionConstToUseWithHasPermission.readOthers)
+        // Configure and the admin FAQs change how attendance works: Write on Attendance → Employees.
+         ...(canSection('attendance.employees', 'write')
             ? [{
                 title: 'Configure',
                 component: <AttendanceConfig/>,
@@ -70,7 +70,7 @@ const EmployeesAttendanceView = () => {
             : []
         ),
         
-          ...(hasPermission(resourceNameMapWithCamelCase.attendanceConfig, permissionConstToUseWithHasPermission.readOthers)
+          ...(canSection('attendance.employees', 'write')
             ? [{
             title: 'FAQS',
             component: <AttendanceAdminFaqs />,

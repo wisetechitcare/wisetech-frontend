@@ -7,7 +7,7 @@ import { fetchAllEmployees, fetchEmployeesOnLeaveToday } from "@services/employe
 import { fetchEmpsAttendance } from "@pages/employee/attendance/admin/views/overview/DailyAttendance";
 import { saveTotalEmployeeCount, saveEmployeesAttendance } from "@redux/slices/attendance";
 import { Attendance } from "@models/employee";
-import { EARLY_CHECKOUT, EXTRA_DAYS, onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import { EARLY_CHECKOUT, EXTRA_DAYS, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
 import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
 import { fetchDayWiseShifts } from "@services/dayWiseShift";
 import { fetchConfiguration } from "@services/company";
@@ -20,7 +20,7 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 // grid now come from the shared kit. The rest are still-legacy usages on this page.
 import { Image, OverlayTrigger, Tooltip, Alert, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
-import { hasPermission } from "@utils/authAbac";
+import { canSection } from "@utils/can";
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
@@ -1137,7 +1137,7 @@ const DashboardDailyAttendanceOverview = () => {
                 <AppIcon name="bi-x-lg" /> Reset
               </button>
             )}
-            {hasPermission(resourceNameMapWithCamelCase.employee, (permissionConstToUseWithHasPermission.editOthers || permissionConstToUseWithHasPermission.readOthers)) &&
+            {canSection("attendance.employees") &&
             <button
               type="button"
               className="btn btn-sm"

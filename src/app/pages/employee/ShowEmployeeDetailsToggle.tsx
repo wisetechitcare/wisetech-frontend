@@ -14,8 +14,8 @@ import { ToggleButtonGroup, ToggleButton } from "@mui/material";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
+import { canSection } from "@utils/can";
 import { getEmployeeStatus, getEmployeeStatusString } from "@utils/employeeStatus";
-import { usePermission } from "@hooks/usePermission";
 import EmployeeAccessTab from "./EmployeeAccessTab";
 import EmployeeProject from "./EmployeeProject";
 import MeetingsList from "@app/modules/common/components/MeetingsList";
@@ -25,6 +25,7 @@ import { KTIcon } from "@metronic/helpers";
 import AssignToProjectsDialog from "@app/modules/common/components/AssignToProjectsDialog";
 
 const ShowEmployeeDetailsToggle = () => {
+  const canWrite = canSection("users", "write");
   const { employeeId } = useParams<{ employeeId: string }>();
   const allemployees = useSelector((state: RootState) => state.allEmployees);
   const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
@@ -35,7 +36,8 @@ const ShowEmployeeDetailsToggle = () => {
   const [activeTab, setActiveTab] = useState("details");
   const [assignOpen, setAssignOpen] = useState(false);
   const [projectsReloadKey, setProjectsReloadKey] = useState(0);
-  const canManageAccess = usePermission("users.manage.all");
+  // Roles and per-section access are Admin / Super Admin only — the server refuses everyone else.
+  const canManageAccess = useSelector((state: RootState) => (state as any).authz?.tier != null);
   const dispatch = useDispatch<AppDispatch>();
   const employeeStatus = getEmployeeStatusString(employee);
 
@@ -245,7 +247,7 @@ const ShowEmployeeDetailsToggle = () => {
           {canManageAccess && <ToggleButton value="access">Access</ToggleButton>}
           {/* <ToggleButton value="configure">Configure</ToggleButton> */}
         </ToggleButtonGroup>
-        {activeTab === "projects" && (
+        {canWrite && activeTab === "projects" && (
           <WtButton className="ml-auto shrink-0 self-center" startIcon={<KTIcon iconName="plus" className="fs-4 text-white" />} onClick={() => setAssignOpen(true)}>
             Add to projects
           </WtButton>

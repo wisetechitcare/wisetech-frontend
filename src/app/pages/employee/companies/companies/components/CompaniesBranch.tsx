@@ -9,6 +9,7 @@ import { useSelector } from "react-redux";
 import dayjs from "dayjs";
 import { fetchAllCountries, fetchAllStates, fetchAllCities } from "@services/options";
 import { deleteConfirmation } from "@utils/modal";
+import { canSection } from "@utils/can";
 import { getAllClientContacts } from "@services/companies";
 import Loader from "@app/modules/common/utils/Loader";
 
@@ -39,6 +40,7 @@ const CompaniesBranch = ({
   /** Called once the form is open, so the header can lower the request. */
   onAddHandled?: () => void;
 }) => {
+  const canWrite = canSection("crm.companies", "write");
   const [showModal, setShowModal] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -161,10 +163,10 @@ const CompaniesBranch = ({
         accessorKey: "area",
         header: "Area",
       },
-      {
+      ...(canWrite ? [{
         accessorKey: "actions",
         header: "Actions",
-        Cell: ({ row }) => (
+        Cell: ({ row }: any) => (
           <div className="d-flex align-items-center gap-2">
             <button
               className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
@@ -180,9 +182,9 @@ const CompaniesBranch = ({
             </button>
           </div>
         ),
-      },
+      }] : []),
     ],
-    [handleEditBranch, contacts]
+    [handleEditBranch, contacts, canWrite]
   );
 
 

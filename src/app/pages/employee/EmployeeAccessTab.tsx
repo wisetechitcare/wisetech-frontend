@@ -32,23 +32,6 @@ const getLeaves = (area: AccessArea): Array<{ module: string; label: string }> =
   return out;
 };
 
-// Derive a section's access level (view/edit/none) from a flat permission-key list.
-const levelFromKeys = (keys: string[], leaf: string): EffLevel => {
-  if (keys.includes("*.*.global") || keys.includes("*.*.all")) return "edit";
-  const prefixes = [leaf, leaf.split(".").slice(0, -1).join(".")].filter(Boolean);
-  let level: EffLevel = "none";
-  for (const key of keys) {
-    const parts = key.split(".");
-    const action = parts[parts.length - 2];
-    const mod = parts.slice(0, -2).join(".");
-    if (prefixes.includes(mod)) {
-      if (["create", "update", "delete", "manage"].includes(action)) return "edit";
-      if (action === "view") level = level === "none" ? "view" : level;
-    }
-  }
-  return level;
-};
-
 const levelText = (eff: EffLevel) => (eff === "edit" ? "Read + Write" : eff === "view" ? "Read only" : "Blocked");
 
 const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
@@ -73,7 +56,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
 
   // Role-only level (ignoring per-employee overrides), used to decide whether a
   // staged change can simply inherit ("default") instead of writing an override.
-  const roleLevelOf = (module: string): EffLevel => levelFromKeys(summary?.inherited || [], module);
+  const roleLevelOf = (module: string): EffLevel => summary?.roleLevels?.[module] || "none";
 
   const applySummary = (s: EmployeeAccessSummary) => {
     setSummary(s);
@@ -83,16 +66,13 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
 
     // Checkboxes reflect the employee's *effective* access (role + overrides).
     const lv: Record<string, EffLevel> = {};
-    for (const leaf of allLeaves) lv[leaf.module] = levelFromKeys(s.effective || [], leaf.module);
+    for (const leaf of allLeaves) lv[leaf.module] = s.effectiveLevels?.[leaf.module] || "none";
     setLevels(lv);
     setOrigLevels(lv);
 
     // Surface existing expiries from the override rows so timers show on load.
     const exp: Record<string, string | null> = {};
-    [...(s.overridesAllow || []), ...(s.overridesDeny || [])].forEach((o) => {
-      if (o.expiresAt && exp[o.resource] == null) exp[o.resource] = o.expiresAt;
-    });
-    for (const leaf of allLeaves) if (!(leaf.module in exp)) exp[leaf.module] = null;
+    for (const leaf of allLeaves) exp[leaf.module] = s.overrides?.[leaf.module]?.expiresAt ?? null;
     setExpiries(exp);
     setOrigExpiries(exp);
   };
@@ -120,7 +100,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId]);
 
-  const customModules = useMemo(() => new Set(Object.keys(summary?.sectionLevels || {})), [summary]);
+  const customModules = useMemo(() => new Set(Object.keys(summary?.overrides || {})), [summary]);
 
   const changedModules = useMemo(
     () =>
@@ -179,7 +159,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
       toast.success("Access updated");
       await load();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Couldn't save changes");
+      toast.error(err?.response?.data?.detail || "Couldn't save changes");
       await load();
     } finally {
       setSaving(false);
@@ -255,15 +235,23 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
           <div className="text-muted fw-bold fs-7 mb-3" style={{ letterSpacing: 1 }}>MODULE SPECIFIC ACCESS</div>
           <div className="card border shadow-sm mb-8" style={{ borderRadius: 14 }}>
             <div className="card-body">
-              <AccessControlTree
-                levels={levels}
-                expiries={expiries}
-                customModules={customModules}
-                dirtyModules={dirtyModules}
-                onSetLevel={onSetLevel}
-                onSetExpiry={onSetExpiry}
-                onResetToRole={onResetToRole}
-              />
+              {summary.fullAccess ? (
+                <div className="text-center py-10">
+                  <AppIcon name="bi-shield-lock-fill" className="fs-3x text-primary mb-3 d-block" />
+                  <div className="fw-bold fs-5">Full access through their role</div>
+                  <div className="text-muted fs-7 mt-2">Admins and Super Admins can see and edit every section, so per-section settings don't apply. Change their role above to limit them.</div>
+                </div>
+              ) : (
+                <AccessControlTree
+                  levels={levels}
+                  expiries={expiries}
+                  customModules={customModules}
+                  dirtyModules={dirtyModules}
+                  onSetLevel={onSetLevel}
+                  onSetExpiry={onSetExpiry}
+                  onResetToRole={onResetToRole}
+                />
+              )}
             </div>
           </div>
         </div>

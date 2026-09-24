@@ -15,6 +15,7 @@ import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
+import { canSection } from "@utils/can";
 import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
@@ -229,7 +230,7 @@ const ClientCompaniesMain = ({
   }, []);
 
   const isDrillDown = !!(statusId || companyTypeId || serviceId || subServiceId || locationId);
-  const hideNewCompanyButton = isDrillDown;
+  const hideNewCompanyButton = isDrillDown || !canSection("crm.companies", "write");
 
   // ── Drill-down curated columns ────────────────────────────────────────────────
   // When drilled (statusId, companyTypeId, serviceId, subServiceId, locationId set),

@@ -13,6 +13,7 @@ import { errorConfirmation, successConfirmation } from "@utils/modal";
 import { Modal } from "react-bootstrap";
 import { IAnnouncement } from "@models/company";
 import { hasPermission } from "@utils/authAbac";
+import { canSection } from "@utils/can";
 import AnnouncementFormDialog from "./AnnouncementFormDialog";
 
 const announcement: Array<PageLink> = [
@@ -21,9 +22,7 @@ const announcement: Array<PageLink> = [
 ];
 
 function Announcements() {
-    const isAdmin = useSelector(
-        (state: RootState) => state.auth.currentUser.isAdmin
-    );
+    const canWrite = canSection("settings.announcements", "write");
     const [showEditModal, setShowEditModal] = useState(false);
     const [announcementsList, setAnnouncementsList] = useState<IAnnouncement[]>(
         []
@@ -120,7 +119,7 @@ function Announcements() {
                     <PageHeadingTitle />
                     <div >
                         <div className="col-lg-12">
-                            {isAdmin && (
+                            {canWrite && (
                                 <div className="card-toolbar text-end">
                                     <CreateAnnouncementButton
                                         setRefetch={setRefetch}

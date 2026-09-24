@@ -49,6 +49,7 @@ import RadioInput from '@app/modules/common/inputs/RadioInput'
 import { Option } from '@models/dropdown'
 import { UAParser } from 'ua-parser-js'
 import { hasPermission } from '@utils/authAbac'
+import { canSection } from '@utils/can'
 import {
   permissionConstToUseWithHasPermission,
   resourceNameMapWithCamelCase,
@@ -302,9 +303,8 @@ function Branches({ companyId, embedded = false, hideHeading = false }: Branches
   const [branchId, setBranchId] = useState('')
   const [rerender, setRerender] = useState(false);
   
-  const isAdmin = useSelector(
-    (state: RootState) => state.auth.currentUser.isAdmin
-  )
+  // Branches have no tab of their own: Write on any settings tab covers them.
+  const canWrite = canSection('settings', 'write')
 
   useEffect(() => {
     const parser = new UAParser()
@@ -780,7 +780,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     }
   }, [companyId])
  
-  const newBranchButton = isAdmin &&
+  const newBranchButton = canWrite &&
     hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.create) && (
       // The kit's button, so this one matches every other primary action. The
       // native `title="Add a branch"` is gone with it: a browser tooltip never
@@ -844,7 +844,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
           <BranchCard
             key={`branch-${index}`}
             branch={branch}
-            isAdmin={isAdmin}
+            isAdmin={canWrite}
             canManage={hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers)}
             onViewEmployees={() => setEmpModal({ show: true, branch })}
             onManageDevices={() => setDevicesModal({ show: true, branch })}

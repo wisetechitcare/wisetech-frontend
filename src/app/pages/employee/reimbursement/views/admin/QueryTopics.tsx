@@ -5,6 +5,7 @@ import type { RootState } from '@redux/store';
 import { ConfigSectionCard } from '@app/modules/configuration';
 import { ToneChip, WtButton } from '@app/modules/common/components/ui';
 import { deleteConfirmation, errorConfirmation, successConfirmation } from '@utils/modal';
+import { canSection } from '@utils/can';
 import {
   fetchQueryTopics,
   createQueryTopic,
@@ -35,7 +36,7 @@ const SCOPES: Array<{ value: TopicScope; label: string; hint: string }> = [
 const scopeLabel = (scope: TopicScope) => SCOPES.find((s) => s.value === scope)?.label ?? 'Both';
 
 function QueryTopics() {
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+  const canWrite = canSection('finance.reimbursements', 'write');
 
   const [topics, setTopics] = useState<QueryTopic[]>([]);
   const [label, setLabel] = useState('');
@@ -98,7 +99,7 @@ function QueryTopics() {
       icon="bi-question-circle"
       iconColor="primary"
     >
-      {isAdmin && (
+      {canWrite && (
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           gap={1}
@@ -156,7 +157,7 @@ function QueryTopics() {
               {topic.label}
             </Typography>
             <ToneChip tone="neutral" size="small" label={scopeLabel(topic.scope)} />
-            {isAdmin && (
+            {canWrite && (
               <>
                 <IconButton size="small" onClick={() => handleEdit(topic)} aria-label={`Edit ${topic.label}`}>
                   <i className="bi bi-pencil" style={{ fontSize: 12 }} />

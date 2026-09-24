@@ -1,6 +1,7 @@
 import { fetchAllEmployees } from '@services/employee'
 import { deleteMember, getAllTeamsMember, updateMemberRole, deleteTeam, createTeam, updateTeam, createMultipleTeamMembers, createTeamWithMembers } from '@services/projects'
 import { deleteConfirmation, removeConfirmation, successConfirmation } from '@utils/modal'
+import { canSection } from '@utils/can'
 import React, { useState, useEffect } from 'react'
 import { Modal } from 'react-bootstrap'
 
@@ -39,6 +40,7 @@ interface TeamFormProps {
 }
 
 const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelete }) => {
+    const canWrite = canSection('settings.teams', 'write')
     const [employees, setEmployees] = useState<any[]>([]);
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [allEmployees, setAllEmployees] = useState<any[]>([]);
@@ -553,7 +555,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                 >
                                     Team Members
                                 </label>
-                                <button
+                                {canWrite && <button
                                     type="button"
                                     className="btn btn-sm"
                                     onClick={() => setShowAddMemberModal(true)}
@@ -569,7 +571,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                     }}
                                 >
                                     Add Member
-                                </button>
+                                </button>}
                             </div>
 
                             {/* Members Table */}
@@ -704,7 +706,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                             }}
                                                         >
                                                             <div className="d-flex gap-3 align-items-center">
-                                                                {member.role !== 'TEAM_LEADER' && (
+                                                                {canWrite && member.role !== 'TEAM_LEADER' && (
                                                                     <button
                                                                         type="button"
                                                                         className="btn btn-link btn-sm p-0 d-flex align-items-center gap-1"
@@ -729,7 +731,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                         Make Team Leader
                                                                     </button>
                                                                 )}
-                                                                <button
+                                                                {canWrite && <button
                                                                     type="button"
                                                                     className="btn btn-link btn-sm p-0 d-flex align-items-center gap-1"
                                                                     onClick={() => handleRemoveMember(member.id)}
@@ -750,7 +752,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                         <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
                                                                     </svg>
                                                                     Remove
-                                                                </button>
+                                                                </button>}
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -1121,7 +1123,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
 
                         {/* Action Buttons */}
                         <div className="d-flex gap-3 mt-3">
-                            <button
+                            {canWrite && <button
                                 type="button"
                                 className="btn"
                                 onClick={handleSave}
@@ -1137,9 +1139,9 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                 }}
                             >
                                 Save
-                            </button>
+                            </button>}
 
-                            {isEditMode && (
+                            {canWrite && isEditMode && (
                                 <button
                                     type="button"
                                     className="btn"

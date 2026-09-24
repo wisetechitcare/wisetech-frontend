@@ -13,6 +13,7 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 // The shared configuration delete: confirm → delete → announce, with the server's
 // "still in use" refusal surfaced. Reusable by any Configure screen.
 import { confirmAndDelete } from "@utils/configDelete";
+import { canSection } from "@utils/can";
 import EmployeeConfigureForm from "./EmployeeConfigureForm";
 import QualificationConfigureForm, { QualificationItem } from "./QualificationConfigureForm";
 import JobProfileConfigureForm, { JobProfileItem } from "./JobProfileConfigureForm";
@@ -72,6 +73,7 @@ interface EmployeeConfigItem {
 }
 
 const EmployeeConfigure = () => {
+  const canWrite = canSection("users", "write");
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   /** Flips once the first load settles; from then on refreshes happen behind the content. */
@@ -705,7 +707,7 @@ const EmployeeConfigure = () => {
           {item.name}
         </span>
       </div>
-      <div style={{ display: 'flex', gap: SP.sm, alignItems: 'center', flexShrink: 0 }}>
+      {canWrite && <div style={{ display: 'flex', gap: SP.sm, alignItems: 'center', flexShrink: 0 }}>
         <ActionIconButton iconName="pencil" title="Edit" onClick={() => onEdit(item)} size="sm" />
         <ActionIconButton
           iconName="trash"
@@ -714,7 +716,7 @@ const EmployeeConfigure = () => {
           onClick={() => onDelete(item.id)}
           size="sm"
         />
-      </div>
+      </div>}
     </div>
   );
 

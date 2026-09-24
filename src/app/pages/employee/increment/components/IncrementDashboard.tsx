@@ -12,6 +12,7 @@ import LayersIcon from '@mui/icons-material/Layers';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { incrementService, IncrementRecord, YearlyAnalytics, AllTimeAnalytics } from '@services/incrementService';
 import { formatCurrencyRounded, formatCurrencyDecimal } from '@utils/currency';
+import { canSection } from '@utils/can';
 import { T } from '@app/modules/common/components/ui/tokens';
 import { toast, alertDialog, confirmDialog } from '@app/modules/common/components/ui/feedback';
 import AddEditIncrementDialog from '@app/modules/employee/salary/AddEditIncrementDialog';
@@ -155,6 +156,7 @@ const IncrementDashboard = ({
     joiningDate,
 }: IncrementDashboardProps) => {
     const { loading, error, history, yearRecords, yearly, allTime, refetch } = data;
+    const canWrite = fromAdmin && canSection('finance.increment', 'write');
 
     const [selectedRecord, setSelectedRecord] = useState<IncrementRecord | null>(null);
     const [showDetailDialog, setShowDetailDialog] = useState(false);
@@ -320,8 +322,8 @@ const IncrementDashboard = ({
                             showSensitiveData={showSensitiveData}
                             fromAdmin={fromAdmin}
                             onView={handleView}
-                            onEdit={fromAdmin ? handleEdit : undefined}
-                            onDelete={fromAdmin ? handleDelete : undefined}
+                            onEdit={canWrite ? handleEdit : undefined}
+                            onDelete={canWrite ? handleDelete : undefined}
                         />
                     </Box>
 
@@ -351,7 +353,7 @@ const IncrementDashboard = ({
                 employeeName={employeeName}
             />
 
-            {fromAdmin && employeeId && (
+            {canWrite && employeeId && (
                 <AddEditIncrementDialog
                     open={showEditDialog}
                     onClose={() => setShowEditDialog(false)}

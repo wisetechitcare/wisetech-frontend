@@ -70,6 +70,7 @@ import LeadActionPicker from "./LeadActionPicker";
 import MeetingDialog from "@pages/employee/MeetingDialog";
 import { LeadStatusPill, leadRowSx, leadTableSx, UNASSIGNED_ORG_LABEL } from "./leadTableStyle";
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { canSection } from "@utils/can";
 
 /**
  * Leads created before organizations existed carry no organizationId. They are
@@ -203,6 +204,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // ── Responsive ──────────────────────────────────────────────────────────────
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const canWrite = canSection("crm.leads", "write");
 
   // ── Data state ──────────────────────────────────────────────────────────────
   // New leads pick their organization before the wizard opens — it decides the
@@ -848,6 +850,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
        * of the two already there it goes straight to the other, and the chooser opens only
        * when both are absent.
        */
+      // Reminders and meetings are the viewer's own, so Read on Leads is enough (the page needs it).
       Cell: ({ row }: any) => {
         const lead = row.original;
         const hasReminder = !!lead?.reminder;
@@ -1707,6 +1710,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             </div>
             </div>
           </div>
+                {canWrite && (<>
                           <button
                   className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
                   onClick={() => setShowBulkImport(true)}
@@ -1748,6 +1752,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 >
                   + New Lead
                 </button>
+                </>)}
 
         {/* Custom missing-date hint for Custom Alignment */}
         {alignment === "custom" && (!customStartDate || !customEndDate) && (

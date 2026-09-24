@@ -1,3 +1,4 @@
+import { canSection } from "@utils/can";
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { leadsIcons, reimbursementsIcons } from '@metronic/assets/sidepanelicons';
 import { PageLink, PageTitle } from '@metronic/layout/core';
@@ -67,7 +68,7 @@ function PersonalLoanMain() {
         component: <SearchEmployee />,
         icon: 'bi-search',
       }]:[]),
-      ...((viewOthersPermissionLoan|| viewOwnPermissionLoan) ? [{
+      ...(canSection("finance.loans", "write") ? [{
         title: "Configure",
         component: <Information />,
         icon: 'bi-gear',

@@ -8,6 +8,7 @@ import {
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { apiErrorMessage } from "@utils/apiError";
+import { canSection } from "@utils/can";
 import { COPY, TERMS } from "./terms";
 import {
     getPostings, createPosting, updatePosting, deletePosting, getRequisitions,
@@ -42,6 +43,7 @@ const MetaPill = ({ text }: { text: string }) => (
 );
 
 const PostingsView = ({ companyId }: OrgScoped) => {
+    const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     /** null + open ⇒ creating; a posting ⇒ editing it. One dialog, so the two cannot drift apart. */
     const [open, setOpen] = useState(false);
@@ -135,11 +137,11 @@ const PostingsView = ({ companyId }: OrgScoped) => {
             <ListHeader
                 title={TERMS.Postings}
                 subtitle="Public adverts for approved roles — shown on the careers page."
-                actions={
+                actions={canWrite && (
                     <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openCreate}>
                         New {TERMS.Posting}
                     </WtButton>
-                }
+                )}
             />
 
             {isLoading ? (
@@ -157,7 +159,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                     icon="share"
                     title={COPY.noPostings.title}
                     hint={COPY.noPostings.hint}
-                    actionLabel={approved.length ? COPY.noPostings.action : undefined}
+                    actionLabel={canWrite && approved.length ? COPY.noPostings.action : undefined}
                     onAction={approved.length ? openCreate : undefined}
                 />
             ) : (
@@ -166,10 +168,10 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                         <GlassCard
                             key={p.id}
                             preset="row"
-                            interactive
+                            interactive={canWrite}
                             // The card lifts on hover, so it has to do something when clicked.
-                            onClick={() => openEdit(p)}
-                            sx={{ display: "flex", flexDirection: "column", gap: 1, height: "100%", p: 1.75, cursor: "pointer" }}
+                            onClick={canWrite ? () => openEdit(p) : undefined}
+                            sx={{ display: "flex", flexDirection: "column", gap: 1, height: "100%", p: 1.75, cursor: canWrite ? "pointer" : "default" }}
                         >
                             <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ minWidth: 0 }}>
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -199,7 +201,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                                 onClick={(e) => e.stopPropagation()}
                                 sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider", cursor: "default" }}
                             >
-                                <FormControlLabel
+                                {canWrite && <FormControlLabel
                                     sx={{ mr: 0, ml: 0, gap: 0.75 }}
                                     control={
                                         <WtSwitch
@@ -210,9 +212,9 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                                         />
                                     }
                                     label={<Typography sx={{ fontSize: 12, fontWeight: 600 }}>Publish</Typography>}
-                                />
+                                />}
                                 <Box sx={{ flex: 1 }} />
-                                <ActionIconButton iconName="pencil" title="Edit Advert" size="sm" onClick={() => openEdit(p)} />
+                                {canWrite && <ActionIconButton iconName="pencil" title="Edit Advert" size="sm" onClick={() => openEdit(p)} />}
                                 <ActionIconButton
                                     iconName="copy"
                                     title={p.publicUrl ? "Copy public link" : "No careers site is configured for this deployment yet"}
@@ -220,7 +222,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                                     disabled={!p.publicUrl}
                                     onClick={() => copyLink(p)}
                                 />
-                                <ActionIconButton iconName="trash" title="Remove" tone="danger" size="sm" disabled={busy(p.id)} onClick={() => remove(p)} />
+                                {canWrite && <ActionIconButton iconName="trash" title="Remove" tone="danger" size="sm" disabled={busy(p.id)} onClick={() => remove(p)} />}
                             </Stack>
                         </GlassCard>
                     ))}

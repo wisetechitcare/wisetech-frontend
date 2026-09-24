@@ -17,6 +17,9 @@ import {
 import { KTIcon } from '@metronic/helpers';
 import { GlassDialog, GlassHeader, WtButton, confirmDialog, toast } from '@app/modules/common/components/ui';
 import { formatDateTime } from '@utils/dateFormats';
+import { canSection } from '@utils/can';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@redux/store';
 import { formatFileSize } from '@utils/fileValidation';
 import { deleteTimeSheetById, getTimesheetById } from '@services/tasks';
 import { apiErrorMessage } from '@app/pages/employee/tasks/taskDomain';
@@ -77,6 +80,12 @@ export const TimeLogDetailDialog = ({
     });
 
     const log = data?.timeSheet ?? data?.data?.timeSheet ?? null;
+    // Own log needs only Read on My Timesheet; someone else's needs Write on Employees Timesheet.
+    const currentEmployeeId = useSelector((s: RootState) => s.employee?.currentEmployee?.id);
+    const ownerId = log?.employeeId ?? log?.employee?.id;
+    const canWrite = !!ownerId && ownerId === currentEmployeeId
+        ? canSection('timesheets.my', 'read')
+        : canSection('timesheets.employees', 'write');
     const attachments = (log?.attachments ?? []) as Array<{
         url: string; fileName: string; contentType?: string | null; sizeBytes?: number | null;
     }>;
@@ -264,21 +273,21 @@ export const TimeLogDetailDialog = ({
                     sx={{ px: 3, pb: 3, pt: 0.5 }}
                 >
                     <WtButton ghost onClick={onClose}>Close</WtButton>
-                    <WtButton
+                    {canWrite && <WtButton
                         tone="danger"
                         disabled={!log || deleting}
                         onClick={() => void remove()}
                         startIcon={<KTIcon iconName="trash" className="fs-5" />}
                     >
                         {deleting ? 'Deleting…' : 'Delete'}
-                    </WtButton>
-                    <WtButton
+                    </WtButton>}
+                    {canWrite && <WtButton
                         disabled={!log}
                         onClick={() => setEditing(true)}
                         startIcon={<KTIcon iconName="pencil" className="fs-5" />}
                     >
                         Edit log
-                    </WtButton>
+                    </WtButton>}
                 </Stack>
             </GlassDialog>
 

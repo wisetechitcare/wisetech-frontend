@@ -116,7 +116,7 @@ function Designations() {
                 },
             ];
 
-            if (isAdmin && hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.editOthers)) {
+            if (hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.editOthers)) {
                 cols.push({
                     accessorKey: "actions",
                     header: "Actions",
@@ -181,7 +181,7 @@ function Designations() {
                   iconColor="primary"
                   badge={{ label: `${data.length}`, color: C.primary, bg: C.primaryLight }}
                   loading={loading}
-                  primaryAction={isAdmin && hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.create) ? { label: 'New Designation', icon: 'bi-plus-lg', onClick: () => setShowModal(true), variant: 'primary' } : undefined}
+                  primaryAction={hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.create) ? { label: 'New Designation', icon: 'bi-plus-lg', onClick: () => setShowModal(true), variant: 'primary' } : undefined}
                 >
                   <div style={{ marginTop: SP.md }}>
                     <MaterialTable

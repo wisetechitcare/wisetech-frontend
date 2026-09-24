@@ -9,6 +9,7 @@ import {
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { confirmDialog, toast } from '@app/modules/common/components/ui/feedback';
 import { formatDateTime } from '@utils/dateFormats';
+import { canSection } from '@utils/can';
 import type { SavedMigrationRun } from '@/types/legacyMigration';
 
 /**
@@ -53,6 +54,7 @@ export default function SavedRunsPanel({
   onResume: (run: SavedMigrationRun) => void;
   onDelete: (run: SavedMigrationRun) => Promise<void>;
 }) {
+  const canWrite = canSection('crm.leads', 'write');
   // Nothing saved yet is the normal first-run state, not an error — say nothing
   // and let the upload form be the only thing on screen.
   if (!loading && !runs.length) return null;
@@ -125,11 +127,12 @@ export default function SavedRunsPanel({
               <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
                 {/* A completed or cancelled run is history: it can be deleted but
                     not reopened, because its decisions have already been applied. */}
-                {run.resumable && (
+                {canWrite && run.resumable && (
                   <WtButton size="small" onClick={() => onResume(run)}>
                     Resume
                   </WtButton>
                 )}
+                {canWrite && (
                 <WtIconButton
                   title={`Delete ${run.migrationCode}`}
                   color="#dc2626"
@@ -138,6 +141,7 @@ export default function SavedRunsPanel({
                 >
                   <AppIcon name="bi-trash" />
                 </WtIconButton>
+                )}
               </Stack>
             </Stack>
           </GlassCard>

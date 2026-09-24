@@ -1,3 +1,4 @@
+import { canSection } from "@utils/can";
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { PageLink, PageTitle } from '@metronic/layout/core';
 import { RootState } from '@redux/store';
@@ -18,9 +19,8 @@ function PersonalKpiMain() {
   const isAdmin = useSelector(
     (state: RootState) => state.auth.currentUser.isAdmin
   );
-  // Re-render when capabilities/blocked sections change so tabs reflect access.
-  useSelector((state: RootState) => (state as any).authz?.capabilities);
-  useSelector((state: RootState) => (state as any).authz?.blockedSections);
+  // Re-render when section access changes so tabs reflect it.
+  useSelector((state: RootState) => (state as any).authz?.access);
 
   // Each tab is gated by its own sub-section key. A tab shows when it's allowed
   // by default (baseAllowed) AND not explicitly blocked — and an admin can also
@@ -32,8 +32,9 @@ function PersonalKpiMain() {
     { key: "kpi.configure", baseAllowed: isAdmin, item: { title: "Configure", component: <KPISettings />, icon: 'bi-gear' } },
   ];
 
+  // Configure changes how KPIs are scored, so it needs Write; the other tabs need Read.
   const visibleTabs: TabItem[] = allTabs
-    .filter((t) => isSubsectionVisible(t.key, t.baseAllowed))
+    .filter((t) => (t.key === "kpi.configure" ? canSection("kpi.configure", "write") : isSubsectionVisible(t.key, t.baseAllowed)))
     .map((t) => t.item);
 
 

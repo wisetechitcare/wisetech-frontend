@@ -60,10 +60,9 @@ export function useNavigation() {
   // My Team → Approvals row, and is genuinely approver-only.
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
 
-  // Subscribe to capabilities + blocked sections so the menu re-evaluates
-  // whenever they load or refresh (drives can() and isSectionBlocked()).
-  const capabilities = useSelector((state: RootState) => (state as any).authz?.capabilities);
-  const blockedSections = useSelector((state: RootState) => (state as any).authz?.blockedSections);
+  // Subscribe to section access so the menu re-evaluates whenever it loads or refreshes
+  // (drives can(), canSection() and isSectionBlocked()).
+  const capabilities = useSelector((state: RootState) => (state as any).authz?.access);
   // Drives the dynamic "<Org> Team" label on the Employees row (see below).
   const orgName = useRootOrgName();
 
@@ -556,7 +555,7 @@ export function useNavigation() {
     ];
 
     return items;
-  }, [intl, inboxCount, pendingApprovalsCount, capabilities, blockedSections, orgName]);
+  }, [intl, inboxCount, pendingApprovalsCount, capabilities, orgName]);
 
   return menu;
 }

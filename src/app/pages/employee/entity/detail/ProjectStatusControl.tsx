@@ -6,6 +6,7 @@ import { updateLeadSection } from '@services/leadService';
 import { toDateInputValue } from '@app/modules/detail-page/EditableDetailCard';
 import PlainDatePicker from '@app/modules/common/inputs/PlainDatePicker';
 import { OptionPickerDialog, GlassSurface, IconBox, TRIO } from '@app/modules/common/components/ui';
+import { canSection } from '@utils/can';
 
 const isCompletedStatus = (s?: { name?: string } | null) =>
   (s?.name || '').trim().toLowerCase() === 'completed';
@@ -28,6 +29,7 @@ const ProjectStatusControl: React.FC<{
   onChanged?: () => void;
   prefix?: string;
 }> = ({ leadId, projectStatusId, projectStatus, actualEndDate, onChanged, prefix = '' }) => {
+  const canWrite = canSection('projects', 'write');
   const [statuses, setStatuses] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -93,9 +95,9 @@ const ProjectStatusControl: React.FC<{
   return (
     <>
       <button
-        disabled={saving}
+        disabled={saving || !canWrite}
         onClick={handleOpen}
-        onMouseEnter={() => setHover(true)}
+        onMouseEnter={() => canWrite && setHover(true)}
         onMouseLeave={() => setHover(false)}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 9,
@@ -104,7 +106,7 @@ const ProjectStatusControl: React.FC<{
           color,
           borderRadius: 10,
           padding: '6px 8px 6px 13px',
-          cursor: saving ? 'wait' : 'pointer',
+          cursor: !canWrite ? 'default' : saving ? 'wait' : 'pointer',
           fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 700,
           letterSpacing: '-0.1px',
           boxShadow: hover ? `0 2px 8px ${color}26` : `0 1px 2px ${color}14`,
@@ -119,7 +121,7 @@ const ProjectStatusControl: React.FC<{
           }}
         />
         <span>{saving ? 'Saving…' : `${prefix}${name}`}</span>
-        <span
+        {canWrite && <span
           aria-hidden
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -129,7 +131,7 @@ const ProjectStatusControl: React.FC<{
           }}
         >
           <KTIcon iconName="pencil" className="fs-8" />
-        </span>
+        </span>}
       </button>
 
       <OptionPickerDialog

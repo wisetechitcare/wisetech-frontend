@@ -13,10 +13,12 @@ import { UnderlineTabs } from "@app/modules/common/components/ui";
 import { WtButton } from "@app/modules/common/components/ui/tw";
 import { KTIcon } from "@metronic/helpers";
 import AssignToProjectsDialog from "@app/modules/common/components/AssignToProjectsDialog";
+import { canSection } from "@utils/can";
 
 type TabType = "overview" | "lead-reference" | "company-references" | "projects" | "meetings";
 
 const ContactMainToggle = () => {
+  const canWrite = canSection("crm.contacts", "write");
   const { contactId } = useParams<{ contactId: string }>();
   // console.log("idd", contactId);
 
@@ -130,7 +132,7 @@ const ContactMainToggle = () => {
             sx={{ mb: 0 }}
           />
         </div>
-        {activeTab === "projects" && (
+        {canWrite && activeTab === "projects" && (
           <WtButton className="shrink-0" startIcon={<KTIcon iconName="plus" className="fs-4 text-white" />} onClick={() => setAssignOpen(true)}>
             Add to projects
           </WtButton>

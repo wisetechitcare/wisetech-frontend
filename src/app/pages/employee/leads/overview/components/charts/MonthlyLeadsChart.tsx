@@ -21,6 +21,7 @@ import ManageTargetModal from "../modals/ManageTargetModal";
 import dayjs from "dayjs";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
+import { canSection } from "@utils/can";
 
 interface PerformanceData {
   receivedCount: number;
@@ -81,6 +82,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
   endDate: propEndDate,
   title = "Monthly Value Performance Analytics",
 }) => {
+  const canWrite = canSection("crm.leads", "write");
   const [currentDate, setCurrentDate] = useState(dayjs(propStartDate));
   const [rawData, setRawData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -348,7 +350,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
             </div>
             <div className="d-flex align-items-center gap-2">
               {/* SET TARGET BUTTON */}
-              {viewMode === "inquiry" ? (
+              {canWrite && (viewMode === "inquiry" ? (
                 <Button
                   variant="outline-primary"
                   size="sm"
@@ -382,7 +384,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                   <AppIcon name="bi-gear-fill" />
                   SET TARGET
                 </Button>
-              )}
+              ))}
 
               <div
                 className="vr mx-1 my-1 text-muted opacity-25"

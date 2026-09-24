@@ -1,3 +1,4 @@
+import { canSection } from "@utils/can";
 import MaterialHeaderTab, {TabItem} from "@app/modules/common/components/MaterialHeaderTab";
 import { calenderIcons, leadsIcons, reimbursementsIcons, worldIcons } from "@metronic/assets/sidepanelicons";
 import CompanyConfigMain from "./companyConfig/CompanyConfigMain";
@@ -24,7 +25,9 @@ const TAB_KEYS = ["overview", "companies", "map", "configure"] as const;
 const CompaniesMain = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabKey = searchParams.get("tab") || "overview";
-  const activeTab = Math.max(0, TAB_KEYS.indexOf(tabKey as any));
+  // Configure changes how the section works, so it shows only with Write on it.
+  const canConfigure = canSection("crm.companies", "write");
+  const activeTab = tabKey === "configure" && !canConfigure ? 0 : Math.max(0, TAB_KEYS.indexOf(tabKey as any));
   const setActiveTab = (index: number) => {
     setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
   };
@@ -136,11 +139,7 @@ const CompaniesMain = () => {
       component: <Maps points={coordinates} companyData={companyData} />,
       icon: 'bi-geo-alt',
     },
-    {
-      title: "Configure",
-      component: <CompanyConfigMain />,
-      icon: 'bi-gear',
-    },
+    ...(canConfigure ? [{ title: "Configure", component: <CompanyConfigMain />, icon: 'bi-gear' }] : []),
   ];
   const ProjectBreadcrumbs = [
     {
