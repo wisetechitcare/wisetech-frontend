@@ -26,7 +26,17 @@ export default function GenericDetail({
     const domain = getApprovalDomain(step.instance.workflowType);
     const summary = summarise(step);
     const pair = tonePair(domain?.tone ?? 'brand');
-    const doc = summary.link;
+    /**
+     * Only ever open http(s).
+     *
+     * `window.open` runs a `javascript:` URL in THIS page's origin, so a link whose href
+     * reached us from tenant data would execute with the approver's session — a recruiter
+     * escalating into an approver, which is the one boundary this screen exists to hold.
+     * Today's only producer is a presigned S3 link the server mints, so this rejects
+     * nothing in practice; it is here so the next producer of `ItemSummary.link` cannot
+     * quietly reintroduce the hole. Anything unrecognised fails closed.
+     */
+    const doc = summary.link && /^https?:\/\//i.test(summary.link.url) ? summary.link : null;
 
     const requester = step.instance.employee?.users
         ? `${step.instance.employee.users.firstName} ${step.instance.employee.users.lastName}`.trim()
