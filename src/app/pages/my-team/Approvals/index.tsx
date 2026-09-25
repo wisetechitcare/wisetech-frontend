@@ -4,6 +4,7 @@ import { Box, CircularProgress, Stack, Typography, useTheme } from '@mui/materia
 import { PageTitle } from '@metronic/layout/core';
 import { KTIcon } from '@metronic/helpers';
 import { getSocket } from '@utils/socketClient';
+import apiErrorMessage from '@utils/apiError';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { usePermission } from '@hooks/usePermission';
@@ -296,14 +297,31 @@ export default function Approvals() {
 
     // ── Actions ──────────────────────────────────────────────────────────────
 
-    const decide = async (step: ApprovalStep, action: 'approve' | 'reject', comments?: string) => {
+    /**
+     * Returns whether the decision actually landed, so a caller can keep its modal open
+     * on failure instead of closing over an error the person never had a chance to read.
+     *
+     * The error text comes from `apiErrorMessage`, not `data.message`. This API's failure
+     * envelope puts the HTTP STATUS NAME in `message` and the sentence in `detail`, so
+     * reading `message` showed the approver "Bad request" for every refusal the server
+     * takes trouble to explain — "Only the current approver (or an active delegate) can
+     * act on this request", "Self-approval is not permitted", and now "This request was
+     * just actioned by someone else". Those are the three things an approver most needs
+     * to be told, and all three read as "Bad request". Audit L1.
+     */
+    const decide = async (step: ApprovalStep, action: 'approve' | 'reject', comments?: string): Promise<boolean> => {
         setBusyId(step.id);
         try {
             const res: any = await processApprovalAction(step.instance.id, action, comments);
             successConfirmation(res?.message ?? `Request ${action}d`);
             load();
+            return true;
         } catch (err: any) {
-            errorConfirmation(err?.response?.data?.message || `Could not ${action} this request`);
+            errorConfirmation(apiErrorMessage(err, `Could not ${action} this request`));
+            // The row on screen is now stale — someone else may have decided it — so
+            // refresh regardless of the outcome.
+            load();
+            return false;
         } finally {
             setBusyId(null);
         }
@@ -626,8 +644,11 @@ export default function Approvals() {
                     if (!rejectTarget) return;
                     setRejecting(true);
                     try {
-                        await decide(rejectTarget, 'reject', reason);
-                        setRejectTarget(null);
+                        // Close ONLY on success. `decide` swallows the error to show it, so
+                        // this used to close either way — the approver saw a toast vanish with
+                        // the modal and a row still sitting there, with no idea whether the
+                        // rejection had landed. Audit L1.
+                        if (await decide(rejectTarget, 'reject', reason)) setRejectTarget(null);
                     } finally { setRejecting(false); }
                 }}
             />
