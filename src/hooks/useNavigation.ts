@@ -81,7 +81,14 @@ export function useNavigation() {
   // answering a question left a "1" sitting in the sidebar over an empty inbox.
   useEventBus(EVENT_KEYS.reimbursementChanged, refreshInboxCount);
 
-  useEffect(() => {
+  /**
+   * The approvals badge refetched only when `capabilities` changed — so it was fetched
+   * once at load and never again. Deciding a request left the old number sitting in the
+   * sidebar over a queue that no longer had it, and the only way to correct it was a
+   * full reload. The Inbox badge next to it already had this wiring; this one did not.
+   * Audit L2.
+   */
+  const refreshPendingApprovalsCount = () => {
     if (!can('approvals.approve.team')) {
       setPendingApprovalsCount(0);
       return;
@@ -92,7 +99,12 @@ export function useNavigation() {
         setPendingApprovalsCount(Array.isArray(records) ? records.length : 0);
       })
       .catch(() => setPendingApprovalsCount(0));
-  }, [capabilities]);
+  };
+
+  useEffect(refreshPendingApprovalsCount, [capabilities]);
+  // Subscribed to the APPROVAL key, not the leave one the socket also carries: this badge
+  // must not refetch on every leave edit in the organisation.
+  useEventBus(EVENT_KEYS.approvalUpdated, refreshPendingApprovalsCount);
 
   const menu = useMemo(() => {
     // ── Nav ORDER, labels, grouping and icons are ported verbatim from

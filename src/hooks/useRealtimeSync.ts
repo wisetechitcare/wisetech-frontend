@@ -94,6 +94,11 @@ export function useRealtimeSync(
       eventBus.emit(EVENT_KEYS.leaveRequestUpdated, { leaveId: '' });
     };
 
+    const onApprovalChanged = (payload?: { instanceId?: string }) => {
+      onLeaveChanged();
+      eventBus.emit(EVENT_KEYS.approvalUpdated, { instanceId: payload?.instanceId });
+    };
+
     // Attendance-request queue changed somewhere (raised, approved, rejected). The
     // eventBus key already existed and OpenAttendanceRequests already subscribed to it,
     // but nothing ever emitted it from a SOCKET — only the acting component emitted it
@@ -177,8 +182,12 @@ export function useRealtimeSync(
     socket.on('reimbursement_changed', onReimbursementChanged);
     socket.on('attendance_updated', onAttendanceUpdated);
     socket.on('leaveRequests:updated', onLeaveChanged);
-    socket.on('approval:updated', onLeaveChanged);
-    socket.on('approval:cancelled', onLeaveChanged);
+    // Approval events ALSO carry the leave key, because leave screens have listened on it
+    // since before approvals had their own — removing that would silently stop those
+    // refreshing. The dedicated key is for listeners that care about approvals as such,
+    // like the sidebar badge, which must not refetch on every leave edit.
+    socket.on('approval:updated', onApprovalChanged);
+    socket.on('approval:cancelled', onApprovalChanged);
 
     return () => {
       socket.off('connect', onConnect);
@@ -193,8 +202,8 @@ export function useRealtimeSync(
       socket.off('reimbursement_changed', onReimbursementChanged);
       socket.off('attendance_updated', onAttendanceUpdated);
       socket.off('leaveRequests:updated', onLeaveChanged);
-      socket.off('approval:updated', onLeaveChanged);
-      socket.off('approval:cancelled', onLeaveChanged);
+      socket.off('approval:updated', onApprovalChanged);
+      socket.off('approval:cancelled', onApprovalChanged);
     };
   }, [userId, employeeId]);
 }
