@@ -335,6 +335,34 @@ export default function Approvals() {
         setDetail(step);
     };
 
+    /**
+     * Open the request an approval email pointed at.
+     *
+     * The mail's "Review request" button lands here with `?instance=<id>`. Without this
+     * the button would deliver the approver to a LIST and leave them to find the row it
+     * was about — which is the work the notification exists to remove.
+     *
+     * Runs once per id, after the steps load, and strips the parameter afterwards so a
+     * refresh or a shared URL does not reopen a request the person has already dealt
+     * with. `openStep` is reused rather than reimplemented, so a deep link and a click
+     * land in exactly the same place — including the reimbursement branch.
+     */
+    const [deepLinkHandled, setDeepLinkHandled] = useState<string | null>(null);
+    useEffect(() => {
+        const wanted = new URLSearchParams(window.location.search).get('instance');
+        if (!wanted || wanted === deepLinkHandled || !steps.length) return;
+
+        const match = steps.find((s) => s.instance.id === wanted);
+        setDeepLinkHandled(wanted);
+        // Not found is silent on purpose: the usual reason is that somebody else already
+        // decided it, and an error over an empty queue explains nothing.
+        if (match) openStep(match);
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete('instance');
+        window.history.replaceState({}, '', url.pathname + url.search);
+    }, [steps, deepLinkHandled]);
+
     const openTask = (task: InboxTask) => {
         const payload = (task.payload ?? {}) as Record<string, unknown>;
 
