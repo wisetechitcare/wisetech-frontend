@@ -112,6 +112,11 @@ export interface ContactPickerProps {
      * locally on the label, because they never went through the server's search.
      */
     extraOptions?: ContactOption[];
+    /**
+     * Offer ONLY `extraOptions` — no address-book search. A project meeting's guests are the
+     * project's own stakeholders, not anybody in the CRM.
+     */
+    rosterOnly?: boolean;
     /** Anything else still loading, so the skeleton covers it too. */
     loading?: boolean;
     disabled?: boolean;
@@ -120,7 +125,7 @@ export interface ContactPickerProps {
 export function ContactPicker({
     value, onChange, label, required = false, error = false, helperText,
     placeholder = 'Search by name, company, number or email',
-    extraOptions, loading = false, disabled = false,
+    extraOptions, rosterOnly = false, loading = false, disabled = false,
 }: ContactPickerProps) {
     const theme = useTheme();
     /**
@@ -169,6 +174,7 @@ export function ContactPicker({
 
     /** First page, on mount and on every change of the term. */
     useEffect(() => {
+        if (rosterOnly) { setRows([]); setTotal(0); setBusy(false); return; }
         let cancelled = false;
         setBusy(true);
         const timer = setTimeout(async () => {
@@ -186,7 +192,7 @@ export function ContactPicker({
             }
         }, DEBOUNCE_MS);
         return () => { cancelled = true; clearTimeout(timer); };
-    }, [query, remember]);
+    }, [query, remember, rosterOnly]);
 
     /**
      * Names for ids that arrived already selected — a record being edited.
@@ -267,7 +273,9 @@ export function ContactPicker({
      * Without it a dropdown that stops at 25 of 6,266 looks like the whole address book, and
      * somebody concludes their contact is not in the CRM.
      */
-    const countText = rows.length === 0
+    const countText = rosterOnly
+        ? `${extras.length} on this project`
+        : rows.length === 0
         ? (query.trim() && !busy ? 'No contact matches' : ' ')
         : rows.length >= total
             ? `${total} contact${total === 1 ? '' : 's'}`
@@ -293,11 +301,12 @@ export function ContactPicker({
                 onChange={(_, next) => {
                     remember(next as ContactOption[]);
                     onChange((next as ContactOption[]).map((o) => o.value));
+                    // A pick finishes the search, same as every other picker in the app.
+                    setQuery('');
                 }}
                 inputValue={query}
                 onInputChange={(_, v, reason) => {
-                    // `reset` fires when a chip is picked, and letting it through would wipe the
-                    // term the person is still narrowing with. Only what was typed counts.
+                    // `reset` is ignored: `onChange` above clears the term on a pick itself.
                     if (reason === 'input') setQuery(v);
                     else if (reason === 'clear') setQuery('');
                 }}
@@ -308,7 +317,9 @@ export function ContactPicker({
                 // The skeleton stands in for the rows about to arrive, rather than a spinner that
                 // says only "something is happening".
                 loadingText={<SkeletonList items={5} showAvatar />}
-                noOptionsText={query.trim() ? 'No contact matches' : 'Type a name, company, number or email'}
+                noOptionsText={rosterOnly
+                    ? (extras.length ? 'No contact matches' : 'No contacts on this project')
+                    : query.trim() ? 'No contact matches' : 'Type a name, company, number or email'}
                 ListboxProps={{
                     sx: menuOptionSx,
                     /*

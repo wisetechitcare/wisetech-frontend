@@ -4,10 +4,10 @@ import {
 } from './meetingTypes';
 
 describe('meeting kinds', () => {
-    it('is exactly three, and nothing else is one', () => {
-        expect([...MEETING_KINDS]).toEqual(['PROJECT', 'CONTACT', 'INTERNAL']);
-        expect(isMeetingKind('CONTACT')).toBe(true);
-        for (const junk of ['PERSONAL', 'project', '', null, undefined, 7]) {
+    it('is exactly two, and nothing else is one', () => {
+        expect([...MEETING_KINDS]).toEqual(['PROJECT', 'GENERAL']);
+        expect(isMeetingKind('GENERAL')).toBe(true);
+        for (const junk of ['CONTACT', 'INTERNAL', 'PERSONAL', 'project', '', null, undefined, 7]) {
             expect(isMeetingKind(junk)).toBe(false);
         }
     });
@@ -28,37 +28,28 @@ describe('validateMeetingKind', () => {
         expect(validateMeetingKind('PROJECT', {})).toMatch(/project or lead/i);
     });
 
-    it('CONTACT needs a contact, and a project does not substitute', () => {
-        expect(validateMeetingKind('CONTACT', { contactIds: ['c-1'] })).toBeNull();
-        expect(validateMeetingKind('CONTACT', {})).toMatch(/contact/i);
-        expect(validateMeetingKind('CONTACT', { contactIds: [] })).toMatch(/contact/i);
-        expect(validateMeetingKind('CONTACT', { projectId: 'lead-1' })).toMatch(/contact/i);
-    });
-
-    it('INTERNAL requires nothing', () => {
-        expect(validateMeetingKind('INTERNAL', {})).toBeNull();
+    it('GENERAL requires nothing', () => {
+        expect(validateMeetingKind('GENERAL', {})).toBeNull();
     });
 
     it('messages tell you what to do, not that a field is required', () => {
         // The reader has just chosen a type; the useful sentence names the next action.
         expect(validateMeetingKind('PROJECT', {})).not.toMatch(/is required/i);
-        expect(validateMeetingKind('CONTACT', {})).not.toMatch(/is required/i);
     });
 });
 
 describe('kindOfExisting', () => {
     it('uses the stored type when there is one', () => {
-        expect(kindOfExisting({ meetingType: 'CONTACT', projectId: null })).toBe('CONTACT');
         // Stored type wins even when the links look like something else.
-        expect(kindOfExisting({ meetingType: 'INTERNAL', projectId: 'lead-1' })).toBe('INTERNAL');
+        expect(kindOfExisting({ meetingType: 'GENERAL', projectId: 'lead-1' })).toBe('GENERAL');
     });
 
-    it('falls back to the same derivation the server backfill used', () => {
+    it('falls back to the project link', () => {
         expect(kindOfExisting({ projectId: 'lead-1' })).toBe('PROJECT');
-        expect(kindOfExisting({ projectId: null })).toBe('INTERNAL');
-        expect(kindOfExisting({})).toBe('INTERNAL');
-        expect(kindOfExisting(null)).toBe('INTERNAL');
-        expect(kindOfExisting(undefined)).toBe('INTERNAL');
+        expect(kindOfExisting({ projectId: null })).toBe('GENERAL');
+        expect(kindOfExisting({})).toBe('GENERAL');
+        expect(kindOfExisting(null)).toBe('GENERAL');
+        expect(kindOfExisting(undefined)).toBe('GENERAL');
     });
 
     it('ignores a type the API does not recognise', () => {
