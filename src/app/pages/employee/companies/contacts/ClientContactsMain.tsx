@@ -579,7 +579,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
               onChange={setSource}
               options={[
                 { value: "ALL", label: "All", icon: <KTIcon iconName="people" className="fs-5" /> },
-                { value: "GOOGLE", label: "Google imported", count: googleCount, icon: <KTIcon iconName="google" className="fs-5" /> },
+                { value: "GOOGLE", label: "Google imported", count: googleCount, icon: <KTIcon iconName="address-book" className="fs-5" /> },
               ]}
             />
           )}
