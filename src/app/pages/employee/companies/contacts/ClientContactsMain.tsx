@@ -16,7 +16,7 @@ import eventBus from "@utils/EventBus";
 import { useNavigate } from "react-router-dom";
 import dayjs, { Dayjs } from "dayjs";
 import { can } from "@utils/can";
-import { WtButton } from "@app/modules/common/components/ui";
+import { SegmentedControl, WtButton } from "@app/modules/common/components/ui";
 import GoogleContactsImportDialog from "./components/GoogleContactsImportDialog";
 import { toContactFormPrefill, type ContactFormPrefill, type GoogleContactCandidate } from "./components/googleContactPrefill";
 
@@ -74,6 +74,8 @@ const ClientContactsMain = ({
   const [allSubCompanies, setAllSubCompanies] = useState<any>([]);
   const [newContactModal, setNewContactModal] = useState(false);
   const [googleImportOpen, setGoogleImportOpen] = useState(false);
+  // Imported rows carry `googleResourceId` (provenance only) — that is the whole filter.
+  const [source, setSource] = useState<"ALL" | "GOOGLE">("ALL");
   /**
    * Opening values for a contact chosen out of Google.
    *
@@ -549,8 +551,14 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
         // A contact with no gender on record answers to UNSPECIFIED, matching how the
         // overview counts them — otherwise they would vanish from every bucket.
         return gender === "UNSPECIFIED" ? !item.gender : item.gender === gender;
-      });
-  }, [allContacts, startDates, endDates, contactByRolesId, gender]);
+      })
+      ?.filter((item: any) => source === "ALL" || !!item.googleResourceId);
+  }, [allContacts, startDates, endDates, contactByRolesId, gender, source]);
+
+  const googleCount = useMemo(
+    () => (allContacts || []).filter((c: any) => c.googleResourceId).length,
+    [allContacts],
+  );
 
   return (
     <div>
@@ -563,6 +571,18 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
         </div>
 
         <div className="d-flex align-items-center gap-2">
+          {/* Shown once anything has been imported; a switch with an empty side is noise. */}
+          {!isDrillDown && (googleCount > 0 || source === "GOOGLE") && (
+            <SegmentedControl
+              ariaLabel="Contact source"
+              value={source}
+              onChange={setSource}
+              options={[
+                { value: "ALL", label: "All", icon: <KTIcon iconName="people" className="fs-5" /> },
+                { value: "GOOGLE", label: "Google imported", count: googleCount, icon: <KTIcon iconName="google" className="fs-5" /> },
+              ]}
+            />
+          )}
           {/*
             * Gated on the SAME permission the backend enforces. This only hides the button —
             * the import endpoints check `crm.contacts.manage.all` themselves, so a user who
