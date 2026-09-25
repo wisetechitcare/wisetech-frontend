@@ -14,7 +14,6 @@ export type ClientPaymentMethod =
   | "CASH" | "CHEQUE" | "NEFT" | "RTGS" | "IMPS" | "UPI" | "BANK_TRANSFER" | "ONLINE" | "OTHER";
 
 export type PaymentTransactionStatus = "RECORDED" | "VERIFIED" | "REJECTED" | "CANCELLED";
-export type PaymentVerificationStatus = "NOT_VERIFIED" | "UNDER_REVIEW" | "VERIFIED" | "REJECTED";
 export type PaymentStatus = "PENDING" | "PARTIALLY_PAID" | "FULLY_PAID" | "OVERPAID" | "CANCELLED";
 export type AttachmentKind =
   | "BANK_RECEIPT" | "UTR_SCREENSHOT" | "CHEQUE_SCAN" | "DEPOSIT_SLIP" | "PAYMENT_ADVICE" | "SUPPORTING_DOCUMENT";
@@ -38,7 +37,75 @@ export interface PaymentListItem {
   projectManagerName?: string | null;
   status: string;
   workflowStatusLabel: string;
-  verificationStatus: PaymentVerificationStatus;
+  /**
+   * Has the client accepted the live revision of the proforma?
+   *
+   * The gate invoicing hangs off, in place of the old collection-level
+   * verification. Reported, never used to hide a row.
+   */
+  proformaAccepted: boolean;
+  /**
+   * Which collection owns this row. An OPERATION collects through payment
+   * transactions, a BILL through bill payments — the list merges both, and the
+   * record-payment action routes on this.
+   */
+  source: "OPERATION" | "BILL";
+  /** The date on the document the client holds (invoice, else proforma). */
+  documentDate: string | null;
+  /** That document's face value — what is being collected against. */
+  documentAmount: number;
+  /**
+   * The money broken out.
+   *
+   * `taxable` + `gst` is the face value; `expected` is that minus the TDS the
+   * client withholds. Collections chase `expected`, which is why a TDS bill
+   * settles below its own total.
+   *
+   * `tdsAmount`/`tdsRate`/`tdsDeposited` are null on an OPERATION — that path
+   * stores one lump tax and does not track TDS at all. Null means "not tracked
+   * here", which is not the same statement as zero.
+   */
+  breakdown: {
+    taxable: number;
+    gstRate: number | null;
+    gstAmount: number;
+    tdsRate: number | null;
+    tdsAmount: number | null;
+    faceValue: number;
+    expected: number;
+    tdsDeposited: boolean | null;
+    tdsDepositedAt: string | null;
+    /**
+     * Settlement per component, each set by hand and each on its own clock.
+     * Null on an OPERATION — it has one collected figure and no components to
+     * settle separately, so null means "not tracked", not "unpaid".
+     */
+    basicPaid: boolean | null;
+    basicPaidAt: string | null;
+    gstPaid: boolean | null;
+    gstPaidAt: string | null;
+    /** Basic minus the TDS withheld from it — the cash part of the basic. */
+    basicPortion: number;
+  };
+  /**
+   * The PROJECT behind this document.
+   *
+   * Payment Collection lists documents, but the questions asked over it are about
+   * the project: what the PO is worth, what has come in, what is left. The same
+   * numbers the Billing Tracker shows, from the same rollup, so the two screens
+   * cannot disagree. Null for a row whose lead could not be resolved.
+   */
+  project: {
+    projectNumber: string | null;
+    projectName: string | null;
+    clientName: string | null;
+    managerName: string | null;
+    /** Who chases this project for payment. Often not the project manager. */
+    followUpManagerName: string | null;
+    poValue: number | null;
+    receivedAmount: number;
+    pendingAmount: number | null;
+  } | null;
   paymentStatus: PaymentStatus;
   paymentStatusLabel: string;
   totalAmount: number | string;
@@ -59,7 +126,6 @@ export interface PaymentStatistics {
   pendingPayments: number;
   partialPayments: number;
   fullyPaid: number;
-  awaitingVerification: number;
   overduePayments: number;
   readyForInvoice: number;
   collectedToday: number;
@@ -153,13 +219,15 @@ export interface PaymentListParams {
   projectId?: string;
   clientId?: string;
   paymentStatus?: PaymentStatus | "";
-  verificationStatus?: PaymentVerificationStatus | "";
   method?: ClientPaymentMethod | "";
   receivedById?: string;
   dueState?: "DUE_TODAY" | "OVERDUE" | "UPCOMING" | "";
   paidFrom?: string;
   paidTo?: string;
   readyForInvoice?: boolean;
+  /** Period bounds (ISO dates), applied to the document's own date. */
+  from?: string;
+  to?: string;
   sortBy?: "lastPaymentAt" | "dueDate" | "outstandingAmount" | "collectedAmount" | "operationNumber";
   sortDir?: "asc" | "desc";
   page?: number;
@@ -181,8 +249,18 @@ export const listPayments = async (
   return { payments: data.payments ?? [], pagination: data.pagination };
 };
 
-export const getPaymentStatistics = async (): Promise<PaymentStatistics> => {
-  const { data } = await axios.get(url(PAYMENT.STATISTICS), { withCredentials: true });
+export const getPaymentStatistics = async (
+  period: { from?: string; to?: string } = {},
+): Promise<PaymentStatistics> => {
+  // The tiles take the SAME period as the list, so a tile's count and the rows it
+  // filters to always describe one slice of time.
+  const params = new URLSearchParams();
+  if (period.from) params.set("from", period.from);
+  if (period.to) params.set("to", period.to);
+  const query = params.toString();
+  const { data } = await axios.get(`${url(PAYMENT.STATISTICS)}${query ? `?${query}` : ""}`, {
+    withCredentials: true,
+  });
   return data.statistics;
 };
 

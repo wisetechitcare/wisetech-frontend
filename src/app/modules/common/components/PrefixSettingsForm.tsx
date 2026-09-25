@@ -47,6 +47,12 @@ export interface PrefixSetting {
    * form, so changing this never renumbers anything.
    */
   yearFormat?: string | null;
+  /**
+   * How wide the running number is zero-padded — the `001` in
+   * WT/OFFER/26-27/001. null/absent means what this series has always used, which
+   * DIFFERS per identifier (see `DEFAULT_SEQUENCE_PAD`). Display only.
+   */
+  numberPad?: number | null;
   /** null on the global/default row; set on an organization's own row. */
   organizationId?: string | null;
   /**

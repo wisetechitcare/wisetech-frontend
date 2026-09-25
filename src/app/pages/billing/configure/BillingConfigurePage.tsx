@@ -191,14 +191,21 @@ const BillingConfigurePage: React.FC = () => {
                   badge={entry.isDefault ? "Default" : undefined}
                   disabled={busy}
                   onEdit={() => openEditor(entry, group.title)}
-                  // The bin the Leads chip shows, in the same slot and the same red —
-                  // but the code is an enum member, so there is nothing to delete and
-                  // this RESTORES the shipped label and colour. The tooltip says so,
-                  // and the confirm below names the outcome before anything is written.
+                  /*
+                   * A RESTORE, so it wears a restore icon.
+                   *
+                   * This slot is a red bin on Leads Configure, where it deletes a
+                   * row. Here the code is an enum member: nothing can be removed,
+                   * and the action puts the shipped wording and colour back. Copying
+                   * the bin across made every entry on this screen look deletable
+                   * and made an undo look destructive — the tooltip said otherwise,
+                   * but nobody reads a tooltip to find out what an icon they already
+                   * recognise does.
+                   */
                   action={{
-                    icon: "bi-trash",
-                    title: `Restore ${entry.code} to its default`,
-                    danger: true,
+                    icon: "bi-arrow-counterclockwise",
+                    title: `Restore ${entry.code} to its default label and colour`,
+                    tone: "revert",
                     onClick: () => confirmReset(entry),
                   }}
                 />

@@ -71,6 +71,10 @@ export const useBillingLabels = () => {
 /** Group keys from the server catalogue (`services/billing/statusLabels.ts` GROUPS). */
 export const BILLING_LABEL_GROUP = {
   STATUS: "OPERATION_STATUS",
+  /** The three components a bill settles as, each configured on its own. */
+  BILL_AMOUNT: "BILL_AMOUNT_STATUS",
+  GST: "GST_STATUS",
+  TDS: "TDS_STATUS",
   STAGE: "STAGE",
   BILL_PAYMENT: "BILL_PAYMENT_STATUS",
 } as const;

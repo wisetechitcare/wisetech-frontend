@@ -4,6 +4,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Box, MenuItem, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { toneAlpha, isHexColor, type SemanticTone } from "@app/modules/common/components/ui";
+import { tonePair } from "@app/theme/tokens";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import dayjs from "dayjs";
@@ -408,16 +410,46 @@ const BillingOperationsPage: React.FC = () => {
               : project.poStatus
                 ? "warning.main"
                 : "transparent";
+            /*
+             * The row carries its BILL STAGE as a tint — the same idea as the tint
+             * on the Leads & Projects table, pointed at the column this screen is
+             * actually about. Where a project stands with its billing is then
+             * readable across the whole row, not only in its own chip.
+             *
+             * The colour is the one configured for that stage in Billing →
+             * Configure, so recolouring a stage there recolours these rows too and
+             * the chip can never disagree with the row it sits on. A stage whose
+             * colour is a tone name resolves through the theme; a hex is used as
+             * picked. A project with no bill raised has no stage and stays plain,
+             * which is what separates "nothing to do here" from the rest.
+             *
+             * `toneAlpha` rather than the `${color}20` concatenation the Leads
+             * table uses: that silently produces "red20" and paints nothing when a
+             * colour is stored as a name, while this returns it untouched.
+             */
+            const stageTone = labels.tone(project.status);
+            const statusColor = stageTone
+              ? (isHexColor(stageTone) ? stageTone : tonePair(stageTone as SemanticTone).fg)
+              : null;
+
             return {
               // The PROJECT view (/project/:id), not the lead view — every row here is a
               // project, and the lead path opens the same record with the lead tab set.
               onClick: () => navigate(`/project/${project.leadId}?tab=billing`),
               sx: {
                 cursor: "pointer",
-                // Tokens, not hex: this table has to survive the dark theme.
-                backgroundColor: "background.paper",
+                // Tokens where there is no status colour: this table has to survive
+                // the dark theme, so the FALLBACK is never a hardcoded grey.
+                // 0.22, not the 0.12 this started at: the stage colours are already
+                // dark and desaturated (a deep green, a muted amber), so a tenth of
+                // one over white was a grey that read as "no colour" rather than as
+                // the stage. High enough to scan down the row, low enough to leave
+                // the chips and the figures on top of it the strongest thing there.
+                backgroundColor: statusColor ? toneAlpha(statusColor, 0.22) : "background.paper",
                 transition: "background-color 0.15s ease",
-                "&:hover": { backgroundColor: "action.hover" },
+                "&:hover": {
+                  backgroundColor: statusColor ? toneAlpha(statusColor, 0.32) : "action.hover",
+                },
                 "& .MuiTableCell-root": {
                   fontSize: "13.5px",
                   fontFamily: "Inter",

@@ -140,7 +140,7 @@ const InvoicesPage: React.FC = () => {
             startIcon={<KTIcon iconName="credit-cart" className="fs-6" />}
             sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
           >
-            Payment Collection
+            Payment Tracker
           </WtButton>
         }
       />

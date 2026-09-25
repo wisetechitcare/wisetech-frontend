@@ -140,3 +140,46 @@ export const FISCAL_YEAR_FORMAT_OPTIONS: {
   label: value,
   sample: formatFiscalYearFromStart(2026, value),
 }));
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Sequence padding — the `001` in `WT/OFFER/26-27/001`.
+ *
+ * Twin of the backend's `sequenceFormat.ts`. Lives here rather than in its own
+ * file because every screen that renders a number preview needs both halves: the
+ * year segment and the padded counter.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Pad widths an admin can pick. 1 means no padding at all. */
+export const SEQUENCE_PAD_OPTIONS = [1, 2, 3, 4, 5] as const;
+export type SequencePad = (typeof SEQUENCE_PAD_OPTIONS)[number];
+
+/**
+ * What each series padded to BEFORE this was configurable — what NULL still has
+ * to mean. The series disagree, which is why there is no single default: leads
+ * read better zero-padded, a bill number with leading zeroes looks like a typo.
+ *
+ * Keyed by the `identifier` the prefix screens already pass around.
+ */
+export const DEFAULT_SEQUENCE_PAD: Record<string, number> = {
+  LEAD: 3,
+  PROFORMA: 4,
+  INVOICE: 4,
+  PROJECT: 1,
+  COMPANY: 1,
+};
+
+export const isSequencePad = (value: unknown): value is SequencePad =>
+  typeof value === 'number' && (SEQUENCE_PAD_OPTIONS as readonly number[]).includes(value);
+
+/** The configured width, else what this series has always used. */
+export const resolveSequencePad = (
+  configured: number | null | undefined,
+  identifier: string,
+): number => (isSequencePad(configured) ? configured : DEFAULT_SEQUENCE_PAD[identifier] ?? 1);
+
+/**
+ * The number as it appears in the generated string. `padStart` only ever adds, so
+ * a number that has outgrown its padding is never truncated.
+ */
+export const formatSequence = (sequence: number, pad: number): string =>
+  String(sequence).padStart(Math.max(1, pad), '0');

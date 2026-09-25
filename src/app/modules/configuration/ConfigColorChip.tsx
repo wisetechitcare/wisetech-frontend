@@ -24,6 +24,18 @@ export interface ConfigChipAction {
     onClick: () => void;
     /** Render in the danger tone (destructive actions). */
     danger?: boolean;
+    /**
+     * What KIND of action this is, when "destructive or not" is too blunt.
+     *
+     * The slot started as delete-or-nothing: red for a delete, grey otherwise.
+     * But Billing's version restores a customised label to its shipped default,
+     * and grey made it indistinguishable from the pencil beside it while red made
+     * an undo look like it destroyed something. `revert` is amber — a change you
+     * can see coming, and not the same verb as either neighbour.
+     *
+     * `danger` still wins if both are passed, so no existing caller changes.
+     */
+    tone?: 'revert' | 'neutral';
 }
 
 export interface ConfigColorChipProps {
@@ -80,7 +92,11 @@ export const ConfigColorChip: React.FC<ConfigColorChipProps> = ({
     // No colour configured → the divider tone, which is legible in both modes.
     const rail = color || theme.palette.divider;
     const editTint = theme.palette.primary.main;
-    const actionTint = action?.danger ? theme.palette.error.main : theme.palette.text.secondary;
+    const actionTint = action?.danger
+        ? theme.palette.error.main
+        : action?.tone === 'revert'
+            ? theme.palette.warning.main
+            : theme.palette.text.secondary;
 
     return (
         <Box

@@ -779,6 +779,44 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
         );
     }
 
+    /*
+     * ── PARKED ────────────────────────────────────────────────────────────────
+     *
+     * The whole tab is held behind this flag: the totals, the breakdown cards and
+     * the deliverable table are all still written and still working immediately
+     * below. Nothing was deleted, so restoring the screen is flipping this to
+     * `false` — which is also why it is one flag rather than a comment marker on
+     * each piece.
+     *
+     * TYPED AS `boolean` ON PURPOSE. Written as a bare `true`, TypeScript narrows
+     * it to the literal, treats everything after the early return as unreachable,
+     * and stops narrowing `summary` past its guard — which reports the parked code
+     * as broken in a dozen places. An annotated boolean keeps the rest of this
+     * component type-checked while it waits, so it cannot rot unnoticed.
+     *
+     * The data is still fetched above: one read, and leaving it keeps the restore
+     * a one-word change. Disable the query too if this stays parked long enough
+     * for that call to be worth saving.
+     */
+    const PARKED: boolean = true;
+    if (PARKED) {
+        return (
+            <Stack spacing={1.5} sx={{ maxWidth: 1600, mx: "auto" }}>
+                <BillingPageHeader
+                    icon="wallet"
+                    trio={TRIO.green}
+                    title="Project Billing"
+                    description="Billing for this project is being rebuilt."
+                />
+                <BillingEmptyState
+                    icon="wallet"
+                    title="In future development"
+                    description="This tab will show what has been billed against each deliverable, what the client has paid, and what is still outstanding. It is not available yet."
+                />
+            </Stack>
+        );
+    }
+
     if (isLoading || !data || !summary) return <BillingLoadingState rows={5} />;
 
     return (

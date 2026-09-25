@@ -20,10 +20,9 @@ export interface BillingTabDef {
 
 export const BILLING_BASE = "/billing";
 
-// Temporarily reduced to Billing Tracker + Configure. The commented entries are the
-// full set — uncomment to restore a tab. Their pages, routes and detail sub-routes
-// are untouched and still resolve by URL; only the header links are hidden, so deep
-// links out of the Tracker (proforma editor, payment detail) keep working.
+// The order here is the order of the header tabs, and it follows the money: what is
+// asked for, what Accounts is working on, what was issued, what came back, what it
+// all adds up to. A tab is still only shown to a user who holds its `accessKey`.
 export const BILLING_TABS: BillingTabDef[] = [
     // { path: "dashboard", title: "Dashboard", icon: "bi-speedometer2", accessKey: "billing.dashboard" },
     // { path: "requests", title: "Billing Requests", icon: "bi-file-earmark-text", accessKey: "billing.requests" },
@@ -36,10 +35,10 @@ export const BILLING_TABS: BillingTabDef[] = [
     { path: "tracker", title: "Billing Tracker", icon: "bi-diagram-3", accessKey: "billing.operations" },
     // { path: "proformas", title: "Proformas", icon: "bi-receipt", accessKey: "billing.proformas" },
     // Record, verify and track client payments against issued proformas.
-    // { path: "payments", title: "Payment Collection", icon: "bi-cash-coin", accessKey: "billing.payments" },
+    { path: "payments", title: "Payment Tracker", icon: "bi-cash-coin", accessKey: "billing.payments" },
     // { path: "invoices", title: "Tax Invoices", icon: "bi-receipt-cutoff", accessKey: "billing.invoices" },
     // { path: "reports", title: "Reports", icon: "bi-graph-up", accessKey: "billing.reports" },
-    // Display configuration for the module's statuses, stages and payment states.
+    // Display configuration for the module's statuses and payment states.
     { path: "configure", title: "Configure", icon: "bi-gear", accessKey: "billing.configure" },
 ];
 
