@@ -26,6 +26,7 @@ export default function GenericDetail({
     const domain = getApprovalDomain(step.instance.workflowType);
     const summary = summarise(step);
     const pair = tonePair(domain?.tone ?? 'brand');
+    const doc = summary.link;
 
     const requester = step.instance.employee?.users
         ? `${step.instance.employee.users.firstName} ${step.instance.employee.users.lastName}`.trim()
@@ -102,12 +103,31 @@ export default function GenericDetail({
                             fontSize: 10.5, fontWeight: 800, letterSpacing: '.06em',
                             textTransform: 'uppercase', color: 'text.secondary', mb: 0.5,
                         }}>
-                            Reason
+                            {summary.noteLabel ?? 'Reason'}
                         </Typography>
                         <Typography sx={{ fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                             {summary.note}
                         </Typography>
                     </Box>
+                )}
+
+                {/* The document being decided on — today only an offer letter. The API has
+                    always returned it and nothing rendered it, so an approver had to leave the queue
+                    and open the candidate's record to read what they were signing.
+                    Same button, icon and label as recruitment/OfferPanel, which opens this exact
+                    URL: the letter should not look like a different thing depending on which
+                    screen you reached it from. window.open rather than an <a> because WtButton is
+                    pinned to HTMLButtonElement, and OfferPanel already settled that. Audit L3. */}
+                {doc && (
+                    <WtButton
+                        size="small"
+                        ghost
+                        onClick={() => window.open(doc.url, '_blank', 'noopener,noreferrer')}
+                        startIcon={<KTIcon iconName="cloud-download" className="fs-6" />}
+                        sx={{ alignSelf: 'flex-start' }}
+                    >
+                        {doc.label}
+                    </WtButton>
                 )}
 
                 {step.waitingOn?.name && (
