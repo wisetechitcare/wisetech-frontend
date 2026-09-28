@@ -1,8 +1,11 @@
 import { useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import { useQueryClient } from '@tanstack/react-query';
 import { getSocket } from '@utils/socketClient';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { store } from '@redux/store';
+import { store, type RootState } from '@redux/store';
+import { fetchAuthzCapabilities } from '@redux/slices/authz';
 import { setCustomColors, type ICustomColorCode } from '@redux/slices/customColors';
 import { saveCurrentCompanyInfo } from '@redux/slices/company';
 import { saveCurrentEmployee } from '@redux/slices/employee';
@@ -27,6 +30,12 @@ export function useRealtimeSync(
   userId: string | null | undefined,
   employeeId?: string | null,
 ) {
+  const queryClient = useQueryClient();
+  // Access decides what every screen shows (sidebar, tabs, buttons, money columns), and `can()`
+  // reads it from the store without subscribing. Subscribing here, at the root, redraws the app
+  // when it changes — what a reload used to do.
+  useSelector((state: RootState) => (state as any).authz);
+
   useEffect(() => {
     const rooms = [userId, employeeId].filter(Boolean) as string[];
     if (!rooms.length) return;
@@ -165,7 +174,17 @@ export function useRealtimeSync(
       }
     };
 
+    // An admin changed this person's access: re-read it first (so hidden columns and tabs update),
+    // then refetch whatever is on screen — lead / project lists and details, and every active query.
+    const onAccessChanged = async () => {
+      await store.dispatch(fetchAuthzCapabilities());
+      queryClient.invalidateQueries();
+      eventBus.emit(EVENT_KEYS.leadUpdated, { id: '' });
+      eventBus.emit(EVENT_KEYS.projectUpdated, { id: '' });
+    };
+
     socket.on('connect', onConnect);
+    socket.on('access:changed', onAccessChanged);
     socket.on('colors_updated', onColorsUpdated);
     socket.on('settings:time_format_updated', onTimeFormatUpdated);
     socket.on('faqs_updated', onFaqsUpdated);
@@ -182,6 +201,7 @@ export function useRealtimeSync(
 
     return () => {
       socket.off('connect', onConnect);
+      socket.off('access:changed', onAccessChanged);
       socket.off('colors_updated', onColorsUpdated);
       socket.off('settings:time_format_updated', onTimeFormatUpdated);
       socket.off('faqs_updated', onFaqsUpdated);
@@ -196,5 +216,5 @@ export function useRealtimeSync(
       socket.off('approval:updated', onLeaveChanged);
       socket.off('approval:cancelled', onLeaveChanged);
     };
-  }, [userId, employeeId]);
+  }, [userId, employeeId, queryClient]);
 }

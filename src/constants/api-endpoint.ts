@@ -299,6 +299,8 @@ export const EMPLOYEE = {
     UPDATE_EMPLOYEE_ROLES: "api/employee/:id/roles",
     GET_EMPLOYEE_ACCESS: "api/employee/:id/access",
     SET_SECTION_ACCESS: "api/employee/:id/access/section",
+    SET_RECORD_ACCESS: "api/employee/:id/access/record",
+    SET_TAB_ACCESS: "api/employee/:id/access/tab",
     CREATE_NOTIFICATION: "api/employee/notification",
     GET_NOTIFICATIONS: "api/employee/notification",
     UPDATE_NOTIFICATION: "api/employee/notification",
@@ -444,6 +446,7 @@ export const ROLES = {
     REMOVE_EMPLOYEE_FROM_ROLE: "api/roles/:id/employees/:employeeId",
     GET_ROLE_ACCESS: "api/roles/:id/access",
     SET_ROLE_SECTION_ACCESS: "api/roles/:id/access/section",
+    SET_ROLE_TAB_ACCESS: "api/roles/:id/access/tab",
 }
 
 export const DAY_WISE_SHIFT = {
@@ -456,6 +459,7 @@ export const DAY_WISE_SHIFT = {
 
 
 export const LEAD_PROJECT_COMPANY = {
+    GET_OPENABLE_LEADS: "api/lead-project-companies/leads/openable",
     GET_ALL_LEADS_COUNT_INCLUDING_DELETED: "api/lead-project-companies/leads/count-including-deleted",
     //get leads count by fiscal year
     GET_LEADS_COUNT_BY_FISCAL_YEAR: "api/lead-project-companies/leads/count-by-fiscal-year",

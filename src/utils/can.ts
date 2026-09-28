@@ -3,9 +3,10 @@ import { store } from '@redux/store';
 /**
  * Section access — the one answer the whole UI follows (sidebar, tabs, edit buttons).
  *
- * The server sends, per signed-in employee: `tier` (SUPER_ADMIN / ADMIN hold every section),
- * `access` (section → { read, write }; a section with tabs reads as the OR of its tabs) and `keys`
- * (for checks that are not sections, e.g. approvals). Write implies read.
+ * The server sends, per signed-in employee: `tier` (SUPER_ADMIN holds every section; ADMIN manages
+ * roles and sees their whole organization, with section access a Super Admin sets), `access`
+ * (section → { read, write }; a section with tabs reads as the OR of its tabs) and `keys` (for
+ * checks that are not sections, e.g. approvals). Write implies read.
  */
 
 export type SectionLevel = 'read' | 'write';
@@ -22,12 +23,12 @@ const state = (): AccessState => {
   return { tier: authz.tier ?? null, access: authz.access || {}, keys: authz.keys || [] };
 };
 
-/** Super Admin or Admin — they hold every section and see everyone's rows. */
-export const isFullAccess = (): boolean => state().tier !== null;
+/** Super Admin — holds every section, in every organization. Everyone else, Admins included, follows `access`. */
+export const isFullAccess = (): boolean => state().tier === 'SUPER_ADMIN';
 
 export const canSection = (section: string, level: SectionLevel = 'read'): boolean => {
   const { tier, access } = state();
-  if (tier) return true;
+  if (tier === 'SUPER_ADMIN') return true;
   const entry = access[section];
   return !!entry && (level === 'write' ? entry.write : entry.read);
 };
@@ -88,6 +89,24 @@ export const can = (permissionKey: string): boolean => {
   // Your own records need only Read (a `.self` key), as on the server.
   return canSection(section, action === 'view' || scope === 'self' ? 'read' : 'write');
 };
+
+/**
+ * Whether money (values, budgets, costs, rates) on leads or projects shows. The server strips it
+ * from responses anyway; this only keeps empty columns and ₹0 totals off the screen.
+ */
+export const canViewCommercial = (section: 'crm.leads' | 'projects'): boolean =>
+  state().tier === 'SUPER_ADMIN' || !!((store.getState() as any).authz?.records?.[section]?.commercial);
+
+/**
+ * A tab inside a section's page (see utils/sectionTabs): the section's level — Write for Configure,
+ * Read for the rest — and not turned off for this person under Access → Advanced.
+ */
+export const canTab = (section: string, tab: string): boolean =>
+  canSection(section, tab === 'configure' ? 'write' : 'read') && !isTabTurnedOff(section, tab);
+
+/** Only the Access → Advanced part of canTab: whether this tab was turned off for this person. */
+export const isTabTurnedOff = (section: string, tab: string): boolean =>
+  state().tier !== 'SUPER_ADMIN' && ((store.getState() as any).authz?.deniedTabs || []).includes(`${section}/${tab}`);
 
 export const canAny = (permissionKeys: string[]): boolean => permissionKeys.some((key) => can(key));
 

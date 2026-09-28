@@ -7,6 +7,10 @@ interface AuthzState {
   tier: 'SUPER_ADMIN' | 'ADMIN' | null;
   access: Record<string, { read: boolean; write: boolean }>;
   keys: string[];
+  /** Leads / projects: see records not their own, and their money. */
+  records: Record<string, { readAll: boolean; commercial: boolean }>;
+  /** Tabs turned off for this person (Access → Advanced), as `<section>/<tab>`. */
+  deniedTabs: string[];
   isLoading: boolean;
   error: string | null;
 }
@@ -15,6 +19,8 @@ const initialState: AuthzState = {
   tier: null,
   access: {},
   keys: [],
+  records: {},
+  deniedTabs: [],
   isLoading: false,
   error: null,
 };
@@ -25,6 +31,8 @@ export const fetchAuthzCapabilities = createAsyncThunk('authz/fetchCapabilities'
     tier: response?.data?.tier ?? null,
     access: response?.data?.access || {},
     keys: response?.data?.keys || [],
+    records: response?.data?.records || {},
+    deniedTabs: response?.data?.deniedTabs || [],
   };
 });
 
@@ -44,6 +52,8 @@ export const authzSlice = createSlice({
       state.tier = action.payload.tier;
       state.access = action.payload.access;
       state.keys = action.payload.keys;
+      state.records = action.payload.records;
+      state.deniedTabs = action.payload.deniedTabs;
     });
     builder.addCase(fetchAuthzCapabilities.rejected, (state, action) => {
       state.isLoading = false;

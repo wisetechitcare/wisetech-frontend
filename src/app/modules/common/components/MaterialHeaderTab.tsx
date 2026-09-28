@@ -3,6 +3,10 @@ import type { SxProps, Theme } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { T } from './ui/tokens';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@redux/store';
+import { isTabTurnedOff } from '@utils/can';
+import { tabSlug } from '@utils/sectionTabs';
 
 export type TabItem = {
     title: string;
@@ -26,6 +30,10 @@ interface MaterialTabProps {
      * a <PremiumButton> primary action ("New", "Create", "Add"). It stays put
      * while the tab strip scrolls, and is vertically centred in the bar. */
     headerAction?: React.ReactNode;
+    /** The access section this page belongs to (e.g. "attendance.personal"): tabs turned off for
+     * the person under Access → Advanced are left out. Indexes stay the page's own, so a page's
+     * activeTab / onTabChange keep working unchanged. */
+    accessSection?: string;
 }
 
 /** Sticky offsets: the bar tucks under the masthead where the masthead is fixed, and
@@ -203,7 +211,7 @@ const tabsSx: SxProps<Theme> = {
     },
 };
 
-const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hideScrollButtons, headerAction }: MaterialTabProps) => {
+const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hideScrollButtons, headerAction, accessSection }: MaterialTabProps) => {
     // Seeded from the prop, not 0. Pages that keep the active tab in the URL
     // remount on every back-navigation, and starting at 0 painted — and mounted,
     // and fetched — the first tab for a frame before the effect corrected it.
@@ -213,6 +221,17 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
             setValue(activeTab);
         }
     }, [activeTab]);
+
+    // Tabs turned off for this person (Access → Advanced). Re-renders on a live access change.
+    useSelector((s: RootState) => (s as any).authz?.deniedTabs);
+    const shown = (item: TabItem) => !accessSection || !isTabTurnedOff(accessSection, tabSlug(item.title));
+    // Standing on a tab that just got turned off: move to the first one still open.
+    useEffect(() => {
+        if (!accessSection || !tabItems[value] || shown(tabItems[value])) return;
+        const first = tabItems.findIndex(shown);
+        if (first >= 0) { setValue(first); onTabChange?.(first); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    });
 
     const handleChange = (event: React.SyntheticEvent, newValue: number) => {
         setValue(newValue);
@@ -234,6 +253,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
             sx={tabsSx}
         >
             {tabItems.map((tabItem, index) => {
+                    if (!shown(tabItem)) return null;
                     const key = `${tabItem.title}-${index}`;
                     const icon = !tabItem.icon
                         ? undefined
@@ -279,7 +299,8 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                         </span>
                     ) : <span className="mht-label">{tabItem.title}</span>;
 
-                    return <Tab key={key} label={label} icon={icon} disableRipple disableFocusRipple />;
+                    // `value` = the page's own index, so hidden tabs never shift the others.
+                    return <Tab key={key} value={index} label={label} icon={icon} disableRipple disableFocusRipple />;
                 })}
         </Tabs>
     );
@@ -308,7 +329,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
             {tabItems.map((tabItem, index) => {
                 return (
                     <div key={`${tabItem.title}-panel-${index}`} className="px-5 py-0 lg:px-9">
-                        {value === index && tabItem.component}
+                        {value === index && shown(tabItem) && tabItem.component}
                     </div>
                 )
             })}

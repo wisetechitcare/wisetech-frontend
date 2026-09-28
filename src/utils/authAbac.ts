@@ -45,7 +45,7 @@ const RESOURCE_SECTION: Record<string, string> = {
   "attendanceandleaves->personal": "attendance.personal",
   "attendanceandleaves->employees": "attendance.employees",
   "people->employees": "users",
-  "people->documents": "users",
+  "people->documents": "documents.employees",
   "company->organisationprofile": "settings.profile",
   "company->announcements": "settings.announcements",
   "company->branches": "settings",

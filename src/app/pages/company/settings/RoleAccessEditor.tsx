@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import { ACCESS_AREAS, AccessArea } from "@utils/accessAreas";
 import Loader from "@app/modules/common/utils/Loader";
 import AccessControlTree, { EffLevel } from "@app/pages/employee/components/AccessControlTree";
-import { getRoleAccess, setRoleSectionAccess } from "@services/roles";
+import { getRoleAccess, setRoleSectionAccess, setRoleTabAccess } from "@services/roles";
 import { InlineNotice, SettingsSection, TRIO, WtButton } from '@app/modules/common/components/ui';
 
 interface Props {
@@ -31,8 +31,12 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
   const [saving, setSaving] = useState(false);
   const [fullAccess, setFullAccess] = useState(false);
   const [roleCode, setRoleCode] = useState<string | null>(null);
+  const [editable, setEditable] = useState(true);
   const [levels, setLevels] = useState<Record<string, EffLevel>>({});
   const [origLevels, setOrigLevels] = useState<Record<string, EffLevel>>({});
+  // Tabs this role turns off (Access -> Advanced), staged like the levels.
+  const [deniedTabs, setDeniedTabs] = useState<Set<string>>(new Set());
+  const [origDeniedTabs, setOrigDeniedTabs] = useState<Set<string>>(new Set());
 
   const allLeaves = useMemo(() => ACCESS_AREAS.flatMap(getLeaves), []);
 
@@ -42,11 +46,14 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
       const data = await getRoleAccess(roleId);
       setFullAccess(!!data?.fullAccess);
       setRoleCode(data?.code ?? null);
+      setEditable(data?.editable !== false);
       const sectionLevels = data?.sectionLevels || {};
       const lv: Record<string, EffLevel> = {};
       for (const m of allLeaves) lv[m] = (sectionLevels[m] as EffLevel) || "none";
       setLevels(lv);
       setOrigLevels(lv);
+      setDeniedTabs(new Set(data?.deniedTabs || []));
+      setOrigDeniedTabs(new Set(data?.deniedTabs || []));
     } catch {
       toast.error("Couldn't load this role's access");
     } finally {
@@ -64,7 +71,20 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
     [levels, origLevels, allLeaves]
   );
   const dirtyModules = useMemo(() => new Set(changedModules), [changedModules]);
-  const dirty = changedModules.length > 0;
+  const changedTabs = useMemo(
+    () => Array.from(new Set([...deniedTabs, ...origDeniedTabs])).filter((k) => deniedTabs.has(k) !== origDeniedTabs.has(k)),
+    [deniedTabs, origDeniedTabs]
+  );
+  const dirty = changedModules.length > 0 || changedTabs.length > 0;
+  const changeCount = changedModules.length + changedTabs.length;
+  const tabs = useMemo(() => ({
+    denied: deniedTabs,
+    onSet: (key: string, allowed: boolean | null) => setDeniedTabs((prev) => {
+      const next = new Set(prev);
+      if (allowed === false) next.add(key); else next.delete(key);
+      return next;
+    }),
+  }), [deniedTabs]);
 
   const onSetLevel = (module: string, level: EffLevel) => setLevels((prev) => ({ ...prev, [module]: level }));
 
@@ -73,6 +93,10 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
       setSaving(true);
       for (const m of changedModules) {
         await setRoleSectionAccess(roleId, m, (levels[m] || "none") as "none" | "view" | "edit");
+      }
+      for (const key of changedTabs) {
+        const [section, tab] = key.split("/");
+        await setRoleTabAccess(roleId, section, tab, !deniedTabs.has(key));
       }
       toast.success("Role access updated");
       await load();
@@ -100,9 +124,9 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
           : `What everyone with the ${roleName ? `"${roleName}"` : "this"} role can see (Read) and change (Write). Exceptions for one person are set in People → employee → Access.`
       }
       action={
-        fullAccess ? undefined : (
+        fullAccess || !editable ? undefined : (
           <WtButton size="small" flat disabled={!dirty || saving} onClick={saveAll}>
-            {saving ? "Saving…" : dirty ? `Save ${changedModules.length} change${changedModules.length === 1 ? "" : "s"}` : "Saved"}
+            {saving ? "Saving…" : dirty ? `Save ${changeCount} change${changeCount === 1 ? "" : "s"}` : "Saved"}
           </WtButton>
         )
       }
@@ -113,7 +137,14 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
           {isSuperAdminRole ? ", in every organization" : " of its organization"}, so there is nothing to set here.
         </InlineNotice>
       ) : (
-        <AccessControlTree variant="role" levels={levels} dirtyModules={dirtyModules} onSetLevel={onSetLevel} />
+        <>
+          {!editable && (
+            <InlineNotice trio={TRIO.slate} icon="lock">
+              Only a Super Admin can change the {roleName || "Admin"} role's access.
+            </InlineNotice>
+          )}
+          <AccessControlTree variant="role" levels={levels} dirtyModules={dirtyModules} onSetLevel={onSetLevel} readOnly={!editable} tabs={tabs} />
+        </>
       )}
     </SettingsSection>
   );

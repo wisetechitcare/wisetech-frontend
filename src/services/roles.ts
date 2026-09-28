@@ -120,7 +120,7 @@ export const removeEmployeeFromRole = async (roleId: string, employeeId: string)
  * @api "api/roles/:id/access"
  */
 // `fullAccess` is true for Super Admin and Admin: every section, not editable.
-export const getRoleAccess = async (roleId: string): Promise<{ sectionLevels: Record<string, 'view' | 'edit'>; fullAccess?: boolean; code?: string | null; isSystem?: boolean; name?: string }> => {
+export const getRoleAccess = async (roleId: string): Promise<{ sectionLevels: Record<string, 'view' | 'edit'>; deniedTabs?: string[]; fullAccess?: boolean; editable?: boolean; code?: string | null; isSystem?: boolean; name?: string }> => {
     const endpoint = `${API_BASE_URL}/${ROLES.GET_ROLE_ACCESS.replace(":id", roleId)}`;
     const { data } = await axios.get(endpoint);
     return data?.data;
@@ -133,6 +133,17 @@ export const getRoleAccess = async (roleId: string): Promise<{ sectionLevels: Re
 export const setRoleSectionAccess = async (roleId: string, module: string, level: 'none' | 'view' | 'edit') => {
     const endpoint = `${API_BASE_URL}/${ROLES.SET_ROLE_SECTION_ACCESS.replace(":id", roleId)}`;
     const { data } = await axios.put(endpoint, { module, level });
+    invalidateRequestCache('roles');
+    return data?.data;
+}
+
+/**
+ * Turn one tab of a section off (or back on) for the whole role — Access → Advanced.
+ * @api "api/roles/:id/access/tab"
+ */
+export const setRoleTabAccess = async (roleId: string, section: string, tab: string, allowed: boolean) => {
+    const endpoint = `${API_BASE_URL}/${ROLES.SET_ROLE_TAB_ACCESS.replace(":id", roleId)}`;
+    const { data } = await axios.put(endpoint, { section, tab, allowed });
     invalidateRequestCache('roles');
     return data?.data;
 }

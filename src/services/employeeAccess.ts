@@ -9,12 +9,32 @@ export type TabLevel = "view" | "edit" | "none";
 /** Per section tab: what the roles give, this employee's overrides, and the result. */
 export interface EmployeeAccessSummary {
     roles: Array<{ id: string; name: string; code?: string | null; isSystem: boolean }>;
-    /** Super Admin / Admin: every section, overrides don't apply. */
+    /** Super Admin: every section, overrides don't apply. */
     fullAccess: boolean;
+    /** Whether the caller may change it: an Admin's access is a Super Admin's to set; nobody sets their own. */
+    editable?: boolean;
     roleLevels: Record<string, TabLevel>;
     overrides: Record<string, { level: TabLevel; expiresAt: string | null }>;
     effectiveLevels: Record<string, TabLevel>;
+    /** Leads / projects: see records not their own (`readAll`) and money (`commercial`). `custom` = set for this employee. */
+    records?: Record<RecordSection, RecordAccess & { custom: boolean }>;
+    /** Tabs (Access → Advanced), keyed `<section>/<tab>`: off for this person, and set for them rather than by their roles. */
+    tabs?: Record<string, { denied: boolean; custom: boolean }>;
 }
+
+export type RecordSection = "crm.leads" | "projects";
+export type RecordAccess = { readAll: boolean; commercial: boolean };
+
+/**
+ * Set whether an employee sees every lead / project (`readAll`) and their money (`commercial`);
+ * `null` drops back to the default for their tier.
+ * @api "api/employee/:id/access/record"
+ */
+export const setRecordAccess = async (employeeId: string, section: RecordSection, next: RecordAccess | null) => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.SET_RECORD_ACCESS.replace(":id", employeeId)}`;
+    const { data } = await axios.put(endpoint, next ? { section, ...next } : { section, reset: true });
+    return data?.data;
+};
 
 /**
  * Server-computed access breakdown for an employee.
@@ -39,6 +59,16 @@ export const setSectionAccessLevel = async (
 ) => {
     const endpoint = `${API_BASE_URL}/${EMPLOYEE.SET_SECTION_ACCESS.replace(":id", employeeId)}`;
     const { data } = await axios.put(endpoint, { module, level, ...(expiresAt ? { expiresAt } : {}) });
+    return data?.data;
+};
+
+/**
+ * Turn one tab of a section off or on for an employee, or `null` to follow their roles again.
+ * @api "api/employee/:id/access/tab"
+ */
+export const setTabAccess = async (employeeId: string, section: string, tab: string, allowed: boolean | null) => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.SET_TAB_ACCESS.replace(":id", employeeId)}`;
+    const { data } = await axios.put(endpoint, { section, tab, allowed });
     return data?.data;
 };
 

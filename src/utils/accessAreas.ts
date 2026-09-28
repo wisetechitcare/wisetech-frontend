@@ -63,6 +63,14 @@ export const ACCESS_AREAS: AccessArea[] = [
   },
   { module: "users", label: "People (Employees)" },
   {
+    module: "documents",
+    label: "Documents",
+    children: [
+      { module: "documents.my", label: "My Documents" },
+      { module: "documents.employees", label: "Employees' Documents" },
+    ],
+  },
+  {
     module: "reports",
     label: "Reports",
     children: [
