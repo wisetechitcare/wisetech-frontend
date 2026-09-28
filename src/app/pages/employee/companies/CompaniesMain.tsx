@@ -13,21 +13,17 @@ import {
 } from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useTabRoute } from "@app/hooks/useTabRoute";
 import { PageTitle } from "@metronic/layout/core";
 import CalenderMain from "./calender/CalenderMain";
 import Maps from "./companyOverview/components/Map";
 import { getAllClientCompanies } from "@services/companies";
 
-const TAB_KEYS = ["overview", "companies", "map", "configure"] as const;
+/** Tab titles, in order. Their slugs are the URL: /companies/map — see useTabRoute. */
+const TAB_TITLES = ["Overview", "Companies", "Map", "Configure"] as const;
 
 const CompaniesMain = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tabKey = searchParams.get("tab") || "overview";
-  const activeTab = Math.max(0, TAB_KEYS.indexOf(tabKey as any));
-  const setActiveTab = (index: number) => {
-    setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
-  };
+  const { activeTab, setActiveTab } = useTabRoute("/companies", TAB_TITLES);
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number, id?: string}[]>([]);
   const [companyData, setCompanyData] = useState<any>([]);
 

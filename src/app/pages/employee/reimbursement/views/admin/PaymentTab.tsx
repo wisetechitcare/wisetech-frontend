@@ -5,6 +5,7 @@ import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { can } from '@utils/can';
 import { toast, alertDialog } from '@app/modules/common/components/ui/feedback';
+import { escapeHtml } from '@app/modules/common/components/ui/safeHtml';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
 import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
@@ -24,6 +25,7 @@ import PaymentQueueTable from '../../components/payment/PaymentQueueTable';
 import PaymentHistoryTable from '../../components/payment/PaymentHistoryTable';
 import PaymentDetailDrawer from '../../components/payment/PaymentDetailDrawer';
 import RecordPaymentModal, { PaymentSubmission } from '../../components/payment/RecordPaymentModal';
+import { useStoredState } from '@app/hooks/useStoredState';
 
 /**
  * The payment desk.
@@ -52,7 +54,7 @@ function PaymentTab() {
     const canPay = can('finance.manage.team');
 
     // ── Period (one, for the whole screen) ────────────────────────────────────
-    const [filter, setFilter] = useState<PeriodFilter>('monthly');
+    const [filter, setFilter] = useStoredState<PeriodFilter>('filters:PaymentTab:period', 'monthly');
     const [periodDate, setPeriodDate] = useState<Dayjs>(dayjs());
     const [fiscalLabel, setFiscalLabel] = useState('');
 
@@ -64,7 +66,7 @@ function PaymentTab() {
 
     // ── View state ────────────────────────────────────────────────────────────
     const [tab, setTab] = useState<'queue' | 'history'>('queue');
-    const [stateFilter, setStateFilter] = useState<PaymentState | null>(null);
+    const [stateFilter, setStateFilter] = useStoredState<PaymentState | null>('filters:PaymentTab:stateFilter', null);
     const [orgById, setOrgById] = useState<Map<string, EmployeeOrgDetail>>(new Map());
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [drawerRow, setDrawerRow] = useState<PaymentBatchRow | null>(null);
@@ -244,7 +246,12 @@ function PaymentTab() {
             alertDialog({
                 icon: 'error',
                 title: `${failures.length} payment${failures.length === 1 ? '' : 's'} could not be recorded`,
-                html: `${succeeded > 0 ? `<p>${succeeded} succeeded (${formatMoney(paid)}).</p>` : ''}<ul style="text-align:left;margin:0;padding-left:18px">${failures.map((f) => `<li>${f}</li>`).join('')}</ul>`,
+                // Each failure string is `${submissionId}: ${err.response.data.message}` — a
+                // SERVER-supplied message rendered as markup by SweetAlert. Escaped per row;
+                // safeHtml cannot wrap this because the <li> tags are generated, and a tagged
+                // template would turn them into visible text. See ui/safeHtml.ts.
+                // eslint-disable-next-line no-restricted-syntax
+                html: `${succeeded > 0 ? `<p>${succeeded} succeeded (${escapeHtml(formatMoney(paid))}).</p>` : ''}<ul style="text-align:left;margin:0;padding-left:18px">${failures.map((f) => `<li>${escapeHtml(f)}</li>`).join('')}</ul>`,
             });
         }
     };

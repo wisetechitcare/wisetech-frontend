@@ -1,5 +1,9 @@
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useStickyFilters } from './useStickyFilters';
+
+/** The params this hook owns. They persist between visits (see useStickyFilters). */
+const FILTER_KEYS = ['search', 'status', 'manager', 'missingAddr'] as const;
 
 /**
  * Syncs table filter state with URL params so filters persist across navigation.
@@ -16,8 +20,9 @@ import { useSearchParams } from 'react-router-dom';
  * straight from the URL removes the second source of truth, so that loop
  * cannot exist.
  */
-export const useTableFilters = () => {
+export const useTableFilters = (storageKey = 'tableFilters') => {
   const [searchParams, setSearchParams] = useSearchParams();
+  useStickyFilters(storageKey, FILTER_KEYS);
 
   const searchText = searchParams.get('search') || '';
   const projectStatusFilter = searchParams.get('status') || '';

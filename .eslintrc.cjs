@@ -79,12 +79,49 @@ module.exports = {
             importNames: ['Switch'],
             message: 'Use WtSwitch / WtSwitchField from @app/modules/common/components/ui — not a raw MUI Switch. See CLAUDE.md → UI standard.',
           },
+          /* Raw SweetAlert is an XSS surface, not merely an inconsistent skin. Its `html`
+           * option is assigned to the DOM as markup and, in its own typings, "SweetAlert2
+           * does NOT sanitize this parameter". Three dialogs interpolated a user-entered
+           * name straight into it — stored XSS: planted once, fired later in someone
+           * else's browser.
+           * The kit's toast / alertDialog / confirmDialog put every `html` through
+           * DOMPurify, so going through them closes the hole for free. The 20 files that
+           * already import Swal directly are downgraded to `warn` in the overrides — they
+           * are not broken, and blocking a sprint to migrate them in one pass is how a
+           * rule gets switched off instead of obeyed. */
+          {
+            name: 'sweetalert2',
+            message: 'Use toast / alertDialog / confirmDialog from @app/modules/common/components/ui — they sanitise `html`; raw Swal does not. Build the string with safeHtml`…`. See ui/README.md → Toast / confirm.',
+          },
         ],
       },
     ],
 
     'no-restricted-syntax': [
       'error',
+      /* An `html:` built from a template literal with interpolations, untagged.
+       *
+       * This is the exact shape that shipped three stored-XSS holes: the natural thing to
+       * type is `html: \`…${name}…\``, and the safe thing to type is longer. The rule makes
+       * the natural thing fail, which is the only version of this that survives contact
+       * with a deadline.
+       *
+       * safeHtml`…${name}…` is a TaggedTemplateExpression, NOT a TemplateLiteral child of
+       * the property, so the fixed form does not match and needs no exemption. Two
+       * selectors because a ternary (`html: blocked ? \`…\` : \`…\``) puts the literal one
+       * level down; both are direct-child paths, so a tagged template in either position
+       * still passes cleanly.
+       *
+       * A literal with NO interpolation is untouched — static markup carries no user data
+       * and is not a hole. */
+      {
+        selector: "Property[key.name='html'] > TemplateLiteral[expressions.length>0]",
+        message: 'Interpolating into `html` renders user data as markup. Use safeHtml`…` from @app/modules/common/components/ui — it escapes every ${…} while leaving your tags intact.',
+      },
+      {
+        selector: "Property[key.name='html'] > ConditionalExpression > TemplateLiteral[expressions.length>0]",
+        message: 'Interpolating into `html` renders user data as markup. Use safeHtml`…` from @app/modules/common/components/ui on BOTH arms of the ternary.',
+      },
       {
         selector: "JSXOpeningElement[name.name='Switch']",
         message: 'Use WtSwitch / WtSwitchField from @app/modules/common/components/ui — not a raw MUI Switch. See CLAUDE.md → UI standard.',
@@ -228,6 +265,43 @@ module.exports = {
        * option and a literal rupee (the fallback for an unknown ISO code) are correct. */
       files: ['src/utils/currency.ts'],
       rules: { 'no-restricted-syntax': 'off' },
+    },
+    {
+      /* THE KIT IS THE ONE PLACE SweetAlert MAY BE IMPORTED.
+       * feedback.ts is the wrapper everything else is told to use — it is where the
+       * DOMPurify call lives, so banning the import here would ban the fix. */
+      files: ['src/app/modules/common/components/ui/feedback.ts'],
+      rules: { 'no-restricted-imports': 'off' },
+    },
+    {
+      /* SWEETALERT RATCHET — the 19 files that already imported Swal directly before the
+       * kit became mandatory. They warn; every other file errors, so the list can only
+       * shrink. Migrating all 19 in one pass would touch six people's modules mid-sprint
+       * for no security gain: the kit sanitises, and these call sites are separately safe
+       * once their interpolations use safeHtml (the three that carried user data now do).
+       * Delete a line from this list when its file moves to the kit. */
+      files: [
+        'src/app/components/IdleLogoutGuard.tsx',
+        'src/app/modules/accounts/components/settings/cards/ProfileDetails.tsx',
+        'src/app/modules/projectPoints/ProjectPointsConfigModal.tsx',
+        'src/app/modules/projectPoints/ProjectPointsConfigSection.tsx',
+        'src/app/pages/company/Branches.tsx',
+        'src/app/pages/company/organisation/OrganizationsPage.tsx',
+        'src/app/pages/dashboard/DashboardTasks.tsx',
+        'src/app/pages/dashboard/Todo.tsx',
+        'src/app/pages/employee/MeetingAttendeesDialog.tsx',
+        'src/app/pages/employee/billing/NewBillingRequestDialog.tsx',
+        'src/app/pages/employee/calendar/views/Meetings.tsx',
+        'src/app/pages/employee/entity/detail/sections/ProjectMeetings.tsx',
+        'src/app/pages/employee/entity/detail/sections/TeamsSection.tsx',
+        'src/app/pages/employee/leads/configuration/components/LeadsConfigForm.tsx',
+        'src/app/pages/employee/projects/configure/components/ProjectConfigForm.tsx',
+        'src/app/pages/employee/salary/admin/views/salary-configuration/DeductionMaster.tsx',
+        'src/app/pages/my-team/Approvals/DomainApprovalQueue.tsx',
+        'src/hooks/useDeleteConfirmation.tsx',
+        'src/utils/modal.ts',
+      ],
+      rules: { 'no-restricted-imports': 'warn' },
     },
     {
       /* India's professional-tax slabs. These rupee amounts are set by statute — they do

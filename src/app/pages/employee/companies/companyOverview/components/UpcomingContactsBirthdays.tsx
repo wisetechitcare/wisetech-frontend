@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Card } from 'react-bootstrap';
 import dayjs from 'dayjs';
 import './upcomingContactsBirthdays.css';
-import { Button, FormControl, Select, MenuItem, SelectChangeEvent } from '@mui/material';
+import { FormControl, Select, MenuItem, SelectChangeEvent } from '@mui/material';
+import MaterialTable from '@app/modules/common/components/MaterialTable';
 
 interface ContactBirthday {
   id: string;
@@ -41,6 +42,51 @@ const filterDataHandler = (e: SelectChangeEvent<string>) => {
   const value = e.target.value;
   setFilterData(value);
 };
+
+  const isAnniversary = filterData === 'aniversary';
+
+  // Flattened to real values (age as a number, the raw date of birth) so the shared
+  // table sorts and searches on those rather than on the formatted strings.
+  const rows = useMemo(
+    () => (data || []).map((contact) => ({
+      id: contact.id,
+      name: contact.name,
+      company: contact.company,
+      companyLogo: contact.companyLogo,
+      age: isAnniversary ? 0 : calculateAge(contact.dateOfBirth),
+      dateOfBirth: isAnniversary ? 0 : contact.dateOfBirth,
+    })),
+    [data, isAnniversary],
+  );
+
+  const columns = useMemo(
+    () => [
+      { accessorKey: 'name', header: 'Name' },
+      {
+        accessorKey: 'company',
+        header: 'Company',
+        Cell: ({ row }: any) => (
+          <div className="company-cell">
+            {row.original.companyLogo && (
+              <img
+                src={row.original.companyLogo}
+                alt={row.original.company}
+                className="company-logo"
+              />
+            )}
+            <span>{row.original.company}</span>
+          </div>
+        ),
+      },
+      { accessorKey: 'age', header: isAnniversary ? 'Date Of Join' : 'Age' },
+      {
+        accessorKey: 'dateOfBirth',
+        header: isAnniversary ? 'Anniversary' : 'Birthday',
+        Cell: ({ cell }: any) => (isAnniversary ? 0 : formatBirthday(cell.getValue())),
+      },
+    ],
+    [isAnniversary],
+  );
 
 
   return (
@@ -84,47 +130,18 @@ const filterDataHandler = (e: SelectChangeEvent<string>) => {
           </FormControl>
         </Card.Title>
 
-        <div className="table-responsive">
-          <table className="upcoming-birthdays-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Company</th>
-                <th>{filterData === 'aniversary' ? 'Date Of Join' : 'Age'}</th>
-                <th>{filterData === 'aniversary' ? 'Anniversary' : 'Birthday'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data && data.length > 0 ? (
-                data.map((contact) => (
-                  <tr key={contact.id}>
-                    <td>{contact.name}</td>
-                    <td>
-                      <div className="company-cell">
-                        {contact.companyLogo && (
-                          <img
-                            src={contact.companyLogo}
-                            alt={contact.company}
-                            className="company-logo"
-                          />
-                        )}
-                        <span>{contact.company}</span>
-                      </div>
-                    </td>
-                    <td>{filterData === 'aniversary' ? 0 : calculateAge(contact.dateOfBirth)}</td>
-                    <td>{filterData === 'aniversary' ? 0 : formatBirthday(contact.dateOfBirth)}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} style={{ textAlign: 'center' }}>
-                    No upcoming birthdays
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        {rows.length > 0 ? (
+          <MaterialTable
+            tableName="UpcomingContactsBirthdays"
+            data={rows}
+            columns={columns}
+            hidePagination
+            hideExportCenter
+            enableColumnActions={false}
+          />
+        ) : (
+          <div style={{ textAlign: 'center' }}>No upcoming birthdays</div>
+        )}
       </Card.Body>
     </Card>
   );

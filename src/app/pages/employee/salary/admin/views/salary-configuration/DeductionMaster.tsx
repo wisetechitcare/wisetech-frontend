@@ -26,6 +26,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppDispatch, RootState } from '@redux/store';
 import { getCurrencySymbol, getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { useStoredState } from '@app/hooks/useStoredState';
 
 /** Company-wide employees, loaded once into redux and shared by the picker + cards. */
 function useEmployeeOptions() {
@@ -1281,7 +1282,7 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
 
   const FILTER_TABS = ['All', ...modeCategories];
   const [search, setSearch]             = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useStoredState('filters:DeductionMaster:categoryFilter', 'All');
   const [modalOpen, setModalOpen]       = useState(false);
   const [editItem, setEditItem]         = useState<PayrollComponent | null>(null);
   const [cloneOpen, setCloneOpen]       = useState(false);

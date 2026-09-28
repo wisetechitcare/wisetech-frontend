@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { useStoredState } from "@app/hooks/useStoredState";
 import ExportButton, { ExportVisibilityContext } from "@app/modules/common/components/ExportButton";
 import {
   MaterialReactTable,
@@ -112,15 +113,6 @@ export interface MaterialTableProps {
   enableFilters?: boolean;
   enableSorting?: boolean;
   enableGrouping?: boolean;
-  /**
-   * Columns the table opens already grouped by, e.g. `["stageName"]`.
-   *
-   * MRT can group from its column menu, but a table whose whole point is
-   * "deliverables, under their stage" should not need the reader to assemble
-   * that themselves. Paired with `groupedColumnMode: "remove"`, so the grouped
-   * value shows once on the group row instead of repeating down a column.
-   */
-  initialGrouping?: string[];
   /**
    * Column drag-and-drop, ON by default.
    *
@@ -244,6 +236,13 @@ export interface MaterialTableApi {
   clearSorting: () => void;
 }
 
+/**
+ * One height for every control on a table toolbar — the column selector, the search box,
+ * and the filter pills a page renders beside them (they read the same number via their own
+ * FILTER_HEIGHT). 34px is the design kit's compact control size.
+ */
+const TOOLBAR_CONTROL_HEIGHT = 34;
+
 const defaultColumnSizes = {
   minSize: 80,
   maxSize: 1000,
@@ -264,6 +263,34 @@ const colKey = (col: any): string | undefined => col.accessorKey ?? col.id;
  * on each other. Make both solid, and keep MRT's inset edge shadow, which is the thing that
  * actually signals "this column is pinned".
  */
+/**
+ * Body cells keep the ROW's colour when pinned — whatever the page's status colouring is —
+ * and are still opaque, so the columns scrolling underneath stay hidden.
+ *
+ * An unpinned cell shows the row's colour TWICE: the <tr> paints it, and the cell (MRT's
+ * `backgroundColor: inherit`) paints it again on top. A pinned cell can't let the <tr> show
+ * through (that is what would expose the scrolled columns), so it rebuilds the same stack
+ * itself: an opaque base image, then `::before` and `::after` each inheriting the row colour.
+ * Nothing here knows about statuses — it reuses whatever colour the page gave the row.
+ *
+ * `&&&` outranks pages that force cells `transparent !important` on row hover. `::after` is
+ * deliberately at normal specificity: MRT's row-hover highlight also lives on `td::after`
+ * and must still win there, exactly as it does on unpinned cells.
+ */
+const pinnedBodyCellSx = (mode: "light" | "dark") => {
+  const base = mode === "light" ? "#fff" : "#000";
+  const layer = { content: '""', position: "absolute", inset: 0, zIndex: -1, backgroundColor: "inherit" };
+  return {
+    '&[data-pinned="true"]:after': layer,
+    '&&&[data-pinned="true"]': {
+      opacity: 1,
+      backgroundColor: "inherit !important",
+      backgroundImage: `linear-gradient(${base}, ${base}) !important`,
+      "&:before": { backgroundColor: "inherit", opacity: 1 },
+    },
+  };
+};
+
 /**
  * The active (debounced) search query, published to cells.
  *
@@ -352,7 +379,6 @@ function MaterialTable({
   enableFilters = true,
   enableSorting = true,
   enableGrouping = true,
-  initialGrouping,
   enableColumnDragging = true,
   enableColumnResizing = false,
   enableColumnPinning = true,
@@ -398,10 +424,15 @@ function MaterialTable({
   // be misleading (e.g. "Rows per page: 10 · 1–10 of 19" while all 19 rows show).
   const paginationDisabled = !!hidePagination && !manualPagination;
 
-  // Column-specific search state
+  // Column-specific search state.
+  //
+  // Kept per table, so switching tab (or anything else that remounts the page — the
+  // header does at the mobile breakpoint), refreshing, or logging back in finds the
+  // search still applied. Clearing it with the ✕ clears the stored value too.
   const [selectedSearchColumn, setSelectedSearchColumn] =
-    useState<string>("all");
-  const [globalFilterValue, setGlobalFilterValue] = useState<string>("");
+    useStoredState<string>(tableName ? `tbl:${tableName}:searchCol` : null, "all");
+  const [globalFilterValue, setGlobalFilterValue] =
+    useStoredState<string>(tableName ? `tbl:${tableName}:search` : null, "");
   const [debouncedFilterValue, setDebouncedFilterValue] = useState<string>("");
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [isMobileSearchVisible, setIsMobileSearchVisible] =
@@ -437,6 +468,16 @@ function MaterialTable({
         // query and off the per-keystroke path.
         Cell: (cellProps: any) => (
           <HighlightedCell content={col.Cell ? col.Cell(cellProps) : cellProps.cell.getValue()} />
+        ),
+        // A pinned column looks like every other column, so its header carries the pin.
+        Header: (headerProps: any) => (
+          <>
+            {typeof col.Header === "function" ? col.Header(headerProps) : (col.Header ?? col.header)}
+            {headerProps.column.getIsPinned() && (
+              // Same glyph as the sidebar's pinned menu items (AsideMenuItem).
+              <Box component="i" className="bi bi-pin-angle-fill" aria-label="Pinned" sx={{ fontSize: 12, ml: 1, verticalAlign: "middle", color: "#1E3A8A" }} />
+            )}
+          </>
         ),
         };
       }),
@@ -1083,13 +1124,70 @@ function MaterialTable({
     }));
   }, [finalColumns, tableData, pageIndex, pageSize, manualPagination, paginationDisabled]);
 
-  const leftPinnedWidth = useMemo(() => {
-    if (!enableColumnPinning || isMobile) return 0;
-    const leftPinnedKeys = preferences.columnPinning?.left || [];
-    return sizedColumns
-      .filter((col: any) => leftPinnedKeys.includes(col.accessorKey || col.id || ""))
-      .reduce((sum: number, col: any) => sum + (col.size || 150), 0);
-  }, [preferences.columnPinning, sizedColumns, enableColumnPinning, isMobile]);
+  /*
+   * PINNED OFFSETS FROM THE RENDERED WIDTHS, not the configured ones.
+   *
+   * MRT sticks pinned column N at `left = sum of the configured sizes before it`. In semantic
+   * layout the browser is free to render a column wider than its `size` (a table stretched to a
+   * minWidth, a header that wraps wider than the value), so on those tables the second pinned
+   * column stuck on top of the first and the scrolled columns slid under a gap — while tables
+   * whose sizes are content-fitted (payroll) happened to line up. Measure the real header cells
+   * and pin every cell of that column (head, body, footer — they share `data-index`) there.
+   * The same measured total drives the scroll-snap padding, so snapping lands a whole column
+   * beside the pinned block instead of half under it.
+   */
+  const [pinnedLayout, setPinnedLayout] = useState<{ lefts: [string, number][]; width: number }>({ lefts: [], width: 0 });
+  useEffect(() => {
+    const container = tableContainerRef.current;
+    if (!container || !enableColumnPinning || isMobile) {
+      setPinnedLayout((p) => (p.width || p.lefts.length ? { lefts: [], width: 0 } : p));
+      return;
+    }
+    const headRows = container.querySelectorAll<HTMLTableRowElement>("thead tr");
+    const leafRow = headRows[headRows.length - 1];
+    if (!leafRow) return;
+
+    const measure = () => {
+      const lefts: [string, number][] = [];
+      let x = 0;
+      // Left-pinned cells always render first; stop at the first unpinned one.
+      for (const th of Array.from(leafRow.children) as HTMLElement[]) {
+        if (th.dataset.pinned !== "true") break;
+        lefts.push([th.dataset.index ?? "", x]);
+        x += th.getBoundingClientRect().width;
+      }
+      setPinnedLayout((prev) =>
+        prev.width === x && JSON.stringify(prev.lefts) === JSON.stringify(lefts) ? prev : { lefts, width: x },
+      );
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    Array.from(leafRow.children).forEach((th) => ro.observe(th));
+    return () => ro.disconnect();
+  }, [
+    enableColumnPinning,
+    isMobile,
+    sizedColumns,
+    preferences.columnPinning,
+    preferences.columnVisibility,
+    preferences.columnOrder,
+    preferences.columnSizing,
+    isInitialized,
+    preferencesLoading,
+    // The table remounts (fresh <thead>) when its key changes — see the MaterialReactTable key.
+    selectedSearchColumn,
+  ]);
+  const leftPinnedWidth = pinnedLayout.width;
+  const pinnedLeftSx = useMemo(
+    () =>
+      Object.fromEntries(
+        pinnedLayout.lefts.map(([index, left]) => [
+          `& [data-pinned="true"][data-index="${index}"]`,
+          { left: `${left}px !important` },
+        ]),
+      ),
+    [pinnedLayout.lefts],
+  );
 
   if (preferencesLoading || !isInitialized) {
     const skel = skeletonPalette(mode);
@@ -1249,28 +1347,27 @@ function MaterialTable({
   return (
     <ThemeProvider theme={tableTheme}>
      <SearchQueryContext.Provider value={debouncedFilterValue}>
-      {/* Phones: 8px above the table area, not 24.  because Bootstrap's own .pt-6
-          carries !important (Tailwind's important utility still outranks it from its layer). The
-          class name stays .pt-6 so pages that tune it (Leads, Projects) keep working. */}
-      <div className="pt-6 pb-3 max-sm:pt-2!">
+      <div className="pt-6 pb-3">
         {/* Mobile Search Section - Full Width */}
         {enableColumnSpecificSearch &&
           isMobile &&
           effectiveSearchableColumns &&
           effectiveSearchableColumns.length > 0 && (
-            <div style={{ marginBottom: "10px" }}>
-              {/* Mobile Search Toggle Button — edge to edge with the table below, no inset band. */}
+            <div style={{ marginBottom: "16px" }}>
+              {/* Mobile Search Toggle Button */}
               <div
                 style={{
                   display: "flex",
                   justifyContent: "flex-start",
+                  padding: "8px 16px",
+                  borderBottom: "1px solid #F3F4F6",
                 }}
               >
                 <div
                   onClick={toggleMobileSearch}
                   style={{
                     cursor: "pointer",
-                    padding: "8px 16px",
+                    padding: "10px 16px",
                     borderRadius: "10px",
                     backgroundColor: isMobileSearchVisible ? "#FEF2F2" : "#FAFAFA",
                     border: `1px solid ${isMobileSearchVisible ? "#FECACA" : "#E5E7EB"}`,
@@ -1563,6 +1660,10 @@ function MaterialTable({
             state={{
               columnVisibility: preferences.columnVisibility,
               columnOrder: preferences.columnOrder,
+              // A width you dragged is yours and is remembered. Columns you never touched
+              // are not in here, so they fall back to `sizedColumns` — fitted to the rows
+              // on the CURRENT page. The toolbar's "Reset columns to default layout"
+              // clears these, putting every column back to its fitted width.
               columnSizing: preferences.columnSizing,
               columnPinning: preferences.columnPinning,
               sorting: preferences.sorting,
@@ -1794,7 +1895,7 @@ function MaterialTable({
                 "&:last-child": {
                   borderRight: "none",
                 },
-                ...pinnedCellSx(mode),
+                ...pinnedBodyCellSx(mode),
                 "&[data-pinned='true']": {
                   zIndex: 1,
                 },
@@ -1809,6 +1910,7 @@ function MaterialTable({
                 ...(showColumnFooter ? { maxHeight: "70vh" } : {}),
                 scrollSnapType: "x proximity",
                 scrollPaddingLeft: `${leftPinnedWidth}px`,
+                ...pinnedLeftSx,
 
                 ...(customMuiTableContainerProps?.sx || {}),
               },
@@ -1912,9 +2014,7 @@ function MaterialTable({
             enableDensityToggle={false}
             initialState={{
               density: "comfortable",
-              ...(initialGrouping?.length ? { grouping: initialGrouping } : {}),
             }}
-            groupedColumnMode="remove"
             data={tableData}
             columns={sizedColumns}
             muiTableFooterProps={{
@@ -1996,11 +2096,19 @@ function MaterialTable({
                       maxWidth: "200px",
                       position: "relative",
                       zIndex: 1001,
-                      // 40px like the search box and MUI `small` fields beside it. The vendored
-                      // Metronic react-select theme pads the value container ~6.5px top and
-                      // bottom, which otherwise pushes this control to ~48px.
-                      "& .react-select__control": { height: 40, minHeight: 40 },
-                      "& .react-select__value-container": { py: 0 },
+                      // react-select sizes its control from its CONTENT and treats the kit's
+                      // size as a floor, so the selector still stood taller than the search
+                      // box and the filter pills next to it. Pin the whole control — and the
+                      // rows inside it, which carry their own padding — to the shared height.
+                      "& [class*='-control']": {
+                        minHeight: `${TOOLBAR_CONTROL_HEIGHT}px !important`,
+                        height: `${TOOLBAR_CONTROL_HEIGHT}px`,
+                      },
+                      "& [class*='-ValueContainer'], & [class*='-IndicatorsContainer']": {
+                        height: `${TOOLBAR_CONTROL_HEIGHT}px`,
+                        padding: "0 8px",
+                      },
+                      "& [class*='-indicatorContainer']": { padding: "0 4px" },
                     }}
                   >
                     <SelectInput
@@ -2009,6 +2117,7 @@ function MaterialTable({
                       value={currentValue}
                       dropdown="search_column_select"
                       passData={handleSearchColumnChange}
+                      size="sm"
                     />
                   </Box>
 
@@ -2040,11 +2149,13 @@ function MaterialTable({
                       className="et-search-input"
                       style={{
                         width: "100%",
-                        // 40px — matches the column selector and MUI `small` fields in the toolbar.
-                        height: "40px",
-                        boxSizing: "border-box",
                         paddingLeft: "34px",
                         paddingRight: globalFilterValue ? "32px" : "12px",
+                        // One shared control height across the toolbar: the column selector
+                        // (kit 'sm'), this box and the page's filter pills are all 34px, so
+                        // the row reads as one strip instead of three different sizes.
+                        height: `${TOOLBAR_CONTROL_HEIGHT}px`,
+                        boxSizing: "border-box",
                         paddingTop: 0,
                         paddingBottom: 0,
                         fontSize: "13px",

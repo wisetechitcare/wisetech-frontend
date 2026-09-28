@@ -1,9 +1,10 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
-import { ActionIconButton } from '@app/modules/common/components/ui';
+import { ActionIconButton, GlassDialog, GlassHeader, WtButton } from '@app/modules/common/components/ui';
+import { Box, Stack, CircularProgress } from '@mui/material';
+import { KTIcon } from '@metronic/helpers';
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues, useFormikContext } from "formik";
-import { Modal } from "react-bootstrap";
 import { MRT_ColumnDef } from "material-react-table";
 import { ICompanyDepartment } from "@models/company";
 import { createNewDepartment, fetchAllDepartments, fetchCompanyOverview, fetchDepartmentById, updateDepartmentById } from "@services/company";
@@ -190,7 +191,7 @@ function Departments() {
 
     return (
         <>
-            <style>{KEYFRAMES}</style>
+            {/* ConfigPageLayout already injects KEYFRAMES; this was a second copy. */}
             <ConfigPageLayout>
               {hasPermission(resourceNameMapWithCamelCase.department, permissionConstToUseWithHasPermission.readOthers) && (
                 <ConfigSectionCard
@@ -225,13 +226,17 @@ function Departments() {
               )}
             </ConfigPageLayout>
 
-            <Modal show={show} onHide={handleClose} centered backdropClassName="modal-backdrop-blur">
-                <Modal.Header closeButton style={{ borderBottom: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}>
-                    <Modal.Title style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '16px', color: C.textPrimary }}>
-                        {editMode ? 'Edit Department' : 'Create New Department'}
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body style={{ padding: SP.lg }}>
+            <GlassDialog
+                open={show} onClose={handleClose} maxWidth="sm" fullWidth
+                header={
+                    <GlassHeader
+                        title={editMode ? 'Edit Department' : 'Create New Department'}
+                        icon={<KTIcon iconName="briefcase" className="fs-1" />}
+                        onClose={handleClose}
+                    />
+                }
+            >
+                <Box sx={{ p: { xs: 2, sm: 2.75 } }}>
                     <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={departmentSchema}>
                         {(formikProps) => {
                             return (
@@ -275,87 +280,23 @@ function Departments() {
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SP.md, paddingTop: SP.lg }}>
-                                      <button
-                                        type='button'
-                                        onClick={handleClose}
-                                        style={{
-                                          backgroundColor: C.bgCard,
-                                          color: C.textSecondary,
-                                          border: `1px solid ${C.border}`,
-                                          borderRadius: RADIUS.md,
-                                          padding: '8px 16px',
-                                          fontFamily: FONT.body,
-                                          fontWeight: 500,
-                                          fontSize: '13px',
-                                          cursor: 'pointer',
-                                          transition: 'all 0.2s ease',
-                                        }}
-                                        onMouseEnter={(e) => {
-                                          e.currentTarget.style.backgroundColor = C.bgSection;
-                                          e.currentTarget.style.borderColor = C.borderDark;
-                                        }}
-                                        onMouseLeave={(e) => {
-                                          e.currentTarget.style.backgroundColor = C.bgCard;
-                                          e.currentTarget.style.borderColor = C.border;
-                                        }}
-                                      >
-                                        Cancel
-                                      </button>
-                                        <button
-                                          type='submit'
-                                          disabled={loading || !formikProps.isValid}
-                                          style={{
-                                            backgroundColor: loading || !formikProps.isValid ? `${C.primary}80` : C.primary,
-                                            color: '#fff',
-                                            border: 'none',
-                                            borderRadius: RADIUS.md,
-                                            padding: '8px 16px',
-                                            fontFamily: FONT.body,
-                                            fontWeight: 600,
-                                            fontSize: '13px',
-                                            cursor: loading || !formikProps.isValid ? 'not-allowed' : 'pointer',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            transition: 'all 0.2s ease',
-                                          }}
-                                          onMouseEnter={(e) => {
-                                            if (!loading && formikProps.isValid) {
-                                              e.currentTarget.style.transform = 'translateY(-2px)';
-                                              e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-                                            }
-                                          }}
-                                          onMouseLeave={(e) => {
-                                            e.currentTarget.style.transform = 'translateY(0)';
-                                            e.currentTarget.style.boxShadow = 'none';
-                                          }}
+                                    <Stack direction="row" spacing={1.25} justifyContent="flex-end" sx={{ mt: 2.5, flexWrap: 'wrap', gap: 1.25 }}>
+                                        <WtButton ghost onClick={handleClose}>Cancel</WtButton>
+                                        <WtButton
+                                            type="submit"
+                                            disabled={loading || !formikProps.isValid}
+                                            startIcon={loading ? <CircularProgress size={14} color="inherit" /> : undefined}
                                         >
-                                            {!loading && (editMode ? 'Update Department' : 'Create Department')}
-                                            {loading && (
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                                    <span style={{ width: '12px', height: '12px', borderRadius: '50%', border: `2px solid rgba(255,255,255,0.3)`, borderTopColor: '#fff', animation: 'spin 0.6s linear infinite' }} />
-                                                    Please wait...
-                                                </span>
-                                            )}
-                                        </button>
-                                    </div>
+                                            {loading ? 'Please wait…' : editMode ? 'Update Department' : 'Create Department'}
+                                        </WtButton>
+                                    </Stack>
                                 </Form>
                             )
                         }}
                     </Formik>
-                </Modal.Body>
-            </Modal>
+                </Box>
+            </GlassDialog>
 
-            <style>{`
-              @keyframes spin {
-                to { transform: rotate(360deg); }
-              }
-              .modal-backdrop-blur {
-                background-color: rgba(0, 0, 0, 0.2);
-                backdrop-filter: blur(2px);
-              }
-            `}</style>
         </>
     );
 }

@@ -2,7 +2,7 @@ import { safeJsonParse } from '@utils/safeJson';
 import { fetchAllEmployeesSelectedData, updateEmployee } from '@services/employee';
 import React, { useState, useEffect } from 'react';
 import { EmployeeSelectionDialog } from '@app/modules/common/components/EmployeeSelectionDialog';
-import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
+import { TimePickerField } from '@app/modules/common/components/TimePickerField';
 import { TRIO } from '@app/modules/common/components/ui/tw';
 import { getAvatar } from '@utils/avatar';
 import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
@@ -539,7 +539,7 @@ function GeneralSettings() {
         renderTrailing={(emp) => {
           const val = tempDeadlines[emp.id] || '';
           return (
-            <TimeWheelField
+            <TimePickerField
               value={val}
               onChange={(v) => setTempDeadlines((prev) => ({ ...prev, [emp.id]: v }))}
               tone={TRIO.purple}

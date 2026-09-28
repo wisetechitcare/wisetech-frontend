@@ -1,11 +1,10 @@
-import { useState } from 'react';
 import { PageTitle } from '@metronic/layout/core';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { navbarIcon } from '@metronic/assets/sidepanelicons';
 import DelegationsTable from './DelegationsTable';
+import { useTabRoute } from '@app/hooks/useTabRoute';
 
 function Delegations() {
-  const [activeTab, setActiveTab] = useState(0);
   const tabItems: TabItem[] = [
     {
       title: 'My Delegations',
@@ -18,6 +17,10 @@ function Delegations() {
       icon: 'bi-person-check',
     },
   ];
+
+  // The tab is the URL, so it survives a refresh, a shared link, and the remount the
+  // header does at the mobile breakpoint.
+  const { activeTab, setActiveTab } = useTabRoute(undefined, tabItems.map((t) => t.title));
 
   return (
     <>

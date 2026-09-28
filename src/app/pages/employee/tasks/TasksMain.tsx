@@ -8,6 +8,7 @@ import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { usePermission } from "@hooks/usePermission";
+import { useTabRoute } from "@app/hooks/useTabRoute";
 import { fetchConfiguration } from "@services/company";
 import { DATE_SETTINGS_KEY } from "@constants/configurations-key";
 import { safeJsonParse } from "@utils/safeJson";
@@ -32,7 +33,6 @@ import TaskOverviewToggle from "./taskOverView/TaskOverviewToggle";
  * routes still carry no authorize(). See RSK-091.
  */
 const TasksMain = () => {
-  const [activeTab, setActiveTab] = useState(0);
   const [dateSettingsEnabled, setDateSettingsEnabled] = useState(false);
   const canConfigure = usePermission("tasks.manage.all");
 
@@ -87,6 +87,17 @@ const TasksMain = () => {
 
     return items;
   }, [dateSettingsEnabled, canConfigure]);
+
+  /**
+   * The open tab is the PATH (/tasks/tasks), so returning here lands where you left — a task's
+   * "Back to tasks" used to arrive on Overview, with the board (and the ?scope= it carried)
+   * never mounted. The query string is left alone, so `?scope=` still reaches the board; old
+   * `?tab=` links are rewritten to the path form once.
+   *
+   * Slugs come from the TITLES, not an index: the Configure tab only exists for users who may
+   * configure, so an index would open a different tab for different people.
+   */
+  const { activeTab, setActiveTab } = useTabRoute("/tasks", tabItems.map((t) => t.title));
 
   const TasksBreadcrumbs = [
     {

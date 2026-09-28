@@ -5,6 +5,7 @@
 //     plus WT_CONTROL_HEIGHT / controlHeightSx — the one height a control row shares
 //   - glass: reusable glassmorphism primitives (GlassSurface / GlassDialog / GlassHeader / GlassCard)
 //   - feedback: branded Swal helpers (toast / alertDialog / confirmDialog)
+//   - safeHtml: tagged template that escapes interpolations for any html: string
 export { T, tonePair, label, glassTokens } from './tokens';
 export type { SemanticTone, VividTone, GlassVariant, ThemeMode, LabelTier } from './tokens';
 export * from './buttons';
@@ -88,7 +89,10 @@ export { WtTooltip } from './WtTooltip';
 export type { WtTooltipProps } from './WtTooltip';
 export type { WtColorPickerProps, ColorSwatch } from './WtColorPicker';
 // Headline capitalisation, applied by the kit's heading components.
-export { toTitleCase } from './text';
+// HEADING_CASE_SX carries the uppercase house style for a structural heading —
+// spread it only where a screen renders its own region title instead of using
+// GlassHeader / ListHeader / SectionHead / SettingsSection.
+export { toTitleCase, HEADING_CASE_SX } from './text';
 // The accent-topped configuration card every settings/config engine is built
 // from (Leave Policy, Sandwich Leave, FAQ sections). Owns the frame — surface,
 // accent rule, icon tile, header, spacing — so those screens stop drifting apart.
@@ -104,7 +108,7 @@ export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
 export type { ToolbarFilterSelectProps, FilterSelectTheme } from './ToolbarFilterSelect';
 export { OrgFilterToolbar, useOrgFilters } from './OrgFilterToolbar';
 export type { OrgFilterState, OrgFilterableRow, EmployeeStatusFilter } from './OrgFilterToolbar';
-export { hoverLiftSx, pressableSx, riseInSx, MOTION_KEYFRAMES } from './motion';
+export { hoverLiftSx, pressableSx, riseInSx, disclosureSx, DISCLOSURE, MOTION_KEYFRAMES } from './motion';
 // Numbered pager for views that page server-side WITHOUT MaterialTable (card grids,
 // tiles). The table draws its own footer; everything else uses this.
 export { Pager } from './Pager';
@@ -113,6 +117,13 @@ export { pageWindow, ELLIPSIS } from './pageWindow';
 export { GlassNotification, GlassToastProvider, useGlassToast } from './GlassNotification';
 export type { GlassNotificationProps, GlassToastOptions } from './GlassNotification';
 export { toast, alertDialog, confirmDialog } from './feedback';
+// Build any html: string with safeHtml — it escapes every interpolation, so a name
+// or server message cannot become markup. See safeHtml.ts for why it is a tagged
+// template rather than an escape() helper.
+export { safeHtml, escapeHtml } from './safeHtml';
+// A line of explanation INSIDE a form or panel: toned notice, or a quiet info hint.
+export { InlineNotice, InlineHint } from './InlineNotice';
+export type { InlineNoticeProps } from './InlineNotice';
 export type { FeedbackOptions } from './feedback';
 // App-wide single-select picker modal (glass kit, theme-aware) — use instead of bootstrap <Modal>.
 export { OptionPickerDialog, OptionRow, OptionCard } from './pickers';

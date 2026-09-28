@@ -61,6 +61,10 @@ interface Props {
   top10Ids?: string[];
 }
 
+/** "Firstname Lastname" off an embedded employee relation, or '' when it is absent. */
+const employeeName = (emp: any): string =>
+  `${emp?.users?.firstName ?? ""} ${emp?.users?.lastName ?? ""}`.trim();
+
 const ClientCompaniesMain = ({
   statusId,
   companyTypeId,
@@ -133,10 +137,11 @@ const ClientCompaniesMain = ({
             )
             .join(", ") || "N/A";
 
-        const totalBudget =
-          company.projectCompanyMappings?.reduce((acc, mapping) => {
-            return acc + Number(mapping.project?.cost || 0);
-          }, 0) || 0;
+        // Both come from the server, which resolves them the way the company's own
+        // Projects tab does. They used to be derived here from `projectCompanyMappings`
+        // and `_count.leads` — a relation this payload never carried, and a legacy scalar
+        // link that is effectively never set — so every row read ₹0 and 0 projects.
+        const totalBudget = Number((company as any).totalBudget) || 0;
 
         // Show ALL of the company's types (a company can have many). Fall back to the legacy
         // single primary type, then to "N/A".
@@ -160,7 +165,7 @@ const ClientCompaniesMain = ({
           internalReferenceEmployeeId: internalRefs,
           externalReferenceContactId: externalRefs,
           totalBudget: totalBudget,
-          projectCount: (company as any)._count?.leads ?? 0,
+          projectCount: Number((company as any).projectCount) || 0,
         };
       });
 
@@ -383,7 +388,7 @@ const ClientCompaniesMain = ({
         accessorKey: "totalBudget",
         header: "Budget",
         Cell: ({ cell }) => {
-          const budget = cell.getValue() as number;
+          const budget = Number(cell.getValue()) || 0;
           return `${currencyPrefix()}${budget.toLocaleString(getCurrencyLocale())}`;
         },
       },
@@ -473,12 +478,12 @@ const ClientCompaniesMain = ({
         accessorKey: "createdById",
         header: "Created By",
         meta: { defaultVisible: false },
-        Cell: ({ row }: any) => {
-          const emp = allEmployees?.find(
-            (e: any) => e.employeeId === row.original.createdById
-          );
-          return emp?.employeeName || "N/A";
-        },
+        // The payload embeds the creator, so the name is read off the row first: the
+        // employee list is only in the store once some other screen has fetched it, and
+        // keying off it alone printed "N/A" over a name the response already carried.
+        Cell: ({ row }: any) => employeeName(row.original.createdBy)
+          || allEmployees?.find((e: any) => e.employeeId === row.original.createdById)?.employeeName
+          || "N/A",
       },
       {
         accessorKey: "updatedAt",
@@ -491,12 +496,9 @@ const ClientCompaniesMain = ({
         accessorKey: "updatedById",
         header: "Last Edited By",
         meta: { defaultVisible: false },
-        Cell: ({ row }: any) => {
-          const emp = allEmployees?.find(
-            (e: any) => e.employeeId === row.original.updatedById
-          );
-          return emp?.employeeName || "N/A";
-        },
+        Cell: ({ row }: any) => employeeName(row.original.updatedBy)
+          || allEmployees?.find((e: any) => e.employeeId === row.original.updatedById)?.employeeName
+          || "N/A",
       },
       ...(!hideNewCompanyButton
         ? [

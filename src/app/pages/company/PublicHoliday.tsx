@@ -13,7 +13,8 @@ import { fetchAllCountries } from "@services/options";
 import { fetchHolidays } from '@services/company';
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import { dateFormatter } from "@utils/date";
-import { Modal } from 'react-bootstrap';
+import { Box } from '@mui/material';
+import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
 import Holiday from "./Holiday";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -572,15 +573,26 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
             )}
             </div>
 
-            {/* Add New Holiday Form Modal */}
-            <Modal show={showTheNewHolidayForm} onHide={handleCloseNewHolidayForm} centered fullscreen="md-down">
-                <Modal.Header closeButton>
-                    <Modal.Title>Add New Holiday</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
+            {/* Add New Holiday Form Modal. GlassDialog already goes full-screen on a
+                phone, so react-bootstrap's fullscreen="md-down" has no replacement
+                here — it is the same behaviour, one breakpoint later and shared with
+                every other dialog. */}
+            <GlassDialog
+                open={showTheNewHolidayForm}
+                onClose={handleCloseNewHolidayForm}
+                maxWidth="sm" fullWidth
+                header={
+                    <GlassHeader
+                        title="Add New Holiday"
+                        icon={<KTIcon iconName="calendar-add" className="fs-1" />}
+                        onClose={handleCloseNewHolidayForm}
+                    />
+                }
+            >
+                <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
                     <Holiday onCloseHolidayForm={handleCloseNewHolidayForm} refreshHolidayList={refreshHolidayList} />
-                </Modal.Body>
-            </Modal>
+                </Box>
+            </GlassDialog>
         </>
     );
 }

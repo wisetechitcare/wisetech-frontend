@@ -389,10 +389,23 @@ const PaymentCollectionPage: React.FC = () => {
   ], []);
 
   return (
-    // No width cap and no auto margins: this table has thirteen columns and the
-    // Billing Tracker beside it runs edge to edge, so capping it at 1700 both
-    // wasted the screen and made the two screens look like different apps.
     <Box sx={{ pb: 4 }}>
+      <BillingPageHeader
+        icon="wallet"
+        trio={TRIO.green}
+        title="Payment Collection"
+        description="Record, verify and track client payments against every issued proforma."
+        action={
+          <WtButton
+            ghost size="small"
+            onClick={() => navigate("/billing/tracker")}
+            startIcon={<KTIcon iconName="chart-simple" className="fs-6" />}
+            sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
+          >
+            Billing Tracker
+          </WtButton>
+        }
+      />
 
       {projectId && (
         <ProjectFilterBanner

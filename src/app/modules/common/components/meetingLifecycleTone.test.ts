@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-    LIFECYCLE_DEFAULT_COLORS, MIN_CONTRAST, contrastRatio, lifecycleOf, lifecycleTone, readableOn,
+    LIFECYCLE_DEFAULT_COLORS, MIN_CONTRAST, contrastRatio, lifecycleOf, lifecycleTone, readableOn, timesheetStateOf,
 } from './MeetingsList';
 
 /**
@@ -65,5 +65,21 @@ describe('lifecycleTone', () => {
             const { row } = lifecycleTone(hue);
             expect(contrastRatio(row, readableOn(row)), `${hue} row ${row}`).toBeGreaterThanOrEqual(MIN_CONTRAST);
         }
+    });
+});
+
+describe('timesheetStateOf', () => {
+    it('leaves meetings still to come, and cancelled ones, on their half colour', () => {
+        expect(timesheetStateOf({ lifecycle: 'SCHEDULED', pendingTimesheetNames: ['A'] })).toBeNull();
+        expect(timesheetStateOf({ lifecycle: 'CANCELLED', pendingTimesheetNames: [] })).toBeNull();
+    });
+
+    it('does not guess when an older server sends no pending list', () => {
+        expect(timesheetStateOf({ lifecycle: 'COMPLETED' })).toBeNull();
+    });
+
+    it('is filled only when nobody is left to log', () => {
+        expect(timesheetStateOf({ lifecycle: 'COMPLETED', pendingTimesheetNames: [] })).toBe('filled');
+        expect(timesheetStateOf({ lifecycle: 'COMPLETED', pendingTimesheetNames: ['Mohd Haseen'] })).toBe('pending');
     });
 });

@@ -7,7 +7,7 @@ import {
   MenuItem, Stack, TextField, Typography,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, WtButton, ToneChip, toast, alertDialog } from "@app/modules/common/components/ui";
+import { GlassDialog, GlassHeader, WtButton, ToneChip, toast, alertDialog, safeHtml } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { getProjectStages } from "@services/projectExecution";
 import {
@@ -118,7 +118,10 @@ const NewBillingRequestDialog: React.FC<{
           const confirmed = await Swal.fire({
             icon: "error",
             title: "Approval Chain Required",
-            html: `
+            // safeHtml, not a plain template: `employeeName` comes off an API error
+            // payload and originates in an employee record, so a name containing
+            // markup would otherwise be parsed as markup by SweetAlert.
+            html: safeHtml`
               <div class="text-start py-2">
                 <p class="mb-4 fs-6 text-gray-700">No Billing Request approval chain is configured for <strong>${employeeName}</strong>. Approval chains must be set before submitting requests.</p>
                 <div class="bg-light-danger border border-danger border-dashed p-4 rounded d-flex align-items-center">

@@ -111,6 +111,13 @@ export interface CalendarDay {
   };
   /** Whether policy allows raising a correction — decided by the server, not by the tile. */
   canRaiseCorrection?: boolean;
+  /**
+   * WHY a correction was refused, when it was. The server enforces the same rule on
+   * the write, so this is the reason a click would have failed — shown instead.
+   */
+  correctionRefusedReason?: 'not_employed' | 'future' | 'outside_window' | 'day_type';
+  /** First date the admin's correction window still accepts. Absent when unrestricted. */
+  correctionEarliestDate?: string;
 }
 
 export interface CalendarSummary {

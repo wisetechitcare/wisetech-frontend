@@ -615,7 +615,7 @@ export const PrivacySection: React.FC<OnboardingSectionsProps> = () => {
    GROUP 4 — Documents
    ═══════════════════════════════════════════════════════════════════════════ */
 
-export const DocumentsSection: React.FC<OnboardingSectionsProps> = ({ formikProps, setFile }) => {
+export const DocumentsSection: React.FC<OnboardingSectionsProps> = ({ formikProps, setFile, removeFile }) => {
   const { values } = useFormikContext<any>();
   const documentFields: any[] = Array.isArray(values.documentFields) ? values.documentFields : [];
 
@@ -644,7 +644,7 @@ export const DocumentsSection: React.FC<OnboardingSectionsProps> = ({ formikProp
       <div className="ob-repeating-section mt-4">
         {documentFields.map((field: any, index: number) => (
           <div key={field?.id ?? `documentFields-${index}`}>
-            <Documents formikProps={formikProps} index={index} setFile={setFile} />
+            <Documents formikProps={formikProps} index={index} setFile={setFile} removeFile={removeFile} />
           </div>
         ))}
       </div>

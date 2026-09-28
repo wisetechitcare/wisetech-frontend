@@ -15,6 +15,10 @@ import { getAllClientCompanies, getAllSubCompanies } from "@services/companies";
 import eventBus from "@utils/EventBus";
 import { useNavigate } from "react-router-dom";
 import dayjs, { Dayjs } from "dayjs";
+import { can } from "@utils/can";
+import { SegmentedControl, WtButton } from "@app/modules/common/components/ui";
+import GoogleContactsImportDialog from "./components/GoogleContactsImportDialog";
+import { toContactFormPrefill, type ContactFormPrefill, type GoogleContactCandidate } from "./components/googleContactPrefill";
 
 // All selectable contact-table column keys (must match the `accessorKey`s below).
 const CONTACT_COLUMN_KEYS = [
@@ -69,6 +73,43 @@ const ClientContactsMain = ({
   const [allCompanies, setAllCompanies] = useState<any>([]);
   const [allSubCompanies, setAllSubCompanies] = useState<any>([]);
   const [newContactModal, setNewContactModal] = useState(false);
+  const [googleImportOpen, setGoogleImportOpen] = useState(false);
+  // Imported rows carry `googleResourceId` (provenance only) — that is the whole filter.
+  const [source, setSource] = useState<"ALL" | "GOOGLE">("ALL");
+  /**
+   * Opening values for a contact chosen out of Google.
+   *
+   * Feeds the EXISTING form rather than a Google-specific one, so validation, the company and
+   * status selectors, and the save path are all the ones a hand-typed contact uses. Cleared
+   * when that form closes, so the next plain "Add New Contact" opens empty.
+   */
+  const [googlePrefill, setGooglePrefill] = useState<ContactFormPrefill | null>(null);
+  /** True while a review is in flight, so closing the form reopens the picker behind it. */
+  const [resumeGoogleImport, setResumeGoogleImport] = useState(false);
+
+  /**
+   * Reviewing ONE Google contact in the existing form.
+   *
+   * The import dialog is HIDDEN, not closed: it keeps its fetched list, search and ticks, so
+   * cancelling the form returns to the picker where it was. Closing it outright would make a
+   * cancelled review cost a whole fresh Google authorization — for a misclick.
+   */
+  const handleGoogleReview = (candidate: GoogleContactCandidate) => {
+    setGooglePrefill(toContactFormPrefill(candidate));
+    setGoogleImportOpen(false);
+    setResumeGoogleImport(true);
+    setNewContactModal(true);
+  };
+
+  /** Leaving the contact form: back to the picker if that is where we came from. */
+  const handleContactFormClose = () => {
+    setNewContactModal(false);
+    setGooglePrefill(null);
+    if (resumeGoogleImport) {
+      setResumeGoogleImport(false);
+      setGoogleImportOpen(true);
+    }
+  };
 
   // Column visibility & selective fetching
   const visibleColumnsRef = useRef<string[] | null>(null);
@@ -510,8 +551,14 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
         // A contact with no gender on record answers to UNSPECIFIED, matching how the
         // overview counts them — otherwise they would vanish from every bucket.
         return gender === "UNSPECIFIED" ? !item.gender : item.gender === gender;
-      });
-  }, [allContacts, startDates, endDates, contactByRolesId, gender]);
+      })
+      ?.filter((item: any) => source === "ALL" || !!item.googleResourceId);
+  }, [allContacts, startDates, endDates, contactByRolesId, gender, source]);
+
+  const googleCount = useMemo(
+    () => (allContacts || []).filter((c: any) => c.googleResourceId).length,
+    [allContacts],
+  );
 
   return (
     <div>
@@ -523,14 +570,38 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
           Contacts
         </div>
 
-        {!hideNewContactButton && (
-          <button
-            className="btn btn-primary"
-            onClick={() => addNewContact(true)}
-          >
-            Add New Contact
-          </button>
-        )}
+        <div className="d-flex align-items-center gap-2">
+          {/* Shown once anything has been imported; a switch with an empty side is noise. */}
+          {!isDrillDown && (googleCount > 0 || source === "GOOGLE") && (
+            <SegmentedControl
+              ariaLabel="Contact source"
+              value={source}
+              onChange={setSource}
+              options={[
+                { value: "ALL", label: "All", icon: <KTIcon iconName="people" className="fs-5" /> },
+                { value: "GOOGLE", label: "Google imported", count: googleCount, icon: <KTIcon iconName="address-book" className="fs-5" /> },
+              ]}
+            />
+          )}
+          {/*
+            * Gated on the SAME permission the backend enforces. This only hides the button —
+            * the import endpoints check `crm.contacts.manage.all` themselves, so a user who
+            * calls them directly is refused regardless of what the UI showed them.
+            */}
+          {!hideNewContactButton && can("crm.contacts.manage.all") && (
+            <WtButton inverted onClick={() => setGoogleImportOpen(true)}>
+              Import from Google
+            </WtButton>
+          )}
+          {!hideNewContactButton && (
+            <button
+              className="btn btn-primary"
+              onClick={() => addNewContact(true)}
+            >
+              Add New Contact
+            </button>
+          )}
+        </div>
       </div>
       <MaterialTable
         columns={columns}
@@ -615,11 +686,18 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
         }
       />
 
+      <GoogleContactsImportDialog
+        open={googleImportOpen}
+        onClose={() => { setGoogleImportOpen(false); setResumeGoogleImport(false); }}
+        onReview={handleGoogleReview}
+        onImported={() => { eventBus.emit("clientContactUpdated"); }}
+      />
+
       <ClientContactsForm
         show={newContactModal}
-        onClose={() => setNewContactModal(false)}
+        onClose={handleContactFormClose}
         contactId={null}
-        initialData={undefined}
+        initialData={googlePrefill ?? undefined}
       />
     </div>
   );

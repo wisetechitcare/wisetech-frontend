@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@redux/store';
 import { fetchApprovalAudit } from '@services/employee';
 import { usePermission } from '@hooks/usePermission';
+import MaterialTable from '@app/modules/common/components/MaterialTable';
 
 interface AuditEntry {
   id: string;
@@ -33,9 +36,63 @@ function fmt(d: string) {
 
 function ApprovalAuditPanel({ instanceId }: Props) {
   const canAudit = usePermission('approvals.audit.all');
+  const currentUserId = useSelector((s: RootState) => s.auth?.currentUser?.id);
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  // Cells render exactly what the hand-written <table> rendered; the row data is
+  // already flat (real dates/numbers/strings), so sort + search work on values.
+  const columns = useMemo(() => [
+    {
+      accessorKey: 'createdAt',
+      header: 'Time',
+      Cell: ({ cell }: any) => (
+        <span style={{ color: '#a1a5b7', whiteSpace: 'nowrap' }}>{fmt(cell.getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: 'actorName',
+      header: 'Actor',
+      Cell: ({ cell }: any) => <span style={{ fontWeight: 600, color: '#181c32' }}>{cell.getValue()}</span>,
+    },
+    {
+      accessorKey: 'action',
+      header: 'Action',
+      Cell: ({ cell }: any) => {
+        const action = cell.getValue() as string;
+        const s = ACTION_STYLE[action] ?? { bg: '#f5f5f5', color: '#a1a5b7' };
+        return (
+          <span style={{
+            fontSize: 10, fontWeight: 700, padding: '2px 8px',
+            borderRadius: 10, backgroundColor: s.bg, color: s.color,
+            textTransform: 'uppercase', letterSpacing: '0.4px',
+          }}>
+            {action}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: 'level',
+      header: 'Level',
+      Cell: ({ cell }: any) => (
+        <span style={{ color: '#3f4254' }}>{cell.getValue() != null ? `L${cell.getValue()}` : '—'}</span>
+      ),
+    },
+    {
+      accessorKey: 'comments',
+      header: 'Notes',
+      Cell: ({ cell }: any) => {
+        const comments = cell.getValue() as string | null;
+        return (
+          <span style={{ color: '#a1a5b7', fontStyle: comments ? 'italic' : 'normal' }}>
+            {comments ? `"${comments}"` : '—'}
+          </span>
+        );
+      },
+    },
+  ], []);
 
   useEffect(() => {
     if (!canAudit) return;
@@ -89,51 +146,15 @@ function ApprovalAuditPanel({ instanceId }: Props) {
         Audit Trail
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid #eff2f5' }}>
-              {['Time', 'Actor', 'Action', 'Level', 'Notes'].map((h) => (
-                <th key={h} style={{
-                  padding: '6px 10px', textAlign: 'left',
-                  fontWeight: 700, color: '#a1a5b7', fontSize: 11,
-                  textTransform: 'uppercase', letterSpacing: '0.4px',
-                }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {logs.map((log) => {
-              const s = ACTION_STYLE[log.action] ?? { bg: '#f5f5f5', color: '#a1a5b7' };
-              return (
-                <tr key={log.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                  <td style={{ padding: '8px 10px', color: '#a1a5b7', whiteSpace: 'nowrap' }}>
-                    {fmt(log.createdAt)}
-                  </td>
-                  <td style={{ padding: '8px 10px', fontWeight: 600, color: '#181c32' }}>
-                    {log.actorName}
-                  </td>
-                  <td style={{ padding: '8px 10px' }}>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, padding: '2px 8px',
-                      borderRadius: 10, backgroundColor: s.bg, color: s.color,
-                      textTransform: 'uppercase', letterSpacing: '0.4px',
-                    }}>
-                      {log.action}
-                    </span>
-                  </td>
-                  <td style={{ padding: '8px 10px', color: '#3f4254' }}>
-                    {log.level != null ? `L${log.level}` : '—'}
-                  </td>
-                  <td style={{ padding: '8px 10px', color: '#a1a5b7', fontStyle: log.comments ? 'italic' : 'normal' }}>
-                    {log.comments ? `"${log.comments}"` : '—'}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <MaterialTable
+        tableName="ApprovalAudit"
+        employeeId={currentUserId}
+        data={logs}
+        columns={columns}
+        hidePagination
+        hideExportCenter
+        enableColumnActions={false}
+      />
     </div>
   );
 }

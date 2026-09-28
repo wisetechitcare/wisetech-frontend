@@ -11,7 +11,7 @@ import {
   GlassCard, SettingsSection, StatusBadge, TRIO, WtButton, WtField, WtSwitchField, type Trio,
 } from '@app/modules/common/components/ui'
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon'
-import { TimeWheelField } from '@app/modules/common/components/TimeWheelField'
+import { TimePickerField } from '@app/modules/common/components/TimePickerField'
 import { getTimeTokens } from '@utils/timeFormat'
 import dayjs from 'dayjs'
 // The app's own relative-time helper — it registers the dayjs plugin once, centrally.
@@ -272,7 +272,7 @@ function GreetingsSettings() {
                 wakes every fifteen minutes, and offering 4:37 would be promising a
                 precision it has to round away. Every other caller keeps all sixty
                 minutes; the prop defaults to 1. */}
-            <TimeWheelField
+            <TimePickerField
               value={draft.sendTime}
               onChange={(v) => set('sendTime', v)}
               disabled={!draft.enabled}

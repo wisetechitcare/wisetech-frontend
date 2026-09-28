@@ -7,21 +7,17 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useTabRoute } from "@app/hooks/useTabRoute";
 import { PageTitle } from "@metronic/layout/core";
 import LeadNewLead from "./lead/LeadNewLead";
 import LeadsOverviewMain from "./overview/LeadsOverviewMain";
 import GlobalFilesView from "./GlobalFilesView";
 
-const TAB_KEYS = ["overview", "leads", "files", "configure"] as const;
+/** Tab titles, in order. Their slugs are the URL: /leads/files — see useTabRoute. */
+const TAB_TITLES = ["Overview", "Leads", "Files", "Configure"] as const;
 
 const LeadsMain = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tabKey = searchParams.get("tab") || "overview";
-  const activeTab = Math.max(0, TAB_KEYS.indexOf(tabKey as any));
-  const setActiveTab = (index: number) => {
-    setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
-  };
+  const { activeTab, setActiveTab } = useTabRoute("/leads", TAB_TITLES);
 
   const dispatch = useDispatch<AppDispatch>();
 

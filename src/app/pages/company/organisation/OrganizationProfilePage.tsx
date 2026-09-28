@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Modal } from 'react-bootstrap';
-import { Box, Stack, Typography, IconButton } from '@mui/material';
+import { Box } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { PageTitle, PageLink } from '@metronic/layout/core';
+import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
 import OrganisationProfileForm from './OrganisationProfileForm';
 import Branches from '../Branches';
-import { IconClose } from '@app/modules/common/components/icons/OrgIcons';
 
 const breadcrumbs: Array<PageLink> = [
   { title: 'Company', path: '#', isSeparator: false, isActive: false },
@@ -42,33 +41,36 @@ export default function OrganizationProfilePage() {
           branch-form modals) portal to <body>, outside this modal's DOM — with
           react-bootstrap's focus-trap on, it would steal focus back and you
           couldn't type in those dialogs' fields. */}
-      <Modal show={showBranches} onHide={() => setShowBranches(false)} size="xl" centered enforceFocus={false} restoreFocus={false} contentClassName="org-branches-modal-content">
-        <style>{`
-          .org-branches-modal-content{border:none;border-radius:18px;overflow:hidden;box-shadow:0 28px 70px rgba(8,10,18,.30);}
-          .org-branches-scroll::-webkit-scrollbar{width:10px;}
-          .org-branches-scroll::-webkit-scrollbar-thumb{background:#D4D8E0;border-radius:8px;border:3px solid transparent;background-clip:content-box;}
-          .org-branches-scroll::-webkit-scrollbar-thumb:hover{background:#B7BECB;background-clip:content-box;}
-        `}</style>
+      {/* The kit's dialog, not react-bootstrap's.
+          What stood here was a <Modal> carrying an inline <style> block (banned —
+          it leaks global CSS and styles by class name from inside a component), a
+          FOURTH copy of GlassHeader's gradient and accent rule, a second close
+          button, and two hardcoded light-mode colours: the #F6F7F9 body and a
+          #D4D8E0 scrollbar. Those are why this dialog stayed pale in dark mode and
+          why its heading missed the app-wide uppercase change — it never went
+          through the kit.
 
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, px: 2.75, py: 1.75, background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)', borderBottom: '3px solid #3B82F6', color: '#fff' }}>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Box sx={{ width: 42, height: 42, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', flexShrink: 0 }}>
-              <KTIcon iconName="bank" className="fs-1" />
-            </Box>
-            <Box>
-              <Typography sx={{ fontWeight: 750, fontSize: 17, color: '#fff', lineHeight: 1.2 }}>Branches</Typography>
-              <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.72)' }}>Manage this organization’s locations</Typography>
-            </Box>
-          </Stack>
-          <IconButton onClick={() => setShowBranches(false)} size="small" aria-label="Close" sx={{ color: '#fff' }}><IconClose size={16} /></IconButton>
-        </Box>
-
-        {/* Body */}
-        <Box className="org-branches-scroll" sx={{ bgcolor: '#F6F7F9', maxHeight: '76vh', overflowY: 'auto', pb: 3 }}>
+          enforceFocus/restoreFocus are gone with react-bootstrap: the nested
+          dialogs they were disabled for (device and branch-form) are MUI dialogs,
+          and MUI hands focus to the topmost one on its own. */}
+      <GlassDialog
+        open={showBranches}
+        onClose={() => setShowBranches(false)}
+        maxWidth="xl"
+        fullWidth
+        header={
+          <GlassHeader
+            title="Branches"
+            subtitle="Manage this organization’s locations"
+            icon={<KTIcon iconName="bank" className="fs-1" />}
+            onClose={() => setShowBranches(false)}
+          />
+        }
+      >
+        <Box sx={{ bgcolor: 'background.default', maxHeight: '76vh', overflowY: 'auto', pb: 3 }}>
           <Branches key={`branches-${orgId}`} companyId={orgId} embedded hideHeading />
         </Box>
-      </Modal>
+      </GlassDialog>
     </>
   );
 }

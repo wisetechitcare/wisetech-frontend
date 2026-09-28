@@ -3,12 +3,13 @@ import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import { WORKING_METHOD_TYPE } from '@constants/attendance';
 import { AttendanceColorTone } from '@utils/attendanceColorUtils';
+import { hasValidMapCoordinates, type AttendanceCoordinates } from './attendanceCoordinates';
 import './AttendanceCheckCell.css';
 
-export interface AttendanceCoordinates {
-  lat: number;
-  lng: number;
-}
+// Coordinate logic lives in a pure module so it can be tested without mounting a table.
+// Re-exported here because several screens already import both names from this file.
+export type { AttendanceCoordinates } from './attendanceCoordinates';
+export { hasValidMapCoordinates, resolveAttendanceCoordinates } from './attendanceCoordinates';
 
 export interface AttendanceCheckCellProps {
   time: string;
@@ -30,20 +31,6 @@ export function isAttendanceValueMissing(value?: string | null): boolean {
   if (value == null) return true;
   const trimmed = String(value).trim();
   return trimmed === '' || MISSING.has(trimmed);
-}
-
-export function hasValidMapCoordinates(
-  coordinates?: AttendanceCoordinates | null
-): coordinates is AttendanceCoordinates {
-  if (!coordinates) return false;
-  const { lat, lng } = coordinates;
-  return (
-    typeof lat === 'number' &&
-    typeof lng === 'number' &&
-    !Number.isNaN(lat) &&
-    !Number.isNaN(lng) &&
-    !(lat === 0 && lng === 0)
-  );
 }
 
 function formatMethodLabel(method: string): string {

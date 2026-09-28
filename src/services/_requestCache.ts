@@ -33,7 +33,8 @@ export async function cachedRequest<T>(
   const promise = (async () => {
     try {
       const value = await fn();
-      cache.set(key, { ts: Date.now(), value });
+      // ttlMs <= 0 means in-flight de-dupe only — don't hold the (possibly large) result.
+      if (ttlMs > 0) cache.set(key, { ts: Date.now(), value });
       return value;
     } finally {
       inflight.delete(key);

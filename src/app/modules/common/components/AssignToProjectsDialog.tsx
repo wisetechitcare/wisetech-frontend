@@ -3,6 +3,10 @@ import dayjs from 'dayjs';
 import { KTIcon } from '@metronic/helpers';
 import { GlassDialog, GlassHeader, WtButton, StatusBadge, cn, TRIO } from '@app/modules/common/components/ui/tw';
 import { WtDateField, confirmDialog, toast, alertDialog } from '@app/modules/common/components/ui';
+// This file had its own copy of this escape. Promoted to the kit so the next dialog
+// finds it — three later call sites did not, and shipped unescaped names into
+// SweetAlert. Aliased to `esc` so the call sites below read unchanged.
+import { escapeHtml as esc } from '@app/modules/common/components/ui/safeHtml';
 import { DATE_FORMATS } from '@utils/dateFormats';
 import { getAssignableProjects, assignToProjects, type AssignableProject, type AssignTarget } from '@services/projects';
 
@@ -25,7 +29,6 @@ export interface AssignToProjectsDialogProps {
     onAssigned: () => void;
 }
 
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export const AssignToProjectsDialog: React.FC<AssignToProjectsDialogProps> = ({ open, onClose, target, name, onAssigned }) => {
     const isEmployee = 'employeeId' in target;
@@ -110,6 +113,11 @@ export const AssignToProjectsDialog: React.FC<AssignToProjectsDialogProps> = ({ 
                 await alertDialog({
                     icon: 'warning',
                     title: `Added to ${added.length}, ${failed.length} failed`,
+                    // Values ARE escaped — every one goes through esc(). safeHtml cannot express
+                    // this shape because the <li> tags are GENERATED per row, and a tagged template
+                    // would escape them into visible text. Escaping the parts and joining is the
+                    // correct form here. See ui/safeHtml.ts → "WHAT IT IS NOT".
+                    // eslint-disable-next-line no-restricted-syntax
                     html: `<ul style="text-align:left">${failed.map((f) => `<li><b>${esc(titleOf(f.id))}</b>: ${esc(f.message)}</li>`).join('')}</ul>`,
                 });
             } else {

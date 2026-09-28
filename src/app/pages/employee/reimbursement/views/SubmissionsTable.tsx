@@ -44,6 +44,7 @@ import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { LEGACY_UIKIT as T, tonePair } from '@app/theme/tokens';
 import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
+import { useStoredState } from '@app/hooks/useStoredState';
 
 // Sentinel batch id for reimbursements that have no batch (batch_id = NULL).
 // These are legacy/imported records that were never submitted through the
@@ -796,7 +797,7 @@ function SubmissionsTable({
   const { cls: sensitiveCls } = useSensitiveData();
   // null = All. Defaults to All deliberately: a screen that silently narrows to approved is
   // the bug this replaces.
-  const [statusFilter, setStatusFilter] = useState<StatusNum | null>(null);
+  const [statusFilter, setStatusFilter] = useStoredState<StatusNum | null>('filters:SubmissionsTable:statusFilter', null);
 
   // Adopt an externally-chosen filter (a donut slice) without taking ownership of the chips.
   useEffect(() => {

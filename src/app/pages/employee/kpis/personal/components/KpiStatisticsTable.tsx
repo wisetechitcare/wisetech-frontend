@@ -1,7 +1,10 @@
-import React from "react";
-import { Card, Container, Table } from "react-bootstrap";
+import React, { useMemo } from "react";
+import { Container } from "react-bootstrap";
+import { useSelector } from "react-redux";
+import type { RootState } from "@redux/store";
 import { sortKpiFactors } from "@utils/kpiSort";
 import { formatHours, formatWeightageUnit, isHourUnit } from "@app/pages/employee/kpis/common/kpiUtils";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 
 interface Factor {
   factor: string;
@@ -24,6 +27,67 @@ interface KpiStatisticsTableProps {
 }
 
 const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({ data }) => {
+  const currentUserId = useSelector((s: RootState) => s.auth?.currentUser?.id);
+
+  // Every module renders the same five columns, so the model is built once.
+  // Numbers stay numbers on the row (weightage/value/score) so sorting is numeric;
+  // the Cell renderers reproduce the old markup exactly.
+  const columns = useMemo(() => [
+    {
+      accessorKey: "factor",
+      header: "Factor",
+      Cell: ({ cell }: any) => (
+        <span className="text-dark fw-bolder text-hover-primary mb-1 fs-6">{cell.getValue() || "-"}</span>
+      ),
+    },
+    {
+      accessorKey: "calculatedFrom",
+      header: "Calculation Context",
+      Cell: ({ cell }: any) => (
+        <span className="text-muted fw-bold d-block fs-7">{cell.getValue() || "N/A"}</span>
+      ),
+    },
+    {
+      accessorKey: "weightage",
+      header: "Weightage",
+      Cell: ({ row }: any) => (
+        <span className="text-dark fw-bold fs-7">
+          {formatWeightageUnit(Number(row.original?.weightage ?? 0), row.original?.unit)}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "value",
+      header: "Value",
+      Cell: ({ row }: any) => {
+        const value = Number(row.original?.value) || 0;
+        const unit = row.original?.unit;
+        return (
+          <span className="text-dark fw-bold fs-7">
+            {isHourUnit(unit) ? formatHours(value) : (
+              <>
+                {value.toFixed(2)}
+                {unit && <span className="text-muted fs-9 ms-1">{unit}</span>}
+              </>
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: "score",
+      header: "Score",
+      Cell: ({ cell }: any) => {
+        const score = Number(cell.getValue()) || 0;
+        return (
+          <span className={`badge fw-bolder fs-7 px-3 py-1 ${score >= 0 ? "badge-light-success" : "badge-light-danger"}`}>
+            {score >= 0 ? `+${score.toFixed(2)}` : score.toFixed(2)}
+          </span>
+        );
+      },
+    },
+  ], []);
+
   // ✅ Safe empty state
   if (!Array.isArray(data) || data.length === 0) {
     return (
@@ -54,15 +118,6 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({ data }) => {
           </h3>
         </div>
         
-        <style jsx>{`
-          .hover-neutral:hover {
-            background-color: #F9FAFB !important;
-          }
-          .table-header-bg {
-            background-color: #F9FAFB;
-          }
-        `}</style>
-
         <div className="card-body py-8 px-10">
           {sortedData.map((module, moduleIndex) => {
             const factors = Array.isArray(module?.factors) ? module.factors : [];
@@ -88,77 +143,21 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({ data }) => {
                     </div>
                   </div>
 
-                  <div className="table-responsive">
-                    <table className="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-4">
-                      <thead>
-                        <tr className="fw-bolder text-muted bg-light table-header-bg">
-                          <th className="ps-4 min-w-200px rounded-start">Factor</th>
-                          <th className="text-center min-w-150px">Calculation Context</th>
-                          <th className="text-center min-w-100px">Weightage</th>
-                          <th className="text-center min-w-100px">Value</th>
-                          <th className="text-center min-w-100px pe-4 rounded-end">Score</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {factors.length === 0 ? (
-                          <tr>
-                            <td colSpan={5} className="text-center text-muted py-8 fs-7">
-                              No data available for this module.
-                            </td>
-                          </tr>
-                        ) : (
-                          sortKpiFactors(factors, (f: Factor) => f.factor).map((factor: Factor, index: number) => {
-                            const value = Number(factor?.value) || 0;
-                            const score = Number(factor?.score) || 0;
-
-                            return (
-                              <tr key={index} className="hover-neutral transition-all">
-                                <td className="ps-4">
-                                  <span className="text-dark fw-bolder text-hover-primary mb-1 fs-6">
-                                    {factor?.factor || "-"}
-                                  </span>
-                                </td>
-                                <td className="text-center">
-                                  <span className="text-muted fw-bold d-block fs-7">
-                                    {factor?.calculatedFrom || "N/A"}
-                                  </span>
-                                </td>
-                                <td className="text-center">
-                                  <span className="text-dark fw-bold fs-7">
-                                    {formatWeightageUnit(Number(factor?.weightage ?? 0), factor?.unit)}
-                                  </span>
-                                </td>
-                                <td className="text-center">
-                                  <span className="text-dark fw-bold fs-7">
-                                    {isHourUnit(factor?.unit)
-                                      ? formatHours(value)
-                                      : (
-                                        <>
-                                          {value.toFixed(2)}
-                                          {factor?.unit && (
-                                            <span className="text-muted fs-9 ms-1">{factor.unit}</span>
-                                          )}
-                                        </>
-                                      )
-                                    }
-                                  </span>
-                                </td>
-                                <td className="text-center pe-4">
-                                  <span
-                                    className={`badge fw-bolder fs-7 px-3 py-1 ${
-                                      score >= 0 ? "badge-light-success" : "badge-light-danger"
-                                    }`}
-                                  >
-                                    {score >= 0 ? `+${score.toFixed(2)}` : score.toFixed(2)}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  {factors.length === 0 ? (
+                    <div className="text-center text-muted py-8 fs-7">
+                      No data available for this module.
+                    </div>
+                  ) : (
+                    <MaterialTable
+                      tableName="KpiStatistics"
+                      employeeId={currentUserId}
+                      data={sortKpiFactors(factors, (f: Factor) => f.factor)}
+                      columns={columns}
+                      hidePagination
+                      hideExportCenter
+                      enableColumnActions={false}
+                    />
+                  )}
                 </div>
               </div>
             );

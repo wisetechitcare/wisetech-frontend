@@ -70,6 +70,14 @@ describe('overdue', () => {
     it('ignores an unparseable date rather than throwing', () => {
         assert.equal(isTaskOverdue({ dueDate: 'not-a-date', status: status() }, NOW), false);
     });
+
+    it('🔴 a task due TODAY is not overdue — you are late the day after', () => {
+        // A due date is a calendar day stored at midnight, so comparing instants made every
+        // task late from 00:00 on its own due day: a red card under a "Due today" label.
+        assert.equal(isTaskOverdue({ dueDate: '2026-08-12', status: status() }, NOW), false);
+        // Still true the moment the day is behind us.
+        assert.equal(isTaskOverdue({ dueDate: '2026-08-11', status: status() }, NOW), true);
+    });
 });
 
 describe('due labels', () => {
@@ -78,6 +86,14 @@ describe('due labels', () => {
         assert.equal(daysUntilDue('2026-08-13', NOW), 1);
         assert.equal(daysUntilDue('2026-08-09', NOW), -3);
         assert.equal(daysUntilDue(null, NOW), null);
+    });
+
+    it("counts from the READER's day, not from UTC's", () => {
+        // 02:00 LOCAL, built from local parts so this holds in any timezone the suite runs in
+        // — east of Greenwich that instant is still yesterday in UTC, which is exactly the
+        // case that told an early riser their task due today was due tomorrow.
+        const earlyMorning = new Date(2026, 7, 12, 2, 0, 0);
+        assert.equal(daysUntilDue('2026-08-12', earlyMorning), 0);
     });
 
     it('reads naturally at the boundaries', () => {

@@ -8,10 +8,21 @@ import { fetchConfiguration } from '@services/company';
 import { safeJsonParse } from '@utils/safeJson';
 import { mapsUrl } from '@app/pages/employee/meetingAddress';
 import {
+    meetingWhere, modeHasLink, modeHasPlace, modeOfExisting,
+} from '@app/pages/employee/meetingModes';
+import {
     MEETING_HALF_PM, MEETING_HALF_FREE_COLOR, MEETING_HALF_AM,
     MEETING_STATUS_CANCELLED, MEETING_STATUS_AWAITING, MEETING_STATUS_HELD,
+    MEETING_TIMESHEET_FILLED, MEETING_TIMESHEET_PENDING,
 } from '@constants/configurations-key';
-import { Box, Dialog, DialogContent, useMediaQuery } from '@mui/material';
+import { Avatar, Box, Dialog, DialogContent, Tooltip, useMediaQuery } from '@mui/material';
+// Direct module, NOT the `ui` barrel. The barrel re-exports 58 symbols, one of which
+// transitively loads _metronic/layout/core — and that module calls getLayout() at import
+// time, which reads localStorage. Pulling the barrel in here made halfColors.test.ts and
+// meetingLifecycleTone.test.ts fail at import with "localStorage is not defined", before a
+// single assertion ran. chips.tsx itself imports only MUI and the theme tokens.
+// Same rule as AppIcon and SegmentedControl below — see ui/README.md.
+import { toneAlpha } from '@app/modules/common/components/ui/chips';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -49,7 +60,10 @@ interface MeetingRow {
     id: string;
     title: string;
     description?: string;
+    /** The legacy mirror of `meetingMode`, still sent by the API. */
     isOnline: boolean;
+    /** ONLINE | OFFLINE | HYBRID. Absent on a row from an older server — see `modeOfExisting`. */
+    meetingMode?: string | null;
     meetingLink?: string | null;
     location?: string | null;
     startDate: string;
@@ -59,6 +73,8 @@ interface MeetingRow {
     /** Time actually logged against this meeting, and by how many people. 0 = unrecorded. */
     loggedMinutes?: number;
     loggedBy?: number;
+    /** Internal attendees who have not logged time yet. Absent on rows from an older server. */
+    pendingTimesheetNames?: string[];
     cancelReason?: string | null;
     /** The organizer. Who may edit or cancel is decided against this. */
     employeeId?: string;
@@ -79,6 +95,21 @@ interface MeetingRow {
     organizerName?: string;
     participantNames?: string[];
     externalParticipantNames?: string[];
+    /**
+     * The roster as objects, which the `*Names` arrays above cannot safely be.
+     *
+     * Those two are parallel lists that each drop unresolvable entries, so one missing
+     * employee shifts every later index and the name beside a face stops being that person's.
+     * Fine for a comma-joined sentence, not fine for a list of avatars.
+     *
+     * Optional: a row from an older server does not carry it, and the roster simply does not
+     * render rather than the card failing.
+     */
+    attendees?: Array<{
+        id: string; name: string; avatar?: string | null;
+        isOrganizer?: boolean; pendingTimesheet?: boolean;
+    }>;
+    externalAttendees?: Array<{ id: string; name: string; avatar?: string | null }>;
 }
 
 const th: React.CSSProperties = {
@@ -120,20 +151,37 @@ const EMPTY_HINTS: Record<keyof typeof FETCHERS, string> = {
  * day that has two independently usable halves. AM/PM is also the vocabulary the product
  * already uses: leave stores its half-day sessions as exactly these two values.
  *
- * The boundary is noon. A meeting counts against a half if it OVERLAPS it, so 11:30–12:30
- * takes both — it genuinely blocks the end of the morning and the start of the afternoon,
- * and rounding it into one would offer a slot that is not really there.
+ * ─── A MEETING IS IN ONE HALF: THE ONE IT STARTS IN ──────────────────────────
+ * The boundary is noon, and a meeting counts against the half its START time falls in — so
+ * 11:00–12:10 is a MORNING meeting and appears once.
+ *
+ * It used to count against every half it OVERLAPPED, on the reasoning that 11:30–12:30
+ * genuinely blocks the end of the morning and the start of the afternoon. What that produced
+ * on screen was the same meeting listed twice, in two panels, ten minutes of overrun making a
+ * whole afternoon look committed — and a person reading "2 meetings" on a day that has one.
+ * A row printed twice is not a warning, it is a row somebody has to work out is the same row.
+ *
+ * The half a meeting BELONGS to is the hour it is booked at, which is also the time the row
+ * prints and the time anyone would name it by. `startHalf` is that rule for a single meeting
+ * and this is the same rule over a list — one definition, so the tint on a row and the panel
+ * it is filed under cannot disagree.
  */
 const HALF_BOUNDARY_HOUR = 12;
 
-const splitHalves = (list: MeetingRow[], day: Dayjs) => {
-    const noon = day.startOf('day').add(HALF_BOUNDARY_HOUR, 'hour');
-    const am: MeetingRow[] = [];
-    const pm: MeetingRow[] = [];
-    for (const m of list) {
-        if (dayjs(m.startDate).isBefore(noon)) am.push(m);
-        if (dayjs(m.endDate).isAfter(noon)) pm.push(m);
-    }
+/**
+ * Which half a meeting is in: the one it STARTS in, which is the time the row prints.
+ *
+ * Declared here rather than beside the tint that also uses it, because `splitHalves` below is
+ * the same rule applied to a list and the two must not be able to drift apart.
+ */
+const startHalf = (m: Pick<MeetingRow, 'startDate'>): 'am' | 'pm' =>
+    (dayjs(m.startDate).hour() < HALF_BOUNDARY_HOUR ? 'am' : 'pm');
+
+/** The day is no longer an argument: the meeting's own start hour answers it. */
+export const splitHalves = <T extends Pick<MeetingRow, 'startDate'>>(list: T[]) => {
+    const am: T[] = [];
+    const pm: T[] = [];
+    for (const m of list) (startHalf(m) === 'am' ? am : pm).push(m);
     return { am, pm };
 };
 
@@ -219,6 +267,25 @@ const isHeld = (m: MeetingState) => m.lifecycle === 'COMPLETED';
 const isAwaitingTime = (m: MeetingState) => isHeld(m) && !(m.loggedMinutes ?? 0);
 
 /**
+ * A past meeting on the calendar: has every internal attendee logged their time?
+ * Null for meetings still to come, cancelled ones, and rows from a server that does not send
+ * the pending list — those keep their half-day colour rather than guessing.
+ */
+export const timesheetStateOf = (m: Pick<MeetingRow, 'lifecycle' | 'pendingTimesheetNames'>): 'filled' | 'pending' | null =>
+    (!isHeld(m) || !Array.isArray(m.pendingTimesheetNames)
+        ? null
+        : m.pendingTimesheetNames.length ? 'pending' : 'filled');
+
+/** The tooltip line naming who still owes time, or '' when there is nothing to say. */
+const timesheetNote = (m: MeetingRow) => {
+    const ts = timesheetStateOf(m);
+    if (!ts) return '';
+    return ts === 'filled'
+        ? '\nAll timesheets filled'
+        : `\nTimesheet pending: ${m.pendingTimesheetNames!.join(', ')}`;
+};
+
+/**
  * The three states a meeting can be READ in — ONE colour each, and everything else derived.
  *
  * These used to be three hand-picked hexes per state (badge fill, badge ink, row edge). That
@@ -235,6 +302,9 @@ export const LIFECYCLE_DEFAULT_COLORS = {
     cancelled: '#DC2626',
     awaiting: '#D97706',
     held: '#15803D',
+    /** Calendar only: a past meeting everyone has logged, and one someone still owes. */
+    filled: '#0F766E',
+    pending: '#BE123C',
 } as const;
 
 export type LifecycleState = keyof typeof LIFECYCLE_DEFAULT_COLORS;
@@ -364,6 +434,7 @@ export const toEditableMeeting = (m: MeetingRow) => ({
     title: m.title,
     description: m.description,
     isOnline: m.isOnline,
+    meetingMode: m.meetingMode,
     meetingLink: m.meetingLink,
     location: m.location,
     startDate: m.startDate,
@@ -471,6 +542,59 @@ export const rowTone = (color: string) => {
     return { bg, fg: readableOn(bg), edge: color };
 };
 
+/**
+ * TODAY — a wash that fades down the cell, not a ring drawn round it.
+ *
+ * ─── WHY THE OUTLINE WENT ────────────────────────────────────────────────────
+ * It was `inset 0 0 0 2px` in the green below, and a hard 2px ring is the SAME device this
+ * grid already spends on two other things: the picked day wears a 2px navy border and a drop
+ * target wears a 2px dashed one. Three rings in three colours, and the only way to tell which
+ * of them a cell is wearing is to remember the key — on a grid whose whole job is to be read
+ * at a glance. The ring also sat *outside* the content, so today looked like a cell someone
+ * had selected rather than a cell that is now.
+ *
+ * A fill reads before an edge does. The wash is strongest at the top, where the date and the
+ * AM/PM pills are, and gone by roughly three quarters down so the meeting chips below it stay
+ * on their own background — the tint must never compete with the half colours, which are the
+ * thing the cell is actually reporting.
+ *
+ * The hairline that remains is 1px at 45%: enough to close the shape off, not enough to be
+ * mistaken for the picked day's border. Plus a soft drop glow, so today sits very slightly
+ * forward of the 41 cells around it.
+ *
+ * `rgba(…, 0)` for the last stop, never the keyword `transparent`: that keyword is
+ * transparent BLACK, and interpolating a colour to it greys the middle of the gradient out.
+ */
+const TODAY_COLOR = '#16A34A';
+
+/**
+ * The cell's paint, given whatever background it would otherwise have had.
+ *
+ * Takes the base rather than assuming white, because a wholly clear day is grey — and a wash
+ * laid over the wrong base is how today ends up the one cell that contradicts the "is this day
+ * free" reading the background is there to give.
+ */
+export const todayCellStyle = (base: string) => ({
+    background: [
+        `linear-gradient(180deg,`,
+        `${toneAlpha(TODAY_COLOR, 0.22)} 0%,`,
+        `${toneAlpha(TODAY_COLOR, 0.07)} 46%,`,
+        `${toneAlpha(TODAY_COLOR, 0)} 78%)`,
+        `, ${base}`,
+    ].join(' '),
+    boxShadow: `inset 0 0 0 1px ${toneAlpha(TODAY_COLOR, 0.45)}, 0 2px 10px -4px ${toneAlpha(TODAY_COLOR, 0.5)}`,
+});
+
+/**
+ * Today's date numeral.
+ *
+ * The wash is deliberately quiet, and a quiet marker on its own would make today HARDER to
+ * find than the ring did — so the number it is attached to carries the colour too. Darkened
+ * first: the green above is 3.3:1 on white, which is under AA for 12px text, and `darkOf`
+ * brings it to about 7:1.
+ */
+export const todayInk = darkOf(TODAY_COLOR, 0.42);
+
 const halfStyle = (
     half: 'am' | 'pm', count: number, colors: HalfColors = DEFAULT_HALF_COLORS,
 ) => {
@@ -483,10 +607,6 @@ const halfStyle = (
         border: count === 0 ? '1px dashed #CBD5E1' : `1px solid ${bg}`,
     };
 };
-
-/** Which half colours a row: the one it STARTS in, which is the time the row prints. */
-const startHalf = (m: MeetingRow): 'am' | 'pm' =>
-    (dayjs(m.startDate).hour() < HALF_BOUNDARY_HOUR ? 'am' : 'pm');
 
 /**
  * The configured half-day colours and names, falling back to the built-in ones.
@@ -524,12 +644,16 @@ const useLifecycleColors = (): LifecycleColors => {
             readConfig(MEETING_STATUS_CANCELLED),
             readConfig(MEETING_STATUS_AWAITING),
             readConfig(MEETING_STATUS_HELD),
-        ]).then(([cancel, awaiting, held]) => {
+            readConfig(MEETING_TIMESHEET_FILLED),
+            readConfig(MEETING_TIMESHEET_PENDING),
+        ]).then(([cancel, awaiting, held, filled, pending]) => {
             if (cancelled) return;
             setColors({
                 cancelled: configuredColor(cancel, LIFECYCLE_DEFAULT_COLORS.cancelled),
                 awaiting: configuredColor(awaiting, LIFECYCLE_DEFAULT_COLORS.awaiting),
                 held: configuredColor(held, LIFECYCLE_DEFAULT_COLORS.held),
+                filled: configuredColor(filled, LIFECYCLE_DEFAULT_COLORS.filled),
+                pending: configuredColor(pending, LIFECYCLE_DEFAULT_COLORS.pending),
             });
         });
         return () => { cancelled = true; };
@@ -607,15 +731,21 @@ const MODE_COL_W = 220;
 const dayKey = (d: Dayjs | string) => dayjs(d).format('YYYY-MM-DD');
 
 /**
- * Opening a project from a meeting.
+ * Opening the linked row from a meeting — as a PROJECT or as a LEAD.
  *
- * `isProject` in the nav state is load-bearing, not decoration: the entity page hides its
- * project-only tabs (Meetings among them) unless it is told it was entered from a project, so
- * without it the link lands on the lead view and bounces off the tab it asked for.
+ * THE PATH DECIDES THE LENS, and nothing else does. `EntityDetailPage` reads
+ * `pathname.startsWith('/project/')` and defaults its tab to `projects` or `leads` from that
+ * alone. Lead-as-master means both are the same row and the same id; only the URL says which
+ * way to read it.
  *
- * Which is exactly why a meeting booked from the Leads table must pass `isLead`: claiming
- * `isProject` for a lead that has not become one opens the lead behind a set of project tabs
- * it has nothing to fill.
+ * This used to navigate to `/leads/:id?tab=meetings` and pass `{ isProject: true }` in
+ * history state, which is the one thing the route's own comment warns against — state is lost
+ * on a refresh, is not shareable, and was never read here anyway. The result was that clicking
+ * a project on a meeting opened it in the LEAD view, which is the bug this fixes. Every other
+ * caller in the app already navigates to `/project/:id`; this was the last one that did not.
+ *
+ * `isLead` still matters, and is the reason this takes it: sending a lead that has not become
+ * a project to `/project/:id` would open it behind project tabs it has nothing to fill.
  */
 const useOpenProject = () => {
     const navigate = useNavigate();
@@ -623,10 +753,7 @@ const useOpenProject = () => {
     // rebuild every column on every render — which is the cost this table was moved off.
     return useCallback((projectId?: string | null, isLead?: boolean) => {
         if (!projectId) return;
-        navigate(
-            isLead ? `/leads/${projectId}` : `/leads/${projectId}?tab=meetings`,
-            { state: { leadData: projectId, isProject: !isLead } },
-        );
+        navigate(isLead ? `/leads/${projectId}` : `/project/${projectId}`);
     }, [navigate]);
 };
 
@@ -662,6 +789,31 @@ const ProjectLink: React.FC<{
     </span>
 );
 
+/**
+ * "8 of these were held online, 3 in person and 1 as a hybrid."
+ *
+ * Only the modes that actually happened are named. The previous version was a two-branch
+ * ternary over `onlineCount` and `inPersonCount`, which could not phrase a third mode at all —
+ * and its "all of them" branches would have announced "All 5 were held online" on a month
+ * whose five meetings included two hybrids.
+ *
+ * Exported for its own test: it is a sentence with a comma, an "and" and a singular/plural,
+ * which is exactly the kind of thing that reads fine in review and wrong on screen.
+ */
+export const modeSentence = (
+    counts: { onlineCount: number; inPersonCount: number; hybridCount?: number },
+): string => {
+    const parts: string[] = [];
+    if (counts.onlineCount > 0) parts.push(`${counts.onlineCount} online`);
+    if (counts.inPersonCount > 0) parts.push(`${counts.inPersonCount} in person`);
+    if (counts.hybridCount) parts.push(`${counts.hybridCount} as a hybrid`);
+    if (!parts.length) return '';
+    // One mode covers the lot: say so, rather than restating the total as a breakdown of itself.
+    if (parts.length === 1) return `All of these were held ${parts[0].replace(/^\d+ /, '')}.`;
+    const last = parts.pop() as string;
+    return `Of these, ${parts.join(', ')} and ${last}.`;
+};
+
 interface MeetingAnalytics {
     costVisible: boolean;
     totalMeetings: number;
@@ -675,7 +827,10 @@ interface MeetingAnalytics {
     loggedMinutes: number;
     cancelledCount: number;
     onlineCount: number;
+    /** OFFLINE only. It was `total - onlineCount` until HYBRID existed and broke the subtraction. */
     inPersonCount: number;
+    /** Absent from an older server, which had no third mode to count. */
+    hybridCount?: number;
     internalAttendees: number;
     externalAttendees: number;
     avgMinutes: number;
@@ -957,13 +1112,12 @@ const CostSummary: React.FC<{
                 what is left here is the reasoning a colleague would add when handing the
                 numbers over — why a figure is missing, and which meeting to go and look at. */}
             <div style={{ marginTop: 10, fontSize: 12, color: '#64748B', lineHeight: 1.7 }}>
-                <div>
-                    {data.onlineCount > 0 && data.inPersonCount > 0
-                        ? `${data.onlineCount} of these were held online and ${data.inPersonCount} in person.`
-                        : data.onlineCount > 0
-                            ? `All ${data.onlineCount} were held online.`
-                            : `All ${data.inPersonCount} were held in person.`}
-                </div>
+                {/* How they were attended, as a sentence rather than three more cards.
+                    Built from the modes that actually OCCUR, so a month of online meetings
+                    reads "All 12 were held online" and does not also announce two zeroes —
+                    the previous version could only phrase two, and counted every hybrid
+                    meeting as online while reporting it as not in person. */}
+                <div>{modeSentence(data)}</div>
                 {data.awaitingTimesheets > 0 && (
                     <div style={{ color: darkOf(stateColors.awaiting) }}>
                         {data.awaitingTimesheets} held meeting{data.awaitingTimesheets === 1 ? ' has' : 's have'} no
@@ -1129,6 +1283,9 @@ const DayDetail: React.FC<{
                 ? 'afternoon is free'
                 : 'both halves booked';
     return (
+        // `md`. `lg` was tried to give the roster room and overshot: on a day with one meeting
+        // the free half became a column of empty space as wide as the card beside it, which
+        // reads as a layout that failed rather than a morning that is free.
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isPhone}
             PaperProps={{ sx: { borderRadius: isPhone ? 0 : 3, overflow: 'hidden' } }}>
             <div style={{ background: '#1E3A8A', padding: isPhone ? '12px 14px' : '16px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1239,40 +1396,66 @@ const DayDetail: React.FC<{
                                 cursor: onEdit ? 'pointer' : 'default',
                             }}
                         >
-                            <div style={{ padding: '10px 12px 10px', minWidth: 0 }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: rowTone(colors[half.key]).fg, whiteSpace: 'nowrap', marginBottom: 4 }}>
-                                <AppIcon name="bi-clock" className="fs-7" />
-                                {timeRange(m)}
-                            </div>
-                            <div style={{ minWidth: 0 }}>
-                                {/* Struck through and tagged, exactly as the table row reads it.
-                                    The row is kept — a cancelled meeting is still part of what
-                                    the day and the project had booked — but it has to be
-                                    unmistakable, and the tag carries the reason on hover. */}
-                                <div style={{
-                                    fontSize: 13, fontWeight: 700,
-                                    color: isCancelled(m) ? '#94A3B8' : '#1E293B',
-                                    textDecoration: isCancelled(m) ? 'line-through' : 'none',
-                                }}>
-                                    {m.title}
-                                    {isCancelled(m) && <CancelledTag reason={m.cancelReason} color={stateColors.cancelled} />}
-                                    {isAwaitingTime(m) && <AwaitingTag color={stateColors.awaiting} />}
+                            <div style={{ padding: '10px 12px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+
+                                {/* ROW 1 — when it is, and what state it is in.
+                                    The state tags used to trail the title, so a long name
+                                    pushed "AWAITING TIMESHEETS" onto its own line in the middle
+                                    of the card. Pinned right of the clock they always sit in
+                                    the same place, which is what makes a column of cards
+                                    scannable for the ones that need something doing. */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                    <span style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                                        fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+                                        color: rowTone(colors[half.key]).fg,
+                                    }}>
+                                        <AppIcon name="bi-clock" className="fs-7" />
+                                        {timeRange(m)}
+                                    </span>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+                                        {isCancelled(m) && <CancelledTag reason={m.cancelReason} color={stateColors.cancelled} />}
+                                        {isAwaitingTime(m) && <AwaitingTag color={stateColors.awaiting} />}
+                                    </span>
                                 </div>
-                                {m.projectName && (
-                                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1E3A8A', marginTop: 2 }}>
-                                        <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId, m.isLead)} />
-                                        {m.isLead && <LeadTag />}
-                                    </div>
-                                )}
+
+                                {/* ROW 2 — the name, and what it belongs to, on one line.
+                                    They answer "which meeting" together; stacked, the project
+                                    read as a caption of the title rather than its own fact.
+                                    Wraps rather than truncating, because a project number cut
+                                    in half identifies nothing. */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+                                    <span style={{
+                                        fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.3,
+                                        color: isCancelled(m) ? '#94A3B8' : '#0F172A',
+                                        textDecoration: isCancelled(m) ? 'line-through' : 'none',
+                                    }}>
+                                        {m.title}
+                                    </span>
+                                    {m.projectName && (
+                                        <span style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                                            padding: '3px 8px', borderRadius: 7, maxWidth: '100%',
+                                            background: toneAlpha('#1E3A8A', 0.07),
+                                            border: `1px solid ${toneAlpha('#1E3A8A', 0.16)}`,
+                                            fontSize: 11.5, fontWeight: 700, color: '#1E3A8A',
+                                        }}>
+                                            <AppIcon name={m.isLead ? 'bi-lightning-charge' : 'bi-briefcase'} className="fs-8" />
+                                            <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId, m.isLead)} />
+                                        </span>
+                                    )}
+                                    {m.isLead && <LeadTag />}
+                                </div>
+
+                                {/* ROW 3 — how to attend, and who called it. */}
                                 <div
-                                    // A ceiling, not a routine trim: at full width this line is
-                                    // one or two lines already, and the clamp is only there so a
-                                    // pasted paragraph in the location field cannot do to the
-                                    // card what the address used to. The whole line stays on the
-                                    // tooltip either way.
-                                    title={`${m.isOnline ? 'Online' : (m.location || 'Offline')}${m.organizerName ? ` · ${m.organizerName}` : ''}`}
+                                    // A ceiling, not a routine trim: the clamp is only there so
+                                    // a pasted paragraph in the location field cannot do to the
+                                    // card what the address used to. The whole line stays on
+                                    // the tooltip either way.
+                                    title={`${meetingWhere(modeOfExisting(m), m.location)}${m.organizerName ? ` · ${m.organizerName}` : ''}`}
                                     style={{
-                                        fontSize: 12, color: '#64748B', marginTop: 2,
+                                        fontSize: 12, color: '#64748B',
                                         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                                         overflow: 'hidden',
                                     }}
@@ -1280,7 +1463,36 @@ const DayDetail: React.FC<{
                                     {modeCell(m)}
                                     {m.organizerName && <span style={{ marginLeft: 10 }}>· {m.organizerName}</span>}
                                 </div>
-                            </div>
+
+                                {/* The old "Timesheet pending: A, B, C" sentence, kept ONLY for
+                                    rows an older server sent without a roster. Where the roster
+                                    renders it marks each person individually and counts them,
+                                    so printing the same names again as prose is one fact stated
+                                    twice and the longer of the two to read. */}
+                                {!m.attendees?.length && timesheetStateOf(m) && (
+                                    <div style={{
+                                        fontSize: 11.5, fontWeight: 600,
+                                        color: lifecycleTone(stateColors[timesheetStateOf(m)!]).ink,
+                                    }}>
+                                        {timesheetStateOf(m) === 'filled'
+                                            ? 'All timesheets filled'
+                                            : `Timesheet pending: ${m.pendingTimesheetNames!.join(', ')}`}
+                                    </div>
+                                )}
+                            {/* Who is actually coming. The card named the organiser and, when
+                                time was owed, listed the debtors as a sentence — so a meeting's
+                                own attendee list was the one thing you had to open the edit
+                                form to see. */}
+                            {m.attendees?.length ? (
+                                <AttendeeRoster
+                                    attendees={m.attendees}
+                                    external={m.externalAttendees}
+                                    // Only once it has happened. Marking a stopwatch against
+                                    // everyone invited to next Tuesday's meeting reports a debt
+                                    // nobody could have paid yet.
+                                    showPending={isHeld(m) && !isCancelled(m)}
+                                />
+                            ) : null}
                             </div>
                             {/* The SAME actions the table row offers. They were only in the
                                 table, so which of them existed depended on which view you
@@ -1316,6 +1528,23 @@ const DayDetail: React.FC<{
                                             label={isCancelled(m) ? 'Restore' : 'Cancel'}
                                             color={isCancelled(m) ? '#16A34A' : '#B45309'}
                                             onClick={() => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
+                                            /*
+                                             * Time logged means it happened. Cancelling says it
+                                             * did not, and a project billing hours against a
+                                             * meeting its own record calls off is a
+                                             * contradiction whichever half you believe.
+                                             *
+                                             * RESTORE is never blocked — putting a meeting back
+                                             * can only resolve that, never create it.
+                                             *
+                                             * The server refuses this too; this is what stops
+                                             * somebody discovering the rule by being refused.
+                                             */
+                                            disabledReason={
+                                                !isCancelled(m) && (m.loggedMinutes ?? 0) > 0
+                                                    ? 'Time has been logged against this meeting, so it cannot be cancelled. Remove the timesheets first.'
+                                                    : undefined
+                                            }
                                         />
                                     )}
                                     {onDelete && (
@@ -1337,32 +1566,162 @@ const DayDetail: React.FC<{
 };
 
 /**
+ * Who is coming.
+ *
+ * FACES, because a name alone is correct and not scannable: on a card listing five people the
+ * photo is recognised before any of the names have been read. 36 of 37 staff have one, so the
+ * initials fallback is the exception rather than the usual case.
+ *
+ * The organiser is first and tagged. Anyone still owing time on a meeting that has happened is
+ * marked individually — the card already says "Timesheet pending: A, B, C, D" as a sentence,
+ * which at four names is a line of text nobody reads to the end and which does not tell you
+ * whether YOU are one of them.
+ *
+ * External contacts sit in their own row, tinted differently. A client and a colleague on one
+ * undifferentiated list is the distinction this whole module is built on, quietly discarded.
+ */
+const AttendeeRoster: React.FC<{
+    attendees: NonNullable<MeetingRow['attendees']>;
+    external?: MeetingRow['externalAttendees'];
+    showPending: boolean;
+}> = ({ attendees, external, showPending }) => {
+    const pending = attendees.filter((a) => a.pendingTimesheet);
+    if (!attendees.length && !external?.length) return null;
+
+    /*
+     * Each person is a CHIP, not a row in a grid.
+     *
+     * Laid out on an auto-fit grid, a name with nothing around it floats: the eye cannot tell
+     * where one person ends and the next begins, and a short name beside a long one reads as a
+     * column that failed to align. A bordered surface per person gives the list its unit.
+     */
+    const person = (name: string, avatar: string | null | undefined, tag?: string, owes?: boolean) => (
+        <div
+            key={`${name}-${tag ?? ''}`}
+            style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0,
+                padding: '4px 10px 4px 4px', borderRadius: 999,
+                background: owes ? toneAlpha('#B45309', 0.07) : '#FFFFFF',
+                border: `1px solid ${owes ? toneAlpha('#B45309', 0.28) : '#E2E8F0'}`,
+            }}
+        >
+            <Avatar
+                src={avatar || undefined}
+                sx={{
+                    width: 26, height: 26, fontSize: 10.5, fontWeight: 700, flexShrink: 0,
+                    bgcolor: tag ? '#1E3A8A' : '#CBD5E1', color: tag ? '#fff' : '#334155',
+                }}
+            >
+                {name.charAt(0).toUpperCase()}
+            </Avatar>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#1E293B', whiteSpace: 'nowrap' }}>
+                {name}
+            </span>
+            {tag && (
+                <span style={{
+                    flexShrink: 0, fontSize: 8.5, fontWeight: 800, letterSpacing: '.05em',
+                    // `toneAlpha`, not an `#RRGGBBAA` literal: an 8-digit hex is opaque to the
+                    // dark-mode lint rule and to anyone reading it, and the kit already owns
+                    // this exact operation.
+                    padding: '2px 5px', borderRadius: 4, background: toneAlpha('#1E3A8A', 0.08), color: '#1E3A8A',
+                }}>
+                    {tag}
+                </span>
+            )}
+            {owes && (
+                // A glyph, not a word: it marks one person in a grid of them, and the count
+                // underneath already says how many in total. Tooltip rather than a raw `title`
+                // so it is styled like the rest of the app and lint stays clean.
+                <Tooltip title="Timesheet not logged yet">
+                    <span style={{ flexShrink: 0, color: '#B45309', lineHeight: 0 }}>
+                        <AppIcon name="bi-stopwatch" className="fs-8" />
+                    </span>
+                </Tooltip>
+            )}
+        </div>
+    );
+
+    return (
+        // No margin of its own: the card is a flex column with its own gap, and a margin here
+        // stacked on top of it left the roster floating further from the meeting than the
+        // meeting's own lines are from each other.
+        <div style={{
+            borderRadius: 9, background: 'rgba(255,255,255,0.72)',
+            border: '1px solid #E2E8F0', padding: '9px 11px', marginTop: 2,
+        }}>
+            <div style={{
+                fontSize: 9.5, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase',
+                color: '#94A3B8', marginBottom: 7,
+            }}>
+                Participants
+            </div>
+            {/* Wrapped, not a grid: chips are their own width, and a fixed track left a short
+                name padded out to the length of the longest one beside it. */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {attendees.map((a) => person(a.name, a.avatar, a.isOrganizer ? 'ORGANIZER' : undefined, showPending && a.pendingTimesheet))}
+                {external?.map((c) => person(c.name, c.avatar, 'CLIENT'))}
+            </div>
+            {showPending && pending.length > 0 && (
+                <div style={{
+                    marginTop: 8, paddingTop: 7, borderTop: '1px dashed #E2E8F0',
+                    fontSize: 11.5, fontWeight: 700, color: '#B45309',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                }}>
+                    <AppIcon name="bi-stopwatch" className="fs-8" />
+                    Timesheets pending ({pending.length})
+                </div>
+            )}
+        </div>
+    );
+};
+
+/**
  * One labelled action in a day-card footer: icon AND word, a 30px target, tinted in its own
  * colour so Cancel and Delete read as different weights before they are read as words.
  * `color` is a 6-digit hex (the alpha suffixes below depend on it).
  */
 const CardAction: React.FC<{
     icon: string; label: string; color: string; onClick: () => void; pushRight?: boolean;
-}> = ({ icon, label, color, onClick, pushRight }) => (
+    /**
+     * Why this action cannot be taken right now. Present means disabled.
+     *
+     * Stated rather than hidden: Cancel is normally here, so removing it leaves somebody
+     * hunting for a button that used to exist. A greyed control that says why is the shorter
+     * conversation.
+     */
+    disabledReason?: string;
+}> = ({ icon, label, color, onClick, pushRight, disabledReason }) => {
+    const button = (
     <Box
         component="button"
         type="button"
-        onClick={onClick}
+        disabled={!!disabledReason}
+        onClick={disabledReason ? undefined : onClick}
         sx={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
             height: 30, px: 1.25, ml: pushRight ? 'auto' : 0,
             borderRadius: '8px', border: `1px solid ${color}33`, bgcolor: `${color}0D`, color,
             fontSize: 12, fontWeight: 600, fontFamily: 'inherit', lineHeight: 1, whiteSpace: 'nowrap',
-            cursor: 'pointer', transition: 'background-color .15s, border-color .15s, transform .1s',
-            '&:hover': { bgcolor: `${color}1F`, borderColor: `${color}66` },
-            '&:active': { transform: 'scale(0.97)' },
+            cursor: disabledReason ? 'not-allowed' : 'pointer',
+            transition: 'background-color .15s, border-color .15s, transform .1s',
+            // Dimmed, not removed. It still occupies its place in the row so the footer does
+            // not reflow as a meeting's state changes under the reader.
+            opacity: disabledReason ? 0.42 : 1,
+            '&:hover': disabledReason ? {} : { bgcolor: `${color}1F`, borderColor: `${color}66` },
+            '&:active': disabledReason ? {} : { transform: 'scale(0.97)' },
             '&:focus-visible': { outline: `2px solid ${color}`, outlineOffset: 1 },
         }}
     >
         <AppIcon name={icon} className="fs-6" />
         {label}
     </Box>
-);
+    );
+    // A disabled button fires no pointer events, so the tooltip needs a wrapper that does -
+    // otherwise the explanation is unreachable by exactly the people who need it.
+    return disabledReason
+        ? <Tooltip title={disabledReason}><span style={{ display: 'inline-flex', marginLeft: pushRight ? 'auto' : 0 }}>{button}</span></Tooltip>
+        : button;
+};
 
 export interface MeetingsListProps {
     mode: 'project' | 'contact' | 'employee';
@@ -1453,6 +1812,11 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     // What cancelled, unlogged and held look like — configured on Calendar Configuration →
     // Meetings, and applied identically to the badges and the table rows below.
     const stateColors = useLifecycleColors();
+    /** A past meeting's timesheet colour, otherwise the colour of the half it starts in. */
+    const chipColor = (m: MeetingRow) => {
+        const ts = timesheetStateOf(m);
+        return ts ? stateColors[ts] : halfColors[startHalf(m)];
+    };
     // The day a dragged meeting is currently over, so the grid can show where it would land.
     const [dragOverDay, setDragOverDay] = useState<string | null>(null);
     /**
@@ -1565,7 +1929,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             // A day with any meeting has at most ONE free half — the meeting has to land in
             // the morning or the afternoon — so counting free halves here is the same as
             // counting these days, and the day is the thing you actually schedule against.
-            const { am, pm } = splitHalves(list, d);
+            const { am, pm } = splitHalves(list);
             const halfOpen = !am.length || !pm.length;
             // FUTURE only. A free morning last Tuesday is not a slot, and counting it inflated
             // the figure with capacity nobody can use.
@@ -1591,20 +1955,24 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
      */
     const modeCell = (m: MeetingRow) => {
         const stop = (e: React.MouseEvent) => e.stopPropagation();
-        if (m.isOnline) {
-            return m.meetingLink ? (
-                <a href={m.meetingLink} target="_blank" rel="noreferrer" onClick={stop} style={{ color: '#1E3A8A', fontWeight: 600 }}>
-                    <AppIcon name="bi-camera-video" className="me-1" />Online · Join
-                </a>
-            ) : (
-                <span><AppIcon name="bi-camera-video" className="me-1" />Online</span>
-            );
-        }
+        const mode = modeOfExisting(m);
         const maps = mapsUrl(m.location);
+        /*
+         * A HYBRID row offers BOTH ways in, side by side.
+         *
+         * This used to branch on `isOnline`, a boolean asked to describe three modes: a hybrid
+         * meeting printed its join link and said nothing about the room, so the half of the
+         * guests walking there had no address on the row they were reading. Each half is drawn
+         * if the MODE owns it, which is how both can appear.
+         */
+        const join = modeHasLink(mode) && m.meetingLink ? (
+            <a href={m.meetingLink} target="_blank" rel="noreferrer" onClick={stop} style={{ color: '#1E3A8A', fontWeight: 600 }}>
+                <AppIcon name="bi-camera-video" className="me-1" />{mode === 'HYBRID' ? 'Join' : 'Online · Join'}
+            </a>
+        ) : null;
         // No address, no link: a maps search for an empty string lands on nowhere, which is a
-        // worse answer than saying the meeting is simply in person.
-        if (!maps) return <span><AppIcon name="bi-geo-alt" className="me-1" />Offline</span>;
-        return (
+        // worse answer than saying the meeting is simply offline.
+        const go = modeHasPlace(mode) && maps ? (
             <a
                 href={maps}
                 target="_blank"
@@ -1615,6 +1983,15 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             >
                 <AppIcon name="bi-geo-alt" className="me-1" />{m.location}
             </a>
+        ) : null;
+        if (join && go) return <>{join}<span style={{ margin: '0 6px', color: '#CBD5E1' }}>·</span>{go}</>;
+        if (join || go) return join ?? go;
+        // Neither half is actionable: say which mode it is and stop there.
+        return (
+            <span>
+                <AppIcon name={modeHasPlace(mode) ? 'bi-geo-alt' : 'bi-camera-video'} className="me-1" />
+                {meetingWhere(mode, m.location)}
+            </span>
         );
     };
 
@@ -1659,7 +2036,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             // Both kinds land in this column now that a meeting can be booked from the Leads
             // table, and a header that names only one of them is the sort of small lie that
             // makes people distrust the rest of the row.
-            header: 'Project / Lead',
+            header: 'Project',
             Cell: ({ row }: any) => {
                 const m = row.original as MeetingRow;
                 if (!m.projectName) return <span style={{ color: '#94A3B8' }}>Not linked</span>;
@@ -1703,7 +2080,9 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
         },
         {
             id: 'mode',
-            accessorFn: (m: MeetingRow) => (m.isOnline ? 'Online' : m.location || 'In person'),
+            // The same sentence the cell prints, so search and sort agree with the eye — and
+            // so a hybrid is findable by typing "hybrid" as well as by typing the address.
+            accessorFn: (m: MeetingRow) => meetingWhere(modeOfExisting(m), m.location),
             header: 'Mode',
             /**
              * ONE LINE, ellipsised — and still a link.
@@ -1782,16 +2161,30 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                 <AppIcon name="bi-pencil" className="fs-5" />
                             </button>
                         )}
-                        {onCancel && (
-                            <button
-                                type="button"
-                                onClick={() => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
-                                title={isCancelled(m) ? 'Restore meeting' : 'Cancel meeting'}
-                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: isCancelled(m) ? '#16A34A' : '#B45309' }}
-                            >
-                                <AppIcon name={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'} className="fs-5" />
-                            </button>
-                        )}
+                        {onCancel && (() => {
+                            // The SAME rule the day card applies, because this is the same act
+                            // through a different button. Leaving it only on the card would mean
+                            // the table is where you go to do the thing the card refuses.
+                            const blocked = !isCancelled(m) && (m.loggedMinutes ?? 0) > 0;
+                            return (
+                                <button
+                                    type="button"
+                                    disabled={blocked}
+                                    onClick={blocked ? undefined : () => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
+                                    title={blocked
+                                        ? 'Time has been logged against this meeting, so it cannot be cancelled'
+                                        : (isCancelled(m) ? 'Restore meeting' : 'Cancel meeting')}
+                                    style={{
+                                        border: 0, background: 'transparent',
+                                        cursor: blocked ? 'not-allowed' : 'pointer',
+                                        opacity: blocked ? 0.35 : 1,
+                                        color: isCancelled(m) ? '#16A34A' : '#B45309',
+                                    }}
+                                >
+                                    <AppIcon name={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'} className="fs-5" />
+                                </button>
+                            );
+                        })()}
                         {onDelete && (
                             <button
                                 type="button"
@@ -1838,7 +2231,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     }, [stateColors]);
 
     const pickedList = byDay.get(picked) ?? [];
-    const pickedHalves = splitHalves(pickedList, dayjs(picked));
+    const pickedHalves = splitHalves(pickedList);
     const todayKey = dayKey(dayjs());
 
     if (loading) {
@@ -1990,7 +2383,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                         {gridDays.map((d) => {
                             const k = dayKey(d);
                             const list = byDay.get(k) ?? [];
-                            const { am, pm } = splitHalves(list, d);
+                            const { am, pm } = splitHalves(list);
                             const clear = list.length === 0;
                             const outside = d.month() !== cursor.month();
                             const isToday = k === todayKey;
@@ -2044,7 +2437,16 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                         // A wholly clear day still reads grey at a glance; once either
                                         // half is taken the cell goes white and the two bars carry the
                                         // detail, so the background never contradicts them.
-                                        background: dragOverDay === k ? '#EFF4FF' : (clear ? '#F1F5F9' : '#FFFFFF'),
+                                        //
+                                        // Today lays its wash OVER that base rather than replacing it —
+                                        // see `todayCellStyle`. A drag still wins: while one is in
+                                        // flight the only question is which cell the card lands on.
+                                        ...(isToday && dragOverDay !== k
+                                            ? todayCellStyle(clear ? '#F1F5F9' : '#FFFFFF')
+                                            : {
+                                                background: dragOverDay === k ? '#EFF4FF' : (clear ? '#F1F5F9' : '#FFFFFF'),
+                                                boxShadow: 'none',
+                                            }),
                                         // The drop target states itself. Without it a drag across
                                         // a 42-cell grid is a guess about which cell is under the
                                         // cursor.
@@ -2054,7 +2456,6 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                         // Days outside the month recede, so the month's own shape is
                                         // still the first thing read.
                                         opacity: outside ? 0.35 : 1,
-                                        boxShadow: isToday ? 'inset 0 0 0 2px #16A34A' : 'none',
                                         display: 'flex', flexDirection: 'column', gap: 3,
                                     }}
                                 >
@@ -2067,7 +2468,10 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                     <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                                         <span style={{
                                             fontSize: 12, fontWeight: 800, minWidth: 15,
-                                            color: clear ? '#94A3B8' : '#1E293B',
+                                            // Today's number carries the colour as well, because the
+                                            // wash it replaced a ring with is deliberately quiet —
+                                            // see `todayInk` for why it is darkened first.
+                                            color: isToday ? todayInk : (clear ? '#94A3B8' : '#1E293B'),
                                         }}>
                                             {d.format('D')}
                                         </span>
@@ -2098,11 +2502,11 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                             // because dragging changes the DAY and never the clock.
                                             // Cancelled wins the tooltip: the chip is too narrow for a
                                             // tag, so this is where the reason can be read.
-                                            title={isCancelled(m)
+                                            title={`${isCancelled(m)
                                                 ? `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}\nCancelled${m.cancelReason ? ` — ${m.cancelReason}` : ''}`
                                                 : dragEnabled
                                                 ? `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}\nDrag to another day — the time stays ${dayjs(m.startDate).format('h:mm A')}`
-                                                : `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}`}
+                                                : `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}`}${timesheetNote(m)}`}
                                             style={{
                                                 // One fixed box per meeting, whatever it is
                                                 // called. Height and line-height are set rather
@@ -2116,11 +2520,13 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                                 // start order, and which side of lunch each one
                                                 // falls on was the thing you had to read the
                                                 // times to work out.
-                                                color: rowTone(halfColors[startHalf(m)]).fg,
-                                                background: rowTone(halfColors[startHalf(m)]).bg,
+                                                // Once it has happened, the chip says whether
+                                                // everyone has logged their time instead.
+                                                color: rowTone(chipColor(m)).fg,
+                                                background: rowTone(chipColor(m)).bg,
                                                 // 2px, not 3: a month cell is ~120px wide and
                                                 // every pixel of it is title.
-                                                borderLeft: `2px solid ${halfColors[startHalf(m)]}`,
+                                                borderLeft: `2px solid ${chipColor(m)}`,
                                                 borderRadius: 4, padding: isPhone ? '0 3px' : '0 4px',
                                                 // The three that make an ellipsis happen, and the
                                                 // display that makes it apply to a span.
@@ -2206,8 +2612,24 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                 {sample.label}
                             </span>
                         ))}
+                        {/* Past meetings trade their half colour for these two. */}
+                        {([
+                            { key: 'filled', label: 'Timesheets filled' },
+                            { key: 'pending', label: 'Timesheets pending' },
+                        ] as const).map((sample) => (
+                            <span key={sample.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: '#64748B' }}>
+                                <span style={{
+                                    width: 22, height: 12, borderRadius: 3,
+                                    background: rowTone(stateColors[sample.key]).bg,
+                                    borderLeft: `2px solid ${stateColors[sample.key]}`,
+                                }} />
+                                {sample.label}
+                            </span>
+                        ))}
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#64748B' }}>
-                            <span style={{ width: 14, height: 14, borderRadius: 4, background: '#fff', boxShadow: 'inset 0 0 0 2px #16A34A' }} />
+                            {/* The same paint the cell wears, so the key cannot describe a
+                                marker the grid no longer draws. */}
+                            <span style={{ width: 14, height: 14, borderRadius: 4, ...todayCellStyle('#FFFFFF') }} />
                             Today
                         </span>
                     </div>

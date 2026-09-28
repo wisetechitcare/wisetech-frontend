@@ -1573,7 +1573,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   );
 
   // ── Shared styles ─────────────────────────────────────────────────────────────
-  const FILTER_HEIGHT = "32px";
+  // Matches the table toolbar beside it (kit 'sm' select = 34px).
+  const FILTER_HEIGHT = "34px";
 
   const menuSx = {
     PaperProps: {

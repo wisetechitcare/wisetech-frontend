@@ -1,9 +1,12 @@
 import { Box, useTheme } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
+import type { ReactNode } from 'react';
 
 export interface SegmentedOption<T extends string> {
   value: T;
   label: string;
+  /** Leading glyph. Takes the segment's colour, so it tracks the selection. */
+  icon?: ReactNode;
   /** Trailing count, e.g. `Active (37)`. Rendered dimmer than the label. */
   count?: number;
   /**
@@ -111,6 +114,11 @@ export function SegmentedControl<T extends string>({
               '&:hover': { bgcolor: active || off ? undefined : C.hover },
             }}
           >
+            {option.icon && (
+              <Box component="span" aria-hidden sx={{ display: 'inline-flex', mr: 0.75, verticalAlign: 'middle', color: 'inherit', '& i': { color: 'inherit' } }}>
+                {option.icon}
+              </Box>
+            )}
             {option.label}
             {typeof option.count === 'number' && (
               <Box

@@ -94,9 +94,15 @@ const ProjectMeetings: React.FC<Props> = ({ leadId, leadName, contact }) => {
                 description: m.description || '',
                 startDate: next.startDate,
                 endDate: next.endDate,
+                // The MODE, not just the boolean. A drag re-sends the whole row, and
+                // `isOnline` alone reads as an explicit "this is an online meeting" — which
+                // would quietly turn a HYBRID meeting into an online one for the crime of
+                // being moved half an hour. Both halves of "where" go along untouched; the
+                // server blanks whichever the mode does not own.
+                meetingMode: m.meetingMode,
                 isOnline: m.isOnline,
-                meetingLink: m.isOnline ? (m.meetingLink || undefined) : undefined,
-                location: m.isOnline ? undefined : (m.location || undefined),
+                meetingLink: m.meetingLink || undefined,
+                location: m.location || undefined,
                 participants: m.participants || undefined,
                 externalParticipants: m.externalParticipants || undefined,
                 projectId: m.projectId || undefined,

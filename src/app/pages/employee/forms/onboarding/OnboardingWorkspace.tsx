@@ -41,6 +41,7 @@ import { getAllTeams } from "@services/projects";
 import { fetchRoles } from "@services/roles";
 import { cachedRequest } from "@services/_requestCache";
 import { resolveActiveOrgId } from "@utils/activeOrg";
+import { WORKFLOW_TYPES } from "@app/components/ApprovalSettings";
 import OnboardingWizard, { OnboardingGroup } from "./OnboardingWizard";
 import * as S from "./OnboardingSections";
 import type { OnboardingSectionsProps } from "./OnboardingSections";
@@ -104,7 +105,9 @@ const pickSavedDocumentRow = (rows: any[], documentId: string) => {
 const fmtDate = (v?: string) => (v && dayjs(v).isValid() ? dayjs(v).format("DD MMM YYYY") : "");
 
 /** The three request types every employee needs an approval chain for. */
-const APPROVAL_WORKFLOW_TYPES = ["attendance", "leave", "reimbursement"] as const;
+// The step renders one row per workflow type, each demanding a Level 1 approver, so the
+// gate reads the same list the form does rather than a copy that can fall behind it.
+const APPROVAL_WORKFLOW_TYPES = WORKFLOW_TYPES;
 
 const hasValue = (v: any) => v !== undefined && v !== null && String(v).trim() !== "";
 
@@ -581,7 +584,11 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
               "retentionAmount",
               "retentionPercentage",
             ],
-            // CTC is optional and may legitimately be zero, so nothing here blocks.
+            // CTC carries a required mark on the field itself, so the rail has to say so
+            // too — a section whose starred field blocks nothing reads as a bug. The rest
+            // are radios that always hold a value, and the conditional amounts only exist
+            // once their toggle is on, so CTC is the one that can actually be empty here.
+            requiredFields: ["ctcInLpa"],
             render: (p) => <S.FinancialSection {...p} />,
           },
           {
@@ -603,8 +610,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             requiredFields: ["appRole"],
             // Approval Settings carries a required mark, so it has to hold Continue the
             // way every other required field does — `requiredFields` cannot express it,
-            // because "approvalChains has something in it" is not the same as "all three
-            // request types have a Level 1 approver".
+            // because "approvalChains has something in it" is not the same as "every
+            // request type has a Level 1 approver".
             //
             // Create mode only: while editing, the chains are persisted server-side and
             // never mirrored into `values`, so testing them here would block navigation

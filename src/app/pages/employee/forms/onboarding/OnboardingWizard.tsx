@@ -416,11 +416,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       )
     );
 
-    // A structural requirement has no Yup rule to trip — `approvalChains` is a plain
-    // object the schema says nothing about — so Continue walked straight past a section
-    // that was visibly marked required. Only leaves that opt in via `isComplete` are
-    // checked here; `requiredFields` keeps flowing through the schema as before.
-    const incomplete = Boolean(activeLeaf?.isComplete) && isBlocking(activeLeaf);
+    // The same gate the sidebar uses, so both ways forward agree on what "required"
+    // means. Leaning on Yup alone left two holes: a structural requirement with no rule
+    // to trip (`approvalChains` is a plain object the schema says nothing about), and a
+    // field the rail stars while the schema calls optional — Continue walked straight
+    // past both, then the sidebar refused to jump back over the section it had just
+    // allowed. `requiredFields` now blocks here exactly as it does there.
+    const incomplete = activeLeaf ? isBlocking(activeLeaf) : false;
 
     if (blocked || incomplete) {
       ownFields.forEach((f) => setFieldTouched(f, true));
@@ -618,7 +620,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                             </span>
                             <span className="ob-tree-child-label">
                               {leaf.label}
-                              {leaf.requiredFields && leaf.requiredFields.length > 0 && status !== "completed" && (
+                              {/* The mark says "this section has required fields", which stays
+                                  true once they are filled — a required INPUT keeps its
+                                  asterisk when answered, and dropping it here made a finished
+                                  section look optional. Completion is the tick, not the mark. */}
+                              {((leaf.requiredFields && leaf.requiredFields.length > 0) || leaf.isComplete) && (
                                 <span style={{ color: "#ef4444", marginLeft: "4px", fontWeight: "bold" }} title="Required section">*</span>
                               )}
                             </span>

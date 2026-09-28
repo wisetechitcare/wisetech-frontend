@@ -935,8 +935,10 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
             {rows.length === 0 ? (
                 <BillingEmptyState
                     icon="wallet"
-                    title="This project has no deliverables yet"
-                    description="Bills are raised against deliverables. Add stages and deliverables in the Execution tab first."
+                    title="Nothing billed on this project yet"
+                    description="Complete some billable deliverables in the Execution tab, then raise a billing request."
+                    actionLabel="Raise Billing Request"
+                    onAction={() => go(`/billing/requests/new?projectId=${projectId}`)}
                 />
             ) : (
                 <MaterialTable

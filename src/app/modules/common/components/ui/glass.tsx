@@ -8,7 +8,7 @@ import { alpha } from '@mui/material/styles';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { T, GlassVariant, VividTone, ThemeMode, label } from './tokens';
 import { isMaterial, useSurfaceStyle } from '@app/theme/appearance';
-import { toTitleCase } from './text';
+import { toTitleCase, HEADING_CASE_SX } from './text';
 import { GH_DARK } from '@app/theme/githubDark';
 import { MRD_EASE } from './buttons';
 import { WtCloseButton } from './tw/WtCloseButton';
@@ -211,6 +211,7 @@ export function GlassHeader({
             fontWeight: plain ? 600 : 700,
             fontSize: plain ? 18 : { xs: 15.5, sm: 17 },
             lineHeight: 1.25, color: gradient ? '#fff' : label(mode, 'primary'),
+            ...HEADING_CASE_SX,
           }}>
             {toTitleCase(title)}
           </Typography>

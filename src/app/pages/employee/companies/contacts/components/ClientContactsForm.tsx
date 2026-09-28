@@ -222,9 +222,12 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   // shows in the upload box instead of the empty placeholder. (The form field
   // stays null until a NEW file is picked — save preserves the existing URL.)
   useEffect(() => {
-    const existing = (initialData as any)?.profilePhoto;
+    // `googlePhotoUrl` is the Google-hosted address a fresh import carries; `profilePhoto` is
+    // an asset we already host, on a contact being edited. Either is worth showing in the box —
+    // what the preview answers is "this is the picture this contact will have".
+    const existing = (initialData as any)?.profilePhoto || (initialData as any)?.googlePhotoUrl;
     setProfilePhotoPreview(key !== "add-new" && typeof existing === "string" && existing ? existing : null);
-  }, [key, contactId, (initialData as any)?.profilePhoto]);
+  }, [key, contactId, (initialData as any)?.profilePhoto, (initialData as any)?.googlePhotoUrl]);
 
   useEffect(() => {
     loadInitialData();
@@ -554,6 +557,25 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       if (profilePhotoUrl !== null) {
         contactData.profilePhoto = profilePhotoUrl;
       }
+
+      /*
+       * Google import extras, passed straight through.
+       *
+       * They live on `initialData` rather than in the form's own values because neither is a
+       * field anybody types: `googleResourceId` records where the contact came from, and
+       * `googlePhotoUrl` is an address the SERVER fetches the picture from and swaps for a path
+       * in our own storage. Both were being dropped here — `contactData` is built key by key,
+       * so anything not named simply never left the browser, and an imported contact was saved
+       * with no provenance and no photo.
+       *
+       * The photo only when the admin has not chosen their own: an uploaded file is a
+       * deliberate choice and must beat whatever Google had.
+       */
+      const googleResourceId = (initialData as any)?.googleResourceId;
+      if (googleResourceId) contactData.googleResourceId = googleResourceId;
+
+      const googlePhotoUrl = (initialData as any)?.googlePhotoUrl;
+      if (googlePhotoUrl && profilePhotoUrl === null) contactData.googlePhotoUrl = googlePhotoUrl;
 
       Object.keys(contactData).forEach((key) => {
         if (contactData[key] === undefined) {

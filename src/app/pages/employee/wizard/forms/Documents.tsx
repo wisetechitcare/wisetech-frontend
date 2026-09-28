@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { FileCheck2, FileText } from "lucide-react";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import FileInput from "@app/modules/common/inputs/FileInput";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * One configured onboarding document type, rendered as an ATTACHMENT FIELD.
@@ -14,10 +12,9 @@ import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
  * rather than the three bare columns it used to be, where a type with no identity
  * number still got an empty text box holding a "-" placeholder.
  */
-function Documents({ formikProps, index, setFile }: any) {
-    const { values: { documentFields, documentInfo } } = formikProps;
+function Documents({ formikProps, index, setFile, removeFile }: any) {
+    const { values: { documentFields, documentInfo }, setFieldValue } = formikProps;
     const docField = documentFields[index];
-    const [showInfo, setShowInfo] = useState(false);
 
     // Row order follows the configured list (OnboardingWorkspace keeps them
     // aligned), but match on documentId anyway so a legacy record saved in a
@@ -32,6 +29,26 @@ function Documents({ formikProps, index, setFile }: any) {
     const isAttached = Boolean(element?.path || element?.fileName);
 
     const identityFieldPath = `documentInfo[${documentInfoIndex}].identityNumber`;
+
+    // Picking a file does NOT upload it here — it is queued on the host and uploaded on
+    // save, once there is a user to attach it to. Writing the name into the row now is
+    // what makes the card, the "Attached" badge and the summary count agree with the
+    // field; save then overwrites both keys with the stored path and file name.
+    const handleSelect = (docId: string, file: File) => {
+        setFieldValue(`documentInfo[${documentInfoIndex}].fileName`, file.name);
+        setFile(docId, file);
+    };
+
+    // Removing has to clear BOTH sides or it only looks removed: the saved row still
+    // carries path/fileName (so the card keeps showing the old file, and the save
+    // writes it straight back), and a file picked in this session is still queued in
+    // the host's pending-upload map. The row keeps its `id`, so the save updates it to
+    // empty rather than leaving the attachment on the record.
+    const handleRemove = () => {
+        setFieldValue(`documentInfo[${documentInfoIndex}].path`, "");
+        setFieldValue(`documentInfo[${documentInfoIndex}].fileName`, "");
+        removeFile?.(id);
+    };
 
     return (
         <div className="ob-doc-card">
@@ -51,15 +68,6 @@ function Documents({ formikProps, index, setFile }: any) {
                 </span>
             </div>
 
-            {/* Info banner belongs to the whole card, not to one of its columns —
-                the upload is disabled until the employee record exists. */}
-            {!formikProps.values.userId && showInfo && (
-                <div className="ob-doc-card-note" role="status">
-                    <AppIcon name="bi-info-circle" aria-hidden />
-                    <span>Save the employee&apos;s details first, then upload documents here.</span>
-                </div>
-            )}
-
             <div className={`ob-doc-card-body${hasIdentityNumber ? "" : " is-file-only"}`}>
                 {hasIdentityNumber && (
                     <TextInput
@@ -74,9 +82,8 @@ function Documents({ formikProps, index, setFile }: any) {
                     <FileInput
                         placeholder="Document"
                         documentId={id}
-                        setFile={setFile}
-                        disabled={!formikProps.values.userId}
-                        onDisabledClick={() => setShowInfo(true)}
+                        setFile={handleSelect}
+                        onRemove={handleRemove}
                         existingDocument={element}
                         fieldName={fieldName}
                         onboardingStyle

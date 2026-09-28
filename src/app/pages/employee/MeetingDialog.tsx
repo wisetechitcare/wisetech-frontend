@@ -52,8 +52,8 @@ export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: 
                     // somebody's meeting under a heading that says "New meeting" is the kind of
                     // detail that makes people close a dialog to check.
                     title={bodyProps.editing
-                        ? 'Edit meeting'
-                        : bodyProps.leadName ? 'New lead meeting' : 'New meeting'}
+                        ? 'Edit Meeting'
+                        : bodyProps.leadName ? 'New Lead Meeting' : 'New Meeting'}
                     onClose={saving ? undefined : onClose}
                 />
             }

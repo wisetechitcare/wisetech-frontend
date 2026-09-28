@@ -16,3 +16,61 @@ customHeaders:
     headers:
       - key: 'Cache-Control'
         value: 'public, max-age=0, s-maxage=0, must-revalidate'
+
+      # ── Security headers ────────────────────────────────────────────────────
+      # This app renders payroll, attendance and personal employee data, so the
+      # cost of a clickjacking or referrer leak is real rather than theoretical.
+      # Each header below is one a browser enforces for free; the deliberate
+      # omissions are documented at the bottom.
+
+      # Force HTTPS on every later visit, so a plain-http link or a stripped
+      # redirect cannot downgrade a session carrying an auth cookie.
+      # NOTE: no `includeSubDomains` on purpose — the API runs on a separate host
+      # and asserting for the whole domain could force HTTPS on a sibling that is
+      # not ready for it. Add it once every subdomain is confirmed HTTPS-only.
+      # `preload` is deliberately absent too: it is a one-way commitment that is
+      # slow and painful to reverse.
+      - key: 'Strict-Transport-Security'
+        value: 'max-age=31536000'
+
+      # Stop the browser guessing a response's type. Without it, an uploaded file
+      # served with the wrong content type can be executed as script.
+      - key: 'X-Content-Type-Options'
+        value: 'nosniff'
+
+      # Clickjacking: nobody should be able to frame this app and trick a manager
+      # into clicking "approve" on an invisible overlay. SAMEORIGIN rather than
+      # DENY because the app frames its own document previews.
+      - key: 'X-Frame-Options'
+        value: 'SAMEORIGIN'
+
+      # URLs here carry employee and request IDs. Without this, the full path is
+      # sent as the Referer to every third-party origin the page touches —
+      # Google Fonts, Google Maps, S3 — handing them those IDs for free.
+      - key: 'Referrer-Policy'
+        value: 'strict-origin-when-cross-origin'
+
+      # Turn off browser features this app does not use, so a compromised script
+      # cannot reach for them. geolocation stays ENABLED and scoped to self: it
+      # is load-bearing for attendance geofencing and the branch location picker
+      # (navigator.geolocation is used in 5+ components). Blocking it would break
+      # check-in.
+      - key: 'Permissions-Policy'
+        value: 'geolocation=(self), camera=(), microphone=(), payment=(), usb=()'
+
+      # DELIBERATELY NOT SET HERE:
+      #
+      # Content-Security-Policy — the highest-value header left, and the one that
+      #   cannot be added blind. This app needs 'unsafe-inline' for MUI/emotion's
+      #   injected styles, plus allowances for fonts.googleapis.com, the Google
+      #   Maps SDK, and frame-src for the S3 bucket the document preview iframes.
+      #   A CSP that is wrong does not degrade — it blanks the page. The correct
+      #   rollout is Content-Security-Policy-Report-Only first, watch what it
+      #   would have blocked, then enforce. That is a project, not a line.
+      #
+      # X-XSS-Protection — obsolete. The legacy auditor it enables has its own
+      #   vulnerabilities and every current browser ignores it. Modern browsers
+      #   rely on CSP instead.
+      #
+      # Cross-Origin-Opener-Policy — worth adding, but it breaks cross-origin
+      #   popups. Verify nothing depends on one before enabling.

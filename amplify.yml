@@ -18,6 +18,12 @@ frontend:
         # GitHub Actions hit on Node 20.
         - nvm install 24
         - nvm use 24
+        # Cheapest-first: this needs only node, so it runs BEFORE the install and the
+        # bundle. A missing variable fails the build in seconds instead of three
+        # minutes in, and — far more importantly — instead of not failing at all.
+        # Vite substitutes `undefined` for an unset VITE_ var and exits 0, so without
+        # this a typo in the console ships a green deploy and a white screen.
+        - node scripts/verify-build-env.mjs
         # corepack honours the `packageManager` field in package.json, so the build uses
         # the exact pnpm version the lockfile was written with rather than whatever is
         # newest. The env var stops it pausing for a download confirmation on a runner
@@ -36,6 +42,16 @@ frontend:
         # The script already sets NODE_OPTIONS=--max-old-space-size=4096 via cross-env —
         # the Vite build OOMs at Node's default heap.
         - pnpm run build
+    postBuild:
+      commands:
+        # Amplify deploys whatever is in baseDirectory. It does not care whether the
+        # build actually produced anything, so a build that "succeeds" while emitting
+        # nothing — a misconfigured outDir, a plugin that swallowed its own error —
+        # publishes an empty site over a working one. These two checks cost
+        # milliseconds and turn that into a failed build.
+        - test -f dist/index.html || { echo "❌ dist/index.html missing — refusing to deploy an empty site."; exit 1; }
+        - test -n "$(ls -A dist/assets 2>/dev/null)" || { echo "❌ dist/assets is empty — the bundle did not emit."; exit 1; }
+        - echo "✅ Build output verified — $(find dist -type f | wc -l) files, $(du -sh dist | cut -f1)"
   artifacts:
     # Vite output.
     baseDirectory: dist

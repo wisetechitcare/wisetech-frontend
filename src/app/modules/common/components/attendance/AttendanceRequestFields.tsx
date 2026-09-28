@@ -1,5 +1,5 @@
 import { Stack } from '@mui/material';
-import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
+import { TimePickerField } from '@app/modules/common/components/TimePickerField';
 import { WtField } from '@app/modules/common/components/ui/WtField';
 import { SegmentedControl } from '@app/modules/common/components/ui/SegmentedControl';
 import type { SegmentedOption } from '@app/modules/common/components/ui/SegmentedControl';
@@ -23,7 +23,7 @@ import {
  * the callers. What is shared is the part that was drifting: which times a kind
  * wants, what a working method looks like, and what the remark asks for.
  *
- * Built on the MUI kit — `WtField` for the labelled inputs, `TimeWheelField`
+ * Built on the MUI kit — `WtField` for the labelled inputs, `TimePickerField`
  * rather than `type="time"`, `SegmentedControl` for the kind. No Tailwind, no
  * bespoke label markup: `WtField` owns the label/field/message pairing for the
  * whole app, which is why a select and a text box on one row cannot disagree
@@ -122,7 +122,7 @@ export function AttendanceRequestFields({
           onChange={(t: string) => set({ checkIn: t })}
           error={showErrors && !value.checkIn ? 'Pick a check-in time' : undefined}
         >
-          <TimeWheelField
+          <TimePickerField
             value={value.checkIn}
             onChange={(t: string) => set({ checkIn: t })}
             disabled={disabled}
@@ -139,7 +139,7 @@ export function AttendanceRequestFields({
           onChange={(t: string) => set({ checkOut: t })}
           error={showErrors && !value.checkOut ? 'Pick a check-out time' : undefined}
         >
-          <TimeWheelField
+          <TimePickerField
             value={value.checkOut}
             onChange={(t: string) => set({ checkOut: t })}
             disabled={disabled}

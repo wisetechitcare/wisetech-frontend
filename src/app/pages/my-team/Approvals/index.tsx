@@ -7,6 +7,7 @@ import { getSocket } from '@utils/socketClient';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { usePermission } from '@hooks/usePermission';
+import { useTabRoute } from '@app/hooks/useTabRoute';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import {
     fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction,
@@ -112,7 +113,12 @@ export default function Approvals() {
     const navigate = useNavigate();
     const canApprove = usePermission('approvals.approve.team');
 
-    const [segment, setSegment] = useState<Segment>('mine');
+    // The tab is the URL, so it survives a refresh, a shared link, and the remount the header
+    // does at the mobile breakpoint. The hook is called up here rather than beside `tabItems`
+    // below because everything on this page keys off `segment`; the titles come from the same
+    // module-level SEGMENTS the tabs are built from, so the two cannot drift.
+    const { activeTab, setActiveTab } = useTabRoute(undefined, SEGMENTS.map((s) => s.label));
+    const segment: Segment = SEGMENTS[activeTab]?.key ?? 'mine';
     const [steps, setSteps] = useState<ApprovalStep[]>([]);
     const [tasks, setTasks] = useState<InboxTask[]>([]);
     const [loading, setLoading] = useState(true);
@@ -549,8 +555,8 @@ export default function Approvals() {
 
             <MaterialHeaderTab
                 tabItems={tabItems}
-                activeTab={SEGMENTS.findIndex((s) => s.key === segment)}
-                onTabChange={(index) => setSegment(SEGMENTS[index].key)}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
                 hideScrollButtons
             />
 

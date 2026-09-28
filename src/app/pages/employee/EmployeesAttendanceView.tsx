@@ -16,9 +16,9 @@ import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppDispatch } from '@redux/store';
+import { useTabRoute } from '@app/hooks/useTabRoute';
 
 const EmployeesAttendanceView = () => {
-    const [activeTab, setActiveTab] = useState(0);
     const [informationKey, setInformationKey] = useState(0);
     const dispatch = useDispatch();
 
@@ -30,13 +30,6 @@ const EmployeesAttendanceView = () => {
     useEffect(() => {
         dispatchs(loadAllEmployeesIfNeeded());
     }, [dispatchs]);
-
-    // Force remount of Information tab when it becomes active
-    useEffect(() => {
-        if (activeTab === 2) {
-            setInformationKey(prev => prev + 1);
-        }
-    }, [activeTab]);
 
     const tabItems: TabItem[] = [
         {
@@ -78,6 +71,18 @@ const EmployeesAttendanceView = () => {
         }]: []),
 
     ];
+
+    // The tab is the URL (/employees/attendance-and-leaves/individual), so it survives a
+    // refresh, a shared link, and the remount the header does at the mobile breakpoint.
+    // Derived from the titles, so a tab hidden by permissions can't shift the others.
+    const { activeTab, setActiveTab } = useTabRoute(undefined, tabItems.map((t) => t.title));
+
+    // Force remount of Information tab when it becomes active
+    useEffect(() => {
+        if (activeTab === 2) {
+            setInformationKey(prev => prev + 1);
+        }
+    }, [activeTab]);
 
     const newAttendanceWizardBreadcrumb: Array<PageLink> = [
         {

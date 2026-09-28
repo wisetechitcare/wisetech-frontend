@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useTabKeyRoute } from '@app/hooks/useTabRoute';
 import { Button } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import { useDispatch } from 'react-redux';
@@ -68,30 +69,12 @@ const EntityDetailPage: React.FC = () => {
   //
   //    Written with `replace` so flipping tabs does not stack history entries —
   //    browser Back should leave the project, not walk back through its tabs.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTabState] = useState<string>(
-    searchParams.get('tab') || (fromProjects ? 'projects' : 'leads'),
-  );
-  const setActiveTab = useCallback(
-    (key: string) => {
-      setActiveTabState(key);
-      setSearchParams(
-        prev => {
-          const next = new URLSearchParams(prev);
-          next.set('tab', key);
-          return next;
-        },
-        // `state` MUST be carried through. setSearchParams navigates, and a
-        // navigation with no `state` writes a history entry whose state is
-        // undefined — so the first tab click erased the entry context above and
-        // `fromLeads` flipped to false, which made every project-only tab appear
-        // on a lead the user had opened from the Leads table. Same reason it has
-        // to survive a refresh: the context lives in history.state, not the URL.
-        { replace: true, state: location.state },
-      );
-    },
-    [setSearchParams, location.state],
-  );
+  // The tab is a path segment (/leads/<id>/billing), so it survives a refresh, is
+  // shareable, and gives Billing a return address. `useTabKeyRoute` carries
+  // `history.state` through every tab navigation — without it the entry context
+  // (opened from Leads vs Projects) is erased on the first tab click, and every
+  // project-only tab appears on a lead opened from the Leads table.
+  // Old `?tab=` links are rewritten to the path form once.
   const [lead, setLead] = useState<any | null>(null);
   const [company, setCompany] = useState<any | null>(null);
   const [contact, setContact] = useState<any | null>(null);
@@ -115,6 +98,16 @@ const EntityDetailPage: React.FC = () => {
     () => ENTITY_TABS.filter(t => !t.projectOnly || (isProject && !fromLeads)),
     [isProject, fromLeads],
   );
+
+  // Entering from the Projects table lands on Projects, from Leads on Leads.
+  // No keys until the lead loads: the project-only tabs depend on it, and a partial list
+  // would read `/project/:id/teams` as an unknown tab and redirect away from it on refresh.
+  // An empty list tells the route hook to leave the URL alone (the page shows a loader).
+  const { activeKey: activeTab, setActiveKey: setActiveTab } = useTabKeyRoute(
+    undefined,
+    lead ? tabs.map(t => t.key) : [],
+    fromProjects ? 'projects' : 'leads',
+  );
   const vm = useMemo(() => (lead ? buildEntityVM(lead) : null), [lead]);
 
   // Live counts surfaced AS TAB BADGES (replaces the redundant related-records
@@ -129,12 +122,8 @@ const EntityDetailPage: React.FC = () => {
     };
   }, [lead]);
 
-  useEffect(() => {
-    // Wait for the lead to load — until then isProject is false and this would
-    // clobber the Projects landing tab requested by the Projects-table entry.
-    if (!lead) return;
-    if (!tabs.some(t => t.key === activeTab)) setActiveTab('leads');
-  }, [lead, tabs, activeTab]);
+  // A tab that is no longer in the list (project-only tabs on a lead) resolves to the
+  // first one inside useTabKeyRoute, so nothing has to correct it here.
 
   const fetchLeadDetails = useCallback(async () => {
     if (!leadId) {

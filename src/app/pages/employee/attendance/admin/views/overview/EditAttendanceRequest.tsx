@@ -1,26 +1,8 @@
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import TextInput from "@app/modules/common/inputs/TextInput";
-import TimePickerInput from "@app/modules/common/inputs/TimeInput";
-import { RootState } from "@redux/store";
-import { createUpdateAttendanceRequest } from "@services/employee";
-import { fetchWorkingMethods } from "@services/options";
-import { errorConfirmation, successConfirmation } from "@utils/modal";
-import { isValidTime } from "@utils/statistics";
-import dayjs from "dayjs";
-import { Formik } from "formik";
-import { useState, useEffect, useMemo } from "react";
-import { KTIcon } from "@metronic/helpers";
-// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
-import { GlassDialog, GlassHeader, WtButton } from "@app/modules/common/components/ui/tw";
-import { useSelector } from "react-redux";
-import * as Yup from "yup";
+import { useMemo } from "react";
+import { AttendanceCorrectionDialog } from "@app/modules/common/components/attendance/AttendanceCorrectionDialog";
+import { toCalendarKey } from "@utils/calendarKey";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { MUMBAI_TZ } from "@utils/date";
-import dayjsTimezone from "dayjs/plugin/timezone";
-import dayjsUTC from "dayjs/plugin/utc";
-dayjs.extend(dayjsUTC);
-dayjs.extend(dayjsTimezone);
 
 interface EditAttendanceRequestProps {
   show: boolean;
@@ -28,227 +10,69 @@ interface EditAttendanceRequestProps {
   selectedAttendanceRequest: any;
 }
 
-const EditAttendanceRequest = ({
-  show,
-  onHide,
-  selectedAttendanceRequest,
-}: EditAttendanceRequestProps) => {
-  const [workingMethodOptions, setWorkingMethodOptions] = useState<any[]>([]);
-  const currentEmployeeId = useSelector(
-    (state: any) => state.employee?.currentEmployee?.id
+/**
+ * Admin edit of an existing attendance request, from the attendance overview.
+ *
+ * Now the shared `AttendanceCorrectionDialog` in edit mode, with the status an admin
+ * may set. It used to be its own Formik form on the Tailwind-twin dialog, and that
+ * copy had three faults the shared one does not:
+ *
+ *   · it was seeded with the table's 12-hour DISPLAY strings ("9:59 AM") and then
+ *     validated them as 24-hour, so saving an untouched edit failed validation;
+ *   · it had no kind at all — a check-out-only request could not be edited without
+ *     inventing a check-in, because Check In was required;
+ *   · it knew nothing about the day, so it could put a check-in after the recorded
+ *     check-out.
+ *
+ * The props and the refresh event are unchanged, so the overview needs no edit.
+ */
+const EditAttendanceRequest = ({ show, onHide, selectedAttendanceRequest }: EditAttendanceRequestProps) => {
+  // Older callers passed the request nested under `attendanceRequests`; both shapes still reach here.
+  const row = selectedAttendanceRequest?.attendanceRequests || selectedAttendanceRequest || {};
+
+  const date = useMemo(
+    () =>
+      toCalendarKey(row.formattedDate) ??
+      toCalendarKey(row.date) ??
+      toCalendarKey(row.requestCheckIn ?? row.requestCheckOut ?? null),
+    [row.formattedDate, row.date, row.requestCheckIn, row.requestCheckOut],
   );
 
-  const currentCompanyId = useSelector((state: RootState) => state?.employee?.currentEmployee?.companyId);
+  const request = useMemo(
+    () =>
+      row.id
+        ? {
+            id: row.id as string,
+            // The request's OWN halves. `rawCheckIn` may be the enriched device punch.
+            checkIn: row.requestCheckIn ?? null,
+            checkOut: row.requestCheckOut ?? null,
+            workingMethodId: row.workingMethodId ?? null,
+            remarks: row.remarks ?? null,
+            // `status` may have been overwritten with "Holiday" by the marker.
+            status: row.requestStatus ?? (typeof row.status === "number" ? row.status : 0),
+          }
+        : null,
+    [row.id, row.requestCheckIn, row.requestCheckOut, row.workingMethodId, row.remarks, row.requestStatus, row.status],
+  );
 
-  // Fetch working methods properly
-  useEffect(() => {
-    const getWorkingMethods = async () => {
-      try {
-        const {
-          data: { workingMethods },
-        } = await fetchWorkingMethods();
-        const options = workingMethods.map((wm: any) => ({
-          value: wm.id,
-          label: wm.type,
-        }));
-        setWorkingMethodOptions(options);
-      } catch (err) {
-        console.error("Failed to load working methods", err);
-      }
-    };
-    getWorkingMethods();
-  }, []);
-
-  // Prepare initial form values
-  const initialValues = useMemo(() => {
-    const attendance = selectedAttendanceRequest || {};
-
-    // Check if attendanceRequests exists (nested structure) or use attendance directly
-    const req = attendance?.attendanceRequests || attendance;
-
-    return {
-      id: req?.id || null,
-      employeeId: req?.employeeId || "",
-      checkIn: req?.checkIn || "",
-      checkOut: req?.checkOut || "",
-      workingMethodId: req?.workingMethodId || "",
-      remarks: req?.remarks || "",
-      employeeTimezone: req?.employeeTimezone || attendance?.employeeTimezone || MUMBAI_TZ,
-      date: attendance?.date || req?.date || "",
-      status: req?.status !== undefined ? String(req.status) : "0",
-    };
-  }, [selectedAttendanceRequest]);
-
-  const validationSchema = Yup.object({
-    checkIn: Yup.string().required("Check In is required"),
-    remarks: Yup.string().required("Remarks are required"),
-    workingMethodId: Yup.string().required("Working Method is required"),
-  });
-
-  // Handle form submission
-  const handleSubmit = async (values: any, { setSubmitting, resetForm }: any) => {
-    console.log("values", values);
-
-    try {
-      // Validate company ID exists
-      if (!currentCompanyId) {
-        errorConfirmation("Company ID is missing. Please refresh and try again.");
-        return;
-      }
-
-      // Validate employee ID exists
-      if (!values.employeeId) {
-        errorConfirmation("Employee ID is missing. Please refresh and try again.");
-        return;
-      }
-
-      const formattedDate = dayjs(values.date).format("YYYY-MM-DD");
-      const updatedValues = { ...values };
-
-      // Validate & format Check-In
-      // Parsed using the EMPLOYEE'S OWN branch timezone so that a wall-clock entry like
-      // "17:45" is stored as the correct UTC instant for that branch, not IST unconditionally.
-      const employeeTimezone = values.employeeTimezone || MUMBAI_TZ;
-      if (values.checkIn) {
-        if (!isValidTime(values.checkIn)) {
-          errorConfirmation("Enter Check In in HH:MM (24 hr format)");
-          return;
-        }
-        // const checkInUTC = dayjs(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm").toISOString();
-
-        const checkInUTC = dayjs.tz(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm", employeeTimezone).toISOString();
-        updatedValues.checkIn = checkInUTC;
-      }
-
-      // Validate & format Check-Out
-      if (values.checkOut && values.checkOut !== "-NA-") {
-        if (!isValidTime(values.checkOut)) {
-          errorConfirmation("Enter Check Out in HH:MM (24 hr format)");
-          return;
-        }
-        const checkOutUTC = dayjs.tz(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm", employeeTimezone).toISOString();
-        updatedValues.checkOut = checkOutUTC;
-      } else {
-        delete updatedValues.checkOut;
-      }
-
-      // Validate time sequence
-      if (updatedValues.checkIn && updatedValues.checkOut) {
-        if (!dayjs(updatedValues.checkOut).isAfter(dayjs(updatedValues.checkIn))) {
-          errorConfirmation("Check Out must be after Check In");
-          return;
-        }
-      }
-
-      //  FINAL PAYLOAD (Fixed)
-      const finalPayload: any = {
-        employeeId: updatedValues.employeeId,
-        workingMethodId: updatedValues.workingMethodId,
-        companyId: currentCompanyId,
-        checkIn: updatedValues.checkIn || null,
-        checkOut: updatedValues.checkOut || null,
-        remarks: updatedValues.remarks || "",
-        latitude: 0.0,
-        longitude: 0.0,
-        status: Number(updatedValues.status) || 0, //  added required field
-        updatedById: currentEmployeeId, // Track who updated the request
-      };
-
-      // Include the ID if it exists (for updating existing requests)
-      if (values.id) {
-        finalPayload.id = values.id;
-      }
-
-      console.log("finalPayload", finalPayload);
-
-      const response = await createUpdateAttendanceRequest(finalPayload, true);
-
-      // Emit event to refresh both tables
-      if (values.id) {
-        eventBus.emit(EVENT_KEYS.attendanceRequestUpdated, { id: values.id });
-      } else {
-        eventBus.emit(EVENT_KEYS.attendanceRequestCreated, { id: response?.data?.id || finalPayload.id || "" });
-      }
-
-      successConfirmation("Attendance Request saved successfully");
-      resetForm();
-      onHide();
-    } catch (err) {
-      console.error(err);
-      errorConfirmation("Attendance Request failed. Try again later.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  // A row whose day cannot be read is not something to guess at.
+  if (!date || !request) return null;
 
   return (
-    <GlassDialog open={show} onClose={onHide} maxWidth="sm" fullWidth>
-      <GlassHeader
-        title="Edit Request"
-        subtitle="Times in 24-hour HH:MM"
-        icon={<KTIcon iconName="time" className="fs-1 text-white" />}
-        onClose={onHide}
-      />
-      <div className="p-4 sm:p-6">
-        <Formik
-          initialValues={initialValues}
-          validationSchema={validationSchema}
-          enableReinitialize
-          onSubmit={handleSubmit}
-        >
-          {(formikProps) => (
-            <form
-              className="d-flex flex-column"
-              noValidate
-              id="attendance_edit_form"
-              onSubmit={formikProps.handleSubmit}
-            >
-              <div className="mb-2.5">
-                <TimePickerInput isRequired label="Check In" formikField="checkIn" placeholder="HH MM" />
-              </div>
-
-              <div className="mb-2.5">
-                <TimePickerInput label="Check Out" formikField="checkOut" placeholder="HH MM" />
-              </div>
-
-              <div className="mb-2.5">
-                <TextInput isRequired label="Remarks" formikField="remarks" />
-              </div>
-
-              <div className="mb-2.5">
-                <DropDownInput
-                  isRequired={false}
-                  formikField="workingMethodId"
-                  inputLabel="Working Method"
-                  options={workingMethodOptions}
-                />
-              </div>
-
-              <div className="mb-2.5">
-                <DropDownInput
-                  isRequired={false}
-                  formikField="status"
-                  inputLabel="Status"
-                  options={[
-                    { label: "Pending", value: "0" },
-                    { label: "Approved", value: "1" },
-                    { label: "Rejected", value: "2" },
-                  ]}
-                />
-              </div>
-
-              <div className="flex justify-stretch sm:justify-end mt-4">
-                <WtButton type="submit" disabled={formikProps.isSubmitting} className="w-full sm:w-auto">
-                  {formikProps.isSubmitting ? "Saving…" : "Save Changes"}
-                </WtButton>
-              </div>
-            </form>
-          )}
-        </Formik>
-      </div>
-    </GlassDialog>
+    <AttendanceCorrectionDialog
+      open={show}
+      onClose={onHide}
+      date={date}
+      employeeId={row.employeeId}
+      request={request}
+      asAdmin
+      title="Edit Attendance Request"
+      successMessage="Attendance Request saved successfully"
+      onSaved={({ id }) => {
+        eventBus.emit(EVENT_KEYS.attendanceRequestUpdated, { id });
+      }}
+    />
   );
 };
 
 export default EditAttendanceRequest;
-

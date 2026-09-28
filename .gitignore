@@ -15,7 +15,7 @@ dist
 *.jks
 *.ppk
 src/keys/
-
+github.sh
 .claude
 .vscode
 # Claude Code agents and configuration

@@ -1,21 +1,23 @@
 import { CLIENT_COMPANIES } from "@constants/api-endpoint";
 import axios from "axios";
+import { cachedRequest } from "./_requestCache";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 
 export const getAllLeads = async (params?: { page?: number; pageSize?: number; fields?: string[] }) => {
   try {
     const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_LEADS}`;
-    const response = await axios.get(endpoint, {
-      params: {
-        page: params?.page ?? 1,
-        pageSize: params?.pageSize ?? 200,
-        // Sparse fetch: when provided, the backend returns only the data these
-        // columns need. Omitted → full row shape.
-        ...(params?.fields?.length ? { fields: params.fields.join(',') } : {}),
-      },
-    });
-    return response;
+    const query = {
+      page: params?.page ?? 1,
+      pageSize: params?.pageSize ?? 200,
+      // Sparse fetch: when provided, the backend returns only the data these
+      // columns need. Omitted → full row shape.
+      ...(params?.fields?.length ? { fields: params.fields.join(',') } : {}),
+    };
+    // TTL 0 = two screens asking for the same page at once share one request; never stale.
+    // Callers mutate the response (getAllLeadsComplete), so each gets its own copy.
+    const response = await cachedRequest(`leads:${JSON.stringify(query)}`, () => axios.get(endpoint, { params: query }), 0);
+    return { ...response, data: { ...response.data, data: { ...response.data?.data } } };
   } catch (error) {
     console.error('Error fetching leads:', error);
     throw error;

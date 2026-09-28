@@ -88,3 +88,45 @@ export const MOTION_KEYFRAMES = `
     .wt-rise-in, .wt-slide-in, .wt-slide-out { animation-duration: 0.01ms !important; }
   }
 `;
+
+/**
+ * A disclosure that GROWS, rather than one that is wiped into view.
+ *
+ * Pair with MUI's `<Collapse>`: Collapse owns the HEIGHT, this owns what happens to the
+ * content inside it. On its own, Collapse slides a clipping mask down over finished content —
+ * the panel gets taller but nothing in it moves, which reads as a shutter opening rather than
+ * something arriving. Scaling the contents up into the space that is being made for them is
+ * what makes the two read as one movement.
+ *
+ *   <Collapse in={open} timeout={DISCLOSURE.duration} easing={DISCLOSURE.easing}>
+ *     <Box sx={disclosureSx(open)}>…</Box>
+ *   </Collapse>
+ *
+ * `0.96`, not something smaller: at 0.9 the text visibly re-flows as it settles, because the
+ * glyphs are being scaled through fractional pixel sizes. 4% is enough to register as movement
+ * and small enough that the type never looks blurred on the way.
+ *
+ * `transformOrigin: top` so it expands DOWNWARD from the button that opened it. Centre origin
+ * makes the panel appear to push up into the row above, fighting the height animation.
+ *
+ * Opacity finishes at 60% of the way through — the eye tracks brightness more than size, so a
+ * fade that runs the full duration is read as a blink and hides the last of the movement.
+ */
+export const DISCLOSURE = { duration: duration.standard, easing: easing.standard } as const;
+
+export function disclosureSx(open: boolean): SxProps<Theme> {
+  return {
+    transformOrigin: 'top center',
+    transition: [
+      `transform ${duration.standard}ms ${easing.standard}`,
+      `opacity ${Math.round(duration.standard * 0.6)}ms ${easing.standard}`,
+    ].join(', '),
+    transform: open ? 'scale(1)' : 'scale(0.96)',
+    opacity: open ? 1 : 0,
+    // Promote before the first frame rather than mid-flight, which is where a hitch comes from.
+    willChange: open ? 'auto' : 'transform, opacity',
+    '@media (prefers-reduced-motion: reduce)': {
+      transition: 'none', transform: 'none', opacity: 1, willChange: 'auto',
+    },
+  };
+}

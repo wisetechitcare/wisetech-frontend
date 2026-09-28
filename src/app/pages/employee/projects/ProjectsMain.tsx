@@ -11,31 +11,19 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
-import { useSearchParams } from "react-router-dom";
+import { useTabRoute } from "@app/hooks/useTabRoute";
 import { PageTitle } from "@metronic/layout/core";
 import Maps from "../companies/companyOverview/components/Map";
 import { getProjectMapPoints } from "@services/projects";
 import { worldIcons } from "@metronic/assets/sidepanelicons";
 
-const TAB_KEYS = ["overview", "projects", "map", "configure"] as const;
+/** Tab titles, in order. Their slugs are the URL: /projects/map — see useTabRoute. */
+const TAB_TITLES = ["Overview", "Projects", "Map", "Configure"] as const;
 
 const ProjectsMain = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tabKey = searchParams.get("tab") || "overview";
-  const activeTab = Math.max(0, TAB_KEYS.indexOf(tabKey as any));
-  const setActiveTab = (index: number) => {
-    // Merge into the existing params — passing a bare object would drop every
-    // other param (the table's ?manager=/?search=/?status= filters) on each
-    // tab switch.
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set("tab", TAB_KEYS[index] ?? "overview");
-        return next;
-      },
-      { replace: true },
-    );
-  };
+  // The tab is the path segment, and the query string stays the table's own
+  // (?manager=/?search=/?status=). Old ?tab= links are rewritten once.
+  const { activeTab, setActiveTab } = useTabRoute("/projects", TAB_TITLES);
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number}[]>([]);
   const [projectData, setProjectData] = useState<any>([]);
 
@@ -67,22 +55,22 @@ const ProjectsMain = () => {
   
   const tabItems: TabItem[] = [
     {
-      title: "Overview",
+      title: TAB_TITLES[0],
       component: <ProjectOverview />,
       icon: 'bi-grid-1x2',
     },
     {
-      title: "Projects",
+      title: TAB_TITLES[1],
       component: <ProjectTablePage />,
       icon: 'bi-briefcase',
     },
     {
-      title: "Map",
+      title: TAB_TITLES[2],
       component: <Maps points={points} projectData={projectData} />,
       icon: 'bi-geo-alt',
     },
     {
-      title: "Configure",
+      title: TAB_TITLES[3],
       component: <ProjectConfigure />,
       icon: 'bi-gear',
     },

@@ -1,7 +1,16 @@
 import { Card, Box, Stack, Typography, Button, Divider } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { T } from '@app/modules/common/components/ui/tokens';
+import { WtTooltip } from '@app/modules/common/components/ui';
 import ActionIconButton from '@app/modules/common/components/ui/ActionIconButton';
+
+/** One treatment for both drill-in buttons, defined once so they cannot drift apart. */
+const drillButtonSx = {
+  fontFamily: T.font.family, textTransform: 'none' as const, fontWeight: 600, fontSize: 13,
+  borderRadius: `${T.radius.sm}px`, px: 1.5,
+  color: T.color.brand, borderColor: T.color.brandRing,
+  '&:hover': { borderColor: T.color.brand, bgcolor: T.color.brandSoft },
+};
 
 export interface BranchCardProps {
   branch: any;
@@ -33,7 +42,10 @@ export default function BranchCard({
         height: '100%', display: 'flex', flexDirection: 'column',
         borderRadius: `${T.radius.md}px`, borderLeft: 5, borderLeftColor: T.color.brand, overflow: 'hidden',
         fontFamily: T.font.family,
-        background: 'linear-gradient(180deg, #ffffff 0%, #FCFDFF 100%)',
+        // No hardcoded background. The white-to-near-white gradient that stood here
+        // painted the card white on a dark page — the identical bug already fixed on
+        // the biometric stat tile. `Card variant="outlined"` resolves background.paper
+        // for whichever theme is active, which is the whole point of using it.
         transition: 'box-shadow .2s ease, transform .2s ease, border-color .2s ease',
         '&:hover': { boxShadow: T.shadow.cardHover, transform: 'translateY(-3px)', borderColor: T.color.brandRing },
       }}
@@ -44,15 +56,21 @@ export default function BranchCard({
           <KTIcon iconName="bank" className="fs-2" />
         </Box>
         <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography sx={{ fontFamily: T.font.family, fontWeight: 700, fontSize: 17, color: T.color.ink, lineHeight: 1.3, wordBreak: 'break-word' }}>
+          {/* A branch name is CONTENT, so it keeps its own casing — it is not a
+              region heading and must not be uppercased. */}
+          <Typography sx={{ fontFamily: T.font.family, fontWeight: 700, fontSize: 17, color: 'text.primary', lineHeight: 1.3, wordBreak: 'break-word' }}>
             {branch?.name}
           </Typography>
-          <Typography
-            component="div"
-            sx={{ fontFamily: T.font.family, fontSize: 13, color: T.color.inkSoft, mt: 0.6, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-          >
-            {branch?.address ?? ''}
-          </Typography>
+          {/* Clamped to two lines, so the full address needs somewhere to live —
+              otherwise the only way to read a long one is to open the edit form. */}
+          <WtTooltip title={branch?.address ?? ''}>
+            <Typography
+              component="div"
+              sx={{ fontFamily: T.font.family, fontSize: 13, color: 'text.secondary', mt: 0.6, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+            >
+              {branch?.address ?? ''}
+            </Typography>
+          </WtTooltip>
         </Box>
       </Stack>
 
@@ -62,25 +80,22 @@ export default function BranchCard({
       {/* Actions */}
       <Stack direction="row" sx={{ p: 2.25, pt: 1.75, alignItems: 'center', justifyContent: 'space-between', gap: 1.25, flexWrap: 'wrap' }}>
         <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
+          {/* Both buttons open a detail modal, so both wear the same clothes.
+              Devices used to be amber — the app's caution colour — which read as a
+              warning about a branch that had nothing wrong with it. Colour should
+              mean something; two neighbouring buttons doing the same KIND of thing
+              in two different colours means nothing and costs a moment's decoding. */}
           <Button
             size="small" variant="outlined" onClick={onViewEmployees}
             startIcon={<KTIcon iconName="people" className="fs-5" />}
-            sx={{
-              fontFamily: T.font.family, textTransform: 'none', fontWeight: 600, fontSize: 13, borderRadius: `${T.radius.sm}px`,
-              color: T.color.brand, borderColor: T.color.brandRing, px: 1.5,
-              '&:hover': { borderColor: T.color.brand, bgcolor: T.color.brandSoft },
-            }}
+            sx={drillButtonSx}
           >
             {employees} {employees === 1 ? 'Employee' : 'Employees'}
           </Button>
           <Button
             size="small" variant="outlined" onClick={onManageDevices}
             startIcon={<KTIcon iconName="fingerprint-scanning" className="fs-5" />}
-            sx={{
-              fontFamily: T.font.family, textTransform: 'none', fontWeight: 600, fontSize: 13, borderRadius: `${T.radius.sm}px`,
-              color: T.color.warning, borderColor: `${T.color.warning}59`, px: 1.5,
-              '&:hover': { borderColor: T.color.warning, bgcolor: T.color.warningSoft },
-            }}
+            sx={drillButtonSx}
           >
             Devices
           </Button>

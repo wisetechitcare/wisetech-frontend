@@ -441,37 +441,13 @@
 // };
 
 // export default RaiseRequestForEmployee;
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import dayjs from "dayjs";
-import { useSelector } from "react-redux";
-import { Box, Stack } from "@mui/material";
-import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, PlainDialogHeader } from "@app/modules/common/components/ui/glass";
-import { WtButton } from "@app/modules/common/components/ui/buttons";
-import { WtField } from "@app/modules/common/components/ui/WtField";
-import { useEmployeeDirectory } from "@app/modules/common/components/EmployeePickerField";
-import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
-import type { WtSelectOption } from "@app/modules/common/components/ui/WtSelect";
-import { AttendanceRequestFields } from "@app/modules/common/components/attendance/AttendanceRequestFields";
-import { RootState } from "@redux/store";
-import { createUpdateAttendanceRequest, getAllKpiFactors, createKpiScore } from "@services/employee";
-import { fetchWorkingMethods } from "@services/options";
-import { errorConfirmation, successConfirmation } from "@utils/modal";
-import { formatDate, DATE_FORMATS } from "@utils/dateFormats";
-// The ONE rule set for what makes a correction request valid — shared with the
-// employee's own correction form in the attendance calendar.
-import {
-  emptyDraft,
-  seedDraft,
-  validateAttendanceRequest,
-  wantsCheckIn,
-  wantsCheckOut,
-  type AttendanceRequestDraft,
-  type RequestKind,
-} from "@app/modules/common/components/attendance/attendanceRequest";
-import { useAttendanceCalendar } from "./calendar/useAttendanceCalendar";
+import { getAllKpiFactors, createKpiScore } from "@services/employee";
+import { formatDate } from "@utils/dateFormats";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import { AttendanceCorrectionDialog } from "@app/modules/common/components/attendance/AttendanceCorrectionDialog";
 
 interface RaiseRequestForEmployeeProps {
   show: boolean;
@@ -479,78 +455,30 @@ interface RaiseRequestForEmployeeProps {
   selectedDate: string; // YYYY-MM-DD format
 }
 
-/** Offered in the order the employee's own form offers them, because it is the same question. */
-const KINDS: readonly RequestKind[] = ["checkin", "checkout", "both"];
-
-const STATUS_OPTIONS = [
-  { value: "0", label: "Pending" },
-  { value: "1", label: "Approved" },
-  { value: "2", label: "Rejected" },
-];
-
 /**
  * Raise an attendance correction on someone else's behalf.
  *
- * This form and the employee's own correction in the day panel ask the same
- * question, so they render the SAME control: `AttendanceRequestFields`, over the
- * shared `attendanceRequest` rules. It used to hand-roll all of it — its own row
- * of pill buttons with inline hex, its own 24-hour text inputs, its own Yup
- * schema — which is why the two screens showed a different selector, in a
- * different order, next to a different time control, and why the schema could
- * disagree with its own submit handler.
+ * The shared `AttendanceCorrectionDialog` with an employee picker and a status —
+ * the two things an admin decides and an employee never does. Everything else is
+ * the same form, rules and day the employee's own correction uses.
  *
- * What is genuinely different stays here: an admin picks WHO the request is for
- * and what STATUS it lands in. An employee never does either.
+ * Two behaviours changed by moving onto the shared engine, both corrections:
+ *   · times are composed in the chosen EMPLOYEE's branch timezone. This modal
+ *     composed them in the admin's browser timezone, so correcting someone in
+ *     another branch stored a shifted time;
+ *   · a single corrected half is checked against the punch already recorded that
+ *     day, so a check-in can no longer be filed after the recorded check-out.
  *
- * The record it opens on comes from `useAttendanceCalendar` — the same query the
- * calendar itself runs, so picking an employee shows their real recorded times
- * instead of an empty field, and does it off a cache that is usually already
- * warm rather than a second endpoint.
+ * What stays here is what is genuinely this screen's: the KPI credit written when
+ * a request lands approved, and the event that refreshes the overview tables.
  */
-const RaiseRequestForEmployee = ({
-  show,
-  onHide,
-  selectedDate,
-}: RaiseRequestForEmployeeProps) => {
-  const [methods, setMethods] = useState<Array<{ value: string; label: string }>>([]);
+const RaiseRequestForEmployee = ({ show, onHide, selectedDate }: RaiseRequestForEmployeeProps) => {
   const [factors, setFactors] = useState<any[]>([]);
-  const [employeeId, setEmployeeId] = useState("");
-  // `both` stays the default: an admin filling in a whole missing day should
-  // still file one request rather than two.
-  const [draft, setDraft] = useState<AttendanceRequestDraft>(() => emptyDraft("both"));
-  const [status, setStatus] = useState("0");
-  const [attempted, setAttempted] = useState(false);
-  const [saving, setSaving] = useState(false);
 
-  /**
-   * The company directory, from the hook every other picker in the app shares —
-   * one React Query entry, cached five minutes, so opening this modal usually
-   * costs nothing. Only the DIALOG that hook normally opens is wrong here:
-   * it is a multi-select built for choosing a team, and this field takes one
-   * person. A checkbox grid of 38 people stacked on an open modal asks a
-   * yes/no question 38 times to collect a single answer.
-   */
-  const { data: directory = [], isLoading: loadingEmployees } = useEmployeeDirectory();
-  const employeeOptions = useMemo<WtSelectOption[]>(
-    () => directory.map((e) => ({ value: e.id, label: e.name, avatar: e.avatar, description: e.designation })),
-    [directory],
-  );
-
-  const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
-  const currentCompanyId = useSelector((state: RootState) => state?.employee?.currentEmployee?.companyId);
-
-  const dateISO = useMemo(() => dayjs(selectedDate).format(DATE_FORMATS.WIRE), [selectedDate]);
-
-  /* Working methods and KPI factors — loaded once, on first open. */
+  /* KPI factors — loaded once, on first open. */
   useEffect(() => {
-    if (!show) return;
+    if (!show || factors.length) return;
     (async () => {
-      try {
-        const { data: { workingMethods } } = await fetchWorkingMethods();
-        setMethods((workingMethods ?? []).map((wm: { id: string; type: string }) => ({ value: wm.id, label: wm.type })));
-      } catch {
-        /* The dropdown stays empty and the form blocks on it — better than a silent wrong value. */
-      }
       try {
         const { data: { factors: list } } = await getAllKpiFactors();
         setFactors(list ?? []);
@@ -558,63 +486,7 @@ const RaiseRequestForEmployee = ({
         /* Only affects the KPI score written on approval, never the request itself. */
       }
     })();
-  }, [show]);
-
-  /* A fresh sheet each time it opens — an admin raising two in a row must not
-     inherit the previous person's times. */
-  useEffect(() => {
-    if (!show) return;
-    setEmployeeId("");
-    setDraft(emptyDraft("both"));
-    setStatus("0");
-    setAttempted(false);
-  }, [show, dateISO]);
-
-  /**
-   * The chosen employee's record for this date, from the calendar's own query.
-   */
-  const { data: calendar, isLoading: loadingDay } = useAttendanceCalendar(
-    employeeId,
-    dayjs(selectedDate).format("YYYY-MM"),
-  );
-  const record = useMemo(
-    () => calendar?.days?.find((d) => d.date === dateISO) ?? null,
-    [calendar, dateISO],
-  );
-
-  /**
-   * Seed ONCE per employee+date, and only once both the record and the working
-   * methods have arrived.
-   *
-   * Seeding again later would overwrite a time the admin had already typed, so
-   * the guard is a key rather than a dependency list — the effect re-runs on
-   * every query settle, and does nothing after the first.
-   */
-  const seededFor = useRef<string | null>(null);
-  useEffect(() => {
-    if (!show) { seededFor.current = null; return; }
-    if (!employeeId || loadingDay || !methods.length) return;
-    const key = `${employeeId}:${dateISO}`;
-    if (seededFor.current === key) return;
-    seededFor.current = key;
-    setDraft((d) =>
-      seedDraft(d, d.kind, record ? { ...record.actual, workMode: record.workMode } : null, methods),
-    );
-  }, [show, employeeId, dateISO, loadingDay, methods, record]);
-
-  /**
-   * Kind changes re-seed; every other edit passes straight through — the same
-   * handler the day panel uses, for the same reason: the shared fields clear the
-   * half a kind does not want but cannot refill it from a record they have never
-   * been given.
-   */
-  const onDraftChange = (next: AttendanceRequestDraft) => {
-    setDraft(
-      next.kind === draft.kind
-        ? next
-        : seedDraft(next, next.kind, record ? { ...record.actual, workMode: record.workMode } : null, methods),
-    );
-  };
+  }, [show, factors.length]);
 
   /** The KPI credit for a raised request, written only when it lands approved. */
   const writeKpiScore = async (targetEmployeeId: string) => {
@@ -643,149 +515,24 @@ const RaiseRequestForEmployee = ({
     }
   };
 
-  const submit = async () => {
-    setAttempted(true);
-
-    if (!currentCompanyId) {
-      errorConfirmation("Company ID is missing. Please refresh and try again.");
-      return;
-    }
-    if (!employeeId) {
-      errorConfirmation("Please select an employee.");
-      return;
-    }
-
-    // The SHARED rules — the same call the employee's correction form makes, so
-    // the two cannot disagree about what a valid request is.
-    const problem = validateAttendanceRequest(draft);
-    if (problem) {
-      errorConfirmation(problem);
-      return;
-    }
-
-    setSaving(true);
-    try {
-      // Format only — the shared validator has already established that any time
-      // present here is a well-formed HH:mm and correctly ordered.
-      const at = (hhmm: string) => dayjs(`${dateISO} ${hhmm}`, "YYYY-MM-DD HH:mm").toISOString();
-
-      const response = await createUpdateAttendanceRequest(
-        {
-          employeeId,
-          workingMethodId: draft.workingMethodId,
-          companyId: currentCompanyId,
-          // Driven by the kind, so each one-sided kind sends only its own half
-          // and leaves the other untouched by the server's same-date merge.
-          checkIn: wantsCheckIn(draft.kind) ? at(draft.checkIn) : null,
-          checkOut: wantsCheckOut(draft.kind) ? at(draft.checkOut) : null,
-          remarks: draft.remarks.trim(),
-          latitude: 0.0,
-          longitude: 0.0,
-          status: Number(status) || 0,
-          updatedById: currentEmployeeId, // Track who raised the request
-        } as never,
-        true,
-      );
-
-      if (status === "1") await writeKpiScore(employeeId);
-
-      // Emit event to refresh tables
-      eventBus.emit(EVENT_KEYS.attendanceRequestCreated, {
-        id: (response as any)?.data?.id || "",
-        employeeId,
-      });
-
-      successConfirmation("Attendance Request created successfully for the employee");
-      onHide();
-    } catch (err) {
-      console.error(err);
-      errorConfirmation("Attendance Request failed. Try again later.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
-    <GlassDialog
+    <AttendanceCorrectionDialog
       open={show}
       onClose={onHide}
-      maxWidth="sm"
-      header={
-        <PlainDialogHeader
-          icon={<KTIcon iconName="calendar-add" className="fs-2" />}
-          title="Raise Attendance Request for Employee"
-          subtitle={formatDate(selectedDate)}
-          onClose={onHide}
-        />
-      }
-    >
-      <Box sx={{ p: { xs: 2, sm: 2.5 }, display: "flex", flexDirection: "column", gap: 2 }}>
-        {/* `WtField` frames its own inputs but leaves `children` unframed, so a
-            control that brings its own border sits under the same label and
-            message as the Status select below without drawing two. */}
-        <WtField
-          label="Employee"
-          required
-          value={employeeId}
-          // The dropdown owns its own value; this exists to satisfy the frame.
-          onChange={setEmployeeId}
-          error={attempted && !employeeId ? "Select who this request is for" : undefined}
-          hint={
-            employeeId && !loadingDay && !record?.actual.checkIn && !record?.actual.checkOut
-              ? "Nothing is recorded for this employee on this date."
-              : undefined
-          }
-        >
-          <WtSelect
-            options={employeeOptions}
-            value={employeeOptions.find((o) => o.value === employeeId) ?? null}
-            onChange={(opt: WtSelectOption | null) => setEmployeeId(opt?.value ?? "")}
-            // Same face and designation the picker dialog showed, in a row
-            // instead of a grid — recognising a colleague by name alone is
-            // the part a plain dropdown would have cost.
-            optionVariant="avatar"
-            isSearchable
-            isClearable
-            isLoading={loadingEmployees}
-            isDisabled={saving}
-            placeholder="Search by name or designation…"
-            ariaLabel="Employee"
-            error={attempted && !employeeId}
-          />
-        </WtField>
-
-        {/* The SAME fields the employee's own correction renders — one selector,
-            one order, one time control. */}
-        <AttendanceRequestFields
-          value={draft}
-          onChange={onDraftChange}
-          methods={methods}
-          kinds={KINDS}
-          showErrors={attempted}
-          disabled={saving}
-        />
-
-        {/* An admin decides where the request lands. An employee never does,
-            which is why this stays here rather than in the shared fields. */}
-        <WtField
-          label="Status"
-          required
-          value={status}
-          onChange={setStatus}
-          options={STATUS_OPTIONS}
-          disabled={saving}
-        />
-
-        <Stack direction="row" justifyContent="flex-end" spacing={1}>
-          <WtButton ghost onClick={onHide} disabled={saving}>
-            Cancel
-          </WtButton>
-          <WtButton onClick={submit} disabled={saving}>
-            {saving ? "Saving…" : "Raise Request"}
-          </WtButton>
-        </Stack>
-      </Box>
-    </GlassDialog>
+      date={dayjs(selectedDate).format("YYYY-MM-DD")}
+      asAdmin
+      pickEmployee
+      // `both` stays the default: an admin filling in a whole missing day should
+      // still file one request rather than two.
+      preferredKind="both"
+      title="Raise Attendance Request for Employee"
+      subtitle={formatDate(selectedDate)}
+      successMessage="Attendance Request created successfully for the employee"
+      onSaved={async ({ id, employeeId, status }) => {
+        if (status === 1) await writeKpiScore(employeeId);
+        eventBus.emit(EVENT_KEYS.attendanceRequestCreated, { id, employeeId });
+      }}
+    />
   );
 };
 

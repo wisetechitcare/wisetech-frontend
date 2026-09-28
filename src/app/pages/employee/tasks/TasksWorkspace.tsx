@@ -386,6 +386,7 @@ export const TasksWorkspace = () => {
                 title: m.taskName,
                 description: m.taskDescription,
                 isOnline: !!m.isOnline,
+                meetingMode: m.meetingMode,
                 meetingLink: m.meetingLink,
                 location: m.location,
                 startDate: m.startDate,

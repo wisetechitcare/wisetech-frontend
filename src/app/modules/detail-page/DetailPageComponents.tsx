@@ -6,6 +6,10 @@ import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 export type AccentColor = keyof typeof ICON_COLORS;
 
+/** The accent-tinted fade behind a DetailCard header — shared so a row inside the card can match it. */
+export const detailHeaderFade = (accentColor: AccentColor = 'primary') =>
+  `linear-gradient(135deg, ${(ICON_COLORS[accentColor] ?? ICON_COLORS.primary).bg}60 0%, transparent 100%)`;
+
 // ── DetailCard ──────────────────────────────────────────────────────────────
 
 interface DetailCardProps {
@@ -65,7 +69,7 @@ export const DetailCard: React.FC<DetailCardProps> = ({
           flexShrink: 0,
           borderBottom: `1px solid ${C.border}`,
           gap: '12px',
-          background: `linear-gradient(135deg, ${bg}60 0%, transparent 100%)`,
+          background: detailHeaderFade(accentColor),
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>

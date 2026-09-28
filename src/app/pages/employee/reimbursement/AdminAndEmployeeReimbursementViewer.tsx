@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { useTabRoute } from "@app/hooks/useTabRoute";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import MaterialHeaderTab, {
   TabItem,
@@ -17,17 +18,12 @@ import { fetchReimbursementBatches } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
-import SensitiveDataProvider, { SensitiveDataHeaderToggle } from "@app/modules/common/components/SensitiveData";
-
-/** Tabs that show amounts — the only ones where the eye has anything to hide. */
-const AMOUNT_TABS = new Set(["My Reimbursements", "Reimbursement Details", "Search Employee"]);
 
 
 function AdminAndEmployeeReimbursementViewer() {
   const dispatch = useDispatch();
   const location = useLocation();
 
-  const [activeTab, setActiveTab] = useState(0);
   useEffect(()=>{
     dispatch(fetchRolesAndPermissions() as any);
   },[])
@@ -63,7 +59,6 @@ function AdminAndEmployeeReimbursementViewer() {
   const tabItems: TabItem[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Reimbursements",
-      shortTitle: "Mine",
       component: <Reimbursement />,
       icon: 'bi-receipt',
     }]:[]),
@@ -71,13 +66,11 @@ function AdminAndEmployeeReimbursementViewer() {
     // period-scoped fetch. "By Project" used to be a separate tab over the same data.
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Reimbursement Details",
-      shortTitle: "Details",
       component: <AllEmployee />,
       icon: 'bi-receipt-cutoff',
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Search Employee",
-      shortTitle: "Search",
       component: <SearchEmployee />,
       icon: 'bi-search',
     }]:[]),
@@ -97,6 +90,14 @@ function AdminAndEmployeeReimbursementViewer() {
       icon: 'bi-gear',
     }]:[]),
   ];
+
+  // The tab is the URL (/finance/reimbursements/payment), so it survives a refresh, a
+  // shared link, and the remount the header does at the mobile breakpoint. Derived from
+  // the titles, so a tab hidden by permissions can't shift the others.
+  const { activeTab, setActiveTab } = useTabRoute(
+    "/finance/reimbursements",
+    tabItems.map((t) => t.title),
+  );
 
   const ReimbursementWizardBreadcrumb: Array<PageLink> = [
     {
@@ -119,17 +120,7 @@ function AdminAndEmployeeReimbursementViewer() {
         Reimbursements
       </PageTitle>
       
-      {/* Above the tabs, so the one switch in the bar governs every figure in them. */}
-      {/* Disabled on tabs without the eye (Payment, Configure), so they show every
-          figure instead of blurring ones the reader has no switch to reveal. */}
-      <SensitiveDataProvider disabled={!AMOUNT_TABS.has(tabItems[activeTab]?.title)}>
-        <MaterialHeaderTab
-          tabItems={tabItems}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          headerAction={AMOUNT_TABS.has(tabItems[activeTab]?.title) ? <SensitiveDataHeaderToggle /> : undefined}
-        />
-      </SensitiveDataProvider>
+      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} />
     </>
   );
 }

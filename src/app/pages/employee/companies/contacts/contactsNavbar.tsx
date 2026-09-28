@@ -6,7 +6,8 @@ import ContactOverview from "./components/ContactOverview";
 import ContactLeadsOverview from "./components/ContactLeadsOverview";
 import ContactProject from "./components/ContactProject";
 import ContactConfigMain from "./config/ContactConfigMain";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useTabRoute } from "@app/hooks/useTabRoute";
 import { getAllClientContacts, getClientContactById } from "@services/companies";
 import { PageTitle } from "@metronic/layout/core";
 import Loader from "@app/modules/common/utils/Loader";
@@ -19,15 +20,11 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 
-const TAB_KEYS = ["overview", "contacts", "calendar", "map", "configure"] as const;
+/** Tab titles, in order. Their slugs are the URL: /contacts/calendar — see useTabRoute. */
+const TAB_TITLES = ["Overview", "Contacts", "Calendar", "Map", "Configure"] as const;
 
 const ContactsNavbar = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tabKey = searchParams.get("tab") || "overview";
-  const activeTab = Math.max(0, TAB_KEYS.indexOf(tabKey as any));
-  const setActiveTab = (index: number) => {
-    setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
-  };
+  const { activeTab, setActiveTab } = useTabRoute("/contacts", TAB_TITLES);
   const dispatch = useDispatch<AppDispatch>();
   const [contact, setContact] = useState<any>(null);
   const [loading, setLoading] = useState(false);
