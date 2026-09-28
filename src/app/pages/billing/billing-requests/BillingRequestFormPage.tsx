@@ -233,7 +233,7 @@ const BillingRequestFormPage: React.FC = () => {
           ) : selectable.length === 0 && blocked.length === 0 ? (
             <BillingEmptyState
               title="Nothing to bill on this project"
-              description="Complete some billable deliverables in the project's Execution tab first."
+              description="Mark some billable deliverables completed in the project's Billing tab first."
               icon="information-5"
             />
           ) : (

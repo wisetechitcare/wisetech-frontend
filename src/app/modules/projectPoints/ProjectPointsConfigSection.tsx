@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-import { ConfigSectionCard } from "@app/modules/configuration";
+import { IconButton, Tooltip } from "@mui/material";
+import { ConfigSectionCard, ConfigSettingsRow, C, ICON_COLORS } from "@app/modules/configuration";
 import { deleteConfirmation } from "@utils/modal";
 import {
     getAllProjectPointMasters,
@@ -84,44 +85,69 @@ const ProjectPointsConfigSection: React.FC = () => {
             loading={loading}
         >
             {points.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "28px 16px", color: "#94a3b8", fontSize: 13 }}>
-                    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: "block", marginBottom: 8, opacity: 0.4 }} />
+                <div style={{ textAlign: "center", padding: "40px 16px", color: C.textMuted, fontSize: 13 }}>
+                    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: "block", marginBottom: 12, opacity: 0.4 }} />
                     No project points configured yet
                 </div>
             ) : (
-                <div style={{ display: "flex", flexDirection: "column", marginTop: 12 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {points.map((p, idx) => (
-                        <div key={p.id} style={{
-                            display: "grid", gridTemplateColumns: "24px 1fr auto", gap: 12, alignItems: "center",
-                            padding: "10px 12px", borderBottom: "1px solid #f1f5f9",
-                            background: p.isActive ? "#fff" : "#fafafa", opacity: p.isActive ? 1 : 0.7,
-                        }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "#cbd5e1", textAlign: "center" }}>{idx + 1}</span>
-                            <div style={{ minWidth: 0 }}>
+                        <ConfigSettingsRow
+                            key={p.id}
+                            label={p.title}
+                            description={p.defaultHeading || p.defaultDescription ? `${p.defaultHeading || p.title}${p.defaultDescription ? ` — ${p.defaultDescription}` : ""}` : undefined}
+                            icon="bi-diagram-3"
+                            iconColor="teal"
+                            value={`#${idx + 1}`}
+                            active={p.isActive}
+                            disabled={!p.isActive}
+                            rightContent={
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <span style={{ fontSize: 13.5, fontWeight: 600, color: "#1e293b" }}>{p.title}</span>
-                                    <span style={{
-                                        fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 10,
-                                        background: p.isActive ? "#ecfdf5" : "#f1f5f9", color: p.isActive ? "#059669" : "#94a3b8",
-                                    }}>{p.isActive ? "ACTIVE" : "DISABLED"}</span>
+                                    <Tooltip title="Move up">
+                                        <button
+                                            disabled={idx === 0}
+                                            onClick={() => move(idx, -1)}
+                                            style={coloredActionBtn("#0891b2", idx === 0)}
+                                        >
+                                            <AppIcon name="bi-arrow-up" className="fs-6" />
+                                        </button>
+                                    </Tooltip>
+                                    <Tooltip title="Move down">
+                                        <button
+                                            disabled={idx === points.length - 1}
+                                            onClick={() => move(idx, 1)}
+                                            style={coloredActionBtn("#0891b2", idx === points.length - 1)}
+                                        >
+                                            <AppIcon name="bi-arrow-down" className="fs-6" />
+                                        </button>
+                                    </Tooltip>
+                                    <Tooltip title={p.isActive ? "Click to disable" : "Click to enable"}>
+                                        <button
+                                            onClick={() => toggleActive(p)}
+                                            style={coloredActionBtn(p.isActive ? "#059669" : "#ef4444")}
+                                        >
+                                            <AppIcon name={p.isActive ? "bi-eye" : "bi-eye-slash"} className="fs-6" />
+                                        </button>
+                                    </Tooltip>
+                                    <Tooltip title="Edit">
+                                        <button
+                                            onClick={() => openEdit(p)}
+                                            style={coloredActionBtn("#2563eb")}
+                                        >
+                                            <AppIcon name="bi-pencil" className="fs-6" />
+                                        </button>
+                                    </Tooltip>
+                                    <Tooltip title="Delete">
+                                        <button
+                                            onClick={() => handleDelete(p)}
+                                            style={coloredActionBtn("#ef4444")}
+                                        >
+                                            <AppIcon name="bi-trash" className="fs-6" />
+                                        </button>
+                                    </Tooltip>
                                 </div>
-                                <div style={{ fontSize: 11.5, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {(p.defaultHeading || p.title)}{p.defaultDescription ? ` — ${p.defaultDescription}` : ""}
-                                </div>
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                                <button type="button" title="Move up" disabled={idx === 0} onClick={() => move(idx, -1)}
-                                    style={iconBtn("#64748b", idx === 0)}><AppIcon name="bi-arrow-up" /></button>
-                                <button type="button" title="Move down" disabled={idx === points.length - 1} onClick={() => move(idx, 1)}
-                                    style={iconBtn("#64748b", idx === points.length - 1)}><AppIcon name="bi-arrow-down" /></button>
-                                <button type="button" title={p.isActive ? "Disable" : "Enable"} onClick={() => toggleActive(p)}
-                                    style={iconBtn(p.isActive ? "#059669" : "#94a3b8")}>
-                                    <i className={p.isActive ? "bi bi-toggle-on" : "bi bi-toggle-off"} />
-                                </button>
-                                <button type="button" title="Edit" onClick={() => openEdit(p)} style={iconBtn("#4f82c4")}><AppIcon name="bi-pencil" /></button>
-                                <button type="button" title="Delete" onClick={() => handleDelete(p)} style={iconBtn("#ef4444")}><AppIcon name="bi-trash" /></button>
-                            </div>
-                        </div>
+                            }
+                        />
                     ))}
                 </div>
             )}
@@ -137,9 +163,18 @@ const ProjectPointsConfigSection: React.FC = () => {
     );
 };
 
-const iconBtn = (color: string, dim = false): React.CSSProperties => ({
-    background: "transparent", border: "none", cursor: dim ? "not-allowed" : "pointer",
-    color, opacity: dim ? 0.3 : 0.8, padding: "5px 7px", borderRadius: 6, fontSize: 14,
+const coloredActionBtn = (color: string, disabled = false): React.CSSProperties => ({
+    background: disabled ? "#f1f5f9" : `${color}14`,
+    border: `1px solid ${disabled ? "#e2e8f0" : `${color}2a`}`,
+    color: disabled ? "#cbd5e1" : color,
+    cursor: disabled ? "not-allowed" : "pointer",
+    padding: "8px",
+    borderRadius: "8px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "all 0.15s ease",
+    opacity: disabled ? 0.5 : 1,
 });
 
 export default ProjectPointsConfigSection;

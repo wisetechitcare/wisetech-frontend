@@ -2,17 +2,17 @@ import React, { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Box, MenuItem, Stack, TextField, Typography } from "@mui/material";
-import { WtButton } from "@app/modules/common/components/ui";
-import { ToneChip } from "@app/modules/common/components/ui/chips";
+import { WtButton, TRIO } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
 import { listPayments, type PaymentListItem, type PaymentListParams } from "@services/payments";
-import { BillingStatusBadge, ProjectFilterBanner } from "../components";
+import { BillingStatusBadge, ProjectFilterBanner, BillingPageHeader } from "../components";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import PeriodFilter, { type PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import { DATE_FORMATS } from "@utils/dateFormats";
 import { DueChip } from "../operations/operationUi";
 import RecordPaymentDialog from "./RecordPaymentDialog";
+import { KTIcon } from "@metronic/helpers";
 
 /**
  * Payment Collection — the finance team's workspace.
@@ -172,27 +172,18 @@ const PaymentCollectionPage: React.FC = () => {
       Cell: ({ row }: any) => {
         const item = row.original as PaymentListItem;
         return (
-          <Box sx={{ minWidth: 0 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
-              <Typography sx={{ fontSize: 12.5, fontWeight: 600 }} noWrap>
-                {item.proformaNumber ?? "—"}
-              </Typography>
-              {item.invoiceNumber && (
-                <>
-                  <Typography sx={{ fontSize: 11, color: "text.disabled" }}>→</Typography>
-                  <Typography sx={{ fontSize: 12.5, fontWeight: 700 }} noWrap>
-                    {item.invoiceNumber}
-                  </Typography>
-                </>
-              )}
-            </Box>
-            <ToneChip
-              tone={item.invoiceNumber ? "indigo" : item.proformaAccepted ? "success" : "neutral"}
-              label={
-                item.invoiceNumber ? "Bill raised" : item.proformaAccepted ? "Accepted" : "Awaiting acceptance"
-              }
-              dense
-            />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
+            <Typography sx={{ fontSize: 12.5, fontWeight: 600 }} noWrap>
+              {item.proformaNumber ?? "—"}
+            </Typography>
+            {item.invoiceNumber && (
+              <>
+                <Typography sx={{ fontSize: 11, color: "text.disabled" }}>→</Typography>
+                <Typography sx={{ fontSize: 12.5, fontWeight: 700 }} noWrap>
+                  {item.invoiceNumber}
+                </Typography>
+              </>
+            )}
           </Box>
         );
       },
@@ -446,19 +437,7 @@ const PaymentCollectionPage: React.FC = () => {
       */}
       <MaterialTable
         columns={columns}
-        /*
-         * TEMPORARY: the table shows its headings only.
-         *
-         * The rows are commented out, not the columns — the header row, the
-         * toolbar, the filters and every column preference stay exactly as they
-         * are, so this is a display change and nothing about the data or the
-         * queries has been touched. `payments` is still fetched, still filtered
-         * and still feeds the KPI tiles above.
-         *
-         * To bring the rows back, swap the two lines below.
-         */
-        data={[]}
-        // data={payments}
+        data={payments}
         tableName="PaymentCollection"
         isLoading={isLoading}
         enableColumnSpecificSearch

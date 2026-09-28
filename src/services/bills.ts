@@ -42,6 +42,12 @@ export interface BillOnRow {
   tdsDeposited: boolean;
   tdsDepositedAt: string | null;
   tdsReference: string | null;
+  /** Bill Amount (basic − TDS) settled — the Invoice Tracker's Received / Awaited. */
+  basicPaid: boolean;
+  basicPaidAt: string | null;
+  /** GST settled — the Invoice Tracker's Received / Awaited. */
+  gstPaid: boolean;
+  gstPaidAt: string | null;
   paymentCount: number;
   /** The proforma — the request for money, raised first. */
   proformaDocumentId: string | null;
@@ -126,6 +132,9 @@ export interface ProjectBillingPayload {
     projectNumber: string | null;
     clientName: string | null;
     clientGstNumber: string | null;
+    poStatus: string | null;
+    /** Same gate as the Billing Tracker: PO Value and Total Pending show only once true. */
+    poApproved: boolean;
   };
   summary: ProjectBillingSummary;
   rows: ProjectBillingRow[];

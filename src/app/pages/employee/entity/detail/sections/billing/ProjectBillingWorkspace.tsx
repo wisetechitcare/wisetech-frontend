@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -23,7 +24,6 @@ import {
 } from "@services/bills";
 import { RaiseBillDialog, RecordPaymentDialog } from "./BillDialogs";
 import BillDocumentDialog, { type BillDocumentTarget } from "./BillDocumentDialog";
-import BillDetailPanel from "./BillDetailPanel";
 
 /**
  * Project → Billing.
@@ -261,6 +261,7 @@ const Money: React.FC<{ value: number; tone?: string; bold?: boolean }> = ({ val
 );
 
 const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId }) => {
+    const navigate = useNavigate();
     const theme = useTheme();
     const queryClient = useQueryClient();
 
@@ -938,7 +939,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     title="Nothing billed on this project yet"
                     description="Complete some billable deliverables in the Execution tab, then raise a billing request."
                     actionLabel="Raise Billing Request"
-                    onAction={() => go(`/billing/requests/new?projectId=${projectId}`)}
+                    onAction={() => navigate(`/billing/requests/new?projectId=${projectId}`)}
                 />
             ) : (
                 <MaterialTable
@@ -951,9 +952,6 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     enableColumnResizing={true}
                     layoutMode="semantic"
                     muiTableHeadCellStyle={HEAD_CELL_SX}
-                    // Deliverables live under their stage, which is how the
-                    // project is planned and how the client is billed.
-                    initialGrouping={["stageName"]}
                     renderTopToolbarRightActions={() => (
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ py: 0.5 }}>
                             <TextField
@@ -1008,15 +1006,6 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                                 </WtButton>
                             )}
                         </Stack>
-                    )}
-                    renderDetailPanel={({ row }: any) => (
-                        <BillDetailPanel
-                            row={row.original as ProjectBillingRow}
-                            canRecordPayment={canPay}
-                            onOpenDocument={openDocument}
-                            onToggleTds={(billId, deposited) => tds.mutate({ billId, deposited })}
-                            busy={tds.isPending}
-                        />
                     )}
                     muiTableContainerProps={{ sx: { maxHeight: "700px", overflowX: "auto" } }}
                     muiTableProps={{
