@@ -467,7 +467,7 @@ const PaymentCollectionPage: React.FC = () => {
       */}
       <MaterialTable
         columns={columns}
-        data={payments}
+        data={[]} // Development mode - no rows displayed for now
         tableName="PaymentCollection"
         isLoading={isLoading}
         enableColumnSpecificSearch
