@@ -406,6 +406,12 @@ const PaymentCollectionPage: React.FC = () => {
         />
       )}
 
+      <Box sx={{ my: 2 }}>
+        <Alert severity="info" variant="outlined" sx={{ borderRadius: 1 }}>
+          💡 This page is in development. Data shown here is for testing and development purposes only.
+        </Alert>
+      </Box>
+
       {/*
         Period first, because it scopes everything under it — the tiles and the
         rows both narrow to the same slice of time, which is what lets a tile's
