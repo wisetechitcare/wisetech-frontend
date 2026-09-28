@@ -109,7 +109,7 @@ interface MeetingRow {
         id: string; name: string; avatar?: string | null;
         isOrganizer?: boolean; pendingTimesheet?: boolean;
     }>;
-    externalAttendees?: Array<{ id: string; name: string }>;
+    externalAttendees?: Array<{ id: string; name: string; avatar?: string | null }>;
 }
 
 const th: React.CSSProperties = {
@@ -1659,7 +1659,7 @@ const AttendeeRoster: React.FC<{
                 name padded out to the length of the longest one beside it. */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {attendees.map((a) => person(a.name, a.avatar, a.isOrganizer ? 'ORGANIZER' : undefined, showPending && a.pendingTimesheet))}
-                {external?.map((c) => person(c.name, null, 'CLIENT'))}
+                {external?.map((c) => person(c.name, c.avatar, 'CLIENT'))}
             </div>
             {showPending && pending.length > 0 && (
                 <div style={{

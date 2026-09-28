@@ -6,7 +6,7 @@
  * checking, and the component drags the whole app layout in behind it.
  *
  * ─── MIRRORS THE SERVER ──────────────────────────────────────────────────────────────
- * `wisetech-backend/src/utils/meetingType.ts` holds the same three values and the same
+ * `wisetech-backend/src/utils/meetingType.ts` holds the same two values and the same
  * required-field rule, and the API enforces it independently — a rule that lives only in a
  * screen is one anything else can skip, which is how that table acquired eight project-less
  * meetings while the create schema insisted a project was mandatory. This copy exists because
@@ -14,7 +14,7 @@
  * If you change one, change both; the tests on each side describe the same behaviour.
  */
 
-export const MEETING_KINDS = ['PROJECT', 'CONTACT', 'INTERNAL'] as const;
+export const MEETING_KINDS = ['PROJECT', 'GENERAL'] as const;
 export type MeetingKind = (typeof MEETING_KINDS)[number];
 
 export const isMeetingKind = (v: unknown): v is MeetingKind =>
@@ -28,7 +28,7 @@ export const isMeetingKind = (v: unknown): v is MeetingKind =>
  *
  * ─── THE HINTS CHANGED WHEN THE TABS STOPPED SWAPPING FIELDS ─────────────────────────
  * They used to describe the shape of the form each tab produced ("Nothing to file it against"),
- * which stopped being true once all three showed the same fields. Each now says what the type
+ * which stopped being true once every tab showed the same fields. Each now says what the type
  * is CLAIMING about the meeting, and names the one field it insists on — because that is the
  * only difference left between them, and a switch whose effect is invisible is one people
  * choose at random.
@@ -39,15 +39,10 @@ export const MEETING_KIND_META: Record<MeetingKind, { label: string; icon: strin
         icon: 'briefcase',
         hint: 'About a project or a lead, and shown on its record. Needs the project.',
     },
-    CONTACT: {
-        label: 'Contact',
-        icon: 'profile-user',
-        hint: 'About the person — a first call, a pitch, an introduction. Needs the contact.',
-    },
-    INTERNAL: {
-        label: 'Internal',
+    GENERAL: {
+        label: 'General',
         icon: 'people',
-        hint: 'Ours. Needs nothing, but may still name a project and outside guests.',
+        hint: 'Anything else — a call with a contact, an internal sync. Needs nothing, but may still name a project and outside guests.',
     },
 };
 
@@ -71,9 +66,7 @@ export const validateMeetingKind = (kind: MeetingKind, links: MeetingKindLinks):
     switch (kind) {
         case 'PROJECT':
             return links.projectId ? null : 'Pick the project or lead this meeting is for.';
-        case 'CONTACT':
-            return links.contactIds?.length ? null : 'Pick the contact you are meeting.';
-        case 'INTERNAL':
+        case 'GENERAL':
             return null;
     }
 };
@@ -81,13 +74,11 @@ export const validateMeetingKind = (kind: MeetingKind, links: MeetingKindLinks):
 /**
  * The kind an EXISTING meeting is, for the edit form.
  *
- * Rows written before the column existed carry no type, so fall back to the same derivation
- * the server's backfill used: a project link means it was filed against one, and a row without
- * could not have been a contact meeting because there was no way to book one.
+ * Rows written before the column existed carry no type, so fall back to the project link.
  */
 export const kindOfExisting = (
     meeting: { meetingType?: string | null; projectId?: string | null } | null | undefined,
 ): MeetingKind => {
     if (isMeetingKind(meeting?.meetingType)) return meeting.meetingType;
-    return meeting?.projectId ? 'PROJECT' : 'INTERNAL';
+    return meeting?.projectId ? 'PROJECT' : 'GENERAL';
 };

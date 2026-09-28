@@ -197,7 +197,8 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
          * used is still something to read past.
          */
         const [kind, setKind] = useState<MeetingKind>(() =>
-            (defaultProjectId || lockProject) ? 'PROJECT' : kindOfExisting(editing as any));
+            // A NEW meeting starts on Project, the common case; an edit keeps its own type.
+            (!editing || defaultProjectId || lockProject) ? 'PROJECT' : kindOfExisting(editing as any));
         const [internal, setInternal] = useState<string[]>([]);
         // An edit overwrites this from the meeting itself (below).
         const [external, setExternal] = useState<string[]>(defaultExternalParticipant ? [defaultExternalParticipant.id] : []);
@@ -210,6 +211,9 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const [projects, setProjects] = useState<any[]>([]);
         const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
         const [employeeById, setEmployeeById] = useState<Record<string, { name: string; avatar: string | null }>>({});
+        // Who may be INVITED. `employeeById` stays the full directory so a past meeting's
+        // participant who has since left still has a name.
+        const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
         const [projectDetail, setProjectDetail] = useState<any>(null);
         const [teamLoading, setTeamLoading] = useState(false);
         const [error, setError] = useState<string | null>(null);
@@ -289,9 +293,9 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         useEffect(() => {
             (async () => {
                 try {
-                    const [types, comps, projs, mine, emps] = await Promise.all([
+                    const [types, comps, projs, mine, emps, active] = await Promise.all([
                         getAllCompanyTypes(), getAllClientCompanies(), getAllProjects(),
-                        getMeetingProjects(), fetchAllEmployees(),
+                        getMeetingProjects(), fetchAllEmployees(), fetchAllEmployees(true),
                     ]);
                     setCompanyTypes(types?.companyTypes || []);
                     setCompanies(comps?.data?.companies || []);
@@ -310,6 +314,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                         if (e.id && name) map[e.id] = { name, avatar: e.avatar || e.users?.avatar || null };
                     });
                     setEmployeeById(map);
+                    setActiveIds(new Set((active?.data?.employees || []).map((e: any) => e.id)));
                 } catch (e) {
                     console.error('Failed to load meeting reference data', e);
                     setError('Could not load projects and people. Close and reopen to try again.');
@@ -371,8 +376,12 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
          * exists to stop people inviting colleagues onto work they are not on, is untouched.
          */
         const internalOptions: Option[] = useMemo(() => {
+            // Only active employees can be invited. Someone already on the meeting being
+            // edited is kept, so opening an old meeting does not silently drop them.
+            const invitable = (id: string) => activeIds.has(id) || !!editing?.participantIds?.includes(id);
             if (!projectId || leadName) {
                 return Object.entries(employeeById)
+                    .filter(([id]) => invitable(id))
                     .map(([value, info]) => ({ value, label: info.name, avatar: info.avatar }))
                     .sort((a, b) => a.label.localeCompare(b.label));
             }
@@ -381,7 +390,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
             const roster = persisted.length ? persisted : (projectDetail.execution?.team?.members || []);
             const seen = new Set<string>();
             return roster
-                .filter((m: any) => m.employeeId && !seen.has(m.employeeId) && seen.add(m.employeeId))
+                .filter((m: any) => m.employeeId && invitable(m.employeeId) && !seen.has(m.employeeId) && seen.add(m.employeeId))
                 .map((m: any) => ({
                     value: m.employeeId,
                     label: employeeById[m.employeeId]?.name || '',
@@ -396,7 +405,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 // right answer to "who is coming". They appear, named, a moment later.
                 .filter((o: Option) => !!o.label)
                 .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
-        }, [projectId, projectDetail, employeeById, leadName]);
+        }, [projectId, projectDetail, employeeById, activeIds, editing, leadName]);
 
         /**
          * The addresses an offline meeting could actually happen at, each named by whose it is.
@@ -740,7 +749,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
          * "required" at a person who has nothing to choose from.
          */
         /**
-         * Switching type clears NOTHING, because the three tabs now show the same fields.
+         * Switching type clears NOTHING, because both tabs show the same fields.
          *
          * It used to clear the links the next type "did not own" — leaving Project wiped the
          * project, leaving Contact wiped the guests. That was load-bearing while each tab
@@ -1008,13 +1017,17 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 {!lockProject && (
                     <Box sx={{ mb: 2 }}>
                         <SegmentedControl
-                            options={MEETING_KINDS.map((k) => ({ value: k, label: MEETING_KIND_META[k].label }))}
+                            options={MEETING_KINDS.map((k) => ({
+                                value: k,
+                                label: MEETING_KIND_META[k].label,
+                                icon: <KTIcon iconName={MEETING_KIND_META[k].icon} className="fs-5" />,
+                            }))}
                             value={kind}
                             onChange={changeKind}
                             ariaLabel="What kind of meeting"
                             fullWidth
                         />
-                        {/* What the chosen kind is FOR. "Contact" alone does not say when to
+                        {/* What the chosen kind is FOR. "General" alone does not say when to
                             reach for it, and this switch is the one place anybody decides. */}
                         <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.75, lineHeight: 1.5 }}>
                             {MEETING_KIND_META[kind].hint}
@@ -1048,7 +1061,14 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                             slotProps={dropdown.slotProps}
                             options={projectOptions}
                             value={projectOptions.find((o) => o.value === projectId) || null}
-                            onChange={(_, picked) => setProjectId(picked?.value || '')}
+                            onChange={(_, picked) => {
+                                setProjectId(picked?.value || '');
+                                // A new project is a new roster, and guests may only come from
+                                // it. The contact the page opened with is always on it.
+                                if (picked?.value !== projectId) {
+                                    setExternal((ids) => ids.filter((id) => id === defaultExternalParticipant?.id));
+                                }
+                            }}
                             getOptionLabel={(o) => o.label}
                             isOptionEqualToValue={(o, v) => o.value === v.value}
                             ListboxProps={{ sx: menuOptionSx }}
@@ -1294,26 +1314,18 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     <Grid item xs={12} sm={6}>
                         {peoplePicker('Internal Team', internalOptions, internal, setInternal, '', false)}
                     </Grid>
-                    {/* EXTERNAL TEAM, ON EVERY TAB — the same control the Contact tab used
-                        to put at the top of the form under its own heading. See the note on
-                        `ContactPicker`'s use above for why there is one of these and not two. */}
+                    {/* EXTERNAL TEAM, ON EVERY TAB. See the note on `ContactPicker`'s use above
+                        for why there is one of these and not two. */}
                     <Grid item xs={12} sm={6}>
                         <ContactPicker
                             label="External Team"
-                            // Only the Contact tab insists on one, and the asterisk is the
-                            // field's own — the same way Internal Team and Project mark theirs.
-                            required={kind === 'CONTACT'}
                             value={external}
                             onChange={setExternal}
-                            // The project's roster, offered above the CRM search. Empty when
-                            // there is no project, which is when the search is all there is.
+                            // With a project chosen, ONLY its stakeholders are offered. Without
+                            // one, the whole address book is searchable.
                             extraOptions={externalOptions}
+                            rosterOnly={!!projectId}
                             loading={teamLoading}
-                            // The same rule the server enforces through `validateMeetingLinks`.
-                            error={kind === 'CONTACT' && touched && !external.length}
-                            helperText={kind === 'CONTACT' && touched && !external.length
-                                ? 'Pick the contact you are meeting'
-                                : undefined}
                         />
                     </Grid>
                 </Grid>
