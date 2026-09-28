@@ -102,9 +102,8 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
     });
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <div />
+    <div style={{ position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 0, right: 0, zIndex: 10 }}>
         <Tooltip title={isBlurred ? 'Click to reveal amounts' : 'Click to hide amounts'}>
           <IconButton
             size="small"
