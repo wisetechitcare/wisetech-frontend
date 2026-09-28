@@ -1,6 +1,5 @@
 import React from "react";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import {
   LeadStatusPill,
@@ -8,6 +7,8 @@ import {
   leadTableSx,
   UNASSIGNED_ORG_LABEL,
 } from "@app/pages/employee/leads/lead/leadTableStyle";
+import { canViewCommercial } from "@utils/can";
+import { useOpenRecord } from "@hooks/useOpenRecord";
 
 type Person = { firstName?: string; lastName?: string } | null | undefined;
 
@@ -43,7 +44,7 @@ const CompanyLeadReferences: React.FC<{
   /** A contact IS the referrer, so its table leaves this column out. */
   showReferredBy?: boolean;
 }> = ({ referrals = [], tableName, showReferredBy = false }) => {
-  const navigate = useNavigate();
+  const { canOpen, openRecord } = useOpenRecord();
 
   const columns = [
     {
@@ -90,14 +91,14 @@ const CompanyLeadReferences: React.FC<{
       size: 150,
       Cell: ({ row }: any) => <LeadStatusPill status={row.original.lead?.status} />,
     },
-    {
+    ...(canViewCommercial('crm.leads') ? [{
       id: "totalCost",
       header: "Total Cost",
       size: 130,
       accessorFn: (r: LeadReferral) =>
         (r.lead?.commercials || []).reduce((sum, c) => sum + (Number(c?.cost) || 0), 0),
       Cell: ({ cell }: any) => `₹${Number(cell.getValue()).toLocaleString()}`,
-    },
+    }] : []),
     {
       id: "organization",
       header: "Organization",
@@ -123,10 +124,17 @@ const CompanyLeadReferences: React.FC<{
       muiTableContainerProps={{ sx: { overflowX: "auto" } }}
       muiTableProps={{
         sx: leadTableSx,
-        muiTableBodyRowProps: ({ row }: any) => ({
-          sx: leadRowSx(row.original?.lead?.status?.color),
-          onClick: () => row.original?.lead?.id && navigate(`/leads/${row.original.lead.id}`),
-        }),
+        muiTableBodyRowProps: ({ row }: any) => {
+          const lead = row.original?.lead;
+          const isProject = !!lead?.status?.isProjectTrigger;
+          const open = canOpen(lead?.id, isProject);
+          return {
+            // Every referral is listed; only this person's own leads / projects open.
+            sx: { ...leadRowSx(lead?.status?.color), ...(open ? {} : { cursor: "not-allowed" }) },
+            title: open ? undefined : `You're not authorized to open this ${isProject ? "project" : "lead"}`,
+            onClick: () => openRecord(lead?.id, isProject, `/leads/${lead?.id}`),
+          };
+        },
       }}
     />
   );

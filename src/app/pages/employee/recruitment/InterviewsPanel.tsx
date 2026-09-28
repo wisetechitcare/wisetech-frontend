@@ -11,6 +11,7 @@ import { EmployeePickerField } from "@app/modules/common/components/EmployeePick
 import { queryKeys } from "@/lib/queryKeys";
 import { formatDateTime } from "@utils/dateFormats";
 import { apiErrorMessage } from "@utils/apiError";
+import { canSection } from "@utils/can";
 import { COPY } from "./terms";
 import {
     getApplicationInterviews, createInterview, updateInterview, submitScorecard, getApplicationEvaluation,
@@ -136,6 +137,7 @@ const emptySchedule = (): InterviewPayload => ({
  * Framed as a kit SettingsSection, so it sits in the candidate modal and in its own dialog alike.
  */
 const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
+    const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const [scheduleOpen, setScheduleOpen] = useState(false);
     const [form, setForm] = useState<InterviewPayload>({ ...emptySchedule(), applicationId });
@@ -243,11 +245,11 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
             icon="message-text-2"
             title="Interviews"
             description={summary}
-            action={
+            action={canWrite && (
                 <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openSchedule} aria-label={`Schedule an interview with ${applicantName}`}>
                     Schedule
                 </WtButton>
-            }
+            )}
         >
             {evaluation && evaluation.scorecardCount > 0 && evaluation.verdict && (
                 <Box sx={{ mb: 1.5 }}>
@@ -274,6 +276,9 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                                         {formatDateTime(iv.scheduledStart)} · {plural(iv.panelistIds?.length ?? 0, "panelist")} · {plural(iv.scorecards?.length ?? 0, "scorecard")}
                                     </Typography>
                                 </Box>
+                                {!canWrite ? (
+                                    <ToneChip tone="neutral" label={labelOf(STATUSES, iv.status)} dense />
+                                ) : (
                                 <Stack direction="row" spacing={1} alignItems="center">
                                     <WtField
                                         label="Status"
@@ -287,6 +292,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                                         <KTIcon iconName="questionnaire-tablet" className="fs-5" />
                                     </WtIconButton>
                                 </Stack>
+                                )}
                             </Stack>
                         </GlassCard>
                     ))}

@@ -2,6 +2,7 @@ import React from "react";
 import AnalyticsTab from "@app/modules/common/components/AnalyticsTab";
 import { referredLeadDate } from "./LeadReferralAnalytics";
 import CompanyLeadReferences from "./CompanyLeadReferences";
+import { canViewCommercial } from "@utils/can";
 
 interface ReferredLead {
   id: string;
@@ -23,7 +24,8 @@ export const leadValue = (r: ReferredLead): number =>
 /** Bars split by lead status, so the mix of Received / Pending / Not Received is visible. */
 export const leadRow = (r: ReferredLead) => ({
   date: referredLeadDate(r),
-  value: leadValue(r),
+  // 0 turns the chart's Amount toggle and ₹ figures off.
+  value: canViewCommercial('crm.leads') ? leadValue(r) : 0,
   series: r.lead?.status?.name || "No status",
   color: r.lead?.status?.color,
   label: r.lead?.title,

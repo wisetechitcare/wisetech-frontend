@@ -1,10 +1,9 @@
-import { store } from "@redux/store";
-import { can } from "@utils/can";
+import { canSection } from "@utils/can";
 
 // The sidebar "sections" an admin can grant/block per employee, as a tree.
 // `module` is the backend permission resource key; sub-sections use a dotted key
 // under their parent (e.g. finance.salary, kpi.leaderboard). `label` is what the
-// admin reads. Keep in sync with SECTION_MODULES in
+// admin reads. Keep in sync with SECTION_PARENT in
 // backend/src/constants/permissions.ts.
 export interface AccessArea {
   module: string;
@@ -64,6 +63,14 @@ export const ACCESS_AREAS: AccessArea[] = [
   },
   { module: "users", label: "People (Employees)" },
   {
+    module: "documents",
+    label: "Documents",
+    children: [
+      { module: "documents.my", label: "My Documents" },
+      { module: "documents.employees", label: "Employees' Documents" },
+    ],
+  },
+  {
     module: "reports",
     label: "Reports",
     children: [
@@ -115,47 +122,14 @@ export const AREA_LABELS: Record<string, string> = flattenAreas().reduce((acc, a
   return acc;
 }, {} as Record<string, string>);
 
-/**
- * True when the current user is explicitly blocked from a section/sub-section.
- * Default is NOT blocked, so areas stay visible unless an admin blocks them —
- * this keeps existing users unaffected.
- */
-export const isSectionBlocked = (module: string): boolean => {
-  const blocked = (store.getState() as any).authz?.blockedSections || [];
-  return Array.isArray(blocked) && blocked.includes(module);
-};
+/** True when the signed-in employee has no Read on this section or tab. */
+export const isSectionBlocked = (module: string): boolean => !canSection(module, "read");
 
 /**
- * Visibility for a section/sub-section/tab. Precedence (matches the backend):
- *   1. Explicit Block always wins  → hidden.
- *   2. Otherwise visible if the ROLE allows it (baseAllowed) OR the admin
- *      granted an employee-specific override (View/Edit).
- * This is what lets a per-employee override REVEAL an area the role doesn't
- * grant — the override is layered on top of the role, not ignored.
+ * Whether a section / tab shows. Section access alone decides it; `_baseAllowed` is the older
+ * per-screen answer, kept in the signature so existing menu entries need no edit.
  */
-export const isSubsectionVisible = (module: string, baseAllowed: boolean): boolean => {
-  if (isSectionBlocked(module)) return false;
-  return baseAllowed || can(`${module}.view.all`);
-};
+export const isSubsectionVisible = (module: string, _baseAllowed?: boolean): boolean => canSection(module, "read");
 
-const findNode = (areas: AccessArea[], module: string): AccessArea | undefined => {
-  for (const a of areas) {
-    if (a.module === module) return a;
-    if (a.children) {
-      const found = findNode(a.children, module);
-      if (found) return found;
-    }
-  }
-  return undefined;
-};
-
-/**
- * True if any descendant sub-section of `parentModule` has been granted via an
- * employee override. Used so a parent menu group appears when the role grants
- * nothing but the admin granted one of its children to this employee.
- */
-export const anyChildGranted = (parentModule: string): boolean => {
-  const node = findNode(ACCESS_AREAS, parentModule);
-  if (!node?.children) return false;
-  return flattenAreas(node.children).some((c) => !isSectionBlocked(c.module) && can(`${c.module}.view.all`));
-};
+/** Whether any tab under a section is readable — a section with tabs reads as the OR of them. */
+export const anyChildGranted = (parentModule: string): boolean => canSection(parentModule, "read");

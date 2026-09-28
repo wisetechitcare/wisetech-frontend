@@ -13,7 +13,7 @@ import type { ReactNode } from 'react';
 // currency, duplicate section headings, Remove offered on other people's notes, and no way to
 // change a stage without drag-and-drop.
 
-vi.mock('@redux/store', () => ({ store: { getState: () => ({}) } }));
+vi.mock('@redux/store', () => ({ store: { getState: () => ({ authz: { tier: 'SUPER_ADMIN' } }) } }));
 
 const api = vi.hoisted(() => ({
     getApplicationById: vi.fn(),

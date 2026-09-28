@@ -27,8 +27,9 @@ import './_metronic/assets/sass/style.react.scss'
  **/
 import './_metronic/assets/sass/style.scss'
 import { AppRoutes } from './app/routing/AppRoutes'
-import { ToastContainer } from 'react-toastify'
+import { ToastContainer, Slide } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+import './app/theme/toast.css'
 import { getAuth, setupAxios } from './app/modules/auth'
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { fetchCurrentUser } from '@services/users'
@@ -92,7 +93,7 @@ const renderApp = () => {
           <AppRoutes />
         </Provider>
       </MetronicI18nProvider>
-      <ToastContainer position="top-right" theme="light" />
+      <ToastContainer position="top-right" theme="light" transition={Slide} newestOnTop limit={4} autoClose={4500} />
     </QueryClientProvider>
   )
 }

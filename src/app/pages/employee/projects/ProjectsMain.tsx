@@ -11,19 +11,18 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
-import { useTabRoute } from "@app/hooks/useTabRoute";
+import { tabSlug, useTabRoute } from "@app/hooks/useTabRoute";
+import { canTab } from "@utils/can";
+import { useSelector } from "react-redux";
+import type { RootState } from "@redux/store";
 import { PageTitle } from "@metronic/layout/core";
 import Maps from "../companies/companyOverview/components/Map";
 import { getProjectMapPoints } from "@services/projects";
 import { worldIcons } from "@metronic/assets/sidepanelicons";
 
-/** Tab titles, in order. Their slugs are the URL: /projects/map — see useTabRoute. */
-const TAB_TITLES = ["Overview", "Projects", "Map", "Configure"] as const;
-
 const ProjectsMain = () => {
   // The tab is the path segment, and the query string stays the table's own
   // (?manager=/?search=/?status=). Old ?tab= links are rewritten once.
-  const { activeTab, setActiveTab } = useTabRoute("/projects", TAB_TITLES);
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number}[]>([]);
   const [projectData, setProjectData] = useState<any>([]);
 
@@ -53,28 +52,33 @@ const ProjectsMain = () => {
 
   const points = coordinates;
   
-  const tabItems: TabItem[] = [
+  useSelector((st: RootState) => (st as any).authz);
+  // The tabs this person gets: each follows the section (Configure needs Write) unless turned
+  // off for them under Access -> Advanced. The URL names a tab by its title (useTabRoute).
+  const tabItems: TabItem[] = ([
     {
-      title: TAB_TITLES[0],
+      title: "Overview",
       component: <ProjectOverview />,
       icon: 'bi-grid-1x2',
     },
     {
-      title: TAB_TITLES[1],
+      title: "Projects",
       component: <ProjectTablePage />,
       icon: 'bi-briefcase',
     },
     {
-      title: TAB_TITLES[2],
+      title: "Map",
       component: <Maps points={points} projectData={projectData} />,
       icon: 'bi-geo-alt',
     },
     {
-      title: TAB_TITLES[3],
+      title: "Configure",
       component: <ProjectConfigure />,
       icon: 'bi-gear',
     },
-  ];
+  ] as TabItem[]).filter((t) => canTab("projects", tabSlug(t.title)));
+  const { activeTab, setActiveTab } = useTabRoute("/projects", tabItems.map((t) => t.title));
+
 
   const PorjectBreadcrumbs = [
     {
@@ -93,7 +97,7 @@ const ProjectsMain = () => {
   return (
     <div>
       <PageTitle breadcrumbs={PorjectBreadcrumbs}>
-        {tabItems[activeTab].title}
+        {tabItems[activeTab]?.title}
       </PageTitle>
 
       <MaterialHeaderTab

@@ -32,6 +32,7 @@ import {
 } from "@utils/leadsProjectCompaniesStatistics";
 import YearlyStatusCountChart from "@pages/employee/projects/commonComponents/YearlyStatusCountChart";
 import MonthlyLeadsTrend from "./MonthlyLeadsTrend";
+import { canViewCommercial } from "@utils/can";
 import LeadByLocationAndStatus from "../commonComponents/LeadByLocationChart";
 import { ChartDialogModal } from "./ChartDialogModal";
 import YearlyPerformanceAnalytics from "./charts/YearlyPerformanceAnalytics";
@@ -646,7 +647,7 @@ const Yearly = ({ startDate, endDate, metric = "count" }: Props) => {
         onReferralSelect={handleReferralChartClick}
         tabStorageKey="leadOverviewActiveTab"
         slots={{
-          summary: revenueSlot,
+          summary: canViewCommercial('crm.leads') ? revenueSlot : <MonthlyLeadsTrend startDate={startDate} endDate={endDate} />,
           sources: clientAnalysisSlot,
           geography: geographySlot,
         }}

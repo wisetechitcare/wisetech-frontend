@@ -1,6 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { applyMetric, toRanked } from "./leadAnalyticsUtils";
 import { convertToChartData } from "@utils/leadsProjectCompaniesStatistics";
+
+// Money shows only with the commercial flag; these tests run as a user who has it.
+const commercial = vi.hoisted(() => ({ allowed: true }));
+vi.mock("@utils/can", () => ({ canViewCommercial: () => commercial.allowed }));
 
 /**
  * The Amount toggle only works if every hop keeps the money: the API row carries
@@ -23,6 +27,13 @@ describe("count/amount metric wiring", () => {
     expect(amount.map((d) => d.value)).toEqual([5_000_000, 250_000]);
     // The count survives for the tooltip / volume sort.
     expect(amount.map((d) => d.volumeValue)).toEqual([539, 5]);
+  });
+
+  it("drops the money when the user may not see it", () => {
+    commercial.allowed = false;
+    const chartData = convertToChartData(cancellationApi, "value", "name", "budget");
+    commercial.allowed = true;
+    expect(chartData.map((d) => d.totalCost)).toEqual([0, 0]);
   });
 
   it("leaves count mode untouched", () => {

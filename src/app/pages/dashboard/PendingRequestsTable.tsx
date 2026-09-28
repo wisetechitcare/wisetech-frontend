@@ -34,8 +34,8 @@ import { getGraceBasedThresholds } from "@utils/getGraceBasedThresholds";
 import { markWeekendOrHoliday } from "@utils/statistics";
 import { fetchConfiguration } from "@services/company";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
-import { onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
-import { hasPermission } from "@utils/authAbac";
+import { onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
+import { can } from "@utils/can";
 import { Modal } from "react-bootstrap";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import {
@@ -763,10 +763,7 @@ const PendingRequestsTable = () => {
           >
             Pending Requests
           </h2>
-          {hasPermission(
-            resourceNameMapWithCamelCase.dashboardPendingRequests,
-            permissionConstToUseWithHasPermission.editOthers
-          ) && (
+          {can("approvals.view.team") && (
             <Button
               variant="outlined"
               onClick={handleViewAll}

@@ -11,10 +11,10 @@ import { permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCame
 import { RootState, store } from '@redux/store'
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
 import { fetchAuthzCapabilities } from '@redux/slices/authz'
-import { fetchCurrentEmployeeByEmpId } from '@services/employee'
 import { useSelector } from 'react-redux'
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags'
 import { SectionGuard } from '@app/modules/common/components/SectionGuard'
+import NoAccessPage from '@app/modules/common/components/NoAccessPage'
 import { RequirePermission } from '@app/modules/common/components/RequirePermission'
 import { can } from '@utils/can'
 
@@ -40,7 +40,6 @@ const Salary = lazy(() => import('@pages/employee/salary/Salary'))
 const Increment = lazy(() => import('@pages/employee/increment/Increment'))
 const Media = lazy(() => import('@pages/company/Media'))
 const EmployeeDocumentTable = lazy(() => import('@app/modules/accounts/components/documents/EmployeeDocumentTable'))
-const Settings = lazy(() => import('@pages/company/Settings'))
 const Calendar = lazy(() => import('@pages/employee/calendar/Calendar'))
 const Announcements = lazy(() => import('@pages/company/announcement/Announcements'))
 const Notifications = lazy(() => import('@pages/employee/notifications/Notifications'))
@@ -107,10 +106,13 @@ const LegacyLeadRedirect: FC = () => {
 }
 const PrivateRoutes = () => {
   const [isStored, setIsStored] = useState(false)
-  const employeeId = useSelector(
-    (state: RootState) => state.employee.currentEmployee.id
-  );
-  const [showAppSettings, setShowAppSettings] = useState(false);
+  // Which routes exist depends on access (the `hasPermission(...) && <Route>` entries below). Without
+  // subscribing, an access change made by an admin while this person is signed in updated the
+  // sidebar but not the routes — the new page's URL then fell through to `employees/:employeeId`
+  // ("This Page Isn't Available") until a reload.
+  const authzTier = useSelector((state: RootState) => (state as any).authz)?.tier;
+  // Roles & Permissions is Admin and above — a tier, never a checkbox (the server enforces the same).
+  const canManageRoles = authzTier != null;
   useEffect(() => {
     async function fetchAndStore() {
       await store.dispatch(fetchRolesAndPermissions());
@@ -120,18 +122,6 @@ const PrivateRoutes = () => {
     fetchAndStore()
   }, [])
 
-  async function fetchEmployeeAppVisibility(employeeId: string) {
-    const response = await fetchCurrentEmployeeByEmpId(employeeId);
-    // console.log("response.data:: ",response);
-    if (!response.hasError) {
-      setShowAppSettings(response.data?.employee?.showAppSettings);
-    }
-  }
-
-  useEffect(() => {
-    if (!employeeId) return;
-    fetchEmployeeAppVisibility(employeeId)
-  }, [employeeId])
 
   return (
     isStored && <Routes>
@@ -257,27 +247,24 @@ const PrivateRoutes = () => {
         />
         {/* The Accounts queue used to live under Finance; keep the old link working. */}
         <Route path='/finance/billing-queue' element={<Navigate to='/billing/accounts' replace />} />
-        {hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='/finance/reimbursements/*'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <AdminAndEmployeeReimbursementViewer />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
+            </SuspensedView>) : <NoAccessPage />}
+        />
+        <Route
           path='/finance/salary/*'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <Salary />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
+            </SuspensedView>) : <NoAccessPage />}
+        />
+        <Route
           path='/finance/increment/*'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <Increment />
-            </SuspensedView>}
-        />}
+            </SuspensedView>) : <NoAccessPage />}
+        />
         {tabRoutes(
           '/finance/loans',
           TAB_PATHS.loans,
@@ -309,13 +296,12 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
-        {hasPermission(uiControlResourceNameMapWithCamelCase.holidaysUnderReports, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='/company/public-holiday'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.holidaysUnderReports, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <PublicHoliday onClose={() => console.log('Hey')} setShowNewHolidayForm={undefined} />
-            </SuspensedView>}
-        />}
+            </SuspensedView>) : <NoAccessPage />}
+        />
         <Route
           path='/company/overview'
           element={
@@ -323,20 +309,18 @@ const PrivateRoutes = () => {
               <Overview />
             </SuspensedView>}
         />
-        {hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='/company/branches'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <Branches />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+            </SuspensedView>) : <NoAccessPage />}
+        />
+        <Route
           path='/company/departments'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <Departments />
-            </SuspensedView>}
-        />}
+            </SuspensedView>) : <NoAccessPage />}
+        />
         {/* <Route
           path='/company/employee-types'
           element={
@@ -344,13 +328,8 @@ const PrivateRoutes = () => {
               <Masters />
             </SuspensedView>}
         /> */}
-        {showAppSettings && <Route
-          path='/company/settings'
-          element={
-            <SuspensedView>
-              <Settings />
-            </SuspensedView>}
-        />}
+        {/* Roles & Permissions moved to App Settings; old bookmarks land there. */}
+        <Route path='/company/settings' element={<Navigate to='/admin/roles-permissions' replace />} />
         {tabRoutes(
           'employees',
           TAB_PATHS.employees,
@@ -358,16 +337,14 @@ const PrivateRoutes = () => {
             <EmployeesList />
           </SuspensedView>,
         )}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='employees/calendar/*'
-          element={
-            <SectionGuard module='calendar'>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers)) ? (<SectionGuard module='calendar'>
               <SuspensedView>
                 <Calendar />
               </SuspensedView>
-            </SectionGuard>
-          }
-        />}
+            </SectionGuard>) : <NoAccessPage />}
+        />
         <Route
           path='employees/notifications'
           element={
@@ -376,25 +353,21 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
-        {hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='employee/attendance-and-leaves/*'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <PersonalAttendanceView />
-            </SuspensedView>
-          }
-        />}
+            </SuspensedView>) : <NoAccessPage />}
+        />
 
-        {(hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) || can('attendance.employees.view.all')) && <Route
+        <Route
           path='employees/attendance-and-leaves/*'
-          element={
-            <SectionGuard module='attendance.employees'>
+          element={((hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) || can('attendance.employees.view.all'))) ? (<SectionGuard module='attendance.employees'>
               <SuspensedView>
                 <EmployeesAttendanceView />
               </SuspensedView>
-            </SectionGuard>
-          }
-        />}
+            </SectionGuard>) : <NoAccessPage />}
+        />
         <Route
           path='employees/create-new'
           element={
@@ -414,68 +387,63 @@ const PrivateRoutes = () => {
         {/* HR directory + one employee's wall. Both are cross-employee views, so both
             sit behind the same readOthers gate the nav entry uses; the API enforces it
             again per employee. */}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='/employee/documents'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <DocumentsDirectory />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers) && <Route
+            </SuspensedView>) : <NoAccessPage />}
+        />
+        <Route
           path='/employee/documents/:employeeId'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <EmployeeDocumentsPage />
-            </SuspensedView>}
-        />}
-        {/* Every employee has their own documents — no permission gate, because the
-            server resolves "me" from the token and can only ever return their own. */}
+            </SuspensedView>) : <NoAccessPage />}
+        />
+        {/* Your own documents: Documents → My Documents, which every employee has by default. */}
         <Route
           path='/my-documents'
           element={
-            <SuspensedView>
-              <MyDocumentsPage />
-            </SuspensedView>}
+            <SectionGuard module='documents.my'>
+              <SuspensedView>
+                <MyDocumentsPage />
+              </SuspensedView>
+            </SectionGuard>}
         />
-        {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='/company/organisation-profile'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <OrganisationProfileMain />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) &&
-          TAB_PATHS.organisationProfile.map((slug) => (
+            </SuspensedView>) : <NoAccessPage />}
+        />
+        {TAB_PATHS.organisationProfile.map((slug) => (
             <Route
               key={`/company/organisation-profile/${slug}`}
               path={`/company/organisation-profile/${slug}`}
-              element={
+              element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (
                 <SuspensedView>
                   <OrganisationProfileMain />
-                </SuspensedView>}
+                </SuspensedView>
+                ) : <NoAccessPage />}
             />
           ))}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='/company/organisation-profile/:orgId'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <OrganizationProfilePage />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+            </SuspensedView>) : <NoAccessPage />}
+        />
+        <Route
           path='/company/organisation-info/*'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <OrganisationInfoProfileMain />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.announcementsUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+            </SuspensedView>) : <NoAccessPage />}
+        />
+        <Route
           path='/company/announcements'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.announcementsUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <Announcements />
-            </SuspensedView>}
-        />}
+            </SuspensedView>) : <NoAccessPage />}
+        />
         <Route
           path='/company/branding'
           element={
@@ -484,46 +452,36 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
-        {hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='/company/designations'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <Designations />
-            </SuspensedView>
-          }
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+            </SuspensedView>) : <NoAccessPage />}
+        />
+        <Route
           path='/company/media'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <Media />
-            </SuspensedView>
-          }
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+            </SuspensedView>) : <NoAccessPage />}
+        />
+        <Route
           path='/company/media/:adminId'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <Media />
-            </SuspensedView>
-          }
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+            </SuspensedView>) : <NoAccessPage />}
+        />
+        <Route
           path='/company/media/:adminId/:employeeId'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <Media />
-            </SuspensedView>
-          }
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+            </SuspensedView>) : <NoAccessPage />}
+        />
+        <Route
           path='/company/onboardingdocs'
-          element={
-            <SuspensedView>
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <OnBoardingDocs />
-            </SuspensedView>
-          }
-        />}
+            </SuspensedView>) : <NoAccessPage />}
+        />
         <Route
           path='/company/documents/:employeeId'
           element={
@@ -787,11 +745,11 @@ const PrivateRoutes = () => {
         />
         <Route
           path='/admin/roles-permissions'
-          element={
+          element={canManageRoles ? (
             <SuspensedView>
               <RolesPermissions />
             </SuspensedView>
-          }
+          ) : <NoAccessPage title="Roles & Permissions is for Admins" message="Only an Admin or Super Admin can manage roles and access." />}
         />
         {/* Page Not Found */}
         <Route path='*' element={<Navigate to='/error/404' />} />

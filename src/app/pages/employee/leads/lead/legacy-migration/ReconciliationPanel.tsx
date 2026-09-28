@@ -3,6 +3,7 @@ import { Alert, Box, Divider, Stack, Typography } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { GlassSurface, ToneChip, WtButton } from '@app/modules/common/components/ui';
 import { formatMaybeDate } from '@utils/dateFormats';
+import { canSection } from '@utils/can';
 import FieldDifferenceRow from './FieldDifferenceRow';
 import MatchCandidateCard from './MatchCandidateCard';
 import type {
@@ -50,6 +51,7 @@ export function ReconciliationPanel({
   onClose: () => void;
   saving?: boolean;
 }) {
+  const canWrite = canSection('crm.leads', 'write');
   const differences = record.differences ?? [];
   const candidates = record.candidates ?? [];
   const isExecuted = record.status === 'EXECUTED';
@@ -291,6 +293,7 @@ export function ReconciliationPanel({
         <WtButton ghost onClick={onClose}>
           Close
         </WtButton>
+        {canWrite && (<>
         <WtButton
           flat
           tone="danger"
@@ -314,6 +317,7 @@ export function ReconciliationPanel({
         >
           {saving ? 'Saving…' : 'Approve this row'}
         </WtButton>
+        </>)}
       </Stack>
     </Stack>
   );

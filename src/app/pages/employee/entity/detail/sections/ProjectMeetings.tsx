@@ -14,6 +14,7 @@ import { setMeetingCancelled, updateMeeting } from '@services/employee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { apiErrorMessage } from '@app/pages/employee/tasks/taskDomain';
 import { hasPermission } from '@utils/authAbac';
+import { canSection } from '@utils/can';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 
 type Props =
@@ -45,6 +46,8 @@ const ProjectMeetings: React.FC<Props> = ({ leadId, leadName, contact }) => {
     const [open, setOpen] = useState(false);
     // The day the day-dialog's "Book AM/PM" came from; null → the form opens on now.
     const [createOn, setCreateOn] = useState<string | null>(null);
+    // Project tab only; the contact tab keeps its actions.
+    const canWrite = !leadId || canSection('projects', 'write');
     const canCreate = hasPermission(resourceNameMapWithCamelCase.meeting, permissionConstToUseWithHasPermission.create);
     // Keyed on the fields, not the object: the contact page builds a fresh one every render.
     const { id: contactId, fullName, profilePhoto } = contact ?? {};
@@ -124,9 +127,9 @@ const ProjectMeetings: React.FC<Props> = ({ leadId, leadName, contact }) => {
                 targetId={contactId ?? leadId!}
                 reloadToken={reloadToken}
                 onCreate={canCreate ? (startIso) => { setEditing(null); setCreateOn(startIso ?? null); setOpen(true); } : undefined}
-                onEdit={(m) => { setEditing(toEditableMeeting(m)); setCreateOn(null); setOpen(true); }}
-                onCancel={handleCancel}
-                onReschedule={handleReschedule}
+                onEdit={canWrite ? (m) => { setEditing(toEditableMeeting(m)); setCreateOn(null); setOpen(true); } : undefined}
+                onCancel={canWrite ? handleCancel : undefined}
+                onReschedule={canWrite ? handleReschedule : undefined}
                 onLogTime={(m) => setLogging(m)}
                 onRemind={(m) => setReminding(m)}
             />

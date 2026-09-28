@@ -3,6 +3,7 @@ import { getProjectsByCompanyId } from "@services/projects";
 import AnalyticsTab from "@app/modules/common/components/AnalyticsTab";
 import Loader from "@app/modules/common/utils/Loader";
 import { ProjectListTable } from "@app/pages/employee/projects/table/ProjectListTable";
+import { canViewCommercial } from "@utils/can";
 
 /**
  * How a project lands on the chart, shared with the Contact Projects tab so both
@@ -15,7 +16,8 @@ import { ProjectListTable } from "@app/pages/employee/projects/table/ProjectList
  */
 export const projectRow = (p: any) => ({
   date: p?.inquiryDate || p?.startDate || p?.createdAt,
-  value: Number(p?.projectValue) || 0,
+  // 0 turns the chart's Amount toggle and ₹ figures off.
+  value: canViewCommercial('projects') ? Number(p?.projectValue) || 0 : 0,
   series: p?.status?.name || "No status",
   color: p?.status?.color,
   label: p?.title,

@@ -16,6 +16,7 @@ import ManageTargetModal from "../modals/ManageTargetModal";
 import dayjs from "dayjs";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
+import { canSection } from "@utils/can";
 
 interface YearlyPerformanceAnalyticsProps {
   startDate: dayjs.Dayjs;
@@ -59,6 +60,7 @@ const YearlyPerformanceAnalytics: React.FC<YearlyPerformanceAnalyticsProps> = ({
   endDate: propEndDate,
   title = "Yearly Value Performance Trend",
 }) => {
+  const canWrite = canSection("crm.leads", "write");
   const [currentDate, setCurrentDate] = useState(dayjs(propStartDate));
   const [loading, setLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -384,7 +386,7 @@ const YearlyPerformanceAnalytics: React.FC<YearlyPerformanceAnalyticsProps> = ({
             </div>
             <div className="d-flex align-items-center gap-2">
               <div className="d-flex gap-2">
-                {viewMode === "inquiry" ? (
+                {canWrite && (viewMode === "inquiry" ? (
                   <Button
                     variant="outline-primary"
                     size="sm"
@@ -418,7 +420,7 @@ const YearlyPerformanceAnalytics: React.FC<YearlyPerformanceAnalyticsProps> = ({
                     <AppIcon name="bi-gear-fill" />
                     SET RECEIVED GOAL
                   </Button>
-                )}
+                ))}
               </div>
               <div
                 className="vr mx-1 my-1 text-muted opacity-25"

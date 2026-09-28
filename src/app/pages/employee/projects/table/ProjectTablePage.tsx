@@ -37,6 +37,7 @@ import { getRowBackgroundColor } from "@app/modules/common/design-tokens";
 import { AppDispatch, RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import eventBus from "@utils/EventBus";
+import { canViewCommercial } from "@utils/can";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
@@ -256,7 +257,7 @@ const ProjectTablePage = () => {
       setLoading(true);
       // Fetch the full set — the default 50-row page capped this to ~15 projects
       // (only the project-trigger leads within the first 50). Filtered client-side.
-      const leadsResponse = await getAllLeadsComplete(fields);
+      const leadsResponse = await getAllLeadsComplete(fields, "projects");
       const leadsData = leadsResponse?.data?.data?.leads || [];
 
       // Filter to ONLY project leads (isProjectTrigger === true)
@@ -493,7 +494,7 @@ const ProjectTablePage = () => {
       },
       { key: 'projectTeamName', header: 'Team', type: 'text' as const },
       { key: 'service', header: 'Service', type: 'text' as const },
-    ],
+    ].filter((c) => canViewCommercial('projects') || !['projectCost', 'totalCost', 'projectRate'].includes(c.key)),
     [allemployees],
   );
 
@@ -724,11 +725,13 @@ const ProjectTablePage = () => {
               boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06)',
               width: isMobile ? '100%' : 'auto'
             }}>
+              {canViewCommercial('projects') && (<>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Budget:</span>
                 <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCompactCurrency(totalFilteredCost)}</span>
               </div>
               <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
+              </>)}
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
                 <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>

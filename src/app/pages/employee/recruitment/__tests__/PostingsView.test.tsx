@@ -10,7 +10,7 @@ import { configureStore } from '@reduxjs/toolkit';
 // hardcoded in this bundle), adverts are editable after creation, a failed load is not
 // "nothing published yet", and only approved, open roles can be advertised.
 
-vi.mock('@redux/store', () => ({ store: { getState: () => ({ appSettings: {} }) } }));
+vi.mock('@redux/store', () => ({ store: { getState: () => ({ appSettings: {}, authz: { tier: 'SUPER_ADMIN' } }) } }));
 
 const api = vi.hoisted(() => ({
     getPostings: vi.fn(),

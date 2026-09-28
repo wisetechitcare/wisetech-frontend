@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { KTIcon } from '@metronic/helpers';
 import { useDMS } from '../store/DmsContext';
+import { canSection } from '@utils/can';
 import * as dmsService from '../services/dmsService';
 import { formatBytes, formatDate, getStatusConfig, getExportTypeConfig } from '../utils/dmsUtils';
 import { successConfirmation, errorConfirmation, rejectConfirmation } from '@utils/modal';
@@ -14,6 +15,7 @@ interface FileDetailsSidebarProps {
 
 export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, onClose }) => {
   const { dispatch, deleteFiles } = useDMS();
+  const canWrite = canSection('crm.leads', 'write');
   const [isRenaming, setIsRenaming] = React.useState(false);
   const [newName, setNewName] = React.useState(file?.name || '');
 
@@ -178,8 +180,10 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
               }
             }
           },
+          ...(canWrite ? [
           { icon: 'pencil', label: 'Rename', action: () => setIsRenaming(true) },
           { icon: 'trash', label: 'Delete', action: handleDelete, danger: true },
+          ] : []),
         ].map(a => (
           <motion.button 
             key={a.label} 

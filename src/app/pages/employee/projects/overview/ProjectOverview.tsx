@@ -38,6 +38,7 @@ import ChartVisibilitySettings from "@pages/company/settings/ChartVisibilitySett
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import { canViewCommercial } from "@utils/can";
 
 /**
  * Project Overview Analytics — Project-focused dashboard.
@@ -295,19 +296,22 @@ const ProjectOverview = () => {
             statusResData?.data || [],
             "count",
             "status",
-            "budget"
+            "budget",
+            "projects"
           ),
           serviceData: convertToChartData(
             serviceResData?.data || [],
             "count",
             "service",
-            "budget"
+            "budget",
+            "projects"
           ),
           categoryData: convertToChartData(
             categoryResData?.data || [],
             "count",
             "category",
-            "totalBudget"
+            "totalBudget",
+            "projects"
           ),
           subcategoryData: convertSubcategoryData(
             subcategoryResData?.data || [],
@@ -432,6 +436,7 @@ const ProjectOverview = () => {
         {/* Measure switch — flips every chart that has money on it between
             project COUNT and project VALUE. Sits with the period controls
             because it scopes the whole page, not one card. */}
+        {canViewCommercial('projects') && (
         <div
           className="d-flex align-items-center gap-2"
           style={{ flexShrink: 0, minWidth: 0 }}
@@ -457,6 +462,7 @@ const ProjectOverview = () => {
             ariaLabel="measure selection"
           />
         </div>
+        )}
 
         {/* Sub-tabs (Summary / Services & Insights / Teams) portal into here,
             sharing the same row and sitting on the right — mirrors the Leads Overview.

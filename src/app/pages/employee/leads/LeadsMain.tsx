@@ -7,17 +7,16 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { useEffect } from "react";
-import { useTabRoute } from "@app/hooks/useTabRoute";
+import { tabSlug, useTabRoute } from "@app/hooks/useTabRoute";
+import { canTab } from "@utils/can";
+import { useSelector } from "react-redux";
+import type { RootState } from "@redux/store";
 import { PageTitle } from "@metronic/layout/core";
 import LeadNewLead from "./lead/LeadNewLead";
 import LeadsOverviewMain from "./overview/LeadsOverviewMain";
 import GlobalFilesView from "./GlobalFilesView";
 
-/** Tab titles, in order. Their slugs are the URL: /leads/files — see useTabRoute. */
-const TAB_TITLES = ["Overview", "Leads", "Files", "Configure"] as const;
-
 const LeadsMain = () => {
-  const { activeTab, setActiveTab } = useTabRoute("/leads", TAB_TITLES);
 
   const dispatch = useDispatch<AppDispatch>();
 
@@ -26,7 +25,10 @@ const LeadsMain = () => {
     dispatch(initializeChartSettings());
   }, [dispatch]);
 
-  const tabItems: TabItem[] = [
+  useSelector((st: RootState) => (st as any).authz);
+  // The tabs this person gets: each follows the section (Configure needs Write) unless turned
+  // off for them under Access -> Advanced. The URL names a tab by its title (useTabRoute).
+  const tabItems: TabItem[] = ([
     {
       title: "Overview",
       component: <LeadsOverviewMain />,
@@ -47,7 +49,9 @@ const LeadsMain = () => {
       component: <LeadsConfigurationMain />,
       icon: 'bi-gear',
     },
-  ];
+  ] as TabItem[]).filter((t) => canTab("crm.leads", tabSlug(t.title)));
+  const { activeTab, setActiveTab } = useTabRoute("/leads", tabItems.map((t) => t.title));
+
   const LeadBreadcrumbs = [
     {
       title: "lead",
@@ -65,7 +69,7 @@ const LeadsMain = () => {
   return (
     <div>
       <PageTitle breadcrumbs={LeadBreadcrumbs}>
-        {tabItems[activeTab].title}
+        {tabItems[activeTab]?.title}
       </PageTitle>
 
       <MaterialHeaderTab

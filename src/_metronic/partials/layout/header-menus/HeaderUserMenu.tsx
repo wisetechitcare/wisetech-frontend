@@ -89,7 +89,7 @@ const HeaderUserMenu: FC = () => {
         {showAppSettings && (
           <div className='menu-item px-2'>
             <a
-              href='/company/settings'
+              href='/admin/app-settings'
               className='menu-link d-flex align-items-center gap-2'
             >
               <KTIcon iconName='setting-2' className='fs-5 text-muted' />

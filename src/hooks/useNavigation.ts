@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 // Professional Bootstrap Icons for clean, business-focused navigation
 import { permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from '@constants/statistics';
 import { hasPermission } from '@utils/authAbac';
-import { can } from '@utils/can';
+import { can, canSection } from '@utils/can';
 import { isSectionBlocked, isSubsectionVisible, anyChildGranted } from '@utils/accessAreas';
 import { fetchPendingApprovals } from '@services/employee';
 import { fetchInboxCount } from '@services/inbox';
@@ -60,10 +60,11 @@ export function useNavigation() {
   // My Team → Approvals row, and is genuinely approver-only.
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
 
-  // Subscribe to capabilities + blocked sections so the menu re-evaluates
-  // whenever they load or refresh (drives can() and isSectionBlocked()).
-  const capabilities = useSelector((state: RootState) => (state as any).authz?.capabilities);
-  const blockedSections = useSelector((state: RootState) => (state as any).authz?.blockedSections);
+  // Subscribe to section access so the menu re-evaluates whenever it loads or refreshes
+  // (drives can(), canSection() and isSectionBlocked()).
+  const capabilities = useSelector((state: RootState) => (state as any).authz?.access);
+  // Admin / Super Admin: Roles & Permissions is theirs alone, by tier rather than any checkbox.
+  const tier = useSelector((state: RootState) => (state as any).authz?.tier);
   // Drives the dynamic "<Org> Team" label on the Employees row (see below).
   const orgName = useRootOrgName();
 
@@ -81,7 +82,14 @@ export function useNavigation() {
   // answering a question left a "1" sitting in the sidebar over an empty inbox.
   useEventBus(EVENT_KEYS.reimbursementChanged, refreshInboxCount);
 
-  useEffect(() => {
+  /**
+   * The approvals badge refetched only when `capabilities` changed — so it was fetched
+   * once at load and never again. Deciding a request left the old number sitting in the
+   * sidebar over a queue that no longer had it, and the only way to correct it was a
+   * full reload. The Inbox badge next to it already had this wiring; this one did not.
+   * Audit L2.
+   */
+  const refreshPendingApprovalsCount = () => {
     if (!can('approvals.approve.team')) {
       setPendingApprovalsCount(0);
       return;
@@ -92,7 +100,12 @@ export function useNavigation() {
         setPendingApprovalsCount(Array.isArray(records) ? records.length : 0);
       })
       .catch(() => setPendingApprovalsCount(0));
-  }, [capabilities]);
+  };
+
+  useEffect(refreshPendingApprovalsCount, [capabilities]);
+  // Subscribed to the APPROVAL key, not the leave one the socket also carries: this badge
+  // must not refetch on every leave edit in the organisation.
+  useEventBus(EVENT_KEYS.approvalUpdated, refreshPendingApprovalsCount);
 
   const menu = useMemo(() => {
     // ── Nav ORDER, labels, grouping and icons are ported verbatim from
@@ -209,19 +222,17 @@ export function useNavigation() {
         to: '/employee/documents',
         title: 'Documents',
         fontIcon: 'bi-file-earmark-text',
-        visible: !isSectionBlocked('users') && hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers),
+        visible: canSection('documents.employees'),
       },
       {
-        // Everyone's own file, alongside "My Attendance & Leaves". Deliberately
-        // ungated: it resolves to the signed-in employee server-side, so there is no
-        // permission to check — and the company-wide Documents entry above is the one
-        // that needs the readOthers gate.
+        // Your own file, alongside "My Attendance & Leaves" — its own section (Documents → My
+        // Documents), which every employee has by default. Everyone else's is the entry above.
         type: 'item',
         id: 'my-documents',
         to: '/my-documents',
         title: 'My Documents',
         fontIcon: 'bi-folder2-open',
-        visible: !isSectionBlocked('users'),
+        visible: canSection('documents.my'),
       },
       // Promoted out of the Organization group to top level, as in NAV_CONFIG.
       {
@@ -534,7 +545,7 @@ export function useNavigation() {
         type: 'section',
         id: 'admin-section',
         title: 'App Settings',
-        visible: !isSectionBlocked('settings'),
+        visible: tier != null || !isSectionBlocked('settings'),
       },
       // Stands in for NAV_CONFIG's "Access Control" group, which has no routes here.
       {
@@ -543,7 +554,7 @@ export function useNavigation() {
         to: '/admin/roles-permissions',
         title: 'Roles & Permissions',
         fontIcon: 'bi-shield-lock',
-        visible: !isSectionBlocked('settings'),
+        visible: tier != null,
       },
       {
         type: 'item',
@@ -556,7 +567,7 @@ export function useNavigation() {
     ];
 
     return items;
-  }, [intl, inboxCount, pendingApprovalsCount, capabilities, blockedSections, orgName]);
+  }, [intl, inboxCount, pendingApprovalsCount, capabilities, orgName, tier]);
 
   return menu;
 }

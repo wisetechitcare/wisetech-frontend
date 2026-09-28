@@ -14,6 +14,7 @@ import {
 import ManageTargetModal from "../modals/ManageTargetModal";
 import dayjs from "dayjs";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { canSection } from "@utils/can";
 
 interface YearlyCumulativePerformanceProps {
   startDate: dayjs.Dayjs;
@@ -28,6 +29,7 @@ const YearlyCumulativePerformance: React.FC<
   endDate: propEndDate,
   title = "Yearly Performance Analytics",
 }) => {
+  const canWrite = canSection("crm.leads", "write");
   const [currentDate, setCurrentDate] = useState(dayjs(propStartDate));
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"inquiry" | "received">("received");
@@ -298,7 +300,7 @@ const YearlyCumulativePerformance: React.FC<
           </div>
 
           <div className="d-flex align-items-center gap-3">
-            {viewMode === "inquiry" ? (
+            {canWrite && (viewMode === "inquiry" ? (
               <Button
                 variant="outline-primary"
                 size="sm"
@@ -330,7 +332,7 @@ const YearlyCumulativePerformance: React.FC<
                 <AppIcon name="bi-gear-fill" />
                 SET RECEIVED TARGET
               </Button>
-            )}
+            ))}
 
             <div className="bg-light p-1 rounded-pill d-flex gap-1 border shadow-sm">
               <Button

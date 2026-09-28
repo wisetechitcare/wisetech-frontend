@@ -10,6 +10,7 @@ import EmployeeDetailsCard from '@pages/employee/salary/personal/views/my-salary
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
+import { canSection } from '@utils/can';
 import { T } from '@app/modules/common/components/ui/tokens';
 import AddEditIncrementDialog from '@app/modules/employee/salary/AddEditIncrementDialog';
 import { useIncrementData, IncrementMode } from './useIncrementData';
@@ -26,6 +27,7 @@ function resolveYear(param: string | null): string {
 }
 
 function IncrementView({ fromAdmin = false }: { fromAdmin?: boolean }) {
+    const canWrite = fromAdmin && canSection('finance.increment', 'write');
     const stats = useSelector((state: RootState) => state.attendanceStats.monthly);
     const employee = useSelector((state: RootState) =>
         fromAdmin ? state.employee?.selectedEmployee : state.employee.currentEmployee
@@ -123,7 +125,7 @@ function IncrementView({ fromAdmin = false }: { fromAdmin?: boolean }) {
                         />
                     )}
 
-                    {fromAdmin && (
+                    {canWrite && (
                         <Button
                             variant="contained"
                             startIcon={<AddIcon sx={{ fontSize: 16 }} />}
@@ -157,7 +159,7 @@ function IncrementView({ fromAdmin = false }: { fromAdmin?: boolean }) {
                 joiningDate={employee?.dateOfJoining ? String(employee.dateOfJoining) : undefined}
             />
 
-            {fromAdmin && employee?.id && (
+            {canWrite && employee?.id && (
                 <AddEditIncrementDialog
                     open={showAddDialog}
                     onClose={() => setShowAddDialog(false)}

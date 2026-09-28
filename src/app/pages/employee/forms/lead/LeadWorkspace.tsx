@@ -15,6 +15,7 @@ import {
   TrackChanges,
 } from "@mui/icons-material";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { canViewCommercial } from '@utils/can';
 
 /**
  * Placeholder body for wizard steps that exist in the flow but are not built yet.
@@ -330,7 +331,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
   // Project section of the entity detail page (section-scoped PATCH → audited
   // revision). The wizard now covers lead capture only; execution defaults
   // (PRIVATE / not-live / open) apply on create and are refined on the detail page.
-  const steps = baseSteps;
+  const steps = baseSteps.filter((s) => s.id !== "commercials" || canViewCommercial('crm.leads'));
 
   // ── Right panel: Live summary rows ────────────────────────────────────────
   const getSummaryRows = (values: any, activeStep?: any): SummaryRow[] => {
@@ -519,7 +520,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
         isStrong: totalCommercials > 0,
         stepId: "commercials",
       },
-    ];
+    ].filter((row) => row.stepId !== "commercials" || canViewCommercial('crm.leads'));
 
     if (activeStep?.id) {
       return allRows.filter((row: any) => row.stepId === activeStep.id);

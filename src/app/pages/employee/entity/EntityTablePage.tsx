@@ -60,6 +60,15 @@ import {
   projectNumberOf,
 } from "./entityUtils";
 import { currencyPrefix } from '@utils/currency';
+import { canViewCommercial } from '@utils/can';
+
+// Money columns and the section whose commercial flag lets them show.
+const MONEY_COLUMN_SECTION: Record<string, 'crm.leads' | 'projects'> = {
+  totalCost: 'crm.leads',
+  projectCost: 'projects',
+  projectRate: 'projects',
+};
+const moneyAllowed = (key: string) => !MONEY_COLUMN_SECTION[key] || canViewCommercial(MONEY_COLUMN_SECTION[key]);
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -525,7 +534,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       // Full set — table filters & paginates client-side; default 50-row page
       // would otherwise truncate the unified entity list. On a drill-down we force
       // the FULL (non-sparse) fetch so every filter field is present on each row.
-      const leadsResponse = await getAllLeadsComplete(isDrillDown ? undefined : fields);
+      const leadsResponse = await getAllLeadsComplete(isDrillDown ? undefined : fields, entityScope === "project" || receivedOnly ? "projects" : undefined);
       const leadsData = leadsResponse?.data?.data?.leads || [];
       setRawLeadsDatas(leadsData);
 
@@ -744,7 +753,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       hasLoadedOnceRef.current = true;
       setLoading(false);
     }
-  }, [isDrillDown]);
+  }, [isDrillDown, entityScope, receivedOnly]);
 
   const handleVisibleColumnsChange = useCallback(
     (keys: string[]) => {
@@ -1142,7 +1151,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       },
     ];
 
-    const assembled = [...base, ...leadOnly, ...projectCols, ...tail];
+    const assembled = [...base, ...leadOnly, ...projectCols, ...tail].filter((col: any) => moneyAllowed(col.accessorKey));
 
     // Full-page table: every column visible by default (user toggles via the menu).
     // Drill-down: only the curated base + the drilled dimension's context column are
@@ -1214,7 +1223,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       { meta: { defaultVisible: false }, key: 'area', header: 'Area', type: 'text' as const },
       { meta: { defaultVisible: false }, key: 'createdAt', header: 'Created Date', type: 'text' as const },
     ];
-    return [...base, ...projectPart, ...tail];
+    return [...base, ...projectPart, ...tail].filter((col) => moneyAllowed(col.key));
   }, [projectColumnsActive]);
 
   // Full-page loader only for the very first load; background refetches keep
@@ -2227,11 +2236,13 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
               width: isMobile ? '100%' : 'auto'
             }}>
+              {canViewCommercial(projectColumnsActive ? 'projects' : 'crm.leads') && (<>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
                 <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCompactCurrency(totalFilteredCost)}</span>
               </div>
               <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
+              </>)}
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
                 <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>

@@ -89,7 +89,7 @@ const PersonalAttendanceView = () => {
     return (
         <>
             <PageTitle breadcrumbs={newAttendanceWizardBreadcrumb}>Attendance</PageTitle>
-            <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} activeTab={activeTab} />
+            <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} activeTab={activeTab} accessSection="attendance.personal" />
         </>
     );
 };

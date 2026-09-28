@@ -10,9 +10,11 @@ import { RootState } from "@redux/store";
 import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import { deleteConfirmation } from "@utils/modal";
+import { canSection } from "@utils/can";
 import { getAllClientBranches } from "@services/lead";
 
 const ClientContacts = ({ companyId }: { companyId: string }) => {
+  const canWrite = canSection("crm.companies", "write");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
@@ -157,10 +159,10 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         accessorKey: "note",
         header: "Note",
       },
-      {
+      ...(canWrite ? [{
         accessorKey: "actions",
         header: "Actions",
-        Cell: ({ row }) => (
+        Cell: ({ row }: any) => (
           <div className="d-flex align-items-center gap-2">
             <button
               className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
@@ -176,18 +178,20 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
             </button>
           </div>
         ),
-      },
+      }] : []),
     ],
-    [allBranches, contacts, employeeId, navigate]
+    [allBranches, contacts, employeeId, navigate, canWrite]
   );
 
   return (
     <div>
+      {canWrite && (
       <div className="d-flex justify-content-end align-items-center mb-4">
         <Button variant="primary" onClick={handleAddNewClick}>
           Add New Contact
         </Button>
       </div>
+      )}
 
       <MaterialTable
         columns={columns}

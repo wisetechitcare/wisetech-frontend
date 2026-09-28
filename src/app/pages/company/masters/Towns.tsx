@@ -7,6 +7,7 @@ import { RootState } from '@redux/store';
 import { fetchCompanyOverview } from '@services/company';
 import { createNewTowns, fetchAllTowns, updateTownById } from '@services/options';
 import { successConfirmation } from '@utils/modal';
+import { canSection } from '@utils/can';
 import { Form, Formik, FormikValues } from 'formik';
 import { MRT_ColumnDef } from 'material-react-table';
 import React, { useEffect, useMemo, useState } from 'react'
@@ -43,7 +44,7 @@ function Towns() {
     const [editMode, setEditMode] = useState(false);
     const [loading, setLoading] = useState(false);
     const [initialValues, setInitialValues] = useState<ITown>(initialState);
-    const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+    const canWrite = canSection('settings', 'write');
     const [companyId, setCompanyId] = useState<string>('');
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const [refresh, setRefresh] = useState(false)
@@ -88,7 +89,7 @@ function Towns() {
                 },
             ];
 
-            if (isAdmin) {
+            if (canWrite) {
                 cols.push({
                     accessorKey: "actions",
                     header: "Actions",
@@ -104,7 +105,7 @@ function Towns() {
 
             return cols;
         },
-        [isAdmin, data]
+        [canWrite, data]
     );
 
     const handleClose = () => {
@@ -152,7 +153,7 @@ function Towns() {
                 description="View and manage all towns and geographical locations"
                 icon="bi-pin-map"
                 iconColor="primary"
-                primaryAction={isAdmin ? { label: 'New Town', icon: 'bi-plus-lg', onClick: () => setShowModal(true), variant: 'primary' } : undefined}
+                primaryAction={canWrite ? { label: 'New Town', icon: 'bi-plus-lg', onClick: () => setShowModal(true), variant: 'primary' } : undefined}
                 badge={{ label: `${data.length}`, color: C.primary, bg: C.primaryLight }}
                 loading={loading}
               >

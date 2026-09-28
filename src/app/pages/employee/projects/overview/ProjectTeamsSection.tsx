@@ -54,7 +54,7 @@ const ProjectTeamsSection = ({
         const rows = r?.projectCountByTeams || [];
         setInternalRaw(rows);
         // Drop 0-count teams; the NA bucket (added by the API only when >0) stays.
-        setInternalData(convertToChartData(rows, "projectsCount", "name", "budget").filter((d) => d.value > 0));
+        setInternalData(convertToChartData(rows, "projectsCount", "name", "budget", "projects").filter((d) => d.value > 0));
       })
       .catch(() => {
         if (active) {
@@ -75,7 +75,7 @@ const ProjectTeamsSection = ({
         if (!active) return;
         const rows = r?.projectCountByExternalTeam || [];
         setExternalRaw(rows);
-        setExternalData(convertToChartData(rows, "projectsCount", "name", "budget").filter((d) => d.value > 0));
+        setExternalData(convertToChartData(rows, "projectsCount", "name", "budget", "projects").filter((d) => d.value > 0));
       })
       .catch(() => {
         if (active) {

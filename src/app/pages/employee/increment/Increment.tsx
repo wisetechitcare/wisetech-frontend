@@ -40,7 +40,7 @@ function Increment() {
   return (
     <>
       <PageTitle breadcrumbs={breadcrumbs}>Increment</PageTitle>
-      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} />
+      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} accessSection="finance.increment" />
     </>
   );
 }

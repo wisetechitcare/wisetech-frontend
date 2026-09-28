@@ -14,6 +14,7 @@ import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import DeliverableFormDialog from "./DeliverableFormDialog";
 import { apiErrorMessage } from "@utils/apiError";
+import { canSection, canViewCommercial } from "@utils/can";
 import {
   getProjectStages, createProjectDeliverable, updateProjectDeliverable,
   deleteProjectDeliverable, reorderProjectDeliverables,
@@ -100,6 +101,7 @@ interface RemarksDialogState {
  * No billing and no task actions: those are separate modules.
  */
 const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
+  const canWrite = canSection("projects", "write");
   const qc = useQueryClient();
   const queryKey = useMemo(() => stagesKey(projectId), [projectId]);
   const { data: stages = [], isLoading } = useQuery({
@@ -253,13 +255,15 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
           "&:hover": { borderColor: "text.disabled" },
         }}
       >
-        <Box sx={{ pt: 0.25 }}>
-          <DragHandle
-            handleProps={handleProps}
-            disabled={stage.deliverables.length < 2}
-            onNudge={(dir) => nudge(stage, index, dir)}
-          />
-        </Box>
+        {canWrite && (
+          <Box sx={{ pt: 0.25 }}>
+            <DragHandle
+              handleProps={handleProps}
+              disabled={stage.deliverables.length < 2}
+              onNudge={(dir) => nudge(stage, index, dir)}
+            />
+          </Box>
+        )}
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={0.75}>
@@ -274,9 +278,11 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
               relationship between them is visible without opening the editor. */}
           <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={0.75} sx={{ mt: 0.35 }}>
             <ToneChip tone="indigo" label={`${Number(row.percentage) || 0}%`} dense />
+            {canViewCommercial('projects') && (
             <Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>
               {formatCurrencyDecimal(Number(row.calculatedAmount) || 0)}
             </Typography>
+            )}
             {priorityMeta.tone !== "neutral" && (
               <ToneChip tone={priorityMeta.tone} label={priorityMeta.label} dense />
             )}
@@ -334,7 +340,7 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
           )}
         </Box>
 
-        <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+        {canWrite && <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
           <WtIconButton
             title="Change status"
             onClick={(e) => setStatusMenu({ anchor: e.currentTarget, row })}
@@ -345,7 +351,7 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
           <RowAction title="Remarks" icon="notepad-edit" onClick={() => openRemarks(row)} />
           <RowAction title="Edit" icon="pencil" onClick={() => openEdit(stage, row)} />
           <RowAction title="Remove" icon="trash" color="#C0392B" onClick={() => void remove(stage, row)} />
-        </Stack>
+        </Stack>}
       </Stack>
     );
   };
@@ -406,10 +412,12 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
             <Typography sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 600 }}>Complete</Typography>
             <Typography sx={{ fontSize: 15, fontWeight: 700 }}>{overallPercent}%</Typography>
           </Box>
+          {canViewCommercial('projects') && (
           <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
             <Typography sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 600 }}>Contract Value</Typography>
             <Typography sx={{ fontSize: 15, fontWeight: 700 }}>{formatCurrencyDecimal(totalAmount)}</Typography>
           </Box>
+          )}
         </Stack>
       </Stack>
 
@@ -487,9 +495,11 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
 
                 <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={0.75} sx={{ mt: 0.35 }}>
                   <ToneChip tone="indigo" label={`${stage.percentage}%`} dense />
+                  {canViewCommercial('projects') && (
                   <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: "text.secondary" }}>
                     {formatCurrencyDecimal(stage.amount)}
                   </Typography>
+                  )}
                 </Stack>
 
                 {/* Progress bar — the number and the bar read the same derived value.
@@ -559,10 +569,11 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
               {/* Repeats the card's figures on purpose: the panel can sit a full screen
                   below its card once there are several stages. */}
               <Typography sx={{ fontSize: 11.5, color: "text.secondary", mt: 0.15 }}>
-                Stage {selectedIndex + 1} · {selectedStage.percentage}% · {formatCurrencyDecimal(selectedStage.amount)}
+                Stage {selectedIndex + 1} · {selectedStage.percentage}%
+                {canViewCommercial('projects') && ` · ${formatCurrencyDecimal(selectedStage.amount)}`}
               </Typography>
             </Box>
-            {selectedStage.deliverables.length > 0 && (
+            {canWrite && selectedStage.deliverables.length > 0 && (
               <WtButton
                 tone="primary" size="small" ghost onClick={() => openNew(selectedStage)}
                 startIcon={<KTIcon iconName="plus" className="fs-6" />}
@@ -581,6 +592,11 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
           </Stack>
 
           {selectedStage.deliverables.length === 0 ? (
+            !canWrite ? (
+              <Typography sx={{ color: "text.secondary", fontSize: 12.5, fontWeight: 600, textAlign: "center", py: 2.25 }}>
+                No deliverables
+              </Typography>
+            ) : (
             <Box
               role="button"
               tabIndex={0}
@@ -602,13 +618,14 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
                 Deliverables carry the stage&apos;s percentages, and must total 100%.
               </Typography>
             </Box>
+            )
           ) : (
             <ReorderableGroup
               items={selectedStage.deliverables}
               getItemId={(d) => d.id}
               axis="y"
               withHandle
-              disabled={selectedStage.deliverables.length < 2}
+              disabled={!canWrite || selectedStage.deliverables.length < 2}
               className="flex flex-col gap-2"
               onReorder={(next) => void applyOrder(selectedStage, next)}
               renderItem={renderDeliverable(selectedStage)}

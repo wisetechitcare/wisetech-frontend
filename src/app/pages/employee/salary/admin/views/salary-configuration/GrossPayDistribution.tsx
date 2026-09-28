@@ -14,6 +14,7 @@ import { deleteConfirmation, successConfirmation } from "@utils/modal";
 import { fetchConfiguration, updateConfigurationById } from "@services/company";
 import { GROSS_PAY } from "@constants/configurations-key";
 import { hasPermission } from "@utils/authAbac";
+import { canSection } from "@utils/can";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
@@ -36,7 +37,7 @@ const grossPayTypeSchema = Yup.object({
 });
 
 const GrossPayDistribution = () => {
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+  const canWrite = canSection("finance.salary", "write");
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
   const [configurationRule, setConfigurationRule] = useState({});
@@ -198,7 +199,7 @@ const GrossPayDistribution = () => {
       enableColumnActions: false,
       Cell: ({ renderedCellValue }: any) => `${renderedCellValue?.charAt(0)?.toUpperCase() + renderedCellValue?.slice(1)}`,
     },
-    ...(isAdmin
+    ...(canWrite
       ? [
         {
           accessorKey: "actions",

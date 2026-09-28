@@ -99,6 +99,8 @@ export type AppEventMap = {
     leaveManagementRequestUpdated: { requestId: string };
     leaveRequestCreated: { leaveId: string };
     leaveRequestUpdated: { leaveId: string };
+    /** An approval instance was decided or cancelled — approvals queues and badges refetch. */
+    approvalUpdated: { instanceId?: string };
     addonLeavesAllowanceUpdated: Record<string, never>;
     leaveOptionsUpdated: Record<string, never>;
     organizationConfigCreated: { type: string };
@@ -217,6 +219,7 @@ export type AppEventMap = {
     leaveManagementRequestUpdated: 'leaveManagementRequestUpdated',
     leaveRequestCreated: 'leaveRequestCreated',
     leaveRequestUpdated: 'leaveRequestUpdated',
+    approvalUpdated: 'approvalUpdated',
     addonLeavesAllowanceUpdated: 'addonLeavesAllowanceUpdated',
     leaveOptionsUpdated: 'leaveOptionsUpdated',
     organizationConfigCreated: 'organizationConfigCreated',

@@ -4,6 +4,7 @@ import { Button, Spinner, Modal } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import { getRatingByCompanyId } from "@services/projects";
 import Loader from "@app/modules/common/utils/Loader";
+import { canSection } from "@utils/can";
 
 const MAX_STARS = 10;
 
@@ -26,6 +27,7 @@ interface CompanyRatingData {
 }
 
 const CompaniesRating = ({ companyId, companyName, onRatingChange, toggleMounted }: { companyId: string, companyName?: string, onRatingChange?: (value: number) => void; toggleMounted?: boolean;}) => {
+  const canWrite = canSection("crm.companies", "write");
   const [ratingFactors, setRatingFactors] = useState<RatingFactor[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -220,6 +222,7 @@ useEffect(() => {
           </h4> */}
         </div>
         
+        {canWrite && (
         <div className="d-flex justify-content-end align-items-center mb-4">
           <Button 
             variant="primary" 
@@ -229,6 +232,7 @@ useEffect(() => {
             Edit Rating
           </Button>
         </div>
+        )}
 
         {/* Rating Card */}
         <div className="bg-white rounded-3 shadow-sm p-3 p-md-4">

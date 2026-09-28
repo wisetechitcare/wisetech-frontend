@@ -7,6 +7,7 @@ import {
 import { KTIcon } from "@metronic/helpers";
 import { GlassDialog, GlassHeader, WtButton, WtSwitchField } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
+import { canViewCommercial } from "@utils/can";
 import {
   getDeliverableCategories,
   type ProjectDeliverable, type DeliverablePayload, type DeliverablePriority,
@@ -145,7 +146,8 @@ const DeliverableFormDialog: React.FC<DeliverableFormDialogProps> = ({
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
-            Stage: <strong>{stageName}</strong> · {formatCurrencyDecimal(stageAmount)}
+            Stage: <strong>{stageName}</strong>
+            {canViewCommercial('projects') && ` · ${formatCurrencyDecimal(stageAmount)}`}
           </Typography>
 
           {shownError && (
@@ -188,6 +190,7 @@ const DeliverableFormDialog: React.FC<DeliverableFormDialogProps> = ({
               inputProps={{ min: 0, max: 100, step: 0.001 }}
               sx={{ flex: 1 }}
             />
+            {canViewCommercial('projects') && (
             <TextField
               label="Amount (calculated)"
               size="small"
@@ -196,6 +199,7 @@ const DeliverableFormDialog: React.FC<DeliverableFormDialogProps> = ({
               helperText="Derived from the stage amount — not editable"
               sx={{ flex: 1 }}
             />
+            )}
           </Stack>
 
           <Typography

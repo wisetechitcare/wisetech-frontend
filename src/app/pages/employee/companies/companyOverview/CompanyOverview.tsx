@@ -7,6 +7,7 @@ import { fetchConfiguration } from "@services/company";
 import { DATE_SETTINGS_KEY } from "@constants/configurations-key";
 import CompanyOverViewToggle from "./components/CompanyOverViewToggle";
 import CompanyChartSettingsModal from "./components/CompanyChartSettingsModal";
+import { canSection } from "@utils/can";
 
 function CompanyOverview() {
   const [show, setShow] = useState(false);
@@ -81,15 +82,19 @@ function CompanyOverview() {
               strokeLinejoin="round"
             />
           </svg>
-          <button className="btn btn-primary" onClick={() => setShow(true)}>
-            New Company
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => setShowContact(true)}
-          >
-            New Contact
-          </button>
+          {canSection("crm.companies", "write") && (
+            <button className="btn btn-primary" onClick={() => setShow(true)}>
+              New Company
+            </button>
+          )}
+          {canSection("crm.contacts", "write") && (
+            <button
+              className="btn btn-primary"
+              onClick={() => setShowContact(true)}
+            >
+              New Contact
+            </button>
+          )}
         </div>
       </div>
       <NewCompanyForm show={show} onClose={() => setShow(false)} />

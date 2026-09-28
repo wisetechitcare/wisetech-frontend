@@ -7,7 +7,10 @@ import ContactLeadsOverview from "./components/ContactLeadsOverview";
 import ContactProject from "./components/ContactProject";
 import ContactConfigMain from "./config/ContactConfigMain";
 import { useParams } from "react-router-dom";
-import { useTabRoute } from "@app/hooks/useTabRoute";
+import { tabSlug, useTabRoute } from "@app/hooks/useTabRoute";
+import { canTab } from "@utils/can";
+import { useSelector } from "react-redux";
+import type { RootState } from "@redux/store";
 import { getAllClientContacts, getClientContactById } from "@services/companies";
 import { PageTitle } from "@metronic/layout/core";
 import Loader from "@app/modules/common/utils/Loader";
@@ -20,11 +23,7 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 
-/** Tab titles, in order. Their slugs are the URL: /contacts/calendar — see useTabRoute. */
-const TAB_TITLES = ["Overview", "Contacts", "Calendar", "Map", "Configure"] as const;
-
 const ContactsNavbar = () => {
-  const { activeTab, setActiveTab } = useTabRoute("/contacts", TAB_TITLES);
   const dispatch = useDispatch<AppDispatch>();
   const [contact, setContact] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -73,7 +72,10 @@ const ContactsNavbar = () => {
     });
   }, []);
 
-  const tabItems: TabItem[] = [
+  useSelector((st: RootState) => (st as any).authz);
+  // The tabs this person gets: each follows the section (Configure needs Write) unless turned
+  // off for them under Access -> Advanced. The URL names a tab by its title (useTabRoute).
+  const tabItems: TabItem[] = ([
     {
       title: "Overview",
       component: <ContactsOverview />,
@@ -99,7 +101,9 @@ const ContactsNavbar = () => {
       component: <ContactConfigMain />,
       icon: 'bi-gear',
     },
-  ];
+  ] as TabItem[]).filter((t) => canTab("crm.contacts", tabSlug(t.title)));
+  const { activeTab, setActiveTab } = useTabRoute("/contacts", tabItems.map((t) => t.title));
+
 
 
   const contactBreadcrumbs = [

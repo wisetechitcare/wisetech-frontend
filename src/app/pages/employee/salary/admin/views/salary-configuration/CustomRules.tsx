@@ -13,6 +13,7 @@ import { fetchConfiguration, updateConfigurationById } from "@services/company";
 import { successConfirmation } from "@utils/modal";
 import { CUSTOM_SALARY } from "@constants/configurations-key";
 import { hasPermission } from "@utils/authAbac";
+import { canSection } from "@utils/can";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
@@ -43,7 +44,7 @@ const customRulesSchema = Yup.object({
 });
 
 function CustomRules() {
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+  const canWrite = canSection("finance.salary", "write");
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
   const [configurationRule, setConfigurationRule] = useState({});
@@ -159,7 +160,7 @@ function CustomRules() {
       enableColumnActions: false,
       Cell: ({ renderedCellValue }: any) => `${renderedCellValue}% of daily salary`,
     },
-    ...(isAdmin
+    ...(canWrite
       ? [
         {
           accessorKey: "actions",

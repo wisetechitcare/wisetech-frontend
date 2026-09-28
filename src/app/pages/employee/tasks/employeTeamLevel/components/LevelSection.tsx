@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { LevelSectionProps } from '../types';
 import EmployeeCard from './EmployeeCard';
 import VirtualizedEmployeeGrid from './VirtualizedEmployeeGrid';
+import { canSection } from '@utils/can';
 
 const LevelSection: React.FC<LevelSectionProps> = React.memo(({
     level,
@@ -11,6 +12,7 @@ const LevelSection: React.FC<LevelSectionProps> = React.memo(({
     onEditEmployee,
     onDeleteEmployee
 }) => {
+    const canWrite = canSection('settings.employeeLevel', 'write');
     console.log("level===============>inssideLvelSection",level)
     const handleAddMultipleEmployees = useCallback(() => {
         onAddMultipleEmployees?.(level.id);
@@ -86,7 +88,7 @@ const LevelSection: React.FC<LevelSectionProps> = React.memo(({
                     </div>
                 </div>
 
-                <div className="d-flex gap-3 flex-wrap">
+                {canWrite && <div className="d-flex gap-3 flex-wrap">
                     <button
                         type="button"
                         className="btn btn-outline text-nowrap"
@@ -123,7 +125,7 @@ const LevelSection: React.FC<LevelSectionProps> = React.memo(({
                     >
                         Edit Level
                     </button>
-                </div>
+                </div>}
             </div>
 
             {/* Employees Grid */}
@@ -148,7 +150,7 @@ const LevelSection: React.FC<LevelSectionProps> = React.memo(({
                         />
                     ))}
                     {/* Add Employee Placeholder */}
-                    <div
+                    {canWrite && <div
                         className="d-flex align-items-center justify-content-center bg-white rounded-2 border border-2 border-dashed text-secondary"
                         style={{
                             width: '240px',
@@ -161,7 +163,7 @@ const LevelSection: React.FC<LevelSectionProps> = React.memo(({
                         onClick={handleAddMultipleEmployees}
                     >
                         <span>+ Add Employee</span>
-                    </div>
+                    </div>}
                 </div>
             )}
         </div>

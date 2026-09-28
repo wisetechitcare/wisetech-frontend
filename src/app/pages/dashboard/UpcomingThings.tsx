@@ -8,11 +8,6 @@ import { Card, ListGroup, Spinner, Alert, Container } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import dayjs from "dayjs";
 import { eventsTypeProfileIcons } from "@metronic/assets/sidepanelicons";
-import { hasPermission } from "@utils/authAbac";
-import {
-  permissionConstToUseWithHasPermission,
-  resourceNameMapWithCamelCase,
-} from "@constants/statistics";
 import { fetchAllUsers } from "@services/users";
 import Loader from "@app/modules/common/utils/Loader";
 import MeetingViewModal from "@pages/employee/MeetingViewModal";
@@ -303,25 +298,11 @@ const UpcomingEventsCard: React.FC = () => {
         return dayjs(a.dateObject).diff(dayjs(b.dateObject));
       });
 
+    // The widget only shows with Read on Calendar (useDashboardSettings), which covers all of these.
     const allFormattedData = [
-      ...(hasPermission(
-        resourceNameMapWithCamelCase.meeting,
-        permissionConstToUseWithHasPermission.readOthers
-      )
-        ? formattedMeetings
-        : []),
-      ...(hasPermission(
-        resourceNameMapWithCamelCase.holiday,
-        permissionConstToUseWithHasPermission.readOthers
-      )
-        ? formattedHolidays
-        : []),
-      ...(hasPermission(
-        resourceNameMapWithCamelCase.event,
-        permissionConstToUseWithHasPermission.readOthers
-      )
-        ? formattedEvents
-        : []),
+      ...formattedMeetings,
+      ...formattedHolidays,
+      ...formattedEvents,
       // ...(hasPermission(resourceNameMapWithCamelCase.birthdays, permissionConstToUseWithHasPermission.readOthers) ? formattedBirthdays : [])
     ].sort((a, b) => {
       let dateA: number;
@@ -352,24 +333,9 @@ const UpcomingEventsCard: React.FC = () => {
 
     return {
       all: allFormattedData,
-      meetings: hasPermission(
-        resourceNameMapWithCamelCase.meeting,
-        permissionConstToUseWithHasPermission.readOthers
-      )
-        ? formattedMeetings
-        : [],
-      holidays: hasPermission(
-        resourceNameMapWithCamelCase.holiday,
-        permissionConstToUseWithHasPermission.readOthers
-      )
-        ? formattedHolidays
-        : [],
-      events: hasPermission(
-        resourceNameMapWithCamelCase.event,
-        permissionConstToUseWithHasPermission.readOthers
-      )
-        ? formattedEvents
-        : [],
+      meetings: formattedMeetings,
+      holidays: formattedHolidays,
+      events: formattedEvents,
       // birthdays: (hasPermission(resourceNameMapWithCamelCase.birthdays, permissionConstToUseWithHasPermission.readOthers) ? formattedBirthdays : [])
     };
   }, [meetings, holidays, calendarEvents, birthdays]);

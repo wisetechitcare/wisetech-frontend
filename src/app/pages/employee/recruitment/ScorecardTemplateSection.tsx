@@ -8,6 +8,7 @@ import {
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { apiErrorMessage } from "@utils/apiError";
+import { canSection } from "@utils/can";
 import { useDepartmentDesignations } from "@/hooks/useDepartmentDesignations";
 import {
     getScorecardTemplates, createScorecardTemplate, updateScorecardTemplate, deleteScorecardTemplate,
@@ -51,6 +52,7 @@ const SEARCHABLE_FROM = 8;
  * editing a template never rewrites a scorecard someone already filled in.
  */
 const ScorecardTemplateSection = () => {
+    const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<ScorecardTemplate | null>(null);
@@ -175,13 +177,13 @@ const ScorecardTemplateSection = () => {
                         The criteria a panelist rates. One per designation, plus a default for everything else.
                     </Typography>
                 </Box>
-                <WtButton
+                {canWrite && <WtButton
                     tone="primary" size="small" onClick={openNew}
                     startIcon={<KTIcon iconName="plus" className="fs-6" />}
                     sx={{ flexShrink: 0, minHeight: 36, px: { xs: 1.5, sm: 2 }, fontSize: 13, borderRadius: "10px", alignSelf: "flex-start" }}
                 >
                     New
-                </WtButton>
+                </WtButton>}
             </Stack>
 
             {isLoading ? (
@@ -201,7 +203,7 @@ const ScorecardTemplateSection = () => {
                     tone={TRIO.amber}
                     title="No Scorecard Yet"
                     hint="Every interview records a single overall rating until there is one. Add a scorecard to capture the criteria your panel actually assesses."
-                    actionLabel="Add a Scorecard"
+                    actionLabel={canWrite ? "Add a Scorecard" : undefined}
                     onAction={openNew}
                 />
             ) : (
@@ -238,8 +240,8 @@ const ScorecardTemplateSection = () => {
                                         {decisionSets.find((ds) => ds.id === t.decisionSet)?.label ?? "Default decisions"}
                                     </Typography>
                                 </Box>
-                                <ActionIconButton iconName="pencil" title="Edit" size="sm" tone="indigo" disabled={busy} onClick={() => openEdit(t)} />
-                                <ActionIconButton iconName="trash" title="Remove" size="sm" tone="danger" disabled={busy} onClick={() => remove(t)} />
+                                {canWrite && <ActionIconButton iconName="pencil" title="Edit" size="sm" tone="indigo" disabled={busy} onClick={() => openEdit(t)} />}
+                                {canWrite && <ActionIconButton iconName="trash" title="Remove" size="sm" tone="danger" disabled={busy} onClick={() => remove(t)} />}
                             </Stack>
                         );
                     })}

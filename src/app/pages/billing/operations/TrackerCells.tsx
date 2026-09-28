@@ -11,6 +11,7 @@ import {
   type ProjectOverviewRow,
 } from "@services/billingOperations";
 import { BillingStatusBadge, useBillingLabels, BILLING_LABEL_GROUP } from "../components";
+import { canSection } from "@utils/can";
 
 /**
  * The Billing Tracker's three editable workflow columns.
@@ -61,7 +62,8 @@ const EditableChip: React.FC<EditableChipProps> = ({
   value, placeholder, choices, defaultCode, heading, hint, clearLabel, locked, busy, onPick,
 }) => {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const editable = !locked && choices.length > 0;
+  // Read-only Tracker access renders every column as a plain chip.
+  const editable = !locked && choices.length > 0 && canSection("billing.operations", "write");
 
   // The row navigates to the project on click. Every control here has to stop
   // that, or picking a value also leaves the page you picked it on.

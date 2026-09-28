@@ -6,8 +6,9 @@ import { getLeadsByCompanyId } from "@services/lead";
 import dayjs from "dayjs";
 import Loader from "@app/modules/common/utils/Loader";
 import { getAllClientContacts } from "@services/companies";
-import { useNavigate } from "react-router-dom";
+import { useOpenRecord } from "@hooks/useOpenRecord";
 import { formatCurrencyRounded } from '@utils/currency';
+import { canViewCommercial } from '@utils/can';
 
 type Lead = {
   budget: string;
@@ -21,7 +22,7 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const { canOpen, openRecord } = useOpenRecord();
   const employeeId = useSelector(
     (s: RootState) => s.auth?.currentUser?.id
   );
@@ -57,9 +58,8 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
         fontWeight: "600",
         fontSize: "14px",
       }}
-      onClick={() => {
-        navigate(`/leads/${row.original.id}`);
-      }}
+      title={canOpen(row.original.id, row.original.status?.isProjectTrigger) ? undefined : "You're not authorized to open this lead"}
+      onClick={() => openRecord(row.original.id, !!row.original.status?.isProjectTrigger, `/leads/${row.original.id}`)}
     >
       {row.original.title}
     </button>
@@ -104,7 +104,7 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
     { accessorKey: "priority", header: "Priority" },
 
     // budget as INR
-    {
+    ...(canViewCommercial('crm.leads') ? [{
       accessorKey: "budget",
       header: "Budget",
       Cell: ({ cell }: { cell: any }) => {
@@ -113,7 +113,7 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
           ? "—"
           : formatCurrencyRounded(amt);
       },
-    },
+    }] : []),
 
     { accessorKey: "notes", header: "Notes" },
 

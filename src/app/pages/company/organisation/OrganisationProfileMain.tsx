@@ -34,8 +34,10 @@ function OrganisationProfileMain() {
     ];
 
     // The tab is the URL (/company/organisation-profile/configure), so it survives a refresh,
-    // a shared link, and the remount the header does at the mobile breakpoint.
-    const { activeTab, setActiveTab } = useTabRoute(undefined, tabItems.map((t) => t.title));
+    // a shared link, and the remount the header does at the mobile breakpoint. The base is
+    // explicit: this route has no splat of its own (it shares its base with /:orgId), so an
+    // omitted base picked up the app-wide `/*` splat and redirected to /organizations → 404.
+    const { activeTab, setActiveTab } = useTabRoute('/company/organisation-profile', tabItems.map((t) => t.title));
 
     const overviewBreadcrumbs: Array<PageLink> = [
         {
@@ -55,7 +57,7 @@ function OrganisationProfileMain() {
     return (
         <>
             <PageTitle breadcrumbs={overviewBreadcrumbs}>Organization Profile</PageTitle>
-            <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} />
+            <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} accessSection="settings.profile" />
         </>
     )
 }

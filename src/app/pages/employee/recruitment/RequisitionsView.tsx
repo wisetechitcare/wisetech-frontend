@@ -27,6 +27,7 @@ import { formatCurrencyCompact } from '@utils/currency';
 import { annualAmountError } from '@utils/ctc';
 import { formatDate } from '@utils/dateFormats';
 import { apiErrorMessage } from '@utils/apiError';
+import { canSection } from '@utils/can';
 
 /**
  * Where a requisition stands. Status 0 is BOTH a draft and a submitted requisition, so
@@ -103,6 +104,7 @@ const MetaPill = ({ text }: { text: string }) => (
 );
 
 const RequisitionsView = ({ companyId }: OrgScoped) => {
+    const canWrite = canSection("recruitment", "write");
     const { levels, isEmpty: noLevels } = useEmployeeLevels();
     const qc = useQueryClient();
     const [open, setOpen] = useState(false);
@@ -246,11 +248,11 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
             <ListHeader
                 title={TERMS.Requisitions}
                 subtitle="A role is an approved request to hire — HR's job requisition. Raise it, route it for approval, then publish it to the careers page."
-                actions={
+                actions={canWrite && (
                     <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openCreate}>
                         New Role
                     </WtButton>
-                }
+                )}
             />
 
             {isLoading ? (
@@ -262,7 +264,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                     icon="briefcase"
                     title={COPY.noRequisitions.title}
                     hint={COPY.noRequisitions.hint}
-                    actionLabel="New Role"
+                    actionLabel={canWrite ? "New Role" : undefined}
                     onAction={openCreate}
                 />
             ) : (
@@ -303,7 +305,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                                 {/* Spacer keeps the action row pinned to the bottom so tiles align in the grid. */}
                                 <Box sx={{ flex: 1 }} />
 
-                                <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+                                {canWrite && <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
                                     {canSubmit && (
                                         <WtButton
                                             ghost size="small"
@@ -327,7 +329,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                                         disabled={deleteMut.isPending}
                                         onClick={() => remove(r)}
                                     />
-                                </Stack>
+                                </Stack>}
                             </GlassCard>
                         );
                     })}

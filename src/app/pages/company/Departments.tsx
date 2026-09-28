@@ -115,7 +115,7 @@ function Departments() {
             },
         ];
 
-        if (isAdmin && hasPermission(resourceNameMapWithCamelCase.department, permissionConstToUseWithHasPermission.editOthers)) {
+        if (hasPermission(resourceNameMapWithCamelCase.department, permissionConstToUseWithHasPermission.editOthers)) {
             cols.push({
                 accessorKey: "actions",
                 header: "Actions",
@@ -201,7 +201,7 @@ function Departments() {
                   iconColor="primary"
                   badge={{ label: `${departments.length}`, color: C.primary, bg: C.primaryLight }}
                   loading={loading}
-                  primaryAction={isAdmin && hasPermission(resourceNameMapWithCamelCase.department, permissionConstToUseWithHasPermission.create) ? { label: 'New Department', icon: 'bi-plus-lg', onClick: () => setShow(true), variant: 'primary' } : undefined}
+                  primaryAction={hasPermission(resourceNameMapWithCamelCase.department, permissionConstToUseWithHasPermission.create) ? { label: 'New Department', icon: 'bi-plus-lg', onClick: () => setShow(true), variant: 'primary' } : undefined}
                 >
                   <div style={{ marginTop: SP.md }}>
                     <MaterialTable

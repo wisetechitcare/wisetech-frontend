@@ -10,10 +10,12 @@ import {
 } from "@constants/configurations-key";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
 import { memo } from "react";
+import { canSection } from "@utils/can";
 
 const MemoizedTimeSheetToggle = memo(MyTimeSheetToggle);
 
 const MyTimeSheetPage = () => {
+  const canLog = canSection("timesheets.my", "read"); // own records need Read only
   const [dateSettingsEnabled, setDateSettingsEnabled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -60,7 +62,7 @@ const MyTimeSheetPage = () => {
             My Timesheet
           </div>
           <div className="d-flex align-items-center gap-3">
-            <Button
+            {canLog && <Button
               variant="contained"
               onClick={handleNewTimeLogClick}
               sx={{
@@ -77,7 +79,7 @@ const MyTimeSheetPage = () => {
               }}
             >
               New Time Log
-            </Button>
+            </Button>}
           </div>
         </div>
         <MemoizedTimeSheetToggle

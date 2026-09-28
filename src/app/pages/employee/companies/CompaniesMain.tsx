@@ -13,17 +13,15 @@ import {
 } from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { useEffect, useState } from "react";
-import { useTabRoute } from "@app/hooks/useTabRoute";
+import { tabSlug, useTabRoute } from "@app/hooks/useTabRoute";
+import { canTab } from "@utils/can";
+import type { RootState } from "@redux/store";
 import { PageTitle } from "@metronic/layout/core";
 import CalenderMain from "./calender/CalenderMain";
 import Maps from "./companyOverview/components/Map";
 import { getAllClientCompanies } from "@services/companies";
 
-/** Tab titles, in order. Their slugs are the URL: /companies/map — see useTabRoute. */
-const TAB_TITLES = ["Overview", "Companies", "Map", "Configure"] as const;
-
 const CompaniesMain = () => {
-  const { activeTab, setActiveTab } = useTabRoute("/companies", TAB_TITLES);
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number, id?: string}[]>([]);
   const [companyData, setCompanyData] = useState<any>([]);
 
@@ -116,7 +114,10 @@ const CompaniesMain = () => {
     });
   }, []);
 
-  const tabItems: TabItem[] = [
+  useSelector((st: RootState) => (st as any).authz);
+  // The tabs this person gets: each follows the section (Configure needs Write) unless turned
+  // off for them under Access -> Advanced. The URL names a tab by its title (useTabRoute).
+  const tabItems: TabItem[] = ([
     {
       title: "Overview",
       component: <CompanyOverview />,
@@ -137,7 +138,9 @@ const CompaniesMain = () => {
       component: <CompanyConfigMain />,
       icon: 'bi-gear',
     },
-  ];
+  ] as TabItem[]).filter((t) => canTab("crm.companies", tabSlug(t.title)));
+  const { activeTab, setActiveTab } = useTabRoute("/companies", tabItems.map((t) => t.title));
+
   const ProjectBreadcrumbs = [
     {
       title: "Companies",
@@ -155,7 +158,7 @@ const CompaniesMain = () => {
   return (
     <div>
       <PageTitle breadcrumbs={ProjectBreadcrumbs}>
-        {tabItems[activeTab].title}
+        {tabItems[activeTab]?.title}
       </PageTitle>
       <MaterialHeaderTab
         tabItems={tabItems}

@@ -15,6 +15,7 @@ import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
+import { canSection, canViewCommercial } from "@utils/can";
 import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
@@ -229,7 +230,7 @@ const ClientCompaniesMain = ({
   }, []);
 
   const isDrillDown = !!(statusId || companyTypeId || serviceId || subServiceId || locationId);
-  const hideNewCompanyButton = isDrillDown;
+  const hideNewCompanyButton = isDrillDown || !canSection("crm.companies", "write");
 
   // ── Drill-down curated columns ────────────────────────────────────────────────
   // When drilled (statusId, companyTypeId, serviceId, subServiceId, locationId set),
@@ -528,8 +529,10 @@ const ClientCompaniesMain = ({
 
       // Full-page table: every column visible by default. Drill-down: only the
       // curated base + the drilled dimension's context column are visible by default.
-      if (!isDrillDown) return base;
-      return base.map((col: any) => ({
+      // Budget is project money.
+      const shown = base.filter((col: any) => col.accessorKey !== "totalBudget" || canViewCommercial('projects'));
+      if (!isDrillDown) return shown;
+      return shown.map((col: any) => ({
         ...col,
         meta: { ...(col.meta || {}), defaultVisible: drillVisibleKeys.has(col.accessorKey) },
       }));

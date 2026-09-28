@@ -1,3 +1,4 @@
+import { canSection } from "@utils/can";
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
@@ -83,6 +84,8 @@ const RecruitmentMain = () => {
    */
   const UNSCOPED_TABS = new Set(["Import", "Configure"]);
 
+  // Configure changes stages and sources for everyone — Write only.
+  const canConfigure = canSection("recruitment", "write");
   const tabItems: TabItem[] = [
     { title: "Overview", component: <RecruitmentOverview companyId={companyId} />, icon: "bi-grid-1x2" },
     // Tab LABELS come from TERMS, and the URL slug is derived from the label, so the two
@@ -95,7 +98,7 @@ const RecruitmentMain = () => {
     // Sits before Configure: it is a migration tool, used heavily for a short while and
     // then rarely, so it belongs beside the day-to-day tabs rather than buried in settings.
     { title: "Import", component: <ImportView />, icon: "bi-upload" },
-    { title: "Configure", component: <RecruitmentConfigurationMain />, icon: "bi-gear" },
+    ...(canConfigure ? [{ title: "Configure", component: <RecruitmentConfigurationMain />, icon: "bi-gear" }] : []),
   ];
 
   // The tab is the path segment (/recruitment/pipeline), so it survives a refresh, a shared
