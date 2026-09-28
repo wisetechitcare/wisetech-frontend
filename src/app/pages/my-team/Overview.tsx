@@ -12,13 +12,13 @@ import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/Mater
 import OverviewView from '@pages/employee/attendance/admin/OverviewView';
 import IndividualView from '@pages/employee/attendance/admin/IndividualView';
 import { navbarIcon } from '@metronic/assets/sidepanelicons';
+import { useTabRoute } from '@app/hooks/useTabRoute';
 
 function MyTeam() {
   const canView = usePermission('approvals.view.team');
   const dispatch = useDispatch<AppDispatch>();
   const [approveeIds, setApproveeIds] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     if (!canView) return;
@@ -37,6 +37,26 @@ function MyTeam() {
       .catch(() => setApproveeIds([]))
       .finally(() => setLoading(false));
   }, [canView]);
+
+  // Built (and the tab route read) BEFORE the permission/loading/empty early returns below —
+  // a hook cannot sit after a conditional return. The elements here are plain objects; only
+  // the selected one is mounted, by MaterialHeaderTab.
+  const tabItems: TabItem[] = [
+    {
+      title: 'Overview',
+      component: <OverviewView />,
+      icon: 'bi-grid-1x2',
+    },
+    {
+      title: 'Individual',
+      component: <IndividualView />,
+      icon: 'bi-person',
+    },
+  ];
+
+  // The tab is the URL, so it survives a refresh, a shared link, and the remount the
+  // header does at the mobile breakpoint.
+  const { activeTab, setActiveTab } = useTabRoute(undefined, tabItems.map((t) => t.title));
 
   if (!canView) {
     return (
@@ -68,19 +88,6 @@ function MyTeam() {
       </div>
     );
   }
-
-  const tabItems: TabItem[] = [
-    {
-      title: 'Overview',
-      component: <OverviewView />,
-      icon: 'bi-grid-1x2',
-    },
-    {
-      title: 'Individual',
-      component: <IndividualView />,
-      icon: 'bi-person',
-    },
-  ];
 
   return (
     <TeamFilterProvider value={{ filterIds: approveeIds }}>

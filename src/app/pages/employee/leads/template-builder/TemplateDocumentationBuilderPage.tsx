@@ -47,6 +47,7 @@ import {
 } from "./proposalTemplateEngine";
 
 import "./TemplateDocumentationBuilderPage.css";
+import { useStoredState } from "@app/hooks/useStoredState";
 
 const PlaceholderDocumentationTable = lazy(
   () => import("./components/PlaceholderDocumentationTable"),
@@ -76,7 +77,7 @@ const TemplateDocumentationBuilderPage: React.FC = () => {
   const navigate = useNavigate();
   const [globalSearch, setGlobalSearch] = useState("");
   const [sectionFilter, setSectionFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useStoredState('filters:TemplateDocumentationBuilderPage:typeFilter', "all");
   const [templateDraft, setTemplateDraft] = useState(
     () => localStorage.getItem(TEMPLATE_STORAGE_KEY) || closingLetterTemplate,
   );

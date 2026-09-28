@@ -29,6 +29,7 @@ import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { useStoredState } from '@app/hooks/useStoredState';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -97,10 +98,10 @@ function AllEmployee() {
   // Defaults to All, not Active. Headline totals used to silently omit anyone who had left, so
   // a period total did not match the money actually spent in that period — and nothing on screen
   // said a population was missing. The heading names the scope either way.
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
-  const [subOrgFilter, setSubOrgFilter] = useState('All');
-  const [branchFilter, setBranchFilter] = useState('All');
-  const [teamFilter, setTeamFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useStoredState<StatusFilter>('filters:AllEmployee:statusFilter', 'All');
+  const [subOrgFilter, setSubOrgFilter] = useStoredState('filters:AllEmployee:subOrgFilter', 'All');
+  const [branchFilter, setBranchFilter] = useStoredState('filters:AllEmployee:branchFilter', 'All');
+  const [teamFilter, setTeamFilter] = useStoredState('filters:AllEmployee:teamFilter', 'All');
 
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const rootOrgNames = useRootOrgNames();

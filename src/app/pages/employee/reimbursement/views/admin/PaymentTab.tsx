@@ -25,6 +25,7 @@ import PaymentQueueTable from '../../components/payment/PaymentQueueTable';
 import PaymentHistoryTable from '../../components/payment/PaymentHistoryTable';
 import PaymentDetailDrawer from '../../components/payment/PaymentDetailDrawer';
 import RecordPaymentModal, { PaymentSubmission } from '../../components/payment/RecordPaymentModal';
+import { useStoredState } from '@app/hooks/useStoredState';
 
 /**
  * The payment desk.
@@ -53,7 +54,7 @@ function PaymentTab() {
     const canPay = can('finance.manage.team');
 
     // ── Period (one, for the whole screen) ────────────────────────────────────
-    const [filter, setFilter] = useState<PeriodFilter>('monthly');
+    const [filter, setFilter] = useStoredState<PeriodFilter>('filters:PaymentTab:period', 'monthly');
     const [periodDate, setPeriodDate] = useState<Dayjs>(dayjs());
     const [fiscalLabel, setFiscalLabel] = useState('');
 
@@ -65,7 +66,7 @@ function PaymentTab() {
 
     // ── View state ────────────────────────────────────────────────────────────
     const [tab, setTab] = useState<'queue' | 'history'>('queue');
-    const [stateFilter, setStateFilter] = useState<PaymentState | null>(null);
+    const [stateFilter, setStateFilter] = useStoredState<PaymentState | null>('filters:PaymentTab:stateFilter', null);
     const [orgById, setOrgById] = useState<Map<string, EmployeeOrgDetail>>(new Map());
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [drawerRow, setDrawerRow] = useState<PaymentBatchRow | null>(null);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate,  } from "react-router-dom";
+import { useTabKeyRoute } from "@app/hooks/useTabRoute";
 import { Button } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import { getClientCompanyById } from "@services/companies";
@@ -46,16 +47,24 @@ const TAB_SECTION: Partial<Record<TabType, string>> = {
   contacts: "crm.contacts",
 };
 
+/** Tab keys in render order — they ARE the path segment (/companies/<id>/branches). */
+const COMPANY_TAB_KEYS: TabType[] = [
+  "overview", "lead-reference", "references", "projects", "contacts", "subcompanies", "branches", "rating",
+];
+
 const CompanyDetails = () => {
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
   const canWrite = canSection("crm.companies", "write");
-  const [searchParams, setSearchParams] = useSearchParams();
-  // Tabs that show another section's records open only with Read on that section — a person with
-  // Companies but not Leads sees no Lead Reference, not even by typing ?tab= into the address.
-  const requestedTab = (searchParams.get("tab") as TabType) || "overview";
-  const activeTab: TabType = TAB_SECTION[requestedTab] && !canSection(TAB_SECTION[requestedTab]!) ? "overview" : requestedTab;
-  const setActiveTab = (tab: TabType) => setSearchParams({ tab }, { replace: true });
+  // The tab is a path segment (/companies/<id>/contacts) — shareable, survives a refresh,
+  // and survives the remount the header does at the mobile breakpoint. Old ?tab= links
+  // are rewritten to the path form once. Tabs that show another section's records are only
+  // in the list with Read on that section, so a hidden one — even typed into the address —
+  // falls back to Overview.
+  const visibleTabKeys = COMPANY_TAB_KEYS.filter((k) => !TAB_SECTION[k] || canSection(TAB_SECTION[k]!));
+  const { activeKey, setActiveKey } = useTabKeyRoute(undefined, visibleTabKeys);
+  const activeTab = activeKey as TabType;
+  const setActiveTab = (tab: TabType) => setActiveKey(tab);
   const [company, setCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);

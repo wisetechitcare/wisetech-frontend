@@ -12,7 +12,7 @@ import { MemoryRouter } from 'react-router-dom';
 // row itself opens the candidate.
 
 // The shared table reads `appSettings` from the store at import time.
-vi.mock('@redux/store', () => ({ store: { getState: () => ({ appSettings: {} }), dispatch: () => {}, subscribe: () => () => {} } }));
+vi.mock('@redux/store', () => ({ store: { getState: () => ({ appSettings: {}, authz: { tier: 'SUPER_ADMIN' } }), dispatch: () => {}, subscribe: () => () => {} } }));
 
 const api = vi.hoisted(() => ({
     getApplications: vi.fn(),

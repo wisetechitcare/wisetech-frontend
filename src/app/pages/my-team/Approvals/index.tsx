@@ -4,9 +4,11 @@ import { Box, CircularProgress, Stack, Typography, useTheme } from '@mui/materia
 import { PageTitle } from '@metronic/layout/core';
 import { KTIcon } from '@metronic/helpers';
 import { getSocket } from '@utils/socketClient';
+import apiErrorMessage from '@utils/apiError';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { usePermission } from '@hooks/usePermission';
+import { useTabRoute } from '@app/hooks/useTabRoute';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import {
     fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction,
@@ -112,7 +114,12 @@ export default function Approvals() {
     const navigate = useNavigate();
     const canApprove = usePermission('approvals.approve.team');
 
-    const [segment, setSegment] = useState<Segment>('mine');
+    // The tab is the URL, so it survives a refresh, a shared link, and the remount the header
+    // does at the mobile breakpoint. The hook is called up here rather than beside `tabItems`
+    // below because everything on this page keys off `segment`; the titles come from the same
+    // module-level SEGMENTS the tabs are built from, so the two cannot drift.
+    const { activeTab, setActiveTab } = useTabRoute(undefined, SEGMENTS.map((s) => s.label));
+    const segment: Segment = SEGMENTS[activeTab]?.key ?? 'mine';
     const [steps, setSteps] = useState<ApprovalStep[]>([]);
     const [tasks, setTasks] = useState<InboxTask[]>([]);
     const [loading, setLoading] = useState(true);
@@ -290,14 +297,31 @@ export default function Approvals() {
 
     // ── Actions ──────────────────────────────────────────────────────────────
 
-    const decide = async (step: ApprovalStep, action: 'approve' | 'reject', comments?: string) => {
+    /**
+     * Returns whether the decision actually landed, so a caller can keep its modal open
+     * on failure instead of closing over an error the person never had a chance to read.
+     *
+     * The error text comes from `apiErrorMessage`, not `data.message`. This API's failure
+     * envelope puts the HTTP STATUS NAME in `message` and the sentence in `detail`, so
+     * reading `message` showed the approver "Bad request" for every refusal the server
+     * takes trouble to explain — "Only the current approver (or an active delegate) can
+     * act on this request", "Self-approval is not permitted", and now "This request was
+     * just actioned by someone else". Those are the three things an approver most needs
+     * to be told, and all three read as "Bad request". Audit L1.
+     */
+    const decide = async (step: ApprovalStep, action: 'approve' | 'reject', comments?: string): Promise<boolean> => {
         setBusyId(step.id);
         try {
             const res: any = await processApprovalAction(step.instance.id, action, comments);
             successConfirmation(res?.message ?? `Request ${action}d`);
             load();
+            return true;
         } catch (err: any) {
-            errorConfirmation(err?.response?.data?.message || `Could not ${action} this request`);
+            errorConfirmation(apiErrorMessage(err, `Could not ${action} this request`));
+            // The row on screen is now stale — someone else may have decided it — so
+            // refresh regardless of the outcome.
+            load();
+            return false;
         } finally {
             setBusyId(null);
         }
@@ -310,6 +334,34 @@ export default function Approvals() {
         }
         setDetail(step);
     };
+
+    /**
+     * Open the request an approval email pointed at.
+     *
+     * The mail's "Review request" button lands here with `?instance=<id>`. Without this
+     * the button would deliver the approver to a LIST and leave them to find the row it
+     * was about — which is the work the notification exists to remove.
+     *
+     * Runs once per id, after the steps load, and strips the parameter afterwards so a
+     * refresh or a shared URL does not reopen a request the person has already dealt
+     * with. `openStep` is reused rather than reimplemented, so a deep link and a click
+     * land in exactly the same place — including the reimbursement branch.
+     */
+    const [deepLinkHandled, setDeepLinkHandled] = useState<string | null>(null);
+    useEffect(() => {
+        const wanted = new URLSearchParams(window.location.search).get('instance');
+        if (!wanted || wanted === deepLinkHandled || !steps.length) return;
+
+        const match = steps.find((s) => s.instance.id === wanted);
+        setDeepLinkHandled(wanted);
+        // Not found is silent on purpose: the usual reason is that somebody else already
+        // decided it, and an error over an empty queue explains nothing.
+        if (match) openStep(match);
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete('instance');
+        window.history.replaceState({}, '', url.pathname + url.search);
+    }, [steps, deepLinkHandled]);
 
     const openTask = (task: InboxTask) => {
         const payload = (task.payload ?? {}) as Record<string, unknown>;
@@ -549,8 +601,8 @@ export default function Approvals() {
 
             <MaterialHeaderTab
                 tabItems={tabItems}
-                activeTab={SEGMENTS.findIndex((s) => s.key === segment)}
-                onTabChange={(index) => setSegment(SEGMENTS[index].key)}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
                 hideScrollButtons
             />
 
@@ -620,8 +672,11 @@ export default function Approvals() {
                     if (!rejectTarget) return;
                     setRejecting(true);
                     try {
-                        await decide(rejectTarget, 'reject', reason);
-                        setRejectTarget(null);
+                        // Close ONLY on success. `decide` swallows the error to show it, so
+                        // this used to close either way — the approver saw a toast vanish with
+                        // the modal and a row still sitting there, with no idea whether the
+                        // rejection had landed. Audit L1.
+                        if (await decide(rejectTarget, 'reject', reason)) setRejectTarget(null);
                     } finally { setRejecting(false); }
                 }}
             />

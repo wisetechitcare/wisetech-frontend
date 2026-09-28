@@ -1,4 +1,3 @@
-import { useSectionTabs } from "@utils/sectionTabs";
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
@@ -12,34 +11,18 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
-import { useSearchParams } from "react-router-dom";
+import { tabSlug, useTabRoute } from "@app/hooks/useTabRoute";
+import { canTab } from "@utils/can";
+import { useSelector } from "react-redux";
+import type { RootState } from "@redux/store";
 import { PageTitle } from "@metronic/layout/core";
 import Maps from "../companies/companyOverview/components/Map";
 import { getProjectMapPoints } from "@services/projects";
 import { worldIcons } from "@metronic/assets/sidepanelicons";
 
-const TAB_KEYS = ["overview", "projects", "map", "configure"] as const;
-
 const ProjectsMain = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tabKey = searchParams.get("tab") || "overview";
-  // The tabs this person gets: each follows the section (Configure needs Write) unless turned
-  // off for them under Access -> Advanced. The active tab maps through this list, not fixed indexes.
-  const visibleTabs = useSectionTabs("projects", TAB_KEYS);
-  const activeTab = Math.max(0, visibleTabs.indexOf(tabKey as any));
-  const setActiveTab = (index: number) => {
-    // Merge into the existing params — passing a bare object would drop every
-    // other param (the table's ?manager=/?search=/?status= filters) on each
-    // tab switch.
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set("tab", visibleTabs[index] ?? visibleTabs[0] ?? "overview");
-        return next;
-      },
-      { replace: true },
-    );
-  };
+  // The tab is the path segment, and the query string stays the table's own
+  // (?manager=/?search=/?status=). Old ?tab= links are rewritten once.
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number}[]>([]);
   const [projectData, setProjectData] = useState<any>([]);
 
@@ -69,7 +52,10 @@ const ProjectsMain = () => {
 
   const points = coordinates;
   
-  const tabItems: TabItem[] = [
+  useSelector((st: RootState) => (st as any).authz);
+  // The tabs this person gets: each follows the section (Configure needs Write) unless turned
+  // off for them under Access -> Advanced. The URL names a tab by its title (useTabRoute).
+  const tabItems: TabItem[] = ([
     {
       title: "Overview",
       component: <ProjectOverview />,
@@ -85,8 +71,14 @@ const ProjectsMain = () => {
       component: <Maps points={points} projectData={projectData} />,
       icon: 'bi-geo-alt',
     },
-    { title: "Configure", component: <ProjectConfigure />, icon: 'bi-gear' },
-  ].filter((_, i) => visibleTabs.includes(TAB_KEYS[i]));
+    {
+      title: "Configure",
+      component: <ProjectConfigure />,
+      icon: 'bi-gear',
+    },
+  ] as TabItem[]).filter((t) => canTab("projects", tabSlug(t.title)));
+  const { activeTab, setActiveTab } = useTabRoute("/projects", tabItems.map((t) => t.title));
+
 
   const PorjectBreadcrumbs = [
     {

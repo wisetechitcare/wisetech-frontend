@@ -83,6 +83,43 @@ function SyncChip({ status }: { status: IBiometricDevice['lastSyncStatus'] }) {
   return <ToneChip dense tone={map[status] ?? 'neutral'} label={label} />;
 }
 
+/**
+ * Mirrors the server's PUSH_STALE_MS (db/BiometricDeviceRepository) — the same hour
+ * after which the pull cron stops standing down and resumes dialling the device.
+ * Keep the two in step, or the list will call a device healthy while the server has
+ * already given up on its pushes.
+ */
+const PUSH_STALE_MINUTES = 60;
+
+/**
+ * Push health at a glance.
+ *
+ * `lastPushAt` was already on the wire and already typed in models/biometric.ts, but
+ * only the Test dialog read it — so "is this device actually pushing, or merely being
+ * polled?" meant clicking Test on every device in turn. That is precisely the question
+ * that went unanswered for the eleven weeks push was silently dead.
+ */
+function PushChip({ device }: { device: IBiometricDevice }) {
+  // A PULL-only device is not expected to push. An em dash says "not applicable"
+  // where a red chip would claim a fault that isn't one.
+  if (device.connectionMode === 'PULL') {
+    return <Typography sx={{ color: 'text.disabled', fontSize: 12 }}>—</Typography>;
+  }
+  if (!device.lastPushAt) return <ToneChip dense tone="danger" label="Never" />;
+  const live = (Date.now() - new Date(device.lastPushAt).getTime()) / 60000 < PUSH_STALE_MINUTES;
+  return (
+    <WtTooltip title={`Last push ${formatDateTime(device.lastPushAt)}`}>
+      <span>
+        <ToneChip
+          dense
+          tone={live ? 'success' : 'danger'}
+          label={live ? 'Live' : `Stale · ${relTime(device.lastPushAt)}`}
+        />
+      </span>
+    </WtTooltip>
+  );
+}
+
 function LastSynced({ ts }: { ts: string | null }) {
   if (!ts) return <Typography sx={{ color: 'text.disabled', fontSize: 12 }}>Never</Typography>;
   const age = (Date.now() - new Date(ts).getTime()) / 3600000;
@@ -521,6 +558,15 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
       Cell: ({ row }) => <SyncChip status={row.original.lastSyncStatus} />,
     },
     {
+      id: 'push',
+      // Sorted as a timestamp so the order is chronological, not alphabetical on
+      // "Live"/"Stale". PULL devices sort to one end via -1: they have no push to rank.
+      accessorFn: (d) =>
+        d.connectionMode === 'PULL' ? -1 : d.lastPushAt ? new Date(d.lastPushAt).getTime() : 0,
+      header: 'Push',
+      Cell: ({ row }) => <PushChip device={row.original} />,
+    },
+    {
       id: 'actions',
       header: 'Actions',
       enableSorting: false,
@@ -553,6 +599,9 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, p: 1.5, borderRadius: '10px', bgcolor: T.color.panel }}>
           <LabeledField label="Serial #" value={d.serialNumber} mono />
           <LabeledField label="Last synced" value={<LastSynced ts={d.lastSyncedAt} />} />
+          {/* Same answer on a phone as in the table — the mobile card is the whole
+              UI below the table's breakpoint, so a column that stops here is invisible. */}
+          <LabeledField label="Push" value={<PushChip device={d} />} />
         </Box>
         <Divider sx={{ borderColor: T.color.line }} />
         <Box>

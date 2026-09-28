@@ -250,7 +250,7 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
                   // Not a section: who has it is fixed (Roles & Permissions — Admin and above).
                   <WtTooltip title="Set by role tier, not by checkboxes: every Admin and Super Admin has it, nobody else does.">
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#64748B", background: "rgba(100,116,139,0.1)", border: "1px solid rgba(100,116,139,0.22)", borderRadius: 8, padding: "3px 10px", marginRight: 8 }}>
-                      <AppIcon name="bi-lock" className="fs-8" /> {node.fixed}
+                      <AppIcon name="bi-shield-lock" className="fs-8" /> {node.fixed}
                     </span>
                   </WtTooltip>
                 ) : !hasTabs && leafControls(node.module, node.label, kids)}

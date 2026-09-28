@@ -15,6 +15,7 @@ export { ToolbarFilterSelect, FILTER_TONES } from "@app/modules/common/component
 export type { FilterSelectTheme } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { useStoredState } from '@app/hooks/useStoredState';
 
 // Contract-based employees have professional fees (TDS) enabled; salary-based don't.
 // Falls back to the deducted amount for API responses that predate the flag.
@@ -53,11 +54,11 @@ const distinctValues = (summaries: any[], field: string, exclude?: Set<string>) 
 };
 
 export const useSalaryFilters = (employeesData: any): SalaryFilters => {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active');
-  const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
-  const [payTypeFilter, setPayTypeFilter] = useState<PayTypeFilter>('All');
-  const [branchFilter, setBranchFilter] = useState<string>('All');
-  const [teamFilter, setTeamFilter] = useState<string>('All');
+  const [statusFilter, setStatusFilter] = useStoredState<StatusFilter>('filters:SalaryTableFilters:statusFilter', 'Active');
+  const [subOrgFilter, setSubOrgFilter] = useStoredState<string>('filters:SalaryTableFilters:subOrgFilter', 'All');
+  const [payTypeFilter, setPayTypeFilter] = useStoredState<PayTypeFilter>('filters:SalaryTableFilters:payTypeFilter', 'All');
+  const [branchFilter, setBranchFilter] = useStoredState<string>('filters:SalaryTableFilters:branchFilter', 'All');
+  const [teamFilter, setTeamFilter] = useStoredState<string>('filters:SalaryTableFilters:teamFilter', 'All');
   const rootOrgNames = useRootOrgNames();
 
   const summaries: any[] = employeesData?.message?.employeeSummaries ?? [];

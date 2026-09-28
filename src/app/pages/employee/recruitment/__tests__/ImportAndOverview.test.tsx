@@ -15,7 +15,7 @@ import type { ReactNode } from 'react';
 //   C2 — Overview: a full-page loading spinner replaced the header, unmounting the period filter
 //        on every change, so no period but "now" could ever be viewed. Reproduced and fixed.
 
-vi.mock('@redux/store', () => ({ store: { getState: () => ({}) } }));
+vi.mock('@redux/store', () => ({ store: { getState: () => ({ authz: { tier: 'SUPER_ADMIN' } }) } }));
 
 const api = vi.hoisted(() => ({
     previewTrackerImport: vi.fn(),

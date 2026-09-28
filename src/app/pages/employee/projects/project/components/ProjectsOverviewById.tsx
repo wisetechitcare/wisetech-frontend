@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import dayjs from "dayjs";
 import { getDurationText } from "@utils/leadsProjectCompanies";
 import { formatNumber } from "@utils/statistics";
@@ -16,6 +16,7 @@ import Tooltip from "react-bootstrap/Tooltip";
 import { VersionHistory } from "@modules/audit/VersionHistory";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getTimeTokens } from '@utils/timeFormat';
+import MaterialTable from '@app/modules/common/components/MaterialTable';
 
 const ProjectOverviewById = ({
   projectId,
@@ -109,6 +110,118 @@ const ProjectOverviewById = ({
     (company: any) => company.id === companyId
   )?.name;
 
+  // ── The two read-only tables below are MaterialTable, like every other list in the
+  //    app, so they get sorting, per-column search, column show/hide and (for the
+  //    companies table) export. Rows are flattened to real values so the table sorts
+  //    and searches on those rather than on JSX; the cells render exactly as before.
+  const currentUserId = useSelector((state: RootState) => state.auth?.currentUser?.id);
+
+  const companyRows = useMemo(
+    () => (projectData?.projectCompanyMappings || []).map((mapping: any) => ({
+      relation: mapping?.relation ?? "Other",
+      companyType:
+        companyTypes?.find((type: any) => type.id === mapping.company?.companyTypeId)?.name ?? "-",
+      companyName: mapping.company?.companyName ?? "Unknown",
+      companyId: mapping.company?.id ?? "",
+      // Same text the cell printed before: an unnamed contact reads " ()".
+      contact: `${mapping?.contactPerson?.fullName || ""} (${mapping?.contactPerson?.roleInCompany || ""})`,
+      contactPersonId: mapping?.contactPersonId ?? "",
+      contactStatus: mapping?.contactPerson?.isContactActive ? "Active" : "Inactive",
+    })),
+    [projectData?.projectCompanyMappings, companyTypes]
+  );
+
+  const companyColumns = useMemo(
+    () => [
+      { accessorKey: "relation", header: "Relation" },
+      { accessorKey: "companyType", header: "Company Type" },
+      {
+        accessorKey: "companyName",
+        header: "Company",
+        Cell: ({ row }: any) => (
+          <Link to={`/companies/${row.original.companyId}`} style={{ color: "#b23b3b", fontWeight: 500 }}>
+            {row.original.companyName}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "contact",
+        header: "Contact",
+        Cell: ({ row }: any) => (
+          <Link to={`/contacts/${row.original.contactPersonId}`} style={{ color: "#b23b3b" }}>
+            {row.original.contact}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "contactStatus",
+        header: "Contact Status",
+        Cell: ({ cell }: any) => (
+          <div className="d-flex align-items-center gap-2">
+            <span
+              style={{
+                display: "inline-block",
+                width: "10px",
+                height: "10px",
+                borderRadius: "50%",
+                backgroundColor: cell.getValue() === "Active" ? "#5cb85c" : "#0d1b2a",
+              }}
+            />
+            {cell.getValue()}
+          </div>
+        ),
+      },
+    ],
+    []
+  );
+
+  const timeLogColumns = useMemo(
+    () => [
+      {
+        accessorKey: "taskName",
+        header: "Task Name",
+        Cell: ({ row, cell }: any) => (
+          <OverlayTrigger
+            placement="top"
+            overlay={<Tooltip id={`tooltip-taskname-${row.id}`}>{cell.getValue()}</Tooltip>}
+          >
+            <div
+              style={{
+                maxWidth: "200px",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                cursor: "pointer",
+              }}
+            >
+              {cell.getValue()}
+            </div>
+          </OverlayTrigger>
+        ),
+      },
+      {
+        accessorKey: "totalHours",
+        header: "Total Hours",
+        Cell: ({ cell }: any) => `${cell.getValue() || "0"} hrs`,
+      },
+      {
+        accessorKey: "costFormatted",
+        header: "Cost",
+        Cell: ({ cell }: any) => cell.getValue() || "-",
+      },
+    ],
+    []
+  );
+
+  // Still capped at the first four entries — this is a preview panel inside a card.
+  const timeLogRows = useMemo(
+    () => farmatedTimeSheetData.slice(0, 4).map((item: any) => ({
+      taskName: item.taskName || "-",
+      totalHours: item.totalHours,
+      costFormatted: item.costFormatted,
+    })),
+    [timeSheets]
+  );
 
   return (
     <>
@@ -988,88 +1101,12 @@ const ProjectOverviewById = ({
               </div>
 
               {/* Table */}
-              <div className="table-responsive">
-                <table className="table align-middle">
-                  <thead>
-                    <tr
-                      style={{
-                        fontFamily: "Inter",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                        color: "#6c757d",
-                      }}
-                    >
-                      <th>Relation</th>
-                      <th>Company Type</th>
-                      <th>Company</th>
-                      <th>Contact</th>
-                      <th>Contact Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {projectData?.projectCompanyMappings?.map(
-                      (mapping: any, index: number) => {
-                        const companyType =
-                          companyTypes?.find(
-                            (type: any) =>
-                              type.id === mapping.company?.companyTypeId
-                          )?.name ?? "-";
-
-                        return (
-                          <tr
-                            key={index}
-                            style={{
-                              fontFamily: "Inter",
-                              fontSize: "14px",
-                              fontWeight: "400",
-                            }}
-                          >
-                            <td>{mapping?.relation ?? "Other"}</td>
-                            <td>{companyType}</td>
-                            <td>
-                              <Link
-                                to={`/companies/${mapping.company?.id ?? ""}`}
-                                style={{ color: "#b23b3b", fontWeight: 500 }}
-                              >
-                                {mapping.company?.companyName ?? "Unknown"}
-                              </Link>
-                            </td>
-                            <td>
-                              <Link
-                                to={`/contacts/${mapping?.contactPersonId ?? ""
-                                  }`}
-                                style={{ color: "#b23b3b" }}
-                              >
-                                {mapping?.contactPerson?.fullName} (
-                                {mapping?.contactPerson?.roleInCompany})
-                              </Link>
-                            </td>
-                            <td>
-                              <div className="d-flex align-items-center gap-2">
-                                <span
-                                  style={{
-                                    display: "inline-block",
-                                    width: "10px",
-                                    height: "10px",
-                                    borderRadius: "50%",
-                                    backgroundColor: mapping?.contactPerson
-                                      ?.isContactActive
-                                      ? "#5cb85c"
-                                      : "#0d1b2a",
-                                  }}
-                                ></span>
-                                {mapping?.contactPerson?.isContactActive
-                                  ? "Active"
-                                  : "Inactive"}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      }
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <MaterialTable
+                tableName="ProjectClientCompanies"
+                employeeId={currentUserId}
+                data={companyRows}
+                columns={companyColumns}
+              />
             </div>
           </div>
         </div>
@@ -1098,65 +1135,15 @@ const ProjectOverviewById = ({
               </div>
               <div className="mt-3">
                 {farmatedTimeSheetData && farmatedTimeSheetData.length > 0 ? (
-                  <div className="table-responsive">
-                    <table className="table table-sm">
-                      <thead>
-                        <tr
-                          style={{
-                            fontFamily: "Inter",
-                            fontSize: "14px",
-                            fontWeight: "500",
-                            color: "#6c757d",
-                          }}
-                        >
-                          <th>Task Name</th>
-                          <th>Total Hours</th>
-                          <th>Cost</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {farmatedTimeSheetData.slice(0, 4).map((item: any, index: any) => {
-                          const taskName = item.taskName || "-";
-
-                          return (
-                            <tr
-                              key={index}
-                              style={{
-                                fontFamily: "Inter",
-                                fontSize: "14px",
-                                fontWeight: "400",
-                              }}
-                            >
-                              <td>
-                                <OverlayTrigger
-                                  placement="top"
-                                  overlay={
-                                    <Tooltip id={`tooltip-taskname-${index}`}>
-                                      {taskName}
-                                    </Tooltip>
-                                  }
-                                >
-                                  <div
-                                    style={{
-                                      maxWidth: '200px',
-                                      whiteSpace: 'nowrap',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    {taskName}
-                                  </div>
-                                </OverlayTrigger>
-                              </td>
-                              <td>{item.totalHours || "0"} hrs</td>
-                              <td>{item.costFormatted || "-"}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <MaterialTable
+                    tableName="ProjectTimeLogPreview"
+                    employeeId={currentUserId}
+                    data={timeLogRows}
+                    columns={timeLogColumns}
+                    hidePagination
+                    hideExportCenter
+                    enableColumnActions={false}
+                  />
                 ) : (
                   <div
                     style={{

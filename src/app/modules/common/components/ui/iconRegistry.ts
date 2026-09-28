@@ -29,6 +29,7 @@ import { BI_TO_KEENICON } from './iconMap';
 import { FacebookIcon, TwitterIcon, WhatsAppIcon } from './brandIcons';
 import {
     List, User, Circle, Share2, Sheet, Images, Cake, Pin, Truck, UserX, Cpu, Frown, Smile,
+    Blend,
     Activity, AlarmClock, Archive, ArrowDownLeft, BadgeCheck, Database, Inbox, Link, ListTree, Printer, Receipt, ChartColumn, ChartNoAxesColumn, ChartPie,
     FileClock, IdCard, ShieldUser, StickyNote, X, ArrowDown, ArrowDownRight, ArrowLeft, ArrowLeftRight,
     ArrowRight, ArrowUp, ArrowUpDown, ArrowUpRight, Award, Banknote, Bell, BellRing,
@@ -89,6 +90,10 @@ const KEENICON: Record<string, AppIconComponent> = {
     'notification-bing': Bell, 'receipt-square': Receipt, 'share': Share2, 'share-1': Share2,
     'success': CircleCheck, 'technology-2': Cpu, 'user-cross': UserX, 'video': Video,
     'warning': TriangleAlert,
+    // A meeting attended BOTH ways at once — see meetingModes.ts. Two overlapping circles,
+    // because the mode is neither the screen nor the room but the overlap of the two; a
+    // monitor-plus-phone glyph reads as "two devices", which is a different fact.
+    'hybrid': Blend,
     // Prefixed spellings some call sites still pass.
     'ki-user': User, 'ki-document': FileText, 'ki-bank': Landmark, 'ki-education': GraduationCap,
     'ki-bill': Receipt, 'ki-wallet': Wallet, 'ki-folder': Folder,

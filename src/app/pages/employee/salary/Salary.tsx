@@ -6,14 +6,12 @@ import MySalary from "./admin/MySalary";
 import SalaryView from "./personal/SalaryView";
 import AllEmployeeData from "./admin/AllEmployeesData";
 import { financeSalaryAllIcoon, leadsIcons } from "@metronic/assets/sidepanelicons";
-import { useState } from "react";
+import { useTabRoute } from "@app/hooks/useTabRoute";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import SalaryEmployeeData from "./admin/SalaryEmployeeData";
 
 function Salary() {
-  const [activeTab, setActiveTab] = useState(0);
-
   const tabItems: TabItem[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Salary",
@@ -31,6 +29,11 @@ function Salary() {
       icon: 'bi-gear',
     }]:[]),
   ];
+
+  // The tab is the URL (/finance/salary/employee-payrolls), so it survives a refresh,
+  // a shared link, and the remount the header does at the mobile breakpoint. Derived
+  // from the titles, so a tab hidden by permissions can't shift the others.
+  const { activeTab, setActiveTab } = useTabRoute("/finance/salary", tabItems.map((t) => t.title));
 
   const SalaryWizardBreadcrumb: Array<PageLink> = [
     {

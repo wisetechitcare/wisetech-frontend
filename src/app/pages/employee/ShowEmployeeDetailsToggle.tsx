@@ -20,10 +20,15 @@ import EmployeeAccessTab from "./EmployeeAccessTab";
 import EmployeeProject from "./EmployeeProject";
 import MeetingsList from "@app/modules/common/components/MeetingsList";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { useTabKeyRoute } from "@app/hooks/useTabRoute";
 import { WtButton } from "@app/modules/common/components/ui/tw";
 import { KTIcon } from "@metronic/helpers";
 import AssignToProjectsDialog from "@app/modules/common/components/AssignToProjectsDialog";
 import NoAccessPage from "@app/modules/common/components/NoAccessPage";
+
+/** Tab keys in render order — they ARE the path segment. "access" is permission-gated,
+ *  and opening its URL without the permission resolves to the first tab. */
+const EMPLOYEE_TAB_KEYS = ["details", "projects", "meetings", "access"];
 
 const ShowEmployeeDetailsToggle = () => {
   const canWrite = canSection("users", "write");
@@ -34,7 +39,12 @@ const ShowEmployeeDetailsToggle = () => {
   const [loadFailed, setLoadFailed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState("details");
+  // The tab is a path segment (/employees/<id>/projects) — shareable, survives a refresh,
+  // and survives the remount the header does at the mobile breakpoint.
+  const { activeKey: activeTab, setActiveKey: setActiveTab } = useTabKeyRoute(
+    undefined,
+    EMPLOYEE_TAB_KEYS,
+  );
   const [assignOpen, setAssignOpen] = useState(false);
   const [projectsReloadKey, setProjectsReloadKey] = useState(0);
   // Roles and per-section access are Admin / Super Admin only — the server refuses everyone else.

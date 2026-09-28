@@ -1,5 +1,6 @@
-import { FC, lazy, Suspense, useEffect, useState } from 'react'
+import { FC, lazy, ReactElement, Suspense, useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { TAB_PATHS } from './tabPaths'
 import { MasterLayout } from '../../_metronic/layout/MasterLayout'
 import TopBarProgress from 'react-topbar-progress-indicator'
 import { DashboardWrapper } from '../pages/dashboard/DashboardWrapper'
@@ -172,7 +173,7 @@ const PrivateRoutes = () => {
 
         {NEW_MY_TEAM_IA && <Route path='my-team' element={<MyTeamLayout />}>
           <Route index element={<Navigate to='/my-team/overview' replace />} />
-          <Route path='overview' element={<MyTeamOverview />} />
+          <Route path='overview/*' element={<MyTeamOverview />} />
           <Route path='members' element={<Navigate to='/employees' replace />} />
           <Route path='attendance' element={<Navigate to='/my-team/overview' replace />} />
           <Route path='leaves' element={<Navigate to='/my-team/overview' replace />} />
@@ -186,8 +187,8 @@ const PrivateRoutes = () => {
           <Route path='tasks' element={<Navigate to='/company/employee-level-teams' replace />} />
           <Route path='projects' element={<Navigate to='/projects' replace />} />
           <Route path='leads' element={<Navigate to='/leads' replace />} />
-          <Route path='approvals' element={<MyTeamApprovals />} />
-          <Route path='delegations' element={<MyTeamDelegations />} />
+          <Route path='approvals/*' element={<MyTeamApprovals />} />
+          <Route path='delegations/*' element={<MyTeamDelegations />} />
         </Route>}
 
         <Route path='inbox' element={<Navigate to='/my-team/approvals' replace />} />
@@ -247,30 +248,30 @@ const PrivateRoutes = () => {
         {/* The Accounts queue used to live under Finance; keep the old link working. */}
         <Route path='/finance/billing-queue' element={<Navigate to='/billing/accounts' replace />} />
         <Route
-          path='/finance/reimbursements'
+          path='/finance/reimbursements/*'
           element={(hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <AdminAndEmployeeReimbursementViewer />
             </SuspensedView>) : <NoAccessPage />}
         />
         <Route
-          path='/finance/salary'
+          path='/finance/salary/*'
           element={(hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <Salary />
             </SuspensedView>) : <NoAccessPage />}
         />
         <Route
-          path='/finance/increment'
+          path='/finance/increment/*'
           element={(hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <Increment />
             </SuspensedView>) : <NoAccessPage />}
         />
-        <Route
-          path='/finance/loans'
-          element={
-            <SuspensedView>
-              <PersonalLoanMain />
-            </SuspensedView>}
-        />
+        {tabRoutes(
+          '/finance/loans',
+          TAB_PATHS.loans,
+          <SuspensedView>
+            <PersonalLoanMain />
+          </SuspensedView>,
+        )}
         <Route
           path='employee/profile/*'
           element={
@@ -327,18 +328,17 @@ const PrivateRoutes = () => {
               <Masters />
             </SuspensedView>}
         /> */}
-        {/* The old Settings page held only Roles & Permissions, which now lives in App Settings. */}
+        {/* Roles & Permissions moved to App Settings; old bookmarks land there. */}
         <Route path='/company/settings' element={<Navigate to='/admin/roles-permissions' replace />} />
+        {tabRoutes(
+          'employees',
+          TAB_PATHS.employees,
+          <SuspensedView>
+            <EmployeesList />
+          </SuspensedView>,
+        )}
         <Route
-          path='employees'
-          element={
-            <SuspensedView>
-              <EmployeesList />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='employees/calendar'
+          path='employees/calendar/*'
           element={(hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers)) ? (<SectionGuard module='calendar'>
               <SuspensedView>
                 <Calendar />
@@ -354,14 +354,14 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path='employee/attendance-and-leaves'
+          path='employee/attendance-and-leaves/*'
           element={(hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <PersonalAttendanceView />
             </SuspensedView>) : <NoAccessPage />}
         />
 
         <Route
-          path='employees/attendance-and-leaves'
+          path='employees/attendance-and-leaves/*'
           element={((hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) || can('attendance.employees.view.all'))) ? (<SectionGuard module='attendance.employees'>
               <SuspensedView>
                 <EmployeesAttendanceView />
@@ -415,6 +415,17 @@ const PrivateRoutes = () => {
               <OrganisationProfileMain />
             </SuspensedView>) : <NoAccessPage />}
         />
+        {TAB_PATHS.organisationProfile.map((slug) => (
+            <Route
+              key={`/company/organisation-profile/${slug}`}
+              path={`/company/organisation-profile/${slug}`}
+              element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (
+                <SuspensedView>
+                  <OrganisationProfileMain />
+                </SuspensedView>
+                ) : <NoAccessPage />}
+            />
+          ))}
         <Route
           path='/company/organisation-profile/:orgId'
           element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
@@ -422,7 +433,7 @@ const PrivateRoutes = () => {
             </SuspensedView>) : <NoAccessPage />}
         />
         <Route
-          path='/company/organisation-info'
+          path='/company/organisation-info/*'
           element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <OrganisationInfoProfileMain />
             </SuspensedView>) : <NoAccessPage />}
@@ -488,7 +499,7 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path='employee/report/kpis'
+          path='employee/report/kpis/*'
           element={
             <SectionGuard module='reports.kpi'>
               <SuspensedView>
@@ -503,17 +514,17 @@ const PrivateRoutes = () => {
               <ProposalConfigurationPage />
             </SuspensedView>}
         />
+        {tabRoutes(
+          '/leads',
+          TAB_PATHS.leads,
+          <SectionGuard module='crm.leads'>
+            <SuspensedView>
+              <LeadsMain />
+            </SuspensedView>
+          </SectionGuard>,
+        )}
         <Route
-          path='/leads'
-          element={
-            <SectionGuard module='crm.leads'>
-              <SuspensedView>
-                <LeadsMain />
-              </SuspensedView>
-            </SectionGuard>}
-        />
-        <Route
-          path='/recruitment'
+          path='/recruitment/*'
           element={
             <SectionGuard module='recruitment'>
               <SuspensedView>
@@ -537,7 +548,7 @@ const PrivateRoutes = () => {
             </SuspensedView>}
         />
         <Route
-          path='/leads/:id'
+          path='/leads/:id/*'
           element={
             <SuspensedView>
               <EntityDetailPage />
@@ -552,7 +563,7 @@ const PrivateRoutes = () => {
             Singular, so it never collides with '/projects/:projectId' below,
             which takes a legacy PROJECT id and redirects here. */}
         <Route
-          path='/project/:id'
+          path='/project/:id/*'
           element={
             <SuspensedView>
               <EntityDetailPage />
@@ -571,6 +582,21 @@ const PrivateRoutes = () => {
             </SectionGuard>
           }
         />
+        {/* Its tabs as URLs. `configure` is deliberately absent — /tasks/configure is
+            its own permission-gated destination, declared just below. */}
+        {TAB_PATHS.tasks.map((slug) => (
+          <Route
+            key={`/tasks/${slug}`}
+            path={`/tasks/${slug}`}
+            element={
+              <SectionGuard module='tasks'>
+                <SuspensedView>
+                  <TasksMain />
+                </SuspensedView>
+              </SectionGuard>
+            }
+          />
+        ))}
         <Route
           // Task Statuses / Priorities / Preset Tasks. Its own destination rather than a tab,
           // so it can be linked to and so it can carry a permission of its own: task config is
@@ -636,38 +662,35 @@ const PrivateRoutes = () => {
           }
         />
 
+        {tabRoutes(
+          '/projects',
+          TAB_PATHS.projects,
+          <SectionGuard module='projects'>
+            <SuspensedView>
+              <ProjectsMain />
+            </SuspensedView>
+          </SectionGuard>,
+        )}
+        {tabRoutes(
+          '/contacts',
+          TAB_PATHS.contacts,
+          <SectionGuard module='crm.contacts'>
+            <SuspensedView>
+              <ContactsNavbar />
+            </SuspensedView>
+          </SectionGuard>,
+        )}
+        {tabRoutes(
+          '/companies',
+          TAB_PATHS.companies,
+          <SectionGuard module='crm.companies'>
+            <SuspensedView>
+              <CompaniesMain />
+            </SuspensedView>
+          </SectionGuard>,
+        )}
         <Route
-          path='/projects'
-          element={
-            <SectionGuard module='projects'>
-              <SuspensedView>
-                <ProjectsMain />
-              </SuspensedView>
-            </SectionGuard>
-          }
-        />
-        <Route
-          path='/contacts'
-          element={
-            <SectionGuard module='crm.contacts'>
-              <SuspensedView>
-                <ContactsNavbar />
-              </SuspensedView>
-            </SectionGuard>
-          }
-        />
-        <Route
-          path='/companies'
-          element={
-            <SectionGuard module='crm.companies'>
-              <SuspensedView>
-                <CompaniesMain />
-              </SuspensedView>
-            </SectionGuard>
-          }
-        />
-        <Route
-          path='/companies/:companyId'
+          path='/companies/:companyId/*'
           element={
             <SuspensedView>
               <AllCompaniesToggle />
@@ -683,7 +706,7 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path='/employees/:employeeId'
+          path='/employees/:employeeId/*'
           element={
             <SuspensedView>
               <ShowEmployeeDetailsToggle />
@@ -691,7 +714,7 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path='/contacts/:contactId'
+          path='/contacts/:contactId/*'
           element={
             <SuspensedView>
               <ContactMainToggle />
@@ -735,6 +758,17 @@ const PrivateRoutes = () => {
     </Routes>
   )
 }
+
+/**
+ * A tabbed page, mounted at its base path AND at one static path per tab
+ * (`/projects`, `/projects/overview`, `/projects/map`, …). Static rather than
+ * `/:tab` because a dynamic segment would be ambiguous against the detail routes
+ * on the same base (`/projects/:projectId`). Slugs live in routing/tabPaths.ts.
+ */
+const tabRoutes = (base: string, slugs: readonly string[], element: ReactElement) => [
+  <Route key={base} path={base} element={element} />,
+  ...slugs.map((slug) => <Route key={`${base}/${slug}`} path={`${base}/${slug}`} element={element} />),
+]
 
 const SuspensedView: FC<WithChildren> = ({ children }) => {
   const baseColor = getCSSVariableValue('--bs-primary')

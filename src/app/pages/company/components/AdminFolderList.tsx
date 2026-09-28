@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@redux/store';
 import { AdminFolder } from '@models/media';
 import Loader from '@app/modules/common/utils/Loader';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import MaterialTable from '@app/modules/common/components/MaterialTable';
 
 interface AdminFolderListProps {
   admins: AdminFolder[];
@@ -10,6 +13,48 @@ interface AdminFolderListProps {
 
 const AdminFolderList: React.FC<AdminFolderListProps> = ({ admins }) => {
   const navigate = useNavigate();
+  const currentUserId = useSelector((s: RootState) => s.auth?.currentUser?.id);
+
+  // `employeeCount` stays a number on the row so the column sorts numerically;
+  // the cells below render exactly what the hand-written <table> rendered.
+  const columns = useMemo(() => [
+    {
+      accessorKey: 'name',
+      header: 'Admin Name',
+      Cell: ({ row }: any) => (
+        <div className="cursor-pointer text-break" onClick={() => navigate(`/company/media/${row.original.id}`)}>
+          <div className="d-flex align-items-center">
+            <AppIcon name="folder" className="fs-2x fs-sm-2x text-primary me-2 me-sm-3" />
+            <div className="fw-bold text-gray-800 text-hover-primary fs-7 fs-sm-6">
+              {row.original.name}
+            </div>
+          </div>
+          {/* Mobile: Show employee count below name */}
+          <div className="d-md-none text-gray-500 fs-8 mt-1 ms-5 ps-2">
+            {row.original.employeeCount} employees
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'employeeCount',
+      header: 'Employees Created/Updated',
+      Cell: ({ cell }: any) => <span className="text-nowrap">{cell.getValue()} employees</span>,
+    },
+    {
+      accessorKey: 'actions',
+      header: 'Action',
+      Cell: ({ row }: any) => (
+        <button
+          className="btn btn-sm btn-light-primary fs-8 fs-sm-7 px-2 px-sm-3"
+          onClick={() => navigate(`/company/media/${row.original.id}`)}
+        >
+          <span className="d-none d-sm-inline">Open Folder</span>
+          <span className="d-inline d-sm-none">Open</span>
+        </button>
+      ),
+    },
+  ], [navigate]);
 
   if (!admins) return <Loader />;
 
@@ -23,67 +68,25 @@ const AdminFolderList: React.FC<AdminFolderListProps> = ({ admins }) => {
         </span>
       </div>
 
-      {/* Responsive Table */}
-      <div className="table-responsive">
-        <table className="table align-middle table-row-dashed fs-6 gy-5 mb-0">
-          <thead>
-            <tr className="text-start text-gray-500 fw-bold fs-7 text-uppercase gs-0">
-              <th className="min-w-200px min-w-sm-250px ps-2">Admin Name</th>
-              <th className="min-w-125px min-w-sm-150px d-none d-md-table-cell">Employees Created/Updated</th>
-              <th className="text-end min-w-100px min-w-sm-125px pe-2">Action</th>
-            </tr>
-          </thead>
-
-          <tbody className="fw-semibold text-gray-600">
-            {/* Empty State */}
-            {admins?.length === 0 && (
-              <tr>
-                <td colSpan={3} className="text-center py-10">
-                  <Loader />
-                  <div className="text-gray-500 mt-3 fs-6">
-                    No Admin Folders Found
-                  </div>
-                </td>
-              </tr>
-            )}
-
-            {/* Folder Rows */}
-            {admins?.map((admin) => (
-              <tr key={admin.id}>
-                <td
-                  className="cursor-pointer text-break ps-2"
-                  onClick={() => navigate(`/company/media/${admin.id}`)}
-                >
-                  <div className="d-flex align-items-center">
-                    <AppIcon name="folder" className="fs-2x fs-sm-2x text-primary me-2 me-sm-3" />
-                    <div className="fw-bold text-gray-800 text-hover-primary fs-7 fs-sm-6">
-                      {admin.name}
-                    </div>
-                  </div>
-                  {/* Mobile: Show employee count below name */}
-                  <div className="d-md-none text-gray-500 fs-8 mt-1 ms-5 ps-2">
-                    {admin.employeeCount} employees
-                  </div>
-                </td>
-
-                <td className="text-nowrap d-none d-md-table-cell">
-                  {admin.employeeCount} employees
-                </td>
-
-                <td className="text-end pe-2">
-                  <button
-                    className="btn btn-sm btn-light-primary fs-8 fs-sm-7 px-2 px-sm-3"
-                    onClick={() => navigate(`/company/media/${admin.id}`)}
-                  >
-                    <span className="d-none d-sm-inline">Open Folder</span>
-                    <span className="d-inline d-sm-none">Open</span>
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Empty State */}
+      {admins?.length === 0 ? (
+        <div className="text-center py-10">
+          <Loader />
+          <div className="text-gray-500 mt-3 fs-6">
+            No Admin Folders Found
+          </div>
+        </div>
+      ) : (
+        <MaterialTable
+          tableName="AdminFolders"
+          employeeId={currentUserId}
+          data={admins}
+          columns={columns}
+          hidePagination
+          hideExportCenter
+          enableColumnActions={false}
+        />
+      )}
     </div>
   );
 };

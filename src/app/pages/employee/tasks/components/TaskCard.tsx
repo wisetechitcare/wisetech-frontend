@@ -42,6 +42,7 @@ import { Avatar, Box, Card, Divider, Stack, Tooltip, Typography, alpha, useTheme
 import { type Attendee, initialsOf, ringFor } from '../../MeetingAttendeesDialog';
 import { KTIcon } from '@metronic/helpers';
 import { formatDate } from '@utils/dateFormats';
+import { meetingWhere, modeOfExisting } from '@app/pages/employee/meetingModes';
 import {
     TaskRow, isTaskOverdue, isTaskFinal, loggedSeconds, formatDuration, shortTaskId,
 } from '../taskDomain';
@@ -508,7 +509,12 @@ const TaskCardBase = ({
                     <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                         {meeting
                             ? (
-                                <Tooltip title={(task as any).isOnline ? 'Online' : ((task as any).location || 'In person')}>
+                                // One sentence, shared with the calendar and the API's own
+                                // reminder text — see `meetingWhere`. It used to be
+                                // `isOnline ? 'Online' : location`, which is a boolean asked
+                                // to describe three modes: a hybrid card read "Online" and
+                                // never named the room.
+                                <Tooltip title={meetingWhere(modeOfExisting(task as any), (task as any).location)}>
                                     {/* TWO lines, then an ellipsis. A single truncated line of
                                         a real address stops at the district and tells you
                                         nothing — "Uran, Uran Subdistrict, Raigad, Maharas…"
@@ -524,7 +530,7 @@ const TaskCardBase = ({
                                             lineHeight: 1.35, wordBreak: 'break-word',
                                         }}
                                     >
-                                        {(task as any).isOnline ? 'Online' : ((task as any).location || 'In person')}
+                                        {meetingWhere(modeOfExisting(task as any), (task as any).location)}
                                     </Typography>
                                 </Tooltip>
                             )

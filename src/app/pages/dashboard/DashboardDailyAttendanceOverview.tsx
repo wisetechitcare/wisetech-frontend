@@ -25,6 +25,7 @@ import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFi
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import PeriodFilter from "@app/modules/common/components/PeriodFilter";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 // Alias the shared vocabulary rather than re-declaring it — a local copy silently
 // drifts from StatDetailModal's menu the moment an option is added there.
 type SortOption = StatSortOption;
@@ -46,6 +47,7 @@ import StatDetailModal, { type StatSortOption } from '@app/modules/common/compon
 import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
 import { ToneChip, AppIcon } from '@app/modules/common/components/ui';
 import { getTimeTokens } from '@utils/timeFormat';
+import { useStoredState } from '@app/hooks/useStoredState';
 
 type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | null;
 
@@ -70,6 +72,67 @@ interface EmployeeWithAttendance {
   };
 }
 
+/**
+ * The "Employees on Leave" list — the shared table, so it gets sorting, per-column
+ * search, column show/hide and saved column preferences like every other list. Rows
+ * are flattened to plain strings (see `leaveRows` below) so those work on values;
+ * the cells render exactly what the hand-written table rendered.
+ *
+ * Module-level because every cell is self-contained — it is built once, not per render.
+ */
+const LEAVE_COLUMNS = [
+  {
+    accessorKey: 'employeeName',
+    header: 'Employee',
+    Cell: ({ row }: any) => (
+      <div className="d-flex align-items-center">
+        <Image
+          src={row.original.avatarSrc}
+          roundedCircle
+          width="40"
+          height="40"
+          className="me-3"
+          alt={row.original.employeeName}
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+          }}
+        />
+        <div>
+          <div className="fw-bold">{row.original.employeeName || 'Unnamed Employee'}</div>
+          <small className="text-muted">{row.original.employeeCode}</small>
+        </div>
+      </div>
+    ),
+  },
+  { accessorKey: 'designation', header: 'Designation' },
+  {
+    accessorKey: 'leaveType',
+    header: 'Leave Type',
+    Cell: ({ cell }: any) => <span className="badge bg-warning text-dark">{cell.getValue()}</span>,
+  },
+  {
+    accessorKey: 'duration',
+    header: 'Duration',
+    Cell: ({ cell }: any) => (
+      <div className="d-flex align-items-center">
+        <AppIcon name="bi-calendar3" className="me-2" />
+        {cell.getValue()}
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'reason',
+    header: 'Reason',
+    Cell: ({ cell }: any) => (cell.getValue() ? (
+      <div className="text-truncate" style={{ maxWidth: '200px' }} title={cell.getValue()}>
+        <AppIcon name="bi-chat-square-text" className="me-1" />
+        {cell.getValue()}
+      </div>
+    ) : null),
+  },
+];
+
 const DashboardDailyAttendanceOverview = () => {
   const dispatch = useDispatch();
   const [date, setDate] = useState(dayjs());
@@ -83,8 +146,8 @@ const DashboardDailyAttendanceOverview = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortOption, setSortOption] = useState<SortOption>('none');
   const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
-  const [branchFilter, setBranchFilter] = useState<string>('All');
-  const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
+  const [branchFilter, setBranchFilter] = useStoredState<string>('filters:DashboardDailyAttendanceOverview:branchFilter', 'All');
+  const [subOrgFilter, setSubOrgFilter] = useStoredState<string>('filters:DashboardDailyAttendanceOverview:subOrgFilter', 'All');
   const rootOrgNames = useRootOrgNames();
   const [graceTimeOnSite, setGraceTimeOnSite] = useState<string>('');
   const [graceTimeOffice, setGraceTimeOffice] = useState<string>('');
@@ -96,6 +159,7 @@ const DashboardDailyAttendanceOverview = () => {
     totalEmployee: state.attendance.totalEmployee || 0,
   }), shallowEqual);
 
+  const currentUserId = useSelector((state: RootState) => state.auth?.currentUser?.id);
   const appSettings = useSelector((state: RootState) => state.appSettings);
   const graceTimeFromStore = appSettings.graceTime;
   const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
@@ -568,78 +632,34 @@ const DashboardDailyAttendanceOverview = () => {
             return <div className="p-3 text-muted">No employees found matching "{searchQuery}"</div>;
           }
 
-          return (
-            <div className="table-responsive">
-              <table className="table table-hover align-middle">
-                <thead className="table-light">
-                  <tr>
-                    <th>Employee</th>
-                    <th>Designation</th>
-                    <th>Leave Type</th>
-                    <th>Duration</th>
-                    <th>Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedLeaveData.map(emp => {
-                    const employeeData = emp.employee || {};
-                    const user = employeeData.users || emp.users || {};
-                    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-                    const avatarSrc = employeeData.avatar || emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                    const leaveType = emp.leaveType || 'Leave';
-                    const startDate = emp.duration?.startDate ? dayjs(emp.duration.startDate).format('MMM D, YYYY') : 'N/A';
-                    const endDate = emp.duration?.endDate ? dayjs(emp.duration.endDate).format('MMM D, YYYY') : 'N/A';
-                    const isSameDay = startDate === endDate;
-                    const reason = emp.reason || '';
+          const leaveRows = sortedLeaveData.map((emp: any) => {
+            const employeeData = emp.employee || {};
+            const user = employeeData.users || emp.users || {};
+            const startDate = emp.duration?.startDate ? dayjs(emp.duration.startDate).format('MMM D, YYYY') : 'N/A';
+            const endDate = emp.duration?.endDate ? dayjs(emp.duration.endDate).format('MMM D, YYYY') : 'N/A';
 
-                    return (
-                      <tr key={emp.id}>
-                        <td>
-                          <div className="d-flex align-items-center">
-                            <Image
-                              src={avatarSrc}
-                              roundedCircle
-                              width="40"
-                              height="40"
-                              className="me-3"
-                              alt={fullName}
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                              }}
-                            />
-                            <div>
-                              <div className="fw-bold">{fullName || 'Unnamed Employee'}</div>
-                              <small className="text-muted">{employeeData.employeeCode || emp.employeeCode || ''}</small>
-                            </div>
-                          </div>
-                        </td>
-                        <td>{employeeData.designations?.role || emp.designations?.role || 'N/A'}</td>
-                        <td>
-                          <span className="badge bg-warning text-dark">
-                            {leaveType}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="d-flex align-items-center">
-                            <AppIcon name="bi-calendar3" className="me-2" />
-                            {isSameDay ? startDate : `${startDate} to ${endDate}`}
-                          </div>
-                        </td>
-                        <td>
-                          {reason && (
-                            <div className="text-truncate" style={{ maxWidth: '200px' }} title={reason}>
-                              <AppIcon name="bi-chat-square-text" className="me-1" />
-                              {reason}
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            return {
+              id: emp.id,
+              employeeName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+              employeeCode: employeeData.employeeCode || emp.employeeCode || '',
+              avatarSrc: employeeData.avatar || emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg'),
+              designation: employeeData.designations?.role || emp.designations?.role || 'N/A',
+              leaveType: emp.leaveType || 'Leave',
+              duration: startDate === endDate ? startDate : `${startDate} to ${endDate}`,
+              reason: emp.reason || '',
+            };
+          });
+
+          return (
+            <MaterialTable
+              tableName="DashboardEmployeesOnLeave"
+              employeeId={currentUserId}
+              data={leaveRows}
+              columns={LEAVE_COLUMNS}
+              hidePagination
+              hideExportCenter
+              enableColumnActions={false}
+            />
           );
 
         case 'late':

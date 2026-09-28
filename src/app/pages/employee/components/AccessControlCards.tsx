@@ -160,7 +160,7 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
           </Box>
           <WtTooltip title="Set by role tier, not by checkboxes: every Admin and Super Admin has it, nobody else does.">
             <Box component="span" sx={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 0.5, height: 32, px: 1.25, borderRadius: "9px", fontSize: 12, fontWeight: 600, color: "text.secondary", bgcolor: "action.hover", border: "1px solid", borderColor: "divider" }}>
-              <AppIcon name="bi-lock" className="fs-7" /> {node.fixed}
+              <AppIcon name="bi-shield-lock" className="fs-7" /> {node.fixed}
             </Box>
           </WtTooltip>
         </Box>
