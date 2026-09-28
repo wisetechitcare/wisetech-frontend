@@ -407,8 +407,23 @@ const PaymentCollectionPage: React.FC = () => {
       )}
 
       <Box sx={{ my: 2 }}>
-        <Alert severity="info" variant="outlined" sx={{ borderRadius: 1 }}>
-          💡 This page is in development. Data shown here is for testing and development purposes only.
+        <Alert
+          severity="warning"
+          variant="filled"
+          sx={{
+            borderRadius: 2,
+            backgroundColor: 'warning.main',
+            color: 'warning.contrastText',
+            fontSize: '14px',
+            fontWeight: 600,
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}
+          icon={<span style={{ fontSize: '18px' }}>⚠️</span>}
+        >
+          <strong>Development Mode:</strong> This page is still in development. The data table will not display any records at this time. This is for testing and development purposes only.
         </Alert>
       </Box>
 
