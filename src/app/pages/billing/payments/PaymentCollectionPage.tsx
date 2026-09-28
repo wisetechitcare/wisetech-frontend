@@ -406,24 +406,33 @@ const PaymentCollectionPage: React.FC = () => {
         />
       )}
 
-      <Box sx={{ my: 2 }}>
+      <Box sx={{ my: 3 }}>
         <Alert
-          severity="warning"
+          severity="error"
           variant="filled"
           sx={{
-            borderRadius: 2,
-            backgroundColor: 'warning.main',
-            color: 'warning.contrastText',
-            fontSize: '14px',
+            borderRadius: 3,
+            backgroundColor: 'error.main',
+            color: 'error.contrastText',
+            fontSize: '15px',
             fontWeight: 600,
-            padding: '16px 20px',
+            padding: '20px 24px',
             display: 'flex',
             alignItems: 'center',
-            gap: 2
+            gap: 3,
+            border: '2px solid rgba(255, 255, 255, 0.2)',
+            backdropFilter: 'blur(8px)',
+            '& .MuiAlert-icon': {
+              fontSize: '28px',
+              marginRight: '8px'
+            }
           }}
-          icon={<span style={{ fontSize: '18px' }}>⚠️</span>}
+          icon={<span>🚨</span>}
         >
-          <strong>Development Mode:</strong> This page is still in development. The data table will not display any records at this time. This is for testing and development purposes only.
+          <Box>
+            <strong style={{ display: 'block', marginBottom: '4px' }}>Development Mode - Data Not Available</strong>
+            <span style={{ opacity: 0.95 }}>This page is still in development. The data table will not display any records at this time. This is for testing and development purposes only.</span>
+          </Box>
         </Alert>
       </Box>
 
