@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 // Professional Bootstrap Icons for clean, business-focused navigation
 import { permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from '@constants/statistics';
 import { hasPermission } from '@utils/authAbac';
-import { can } from '@utils/can';
+import { can, canSection } from '@utils/can';
 import { isSectionBlocked, isSubsectionVisible, anyChildGranted } from '@utils/accessAreas';
 import { fetchPendingApprovals } from '@services/employee';
 import { fetchInboxCount } from '@services/inbox';
@@ -63,6 +63,8 @@ export function useNavigation() {
   // Subscribe to section access so the menu re-evaluates whenever it loads or refreshes
   // (drives can(), canSection() and isSectionBlocked()).
   const capabilities = useSelector((state: RootState) => (state as any).authz?.access);
+  // Admin / Super Admin: Roles & Permissions is theirs alone, by tier rather than any checkbox.
+  const tier = useSelector((state: RootState) => (state as any).authz?.tier);
   // Drives the dynamic "<Org> Team" label on the Employees row (see below).
   const orgName = useRootOrgName();
 
@@ -208,19 +210,17 @@ export function useNavigation() {
         to: '/employee/documents',
         title: 'Documents',
         fontIcon: 'bi-file-earmark-text',
-        visible: !isSectionBlocked('users') && hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers),
+        visible: canSection('documents.employees'),
       },
       {
-        // Everyone's own file, alongside "My Attendance & Leaves". Deliberately
-        // ungated: it resolves to the signed-in employee server-side, so there is no
-        // permission to check — and the company-wide Documents entry above is the one
-        // that needs the readOthers gate.
+        // Your own file, alongside "My Attendance & Leaves" — its own section (Documents → My
+        // Documents), which every employee has by default. Everyone else's is the entry above.
         type: 'item',
         id: 'my-documents',
         to: '/my-documents',
         title: 'My Documents',
         fontIcon: 'bi-folder2-open',
-        visible: !isSectionBlocked('users'),
+        visible: canSection('documents.my'),
       },
       // Promoted out of the Organization group to top level, as in NAV_CONFIG.
       {
@@ -533,7 +533,7 @@ export function useNavigation() {
         type: 'section',
         id: 'admin-section',
         title: 'App Settings',
-        visible: !isSectionBlocked('settings'),
+        visible: tier != null || !isSectionBlocked('settings'),
       },
       // Stands in for NAV_CONFIG's "Access Control" group, which has no routes here.
       {
@@ -542,7 +542,7 @@ export function useNavigation() {
         to: '/admin/roles-permissions',
         title: 'Roles & Permissions',
         fontIcon: 'bi-shield-lock',
-        visible: !isSectionBlocked('settings'),
+        visible: tier != null,
       },
       {
         type: 'item',
@@ -555,7 +555,7 @@ export function useNavigation() {
     ];
 
     return items;
-  }, [intl, inboxCount, pendingApprovalsCount, capabilities, orgName]);
+  }, [intl, inboxCount, pendingApprovalsCount, capabilities, orgName, tier]);
 
   return menu;
 }

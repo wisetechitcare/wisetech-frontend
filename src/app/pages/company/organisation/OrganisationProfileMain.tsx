@@ -51,7 +51,7 @@ function OrganisationProfileMain() {
     return (
         <>
             <PageTitle breadcrumbs={overviewBreadcrumbs}>Organization Profile</PageTitle>
-            <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} />
+            <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} accessSection="settings.profile" />
         </>
     )
 }

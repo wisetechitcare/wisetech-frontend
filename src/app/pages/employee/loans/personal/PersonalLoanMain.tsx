@@ -95,7 +95,7 @@ function PersonalLoanMain() {
         <PageTitle breadcrumbs={LoanBreadcrumb}>
           Loans
         </PageTitle>
-        <MaterialHeaderTab tabItems={tabItemsAdmin} onTabChange={setActiveTab}/>
+        <MaterialHeaderTab tabItems={tabItemsAdmin} onTabChange={setActiveTab} accessSection="finance.loans"/>
         {/* {!isAdmin && <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab}/>} */}
         {/* {isAdmin && } */}
       </>

@@ -49,7 +49,7 @@ function EmployeeList() {
     return (
         <>
             <PageTitle breadcrumbs={employeesBreadCrumb}>Employees Management</PageTitle>
-            <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} />
+            <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} accessSection="users" />
         </>
     )
 }

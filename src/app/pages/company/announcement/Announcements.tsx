@@ -7,12 +7,11 @@ import { KTCard, KTCardBody, KTIcon } from "@metronic/helpers";
 import { deleteAnnouncementById, getAllAnnouncements } from "@services/company";
 import { miscellaneousIcons } from "../../../../_metronic/assets/miscellaneousicons";
 import dayjs from "dayjs";
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, ShareWith } from "@constants/statistics";
+import { ShareWith } from "@constants/statistics";
 import CreateAnnouncementButton from "@pages/dashboard/views/CreateAnnouncementButton";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import { Modal } from "react-bootstrap";
 import { IAnnouncement } from "@models/company";
-import { hasPermission } from "@utils/authAbac";
 import { canSection } from "@utils/can";
 import AnnouncementFormDialog from "./AnnouncementFormDialog";
 
@@ -131,7 +130,8 @@ function Announcements() {
                     </div>
                 </div>
                 <KTCard className="shadow-sm my-5">
-                    {hasPermission(resourceNameMapWithCamelCase.announcement, permissionConstToUseWithHasPermission.readOthers) && (
+                    {/* Announcements are for everyone to read: Read lists them; New / edit / delete need Write. */}
+                    {canSection("settings.announcements", "read") && (
                         <KTCardBody>
                             {paginatedData?.length > 0 &&
                                 paginatedData.map((announcement) => {
@@ -205,7 +205,7 @@ function Announcements() {
                                                         {announcement.title}
                                                     </h3>
                                                     <div className="d-flex ">
-                                                        {hasPermission(resourceNameMapWithCamelCase.announcement, permissionConstToUseWithHasPermission.editOthers) && <div
+                                                        {canWrite && <div
                                                             className="btn p-0 btn-active-color-primary btn-sm"
                                                             onClick={() => handleShowEditModal(announcement)}
                                                         >
@@ -215,7 +215,7 @@ function Announcements() {
                                                             />
                                                         </div>}
 
-                                                        {hasPermission(resourceNameMapWithCamelCase.announcement, permissionConstToUseWithHasPermission.deleteOthers) && <div
+                                                        {canWrite && <div
                                                             className="btn p-0 btn-active-color-primary btn-sm"
                                                             onClick={() => handleShowDeleteModal(announcement)}
                                                         >

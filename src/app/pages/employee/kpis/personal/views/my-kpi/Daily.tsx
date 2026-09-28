@@ -10,8 +10,7 @@ import LeavesIcon from "@metronic/assets/miscellaneousicons/leaves.svg";
 import ScoreOverview from "../../components/ScoreOverview";
 import { Container, Spinner } from "react-bootstrap";
 import PerformanceBadge from "../../components/PerformanceBadge";
-import { hasPermission } from "@utils/authAbac";
-import { permissionConstToUseWithHasPermission } from "@constants/statistics";
+import { canSection } from "@utils/can";
 
 const iconMapping: Record<string, string> = {
   Attendance: AttendanceIcon,
@@ -81,10 +80,8 @@ const Daily = ({
   useEffect(() => {
     if (!employeeId) return;
 
-    const res = hasPermission(
-      resourseAndView[0]?.resource,
-      permissionConstToUseWithHasPermission.readOthers
-    );
+    const res = // Your own KPIs need My KPI; someone else's (Search Employees) needs Search Employees.
+    fromAdmin ? canSection("kpi.search") : canSection("kpi.my");
 
     if (res) setShowData(true);
   }, [employeeId]);

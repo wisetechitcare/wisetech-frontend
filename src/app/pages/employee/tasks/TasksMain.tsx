@@ -138,6 +138,7 @@ const TasksMain = () => {
         tabItems={tabItems}
         onTabChange={setActiveTab}
         activeTab={activeTab}
+        accessSection="tasks"
       />
     </div>
   );

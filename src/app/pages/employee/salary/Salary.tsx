@@ -53,7 +53,7 @@ function Salary() {
         Salary
       </PageTitle>
       {/* <SalaryView /> */}
-      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} />
+      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} accessSection="finance.salary" />
     </>
   );
 }

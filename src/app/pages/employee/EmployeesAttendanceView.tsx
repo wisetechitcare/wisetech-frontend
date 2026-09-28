@@ -97,7 +97,7 @@ const EmployeesAttendanceView = () => {
     return (
         <>
             <PageTitle breadcrumbs={newAttendanceWizardBreadcrumb}>Attendance</PageTitle>
-            <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab}/>
+            <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} accessSection="attendance.employees"/>
         </>
     );
 };

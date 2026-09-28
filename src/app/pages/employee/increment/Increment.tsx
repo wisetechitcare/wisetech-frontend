@@ -58,7 +58,7 @@ function Increment() {
   return (
     <>
       <PageTitle breadcrumbs={breadcrumbs}>Increment</PageTitle>
-      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={handleTabChange} />
+      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={handleTabChange} accessSection="finance.increment" />
     </>
   );
 }

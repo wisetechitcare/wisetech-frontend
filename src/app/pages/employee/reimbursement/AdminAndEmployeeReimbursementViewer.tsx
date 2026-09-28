@@ -112,7 +112,7 @@ function AdminAndEmployeeReimbursementViewer() {
         Reimbursements
       </PageTitle>
       
-      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab}/>
+      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} accessSection="finance.reimbursements"/>
     </>
   );
 }

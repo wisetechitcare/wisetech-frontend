@@ -23,6 +23,7 @@ import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { WtButton } from "@app/modules/common/components/ui/tw";
 import { KTIcon } from "@metronic/helpers";
 import AssignToProjectsDialog from "@app/modules/common/components/AssignToProjectsDialog";
+import NoAccessPage from "@app/modules/common/components/NoAccessPage";
 
 const ShowEmployeeDetailsToggle = () => {
   const canWrite = canSection("users", "write");
@@ -63,14 +64,11 @@ const ShowEmployeeDetailsToggle = () => {
 
   if (loadFailed) {
     return (
-      <div className="card border-0 shadow-sm m-8">
-        <div className="card-body text-center py-10">
-          <AppIcon name="bi-exclamation-triangle" className="fs-1 text-warning mb-3 d-block" />
-          <h5 className="fw-semibold">This Page Isn't Available</h5>
-          <p className="text-muted mb-4">We couldn't open this employee record. It may have moved or you may not have access.</p>
-          <button className="btn btn-primary" onClick={() => navigate("/dashboard")}>Go to Dashboard</button>
-        </div>
-      </div>
+      <NoAccessPage
+        kind="record"
+        title="You don't have access to this employee"
+        message="The record may have moved, or your access doesn't include it. Ask an admin if you need it."
+      />
     );
   }
 
