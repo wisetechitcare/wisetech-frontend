@@ -35,7 +35,10 @@ export const BILLING_TABS: BillingTabDef[] = [
     { path: "tracker", title: "Billing Tracker", icon: "bi-diagram-3", accessKey: "billing.operations" },
     // { path: "proformas", title: "Proformas", icon: "bi-receipt", accessKey: "billing.proformas" },
     // Record, verify and track client payments against issued proformas.
-    { path: "payments", title: "Payment Tracker", icon: "bi-cash-coin", accessKey: "billing.payments" },
+    // Title only. The PATH and the ACCESS KEY stay `payments` / `billing.payments`
+    // on purpose: grants are stored per key, so renaming one revokes everybody who
+    // holds it, and the path is in people's bookmarks and in drill-down links.
+    { path: "payments", title: "Invoice Tracker", icon: "bi-cash-coin", accessKey: "billing.payments" },
     // { path: "invoices", title: "Tax Invoices", icon: "bi-receipt-cutoff", accessKey: "billing.invoices" },
     // { path: "reports", title: "Reports", icon: "bi-graph-up", accessKey: "billing.reports" },
     // Display configuration for the module's statuses and payment states.

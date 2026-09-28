@@ -88,6 +88,7 @@ Canonical primitives — use these, don't reinvent or fork:
 | Single-select modal | `OptionPickerDialog` | bespoke option lists |
 | Drag-to-reorder | `ReorderableGroup` + `DragHandle` | up/down arrow buttons |
 | Employee picker | `EmployeeSelectionDialog` | bespoke pickers |
+| Address / map location | `SmartLocationPicker` (`components/SmartLocationPicker.md`) — controlled; free Nominatim, no key | a second Leaflet map, Google/OpenCage geocoding (both keys dead), axios for third-party calls |
 
 **Why native inputs are banned:** `<input type="date">` renders the *browser's* picker. It is unstyleable, formats in the OS locale (`dd-mm-yyyy` vs `mm/dd/yyyy`), and stays light-on-white in dark mode because the calendar popup is browser chrome. `WtDateField` wraps `@mui/x-date-pickers`, so it inherits the theme, is correct in dark mode, and renders the company date format.
 

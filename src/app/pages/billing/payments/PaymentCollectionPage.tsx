@@ -220,59 +220,23 @@ const PaymentCollectionPage: React.FC = () => {
     {
       accessorFn: (row: PaymentListItem) => row.project?.clientName ?? row.clientName ?? "—",
       id: "clientName",
-      header: "Client",
+      header: "Client Company",
       size: 180,
     },
     {
       // Who runs the WORK.
       accessorFn: (row: PaymentListItem) => row.project?.managerName ?? "—",
       id: "managerName",
-      header: "Manager",
-      size: 150,
+      header: "Project Manager",
+      size: 170,
     },
     {
       // Who chases the MONEY. Often not the project manager, which is exactly why
       // it is its own column rather than a fallback.
       accessorFn: (row: PaymentListItem) => row.project?.followUpManagerName ?? "—",
       id: "followUpManagerName",
-      header: "Follow-up",
-      size: 150,
-    },
-    {
-      accessorFn: (row: PaymentListItem) => row.project?.poValue ?? null,
-      id: "poValue",
-      header: "PO Value",
-      size: 140,
-      // Project-level, so it repeats across every bill of one project. That is the
-      // point — each bill is a slice of it.
-      Cell: ({ row }: any) => money(row.original.project?.poValue, true),
-    },
-    {
-      accessorFn: (row: PaymentListItem) => row.project?.receivedAmount ?? 0,
-      id: "receivedAmount",
-      header: "Total Received",
-      size: 150,
-      Cell: ({ row }: any) => money(row.original.project?.receivedAmount, true),
-    },
-    {
-      accessorFn: (row: PaymentListItem) => row.project?.pendingAmount ?? null,
-      id: "pendingAmount",
-      header: "Total Pending",
-      size: 150,
-      // PO MINUS RECEIVED — "how much of this contract is still to come in",
-      // including work nobody has billed yet. Not the same question as the
-      // per-document outstanding, and deliberately so.
-      Cell: ({ row }: any) => {
-        const pending = row.original.project?.pendingAmount;
-        if (pending == null) return <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>;
-        return (
-          <Typography
-            sx={{ fontSize: 12.5, fontWeight: 700, color: pending > 0 ? "error.main" : "success.main" }}
-          >
-            {formatCurrencyDecimal(pending)}
-          </Typography>
-        );
-      },
+      header: "Follow-up Manager",
+      size: 180,
     },
     {
       accessorFn: (row: PaymentListItem) => row.breakdown.basicPortion,

@@ -1996,6 +1996,11 @@ function MaterialTable({
                       maxWidth: "200px",
                       position: "relative",
                       zIndex: 1001,
+                      // 40px like the search box and MUI `small` fields beside it. The vendored
+                      // Metronic react-select theme pads the value container ~6.5px top and
+                      // bottom, which otherwise pushes this control to ~48px.
+                      "& .react-select__control": { height: 40, minHeight: 40 },
+                      "& .react-select__value-container": { py: 0 },
                     }}
                   >
                     <SelectInput
@@ -2035,10 +2040,13 @@ function MaterialTable({
                       className="et-search-input"
                       style={{
                         width: "100%",
+                        // 40px — matches the column selector and MUI `small` fields in the toolbar.
+                        height: "40px",
+                        boxSizing: "border-box",
                         paddingLeft: "34px",
                         paddingRight: globalFilterValue ? "32px" : "12px",
-                        paddingTop: "8px",
-                        paddingBottom: "8px",
+                        paddingTop: 0,
+                        paddingBottom: 0,
                         fontSize: "13px",
                         border: "1px solid #E5E7EB",
                         borderRadius: "8px",

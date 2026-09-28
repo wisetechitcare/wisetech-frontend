@@ -20,7 +20,7 @@
  * entirely. Do not add a start-month constant to this file.
  */
 
-export const FISCAL_YEAR_FORMATS = ['YY-YY', 'YYYY-YY', 'YYYY-YYYY', 'YY', 'YYYY'] as const;
+export const FISCAL_YEAR_FORMATS = ['YY', 'YYYY', 'YY-YY', 'YYYY-YY', 'YYYY-YYYY'] as const;
 export type FiscalYearFormat = (typeof FISCAL_YEAR_FORMATS)[number];
 
 /**

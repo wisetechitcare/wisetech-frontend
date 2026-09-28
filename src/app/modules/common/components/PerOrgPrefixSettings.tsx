@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  InputAdornment,
   MenuItem,
   Select,
   TextField,
@@ -275,6 +276,13 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
   const commonFormat = commonOf((row) => effectiveShape(row).yearFormat);
   const commonPad = commonOf((row) => effectiveShape(row).numberPad);
 
+  // Same labels as the "Apply to all" Year menu: the real segment ("26-27"), token as the hint.
+  const yearOptions = FISCAL_YEAR_FORMAT_OPTIONS.map((o) => ({
+    value: o.value,
+    label: formatFiscalYearSegment(fiscalYear, o.value) || o.sample,
+    hint: o.label,
+  }));
+
   /**
    * The `/year/number` tail for one organization, in ITS shape and at a given
    * sequence value.
@@ -490,11 +498,11 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
             gap: 1.25,
           }}
         >
-          {/* Section 1: Label & Meta */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* Section 1: the fiscal year itself — label and picker read as one field. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', whiteSpace: 'nowrap' }}>
-                Fiscal Year:
+                Fiscal Year
               </Typography>
               <Tooltip title="How numbering series work">
                 <IconButton
@@ -506,23 +514,6 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
                 </IconButton>
               </Tooltip>
             </Box>
-
-          </Box>
-
-          {/* Section 2: Input & Actions */}
-          <Box
-            sx={{
-              display: 'flex',
-              // Wraps on a narrow screen. Without this the date range, two selects,
-              // a status chip and the Save button all compete on one line and the
-              // date field — the widest thing here — is what collapses.
-              flexWrap: { xs: 'wrap', sm: 'nowrap' },
-              alignItems: 'center',
-              gap: 1,
-              flex: { sm: 1 },
-              justifyContent: { sm: 'flex-end' },
-            }}
-          >
             <Box
               sx={{
                 // Its own full line on mobile: "01/04/2026 to 31/03/2027" needs
@@ -558,6 +549,35 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
                 options={{ dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', mode: 'range' }}
               />
             </Box>
+          </Box>
+
+          {/*
+            Section 2: bulk "apply to all" selectors + Save. Labelled as global so
+            nobody mistakes them for a setting of their own — each row below holds
+            the values that actually save; these just stamp one onto every row.
+          */}
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: { xs: 'wrap', sm: 'nowrap' },
+              alignItems: 'center',
+              gap: 1,
+              justifyContent: { sm: 'flex-end' },
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: 'text.secondary',
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                whiteSpace: 'nowrap',
+                flexBasis: { xs: '100%', sm: 'auto' },
+              }}
+            >
+              Apply to all
+            </Typography>
 
             {/*
               How that fiscal year is PRINTED in the number. The range above says
@@ -569,6 +589,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
               size="small"
               displayEmpty
               value={commonFormat ?? ''}
+              startAdornment={<InlineLabel>Year</InlineLabel>}
               onChange={(event) => applyToAllRows({ yearFormat: event.target.value as FiscalYearFormat })}
               renderValue={(value) =>
                 value
@@ -577,7 +598,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
               }
               sx={{
                 height: 32,
-                minWidth: 108,
+                minWidth: 136,
                 fontSize: 12.5,
                 fontWeight: 600,
                 backgroundColor: 'background.paper',
@@ -587,7 +608,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
                     : '#cbd5e1',
                 },
               }}
-              inputProps={{ 'aria-label': 'Year format' }}
+              inputProps={{ 'aria-label': 'Year format for all organizations' }}
             >
               {FISCAL_YEAR_FORMAT_OPTIONS.map((option) => (
                 <MenuItem key={option.value} value={option.value} sx={{ fontSize: 12.5 }}>
@@ -612,11 +633,12 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
               size="small"
               displayEmpty
               value={commonPad ?? ''}
+              startAdornment={<InlineLabel>Number</InlineLabel>}
               onChange={(event) => applyToAllRows({ numberPad: Number(event.target.value) })}
               renderValue={(value) => (value ? formatSequence(1, Number(value)) : 'Mixed')}
               sx={{
                 height: 32,
-                minWidth: 88,
+                minWidth: 132,
                 fontSize: 12.5,
                 fontWeight: 600,
                 backgroundColor: 'background.paper',
@@ -626,7 +648,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
                     : '#cbd5e1',
                 },
               }}
-              inputProps={{ 'aria-label': 'Number width' }}
+              inputProps={{ 'aria-label': 'Number width for all organizations' }}
             >
               {SEQUENCE_PAD_OPTIONS.map((pad) => (
                 <MenuItem key={pad} value={pad} sx={{ fontSize: 12.5 }}>
@@ -743,9 +765,16 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
           <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'text.secondary', letterSpacing: 0.5, textTransform: 'uppercase' }}>
             Prefix Code
           </Typography>
-          <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'text.secondary', letterSpacing: 0.5, textTransform: 'uppercase' }}>
-            Number Format
-          </Typography>
+          {/* Split to sit over each select below: Year | / | Number. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Typography sx={{ flex: 1, fontSize: 11, fontWeight: 700, color: 'text.secondary', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+              Year
+            </Typography>
+            <Box sx={{ width: 7, flexShrink: 0 }} />
+            <Typography sx={{ flex: 1, fontSize: 11, fontWeight: 700, color: 'text.secondary', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+              Number
+            </Typography>
+          </Box>
           <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'text.secondary', letterSpacing: 0.5, textTransform: 'uppercase' }}>
             Next {typeLabel} No.
           </Typography>
@@ -776,6 +805,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
                   typeLabel={typeLabel}
                   singleSeries={singleSeries}
                   shape={effectiveShape(leader)}
+                  yearOptions={yearOptions}
                   role="leader"
                   isSharedSeries={isSharedSeries}
                   followerCount={followers.length}
@@ -798,6 +828,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
                     typeLabel={typeLabel}
                     singleSeries={singleSeries}
                     shape={effectiveShape(follower)}
+                    yearOptions={yearOptions}
                     role="follower"
                     isSharedSeries={true}
                     followerCount={0}
@@ -895,6 +926,13 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
   );
 };
 
+/** A muted label inside a toolbar select, so "Year 26-27" names itself. */
+const InlineLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <InputAdornment position="start" sx={{ mr: 0.5 }}>
+    <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: 'text.secondary' }}>{children}</Typography>
+  </InputAdornment>
+);
+
 /**
  * One dropdown in a table row — the year shape or the digit width.
  *
@@ -914,12 +952,14 @@ const ShapeSelect: React.FC<{
   disabled?: boolean;
   ariaLabel: string;
   onChange: (value: string | number) => void;
-  options: { value: string | number; label: string }[];
+  /** `hint` is the muted token beside the label in the menu (e.g. "YY-YY"); the field shows the label only. */
+  options: { value: string | number; label: string; hint?: string }[];
 }> = ({ value, dirty, disabled = false, ariaLabel, onChange, options }) => (
   <Select
     size="small"
     value={value}
     disabled={disabled}
+    renderValue={(v) => options.find((o) => o.value === v)?.label ?? String(v)}
     onChange={(event) => onChange(event.target.value as string | number)}
     inputProps={{ 'aria-label': ariaLabel }}
     sx={{
@@ -951,7 +991,12 @@ const ShapeSelect: React.FC<{
   >
     {options.map((option) => (
       <MenuItem key={option.value} value={option.value} sx={{ fontSize: 12, fontFamily: 'monospace' }}>
-        {option.label}
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+          <Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>{option.label}</Typography>
+          {option.hint && (
+            <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{option.hint}</Typography>
+          )}
+        </Box>
       </MenuItem>
     ))}
   </Select>
@@ -974,6 +1019,8 @@ interface OrgRowItemProps {
    * see the other rows.
    */
   shape: { yearFormat: FiscalYearFormat; numberPad: number };
+  /** Year choices rendered against the current fiscal year ("26-27" + its "YY-YY" hint). */
+  yearOptions: { value: FiscalYearFormat; label: string; hint: string }[];
   role: 'leader' | 'follower';
   isSharedSeries: boolean;
   followerCount: number;
@@ -997,6 +1044,7 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
   typeLabel,
   singleSeries,
   shape,
+  yearOptions,
   onShapeChange,
   role,
   isSharedSeries,
@@ -1112,7 +1160,7 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
         </Box>
 
         {/* 2. Prefix Input Column */}
-        <Box sx={{ width: '100%', maxWidth: 120, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', gap: 0.75 }}>
           <Tooltip title={isDuplicate ? 'Duplicate prefix in separate series.' : ''}>
             <TextField
               size="small"
@@ -1152,6 +1200,10 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
           {isDirty && (
             <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'warning.main', flexShrink: 0 }} />
           )}
+          {/* Same separator as between Year and Number — the row reads as the number it builds. */}
+          <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: 'text.disabled', flexShrink: 0 }}>
+            /
+          </Typography>
         </Box>
 
         {/*
@@ -1174,7 +1226,7 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
               disabled={role === 'follower'}
               ariaLabel={`${row.organizationName} year format`}
               onChange={(value) => onShapeChange({ yearFormat: value as FiscalYearFormat })}
-              options={FISCAL_YEAR_FORMAT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+              options={yearOptions}
             />
             <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: 'text.disabled', flexShrink: 0 }}>
               /
@@ -1188,6 +1240,7 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
               options={SEQUENCE_PAD_OPTIONS.map((pad) => ({
                 value: pad,
                 label: formatSequence(1, pad),
+                hint: pad === 1 ? 'no padding' : `${pad} digits`,
               }))}
             />
           </Box>
@@ -1419,9 +1472,13 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
               />
             </Box>
 
+            <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: 'text.disabled', flexShrink: 0, lineHeight: '32px' }}>
+              /
+            </Typography>
+
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography sx={{ fontSize: 10, fontWeight: 700, color: 'text.secondary', mb: 0.4, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                Format
+                Year / Number
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <ShapeSelect
@@ -1430,7 +1487,7 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
                   disabled={role === 'follower'}
                   ariaLabel={`${row.organizationName} year format`}
                   onChange={(value) => onShapeChange({ yearFormat: value as FiscalYearFormat })}
-                  options={FISCAL_YEAR_FORMAT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                  options={yearOptions}
                 />
                 <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: 'text.disabled', flexShrink: 0 }}>
                   /
@@ -1444,6 +1501,7 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
                   options={SEQUENCE_PAD_OPTIONS.map((pad) => ({
                     value: pad,
                     label: formatSequence(1, pad),
+                    hint: pad === 1 ? 'no padding' : `${pad} digits`,
                   }))}
                 />
               </Box>
