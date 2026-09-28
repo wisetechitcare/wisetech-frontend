@@ -70,7 +70,7 @@ import LeadActionPicker from "./LeadActionPicker";
 import MeetingDialog from "@pages/employee/MeetingDialog";
 import { LeadStatusPill, leadRowSx, leadTableSx, UNASSIGNED_ORG_LABEL } from "./leadTableStyle";
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
-import { canSection } from "@utils/can";
+import { canSection, canViewCommercial } from "@utils/can";
 
 /**
  * Leads created before organizations existed carry no organizationId. They are
@@ -1213,7 +1213,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         return "N/A";
       },
     },
-  ], [
+  ].filter((c: any) => canViewCommercial('crm.leads') || !['totalCost', 'cost'].includes(c.accessorKey)), [
     projectServices,
     projectCategories,
     projectSubcategories,
@@ -1261,7 +1261,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     { key: 'createdAt', header: 'Created Date', type: 'text' as const },
     { key: 'createdBy', header: 'Created By', type: 'text' as const },
     { key: 'updatedBy', header: 'Edited By', type: 'text' as const },
-  ], []);
+  ].filter((c) => canViewCommercial('crm.leads') || !['totalCost', 'cost'].includes(c.key)), []);
 
   // ── Prop-driven filters ───────────────────────────────────────────────────────
   const startDates = startDate ? dayjs(startDate) : null;
@@ -1696,11 +1696,13 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
               width: isMobile ? '100%' : 'auto'
             }}>
+              {canViewCommercial('crm.leads') && (<>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
                 <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCost(totalFilteredCost)}</span>
               </div>
               <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
+              </>)}
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
                 <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>

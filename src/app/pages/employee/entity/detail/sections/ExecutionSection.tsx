@@ -14,7 +14,7 @@ import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import DeliverableFormDialog from "./DeliverableFormDialog";
 import { apiErrorMessage } from "@utils/apiError";
-import { canSection } from "@utils/can";
+import { canSection, canViewCommercial } from "@utils/can";
 import {
   getProjectStages, createProjectDeliverable, updateProjectDeliverable,
   deleteProjectDeliverable, reorderProjectDeliverables,
@@ -278,9 +278,11 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
               relationship between them is visible without opening the editor. */}
           <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={0.75} sx={{ mt: 0.35 }}>
             <ToneChip tone="indigo" label={`${Number(row.percentage) || 0}%`} dense />
+            {canViewCommercial('projects') && (
             <Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>
               {formatCurrencyDecimal(Number(row.calculatedAmount) || 0)}
             </Typography>
+            )}
             {priorityMeta.tone !== "neutral" && (
               <ToneChip tone={priorityMeta.tone} label={priorityMeta.label} dense />
             )}
@@ -410,10 +412,12 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
             <Typography sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 600 }}>Complete</Typography>
             <Typography sx={{ fontSize: 15, fontWeight: 700 }}>{overallPercent}%</Typography>
           </Box>
+          {canViewCommercial('projects') && (
           <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
             <Typography sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 600 }}>Contract Value</Typography>
             <Typography sx={{ fontSize: 15, fontWeight: 700 }}>{formatCurrencyDecimal(totalAmount)}</Typography>
           </Box>
+          )}
         </Stack>
       </Stack>
 
@@ -491,9 +495,11 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
 
                 <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={0.75} sx={{ mt: 0.35 }}>
                   <ToneChip tone="indigo" label={`${stage.percentage}%`} dense />
+                  {canViewCommercial('projects') && (
                   <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: "text.secondary" }}>
                     {formatCurrencyDecimal(stage.amount)}
                   </Typography>
+                  )}
                 </Stack>
 
                 {/* Progress bar — the number and the bar read the same derived value.
@@ -563,7 +569,8 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
               {/* Repeats the card's figures on purpose: the panel can sit a full screen
                   below its card once there are several stages. */}
               <Typography sx={{ fontSize: 11.5, color: "text.secondary", mt: 0.15 }}>
-                Stage {selectedIndex + 1} · {selectedStage.percentage}% · {formatCurrencyDecimal(selectedStage.amount)}
+                Stage {selectedIndex + 1} · {selectedStage.percentage}%
+                {canViewCommercial('projects') && ` · ${formatCurrencyDecimal(selectedStage.amount)}`}
               </Typography>
             </Box>
             {canWrite && selectedStage.deliverables.length > 0 && (

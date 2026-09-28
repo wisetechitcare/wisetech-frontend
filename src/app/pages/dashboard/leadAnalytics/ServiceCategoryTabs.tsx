@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import AnalyticsCard from "./AnalyticsCard";
 import RankedBarChart from "./RankedBarChart";
 import { ChartDatum, ChartMetric } from "./leadAnalyticsUtils";
+import { canViewCommercial } from "@utils/can";
 
 export interface BreakdownTab {
   id: string;
@@ -99,7 +100,7 @@ const ServiceCategoryTabs: React.FC<{
         onSelect={active.onSelect}
         // Amount mode already plots the money, so the ₹ tooltip line would just
         // repeat the bar value.
-        showRevenue={metric !== "amount"}
+        showRevenue={metric !== "amount" && canViewCommercial(entityLabel === "Projects" ? "projects" : "crm.leads")}
         valueLabel
         title={active.cardTitle}
         metric={metric}

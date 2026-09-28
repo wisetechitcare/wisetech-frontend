@@ -1,4 +1,4 @@
-import { canSection } from "@utils/can";
+import { useSectionTabs } from "@utils/sectionTabs";
 import MaterialHeaderTab, { TabItem } from "@app/modules/common/components/MaterialHeaderTab";
 import { leadsIcons, projectsIcons, projectOverviewIcons, calenderIcons, worldIcons } from "@metronic/assets/sidepanelicons";
 import { useEffect, useCallback } from "react";
@@ -25,11 +25,12 @@ const TAB_KEYS = ["overview", "contacts", "calendar", "map", "configure"] as con
 const ContactsNavbar = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabKey = searchParams.get("tab") || "overview";
-  // Configure changes how the section works, so it shows only with Write on it.
-  const canConfigure = canSection("crm.contacts", "write");
-  const activeTab = tabKey === "configure" && !canConfigure ? 0 : Math.max(0, TAB_KEYS.indexOf(tabKey as any));
+  // The tabs this person gets: each follows the section (Configure needs Write) unless turned
+  // off for them under Access -> Advanced. The active tab maps through this list, not fixed indexes.
+  const visibleTabs = useSectionTabs("crm.contacts", TAB_KEYS);
+  const activeTab = Math.max(0, visibleTabs.indexOf(tabKey as any));
   const setActiveTab = (index: number) => {
-    setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
+    setSearchParams({ tab: visibleTabs[index] ?? visibleTabs[0] ?? "overview" }, { replace: true });
   };
   const dispatch = useDispatch<AppDispatch>();
   const [contact, setContact] = useState<any>(null);
@@ -100,8 +101,8 @@ const ContactsNavbar = () => {
       component: <Maps points={coordinates} contactData={contactData} />,
       icon: 'bi-geo-alt',
     },
-    ...(canConfigure ? [{ title: "Configure", component: <ContactConfigMain />, icon: 'bi-gear' }] : []),
-  ];
+    { title: "Configure", component: <ContactConfigMain />, icon: 'bi-gear' },
+  ].filter((_, i) => visibleTabs.includes(TAB_KEYS[i]));
 
 
   const contactBreadcrumbs = [

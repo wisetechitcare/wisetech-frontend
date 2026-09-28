@@ -13,8 +13,7 @@ import PeriodFilter, { PeriodRange } from "@app/modules/common/components/Period
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import { ChartMetric } from "@pages/dashboard/leadAnalytics";
 import { DATE_FORMATS } from "@utils/dateFormats";
-import { isSectionBlocked } from "@utils/accessAreas";
-import { canSection } from "@utils/can";
+import { canSection, canViewCommercial } from "@utils/can";
 import Monthly from "./Monthly";
 import Yearly from "./Yearly";
 import Custom from "./Custom";
@@ -76,7 +75,7 @@ const LeadsOverviewToggle = ({
 
   // If user loses access to amount view, revert to count
   useEffect(() => {
-    if (metric === "amount" && isSectionBlocked('crm.leads')) {
+    if (metric === "amount" && !canViewCommercial('crm.leads')) {
       setMetric("count");
     }
   }, [metric]);
@@ -86,8 +85,8 @@ const LeadsOverviewToggle = ({
     const baseOptions = [
       { label: "Number", value: "count" },
     ];
-    // Only show "Amount" if user has access to financial data (not blocked from leads analytics)
-    if (!isSectionBlocked('crm.leads')) {
+    // Only show "Amount" if the user may see lead money
+    if (canViewCommercial('crm.leads')) {
       baseOptions.push({ label: "Amount", value: "amount" });
     }
     return baseOptions;
@@ -219,7 +218,7 @@ const LeadsOverviewToggle = ({
 
         {/* Right side controls: Metric selector & Tab slot grouped together */}
         <div className="d-flex align-items-center gap-3 flex-wrap justify-content-start justify-content-lg-end mt-2 mt-lg-0" style={{ flexShrink: 0, minWidth: 0 }}>
-          {["monthly", "yearly", "allyear"].includes(periodRange.mode) && (
+          {["monthly", "yearly", "allyear"].includes(periodRange.mode) && metricOptions.length > 1 && (
             <div className="d-flex align-items-center gap-2" style={{ height: "40px" }}>
               <span
                 style={{

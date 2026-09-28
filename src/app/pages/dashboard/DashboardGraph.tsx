@@ -1,4 +1,4 @@
-import { canSection } from "@utils/can";
+import { canSection, canViewCommercial } from "@utils/can";
 import {
   getLeadsByStatusAnalytics,
   getLeadsByServiceAnalytics,
@@ -161,7 +161,7 @@ const DashboardGraph: React.FC = () => {
             label: item.name,
             value: item[countKey],
             color: item.color || "#3B82F6",
-            totalCost: item.totalCost || 0,
+            totalCost: canViewCommercial('projects') ? item.totalCost || 0 : 0,
           }));
         };
 

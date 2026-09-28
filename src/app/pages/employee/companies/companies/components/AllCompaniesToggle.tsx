@@ -38,12 +38,23 @@ type TabType =
   | "references"
   | "lead-reference";
 
+// The section whose records a tab shows, where that isn't Companies itself.
+const TAB_SECTION: Partial<Record<TabType, string>> = {
+  "lead-reference": "crm.leads",
+  leads: "crm.leads",
+  projects: "projects",
+  contacts: "crm.contacts",
+};
+
 const CompanyDetails = () => {
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
   const canWrite = canSection("crm.companies", "write");
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = (searchParams.get("tab") as TabType) || "overview";
+  // Tabs that show another section's records open only with Read on that section — a person with
+  // Companies but not Leads sees no Lead Reference, not even by typing ?tab= into the address.
+  const requestedTab = (searchParams.get("tab") as TabType) || "overview";
+  const activeTab: TabType = TAB_SECTION[requestedTab] && !canSection(TAB_SECTION[requestedTab]!) ? "overview" : requestedTab;
   const setActiveTab = (tab: TabType) => setSearchParams({ tab }, { replace: true });
   const [company, setCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -157,7 +168,7 @@ const CompanyDetails = () => {
     { key: "subcompanies", label: "Subcompanies", icon: "bi bi-diagram-3" },
     { key: "branches", label: "Branches", icon: "bi bi-geo-alt" },
     { key: "rating", label: "Rating", icon: "bi bi-star" },
-  ];
+  ].filter((t) => !TAB_SECTION[t.key as TabType] || canSection(TAB_SECTION[t.key as TabType]!)) as Array<{ key: TabType; label: string; icon: string }>;
 
   const templateDataForLeads = [
     {
@@ -320,37 +331,47 @@ const CompanyDetails = () => {
                   Add
                 </Button>
                 <ul className="dropdown-menu">
-                  <li>
-                    <a className="dropdown-item" href="#">
-                      Add Lead
-                    </a>
-                  </li>
-                  <li>
-                    <a className="dropdown-item" href="#">
-                      Add Project
-                    </a>
-                  </li>
-                  <li>
-                    <a className="dropdown-item" href="#">
-                      Add Project
-                    </a>
-                  </li>
-                  <li>
-                    <button
-                      className="dropdown-item"
-                      onClick={handleNewContactClick}
-                    >
-                      Add Contact
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      className="dropdown-item"
-                      onClick={handleNewCompanyClick}
-                    >
-                      New Company
-                    </button>
-                  </li>
+                  {canSection("crm.leads", "write") && (
+                    <li>
+                      <a className="dropdown-item" href="#">
+                        Add Lead
+                      </a>
+                    </li>
+                  )}
+                  {canSection("projects", "write") && (
+                    <li>
+                      <a className="dropdown-item" href="#">
+                        Add Project
+                      </a>
+                    </li>
+                  )}
+                  {canSection("projects", "write") && (
+                    <li>
+                      <a className="dropdown-item" href="#">
+                        Add Project
+                      </a>
+                    </li>
+                  )}
+                  {canSection("crm.contacts", "write") && (
+                    <li>
+                      <button
+                        className="dropdown-item"
+                        onClick={handleNewContactClick}
+                      >
+                        Add Contact
+                      </button>
+                    </li>
+                  )}
+                  {canSection("crm.companies", "write") && (
+                    <li>
+                      <button
+                        className="dropdown-item"
+                        onClick={handleNewCompanyClick}
+                      >
+                        New Company
+                      </button>
+                    </li>
+                  )}
                 </ul>
               </div>
               {/* Edit Button show only for tab overview */}
@@ -394,38 +415,46 @@ const CompanyDetails = () => {
                 Add New
               </Button>
               <ul className="dropdown-menu">
-                <li>
-                  <button
-                    className="dropdown-item"
-                    onClick={handleNewLeadClick}
-                  >
-                    Add Lead
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="dropdown-item"
-                    onClick={handleNewProjectClick}
-                  >
-                    Add Project
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="dropdown-item"
-                    onClick={handleNewContactClick}
-                  >
-                    Add Contact
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="dropdown-item"
-                    onClick={handleNewCompanyClick}
-                  >
-                    New Company
-                  </button>
-                </li>
+                {canSection("crm.leads", "write") && (
+                  <li>
+                    <button
+                      className="dropdown-item"
+                      onClick={handleNewLeadClick}
+                    >
+                      Add Lead
+                    </button>
+                  </li>
+                )}
+                {canSection("projects", "write") && (
+                  <li>
+                    <button
+                      className="dropdown-item"
+                      onClick={handleNewProjectClick}
+                    >
+                      Add Project
+                    </button>
+                  </li>
+                )}
+                {canSection("crm.contacts", "write") && (
+                  <li>
+                    <button
+                      className="dropdown-item"
+                      onClick={handleNewContactClick}
+                    >
+                      Add Contact
+                    </button>
+                  </li>
+                )}
+                {canSection("crm.companies", "write") && (
+                  <li>
+                    <button
+                      className="dropdown-item"
+                      onClick={handleNewCompanyClick}
+                    >
+                      New Company
+                    </button>
+                  </li>
+                )}
               </ul>
             </div>
             {addLabel && (

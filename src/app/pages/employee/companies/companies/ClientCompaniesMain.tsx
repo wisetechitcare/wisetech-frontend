@@ -15,7 +15,7 @@ import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
-import { canSection } from "@utils/can";
+import { canSection, canViewCommercial } from "@utils/can";
 import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
@@ -529,8 +529,10 @@ const ClientCompaniesMain = ({
 
       // Full-page table: every column visible by default. Drill-down: only the
       // curated base + the drilled dimension's context column are visible by default.
-      if (!isDrillDown) return base;
-      return base.map((col: any) => ({
+      // Budget is project money.
+      const shown = base.filter((col: any) => col.accessorKey !== "totalBudget" || canViewCommercial('projects'));
+      if (!isDrillDown) return shown;
+      return shown.map((col: any) => ({
         ...col,
         meta: { ...(col.meta || {}), defaultVisible: drillVisibleKeys.has(col.accessorKey) },
       }));

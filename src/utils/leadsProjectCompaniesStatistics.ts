@@ -1,18 +1,22 @@
 import { ChartData } from "@models/clientProject";
 import { useMemo } from "react";
+import { canViewCommercial } from "@utils/can";
 
 export const convertToChartData = (
   apiData: any[],
   countKey: string,
   labelKey: string,
-  totalCostKey: string
+  totalCostKey: string,
+  // Whose money totalCost is; it stays 0 unless the user may see it.
+  section: 'crm.leads' | 'projects' = 'crm.leads'
 ): ChartData[] => {
   // console.log("apiData", apiData);
+  const showCost = canViewCommercial(section);
   return apiData.map((item, index) => ({
     label: item[labelKey] || "N/A",
     value: item[countKey],
     color: item.color || "#3B82F6",
-    totalCost: item[totalCostKey] || 0,
+    totalCost: showCost ? item[totalCostKey] || 0 : 0,
     id: item.id || `${item[labelKey]}-${index}`,
   }));
 };

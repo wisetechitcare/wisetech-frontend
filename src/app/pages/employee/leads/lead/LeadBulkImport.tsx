@@ -31,7 +31,7 @@ import {
 import { errorConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { canSection } from "@utils/can";
+import { canSection, canViewCommercial } from "@utils/can";
 import CsvUploadStep, { type UploadColumn } from "./CsvUploadStep";
 import ImportModeSelector, {
   type ImportMode,
@@ -528,9 +528,11 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                           <Typography sx={{ fontSize: 13, fontWeight: 700, color: "text.primary", ...NUM }}>
                             {row.area ? `${row.area} sqft` : "—"}
                           </Typography>
+                          {canViewCommercial('crm.leads') && (
                           <Typography sx={{ fontSize: 11.5, color: "text.secondary", ...NUM }}>
                             {row.cost ? `AED ${Number(row.cost).toLocaleString()}` : "—"}
                           </Typography>
+                          )}
                         </TableCell>
                       </TableRow>
                     );

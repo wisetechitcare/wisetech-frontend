@@ -9,7 +9,7 @@ import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { mapLeadToFormInitialValues } from '@pages/employee/leads/lead/utils';
-import { canSection } from '@utils/can';
+import { canSection, canViewCommercial } from '@utils/can';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import type { AppDispatch } from '@redux/store';
 
@@ -31,7 +31,10 @@ import ExecutionSection from './detail/sections/ExecutionSection';
 import ProjectMeetings from './detail/sections/ProjectMeetings';
 import ProjectStatusControl from './detail/ProjectStatusControl';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { UnderlineTabs } from '@app/modules/common/components/ui';
+import { UnderlineTabs, WtEmptyState } from '@app/modules/common/components/ui';
+import NoAccessPage from '@app/modules/common/components/NoAccessPage';
+
+const NOT_AUTHORIZED = 'not-authorized';
 
 /**
  * Unified Entity detail page. ONE entity, ONE page. The Lead is the master; the
@@ -114,7 +117,11 @@ const EntityDetailPage: React.FC = () => {
   // longer required (lead-as-master). Entering from the Leads table suppresses
   // them entirely (lead-focused view), regardless of project status.
   const tabs = useMemo(
-    () => ENTITY_TABS.filter(t => !t.projectOnly || (isProject && !fromLeads)),
+    () => ENTITY_TABS.filter(t => (!t.projectOnly || (isProject && !fromLeads))
+      // Money tabs: Commercial follows the page (a lead page also shows the project's
+      // commercials once converted), Billing is project money.
+      && (t.key !== 'commercial' || canViewCommercial(isProject && !fromLeads ? 'projects' : 'crm.leads'))
+      && (t.key !== 'billing' || canViewCommercial('projects'))),
     [isProject, fromLeads],
   );
   const vm = useMemo(() => (lead ? buildEntityVM(lead) : null), [lead]);
@@ -155,9 +162,12 @@ const EntityDetailPage: React.FC = () => {
       if (leadData.contactId) promises.push(getClientContactById(leadData.contactId).then(r => setContact(r?.data?.contact || null)).catch(console.error));
       await Promise.all(promises);
       setError(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching lead details:', err);
-      setError('Failed to load details. Please try again.');
+      // 404 / 403: the server's by-id rule — not theirs (or gone). Say so instead of "failed".
+      const status = err?.response?.status;
+      setLead(null);
+      setError(status === 404 || status === 403 ? NOT_AUTHORIZED : 'Failed to load details. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -223,7 +233,7 @@ const EntityDetailPage: React.FC = () => {
       case 'reimbursement':
         return <ReimbursementTab lead={lead} projectId={projectId} />;
       case 'documents':
-        return <DocumentsTab lead={lead} vm={vm} isProject={isProject} projectId={projectId} onExport={() => setShowProposalModal(true)} />;
+        return <DocumentsTab lead={lead} vm={vm} isProject={isProject} projectId={projectId} onExport={canViewCommercial('crm.leads') ? () => setShowProposalModal(true) : undefined} />;
       case 'audit':
         return <AuditSection leadId={leadId} isProject={isProject} projectId={projectId} onChanged={fetchLeadDetails} />;
       case 'teams':
@@ -239,6 +249,17 @@ const EntityDetailPage: React.FC = () => {
         return null;
     }
   };
+
+  if (!isLoading && !lead && error) {
+    if (error === NOT_AUTHORIZED) {
+      return <NoAccessPage kind="record" title="You don't have access to this lead or project" />;
+    }
+    return (
+      <div className="py-10">
+        <WtEmptyState variant="error" title="Couldn't load this record" hint={error} actionLabel="Try again" onAction={fetchLeadDetails} />
+      </div>
+    );
+  }
 
   if (isLoading || !lead) {
     return (
@@ -364,6 +385,7 @@ const EntityDetailPage: React.FC = () => {
                     <AppIcon name="bi-pencil-fill" className="fs-7" /> Edit
                   </button>
 
+                  {canViewCommercial('crm.leads') && (
                   <button
                     type="button"
                     className="btn btn-sm"
@@ -372,6 +394,7 @@ const EntityDetailPage: React.FC = () => {
                   >
                     <AppIcon name="bi-file-earmark-arrow-down-fill" className="fs-7" /> Export
                   </button>
+                  )}
                 </>
               )}
             </div>

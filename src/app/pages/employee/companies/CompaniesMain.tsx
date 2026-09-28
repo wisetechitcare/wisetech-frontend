@@ -1,4 +1,4 @@
-import { canSection } from "@utils/can";
+import { useSectionTabs } from "@utils/sectionTabs";
 import MaterialHeaderTab, {TabItem} from "@app/modules/common/components/MaterialHeaderTab";
 import { calenderIcons, leadsIcons, reimbursementsIcons, worldIcons } from "@metronic/assets/sidepanelicons";
 import CompanyConfigMain from "./companyConfig/CompanyConfigMain";
@@ -25,11 +25,12 @@ const TAB_KEYS = ["overview", "companies", "map", "configure"] as const;
 const CompaniesMain = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabKey = searchParams.get("tab") || "overview";
-  // Configure changes how the section works, so it shows only with Write on it.
-  const canConfigure = canSection("crm.companies", "write");
-  const activeTab = tabKey === "configure" && !canConfigure ? 0 : Math.max(0, TAB_KEYS.indexOf(tabKey as any));
+  // The tabs this person gets: each follows the section (Configure needs Write) unless turned
+  // off for them under Access -> Advanced. The active tab maps through this list, not fixed indexes.
+  const visibleTabs = useSectionTabs("crm.companies", TAB_KEYS);
+  const activeTab = Math.max(0, visibleTabs.indexOf(tabKey as any));
   const setActiveTab = (index: number) => {
-    setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
+    setSearchParams({ tab: visibleTabs[index] ?? visibleTabs[0] ?? "overview" }, { replace: true });
   };
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number, id?: string}[]>([]);
   const [companyData, setCompanyData] = useState<any>([]);
@@ -139,8 +140,8 @@ const CompaniesMain = () => {
       component: <Maps points={coordinates} companyData={companyData} />,
       icon: 'bi-geo-alt',
     },
-    ...(canConfigure ? [{ title: "Configure", component: <CompanyConfigMain />, icon: 'bi-gear' }] : []),
-  ];
+    { title: "Configure", component: <CompanyConfigMain />, icon: 'bi-gear' },
+  ].filter((_, i) => visibleTabs.includes(TAB_KEYS[i]));
   const ProjectBreadcrumbs = [
     {
       title: "Companies",
@@ -158,7 +159,7 @@ const CompaniesMain = () => {
   return (
     <div>
       <PageTitle breadcrumbs={ProjectBreadcrumbs}>
-        {tabItems[activeTab].title}
+        {tabItems[activeTab]?.title}
       </PageTitle>
       <MaterialHeaderTab
         tabItems={tabItems}

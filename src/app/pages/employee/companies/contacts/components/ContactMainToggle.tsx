@@ -17,6 +17,14 @@ import { canSection } from "@utils/can";
 
 type TabType = "overview" | "lead-reference" | "company-references" | "projects" | "meetings";
 
+// The section whose records a tab shows: without Read on it the tab isn't there (nor by ?tab=).
+const TAB_SECTION: Partial<Record<TabType, string>> = {
+  "lead-reference": "crm.leads",
+  "company-references": "crm.companies",
+  projects: "projects",
+  meetings: "calendar",
+};
+
 const ContactMainToggle = () => {
   const canWrite = canSection("crm.contacts", "write");
   const { contactId } = useParams<{ contactId: string }>();
@@ -24,7 +32,8 @@ const ContactMainToggle = () => {
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = (searchParams.get("tab") as TabType) || "overview";
+  const requestedTab = (searchParams.get("tab") as TabType) || "overview";
+  const activeTab: TabType = TAB_SECTION[requestedTab] && !canSection(TAB_SECTION[requestedTab]!) ? "overview" : requestedTab;
   const setActiveTab = (tab: TabType) => setSearchParams({ tab }, { replace: true });
   const [contact, setContact] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -66,7 +75,7 @@ const ContactMainToggle = () => {
     { key: "company-references", label: "Company References", icon: "bi bi-buildings" },
     { key: "projects", label: "Projects", icon: "bi bi-kanban" },
     { key: "meetings", label: "Meetings", icon: "bi bi-camera-video" },
-  ];
+  ].filter((t) => !TAB_SECTION[t.key as TabType] || canSection(TAB_SECTION[t.key as TabType]!)) as Array<{ key: TabType; label: string; icon: string }>;
 
   const renderTabContent = () => {
     if (!contactId) return null;

@@ -35,6 +35,7 @@ import { successConfirmation } from "@utils/modal";
 import { mapStyles } from "./mapTheme";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { currencyPrefix } from '@utils/currency';
+import { canViewCommercial } from '@utils/can';
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -843,7 +844,7 @@ const LocationMarker = React.memo(({
               )}
 
               <div className="info-grid">
-                {isProject && loc.item?.cost && (
+                {isProject && loc.item?.cost && canViewCommercial('projects') && (
                   <div className="info-item">
                     <RupeeIcon className="info-icon" />
                     <span className="info-text highlight">{currencyPrefix()}{loc.item.cost.toLocaleString()}</span>
