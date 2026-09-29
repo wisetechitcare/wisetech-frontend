@@ -28,7 +28,9 @@ const KINDS = {
 } as const;
 
 const EASE = "cubic-bezier(.22,.61,.36,1)";
-const OFF = "#64748B"; // slate: an off toggle, tinted like the kit's action buttons
+// Off is the neutral slate square the configure screens use for an inactive action (Project Points'
+// action buttons); on is the permission's own colour, solid, with a white icon — unmistakable at a glance.
+const OFF = { bg: "#f1f5f9", border: "#e2e8f0", icon: "#94a3b8" };
 
 const Toggle: React.FC<{ kind: keyof typeof KINDS; on: boolean; onClick: () => void; disabled?: boolean; tip: string }> = ({ kind, on, onClick, disabled, tip }) => {
   const { name, Icon, tone } = KINDS[kind];
@@ -52,26 +54,25 @@ const Toggle: React.FC<{ kind: keyof typeof KINDS; on: boolean; onClick: () => v
           placeItems: "center",
           borderRadius: "9px",
           border: "1px solid",
-          // Off reads as clearly as the app's other action buttons — the same tinted square, in slate.
-          borderColor: on ? `${tone}5C` : `${OFF}3D`,
-          bgcolor: `${OFF}12`,
-          color: on ? tone : OFF,
+          borderColor: on ? tone : OFF.border,
+          bgcolor: OFF.bg,
+          color: on ? "#fff" : OFF.icon,
           cursor: disabled ? "not-allowed" : "pointer",
           opacity: disabled ? 0.45 : 1,
           transition: `border-color .5s ${EASE}, color .5s ${EASE}`,
-          // The tint spreads out from the centre until it fills the square — slowly, once.
+          // The colour spreads out from the centre until it fills the square — slowly, once.
           "&::before": {
             content: '""',
             position: "absolute",
             inset: 0,
             borderRadius: "inherit",
-            bgcolor: `${tone}26`,
+            bgcolor: tone,
             transform: on ? "scale(1)" : "scale(0)",
             opacity: on ? 1 : 0,
             transition: `transform .5s ${EASE}, opacity .4s ${EASE}`,
           },
           "& > svg": { position: "relative" },
-          "&:hover:not(:disabled)": { borderColor: `${tone}66`, color: tone },
+          "&:hover:not(:disabled)": on ? { filter: "brightness(1.1)" } : { borderColor: `${tone}66`, color: tone },
           "&:focus-visible": { outline: `2px solid ${tone}66`, outlineOffset: 2 },
           "@media (prefers-reduced-motion: reduce)": { transition: "none", "&::before": { transition: "none" } },
         }}
@@ -218,7 +219,7 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
                   onClick={() => onResetToRole?.(node.module)}
                   sx={{
                     width: 28, height: 28, display: "grid", placeItems: "center", borderRadius: "8px", cursor: "pointer",
-                    border: `1px solid ${OFF}3D`, bgcolor: `${OFF}12`, color: OFF,
+                    border: `1px solid ${OFF.border}`, bgcolor: OFF.bg, color: "#64748B",
                     transition: "border-color .2s ease, color .2s ease",
                     "&:hover": { borderColor: `${T.color.brand}66`, color: T.color.brand },
                   }}
