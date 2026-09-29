@@ -1597,9 +1597,13 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
 
-    if (appRole) {
+    // Only a changed role goes to the (guarded) roles endpoint, and a refusal is said out loud:
+    // it used to be swallowed, so the form looked saved with a role the server had refused.
+    if (appRole && appRole !== values.roles?.[0]?.id) {
       try { await updateEmployeeRolesById(employeeId, { roleIds: [appRole] }); }
-      catch (error) { console.log("Error while updating employee roles", error); }
+      catch (error: any) {
+        errorConfirmation(error?.response?.data?.message || error?.response?.data?.detail || "The role was not changed.");
+      }
     }
 
     const aadharDocumentId = values?.documentFields?.find(
@@ -1862,7 +1866,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
         if (values.appRole) {
           try { await updateEmployeeRolesById(savedEmployeeId, { roleIds: [values.appRole] }); }
-          catch (roleError) { console.error("Error while updating employee roles:", roleError); }
+          catch (roleError: any) {
+            // Everything else saved; say plainly that the role did not (e.g. your own role, or Admin given by a non-admin).
+            errorConfirmation(roleError?.response?.data?.message || roleError?.response?.data?.detail || "The role was not changed.");
+          }
         }
 
         await saveApprovalChains(values.approvalChains, savedEmployeeId);

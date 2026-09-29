@@ -692,9 +692,11 @@ const PrivateRoutes = () => {
         <Route
           path='/companies/:companyId/*'
           element={
-            <SuspensedView>
-              <AllCompaniesToggle />
-            </SuspensedView>
+            <SectionGuard module='crm.companies'>
+              <SuspensedView>
+                <AllCompaniesToggle />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route
@@ -716,9 +718,11 @@ const PrivateRoutes = () => {
         <Route
           path='/contacts/:contactId/*'
           element={
-            <SuspensedView>
-              <ContactMainToggle />
-            </SuspensedView>
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <ContactMainToggle />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         {/* A time log is now read in a dialog over the timesheet it belongs to, not on a page
