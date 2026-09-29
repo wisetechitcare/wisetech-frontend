@@ -1,3 +1,4 @@
+import { canSection, canViewCommercial } from "@utils/can";
 import {
   getLeadsByStatusAnalytics,
   getLeadsByServiceAnalytics,
@@ -19,11 +20,11 @@ import { ChartDialogModal } from "@pages/employee/leads/overview/components/Char
 import { LeadAnalyticsPanel } from "./leadAnalytics";
 
 
-interface DashboardGraphProps {
-  isAdmin?: boolean;
-}
-
-const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
+// Lead charts follow Leads access, project charts follow Projects access (the dashboard shows
+// this widget when either is readable). `isAdmin` below is kept as the lead switch's name.
+const DashboardGraph: React.FC = () => {
+  const isAdmin = canSection("crm.leads");
+  const showProjects = canSection("projects");
   const [chartData, setChartData] = useState<any>({
     statusData: [],
     serviceData: [],
@@ -160,7 +161,7 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
             label: item.name,
             value: item[countKey],
             color: item.color || "#3B82F6",
-            totalCost: item.totalCost || 0,
+            totalCost: canViewCommercial('projects') ? item.totalCost || 0 : 0,
           }));
         };
 
@@ -285,6 +286,7 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
             )}
 
             {/* Lead By Project Category */}
+            {isAdmin && (
             <div className="col-12 col-md-6 col-lg-6">
               <CustomPieCharts
                 data={chartData.categoryData}
@@ -305,9 +307,11 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
                 key="category-chart"
               />
             </div>
+            )}
           
 
-        {/* Project Charts - For Both Admin and Members */}
+        {/* Project Charts — with Read on Projects */}
+        {showProjects && (<>
         {/* Projects By Status */}
         <div className="col-12 col-md-6 col-lg-6">
           <CustomPieCharts
@@ -369,7 +373,8 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
             filterPlaceholder="All Categories"
             key="project-category-chart"
           />
-        </div>
+      </div>
+        </>)}
       </div>
       
 

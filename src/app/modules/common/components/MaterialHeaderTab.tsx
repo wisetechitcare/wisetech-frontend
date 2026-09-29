@@ -3,6 +3,10 @@ import type { SxProps, Theme } from '@mui/material';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { T } from './ui/tokens';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@redux/store';
+import { isTabTurnedOff } from '@utils/can';
+import { tabSlug } from '@utils/sectionTabs';
 
 export type TabItem = {
     title: string;
@@ -29,6 +33,10 @@ interface MaterialTabProps {
      * a <PremiumButton> primary action ("New", "Create", "Add"). It stays put
      * while the tab strip scrolls, and is vertically centred in the bar. */
     headerAction?: React.ReactNode;
+    /** The access section this page belongs to (e.g. "attendance.personal"): tabs turned off for
+     * the person under Access → Advanced are left out. Indexes stay the page's own, so a page's
+     * activeTab / onTabChange keep working unchanged. */
+    accessSection?: string;
 }
 
 /** Sticky offsets: the bar tucks under the masthead where the masthead is fixed, and
@@ -225,7 +233,7 @@ const countBadge = (count: number | undefined) =>
         </Box>
     ) : null;
 
-const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hideScrollButtons, headerAction }: MaterialTabProps) => {
+const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hideScrollButtons, headerAction, accessSection }: MaterialTabProps) => {
     /**
      * Phones get a bar that says as much as fits: every tab as icon + name on one line; failing
      * that, bottom-navigation style (icon over name); failing that, icons with the selected tab
@@ -283,6 +291,17 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
         }
     }, [activeTab]);
 
+    // Tabs turned off for this person (Access → Advanced). Re-renders on a live access change.
+    useSelector((s: RootState) => (s as any).authz?.deniedTabs);
+    const shown = (item: TabItem) => !accessSection || !isTabTurnedOff(accessSection, tabSlug(item.title));
+    // Standing on a tab that just got turned off: move to the first one still open.
+    useEffect(() => {
+        if (!accessSection || !tabItems[value] || shown(tabItems[value])) return;
+        const first = tabItems.findIndex(shown);
+        if (first >= 0) { setValue(first); onTabChange?.(first); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    });
+
     const handleChange = (event: React.SyntheticEvent, newValue: number) => {
         setValue(newValue);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -303,6 +322,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
             sx={tabsSx}
         >
             {tabItems.map((tabItem, index) => {
+                    if (!shown(tabItem)) return null;
                     const key = `${tabItem.title}-${index}`;
                     const icon = !tabItem.icon
                         ? undefined
@@ -347,7 +367,8 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                         </span>
                     ) : <span className="mht-label">{tabItem.title}</span>;
 
-                    return <Tab key={key} label={label} icon={icon} disableRipple disableFocusRipple />;
+                    // `value` = the page's own index, so hidden tabs never shift the others.
+                    return <Tab key={key} value={index} label={label} icon={icon} disableRipple disableFocusRipple />;
                 })}
         </Tabs>
     );
@@ -381,6 +402,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                 }}
             >
                 {tabItems.map((item, index) => {
+                    if (!shown(item)) return null;
                     const selected = index === value;
                     const row = phoneMode === 'row';
                     const nav = phoneMode === 'nav';
@@ -514,7 +536,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
             {tabItems.map((tabItem, index) => {
                 return (
                     <div key={`${tabItem.title}-panel-${index}`} className="px-3 py-0 sm:px-5 lg:px-9">
-                        {value === index && tabItem.component}
+                        {value === index && shown(tabItem) && tabItem.component}
                     </div>
                 )
             })}

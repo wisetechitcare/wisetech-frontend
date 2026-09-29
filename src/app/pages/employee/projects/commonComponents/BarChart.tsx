@@ -439,10 +439,10 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
                  <span>Count:</span>
                  <strong>${count}</strong>
                </div>
-               <div class="tooltip-row">
+               ${showValueAnnotation ? `<div class="tooltip-row">
                  <span>Total:</span>
                  <strong>${currencyPrefix()}${amount.toLocaleString(getCurrencyLocale()) || "0"}</strong>
-               </div>
+               </div>` : ""}
              </div>`;
         },
       },

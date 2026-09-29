@@ -10,6 +10,7 @@ import RadioInput from "@app/modules/common/inputs/RadioInput";
 import { Formik, Form as FormikForm } from "formik";
 import * as Yup from "yup";
 import { hasPermission } from "@utils/authAbac";
+import { canSection } from "@utils/can";
 import { useSelector, useDispatch } from "react-redux";
 import { saveToggleChange } from "@redux/slices/attendanceStats";
 import { sortKpiFactors } from "@utils/kpiSort";
@@ -186,10 +187,7 @@ export default function KpiSettings() {
   // change reflects instantly on the KPI report without a manual page reload.
   const signalKpiConfigChanged = () => dispatch(saveToggleChange(!toggleChange));
 
-  const canEdit = hasPermission(
-    resourseAndViewConfig[0].resource,
-    permissionConstToUseWithHasPermission.editOthers
-  );
+  const canEdit = canSection("kpi.configure", "write");
 
   useEffect(() => {
     if (!employeeId) return;

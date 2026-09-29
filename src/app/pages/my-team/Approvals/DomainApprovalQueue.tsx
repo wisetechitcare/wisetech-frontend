@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import apiErrorMessage from '@utils/apiError';
 import { MRT_ColumnDef, MRT_Row } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { usePermission } from '@hooks/usePermission';
@@ -486,7 +487,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       setSteps((prev) => prev.filter((s) => s.id !== step.id));
       successConfirmation('Request has been approved successfully.', 'Approved!');
     } catch (err: any) {
-      errorConfirmation(err?.response?.data?.message || 'Failed to approve this request.');
+      errorConfirmation(apiErrorMessage(err, 'Failed to approve this request.'));
     } finally {
       setProcessingId(null);
     }
@@ -501,7 +502,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       setRejectTarget(null);
       successConfirmation('Request has been rejected.', 'Rejected');
     } catch (err: any) {
-      errorConfirmation(err?.response?.data?.message || 'Failed to reject this request.');
+      errorConfirmation(apiErrorMessage(err, 'Failed to reject this request.'));
     } finally {
       setRejectSubmitting(false);
     }
@@ -558,7 +559,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       );
       load();
     } catch (err: any) {
-      errorConfirmation(err?.response?.data?.message || 'Could not send the question. Please try again.');
+      errorConfirmation(apiErrorMessage(err, 'Could not send the question. Please try again.'));
     } finally {
       setInfoSubmitting(false);
     }
@@ -998,7 +999,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       setSelectedSteps([]);
       await load();
     } catch (err: any) {
-      errorConfirmation(err?.response?.data?.message ?? 'Please try again.');
+      errorConfirmation(apiErrorMessage(err, 'Please try again.'));
     } finally {
       setBulkBusy(false);
     }

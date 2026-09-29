@@ -8,7 +8,7 @@ import { configureStore } from '@reduxjs/toolkit';
 
 // The one Add candidate window (Candidates and Pipeline) and "Add to a role" for someone on file.
 
-vi.mock('@redux/store', () => ({ store: { getState: () => ({ appSettings: {} }) } }));
+vi.mock('@redux/store', () => ({ store: { getState: () => ({ appSettings: {}, authz: { tier: 'SUPER_ADMIN' } }) } }));
 
 const api = vi.hoisted(() => ({
     getRequisitions: vi.fn(),

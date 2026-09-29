@@ -1,3 +1,5 @@
+import { canSection } from "@utils/can";
+
 /**
  * Billing module navigation — the single source of truth for its tabs.
  *
@@ -59,3 +61,7 @@ export const billingDefaultPath = (isVisible: (key: string) => boolean): string 
  */
 export const activeBillingTabIndex = (pathname: string, tabs: BillingTabDef[]): number =>
     tabs.findIndex((t) => pathname.startsWith(`${BILLING_BASE}/${t.path}`));
+
+/** Whether a billing tab opens: Read on its section, or Write for Configure (it changes how billing works). */
+export const canOpenBillingTab = (accessKey: string): boolean =>
+    canSection(accessKey, accessKey === "billing.configure" ? "write" : "read");

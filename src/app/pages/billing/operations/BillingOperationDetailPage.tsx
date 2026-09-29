@@ -11,6 +11,7 @@ import {
 } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
+import { canSection } from "@utils/can";
 import {
   getBillingOperation, getOperationActivity, updateOperationStatus, addOperationNote,
   type BillingOperationStatus,
@@ -43,6 +44,7 @@ const Row: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value
 );
 
 const BillingOperationDetailPage: React.FC = () => {
+  const canWrite = canSection("billing.operations", "write");
   const { id = "" } = useParams();
   const navigate = useNavigate();
   // Falls back to this page\'s own parent when nobody handed us an origin,
@@ -248,6 +250,7 @@ const BillingOperationDetailPage: React.FC = () => {
 
               {tab === 3 && (
                 <Stack spacing={1.5}>
+                  {canWrite && (<>
                   <TextField
                     size="small" fullWidth multiline minRows={2}
                     label="Add a note" value={note}
@@ -265,6 +268,7 @@ const BillingOperationDetailPage: React.FC = () => {
                     </WtButton>
                   </Box>
                   <Divider />
+                  </>)}
                   {notes.map((entry) => (
                     <Box key={entry.id} sx={{ py: 0.5 }}>
                       <Typography sx={{ fontSize: 12.5, whiteSpace: "pre-line" }}>{entry.body}</Typography>
@@ -356,7 +360,7 @@ const BillingOperationDetailPage: React.FC = () => {
             )}
           </GlassCard>
 
-          <GlassCard sx={{ p: 2 }}>
+          {canWrite && <GlassCard sx={{ p: 2 }}>
             <PanelTitle icon="arrow-right" title="Advance Workflow" />
             {operation.allowedTransitions.length === 0 ? (
               <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
@@ -397,7 +401,7 @@ const BillingOperationDetailPage: React.FC = () => {
                 </WtButton>
               </Stack>
             )}
-          </GlassCard>
+          </GlassCard>}
         </Stack>
       </Box>
     </Box>

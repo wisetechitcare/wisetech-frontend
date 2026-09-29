@@ -12,8 +12,7 @@ import { successConfirmation } from '@utils/modal';
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { fetchCompanyOverview } from "@services/company";
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
-import { hasPermission } from "@utils/authAbac";
+import { canSection } from "@utils/can";
 import {
   ConfigPageLayout,
   ConfigSectionCard,
@@ -54,7 +53,7 @@ function EmployeeTypes() {
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [initialValues, setInitialValues] = useState<IEmployeeType>(initialState);
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+  const canWrite = canSection("settings", "write");
   const [companyId, setCompanyId] = useState<string>('');
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const [refresh, setRefresh] = useState(false)
@@ -119,7 +118,7 @@ function EmployeeTypes() {
               },
           ];
 
-          if (isAdmin) {
+          if (canWrite) {
               cols.push({
                   accessorKey: "actions",
                   header: "Actions",
@@ -137,7 +136,7 @@ function EmployeeTypes() {
 
           return cols;
       },
-      [isAdmin, data]
+      [canWrite, data]
   );
 
   const handleClose = () => {
@@ -175,7 +174,7 @@ function EmployeeTypes() {
             <style>{KEYFRAMES}</style>
             <ConfigPageLayout
               actions={
-                isAdmin ? (
+                canWrite ? (
                   <button
                     onClick={() => setShowModal(true)}
                     style={{

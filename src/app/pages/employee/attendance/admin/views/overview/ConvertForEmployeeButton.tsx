@@ -8,6 +8,7 @@ import { KTIcon } from '@metronic/helpers';
 import { getAvatar } from '@utils/avatar';
 import { activeEmployeeIdSet } from '@utils/activeEmployee';
 import { errorConfirmation } from '@utils/modal';
+import { canSection } from '@utils/can';
 import {
     ANNUAL_LEAVES, CASUAL_LEAVES, FLOATER_LEAVES, MATERNAL_LEAVES, SICK_LEAVES,
 } from '@constants/statistics';
@@ -117,7 +118,7 @@ export default function ConvertForEmployeeButton() {
 
     // Not Admin/HR, or on-behalf conversion is switched off in the leave policy: the action would be
     // refused server-side, so it is not offered. Turn it on in Leave Policy → Conversion → On behalf.
-    if (!allowed) return null;
+    if (!allowed || !canSection('attendance.employees', 'write')) return null;
 
     return (
         <>

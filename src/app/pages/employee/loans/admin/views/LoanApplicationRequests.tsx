@@ -46,10 +46,6 @@ const LoanApplicationRequests: React.FC<MyComponentProps> = ({ resource, viewOth
     (state: RootState) => state.employee.currentEmployee.id
   );
 
-  const isAdmin = useSelector(
-    (state: RootState) => state.auth.currentUser.isAdmin
-  );
-
   const fetchAllLoan = async () => {
     setLoading(true);
     try {
@@ -139,55 +135,53 @@ const LoanApplicationRequests: React.FC<MyComponentProps> = ({ resource, viewOth
       { accessorKey: "resion", header: "Reason" },
     ];
 
-    if (isAdmin) {
-      baseColumns.push({
-        accessorKey: "actions",
-        header: "Actions",
-        Cell: ({ row }) => {
-          const allowEdit = hasPermission(
-            resourceNameMapWithCamelCase.loan,
-            permissionConstToUseWithHasPermission.editOthers
-          );
-          
-          return (
-            <div className="d-flex flex-row gap-2 items-center justify-center space-x-4">
-              <div style={commonButtonStyle}>
-                <Link to={`${row.original.id}`}>View</Link>
-              </div>
-              {allowEdit ? (
-                <div
-                  onClick={() => approveLoan(row.original.id)}
-                  style={commonButtonStyle}
-                >
-                  Approve
-                </div>
-              ):<div
-              
-              style={commonButtonStyle}
-            >
-              NA
-            </div>}
-              {allowEdit ? (
-                <div
-                  onClick={() => rejectLoan(row.original.id)}
-                  style={commonButtonStyle}
-                >
-                  Reject
-                </div>
-              ):<div
-              
-              style={commonButtonStyle}
-            >
-              NA
-            </div>}
+    baseColumns.push({
+      accessorKey: "actions",
+      header: "Actions",
+      Cell: ({ row }) => {
+        const allowEdit = hasPermission(
+          resourceNameMapWithCamelCase.loan,
+          permissionConstToUseWithHasPermission.editOthers
+        );
+        
+        return (
+          <div className="d-flex flex-row gap-2 items-center justify-center space-x-4">
+            <div style={commonButtonStyle}>
+              <Link to={`${row.original.id}`}>View</Link>
             </div>
-          );
-        },
-      });
-    }
+            {allowEdit ? (
+              <div
+                onClick={() => approveLoan(row.original.id)}
+                style={commonButtonStyle}
+              >
+                Approve
+              </div>
+            ):<div
+            
+            style={commonButtonStyle}
+          >
+            NA
+          </div>}
+            {allowEdit ? (
+              <div
+                onClick={() => rejectLoan(row.original.id)}
+                style={commonButtonStyle}
+              >
+                Reject
+              </div>
+            ):<div
+            
+            style={commonButtonStyle}
+          >
+            NA
+          </div>}
+          </div>
+        );
+      },
+    });
 
     return baseColumns;
-  }, [isAdmin]);
+  }, []);
 
   const commonButtonStyle = {
     fontSize: "14px",

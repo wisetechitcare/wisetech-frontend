@@ -3,7 +3,7 @@ import { Modal } from "react-bootstrap";
 import CloseIcon from "@mui/icons-material/Close";
 import { Typography } from "@mui/material";
 import { successConfirmation } from "@utils/modal";
-import { useDashboardSettings, DashboardSection } from "./useDashboardSettings";
+import { useDashboardSettings, DashboardSection, isWidgetAllowed } from "./useDashboardSettings";
 import { WtSwitch } from "@app/modules/common/components/ui";
 
 interface CustomizeDashboardProps {
@@ -122,7 +122,8 @@ const CustomizeDashboard: React.FC<CustomizeDashboardProps> = ({ show, onHide, o
           <div className="container mt-4">
             <div className="mb-4">
               <h5 className="border-bottom pb-2">Dashboard Sections</h5>
-              {sections.map((section) => (
+              {/* Only widgets this person may see at all; the rest keep their saved state untouched. */}
+              {sections.filter((section) => isWidgetAllowed(section.key)).map((section) => (
                 <div
                   key={section.key}
                   className="d-flex justify-content-between align-items-center mb-3 flex-wrap"

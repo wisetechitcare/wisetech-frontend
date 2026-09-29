@@ -13,7 +13,7 @@ import { useDispatch } from "react-redux";
 import ReimbursementConfiguration from "./views/admin/ReimbursementConfiguration";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
-import { can } from "@utils/can";
+import { canSection } from "@utils/can";
 import { fetchReimbursementBatches } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -40,7 +40,7 @@ function AdminAndEmployeeReimbursementViewer() {
   const [pendingPaymentCount, setPendingPaymentCount] = useState(0);
 
   const loadBadgeCounts = useCallback(async () => {
-    if (!can('finance.manage.team')) return;
+    if (!canSection('finance.reimbursements', 'write')) return;
     try {
       const res = await fetchReimbursementBatches();
       const batches: any[] = res?.data?.batches || res?.batches || [];
@@ -78,13 +78,13 @@ function AdminAndEmployeeReimbursementViewer() {
     // categories and per-employee spending limits. All five tabs used to gate on `readOthers`
     // (`finance.view.team`), so anyone who could view the team could also pay and reconfigure.
     // These two now require an explicit finance write grant.
-    ...(can('finance.manage.team') ? [{
+    ...(canSection('finance.reimbursements', 'write') ? [{
       title: "Payment",
       component: <PaymentTab />,
       icon: 'bi-credit-card',
       badge: pendingPaymentCount,
     }]:[]),
-    ...(can('finance.manage.all') ? [{
+    ...(canSection('finance.reimbursements', 'write') ? [{
       title: "Configure",
       component: <ReimbursementConfiguration />,
       icon: 'bi-gear',
@@ -120,7 +120,7 @@ function AdminAndEmployeeReimbursementViewer() {
         Reimbursements
       </PageTitle>
       
-      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} />
+      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} accessSection="finance.reimbursements" />
     </>
   );
 }

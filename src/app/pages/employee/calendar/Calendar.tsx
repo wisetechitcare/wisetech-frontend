@@ -68,7 +68,7 @@ function Calendar() {
       <PageTitle breadcrumbs={calendarBreadcrumbs}>
         Calendar
       </PageTitle>
-      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} hideScrollButtons />
+      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} hideScrollButtons accessSection="calendar" />
     </>
   )
 }

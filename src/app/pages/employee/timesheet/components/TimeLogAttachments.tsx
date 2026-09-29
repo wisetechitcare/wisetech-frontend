@@ -25,6 +25,7 @@ import { useRef, useState } from 'react';
 import { Box, CircularProgress, Stack, Tooltip, Typography, alpha, useTheme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { toast } from '@app/modules/common/components/ui';
+import { canSection } from '@utils/can';
 import {
     DOCUMENT_ACCEPT,
     DOCUMENT_HINT,
@@ -83,6 +84,9 @@ export const TimeLogAttachments = ({
     userId?: string;
     disabled?: boolean;
 }) => {
+    // Reached only through a per-log gate (own: timesheets.my read; others: timesheets.employees
+    // write — enforced where the form is opened), so either grant is enough here.
+    const canWrite = canSection('timesheets.my', 'read') || canSection('timesheets.employees', 'write');
     const theme = useTheme();
     const dark = theme.palette.mode === 'dark';
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -154,7 +158,7 @@ export const TimeLogAttachments = ({
 
             {/* A drop target, because the files being attached here have usually just been saved
                 out of another program and are sitting in a folder next to the browser. */}
-            <Box
+            {canWrite && <Box
                 onClick={() => !disabled && !uploading && inputRef.current?.click()}
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
@@ -188,7 +192,7 @@ export const TimeLogAttachments = ({
                         {DOCUMENT_HINT} · images are stored as WebP
                     </Typography>
                 </Box>
-            </Box>
+            </Box>}
 
             {value.length > 0 && (
                 <Stack spacing={0.5} sx={{ mt: 1 }}>
@@ -226,7 +230,7 @@ export const TimeLogAttachments = ({
                                 )}
                             </Box>
 
-                            {!disabled && (
+                            {!disabled && canWrite && (
                                 <Tooltip title={`Remove ${file.fileName}`}>
                                     <Box
                                         component="button"

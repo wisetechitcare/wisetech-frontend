@@ -18,12 +18,14 @@ import {
 import { KTIcon } from "@metronic/helpers";
 import { useNavigate } from "react-router-dom";
 import { showSuccess, showError, showWarning } from "@utils/modal";
+import { canSection } from "@utils/can";
 import PercentageConfigurationTable from "./PercentageConfigurationTable";
 import MeetingConfigurationTable from "./MeetingConfigurationTable";
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
 
 const ProposalConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
+  const canWrite = canSection("crm.leads", "write");
   const [configurations, setConfigurations] = useState<any[]>([]);
   const [availableFields, setAvailableFields] = useState<any[]>([]);
   const [selectedConfig, setSelectedConfig] = useState<any>(null);
@@ -291,6 +293,7 @@ const ProposalConfigurationPage: React.FC = () => {
             </span>
           </div>
         </div>
+        {canWrite && (
         <div className="d-flex gap-3">
           {selectedConfig?.id && (
             <Button
@@ -320,6 +323,7 @@ const ProposalConfigurationPage: React.FC = () => {
             </Button>
           )}
         </div>
+        )}
       </div>
 
       <div className="p-8">

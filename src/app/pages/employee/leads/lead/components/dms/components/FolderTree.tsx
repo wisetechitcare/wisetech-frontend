@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { KTIcon } from '@metronic/helpers';
 import { useDMS } from '../store/DmsContext';
+import { canSection } from '@utils/can';
 import type { DMSFolder } from '../types/dms.types';
 
 interface FolderTreeProps {
@@ -15,6 +16,7 @@ const FolderNode: React.FC<{
   activeFolderId: string | null;
 }> = ({ folder, depth, onSelect, activeFolderId }) => {
   const { state, dispatch } = useDMS();
+  const canWrite = canSection('crm.leads', 'write');
   const folderState = state.folders.find(f => f.id === folder.id) || folder;
   const children = state.folders.filter(f => f.parentId === folder.id);
   const isActive = activeFolderId === folder.id;
@@ -143,7 +145,7 @@ const FolderNode: React.FC<{
 
         {/* Actions */}
         <AnimatePresence>
-          {showActions && !folderState.isSystem && (
+          {canWrite && showActions && !folderState.isSystem && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -214,6 +216,7 @@ const actionBtnStyle: React.CSSProperties = {
 
 export const FolderTree: React.FC<FolderTreeProps> = ({ onFolderSelect }) => {
   const { state, dispatch, isGlobalMode } = useDMS();
+  const canWrite = canSection('crm.leads', 'write');
   const [showCreateInput, setShowCreateInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
@@ -255,7 +258,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({ onFolderSelect }) => {
 
       {/* New folder input */}
       <AnimatePresence>
-        {showCreateInput && (
+        {canWrite && showCreateInput && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}

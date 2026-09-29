@@ -65,6 +65,7 @@ function Salary() {
           tabItems={tabItems}
           activeTab={activeTab}
           onTabChange={setActiveTab}
+          accessSection="finance.salary"
           headerAction={tabItems[activeTab]?.title === "My Salary" ? <SensitiveDataHeaderToggle /> : undefined}
         />
       </SensitiveDataProvider>

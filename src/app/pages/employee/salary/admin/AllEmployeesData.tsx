@@ -9,6 +9,7 @@ import { fetchCompanyOverview } from "@services/company";
 import { fetchAllEmployeeTotalSalaryOfYear, fetchAllEmployeeMonthlySalary } from "@services/employee";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
+import { canSection } from "@utils/can";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { PageTitle } from "@metronic/layout/core";
 import { PageHeadingTitle } from "@metronic/layout/components/header/page-title/PageHeadingTitle";
@@ -35,7 +36,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+  const canWrite = canSection("finance.salary", "write");
   const companyId = useSelector((state: RootState) => state.company.currentCompany.id);
   
   // Redux state selectors
@@ -436,7 +437,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
         </button>
       )
     },
-    ...(isAdmin ? [{
+    ...(canWrite ? [{
       accessorKey: "actions",
       header: "Actions",
       Cell: ({ row }: any) => (
@@ -449,7 +450,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
         </button>
       ),
     }] : []),
-  ], [handleEditClick, handleShowDetails, isAdmin, isLoading, totalAmountPaid]);
+  ], [handleEditClick, handleShowDetails, canWrite, isLoading, totalAmountPaid]);
 
 
 

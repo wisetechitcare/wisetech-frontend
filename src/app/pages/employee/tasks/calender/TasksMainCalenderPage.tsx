@@ -8,6 +8,7 @@ import axios from 'axios'
 import { LEAD_PROJECT_COMPANY } from '@constants/api-endpoint'
 import { get, set } from 'lodash'
 import { useStoredState } from '@app/hooks/useStoredState';
+import { canSection } from '@utils/can'
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
@@ -91,6 +92,7 @@ const TeamCard: React.FC<{
     onEditTeam: (team: Team) => void;
     onMoveMember: (employeeId: string, teamId: string) => void;
 }> = ({ team, allTeams, movingId, onEditTeam, onMoveMember }) => {
+    const canWrite = canSection('settings.teams', 'write')
 
 
     return (
@@ -130,7 +132,7 @@ const TeamCard: React.FC<{
                             {team.name}
                         </h5>
                     </div>
-                    <button
+                    {canWrite && <button
                         type="button"
                         className="btn btn-sm"
                         onClick={() => onEditTeam(team)}
@@ -146,7 +148,7 @@ const TeamCard: React.FC<{
                         }}
                     >
                         Edit Team
-                    </button>
+                    </button>}
                 </div>
 
                 {/* Responsive Table Wrapper */}
@@ -298,7 +300,7 @@ const TeamCard: React.FC<{
                                                 verticalAlign: 'middle',
                                             }}
                                         >
-                                            <select
+                                            {canWrite ? <select
                                                 className="form-select form-select-sm"
                                                 value={team.id}
                                                 disabled={!member.employeeId || movingId === String(member.employeeId)}
@@ -322,7 +324,7 @@ const TeamCard: React.FC<{
                                                         {t.name}
                                                     </option>
                                                 ))}
-                                            </select>
+                                            </select> : team.name}
                                         </td>
                                     </tr>
                                 ))
@@ -352,6 +354,7 @@ const TeamCard: React.FC<{
 }
 
 const TasksMainCalenderPage = () => {
+    const canWrite = canSection('settings.teams', 'write')
     const [teams, setTeams] = useState<Team[]>([])
     const [showTeamForm, setShowTeamForm] = useState(false)
     const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
@@ -663,7 +666,7 @@ const TasksMainCalenderPage = () => {
                         )}
                     </div>
 
-                    <button
+                    {canWrite && <button
                         type="button"
                         className="btn flex-shrink-0"
                         onClick={handleAddTeam}
@@ -680,7 +683,7 @@ const TasksMainCalenderPage = () => {
                         }}
                     >
                         + Add Team
-                    </button>
+                    </button>}
                 </div>
             </div>
 

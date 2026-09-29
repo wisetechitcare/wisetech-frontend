@@ -40,6 +40,7 @@ import LocationProjectChart from "@pages/employee/projects/commonComponents/Proj
 import LeadByLocationChart from "../commonComponents/LeadByLocationChart";
 import { ClientAnalysisSection } from "@pages/dashboard/leadAnalytics";
 import { ChartDialogModal } from "./ChartDialogModal";
+import { canViewCommercial } from "@utils/can";
 
 interface Props {
   startDate: dayjs.Dayjs;
@@ -875,6 +876,8 @@ const Custom = ({ startDate, endDate }: Props) => {
                   filters.subcategoryCategory || "all"
                 }`}
                 onChartClick={handleSubCategoryChartClick}
+                sortMode={canViewCommercial('crm.leads') ? "budget" : "count"}
+                showValueAnnotation={canViewCommercial('crm.leads')}
               />
             </div>
           )}

@@ -1,184 +1,142 @@
 import { store } from "@redux/store";
-import { getDynamicRolesObject } from "./dynamicRoles";
-import { can } from "./can";
-
-let dynamicRoles: Record<string, any> = {};
-
-// Call this early (for example, on app load) to initialize the permissions
-export async function loadDynamicRoles() {
-  try {
-    dynamicRoles = await getDynamicRolesObject();
-    // console.log("Dynamic roles loaded:", dynamicRoles);
-  } catch (err) {
-    console.error("Failed to load dynamic roles", err);
-  }
-}
+import { can, canSection, isFullAccess } from "./can";
 
 /**
- * Checks if the given user has permission to perform a specific action
- * on a resource.
+ * `hasPermission(resource, action, data?)` — the older screen-level check, answered by section
+ * access (see @utils/can). Kept under its name because ~180 screens call it; it holds no rules of
+ * its own beyond translating a resource name to its section.
  *
- * @param user - the current user object (fetched from your store)
- * @param resource - the resource name (e.g. "comments", "todos", "attendanceRequest")
- * @param action - the action name (e.g. "view", "create", "update", "delete")
- * @param data - (optional) any extra data required for the permission check
+ *   Read  on the section → reading (`readOwn`, and `readOthers` on an "everyone" tab), and acting
+ *                          on your OWN records (edit/delete own, create a leave, claim, loan, …)
+ *   Write on the section → changing anyone's records, creating the section's shared things, and
+ *                          `readOthers` elsewhere (a manage view: Configure, Employee Increment, …).
+ *   Whose rows the server returns is decided by the role tier either way.
  */
-// Maps ABAC resource names to RBAC module names.
-// ABAC uses fine-grained strings ("attendancerequest"); RBAC uses module-level names ("attendance").
-const resourceToRbacModule: Record<string, string> = {
-  attendancerequest: 'attendance',
-  attendancereport: 'attendance',
-  leave: 'leaves',
-  leavecashtransfer: 'leaves',
-  reimbursement: 'finance',
-  employee: 'users',
-  salary: 'finance',
-  salaryconfig: 'finance',
-  salaryconfiguration: 'finance',
-  loan: 'finance',
-  loaninstallment: 'finance',
-  kpi: 'kpi',
-  department: 'settings',
-  designation: 'settings',
-  branch: 'settings',
-  holiday: 'settings',
-  onboardingdocument: 'settings',
-  announcement: 'settings',
-  attendanceconfig: 'settings',
-  organisationprofile: 'settings',
+
+// Resource name (resourceNameMapWithCamelCase / uiControlResourceNameMapWithCamelCase) → section.
+const RESOURCE_SECTION: Record<string, string> = {
+  // Screen-level resources
+  attendancerequest: "attendance",
+  attendancerequestlimit: "attendance",
+  attendancereport: "attendance.employees",
+  leave: "attendance",
+  leavecashtransfer: "attendance",
+  attendanceconfig: "attendance.employees",
+  reimbursement: "finance.reimbursements",
+  salary: "finance.salary",
+  salaryconfig: "finance.salary",
+  loan: "finance.loans",
+  loaninstallment: "finance.loans",
+  increment: "finance.increment",
+  kpi: "reports.kpi",
+  employee: "users",
+  department: "settings",
+  designation: "settings",
+  branch: "settings",
+  holiday: "calendar",
+  onboardingdocument: "settings.onboarding",
+  announcement: "settings.announcements",
+  organisationprofile: "settings.profile",
+  meeting: "calendar",
+  event: "calendar",
+  birthdays: "calendar",
+  // Sidebar / tab controls
+  calendar: "calendar",
+  "attendanceandleaves->personal": "attendance.personal",
+  "attendanceandleaves->employees": "attendance.employees",
+  "people->employees": "users",
+  "people->documents": "documents.employees",
+  "company->organisationprofile": "settings.profile",
+  "company->announcements": "settings.announcements",
+  "company->branches": "settings",
+  "company->departments": "settings",
+  "company->designation": "settings",
+  "company->media": "settings.media",
+  "company->onboardingdocument": "settings.onboarding",
+  "reports->holidays": "reports",
+  "finance->reimbursements": "finance.reimbursements",
+  "finance->salary": "finance.salary",
+  "finance->increment": "finance.increment",
+  "reports->kpi": "reports.kpi",
+  "finance-loan": "finance.loans",
+  "lead-project->companiescontact": "crm.companies",
 };
 
-// Maps uiControlResourceNameMapWithCamelCase values to their full RBAC permission key.
-// These represent navigation-level access controls for sidebar/route visibility.
-const uiControlToPermissionKey: Record<string, string> = {
-  'calendar': 'attendance.view.self',
-  'attendanceAndLeaves->personal': 'attendance.view.self',
-  'attendanceAndLeaves->employees': 'attendance.view.all',
-  'people->employees': 'users.view.team',
-  'people->documents': 'users.view.team',
-  'company->organisationProfile': 'settings.manage.all',
-  'company->announcements': 'settings.manage.all',
-  'company->branches': 'settings.manage.all',
-  'company->departments': 'settings.manage.all',
-  'company->designation': 'settings.manage.all',
-  'company->media': 'settings.manage.all',
-  'company->onboardingDocument': 'settings.manage.all',
-  'reports->holidays': 'reports.view.team',
-  'finance->reimbursements': 'finance.view.team',
-  'finance->salary': 'finance.view.team',
-  'reports->kpi': 'kpi.view.team',
-  'finance-loan': 'finance.view.team',
-  'lead-project->companiesContact': 'crm.companies.view.team',
+// Entity tables (MaterialTableImpl's `resource`). The server already sends each person exactly the
+// rows they may see, so every row shows with Read on the section — no mine/everyone split here.
+const TABLE_SECTION: Record<string, string> = {
+  leads: "crm.leads",
+  projects: "projects",
+  companies: "crm.companies",
+  sub_companies: "crm.companies",
+  branches: "crm.companies",
+  client_contacts: "crm.contacts",
 };
 
-export function hasPermission(
-  resource: string,
-  action: string,
-  data?: any
-): boolean {
-  const actionMap: Record<string, { action: string; scope: string }> = {
-    readOthers: { action: "view", scope: "team" },
-    readOwn: { action: "view", scope: "self" },
-    create: { action: "create", scope: "self" },
-    updateOthers: { action: "update", scope: "team" },
-    updateOwn: { action: "update", scope: "self" },
-    deleteOthers: { action: "delete", scope: "team" },
-    deleteOwn: { action: "delete", scope: "self" },
-    editOthers: { action: "update", scope: "team" },
-    editOwn: { action: "update", scope: "self" },
-  };
+// Resources an employee creates for themselves, so `create` on them needs only Read.
+const SELF_SERVICE = new Set(["attendancerequest", "attendancerequestlimit", "leave", "leavecashtransfer", "reimbursement", "loan", "loaninstallment", "meeting"]);
 
-  let dynamicRoles: Record<string, any> = {};
-  let emp: any = {};
+// Tabs whose whole point is other people's records.
+const EVERYONE_TABS = new Set(["attendance.employees", "timesheets.employees", "users", "kpi.search", "kpi.leaderboard"]);
 
-  try {
-    const rapState = store.getState().rolesAndPermissions.rap;
-    dynamicRoles = rapState ? JSON.parse(rapState) : {};
+// Where a section splits into "mine" and "everyone", pick the tab the action is about.
+const SPLIT: Record<string, { own: string; others: string }> = {
+  attendance: { own: "attendance.personal", others: "attendance.employees" },
+  timesheets: { own: "timesheets.my", others: "timesheets.employees" },
+};
 
-    const empState = store.getState().rolesAndPermissions.emp;
-    emp = empState ? JSON.parse(empState) : {};
-  } catch (e) {
-    console.error("Error parsing roles and permissions state:", e);
-  }
+const sectionFor = (resource: string): string | null => {
+  const key = resource.toLowerCase();
+  if (RESOURCE_SECTION[key]) return RESOURCE_SECTION[key];
+  // Dashboard widgets (dashboardattendance, dashboardtasks, …) belong to the Dashboard.
+  if (key.startsWith("dashboard")) return "dashboard";
+  return null;
+};
 
-  // Ownership is checked BEFORE the RBAC early-returns below, not after.
-  //
-  // These same two rules used to live at the bottom of the roles loop only. Because `can(...)`
-  // returned early, a grant of e.g. `finance.update.self` satisfied the canonical key and the
-  // function returned true without ever comparing `data.employeeId` to the current user — so a
-  // self-scoped grant authorised editing ANYONE's row as far as the UI was concerned.
+export function hasPermission(resource: string, action: string, data?: any): boolean {
+  const lowerAction = action?.toLowerCase() ?? "";
+  const others = lowerAction.includes("other");
+
+  // Ownership: an "own" action never applies to someone else's row, an "others" action never to
+  // your own. Checked first, whatever the access.
   const targetEmployeeId = data?.employeeId?.toString();
-  const currentEmployeeId = emp?.id?.toString();
-  const lowerAction = action?.toLocaleLowerCase() ?? "";
   if (targetEmployeeId) {
+    let currentEmployeeId: string | undefined;
+    try {
+      const emp = JSON.parse((store.getState() as any).rolesAndPermissions?.emp || "{}");
+      currentEmployeeId = emp?.id?.toString();
+    } catch {
+      currentEmployeeId = undefined;
+    }
     if (lowerAction.includes("own") && targetEmployeeId !== currentEmployeeId) return false;
-    if (lowerAction.includes("other") && targetEmployeeId === currentEmployeeId) return false;
+    if (others && targetEmployeeId === currentEmployeeId) return false;
   }
 
-  // UI control paths (e.g. "finance->salary") map directly to a full RBAC key.
-  const directKey = uiControlToPermissionKey[resource];
-  if (directKey && can(directKey)) return true;
+  if (isFullAccess()) return true;
 
-  const mapped = actionMap[action];
-  if (mapped) {
-    // Resolve ABAC resource name to RBAC module, falling back to the resource as-is.
-    const rbacModule = resourceToRbacModule[resource.toLowerCase()] ?? resource;
-    const canonicalKey = `${rbacModule}.${mapped.action}.${mapped.scope}`;
-    if (can(canonicalKey)) return true;
+  // Approvals are not a section: approvers are granted them by the workflow setup.
+  if (resource.toLowerCase() === "approvals") return can(`approvals.${others ? "view.team" : "view.self"}`);
+
+  const tableSection = TABLE_SECTION[resource.toLowerCase()];
+  if (tableSection) return canSection(tableSection, lowerAction.startsWith("read") ? "read" : "write");
+
+  let section = sectionFor(resource);
+  if (!section) return false;
+  // Sidebar / tab controls ("finance->salary", "calendar", …) name their tab outright and are
+  // always asked with `readOthers`, meaning "show this item" — no mine/everyone reading applies.
+  const navControl = resource.includes("->") || resource === "finance-loan" || resource === "calendar";
+  const reading = lowerAction.startsWith("read") || lowerAction.startsWith("view");
+  if (navControl) return canSection(section, reading ? "read" : "write");
+
+  if (SPLIT[section]) section = others ? SPLIT[section].others : SPLIT[section].own;
+  if (!reading) {
+    // Your own records need only Read: editing or deleting your own row, and creating one where
+    // what you create is your own (a leave, a claim, a loan application, a meeting).
+    const ownRecord = lowerAction.includes("own") || (lowerAction === "create" && SELF_SERVICE.has(resource.toLowerCase()));
+    return canSection(section, ownRecord ? "read" : "write");
   }
-
-  if (!emp || !Array.isArray(emp.roles)) {
-    return false;
-  }
-
-  return emp.roles.some((role: any) => {
-    // Convert the role to lowercase to match your dynamic roles keys.
-    const roleKey = role?.name?.toLowerCase();
-    // console.log("roleKey", roleKey);
-    const rolePermissions = dynamicRoles[roleKey];
-    
-    if (!rolePermissions) return false;
-    
-    const resourcePermissions = rolePermissions[resource];
-    if (!resourcePermissions) return false;
-
-    const permission = resourcePermissions[action];
-    
-    if (
-      data?.employeeId &&
-      data?.employeeId?.toString() !== emp?.id?.toString() &&
-      action?.toLocaleLowerCase()?.includes("own")
-    ) {
-      return false;
-    }
-
-    if (
-      data?.employeeId &&
-      data?.employeeId?.toString() === emp?.id?.toString() &&
-      action?.toLocaleLowerCase()?.includes("other")
-    ) {
-      return false;
-    }
-        
-    if (permission == null) return false;
-    
-    if (typeof permission === "boolean") return permission;
-    // Assume permission is a function in all other cases.
-    return data != null && permission(emp, data);
-  });
+  // Looking at other people's records is what a "manage" view does (Configure, Employee Increment,
+  // …), so it needs Write — except on a tab that IS the everyone view, where Read is the point.
+  if (others && !EVERYONE_TABS.has(section)) return canSection(section, "write");
+  return canSection(section, "read");
 }
-
-//   export function hasPermission<Resource extends keyof Permissions>(
-//     user: User,
-//     resource: Resource,
-//     action: Permissions[Resource]["action"],
-//     data?: Permissions[Resource]["dataType"]
-//   ) {
-//     return user.roles.some(role => {
-//       const permission = (ROLES as RolesWithPermissions)[role][resource]?.[action]
-//       if (permission == null) return false
-
-//       if (typeof permission === "boolean") return permission
-//       return data != null && permission(user, data)
-//     })
-//   }

@@ -5,6 +5,7 @@ import { DetailRow } from '@app/modules/detail-page/DetailPageComponents';
 import { EditableDetailCard, FieldRow, DateEditor } from '@app/modules/detail-page/EditableDetailCard';
 import { updateLeadSection, type LeadSectionKey } from '@services/leadService';
 import { fmtDate } from '../entityViewModel';
+import { canSection } from '@utils/can';
 
 /**
  * Project Detail — the project's schedule, surfaced inside the Summary page
@@ -16,6 +17,7 @@ import { fmtDate } from '../entityViewModel';
  */
 
 const ProjectDetailSection: React.FC<{ lead: any }> = ({ lead }) => {
+  const canWrite = canSection('projects', 'write');
   const rev: number | null = lead?.revisionCount ?? null;
   const leadId: string = lead?.id;
 
@@ -35,6 +37,7 @@ const ProjectDetailSection: React.FC<{ lead: any }> = ({ lead }) => {
             subtitle="Schedule & progress"
             icon="bi bi-calendar-range"
             accentColor="amber"
+            canEdit={canWrite}
             values={{ startDate: lead?.startDate || '', endDate: lead?.endDate || '', actualEndDate: lead?.actualEndDate || '', receivedDate: lead?.receivedDate || '' }}
             onSave={d => saveSection('timeline', d)}
           >

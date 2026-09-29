@@ -13,6 +13,7 @@ import { COPY } from "./terms";
 import { formatCurrency } from "@utils/currency";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
 import { apiErrorMessage } from "@utils/apiError";
+import { canSection } from "@utils/can";
 import {
     getApplicationById, getApplicationNotes, createApplicationNote, deleteApplicationNote,
     SCORE_FACTORS,
@@ -78,6 +79,7 @@ const Fact = ({ label, value, href }: { label: string; value?: string | number |
  * and action slot, and the panels no longer print a second heading under the modal's own.
  */
 const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onConvert }: Props) => {
+    const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const [draft, setDraft] = useState("");
     const [addingToRole, setAddingToRole] = useState(false);
@@ -159,14 +161,14 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                             {a.convertedEmployeeId && <ToneChip tone="success" label="Converted to Employee" dense />}
                         </Stack>
                         {/* The same person can be considered for more than one role. */}
-                        <ActionIconButton iconName="briefcase" tone="brand" title="Add to Another Role" onClick={() => setAddingToRole(true)} />
-                        {onConvert && currentStatus?.isHiredOutcome && !a.convertedEmployeeId && (
+                        {canWrite && <ActionIconButton iconName="briefcase" tone="brand" title="Add to Another Role" onClick={() => setAddingToRole(true)} />}
+                        {canWrite && onConvert && currentStatus?.isHiredOutcome && !a.convertedEmployeeId && (
                             <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => onConvert(a)}
                                 sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>
                                 Convert to Employee
                             </WtButton>
                         )}
-                        {onMove && statuses.length > 0 ? (
+                        {canWrite && onMove && statuses.length > 0 ? (
                             <WtField
                                 label="Stage"
                                 value={a.statusId ?? ""}
@@ -266,7 +268,7 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                     <SettingsSection tone={TRIO.amber} icon="notepad" title="Notes"
                         description={notes.length ? `${notes.length} ${notes.length === 1 ? "note" : "notes"}` : undefined}>
                         {/* Ctrl/Cmd+Enter adds the note: typing one and reaching for the mouse is the slow path. */}
-                        <Box onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitNote(); } }}>
+                        {canWrite && <Box onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitNote(); } }}>
                             <WtField
                                 label="Add a Note"
                                 multiline minRows={2}
@@ -282,7 +284,7 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                                     {addNote.isPending ? "Adding…" : "Add note"}
                                 </WtButton>
                             </Stack>
-                        </Box>
+                        </Box>}
 
                         {notesLoading ? (
                             <Stack alignItems="center" sx={{ py: 2 }}><CircularProgress size={20} /></Stack>
@@ -308,7 +310,7 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                                                     </Typography>
                                                     <Typography sx={{ fontSize: 13.5, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{n.body}</Typography>
                                                 </Box>
-                                                {mine && (
+                                                {canWrite && mine && (
                                                     <ActionIconButton iconName="trash" title="Remove Note" tone="danger" size="sm"
                                                         disabled={removeNote.isPending} onClick={() => confirmRemove(n.id)} />
                                                 )}

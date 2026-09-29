@@ -14,20 +14,32 @@ import { UnderlineTabs } from "@app/modules/common/components/ui";
 import { WtButton } from "@app/modules/common/components/ui/tw";
 import { KTIcon } from "@metronic/helpers";
 import AssignToProjectsDialog from "@app/modules/common/components/AssignToProjectsDialog";
+import { canSection } from "@utils/can";
 
 type TabType = "overview" | "lead-reference" | "company-references" | "projects" | "meetings";
+
+// The section whose records a tab shows: without Read on it the tab isn't there (nor by ?tab=).
+const TAB_SECTION: Partial<Record<TabType, string>> = {
+  "lead-reference": "crm.leads",
+  "company-references": "crm.companies",
+  projects: "projects",
+  meetings: "calendar",
+};
 
 const CONTACT_TAB_KEYS: TabType[] = ["overview", "lead-reference", "company-references", "projects", "meetings"];
 
 const ContactMainToggle = () => {
+  const canWrite = canSection("crm.contacts", "write");
   const { contactId } = useParams<{ contactId: string }>();
   // console.log("idd", contactId);
 
   const navigate = useNavigate();
   // The tab is a path segment (/contacts/<id>/projects) — shareable, survives a refresh,
   // and survives the remount the header does at the mobile breakpoint. Old ?tab= links
-  // are rewritten to the path form once.
-  const { activeKey, setActiveKey } = useTabKeyRoute(undefined, CONTACT_TAB_KEYS);
+  // are rewritten to the path form once. Tabs whose section this person can't read are not
+  // in the list at all, so a hidden one falls back to Overview.
+  const visibleTabKeys = CONTACT_TAB_KEYS.filter((k) => !TAB_SECTION[k] || canSection(TAB_SECTION[k]!));
+  const { activeKey, setActiveKey } = useTabKeyRoute(undefined, visibleTabKeys);
   const activeTab = activeKey as TabType;
   const setActiveTab = (tab: TabType) => setActiveKey(tab);
   const [contact, setContact] = useState<any | null>(null);
@@ -70,7 +82,7 @@ const ContactMainToggle = () => {
     { key: "company-references", label: "Company References", icon: "bi bi-buildings" },
     { key: "projects", label: "Projects", icon: "bi bi-kanban" },
     { key: "meetings", label: "Meetings", icon: "bi bi-camera-video" },
-  ];
+  ].filter((t) => !TAB_SECTION[t.key as TabType] || canSection(TAB_SECTION[t.key as TabType]!)) as Array<{ key: TabType; label: string; icon: string }>;
 
   const renderTabContent = () => {
     if (!contactId) return null;
@@ -136,7 +148,7 @@ const ContactMainToggle = () => {
             sx={{ mb: 0 }}
           />
         </div>
-        {activeTab === "projects" && (
+        {canWrite && activeTab === "projects" && (
           <WtButton className="shrink-0" startIcon={<KTIcon iconName="plus" className="fs-4 text-white" />} onClick={() => setAssignOpen(true)}>
             Add to projects
           </WtButton>

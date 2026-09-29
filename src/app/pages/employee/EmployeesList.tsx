@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { canSection } from "@utils/can";
+import { useEffect, useState } from 'react';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { useTabRoute } from '@app/hooks/useTabRoute';
 import {companyLogoIcons, leadsIcons } from '@metronic/assets/sidepanelicons';
@@ -36,11 +37,12 @@ function EmployeeList() {
             component: <EmployeeListContent />,
             icon: 'bi-people',
         },
-        {
+        // Configure changes the employee masters: Write on People.
+        ...(canSection("users", "write") ? [{
             title: "Configure",
             component: <EmployeeConfigure />,
             icon: 'bi-gear',
-        }
+        }] : []),
     ];
 
     // The tab is the URL (/employees/configure), so it survives a refresh, a shared link, and
@@ -52,7 +54,7 @@ function EmployeeList() {
     return (
         <>
             <PageTitle breadcrumbs={employeesBreadCrumb}>Employees Management</PageTitle>
-            <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} />
+            <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} accessSection="users" />
         </>
     )
 }

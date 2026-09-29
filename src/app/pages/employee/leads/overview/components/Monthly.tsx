@@ -31,6 +31,7 @@ import LeadByLocationAndStatus from "../commonComponents/LeadByLocationChart";
 import { ChartDialogModal } from "./ChartDialogModal";
 import MonthlyLeadsChart from "./charts/MonthlyLeadsChart";
 import MonthlyLeadsTrend from "./MonthlyLeadsTrend";
+import { canViewCommercial } from "@utils/can";
 import {
   LeadOverviewDashboard,
   ChartMetric,
@@ -665,7 +666,7 @@ const Monthly = ({ month, endDate, metric = "count" }: Props) => {
         icon="bi-graph-up"
         accent="#3B82F6"
       />
-      <MonthlyLeadsChart startDate={startDate} endDate={endDates} />
+      {canViewCommercial('crm.leads') && <MonthlyLeadsChart startDate={startDate} endDate={endDates} />}
       <MonthlyLeadsTrend startDate={startDate} endDate={endDates} />
     </section>
   );

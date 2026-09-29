@@ -25,6 +25,7 @@ import CompanyReferences from "./CompanyReferences";
 import { UnderlineTabs } from "@app/modules/common/components/ui";
 import LeadReferenceTab from "./LeadReferenceTab";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
+import { canSection } from "@utils/can";
 
 
 type TabType =
@@ -38,6 +39,14 @@ type TabType =
   | "references"
   | "lead-reference";
 
+// The section whose records a tab shows, where that isn't Companies itself.
+const TAB_SECTION: Partial<Record<TabType, string>> = {
+  "lead-reference": "crm.leads",
+  leads: "crm.leads",
+  projects: "projects",
+  contacts: "crm.contacts",
+};
+
 /** Tab keys in render order — they ARE the path segment (/companies/<id>/branches). */
 const COMPANY_TAB_KEYS: TabType[] = [
   "overview", "lead-reference", "references", "projects", "contacts", "subcompanies", "branches", "rating",
@@ -46,10 +55,14 @@ const COMPANY_TAB_KEYS: TabType[] = [
 const CompanyDetails = () => {
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
+  const canWrite = canSection("crm.companies", "write");
   // The tab is a path segment (/companies/<id>/contacts) — shareable, survives a refresh,
   // and survives the remount the header does at the mobile breakpoint. Old ?tab= links
-  // are rewritten to the path form once.
-  const { activeKey, setActiveKey } = useTabKeyRoute(undefined, COMPANY_TAB_KEYS);
+  // are rewritten to the path form once. Tabs that show another section's records are only
+  // in the list with Read on that section, so a hidden one — even typed into the address —
+  // falls back to Overview.
+  const visibleTabKeys = COMPANY_TAB_KEYS.filter((k) => !TAB_SECTION[k] || canSection(TAB_SECTION[k]!));
+  const { activeKey, setActiveKey } = useTabKeyRoute(undefined, visibleTabKeys);
   const activeTab = activeKey as TabType;
   const setActiveTab = (tab: TabType) => setActiveKey(tab);
   const [company, setCompany] = useState<Company | null>(null);
@@ -164,7 +177,7 @@ const CompanyDetails = () => {
     { key: "subcompanies", label: "Subcompanies", icon: "bi bi-diagram-3" },
     { key: "branches", label: "Branches", icon: "bi bi-geo-alt" },
     { key: "rating", label: "Rating", icon: "bi bi-star" },
-  ];
+  ].filter((t) => !TAB_SECTION[t.key as TabType] || canSection(TAB_SECTION[t.key as TabType]!)) as Array<{ key: TabType; label: string; icon: string }>;
 
   const templateDataForLeads = [
     {
@@ -300,6 +313,7 @@ const CompanyDetails = () => {
         <div className="d-block d-md-none mb-3">
           <div className="d-flex justify-content-end align-items-center gap-2">
             {/* Mobile Action Buttons */}
+            {canWrite && (
             <div className="d-flex align-items-center gap-1">
               {addLabel && (
                 <Button
@@ -326,37 +340,47 @@ const CompanyDetails = () => {
                   Add
                 </Button>
                 <ul className="dropdown-menu">
-                  <li>
-                    <a className="dropdown-item" href="#">
-                      Add Lead
-                    </a>
-                  </li>
-                  <li>
-                    <a className="dropdown-item" href="#">
-                      Add Project
-                    </a>
-                  </li>
-                  <li>
-                    <a className="dropdown-item" href="#">
-                      Add Project
-                    </a>
-                  </li>
-                  <li>
-                    <button
-                      className="dropdown-item"
-                      onClick={handleNewContactClick}
-                    >
-                      Add Contact
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      className="dropdown-item"
-                      onClick={handleNewCompanyClick}
-                    >
-                      New Company
-                    </button>
-                  </li>
+                  {canSection("crm.leads", "write") && (
+                    <li>
+                      <a className="dropdown-item" href="#">
+                        Add Lead
+                      </a>
+                    </li>
+                  )}
+                  {canSection("projects", "write") && (
+                    <li>
+                      <a className="dropdown-item" href="#">
+                        Add Project
+                      </a>
+                    </li>
+                  )}
+                  {canSection("projects", "write") && (
+                    <li>
+                      <a className="dropdown-item" href="#">
+                        Add Project
+                      </a>
+                    </li>
+                  )}
+                  {canSection("crm.contacts", "write") && (
+                    <li>
+                      <button
+                        className="dropdown-item"
+                        onClick={handleNewContactClick}
+                      >
+                        Add Contact
+                      </button>
+                    </li>
+                  )}
+                  {canSection("crm.companies", "write") && (
+                    <li>
+                      <button
+                        className="dropdown-item"
+                        onClick={handleNewCompanyClick}
+                      >
+                        New Company
+                      </button>
+                    </li>
+                  )}
                 </ul>
               </div>
               {/* Edit Button show only for tab overview */}
@@ -375,6 +399,7 @@ const CompanyDetails = () => {
                 </Button>
               )}
             </div>
+            )}
           </div>
         </div>
 
@@ -383,6 +408,7 @@ const CompanyDetails = () => {
           {/* Tabs */}
           {/* Desktop Action Buttons */}
           
+          {canWrite && (
           <div className="d-flex align-items-center gap-2 justify-end">
             <div className="dropdown position-relative -bottom-8">
               <Button
@@ -398,38 +424,46 @@ const CompanyDetails = () => {
                 Add New
               </Button>
               <ul className="dropdown-menu">
-                <li>
-                  <button
-                    className="dropdown-item"
-                    onClick={handleNewLeadClick}
-                  >
-                    Add Lead
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="dropdown-item"
-                    onClick={handleNewProjectClick}
-                  >
-                    Add Project
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="dropdown-item"
-                    onClick={handleNewContactClick}
-                  >
-                    Add Contact
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="dropdown-item"
-                    onClick={handleNewCompanyClick}
-                  >
-                    New Company
-                  </button>
-                </li>
+                {canSection("crm.leads", "write") && (
+                  <li>
+                    <button
+                      className="dropdown-item"
+                      onClick={handleNewLeadClick}
+                    >
+                      Add Lead
+                    </button>
+                  </li>
+                )}
+                {canSection("projects", "write") && (
+                  <li>
+                    <button
+                      className="dropdown-item"
+                      onClick={handleNewProjectClick}
+                    >
+                      Add Project
+                    </button>
+                  </li>
+                )}
+                {canSection("crm.contacts", "write") && (
+                  <li>
+                    <button
+                      className="dropdown-item"
+                      onClick={handleNewContactClick}
+                    >
+                      Add Contact
+                    </button>
+                  </li>
+                )}
+                {canSection("crm.companies", "write") && (
+                  <li>
+                    <button
+                      className="dropdown-item"
+                      onClick={handleNewCompanyClick}
+                    >
+                      New Company
+                    </button>
+                  </li>
+                )}
               </ul>
             </div>
             {addLabel && (
@@ -459,6 +493,7 @@ const CompanyDetails = () => {
               </Button>
             )}
           </div>
+          )}
         </div>
 
         <UnderlineTabs

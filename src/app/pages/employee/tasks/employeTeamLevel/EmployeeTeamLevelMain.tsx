@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { EmployeeTeamLevelMainProps, Level, Employee } from './types';
 import { LevelSection, FormModal } from './components';
 import { FormMode, FormSubmitData } from './components/FormModal';
+import { canSection } from '@utils/can';
 import {
     fetchEmployeeLevels,
     handleCreateLevel,
@@ -23,6 +24,7 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
     onEditEmployee,
     onDeleteEmployee
 }) => {
+    const canWrite = canSection('settings.employeeLevel', 'write');
     // State
     const [levels, setLevels] = useState<Level[]>([]);
     const [loading, setLoading] = useState(false);
@@ -159,7 +161,7 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                         </p>
                     </div>
 
-                    <button
+                    {canWrite && <button
                         type="button"
                         className="btn flex-shrink-0"
                         style={{
@@ -179,7 +181,7 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                         disabled={loading}
                     >
                         {loading ? 'Loading...' : 'Add New Level'}
-                    </button>
+                    </button>}
                 </div>
 
                 {/* Error Display */}

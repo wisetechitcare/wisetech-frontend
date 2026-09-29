@@ -7,8 +7,7 @@ import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import dayjs from "dayjs";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
-import { hasPermission } from "@utils/authAbac";
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import { canSection } from "@utils/can";
 import { usePermission } from "@hooks/usePermission";
 import { getTimeTokens } from '@utils/timeFormat';
 
@@ -360,14 +359,9 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
       accessorKey: "actions",
       header: "Actions",
       Cell: ({ row }: any) => {
-        const hasEditPermission = hasPermission(
-          resourceNameMapWithCamelCase.dashboardTasks,
-          permissionConstToUseWithHasPermission.editOthers
-        );
-        const hasDeletePermission = hasPermission(
-          resourceNameMapWithCamelCase.dashboardTasks,
-          permissionConstToUseWithHasPermission.deleteOthers
-        );
+        // Write on Tasks, the same as on the Tasks page. Which tasks you may touch is the server's call.
+        const hasEditPermission = canSection("tasks", "write");
+        const hasDeletePermission = hasEditPermission;
 
         if (!hasEditPermission && !hasDeletePermission) {
           return <span style={{ fontSize: "12px", color: "#7a8597" }}>Not Allowed</span>;

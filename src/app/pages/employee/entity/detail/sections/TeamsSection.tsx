@@ -16,6 +16,7 @@ import { EmptyState } from '../widgets';
 import { employeeNameById, fmtDate, DASH } from '../entityViewModel';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { canSection } from '@utils/can';
 
 /**
  * Teams — the collaboration roster for a lead/project, split in two:
@@ -173,6 +174,7 @@ const contactDesignation = (contact: any): string =>
   contact?.roleInCompany || contact?.contactRole?.name || contact?.designation || '';
 
 const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
+  const canWrite = canSection('projects', 'write');
   const allEmployees = useSelector((s: RootState) => s.allEmployees?.list) || [];
 
   const leadId: string = lead?.id;
@@ -830,6 +832,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             subtitle="Execution team & members"
             icon="bi bi-person-workspace"
             accentColor="blue"
+            canEdit={canWrite}
             values={{
               // Seed the edit draft from persisted members, or the live team roster
               // when nothing's saved yet — so the first Edit already lists the team.
@@ -896,9 +899,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                     <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Execution Team</div>
                     <div style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{team?.name || 'No team selected'}</div>
                   </div>
-                  <button type="button" onClick={openTeamModal} style={{ ...addBtn, marginTop: 0, flexShrink: 0, whiteSpace: 'nowrap' }}>
-                    <AppIcon name="bi-arrow-left-right" /> {team?.name ? 'Change Team' : 'Assign Team'}
-                  </button>
+                  {canWrite && (
+                    <button type="button" onClick={openTeamModal} style={{ ...addBtn, marginTop: 0, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      <AppIcon name="bi-arrow-left-right" /> {team?.name ? 'Change Team' : 'Assign Team'}
+                    </button>
+                  )}
                 </div>
               );
               // Project Manager is no longer a separate picker — it's assigned
@@ -1155,6 +1160,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             subtitle="Client & external stakeholders"
             icon="bi bi-buildings"
             accentColor="purple"
+            canEdit={canWrite}
             values={{
               // Active first, inactive below — same ordering as the read table.
               // Sourced from the project's own rows (scalar FKs), NOT the lead form.

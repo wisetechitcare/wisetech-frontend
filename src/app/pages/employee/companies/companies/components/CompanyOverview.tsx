@@ -7,6 +7,7 @@ import { getClientBranchesByCompanyId } from "@services/lead";
 import { getAllCompanyTypes } from "@services/companies";
 import dayjs from "dayjs";
 import { getTimeTokens } from '@utils/timeFormat';
+import { canSection } from '@utils/can';
 
 // Resolve an audit relation (createdBy/updatedBy) — loaded via getById — into a display name.
 const auditName = (rel: any): string => {
@@ -19,6 +20,7 @@ interface OverviewProps {
 }
 
 const Overview = ({ company }: OverviewProps) => {
+  const canWrite = canSection('crm.companies', 'write');
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [branches, setBranches] = useState<any[]>([]);
   const [companyTypes, setCompanyTypes] = useState<any[]>([]);
@@ -359,6 +361,7 @@ const Overview = ({ company }: OverviewProps) => {
               />
               <h3 style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Notes</h3>
             </div>
+            {canWrite && (
             <button
               className="btn btn-sm btn-primary"
               onClick={handleNoteClick}
@@ -366,6 +369,7 @@ const Overview = ({ company }: OverviewProps) => {
             >
               Edit Notes
             </button>
+            )}
           </div>
           <div className="card-body">
             <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>

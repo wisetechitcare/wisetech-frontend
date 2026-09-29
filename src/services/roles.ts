@@ -100,81 +100,6 @@ export const deleteRoleById = async (roleId: string) => {
     }
 }
 
-/**
- * Retrieves the permissions associated with a role by its ID.
- * @param roleId The ID of the role to retrieve permissions for.
- * @returns The permissions associated with the specified role.
- * @throws Throws an error if the request fails.
- * @api "api/roles/:id/permissions"
- */
-export const getPermissionsForRoleById = async (roleId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${ROLES.GET_PERMISSIONS_FOR_ROLE.replace(":id", roleId)}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (error) {
-        throw error;
-    }
-}
-
-/**
- * Creates a new permission for a role by its ID.
- * @param roleId The ID of the role to create a permission for.
- * @param permission The permission to create.
- * @returns The created permission.
- * @throws Throws an error if the request fails.
- * @api "api/roles/:id/permissions"
- */
-export const createPermissionForRoleById = async (roleId: string, permission: any) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${ROLES.CREATE_PERMISSION_FOR_ROLE.replace(":id", roleId)}`;
-        const { data } = await axios.post(endpoint, permission);
-        invalidateRequestCache('roles');
-        return data;
-    } catch (error) {
-        throw error;
-    }
-}
-
-/**
- * Updates an existing permission for a role by roleId and permissionId.
- * @param roleId The ID of the role to update a permission for.
- * @param permissionId The ID of the permission to update.
- * @param permission The updated permission.
- * @returns The updated permission.
- * @throws Throws an error if the request fails.
- * @api "api/roles/:roleId/permissions/:permissionId"
- */
-export const updatePermissionForRoleById = async (roleId: string, permissionId: string, permission: any) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${ROLES.UPDATE_PERMISSION_FOR_ROLE.replace(":roleId", roleId).replace(":permissionId", permissionId)}`;
-        const { data } = await axios.put(endpoint, permission);
-        invalidateRequestCache('roles');
-        return data;
-    } catch (error) {
-        throw error;
-    }
-}
-
-/**
- * Deletes a permission for a role by roleId and permissionId.
- * @param roleId The ID of the role to delete a permission for.
- * @param permissionId The ID of the permission to delete.
- * @returns The deleted permission.
- * @throws Throws an error if the request fails.
- * @api "api/roles/:roleId/permissions/:permissionId"
- */
-export const deletePermissionForRoleById = async (roleId: string, permissionId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${ROLES.DELETE_PERMISSION_FOR_ROLE.replace(":roleId", roleId).replace(":permissionId", permissionId)}`;
-        const { data } = await axios.delete(endpoint);
-        invalidateRequestCache('roles');
-        return data;
-    } catch (error) {
-        throw error;
-    }
-}
-
 export const addEmployeeToRole = async (roleId: string, employeeId: string) => {
     const endpoint = `${API_BASE_URL}/${ROLES.ADD_EMPLOYEE_TO_ROLE.replace(":id", roleId)}`;
     const { data } = await axios.post(endpoint, { employeeId });
@@ -194,7 +119,8 @@ export const removeEmployeeFromRole = async (roleId: string, employeeId: string)
  * model as the per-employee Access tab, but applied to a whole role.
  * @api "api/roles/:id/access"
  */
-export const getRoleAccess = async (roleId: string): Promise<{ sectionLevels: Record<string, 'view' | 'edit'>; isSuperAdmin?: boolean; isSystem?: boolean; name?: string }> => {
+// `fullAccess` is true for Super Admin and Admin: every section, not editable.
+export const getRoleAccess = async (roleId: string): Promise<{ sectionLevels: Record<string, 'view' | 'edit'>; deniedTabs?: string[]; fullAccess?: boolean; editable?: boolean; code?: string | null; isSystem?: boolean; name?: string }> => {
     const endpoint = `${API_BASE_URL}/${ROLES.GET_ROLE_ACCESS.replace(":id", roleId)}`;
     const { data } = await axios.get(endpoint);
     return data?.data;
@@ -207,6 +133,17 @@ export const getRoleAccess = async (roleId: string): Promise<{ sectionLevels: Re
 export const setRoleSectionAccess = async (roleId: string, module: string, level: 'none' | 'view' | 'edit') => {
     const endpoint = `${API_BASE_URL}/${ROLES.SET_ROLE_SECTION_ACCESS.replace(":id", roleId)}`;
     const { data } = await axios.put(endpoint, { module, level });
+    invalidateRequestCache('roles');
+    return data?.data;
+}
+
+/**
+ * Turn one tab of a section off (or back on) for the whole role — Access → Advanced.
+ * @api "api/roles/:id/access/tab"
+ */
+export const setRoleTabAccess = async (roleId: string, section: string, tab: string, allowed: boolean) => {
+    const endpoint = `${API_BASE_URL}/${ROLES.SET_ROLE_TAB_ACCESS.replace(":id", roleId)}`;
+    const { data } = await axios.put(endpoint, { section, tab, allowed });
     invalidateRequestCache('roles');
     return data?.data;
 }

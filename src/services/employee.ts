@@ -2133,23 +2133,6 @@ export const updateNotificationStatus = async (
 };
 
 
-/**
- * Fetches the permissions for a specific employee by their ID.
- * @param employeeId - The ID of the employee.
- * @returns The permissions for the specified employee.
- * @throws Throws an error if the request fails.
- * @api "api/employee/:id/permissions"
- */
-export const getEmployeePermissionsById = async (employeeId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_PERMISSIONS.replace(":id", employeeId)}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
-
 export const updateEmployeeRolesById = async (employeeId: string, roles: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_EMPLOYEE_ROLES.replace(":id", employeeId)}`;
@@ -2312,61 +2295,6 @@ export const createApprovalDelegation = async (payload: {
 export const cancelApprovalDelegation = async (id: string) => {
     const { data } = await axios.patch(`${API_BASE_URL}/api/approvals/delegations/${id}/cancel`);
     return data;
-}
-
-/**
- * Creates a new permission for a specific employee by their ID.
- * @param employeeId - The ID of the employee.
- * @param permission - The permission to create.
- * @returns The created permission.
- * @throws Throws an error if the request fails.
- * @api "api/employee/:id/permissions"
- */
-export const createEmployeePermissionById = async (employeeId: string, permission: any) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_EMPLOYEE_PERMISSION.replace(":id", employeeId)}`;
-        const { data } = await axios.post(endpoint, permission);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
-
-/**
- * Updates an existing permission for a specific employee by their ID.
- * @param employeeId - The ID of the employee.
- * @param permissionId - The ID of the permission to update.
- * @param permission - The updated permission.
- * @returns The updated permission.
- * @throws Throws an error if the request fails.
- * @api "api/employee/:id/permissions/:permissionId"
- */
-export const updateEmployeePermissionById = async (employeeId: string, permissionId: string, permission: any) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_EMPLOYEE_PERMISSION.replace(":id", employeeId).replace(":permissionId", permissionId)}`;
-        const { data } = await axios.put(endpoint, permission);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
-
-/**
- * Deletes a permission for a specific employee by their ID.
- * @param employeeId - The ID of the employee.
- * @param permissionId - The ID of the permission to delete.
- * @returns The deleted permission.
- * @throws Throws an error if the request fails.
- * @api "api/employee/:id/permissions/:permissionId"
- */
-export const deleteEmployeePermissionById = async (employeeId: string, permissionId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.DELETE_EMPLOYEE_PERMISSION.replace(":id", employeeId).replace(":permissionId", permissionId)}`;
-        const { data } = await axios.delete(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
 }
 
 export const sendSalarySlipToEmployee = async (details: { path: string, employeeId: string, salaryData?: any }) => {
@@ -3302,11 +3230,7 @@ export const saveEmployeeAccessSettings = async (
         await updateEmployeeRolesById(employeeId, { roleIds: [roleId] });
     }
 
-    // Step 3: If admin status changed: update users.isAdmin
-    if (isAdmin !== oldIsAdmin) {
-        const { updateUser } = await import("./users");
-        await updateUser(userId, { isAdmin });
-    }
+    // `users.isAdmin` is not written here: it follows the role (Admin / Super Admin) on the server.
 
     return employeeRes;
 };

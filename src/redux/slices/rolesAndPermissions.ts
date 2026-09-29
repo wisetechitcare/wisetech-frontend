@@ -1,17 +1,16 @@
 import { store } from "@redux/store";
 import { PayloadAction, createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { fetchCurrentEmployeeByUserId } from "@services/employee";
-import { getDynamicRolesObject } from "@utils/dynamicRoles";
 import { saveCurrentEmployee } from "./employee";
+// Holds the signed-in employee (`emp`) for the ownership checks in hasPermission. Access itself
+// lives in the authz slice. The name is historical — ~25 screens dispatch this thunk on mount.
 interface RolesAndPermissions {
-  rap: string;
   emp: string;
   isLoading: boolean;
   error: string | null;
 }
 
 const initialState: RolesAndPermissions = {
-  rap: "",
   emp: "",
   isLoading: false,
   error: null,
@@ -20,8 +19,6 @@ const initialState: RolesAndPermissions = {
 export const fetchRolesAndPermissions = createAsyncThunk(
   "rolesAndPermissions/fetchRolesAndPermissions",
   async () => {
-    
-    const response = await getDynamicRolesObject();
     let employeeDetails = store.getState().employee.currentEmployee;
     
     if(!employeeDetails?.id || !employeeDetails?.userId || !employeeDetails?.roles) {
@@ -44,7 +41,6 @@ export const fetchRolesAndPermissions = createAsyncThunk(
 
 
     return {
-      rap: JSON.stringify(response || {}),
       emp: JSON.stringify(employeeDetails)
     };
   }
@@ -64,7 +60,6 @@ export const rolesAndPermissionsSlice = createSlice({
     });
     builder.addCase(fetchRolesAndPermissions.fulfilled, (state, action) => {
       state.isLoading = false;
-      state.rap = action.payload.rap;
       state.emp = action.payload.emp;
     });
     builder.addCase(fetchRolesAndPermissions.rejected, (state, action) => {

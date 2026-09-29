@@ -10,7 +10,7 @@ import { configureStore } from '@reduxjs/toolkit';
 // rather than a dead end, a failed load that is not "no roles open", and the server's own reason
 // on a failed submit instead of "Set a hiring manager first" for every error.
 
-vi.mock('@redux/store', () => ({ store: { getState: () => ({}) } }));
+vi.mock('@redux/store', () => ({ store: { getState: () => ({ authz: { tier: 'SUPER_ADMIN' } }) } }));
 
 const api = vi.hoisted(() => ({
     getRequisitions: vi.fn(),

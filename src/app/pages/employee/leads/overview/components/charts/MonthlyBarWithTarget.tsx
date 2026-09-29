@@ -20,6 +20,7 @@ import {
 } from "recharts";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getCurrencySymbol, getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { canSection } from "@utils/can";
 
 interface MonthlyBarWithTargetProps {
   title?: string;
@@ -161,6 +162,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
   startDate: propStartDate,
   endDate: propEndDate,
 }) => {
+  const canWrite = canSection("crm.leads", "write");
   const [currentDate, setCurrentDate] = useState(dayjs(propStartDate));
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -274,6 +276,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
               </h5>
             </div>
             <div className="d-flex align-items-center gap-2">
+              {canWrite && (
               <Button
                 variant="outline-success"
                 size="sm"
@@ -290,6 +293,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                 <AppIcon name="bi-gear-fill" />
                 SET TARGET
               </Button>
+              )}
               <div
                 className="vr mx-1 my-1 text-muted opacity-25"
                 style={{ height: "20px" }}

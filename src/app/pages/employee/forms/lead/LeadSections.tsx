@@ -23,6 +23,7 @@ import { WtSwitch, TRIO, AppIcon } from "@app/modules/common/components/ui";
 import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
 import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { canViewCommercial } from '@utils/can';
 
 interface LeadSectionsProps {
   // ── Organization (drives the lead's prefix and inquiry-number series) ──────
@@ -1398,6 +1399,7 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
                     inputValidation="decimal"
                   />
                 </Grid>
+                {canViewCommercial('projects') && (
                 <Grid item xs={12} md={6}>
                   <TextInput
                     formikField="projectMeta.finalCost"
@@ -1406,6 +1408,7 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
                     inputValidation="decimal"
                   />
                 </Grid>
+                )}
               </Grid>
             </div>
 

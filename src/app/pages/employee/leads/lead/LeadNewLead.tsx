@@ -69,6 +69,7 @@ import LeadActionPicker from "./LeadActionPicker";
 import MeetingDialog from "@pages/employee/MeetingDialog";
 import { LeadStatusPill, leadRowSx, leadTableSx, UNASSIGNED_ORG_LABEL } from "./leadTableStyle";
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { canSection, canViewCommercial } from "@utils/can";
 import { useStickyFilters } from "@app/hooks/useStickyFilters";
 
 /**
@@ -206,6 +207,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // ── Responsive ──────────────────────────────────────────────────────────────
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const canWrite = canSection("crm.leads", "write");
 
   // ── Data state ──────────────────────────────────────────────────────────────
   // New leads pick their organization before the wizard opens — it decides the
@@ -855,6 +857,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
        * of the two already there it goes straight to the other, and the chooser opens only
        * when both are absent.
        */
+      // Reminders and meetings are the viewer's own, so Read on Leads is enough (the page needs it).
       Cell: ({ row }: any) => {
         const lead = row.original;
         const hasReminder = !!lead?.reminder;
@@ -1217,7 +1220,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         return "N/A";
       },
     },
-  ], [
+  ].filter((c: any) => canViewCommercial('crm.leads') || !['totalCost', 'cost'].includes(c.accessorKey)), [
     projectServices,
     projectCategories,
     projectSubcategories,
@@ -1265,7 +1268,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     { key: 'createdAt', header: 'Created Date', type: 'text' as const },
     { key: 'createdBy', header: 'Created By', type: 'text' as const },
     { key: 'updatedBy', header: 'Edited By', type: 'text' as const },
-  ], []);
+  ].filter((c) => canViewCommercial('crm.leads') || !['totalCost', 'cost'].includes(c.key)), []);
 
   // ── Prop-driven filters ───────────────────────────────────────────────────────
   const startDates = startDate ? dayjs(startDate) : null;
@@ -1701,11 +1704,13 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                 width: isMobile ? '100%' : 'auto'
               }}>
+                {canViewCommercial('crm.leads') && (<>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
                   <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCost(totalFilteredCost)}</span>
                 </div>
                 <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
+                </>)}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
                   <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
@@ -1714,6 +1719,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 </div>
               </div>
 
+              {canWrite && (<>
               <button
                 className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
                 onClick={() => setShowBulkImport(true)}
@@ -1759,6 +1765,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
               >
                 + New Lead
               </button>
+              </>)}
             </div>
           </div>
 

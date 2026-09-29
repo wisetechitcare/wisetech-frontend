@@ -4,7 +4,7 @@ import { cachedRequest } from "./_requestCache";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 
-export const getAllLeads = async (params?: { page?: number; pageSize?: number; fields?: string[] }) => {
+export const getAllLeads = async (params?: { page?: number; pageSize?: number; fields?: string[]; scope?: 'projects' }) => {
   try {
     const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_LEADS}`;
     const query = {
@@ -13,6 +13,8 @@ export const getAllLeads = async (params?: { page?: number; pageSize?: number; f
       // Sparse fetch: when provided, the backend returns only the data these
       // columns need. Omitted → full row shape.
       ...(params?.fields?.length ? { fields: params.fields.join(',') } : {}),
+      // Project screens: the server answers with the projects this person may see.
+      ...(params?.scope ? { scope: params.scope } : {}),
     };
     // TTL 0 = two screens asking for the same page at once share one request; never stale.
     // Callers mutate the response (getAllLeadsComplete), so each gets its own copy.
@@ -33,9 +35,9 @@ export const getAllLeads = async (params?: { page?: number; pageSize?: number; f
  * for large datasets — returning a response in the same shape `getAllLeads` does
  * (`response.data.data.leads`) so existing callers need no other changes.
  */
-export const getAllLeadsComplete = async (fields?: string[]) => {
+export const getAllLeadsComplete = async (fields?: string[], scope?: 'projects') => {
   const MAX_PAGE_SIZE = 500;
-  const first = await getAllLeads({ page: 1, pageSize: MAX_PAGE_SIZE, fields });
+  const first = await getAllLeads({ page: 1, pageSize: MAX_PAGE_SIZE, fields, scope });
   const payload = first?.data?.data;
   const leads = payload?.leads ?? [];
   const total = payload?.total ?? leads.length;
@@ -47,7 +49,7 @@ export const getAllLeadsComplete = async (fields?: string[]) => {
   const totalPages = Math.ceil(total / MAX_PAGE_SIZE);
   const restResponses = await Promise.all(
     Array.from({ length: totalPages - 1 }, (_, i) =>
-      getAllLeads({ page: i + 2, pageSize: MAX_PAGE_SIZE, fields })
+      getAllLeads({ page: i + 2, pageSize: MAX_PAGE_SIZE, fields, scope })
     )
   );
 

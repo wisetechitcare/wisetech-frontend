@@ -11,6 +11,7 @@ import { COPY } from "./terms";
 import { formatDate } from "@utils/dateFormats";
 import { formatCurrencyCompact } from "@utils/currency";
 import { apiErrorMessage } from "@utils/apiError";
+import { canSection } from "@utils/can";
 import {
     getApplicants, getApplicantById, updateApplicant, getApplicantSources, uploadApplicantResume,
     type Applicant, type ApplicantPayload, type ApplicantSource, type OrgScoped,
@@ -51,6 +52,7 @@ const SEARCH_DEBOUNCE_MS = 300;
  * survive, so the destructive action is "blacklist" (an update), not a delete.
  */
 const CandidatesView = ({ companyId }: OrgScoped) => {
+    const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const [searchInput, setSearchInput] = useState("");
     const [search, setSearch] = useState("");
@@ -217,9 +219,11 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                             fullWidth={false}
                             sx={{ width: { xs: "100%", sm: 280 } }}
                         />
-                        <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
-                            Add Candidate
-                        </WtButton>
+                        {canWrite && (
+                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
+                                Add Candidate
+                            </WtButton>
+                        )}
                     </Stack>
                 }
             />
@@ -236,7 +240,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 search ? (
                     <WtEmptyState variant="no-match" {...COPY.noSearchMatch(search)} />
                 ) : (
-                    <WtEmptyState icon="people" title={COPY.noCandidates.title} hint={COPY.noCandidates.hint} actionLabel="Add Candidate" onAction={() => setAdding(true)} />
+                    <WtEmptyState icon="people" title={COPY.noCandidates.title} hint={COPY.noCandidates.hint} actionLabel={canWrite ? "Add Candidate" : undefined} onAction={() => setAdding(true)} />
                 )
             ) : (
                 <AutoGrid min={320}>
@@ -282,28 +286,28 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                                         Added {formatDate(a.createdAt)}
                                     </Typography>
                                     <Box sx={{ flex: 1 }} />
-                                    <ActionIconButton iconName="briefcase" size="sm" tone="brand" title="Add to a Role" onClick={() => setAddToRole(a)} />
-                                    <ActionIconButton
+                                    {canWrite && <ActionIconButton iconName="briefcase" size="sm" tone="brand" title="Add to a Role" onClick={() => setAddToRole(a)} />}
+                                    {canWrite && <ActionIconButton
                                         iconName={a.resumeS3Url ? "arrows-circle" : "cloud-add"}
                                         icon={uploadingId === a.id ? <CircularProgress size={14} color="inherit" /> : undefined}
                                         size="sm" tone="indigo"
                                         title={uploadingId === a.id ? "Uploading…" : a.resumeS3Url ? "Replace resume" : "Attach resume"}
                                         disabled={uploadingId === a.id}
                                         onClick={() => pickResume(a)}
-                                    />
+                                    />}
                                     {a.resumeS3Url && (
                                         <ActionIconButton iconName="document" size="sm" tone="indigo"
                                             title={a.resumeFileName ? `Open resume — ${a.resumeFileName}` : "Open resume"}
                                             onClick={() => openResume(a)} />
                                     )}
-                                    <ActionIconButton iconName="pencil" size="sm" tone="indigo" title="Edit" onClick={() => openEdit(a)} />
-                                    <ActionIconButton
+                                    {canWrite && <ActionIconButton iconName="pencil" size="sm" tone="indigo" title="Edit" onClick={() => openEdit(a)} />}
+                                    {canWrite && <ActionIconButton
                                         iconName={a.isBlacklisted ? "check" : "shield-cross"} size="sm"
                                         tone={a.isBlacklisted ? "success" : "danger"}
                                         title={a.isBlacklisted ? "Remove from blacklist" : "Blacklist"}
                                         disabled={blacklistMut.isPending}
                                         onClick={() => toggleBlacklist(a)}
-                                    />
+                                    />}
                                 </Stack>
                             </GlassCard>
                         );

@@ -15,7 +15,7 @@ import { getAllClientCompanies, getAllSubCompanies } from "@services/companies";
 import eventBus from "@utils/EventBus";
 import { useNavigate } from "react-router-dom";
 import dayjs, { Dayjs } from "dayjs";
-import { can } from "@utils/can";
+import { can, canSection } from "@utils/can";
 import { SegmentedControl, WtButton } from "@app/modules/common/components/ui";
 import GoogleContactsImportDialog from "./components/GoogleContactsImportDialog";
 import { toContactFormPrefill, type ContactFormPrefill, type GoogleContactCandidate } from "./components/googleContactPrefill";
@@ -177,6 +177,7 @@ const ClientContactsMain = ({
   // Context: the role itself is shown since that's what was drilled.
   const isDrillDown = !!contactByRolesId;
   const hideNewContactButton = isDrillDown;
+  const canWrite = canSection("crm.contacts", "write");
   const drillContextKey: string | null = isDrillDown ? "roleInCompany" : null;
 
   const drillVisibleKeys = useMemo(
@@ -483,6 +484,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
 
           return (
             <div className="d-flex align-items-center gap-2">
+              {canWrite && (
               <button
                 className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
                 onClick={() => handleEditClick(row.original.id)}
@@ -490,6 +492,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
               >
                 <KTIcon iconName="pencil" className="fs-3" />
               </button>
+              )}
               <button
                 className="btn btn-icon btn-bg-light btn-active-color-success btn-sm"
                 onClick={handleWhatsAppShare}
@@ -497,6 +500,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
               >
                 <i className="fab fa-whatsapp fs-3 text-success"></i>
               </button>
+              {canWrite && (
               <button
                 className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
                 onClick={() => handleDelete(row.original)}
@@ -504,6 +508,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
               >
                 <KTIcon iconName="trash" className="fs-3" />
               </button>
+              )}
             </div>
           );
         },
@@ -518,7 +523,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
         meta: { ...(col.meta || {}), defaultVisible: drillVisibleKeys.has(col.accessorKey) },
       }));
     },
-    [branchMap, companyMap, subCompanyMap, employeeId, allContacts, isDrillDown, drillVisibleKeys],
+    [branchMap, companyMap, subCompanyMap, employeeId, allContacts, isDrillDown, drillVisibleKeys, canWrite],
   );
 
   const startDates = useMemo(
@@ -593,7 +598,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
               Import from Google
             </WtButton>
           )}
-          {!hideNewContactButton && (
+          {!hideNewContactButton && canWrite && (
             <button
               className="btn btn-primary"
               onClick={() => addNewContact(true)}

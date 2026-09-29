@@ -4,8 +4,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { hasPermission } from "@utils/authAbac";
-import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
+import { can, canSection } from "@utils/can";
 import { useState, useEffect, useCallback } from "react";
 
 export type DashboardSection = {
@@ -24,28 +23,32 @@ const DEFAULT_SECTIONS: DashboardSection[] = [
   { key: "pendingRequests", label: "Pending Requests", enabled: true },
   { key: "leaderboard", label: "Leaderboard", enabled: true },
   { key: "analyticsGraphs", label: "Analytics Graphs", enabled: true },
-  { key: "allLoans", label: "All Loans Overview", enabled: true },
   { key: "ongoingLoans", label: "Ongoing Loans Overview", enabled: true },
   { key: "kpiSection", label: "KPI Section", enabled: true },
 ];
 
 const TABLE_NAME = "dashboardSettings";
 
-// Map dashboard section keys to ABAC resource names
-const SECTION_TO_RESOURCE_MAP: Record<string, string> = {
-  announcements: resourceNameMapWithCamelCase.dashboardAnnouncements,
-  attendance: resourceNameMapWithCamelCase.dashboardAttendance,
-  dailyAttendanceOverview: resourceNameMapWithCamelCase.dashboardDailyAttendanceOverview,
-  tasks: resourceNameMapWithCamelCase.dashboardTasks,
-  upcomingEvents: resourceNameMapWithCamelCase.dashboardUpcomingEvents,
-  todoCard: resourceNameMapWithCamelCase.dashboardTodoCard,
-  pendingRequests: resourceNameMapWithCamelCase.dashboardPendingRequests,
-  leaderboard: resourceNameMapWithCamelCase.dashboardLeaderboard,
-  analyticsGraphs: resourceNameMapWithCamelCase.dashboardAnalyticsGraphs,
-  allLoans: resourceNameMapWithCamelCase.dashboardAllLoans,
-  ongoingLoans: resourceNameMapWithCamelCase.dashboardOngoingLoans,
-  kpiSection: resourceNameMapWithCamelCase.dashboardKpiSection,
+// Each widget shows data from one part of the app, so it follows that part's access: a widget
+// is visible only with Read on its source section (on top of Read on the Dashboard itself).
+// Widgets not listed are personal (the todo card) and need only the Dashboard.
+const WIDGET_ACCESS: Record<string, () => boolean> = {
+  announcements: () => canSection("settings.announcements"),
+  attendance: () => canSection("attendance.personal"),
+  dailyAttendanceOverview: () => canSection("attendance.employees"),
+  tasks: () => canSection("tasks"),
+  upcomingEvents: () => canSection("calendar"),
+  // A queue of requests waiting on YOUR approval: approvers are granted it by the workflow setup.
+  pendingRequests: () => can("approvals.approve.team"),
+  leaderboard: () => canSection("kpi.leaderboard"),
+  analyticsGraphs: () => canSection("projects") || canSection("crm.leads"),
+  ongoingLoans: () => canSection("finance.loans"),
+  kpiSection: () => canSection("kpi.my"),
 };
+
+/** Whether the signed-in employee may see a dashboard widget at all (their own toggle aside). */
+export const isWidgetAllowed = (key: string): boolean =>
+  canSection("dashboard") && (WIDGET_ACCESS[key]?.() ?? true);
 
 export const useDashboardSettings = () => {
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee?.id);
@@ -112,27 +115,8 @@ export const useDashboardSettings = () => {
   };
 
   const isSectionEnabled = (key: string): boolean => {
-    // First check if section is enabled in user preferences
-    const section = sections.find((s) => s.key === key);
-    const isEnabledByUser = section?.enabled ?? true;
-
-    if (!isEnabledByUser) {
-      return false;
-    }
-
-    // Then check ABAC permissions
-    const resourceName = SECTION_TO_RESOURCE_MAP[key];
-    if (resourceName) {
-      // Check if user has permission to view this dashboard section
-      const hasViewPermission = hasPermission(
-        resourceName,
-        permissionConstToUseWithHasPermission.readOwn
-      );
-      return hasViewPermission;
-    }
-
-    // If no resource mapping exists, fall back to user preference
-    return isEnabledByUser;
+    const isEnabledByUser = sections.find((s) => s.key === key)?.enabled ?? true;
+    return isEnabledByUser && isWidgetAllowed(key);
   };
 
    // const isSectionEnabled = useCallback((key: string): boolean => {

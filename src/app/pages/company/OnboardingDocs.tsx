@@ -14,6 +14,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { fetchCompanyOverview } from "@services/company";
 import { hasPermission } from "@utils/authAbac";
+import { canSection } from "@utils/can";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 
 const onboardingDocs: Array<PageLink> = [
@@ -44,7 +45,7 @@ function OnBoardingDocs() {
     const [documentId, setDocumentId] = useState('');
     const [loading, setLoading] = useState(false);
     const [initialValues, setInitialValues] = useState(defaultInitialValues);
-    const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+    const canWrite = canSection("settings.onboarding", "write");
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const [companyId, setCompanyId] = useState<string>('');
 
@@ -108,7 +109,7 @@ function OnBoardingDocs() {
             header: "Is Enabled",
             Cell: ({ row }) => (row.original.isEnabled ? "Yes" : "No"),
         },
-        ...(isAdmin
+        ...(canWrite
             ? [{
                 accessorKey: "actions",
                 header: "Actions",
@@ -188,7 +189,7 @@ function OnBoardingDocs() {
                 <div className="d-flex align-items-center justify-content-between w-100">
                     <PageHeadingTitle />
                     <div>
-                        {isAdmin && hasPermission(resourceNameMapWithCamelCase.onboardingDocument, permissionConstToUseWithHasPermission.create) && (
+                        {canWrite && hasPermission(resourceNameMapWithCamelCase.onboardingDocument, permissionConstToUseWithHasPermission.create) && (
                             <div className='card-toolbar text-end'>
                                 <button onClick={handleShowModal} className='btn btn-sm btn-light-primary'>
                                     <KTIcon iconName='plus' className='fs-3' />

@@ -14,8 +14,8 @@ import { ToggleButtonGroup, ToggleButton } from "@mui/material";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
+import { canSection } from "@utils/can";
 import { getEmployeeStatus, getEmployeeStatusString } from "@utils/employeeStatus";
-import { usePermission } from "@hooks/usePermission";
 import EmployeeAccessTab from "./EmployeeAccessTab";
 import EmployeeProject from "./EmployeeProject";
 import MeetingsList from "@app/modules/common/components/MeetingsList";
@@ -24,12 +24,14 @@ import { useTabKeyRoute } from "@app/hooks/useTabRoute";
 import { WtButton } from "@app/modules/common/components/ui/tw";
 import { KTIcon } from "@metronic/helpers";
 import AssignToProjectsDialog from "@app/modules/common/components/AssignToProjectsDialog";
+import NoAccessPage from "@app/modules/common/components/NoAccessPage";
 
 /** Tab keys in render order — they ARE the path segment. "access" is permission-gated,
  *  and opening its URL without the permission resolves to the first tab. */
 const EMPLOYEE_TAB_KEYS = ["details", "projects", "meetings", "access"];
 
 const ShowEmployeeDetailsToggle = () => {
+  const canWrite = canSection("users", "write");
   const { employeeId } = useParams<{ employeeId: string }>();
   const allemployees = useSelector((state: RootState) => state.allEmployees);
   const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
@@ -45,7 +47,8 @@ const ShowEmployeeDetailsToggle = () => {
   );
   const [assignOpen, setAssignOpen] = useState(false);
   const [projectsReloadKey, setProjectsReloadKey] = useState(0);
-  const canManageAccess = usePermission("users.manage.all");
+  // Roles and per-section access are Admin / Super Admin only — the server refuses everyone else.
+  const canManageAccess = useSelector((state: RootState) => (state as any).authz?.tier != null);
   const dispatch = useDispatch<AppDispatch>();
   const employeeStatus = getEmployeeStatusString(employee);
 
@@ -71,14 +74,11 @@ const ShowEmployeeDetailsToggle = () => {
 
   if (loadFailed) {
     return (
-      <div className="card border-0 shadow-sm m-8">
-        <div className="card-body text-center py-10">
-          <AppIcon name="bi-exclamation-triangle" className="fs-1 text-warning mb-3 d-block" />
-          <h5 className="fw-semibold">This Page Isn't Available</h5>
-          <p className="text-muted mb-4">We couldn't open this employee record. It may have moved or you may not have access.</p>
-          <button className="btn btn-primary" onClick={() => navigate("/dashboard")}>Go to Dashboard</button>
-        </div>
-      </div>
+      <NoAccessPage
+        kind="record"
+        title="You don't have access to this employee"
+        message="The record may have moved, or your access doesn't include it. Ask an admin if you need it."
+      />
     );
   }
 
@@ -255,7 +255,7 @@ const ShowEmployeeDetailsToggle = () => {
           {canManageAccess && <ToggleButton value="access">Access</ToggleButton>}
           {/* <ToggleButton value="configure">Configure</ToggleButton> */}
         </ToggleButtonGroup>
-        {activeTab === "projects" && (
+        {canWrite && activeTab === "projects" && (
           <WtButton className="ml-auto shrink-0 self-center" startIcon={<KTIcon iconName="plus" className="fs-4 text-white" />} onClick={() => setAssignOpen(true)}>
             Add to projects
           </WtButton>

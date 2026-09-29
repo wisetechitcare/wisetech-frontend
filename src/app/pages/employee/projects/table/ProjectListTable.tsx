@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useOpenRecord } from "@hooks/useOpenRecord";
 import { useDispatch, useSelector } from "react-redux";
 import dayjs from "dayjs";
 import { Box, Theme } from "@mui/material";
@@ -12,6 +12,7 @@ import {
 } from "@services/projects";
 import { getAllClientCompanies, getAllClientContacts } from "@services/companies";
 import { currencyPrefix } from "@utils/currency";
+import { canViewCommercial } from "@utils/can";
 import { AppDispatch, RootState } from "@redux/store";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
 import { getProjectPhase, isDelayedProject, projectNumberOf } from "../../entity/entityUtils";
@@ -258,7 +259,7 @@ export const buildProjectColumns = ({ categories, subcategories, services, pmNam
     Cell: ({ cell }: { cell: any }) =>
       cell.getValue() ? <span style={{ color: "#0A5C2A", fontWeight: 600 }}>Live</span> : <span style={{ color: "#64748B" }}>On Hold</span>,
   },
-];
+].filter((col) => canViewCommercial('projects') || !['projectCost', 'totalCost', 'projectRate'].includes(col.accessorKey));
 
 // `20` alpha keeps the tint light enough that the solid status pill never blends in.
 const rowBackground = (row: any) => {
@@ -270,7 +271,7 @@ const rowBackground = (row: any) => {
 const hoverBg = (theme: Theme) => `${theme.palette.background.paper} !important`;
 
 /** Layout + row styling props for <MaterialTable>, spread onto it. */
-export const projectTableProps = (onRowClick: (row: any) => void) => ({
+export const projectTableProps = (onRowClick: (row: any) => void, canOpenRow: (row: any) => boolean = () => true) => ({
   enableColumnResizing: true,
   layoutMode: "semantic" as const,
   muiTableContainerProps: {
@@ -283,8 +284,9 @@ export const projectTableProps = (onRowClick: (row: any) => void) => ({
       minWidth: "1600px",
     },
     muiTableBodyRowProps: ({ row }: any) => ({
+      title: canOpenRow(row.original) ? undefined : "You're not authorized to open this project",
       sx: {
-        cursor: "pointer",
+        cursor: canOpenRow(row.original) ? "pointer" : "not-allowed",
         backgroundColor: rowBackground(row.original),
         transition: "all 0.2s ease",
         "& .MuiTableCell-root": {
@@ -325,7 +327,8 @@ export const managerNames = (row: any, employees: any[] | undefined): string =>
  * into the Projects-page row so the shared columns and date sort work unchanged.
  */
 export const ProjectListTable = ({ projects, tableName }: { projects: any[]; tableName: string }) => {
-  const navigate = useNavigate();
+  // Every project with this company / contact is listed; only this person's own open.
+  const { canOpen, openRecord } = useOpenRecord();
   const dispatch = useDispatch<AppDispatch>();
   const employeeId = useSelector((state: RootState) => state.auth?.currentUser?.id);
   const employees = useSelector((state: RootState) => state.allEmployees?.list);
@@ -410,7 +413,7 @@ export const ProjectListTable = ({ projects, tableName }: { projects: any[]; tab
       tableName={tableName}
       employeeId={employeeId}
       defaultSorting={[{ id: "projectStartDate", desc: true }]}
-      {...projectTableProps((row) => navigate(`/project/${row.id}`))}
+      {...projectTableProps((row) => openRecord(row.id, true, `/project/${row.id}`), (row) => canOpen(row.id, true))}
     />
   );
 };

@@ -81,6 +81,14 @@ export interface ItemSummary {
      * of decoding a dot-separated run of numbers.
      */
     rows?: Array<{ label: string; value: string }>;
+    /**
+     * What the note IS. Defaults to "Reason", which is right for a leave or an
+     * attendance correction — the requester explaining themselves — and wrong for a
+     * requisition, where the same slot holds the job description. Audit L3.
+     */
+    noteLabel?: string;
+    /** One document the approver needs to see before deciding, e.g. an offer letter. */
+    link?: { label: string; url: string };
 }
 
 const money = (v: unknown) =>
@@ -340,10 +348,33 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
     }
 
     if (type === 'requisition') {
+        // The API already returns the band, the target start date and the reference —
+        // none of it reached the approver, who was deciding a headcount request from a
+        // title and a number. Department/designation/branch come back as IDs, so they
+        // are deliberately NOT shown: an id helps nobody, and resolving three lookups
+        // per card to render three names is not worth it here. Audit L3.
+        const band = d.minCtc != null || d.maxCtc != null
+            ? [d.minCtc, d.maxCtc].filter((v: any) => v != null)
+                .map((v: any) => formatCurrency(Number(v), d.currency)).join(' – ')
+            : null;
+        const filled = d.filledCount != null && d.headcount
+            ? `${d.filledCount} of ${d.headcount} filled`
+            : null;
         return {
             title: d.title || 'Requisition',
-            facts: [d.headcount ? `${d.headcount} position${d.headcount === 1 ? '' : 's'}` : null].filter(Boolean) as string[],
+            facts: [
+                d.headcount ? `${d.headcount} position${d.headcount === 1 ? '' : 's'}` : null,
+                d.targetStartDate ? `Target ${formatDate(d.targetStartDate)}` : null,
+            ].filter(Boolean) as string[],
+            value: band ? `${band} per year` : null,
+            rows: [
+                d.prefix ? { label: 'Reference', value: String(d.prefix) } : null,
+                d.headcount ? { label: 'Headcount', value: String(d.headcount) } : null,
+                filled ? { label: 'Progress', value: filled } : null,
+                d.targetStartDate ? { label: 'Target start', value: formatDate(d.targetStartDate) } : null,
+            ].filter(Boolean) as Array<{ label: string; value: string }>,
             note: d.jobDescription,
+            noteLabel: 'Job description',
         };
     }
 
@@ -353,6 +384,14 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
             facts: [d.proposedJoiningDate ? `Joins ${formatDate(d.proposedJoiningDate)}` : null].filter(Boolean) as string[],
             // In the offer's own currency, resolved by the API — the one its letter prints.
             value: d.offeredCtc != null ? `${formatCurrency(Number(d.offeredCtc), d.currency)} per year` : null,
+            rows: [
+                d.prefix ? { label: 'Reference', value: String(d.prefix) } : null,
+                d.applicationRef ? { label: 'Application', value: String(d.applicationRef) } : null,
+                d.proposedJoiningDate ? { label: 'Proposed joining', value: formatDate(d.proposedJoiningDate) } : null,
+            ].filter(Boolean) as Array<{ label: string; value: string }>,
+            // The letter is the document being approved, and it was returned by the API
+            // and shown nowhere. Audit L3.
+            link: d.offerLetterUrl ? { label: 'Offer Letter', url: String(d.offerLetterUrl) } : undefined,
         };
     }
 
@@ -516,7 +555,7 @@ export default function InboxItemCard({
                                 display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                                 overflow: 'hidden',
                             }}>
-                                <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>Reason: </Box>
+                                <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{summary.noteLabel ?? 'Reason'}: </Box>
                                 {summary.note}
                             </Typography>
                         )}

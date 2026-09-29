@@ -6,6 +6,10 @@ import { CompanyDialogModal } from './CompanyDialogModal';
 import dayjs, { Dayjs } from 'dayjs';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { currencyPrefix } from '@utils/currency';
+import { canViewCommercial } from '@utils/can';
+
+// Without project money the bars plot company counts instead of total project cost.
+const barValue = (d: { totalCost: number; count: number }) => (canViewCommercial('projects') ? d.totalCost : d.count);
 
 type LocationFilterType = {
   country: string;
@@ -160,10 +164,10 @@ const processedData = useMemo(() => {
     case "zToA":
       return result.sort((a, b) => b.name.localeCompare(a.name));
     case "lowToHigh":
-      return result.sort((a, b) => a.totalCost - b.totalCost);
+      return result.sort((a, b) => barValue(a) - barValue(b));
     case "highToLow":
     default:
-      return result.sort((a, b) => b.totalCost - a.totalCost);
+      return result.sort((a, b) => barValue(b) - barValue(a));
   }
 }, [data, filters]);
 
@@ -187,7 +191,7 @@ const processedData = useMemo(() => {
   const chartData = useMemo(() => {
     return {
       categories: processedData.map(d => d.name),
-      seriesData: processedData.map(d => d.totalCost),
+      seriesData: processedData.map(barValue),
       projectCounts: processedData.map(d => d.totalProjects),
       companyCounts: processedData.map(d => d.count) 
     };
@@ -212,7 +216,7 @@ const processedData = useMemo(() => {
     plotOptions: { bar: { borderRadius: 4, columnWidth: data.length === 1 ? '10%' : '60%', dataLabels: { position: 'top' } } },
     dataLabels: {
       enabled: true,
-      formatter: (val: number) => currencyPrefix() + val.toLocaleString(),
+      formatter: (val: number) => (canViewCommercial('projects') ? currencyPrefix() : '') + val.toLocaleString(),
       offsetY: -20,
       style: { fontSize: '12px', colors: ['#304758'], fontWeight: 'bold' }
     },
@@ -221,7 +225,7 @@ const processedData = useMemo(() => {
     colors: ['#008FFB', '#00E396', '#FEB019'],
     grid: { borderColor: '#f1f1f1' },
     annotations: {
-      points: chartData.categories.map((cat, idx) => ({
+      points: !canViewCommercial('projects') ? [] : chartData.categories.map((cat, idx) => ({
         x: cat,
         y: chartData.seriesData[idx] / 2,
         marker: { size: 0 },
@@ -357,8 +361,8 @@ const processedData = useMemo(() => {
               >
                 <MenuItem value="aToZ">A to Z</MenuItem>
                 <MenuItem value="zToA">Z to A</MenuItem>
-                <MenuItem value="highToLow">High to Low (Cost)</MenuItem>
-                <MenuItem value="lowToHigh">Low to High (Cost)</MenuItem>
+                <MenuItem value="highToLow">High to Low ({canViewCommercial('projects') ? 'Cost' : 'Companies'})</MenuItem>
+                <MenuItem value="lowToHigh">Low to High ({canViewCommercial('projects') ? 'Cost' : 'Companies'})</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -381,7 +385,7 @@ const processedData = useMemo(() => {
                     }
                   }]
                 }}
-                series={[{ name: 'Total Cost', data: chartData.seriesData }]}
+                series={[{ name: canViewCommercial('projects') ? 'Total Cost' : 'Companies', data: chartData.seriesData }]}
                 type="bar"
                 height="100%"
               />
