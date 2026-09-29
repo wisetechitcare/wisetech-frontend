@@ -1,19 +1,22 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useFormikContext } from "formik";
-import { Table } from "react-bootstrap";
+import { KTIcon } from "@metronic/helpers";
 import { getAllPaymentPlans } from "@services/paymentPlan";
 import type { PaymentPlan } from "@models/leads";
 import { filterPlansForLead } from "./paymentPlanScope";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import PaymentPlanStagesTree from "@app/pages/employee/leads/configuration/components/PaymentPlanStagesTree";
+import { pct, toPlanStage, type PlanStage } from "@app/pages/employee/leads/configuration/components/paymentPlanStages";
+import { WtButton } from "@app/modules/common/components/ui";
 
 /**
  * Lead commercial step — payment stage break-up.
  *
- * The user picks a Payment Plan (configured under Lead Configuration → Payment Plans).
- * Each stage's amount is derived live as (percentage / 100) * total commercial cost.
- * Amounts are read-only; the last stage absorbs any rounding remainder so the column
- * always sums to exactly the commercial total. Only the selected `paymentPlanId` is
- * persisted on the lead — the breakdown is recomputed on load, never stored stale.
+ * The user picks a Payment Plan (configured under Lead Configuration → Payment Plans); its
+ * stages are COPIED into `values.paymentStages`, which this lead then edits freely — add,
+ * delete, rename, re-split — with the same editor the plan uses. The plan is only a starting
+ * point: editing the plan later never reaches this lead. Amounts are derived live as
+ * (percentage / 100) * total commercial cost, the last stage absorbing the rounding remainder.
  */
 export const PaymentStageSelector: React.FC = () => {
   const { values, setFieldValue } = useFormikContext<any>();
@@ -79,35 +82,56 @@ export const PaymentStageSelector: React.FC = () => {
   const formatAmount = (val: number) =>
     val.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  const planStages = (plan: PaymentPlan | null): PlanStage[] =>
+    [...(plan?.stages || [])]
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      .map((s) => toPlanStage(s.name, s.percentage, s.id));
+
+  const stages: PlanStage[] = values.paymentStages || [];
+  const setStages = (next: PlanStage[] | null) => setFieldValue("paymentStages", next);
+
+  // A lead saved before per-lead stages existed has a plan but no copy: seed it from the plan
+  // so it opens editable showing exactly what it showed before.
+  useEffect(() => {
+    if (selectedPlan && values.paymentStages == null) setStages(planStages(selectedPlan));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlan, values.paymentStages]);
+
   // Compute each stage's amount, letting the final stage take the rounding remainder
   // so the amounts add up to totalCost to the paisa.
   const computed = useMemo(() => {
-    if (!selectedPlan) return [] as { name: string; percentage: number; amount: number }[];
-    const stages = [...(selectedPlan.stages || [])].sort(
-      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
-    );
     let allocated = 0;
     return stages.map((s, i) => {
-      const pct = parseFloat(String(s.percentage)) || 0;
+      const percentage = pct(s.percentage);
       let amount: number;
       if (i === stages.length - 1) {
         amount = Math.round((totalCost - allocated) * 100) / 100;
       } else {
-        amount = Math.round((pct / 100) * totalCost * 100) / 100;
+        amount = Math.round((percentage / 100) * totalCost * 100) / 100;
         allocated += amount;
       }
-      return { name: s.name, percentage: pct, amount };
+      return { uid: s.uid, name: s.name, percentage, amount };
     });
-  }, [selectedPlan, totalCost]);
+  }, [stages, totalCost]);
 
-  const totalPct = computed.reduce((s, r) => s + r.percentage, 0);
-  const roundedPct = Math.round(totalPct * 1000) / 1000;
+  // Reset only means something once the lead has drifted from its plan.
+  const isEdited = useMemo(() => {
+    if (!selectedPlan) return false;
+    const plan = planStages(selectedPlan);
+    return (
+      plan.length !== stages.length ||
+      plan.some((p, i) => p.name !== stages[i].name || pct(p.percentage) !== pct(stages[i].percentage))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlan, stages]);
 
   const handleSelect = (id: string) => {
     setFieldValue("paymentPlanId", id);
     const plan = options.find((p) => p.id === id) || null;
     // Carry the full plan so the breakdown renders immediately and survives archival.
     setFieldValue("paymentPlan", plan);
+    // A new plan replaces the lead's stages with its own; no plan clears them.
+    setStages(plan ? planStages(plan) : null);
   };
 
   return (
@@ -148,34 +172,28 @@ export const PaymentStageSelector: React.FC = () => {
       )}
 
       {selectedPlan && (
-        <div className="table-responsive mt-3">
-          <Table bordered size="sm" className="bg-white align-middle gs-0 gy-2 mb-0">
-            <thead className="bg-light">
-              <tr className="fw-bolder text-muted fs-8 text-uppercase border-bottom border-gray-200">
-                <th className="ps-3 w-40px">Sr</th>
-                <th className="min-w-150px">Stage / Particulars</th>
-                <th className="w-90px text-center">%</th>
-                <th className="min-w-120px text-end pe-3">Amount ({getCurrencySymbol()})</th>
-              </tr>
-            </thead>
-            <tbody>
-              {computed.map((row, idx) => (
-                <tr key={idx}>
-                  <td className="ps-3 fw-bold text-gray-600">{idx + 1}</td>
-                  <td className="fw-semibold text-gray-800">{row.name}</td>
-                  <td className="text-center fw-bold text-gray-700">{row.percentage}%</td>
-                  <td className="text-end pe-3 fw-bolder text-dark">{formatAmount(row.amount)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="bg-light-primary fw-bolder border-top border-gray-300">
-                <td colSpan={2} className="text-end pe-3 text-gray-800">Total</td>
-                <td className="text-center text-primary">{roundedPct}%</td>
-                <td className="text-end pe-3 text-primary">{getCurrencySymbol()} {formatAmount(totalCost)}</td>
-              </tr>
-            </tfoot>
-          </Table>
+        <div className="mt-4">
+          {/* The plan editor's own tree, minus deliverables (those are project config). No
+              numbering picker: the Sr No follows the plan's format (or the default). */}
+          <PaymentPlanStagesTree
+            stages={stages}
+            onChange={setStages}
+            showDeliverables={false}
+            stageNumberingFormatId={selectedPlan.stageNumberingFormatId ?? ""}
+            amounts={totalCost > 0 ? computed.map((r) => `${getCurrencySymbol()} ${formatAmount(r.amount)}`) : undefined}
+            headerAction={
+              isEdited && (
+                <WtButton
+                  tone="primary" size="small" ghost
+                  onClick={() => setStages(planStages(selectedPlan))}
+                  startIcon={<KTIcon iconName="arrows-circle" className="fs-6" />}
+                  sx={{ flexShrink: 0, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
+                >
+                  Reset to plan
+                </WtButton>
+              )
+            }
+          />
           {totalCost === 0 && (
             <div className="text-muted fs-8 mt-2">
               Add work-area rows above to see the amounts split across the stages.

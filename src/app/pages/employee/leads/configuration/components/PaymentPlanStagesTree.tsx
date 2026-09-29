@@ -1,25 +1,31 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { alpha, Box, Collapse, InputAdornment, MenuItem, Stack, TextField, Typography, useMediaQuery } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import ReorderableGroup, { DragHandle, type DragHandleProps } from "@app/modules/common/components/ReorderableGroup";
 import { WtButton, WtIconButton } from "@app/modules/common/components/ui";
 import StageDeliverableList from "./StageDeliverableList";
 import { autoFixPercentages, pct, stageTotal, toPlanStage, type PlanStage } from "./paymentPlanStages";
-import { getAllPaymentStageGroups } from "@services/paymentStage";
-import { stageSrNo, type PaymentStageGroup } from "@models/leads";
+import { useStageNumberingFormats } from "@hooks/useStageNumberingFormats";
+import { formatStageNo, resolveStageFormat } from "@utils/stageNumbering";
 
 interface Props {
   stages: PlanStage[];
   onChange: (next: PlanStage[]) => void;
-  /** The plan's chosen numbering group. Empty string = number by position. */
-  paymentStageGroupId?: string;
-  onPaymentStageGroupChange?: (id: string) => void;
+  /** The plan's own numbering format. Empty string = the default format. */
+  stageNumberingFormatId?: string;
+  /** Present = show the Numbering picker (plan editor); absent = read-only (lead). */
+  onStageNumberingFormatChange?: (id: string) => void;
   /**
    * Whether a stage can be opened to reveal its deliverables. Deliverables are project
    * configuration: a lead shows the fee split and nothing else, so a lead-side editor
    * passes false and gets the same tree with its branches closed off.
    */
   showDeliverables?: boolean;
+  /** Pre-formatted money per stage (same order as `stages`). A lead passes these so the
+   *  editor IS the break-up; the plan editor has no commercial total and omits it. */
+  amounts?: string[];
+  /** Extra control for the header, beside Numbering / Auto-fix (e.g. a lead's "Reset to plan"). */
+  headerAction?: React.ReactNode;
 }
 
 /** Indent of the deliverable branch — lines the rail up under the disclosure chevron. */
@@ -27,7 +33,7 @@ const BRANCH_INDENT = { xs: 3.25, sm: 4.25 };
 
 const PaymentPlanStagesTree: React.FC<Props> = ({
   stages, onChange, showDeliverables = true,
-  paymentStageGroupId = "", onPaymentStageGroupChange,
+  stageNumberingFormatId = "", onStageNumberingFormatChange, amounts, headerAction,
 }) => {
   const [expandedUid, setExpandedUid] = useState<string | null>(null);
   // A branch keeps its list mounted once opened, so closing and reopening doesn't refetch.
@@ -35,24 +41,11 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
   const [counts, setCounts] = useState<Record<string, number>>({});
   const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
 
-  // The numbering groups this plan can be numbered with. An empty list is normal, not an
-  // error: the selector is not rendered and stages number by position.
-  const [groups, setGroups] = useState<PaymentStageGroup[]>([]);
-  useEffect(() => {
-    let alive = true;
-    getAllPaymentStageGroups()
-      .then((res) => {
-        if (alive) setGroups((res?.paymentStageGroups ?? []).filter((g: PaymentStageGroup) => g.isActive));
-      })
-      // Numbering is presentation, not the plan. If the groups cannot be reached the editor
-      // still saves percentages — it just falls back to positions.
-      .catch(() => undefined);
-    return () => { alive = false; };
-  }, []);
-
-  // The labels actually in force. Resolved from the live list so renaming a group's labels
-  // is reflected without reopening the plan.
-  const activeLabels = groups.find((g) => g.id === paymentStageGroupId)?.labels ?? [];
+  // Resolved from the live list, so editing a format on Configure shows here without
+  // reopening the plan. No choice = the default, so a new plan is numbered straight away.
+  const { formats } = useStageNumberingFormats();
+  const activeFormat = resolveStageFormat(formats, stageNumberingFormatId);
+  const defaultFormat = formats.find((f) => f.isDefault) ?? null;
 
   const setCount = useCallback((stageId: string, n: number) => {
     setCounts((prev) => (prev[stageId] === n ? prev : { ...prev, [stageId]: n }));
@@ -156,27 +149,15 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
             </WtIconButton>
           )}
 
-          {/* The Sr No. Read-only by design: it is derived from the plan's chosen group by
-              position, so it cannot be set per stage — that is exactly what let a plan end
-              up numbered "1, 2, Stage C, 4". Falls back to the position when no group is
-              chosen, or when the group has fewer labels than the plan has stages. */}
+          {/* The Sr No. Read-only by design: it is the plan's format applied to the
+              position, so it cannot be set per stage and a plan is never half-numbered. */}
           <Typography
-            title={
-              activeLabels.length === 0
-                ? "Numbered by position — pick a numbering group above"
-                : index < activeLabels.length
-                  ? `From the chosen numbering group`
-                  : "The group has no label for this position — numbered by position"
-            }
             sx={{
               minWidth: 22, flexShrink: 0, textAlign: "center", px: 0.5,
-              fontSize: 12, fontWeight: 700,
-              // Muted when it is only a fallback, so a group that is too short is visible
-              // rather than silently indistinguishable from a real label.
-              color: index < activeLabels.length ? "text.primary" : "text.disabled",
+              fontSize: 12, fontWeight: 700, color: "text.primary", whiteSpace: "nowrap",
             }}
           >
-            {stageSrNo(index, activeLabels)}
+            {formatStageNo(activeFormat, index)}
           </Typography>
 
           <TextField
@@ -204,6 +185,18 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
               "& .MuiInputBase-input": { fontSize: 13.5, fontWeight: 700, textAlign: "right" },
             }}
           />
+
+          {amounts && (
+            <Typography
+              title="This stage's share of the total commercial cost"
+              sx={{
+                width: { xs: 84, sm: 120 }, flexShrink: 0, textAlign: "right", pr: 0.5,
+                fontSize: 13, fontWeight: 700, color: "text.primary", fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {amounts[index]}
+            </Typography>
+          )}
 
           {/* No count badge here on purpose. A number wedged between the percentage field
               and the delete button competes with the percentage — the row's actual data —
@@ -257,28 +250,30 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
           </Typography>
         </Box>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ flexShrink: 0 }}>
-          {/* ONE choice for the whole plan. Numbering is a property of the plan, not of each
-              stage — picking per stage is what allowed "1, 2, Stage C, 4". */}
-          {onPaymentStageGroupChange && groups.length > 0 && (
+          {headerAction}
+          {/* ONE choice for the whole plan. "" follows the default, so changing the default
+              on Configure re-numbers every plan that never picked. Hidden until there is
+              something to choose between. */}
+          {onStageNumberingFormatChange && formats.length > 1 && (
             <TextField
               select
               size="small"
               label="Numbering"
-              value={paymentStageGroupId}
-              onChange={(e) => onPaymentStageGroupChange(e.target.value)}
+              value={formats.some((f) => f.id === stageNumberingFormatId) ? stageNumberingFormatId : ""}
+              onChange={(e) => onStageNumberingFormatChange(e.target.value)}
               SelectProps={{ displayEmpty: true }}
               InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 150, "& .MuiInputBase-input": { fontSize: 12.5, fontWeight: 600 } }}
+              sx={{ minWidth: 170, "& .MuiInputBase-input": { fontSize: 12.5, fontWeight: 600 } }}
             >
-              <MenuItem value="">
-                <Box component="span" sx={{ color: "text.disabled" }}>By position (1, 2, 3)</Box>
+              <MenuItem value="" sx={{ fontSize: 12.5 }}>
+                Default
+                <Box component="span" sx={{ color: "text.disabled", ml: 0.75, fontSize: 11.5 }}>
+                  {[0, 1].map((i) => formatStageNo(defaultFormat, i)).join(", ")}…
+                </Box>
               </MenuItem>
-              {groups.map((g) => (
-                <MenuItem key={g.id} value={g.id} sx={{ fontSize: 12.5 }}>
-                  {g.name}
-                  <Box component="span" sx={{ color: "text.disabled", ml: 0.75, fontSize: 11.5 }}>
-                    {g.labels.slice(0, 3).join(", ")}{g.labels.length > 3 ? "…" : ""}
-                  </Box>
+              {formats.filter((f) => !f.isDefault).map((f) => (
+                <MenuItem key={f.id} value={f.id} sx={{ fontSize: 12.5 }}>
+                  {[0, 1, 2].map((i) => formatStageNo(f, i)).join(", ")}
                 </MenuItem>
               ))}
             </TextField>
@@ -294,15 +289,6 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
           )}
         </Stack>
       </Stack>
-
-      {/* A group shorter than the plan is not an error, but it is worth saying — otherwise
-          the greyed fallback numbers look like a rendering bug. */}
-      {activeLabels.length > 0 && stages.length > activeLabels.length && (
-        <Typography sx={{ fontSize: 11.5, color: "text.secondary", mb: 1 }}>
-          This group has {activeLabels.length} label{activeLabels.length === 1 ? "" : "s"} for {stages.length} stages —
-          the rest are numbered by position.
-        </Typography>
-      )}
 
       {stages.length === 0 ? (
         <Box

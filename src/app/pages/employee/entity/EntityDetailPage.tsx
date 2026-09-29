@@ -40,7 +40,7 @@ const NOT_AUTHORIZED = 'not-authorized';
  * Unified Entity detail page. ONE entity, ONE page. The Lead is the master; the
  * Project is an extension that surfaces — inside the SAME tabs — once the lead
  * reaches a project-trigger status (exactly like the wizard reveals its
- * execution step). The only conditional tab is Execution. There is no separate
+ * execution step). Project-only tabs are marked `projectOnly`. There is no separate
  * "project view": `isProject` is driven purely by the data, not navigation.
  */
 const EntityDetailPage: React.FC = () => {

@@ -641,14 +641,13 @@ export const LEAD_PROJECT_COMPANY = {
 
 // Payment Plans (stage-wise fee break-up) — configured under Lead Configuration and
 // selected on a lead's commercial step.
-// Payment Stage master — the index labels ("1", "Stage 1", "Stage A") a plan's stages are
-// numbered with. Indexes stages; does not name them.
-export const PAYMENT_STAGE = {
-    GET_ALL_PAYMENT_STAGES: "api/payment-stages",
-    CREATE_PAYMENT_STAGE: "api/payment-stages",
-    REORDER_PAYMENT_STAGES: "api/payment-stages/reorder",
-    UPDATE_PAYMENT_STAGE: "api/payment-stages/:id",
-    DELETE_PAYMENT_STAGE: "api/payment-stages/:id",
+// Stage numbering formats — how a plan's stages print their Sr No ("Stage 1", "STG-01",
+// "a"). A plan with no format of its own uses the default.
+export const STAGE_NUMBERING_FORMAT = {
+    GET_ALL: "api/stage-numbering-formats",
+    CREATE: "api/stage-numbering-formats",
+    UPDATE: "api/stage-numbering-formats/:id",
+    DELETE: "api/stage-numbering-formats/:id",
 };
 
 export const PAYMENT_PLAN = {

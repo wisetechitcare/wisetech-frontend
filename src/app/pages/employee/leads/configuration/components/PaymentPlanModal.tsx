@@ -54,8 +54,8 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
   // it is split back into the (categoryId, subCategoryId) pair on save.
   const [scopeNodeId, setScopeNodeId] = useState("");
   const [rows, setRows] = useState<PlanStage[]>([]);
-  /** The numbering vocabulary for this plan's stages. "" = number by position. */
-  const [paymentStageGroupId, setPaymentStageGroupId] = useState("");
+  /** How this plan's stages print their Sr No. "" = the default format. */
+  const [stageNumberingFormatId, setStageNumberingFormatId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,7 +67,7 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
       setDescription(initialData.description || "");
       setIsDefault(!!initialData.isDefault);
       setScopeNodeId(nodeIdFromScope(initialData));
-      setPaymentStageGroupId(initialData.paymentStageGroupId ?? "");
+      setStageNumberingFormatId(initialData.stageNumberingFormatId ?? "");
       setRows(
         (initialData.stages || [])
           .slice()
@@ -78,7 +78,7 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
       setDescription("");
       setIsDefault(false);
       setScopeNodeId("");
-      setPaymentStageGroupId("");
+      setStageNumberingFormatId("");
       setRows(DEFAULT_STAGES.map((s) => toPlanStage(s.name, s.percentage)));
     }
   }, [show, isEditing, initialData]);
@@ -143,7 +143,7 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
       categoryId: scope?.categoryId,
       subCategoryId: scope?.subCategoryId ?? null,
       // Explicit null clears it; the server treats absent as "leave alone", so always send.
-      paymentStageGroupId: paymentStageGroupId || null,
+      stageNumberingFormatId: stageNumberingFormatId || null,
     };
 
     setIsSubmitting(true);
@@ -245,8 +245,8 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
           stages={rows}
           onChange={setRows}
           showDeliverables
-          paymentStageGroupId={paymentStageGroupId}
-          onPaymentStageGroupChange={setPaymentStageGroupId}
+          stageNumberingFormatId={stageNumberingFormatId}
+          onStageNumberingFormatChange={setStageNumberingFormatId}
         />
       </Modal.Body>
 

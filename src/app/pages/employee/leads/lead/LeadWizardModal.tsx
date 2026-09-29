@@ -100,6 +100,7 @@ import DropdownInput from "@app/modules/common/inputs/DropdownInput";
 import { getAllLeadCancellationReasons } from "@services/lead";
 
 import { LeadWorkspace } from "@app/pages/employee/forms/lead/LeadWorkspace";
+import { fromLeadStages, toLeadStages, stageTotal } from "@app/pages/employee/leads/configuration/components/paymentPlanStages";
 import { useCompanyHierarchy } from "@/shared/form-engine";
 
 interface LeadFormModalProps {
@@ -871,6 +872,8 @@ const LeadWizardModal = ({
         // Payment plan (stage-wise fee break-up) selection for the commercial step.
         paymentPlanId: "",
         paymentPlan: null,
+        // This lead's own editable copy of the stages (PlanStage[]); seeded from the plan.
+        paymentStages: null,
         // Meeting schedule type selection for the meeting-schedule step.
         meetingScheduleTypeId: "",
         meetingScheduleType: null,
@@ -1261,6 +1264,8 @@ const LeadWizardModal = ({
       // re-renders the computed stage break-up on edit.
       paymentPlanId: leadData.paymentPlanId || leadData.paymentPlan?.id || "",
       paymentPlan: leadData.paymentPlan || null,
+      // null (a lead saved before per-lead stages) is seeded from the plan by the selector.
+      paymentStages: Array.isArray(leadData.paymentStages) ? fromLeadStages(leadData.paymentStages) : null,
       // Meeting schedule type selection — prefill so the meeting-schedule step
       // re-resolves the matching bracket + completion year on edit.
       meetingScheduleTypeId: leadData.meetingScheduleTypeId || leadData.meetingScheduleType?.id || "",
@@ -2405,6 +2410,16 @@ const LeadWizardModal = ({
       errorConfirmation("Inquiry No. is required");
       return;
     }
+    // Same rules the plan editor enforces — the server re-checks them.
+    const editedStages = formData.paymentPlanId ? formData.paymentStages || [] : [];
+    if (editedStages.some((s: any) => !String(s.name || "").trim())) {
+      errorConfirmation("Every payment stage needs a name.");
+      return;
+    }
+    if (editedStages.length && stageTotal(editedStages) !== 100) {
+      errorConfirmation(`Payment stage percentages must total 100% (currently ${stageTotal(editedStages)}%).`);
+      return;
+    }
     const additionalDetailsFields = ["projectArea", "addresses"];
 
     const selectedCountryData = countries.find(
@@ -2766,6 +2781,9 @@ const LeadWizardModal = ({
     // paymentPlan is a client-only convenience object (full plan + stages for live
     // rendering). Only the scalar paymentPlanId is persisted; drop the object.
     delete finalData.paymentPlan;
+    // The lead's own stages go as plain rows; null = no plan, back to none.
+    finalData.paymentStages =
+      finalData.paymentPlanId && finalData.paymentStages?.length ? toLeadStages(finalData.paymentStages) : null;
     // Likewise, meetingScheduleType is a client-only object; only the id is persisted.
     delete finalData.meetingScheduleType;
     // delete finalData.cancellationReasonId; //new
@@ -2832,7 +2850,7 @@ const LeadWizardModal = ({
         || key === "fileLocationCompanyType" || key === "fileLocationCompany"
         || key === "handledByEntries" || key === "poStatus" || key === "poFile"
         || key === "leadAssignedTo" || key === "leadDirectSourceId"
-        || key === "paymentPlanId" || key === "meetingScheduleTypeId") {
+        || key === "paymentPlanId" || key === "meetingScheduleTypeId" || key === "paymentStages") {
         acc[key] = value !== undefined ? value : (key === "handledByEntries" ? [] : ""); // Ensure it's included
       } else if (value !== "" && value !== null && value !== undefined) {
         acc[key] = value;

@@ -1,3 +1,5 @@
+import type { StageNumberingFormat } from "@utils/stageNumbering";
+
 export interface LeadStatus {
   id: string;
   name: string;
@@ -68,39 +70,9 @@ export interface PaymentPlanStage {
    * still fetched lazily, one stage at a time, when a branch is opened.
    */
   _count?: { deliverables: number };
-  // No numbering field here: a stage's Sr No comes from the PLAN's chosen group, by
-  // position. See PaymentStageGroup.
+  // No numbering field here: a stage's Sr No is the PLAN's format applied to its
+  // position. See `formatStageNo` in @utils/stageNumbering.
 }
-
-/**
- * A NUMBERING GROUP — one complete vocabulary for numbering a plan's stages, in order:
- * `["1","2","3"]`, `["a","b","c"]`, `["Stage I","Stage II"]`.
- *
- * A plan picks ONE group and every stage takes its Sr No from `labels` by position — stage
- * 1 gets `labels[0]`. This numbers stages; it does not name them. A stage's name
- * ("Advance", "Design Concept") stays free text on the plan.
- */
-export interface PaymentStageGroup {
-  id: string;
-  name: string;
-  /** Ordered. Position IS the meaning. */
-  labels: string[];
-  sortOrder: number;
-  isActive: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-/**
- * The Sr No for the stage at `index`, given the plan's group.
- *
- * Falls back to the position when there is no group, or when the plan has more stages than
- * the group has labels — a short group must never blank a stage or block a save.
- */
-export const stageSrNo = (
-  index: number,
-  labels?: string[] | null,
-): string => labels?.[index] ?? String(index + 1);
 
 /**
  * A work item configured under a payment-plan stage (e.g. "Site Survey"). Pure
@@ -146,10 +118,9 @@ export interface PaymentPlan {
   subCategoryId?: string | null;
   category?: { id: string; name: string; color?: string | null } | null;
   subCategory?: { id: string; name: string; color?: string | null } | null;
-  /** The numbering group this plan's stages are labelled with. Null = number by position. */
-  paymentStageGroupId?: string | null;
-  /** Shipped with the plan so the editor can number stages without a second request. */
-  paymentStageGroup?: { id: string; name: string; labels: string[] } | null;
+  /** How this plan's stages print their Sr No. Null = the default format. */
+  stageNumberingFormatId?: string | null;
+  stageNumberingFormat?: Omit<StageNumberingFormat, "isDefault"> | null;
   createdAt?: string;
   updatedAt?: string;
 }
