@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Button, ButtonGroup, Menu, MenuItem, ListItemIcon, ListItemText,
+    Box, Button, ButtonGroup, IconButton, Menu, MenuItem, ListItemIcon, ListItemText,
     Divider, CircularProgress,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -69,6 +69,12 @@ export interface ExportButtonProps<T = any> {
     label?: string;
     /** Extra sx applied to the outer ButtonGroup */
     sx?: object;
+    /**
+     * One square download button instead of the "Export ▾" split button — for card headers on
+     * phones, where the split button wrapped onto a row of its own. Same menu, same formats;
+     * the label becomes the accessible name.
+     */
+    iconOnly?: boolean;
 }
 
 /**
@@ -385,6 +391,7 @@ function ExportButton<T = any>({
     size = 'small',
     label = 'Export',
     sx = {},
+    iconOnly = false,
 }: ExportButtonProps<T>) {
     /**
      * The menu anchors to a REF, not to the node captured from the click event.
@@ -446,6 +453,33 @@ function ExportButton<T = any>({
 
     return (
         <>
+            {iconOnly ? (
+                <Box ref={groupRef} sx={{ display: 'inline-flex', ...sx }}>
+                    <IconButton
+                        onClick={handleOpen}
+                        disabled={disabled || loading !== null}
+                        aria-label={label}
+                        title={label}
+                        aria-controls={open ? 'export-menu' : undefined}
+                        aria-haspopup="true"
+                        aria-expanded={open ? 'true' : undefined}
+                        sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: '10px',
+                            color: '#2563eb',
+                            bgcolor: '#eff6ff',
+                            border: '1px solid #dbeafe',
+                            '&:hover': { bgcolor: '#dbeafe' },
+                            '&.Mui-disabled': { opacity: 0.5 },
+                        }}
+                    >
+                        {loading
+                            ? <CircularProgress size={16} sx={{ color: '#2563eb' }} />
+                            : <DownloadIcon sx={{ fontSize: 19 }} />}
+                    </IconButton>
+                </Box>
+            ) : (
             <ButtonGroup
                 ref={groupRef}
                 variant="outlined"
@@ -485,12 +519,21 @@ function ExportButton<T = any>({
                     <ArrowDropDownIcon sx={{ fontSize: 18 }} />
                 </Button>
             </ButtonGroup>
+            )}
 
             <Menu
                 id="export-menu"
                 anchorEl={() => groupRef.current as HTMLElement}
                 open={open && !!groupRef.current}
                 onClose={handleClose}
+                /**
+                 * No scroll lock, no auto-focus. MUI's lock sets `overflow: hidden` on the body, and
+                 * on phones that reset the page to the top the moment the menu opened; focusing the
+                 * first item could scroll it again. The menu already closes on any scroll (above),
+                 * so the lock protected nothing. Keyboard users still Tab / arrow into the items.
+                 */
+                disableScrollLock
+                disableAutoFocusItem
                 /**
                  * A Menu is a portal at the theme's modal layer (1300). Inside a chart
                  * drill-down — which pins its Dialog at DRILLDOWN_Z_INDEX so it can clear

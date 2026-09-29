@@ -19,7 +19,8 @@ import { useBillingLabels } from "./useBillingLabels";
 export interface BillingStatsCardProps {
   label: string;
   value: React.ReactNode;
-  icon: string;
+  /** A keenicon name, or a node — pass `<CurrencySymbol />` for a money tile. */
+  icon: React.ReactNode;
   trio?: Trio;
   /** Small muted line under the value — a period, a comparison, a hint. */
   hint?: string;
@@ -67,6 +68,12 @@ export const BillingStatsCard: React.FC<BillingStatsCardProps> = ({
 /** Every Billing status across every document type maps to a tone here, so a status
  *  never means one colour on one screen and another elsewhere. */
 export const BILLING_STATUS_TONES: Record<string, SemanticTone> = {
+  // Direct billing (one bill per deliverable): DRAFT -> PROFORMA ->
+  // PARTIALLY_PAID -> PAID -> INVOICED. Every code except INVOICED is already in
+  // this map and means the same thing here, so the tones follow the same three
+  // bands the operations workflow uses: indigo while the proforma is out, amber
+  // while money is outstanding, green once it is in and the invoice is raised.
+  INVOICED: "success",
   // Billing request
   DRAFT: "neutral",
   SUBMITTED: "indigo",

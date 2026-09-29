@@ -9,6 +9,8 @@ import { useEffect, useState } from "react";
 import { fetchAppSettings } from "@redux/slices/appSettings";
 import { fetchSalaryDataForDateRangeMonthly } from "@services/company";
 import { setMonthlyApiData, setLoading, setError, setLastFetchedMonth } from "@redux/slices/salaryData";
+import { useSensitiveData } from "@app/modules/common/components/SensitiveData";
+import { Container } from "@mui/material";
 
 export type SalaryToggleItemsCallBackFunctions = {
   monthly: (date: Dayjs) => void;
@@ -28,14 +30,13 @@ function SalaryView({ fromAdmin = false }: { fromAdmin?: boolean }) {
     (state: RootState) => state.salaryData
   );
   
-  // Privacy state for sensitive data visibility
-  const [showSensitiveData, setShowSensitiveData] = useState(false);
+  // Privacy state lives on the Salary page (SensitiveDataProvider), so the eye in its sticky
+  // tab bar and the one in the admin detail dialog flip the same switch.
+  const sensitive = useSensitiveData();
+  const showSensitiveData = sensitive.visible;
+  const toggleSensitiveData = sensitive.toggle;
   const [currentMonth, setCurrentMonth] = useState(dayjs());
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  const toggleSensitiveData = () => {
-    setShowSensitiveData(!showSensitiveData);
-  };
 
   // Function to fetch monthly salary data
   const fetchMonthlySalaryData = async (date: Dayjs) => {
@@ -114,7 +115,9 @@ function SalaryView({ fromAdmin = false }: { fromAdmin?: boolean }) {
   }, [employee?.id, toggleChange]);
 
   return (
-    <div className="px-3 px-lg-5">
+    // No side padding on phones: the tab panel around this already pads 12px, and stacking a
+    // second 16px inside it left each card floating in a wide empty margin.
+    <Container maxWidth={false} sx={{ px: { xs: 0, sm: 3, md: 4 } }}>
       <EmployeeDetailsCard
         fromAdmin={fromAdmin}
         stats={stats}
@@ -131,7 +134,7 @@ function SalaryView({ fromAdmin = false }: { fromAdmin?: boolean }) {
         onRefreshSalaryData={refreshSalaryData}
         isRefreshing={isRefreshing}
       />
-    </div>
+    </Container>
   );
 }
 

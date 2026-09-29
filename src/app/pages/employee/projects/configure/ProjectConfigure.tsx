@@ -22,7 +22,7 @@ import PaymentStageEditor from "./components/PaymentStageEditor";
 import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "./../../../../../types/deleteConfirmation";
-import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
+import PerOrgPrefixSettings from "@app/modules/common/components/PerOrgPrefixSettings";
 import {
   ChipGrid,
   ConfigPageLayout,
@@ -442,12 +442,18 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
             {/* 1. Project Prefix Settings — Auto-Numbering (TOP PRIORITY) */}
             <ConfigSectionCard
               title="Project Prefix Settings"
-              description="Configure the auto-generated prefix format for new project IDs."
+              description="Set each organization's project prefix. Project numbers run as one continuous series across every organization and do not restart at the fiscal year."
               icon="bi-hash"
               iconColor="amber"
               loading={loading}
             >
-              <PrefixSettingsForm typeLabel="Project" typeValue="PROJECT" />
+              {/*
+                Same screen as Lead and Billing prefixes, with one difference that
+                is real rather than cosmetic: `singleSeries`. Projects share ONE
+                company-wide counter, so there is no per-organization series to
+                link or split and those controls are hidden.
+              */}
+              <PerOrgPrefixSettings typeLabel="Project" typeValue="PROJECT" singleSeries />
             </ConfigSectionCard>
 
             {/* 2. Project Status — Core */}

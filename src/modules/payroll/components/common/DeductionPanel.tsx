@@ -94,6 +94,86 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     );
     const formatAmountOrDash = (amount: number) => (amount === 0 ? '—' : formatMoneyDecimal(amount));
 
+    /**
+     * Phones: a ledger list instead of the 4- and 5-column tables, which scrolled sideways and
+     * left each amount off-screen from its name. Name + code and the amount share the first
+     * line; the second line spells out how the amount was reached.
+     */
+    type PhoneRow = { key: string; name: string; code?: string; amount: string; amountClass: string; how?: string | null; note?: string | null };
+    const renderPhoneList = (rows: PhoneRow[], emptyText: string, totalLabel: string, total: number, codeBadgeClass: string) => (
+        <div className="d-md-none bg-white rounded-3 shadow-sm border border-gray-200 overflow-hidden">
+            {rows.length === 0 ? (
+                <div className="text-center py-8 text-muted fs-7" style={{ borderBottom: '1px dashed #e5e7eb' }}>{emptyText}</div>
+            ) : rows.map((row) => (
+                <div key={row.key} className="px-4 py-3" style={{ borderBottom: '1px dashed #e5e7eb' }}>
+                    <div className="d-flex align-items-start justify-content-between gap-3">
+                        <div className="d-flex align-items-center flex-wrap gap-2" style={{ minWidth: 0 }}>
+                            <span className="text-gray-800 fw-bold fs-7">{row.name}</span>
+                            {row.code && <span className={`badge ${codeBadgeClass} fs-9 fw-bold px-2 py-1`}>{row.code}</span>}
+                        </div>
+                        <span className={`${row.amountClass} fw-bolder fs-7 text-nowrap ${sensitiveCls}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
+                            {row.amount}
+                        </span>
+                    </div>
+                    {(row.how || row.note) && (
+                        <div className={`text-gray-500 fw-semibold fs-8 mt-1 ${sensitiveCls}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
+                            {row.how}
+                            {row.note && <span className="ms-1">{row.note}</span>}
+                        </div>
+                    )}
+                </div>
+            ))}
+            <div className="d-flex align-items-center justify-content-between gap-3 px-4 py-3" style={{ backgroundColor: '#fffbeb' }}>
+                <span className="fw-bolder text-gray-700 fs-7">{totalLabel}</span>
+                <span className={`fw-bolder fs-6 text-danger text-nowrap ${sensitiveCls}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    -{formatMoneyDecimal(total)}
+                </span>
+            </div>
+        </div>
+    );
+
+    const attendancePhoneRows: PhoneRow[] = sortedEntries(variableEntries).map(([key, item]: [string, any]) => {
+        const earned = Number(item.earned || 0);
+        const rate = getVariableRateLabel(key, item);
+        const value = item.value ?? '-';
+        return {
+            key,
+            name: rn(item.name || key),
+            code: rc(item.name || key)?.shortCode,
+            // A credit-direction component is a negative deduction — a payout, not "-₹-65,000".
+            amount: `${earned < 0 ? '+' : '-'}${formatMoneyDecimal(Math.abs(earned))}`,
+            amountClass: earned < 0 ? 'text-success' : 'text-danger',
+            how: rate && rate !== '-' ? `${value} × ${rate}` : String(value),
+        };
+    });
+
+    const governmentPhoneRows: PhoneRow[] = sortedEntries(fixedEntries).map(([key, item]: [string, any]) => {
+        const isPct = String(item.type).toLowerCase() === 'percentage';
+        const rate = isPct ? `${item.value}%` : formatMoneyDecimal(Number(item.value || 0));
+        const extraAmount = Number(item.extraAmount || 0);
+        const calculatedAmount = Number(item.calculatedAmount || 0);
+        const isInactiveWithExtra = item?.isActive === false;
+        const resolvedFixed = rn(item.name || key);
+        const name = resolvedFixed === 'Professional Fees' ? 'Tax Deducted at Source (TDS)' : resolvedFixed;
+        const isTdsRow = name.includes('Tax Deducted at Source');
+        const how = isInactiveWithExtra
+            ? 'Manual extra'
+            : isPct || isTdsRow
+                ? `${rate} of ${formatAmountOrDash(intermediateSalary)}`
+                : `Fixed ${rate}`;
+        return {
+            key,
+            name,
+            code: rc(item.name || key)?.shortCode,
+            amount: `-${formatMoneyDecimal(Math.round(getEffectiveEarned(item)))}`,
+            amountClass: 'text-danger',
+            how,
+            note: !isInactiveWithExtra && extraAmount !== 0 && calculatedAmount !== 0
+                ? formatAdjustmentFormula(calculatedAmount, extraAmount)
+                : null,
+        };
+    });
+
     return (
         <div className="deduction-panel d-flex flex-column flex-grow-1">
             <div className="flex-grow-1">
@@ -103,7 +183,8 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                     <div className="bullet bullet-vertical h-25px bg-danger me-3" style={{ width: '4px' }}></div>
                     <h6 className="fw-bolder text-gray-800 mb-0 fs-5">1. Attendance Adjustments</h6>
                 </div>
-                <div className="table-responsive bg-white rounded-3 shadow-sm border border-gray-200">
+                {renderPhoneList(attendancePhoneRows, 'No variable deductions', 'Total Attendance Adjustments Deductions', totalVariable, 'badge-light-danger')}
+                <div className="table-responsive bg-white rounded-3 shadow-sm border border-gray-200 d-none d-md-block">
                     <table className="table table-row-dashed table-row-gray-200 align-middle gs-6 gy-4 mb-0">
                         <thead>
                             <tr className="text-start text-muted fw-bold fs-8 text-uppercase gs-0">
@@ -236,7 +317,8 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                     <div className="bullet bullet-vertical h-25px bg-danger me-3" style={{ width: '4px' }}></div>
                     <h6 className="fw-bolder text-gray-800 mb-0 fs-5">2. Government & Payroll Deductions</h6>
                 </div>
-                <div className="table-responsive bg-white rounded-3 shadow-sm border border-gray-200">
+                {renderPhoneList(governmentPhoneRows, 'No fixed deductions', 'Total Government & Payroll deductions', totalFixed, 'badge-light-warning')}
+                <div className="table-responsive bg-white rounded-3 shadow-sm border border-gray-200 d-none d-md-block">
                     <table className="table table-row-dashed table-row-gray-200 align-middle gs-6 gy-4 mb-0">
                         <thead>
                             <tr className="text-start text-muted fw-bold fs-8 text-uppercase gs-0">

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DetailCard, DetailSummaryBar, DetailRow, DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
 import { EditableDetailCard, FieldRow, SelectEditor, DateEditor, NumberEditor, TextEditor } from '@app/modules/detail-page/EditableDetailCard';
 import { updateLeadSection, type LeadSectionKey } from '@services/leadService';
@@ -9,7 +9,16 @@ import { EmptyState } from '../widgets';
 import { fmtMoney, fmtDate, DASH, type CommercialTotals } from '../entityViewModel';
 import type { CommercialLineVM, EntityVM } from '../facets';
 import { getCurrencySymbol } from '@utils/currency';
+import { IconButton, Tooltip } from '@mui/material';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
+/** Wrapper for monetary values - blur only the text, not the container */
+const BlurredAmount: React.FC<{ value: string; isBlurred: boolean }> = ({ value, isBlurred }) => (
+  <span style={isBlurred ? { filter: 'blur(5px)', userSelect: 'none', display: 'inline-block' } : {}}>
+    {value}
+  </span>
+);
 
 const Td: React.FC<{ children?: React.ReactNode; strong?: boolean }> = ({ children, strong }) => (
   <td style={{ padding: '11px 12px', borderBottom: '1px solid #F4F6F9', fontSize: 13, color: strong ? '#1E293B' : '#475569', fontWeight: strong ? 700 : 500, whiteSpace: 'nowrap' }}>
@@ -17,13 +26,14 @@ const Td: React.FC<{ children?: React.ReactNode; strong?: boolean }> = ({ childr
   </td>
 );
 
-const Breakdown: React.FC<{ title: string; subtitle: string; icon: string; accent: any; lines: CommercialLineVM[]; totals: CommercialTotals }> = ({
+const Breakdown: React.FC<{ title: string; subtitle: string; icon: string; accent: any; lines: CommercialLineVM[]; totals: CommercialTotals; isBlurred: boolean }> = ({
   title,
   subtitle,
   icon,
   accent,
   lines,
   totals,
+  isBlurred,
 }) => (
   <DetailCard title={title} subtitle={subtitle} icon={icon} accentColor={accent}>
     {lines.length === 0 ? (
@@ -47,8 +57,8 @@ const Breakdown: React.FC<{ title: string; subtitle: string; icon: string; accen
                 <Td strong>{c.label}</Td>
                 <Td>{c.area}</Td>
                 <Td>{c.costType}</Td>
-                <Td>{c.costType === 'RATE' ? fmtMoney(c.rate) : DASH}</Td>
-                <Td strong>{fmtMoney(c.cost)}</Td>
+                <Td>{c.costType === 'RATE' ? <BlurredAmount value={fmtMoney(c.rate)} isBlurred={isBlurred} /> : DASH}</Td>
+                <Td strong><BlurredAmount value={fmtMoney(c.cost)} isBlurred={isBlurred} /></Td>
               </tr>
             ))}
             <tr>
@@ -57,7 +67,7 @@ const Breakdown: React.FC<{ title: string; subtitle: string; icon: string; accen
               <Td strong>{totals.totalArea ? totals.totalArea.toLocaleString('en-IN') : DASH}</Td>
               <Td />
               <Td />
-              <Td strong>{fmtMoney(totals.totalCost)}</Td>
+              <Td strong><BlurredAmount value={fmtMoney(totals.totalCost)} isBlurred={isBlurred} /></Td>
             </tr>
           </tbody>
         </table>
@@ -73,6 +83,8 @@ const Breakdown: React.FC<{ title: string; subtitle: string; icon: string; accen
  */
 const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawLead }) => {
   const poStatusOptions = usePoStatusOptions();
+  const [isBlurred, setIsBlurred] = useState(true);
+
   const lead = vm.commercials.lead;
   const project = vm.commercials.project;
   const contractValue = project?.totals.totalCost || lead.totals.totalCost;
@@ -90,15 +102,27 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
     });
 
   return (
-    <div>
+    <div style={{ position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 0, right: 0, zIndex: 10 }}>
+        <Tooltip title={isBlurred ? 'Click to reveal amounts' : 'Click to hide amounts'}>
+          <IconButton
+            size="small"
+            onClick={() => setIsBlurred(!isBlurred)}
+            sx={{ color: isBlurred ? 'text.secondary' : 'primary.main' }}
+          >
+            {isBlurred ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+          </IconButton>
+        </Tooltip>
+      </div>
+
       <DetailSummaryBar
         items={[
-          { label: project ? 'Contract Value' : 'Estimated Value', value: fmtMoney(contractValue), icon: 'bi bi-currency-rupee', accentColor: 'green' },
+          { label: project ? 'Contract Value' : 'Estimated Value', value: isBlurred ? '●●●●●' : fmtMoney(contractValue), icon: 'bi bi-currency-rupee', accentColor: 'green' },
           { label: 'Total Area', value: contractArea ? `${contractArea.toLocaleString('en-IN')} sqft` : DASH, icon: 'bi bi-rulers', accentColor: 'teal' },
-          { label: 'Quoted (Lead)', value: fmtMoney(lead.totals.totalCost), icon: 'bi bi-tag', accentColor: 'blue' },
+          { label: 'Quoted (Lead)', value: isBlurred ? '●●●●●' : fmtMoney(lead.totals.totalCost), icon: 'bi bi-tag', accentColor: 'blue' },
           // Rounding to the rupee hid the real rate: 22,50,000 over 23,399 sqft read
           // as 96, not 96.16. Two decimals; a whole number renders without any.
-          { label: 'Avg / sqft', value: contractArea ? fmtMoney(+(contractValue / contractArea).toFixed(2)) : DASH, icon: 'bi bi-graph-up', accentColor: 'purple' },
+          { label: 'Avg / sqft', value: contractArea ? (isBlurred ? '●●●●●' : fmtMoney(+(contractValue / contractArea).toFixed(2))) : DASH, icon: 'bi bi-graph-up', accentColor: 'purple' },
         ]}
       />
 
@@ -110,6 +134,7 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
           accent="blue"
           lines={lead.lines}
           totals={lead.totals}
+          isBlurred={isBlurred}
         />
         {project && (
           <Breakdown
@@ -119,6 +144,7 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
             accent="green"
             lines={project.lines}
             totals={project.totals}
+            isBlurred={isBlurred}
           />
         )}
 
@@ -142,8 +168,8 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
                     </>
                   ) : (
                     <>
-                      <DetailRow label="Contract Rate" value={fmtMoney(ex.rate)} />
-                      <DetailRow label="Final Cost" value={fmtMoney(ex.cost)} isLast />
+                      <DetailRow label="Contract Rate" value={<BlurredAmount value={fmtMoney(ex.rate)} isBlurred={isBlurred} />} />
+                      <DetailRow label="Final Cost" isLast value={<BlurredAmount value={fmtMoney(ex.cost)} isBlurred={isBlurred} />} />
                     </>
                   )
                 )}

@@ -874,6 +874,53 @@ body {
   }
 }
 
+/* Mobile menu (hamburger) — same 38px size, white fill and hairline border as the header's
+   action chips on the right, but a rounded SQUARE rather than a circle: it opens the
+   navigation, which is a different kind of control from search / theme / notifications. */
+.wt-menu-toggle {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 12px !important;
+  border: 1px solid var(--wt-line) !important;
+  background: #ffffff !important;
+  color: #1e293b;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
+  cursor: pointer;
+  transition: background 0.18s var(--wt-ease), color 0.18s var(--wt-ease),
+    border-color 0.18s var(--wt-ease);
+}
+
+.wt-menu-toggle:hover,
+.wt-menu-toggle:active {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #1e3a8a;
+}
+
+.wt-menu-toggle:focus-visible {
+  outline: 2px solid #1e3a8a;
+  outline-offset: 2px;
+}
+
+[data-bs-theme="dark"] .wt-menu-toggle {
+  background: #161b22 !important;
+  border-color: #30363d !important;
+  color: #e6edf3;
+}
+
+[data-bs-theme="dark"] .wt-menu-toggle:hover {
+  background: #21262d !important;
+  color: #8aa3ec;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wt-menu-toggle { transition: none; }
+}
+
 /* Floating collapse / expand toggle on the sidebar edge */
 .wt-aside-toggle {
   position: absolute;
@@ -1300,6 +1347,12 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
     padding: 0 !important;
   }
 
+  /* HeaderWrapper makes .header-brand position-relative, so the masthead scrolls rather
+     than being fixed — Metronic's fixed-header offset on .wrapper was a dead band above it. */
+  .header-tablet-and-mobile-fixed .wrapper {
+    padding-top: 0 !important;
+  }
+
   /* The mobile row wrapper: give it breathing room and a consistent height. */
   .header .header-brand>.d-flex.w-100 {
     height: 54px !important;
@@ -1613,3 +1666,69 @@ body[data-workspace-shell='true'] {
     display: block !important;
   }
 }
+
+/* =============================================================================
+   SCROLL TO TOP FLOATING BUTTON — Blue (Default) and White (Hover) Theme
+   ========================================================================== */
+.scrolltop {
+  background-color: #1E3A8A !important;
+  color: #ffffff !important;
+  border: 1px solid #1E3A8A !important;
+  box-shadow: 0 4px 14px rgba(30, 58, 138, 0.28), 0 1px 3px rgba(15, 23, 42, 0.08) !important;
+  border-radius: 10px !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease !important;
+}
+
+.scrolltop i,
+.scrolltop .svg-icon,
+.scrolltop i.ki-outline,
+.scrolltop i.ki-duotone,
+.scrolltop i.ki-solid {
+  color: #ffffff !important;
+  transition: color 0.2s ease !important;
+}
+
+.scrolltop:hover {
+  background-color: #ffffff !important;
+  border-color: #1E3A8A !important;
+  color: #1E3A8A !important;
+  box-shadow: 0 6px 20px rgba(30, 58, 138, 0.32), 0 2px 6px rgba(30, 58, 138, 0.18) !important;
+  transform: translateY(-2px);
+}
+
+.scrolltop:hover i,
+.scrolltop:hover .svg-icon,
+.scrolltop:hover i.ki-outline,
+.scrolltop:hover i.ki-duotone,
+.scrolltop:hover i.ki-solid {
+  color: #1E3A8A !important;
+}
+
+[data-bs-theme="dark"] .scrolltop {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-bs-theme="dark"] .scrolltop i,
+[data-bs-theme="dark"] .scrolltop .svg-icon,
+[data-bs-theme="dark"] .scrolltop i.ki-outline,
+[data-bs-theme="dark"] .scrolltop i.ki-duotone,
+[data-bs-theme="dark"] .scrolltop i.ki-solid {
+  color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .scrolltop:hover {
+  background-color: #1e293b !important;
+  border-color: #38bdf8 !important;
+}
+
+[data-bs-theme="dark"] .scrolltop:hover i,
+[data-bs-theme="dark"] .scrolltop:hover .svg-icon,
+[data-bs-theme="dark"] .scrolltop:hover i.ki-outline,
+[data-bs-theme="dark"] .scrolltop:hover i.ki-duotone,
+[data-bs-theme="dark"] .scrolltop:hover i.ki-solid {
+  color: #38bdf8 !important;
+}
+

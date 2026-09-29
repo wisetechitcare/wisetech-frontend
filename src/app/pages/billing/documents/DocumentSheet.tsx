@@ -90,7 +90,14 @@ const DocumentSheet: React.FC<DocumentSheetProps> = ({ html, editable, zoom = nu
         p: { xs: 1, md: 2.5 },
       }}
     >
-      <Box sx={{ height: height || undefined, minWidth: A4_PX * scale }}>
+      {/*
+        Centred, not pinned left. The scaled sheet is narrower than the desk at
+        every zoom below Fit, and left-aligning it left a dead column the width of
+        a second page. `mx: auto` is safe inside the scrolling frame: margin auto
+        only claims space that is actually free, so at 125% on a narrow panel it
+        resolves to zero and the sheet scrolls instead of being clipped.
+      */}
+      <Box sx={{ height: height || undefined, width: A4_PX * scale, mx: "auto" }}>
         <Box
           ref={sheetRef}
           // The document's own stylesheet ships inside this HTML and is scoped to

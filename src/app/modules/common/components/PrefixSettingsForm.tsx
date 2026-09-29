@@ -8,6 +8,7 @@ import { fetchAllPrefixSettings, createPrefixSetting, updatePrefixSetting } from
 import { fetchCompanyOverview } from '@services/company';
 import { successConfirmation } from '@utils/modal';
 import Flatpickr from "react-flatpickr";
+import { canonicalFiscalYear } from '@utils/fiscalYearSegment';
 
 // Format a Date object to "YYYY-MM-DD" — used when storing fiscal year range in the DB.
 // We do NOT use Intl.DateTimeFormat here because en-IN locale produces "DD/MM/YYYY"
@@ -39,6 +40,19 @@ export interface PrefixSetting {
   year: string;
   prefix: string;
   identifier: string;
+  /**
+   * How the year is PRINTED in this series' numbers — a `FiscalYearFormat`.
+   * null/absent means "YY-YY", what every number rendered before the shape was
+   * configurable. Display only: the server keys its counter on the canonical
+   * form, so changing this never renumbers anything.
+   */
+  yearFormat?: string | null;
+  /**
+   * How wide the running number is zero-padded — the `001` in
+   * WT/OFFER/26-27/001. null/absent means what this series has always used, which
+   * DIFFERS per identifier (see `DEFAULT_SEQUENCE_PAD`). Display only.
+   */
+  numberPad?: number | null;
   /** null on the global/default row; set on an organization's own row. */
   organizationId?: string | null;
   /**
@@ -86,43 +100,17 @@ const parseDateString = (str: string): Date => {
   return new Date(trimmed);
 };
 
-// Utility function: Convert full fiscal year date range to year format for display
-export const convertFiscalYearToYearFormat = (fiscalYear: string) => {
-  if (!fiscalYear) return '';
-
-  if (fiscalYear.includes(' to ')) {
-    // Supports both "2026-04-01 to 2027-03-31" (correct) and
-    // "01/04/2026 to 31/03/2027" (legacy en-IN bug) formats
-    const [startPart, endPart] = fiscalYear.split(' to ');
-    const startYear = parseDateString(startPart).getFullYear();
-    const endYear = parseDateString(endPart).getFullYear();
-
-    // Guard: if either date is invalid, return as-is
-    if (isNaN(startYear) || isNaN(endYear)) return fiscalYear;
-
-    if (startYear === endYear) {
-      // Same year: return last 2 digits only
-      return startYear.toString().slice(-2);
-    }
-
-    // Different years: return both years in short format (26-27)
-    const shortStartYear = startYear.toString().slice(-2);
-    const shortEndYear = endYear.toString().slice(-2);
-    return `${shortStartYear}-${shortEndYear}`;
-  }
-
-  // Already in short format like "2026-27" or "26-27"
-  // If it's "2026-27", convert to "26-27"
-  if (fiscalYear.includes('-')) {
-    const [start, end] = fiscalYear.split('-');
-    if (start.length === 4) {
-      // "2026-27" format, convert to "26-27"
-      return `${start.slice(-2)}-${end}`;
-    }
-  }
-  
-  return fiscalYear;
-};
+/**
+ * The short year segment for a stored fiscal-year string.
+ *
+ * Kept as a named export because three other modules import it from here, but the
+ * parsing now lives in `@utils/fiscalYearSegment` — ONE implementation, shared with
+ * the Lead/Project/Bill prefix screens and algorithmically identical to the
+ * backend's. It renders the canonical "26-27"; a caller that wants the shape an
+ * admin configured passes that row's `yearFormat` to `formatFiscalYearSegment`.
+ */
+export const convertFiscalYearToYearFormat = (fiscalYear: string) =>
+  canonicalFiscalYear(fiscalYear);
 
 // Convert fiscal year date range to date objects for Flatpickr
 export const convertFiscalYearToDates = (fiscalYear: string): Date[] => {

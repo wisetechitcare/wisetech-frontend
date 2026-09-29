@@ -78,32 +78,43 @@ const AnalyticsTabs: React.FC<Props> = ({
         display: "flex",
         gap: 4,
         overflowX: "auto",
+        // The overflow is a last resort, never a visible scrollbar: on phones the old thumb drew
+        // a thick blue bar under the tabs that read as a broken underline.
+        scrollbarWidth: "none",
         padding: 4,
         background: "#EEF2F7",
         borderRadius: 12,
         width: isMobile ? "100%" : undefined,
         maxWidth: "100%",
+        boxSizing: "border-box",
       }}
     >
       {visibleTabs.map((t) => {
         const isActive = t.id === active?.id;
         const accent = t.accent || "#1E3A8A";
+        // Phones: the same grammar as the module tab bar — every tab an icon, the selected one
+        // also named. Four labelled tabs ("Services & Insights") cannot share ~300px.
+        const iconOnly = isMobile && !isActive && !!t.icon;
         return (
           <button
             key={t.id}
             role="tab"
             aria-selected={isActive}
+            aria-label={t.label}
+            title={iconOnly ? t.label : undefined}
             onClick={() => select(t.id)}
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: 7,
-              flex: isMobile ? "1 1 0" : "0 0 auto",
+              flex: isMobile ? (iconOnly ? "0 0 40px" : "1 1 auto") : "0 0 auto",
+              minWidth: 0,
+              height: 34,
               whiteSpace: "nowrap",
               border: "none",
               cursor: "pointer",
-              padding: "7px 14px",
+              padding: iconOnly ? 0 : "0 14px",
               borderRadius: 9,
               fontFamily: "Inter, sans-serif",
               fontWeight: 600,
@@ -117,7 +128,9 @@ const AnalyticsTabs: React.FC<Props> = ({
             {t.icon && (
               <AppIcon name={t.icon} className="fs-6" color={isActive ? accent : "#94A3B8"} />
             )}
-            {t.label}
+            {!iconOnly && (
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{t.label}</span>
+            )}
           </button>
         );
       })}

@@ -101,7 +101,7 @@ const PeriodTabs = ({
                 // wrap when the line is full. `1` alone forced equal shares on one line, which
                 // is what squeezed the labels. On desktop tabs still hug their label.
                 flex: isMobile ? '1 0 auto' : 'none',
-                px: isMobile ? 1.25 : 1.75,
+                px: 1.25,
                 py: 0,
                 // Unselected tabs sit on the lightest grey so the white selected tab stands out.
                 backgroundColor: dark ? 'transparent' : '#F8FAFC',
