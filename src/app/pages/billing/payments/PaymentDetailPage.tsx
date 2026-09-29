@@ -80,7 +80,7 @@ const PaymentDetailPage: React.FC = () => {
   /**
    * Find-or-create the tax invoice for this collection and go straight to its
    * editor — the same pattern the Accounts Queue uses for Generate Proforma.
-   * The server refuses this before the collection is fully paid and verified
+   * The server refuses this before the client has accepted the proforma
    * (`resolveTaxInvoice`'s gate); the button below is disabled for the same
    * reason so the refusal is rare, not the normal path.
    */
@@ -107,7 +107,6 @@ const PaymentDetailPage: React.FC = () => {
         action={
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
             <BillingStatusBadge status={collection.paymentStatus} dense={false} />
-            <BillingStatusBadge status={collection.verificationStatus} dense={false} />
             {data.readyForInvoice && <ToneChip tone="success" label="Ready for Invoice" dense={false} />}
             <WtButton
               ghost size="small"
@@ -361,8 +360,8 @@ const PaymentDetailPage: React.FC = () => {
             <PanelTitle icon="receipt-cutoff" title="Tax Invoice" />
             <Typography sx={{ fontSize: 12, color: "text.secondary", mb: data.readyForInvoice ? 1.25 : 0 }}>
               {data.readyForInvoice
-                ? "This collection is fully paid and verified — ready for invoicing."
-                : "Invoicing unlocks once the collection is Fully Paid AND Verified."}
+                ? "The client has accepted the proforma — ready for invoicing."
+                : "Invoicing unlocks once the client accepts the proforma."}
             </Typography>
             {data.readyForInvoice && (
               <WtButton

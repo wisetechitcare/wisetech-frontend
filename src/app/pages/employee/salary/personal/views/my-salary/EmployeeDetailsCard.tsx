@@ -72,8 +72,10 @@ const EmployeeMetricCard = ({ label, value, icon, tone, isSensitive, showSensiti
         <Paper
             elevation={0}
             sx={{
-                height: { xs: 76, md: 80 },
-                p: { xs: '12px 13px', md: '13px 14px' },
+                // Phones: sized to content. A fixed 76px plus a reserved second value line left
+                // an empty band under every one-line figure.
+                height: { xs: 'auto', md: 80 },
+                p: { xs: '10px 11px', md: '13px 14px' },
                 borderRadius: '16px',
                 background: 'linear-gradient(180deg, #ffffff 0%, #fcfdff 100%)',
                 border: '1px solid #e9eef5',
@@ -88,12 +90,12 @@ const EmployeeMetricCard = ({ label, value, icon, tone, isSensitive, showSensiti
                 },
             }}
         >
-            <Stack direction="row" alignItems="flex-start" spacing={1.5} sx={{ width: '100%', minWidth: 0 }}>
+            <Stack direction="row" alignItems={{ xs: 'center', md: 'flex-start' }} spacing={{ xs: 1, md: 1.5 }} sx={{ width: '100%', minWidth: 0 }}>
                 <Box
                     sx={{
-                        width: 38,
-                        height: 38,
-                        flex: '0 0 38px',
+                        width: { xs: 32, md: 38 },
+                        height: { xs: 32, md: 38 },
+                        flex: { xs: '0 0 32px', md: '0 0 38px' },
                         borderRadius: '11px',
                         display: 'grid',
                         placeItems: 'center',
@@ -136,15 +138,17 @@ const EmployeeMetricCard = ({ label, value, icon, tone, isSensitive, showSensiti
                             WebkitLineClamp: 2,
                             WebkitBoxOrient: 'vertical',
                             overflow: 'hidden',
-                            minHeight: '38px',
+                            minHeight: { xs: 0, md: '38px' },
                             ...valueStyle,
                         }}
                     >
+                        {/* A break only BETWEEN lines. One after every line gave each single-line
+                            figure an invisible empty second line — the blank band under the value. */}
                         {typeof value === 'string'
-                            ? value.split('\n').map((line, index) => (
+                            ? value.split('\n').map((line, index, lines) => (
                                 <span key={index}>
                                     {line}
-                                    <br />
+                                    {index < lines.length - 1 && <br />}
                                 </span>
                             ))
                             : value}
@@ -225,7 +229,7 @@ const EmployeeProfileCard = ({
         elevation={0}
         sx={{
             height: '100%',
-            p: { xs: 1.5, md: 1.75 },
+            p: { xs: 1.25, md: 1.75 },
             borderRadius: '16px',
             background: 'linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)',
             border: '1px solid #e9eef5',
@@ -234,26 +238,31 @@ const EmployeeProfileCard = ({
             flexDirection: 'column',
         }}
     >
-        <Stack direction="row" spacing={{ xs: 1.5, md: 2 }} sx={{ mb: 1 }}>
+        <Stack direction="row" spacing={{ xs: 1.25, md: 2 }} sx={{ mb: { xs: 0, sm: 1 } }}>
             <Avatar
                 src={avatar}
                 alt={name}
                 sx={{
-                    width: { xs: 68, md: 74 },
-                    height: { xs: 68, md: 74 },
+                    // Phones: the photo spans the full height of the details beside it, so there is
+                    // no empty band under a short square. `cover` crops rather than stretching.
+                    width: { xs: 84, md: 74 },
+                    height: { xs: 'auto', md: 74 },
+                    minHeight: { xs: 84, md: 74 },
+                    alignSelf: { xs: 'stretch', md: 'flex-start' },
                     borderRadius: '16px',
                     boxShadow: '0 6px 12px rgba(15, 23, 42, 0.08)',
                     backgroundColor: '#f8fafc',
                     border: '1px solid #e2e8f0',
                     flex: '0 0 auto',
                     '& .MuiAvatar-img': {
-                        objectFit: 'fill',
+                        objectFit: { xs: 'cover', md: 'fill' },
+                        objectPosition: 'top center',
                     }
                 }}
             />
 
             <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Stack direction="row" alignItems="flex-start" justifyContent="space-between" gap={1} mb={0.45}>
+                <Stack direction="row" alignItems="flex-start" justifyContent="space-between" gap={1} mb={{ xs: 0.25, md: 0.45 }}>
                     <Box sx={{ minWidth: 0 }}>
                         <Tooltip title={name} arrow placement="top">
                             <Typography
@@ -270,7 +279,7 @@ const EmployeeProfileCard = ({
                                 {name}
                             </Typography>
                         </Tooltip>
-                        <Typography sx={{ color: '#64748b', fontSize: '0.78rem', fontWeight: 700, mt: 0.35 }}>
+                        <Typography sx={{ color: '#64748b', fontSize: '0.78rem', fontWeight: 700, mt: { xs: 0.15, md: 0.35 } }}>
                             {employeeCode || '-'}
                         </Typography>
                     </Box>
@@ -280,7 +289,27 @@ const EmployeeProfileCard = ({
                     {phone || '-'}
                 </Typography>
 
-                <Stack direction="row" spacing={0.6} sx={{ mt: 0.75, flexWrap: 'wrap', gap: 0.6 }}>
+                {/* Phones: contact details sit in this column, beside the photo. As a separate
+                    bordered row underneath, they left the space right of the name empty and added
+                    a whole band of height for one line of text. */}
+                {email && (
+                    <Stack direction="row" alignItems="center" gap={0.6} sx={{ display: { xs: 'flex', sm: 'none' }, mt: 0.4, minWidth: 0, color: '#64748b' }}>
+                        <EmailOutlinedIcon sx={{ fontSize: '14px', flexShrink: 0 }} />
+                        <Typography sx={{ minWidth: 0, fontSize: '0.76rem', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {email}
+                        </Typography>
+                    </Stack>
+                )}
+                {location && (
+                    <Stack direction="row" alignItems="center" gap={0.6} sx={{ display: { xs: 'flex', sm: 'none' }, mt: 0.3, minWidth: 0, color: '#64748b' }}>
+                        <LocationOnOutlinedIcon sx={{ fontSize: '14px', flexShrink: 0 }} />
+                        <Typography sx={{ minWidth: 0, fontSize: '0.76rem', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {location}
+                        </Typography>
+                    </Stack>
+                )}
+
+                <Stack direction="row" spacing={0.6} sx={{ mt: { xs: 0.5, md: 0.75 }, flexWrap: 'wrap', gap: 0.6 }}>
                     <Chip
                         label={hasProfessionalFees ? "CONTRACT BASED" : "SALARY BASED"}
                         size="small"
@@ -321,12 +350,13 @@ const EmployeeProfileCard = ({
             </Box>
         </Stack>
 
+        {/* Tablet and up only — on phones these lines live in the column beside the photo. */}
         <Box
             sx={{
                 mt: 1.4,
                 pt: 1.25,
                 borderTop: '1px solid #edf2f7',
-                display: 'grid',
+                display: (email || location) ? { xs: 'none', sm: 'grid' } : 'none',
                 gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: '1fr' },
                 gap: 0.85,
             }}
@@ -533,11 +563,11 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     ];
 
     return (
-        <Box className="employee-details-card" sx={{ width: '100%' }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.25 }}>
-                <Typography className="font-barlow" sx={{ color: '#0f172a', fontSize: { xs: 20, md: 22 }, fontWeight: 800, lineHeight: 1.2 }}>
-                    Employee Details
-                </Typography>
+        <Box className="employee-details-card" sx={{ width: '100%', mb: { xs: 0.5, sm: 2 } }}>
+            {/* My Salary's eye lives in the sticky tab bar (Salary.tsx). The admin view opens in a
+                dialog that covers that bar, so it keeps its own eye here. Both flip one state. */}
+            {fromAdmin && (
+            <Stack direction="row" justifyContent="flex-end" alignItems="center" sx={{ mb: 1.25 }}>
                 <Box
                     sx={{
                         width: 36,
@@ -568,6 +598,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
                     />
                 </Box>
             </Stack>
+            )}
 
             {!employee ? (
                 <EmployeeDetailsSkeleton />
@@ -576,7 +607,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
                     elevation={0}
                     sx={{
                         width: '100%',
-                        p: { xs: 1, md: 1.25 },
+                        p: { xs: 0.75, md: 1.25 },
                         borderRadius: '20px',
                         background: 'linear-gradient(180deg, #fbfdff 0%, #f8fbff 100%)',
                         border: '1px solid #e2e8f0',
@@ -591,7 +622,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
                                 md: '1fr',
                                 lg: '280px minmax(0, 1fr)',
                             },
-                            gap: 1.25,
+                            gap: { xs: 1, md: 1.25 },
                             alignItems: 'start',
                         }}
                     >
@@ -614,8 +645,8 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
                                     lg: 'repeat(2, minmax(0, 1fr))',
                                     xl: 'repeat(4, minmax(0, 1fr))',
                                 },
-                                gap: 1.25,
-                                gridAutoRows: { xs: '76px', md: '80px' },
+                                gap: { xs: 1, md: 1.25 },
+                                gridAutoRows: { xs: 'auto', md: '80px' },
                                 alignContent: 'start',
                                 alignItems: 'stretch',
                             }}

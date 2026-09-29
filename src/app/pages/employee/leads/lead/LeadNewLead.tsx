@@ -52,9 +52,8 @@ import eventBus from "@utils/EventBus";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
-import ChartVisibilitySettings from "@pages/company/settings/ChartVisibilitySettings";
+import ChartVisibilityModal from "@pages/company/settings/ChartVisibilityModal";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
-import { Modal } from "react-bootstrap";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -2127,44 +2126,11 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         />
       )}
 
-      <Modal
+      <ChartVisibilityModal
         show={showChartSettingsModal}
         onHide={handleCloseChartSettingsModal}
-        size="xl"
-        centered
-        className="responsive-modal"
-      >
-        <Modal.Body
-          style={{
-            backgroundColor: "white",
-            padding: "20px",
-            borderRadius: "8px",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
-            }}
-          >
-            <span
-              style={{
-                fontFamily: "Inter",
-                fontWeight: 600,
-                fontSize: "18px",
-                color: "#333",
-              }}
-            >
-              Customize Cards Visibility
-            </span>
-            <ChartVisibilitySettings
-              type={PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD}
-            />
-          </div>
-        </Modal.Body>
-      </Modal>
+        type={PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD}
+      />
 
       {/* Bulk Import Modal from file 2 */}
       <LeadBulkImport

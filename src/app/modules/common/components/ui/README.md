@@ -323,6 +323,7 @@ genuinely differ in binding and layout:
 | Formik form field | `DropdownInput` | `WtSelect` |
 | Standalone / redux-bound | `SelectInput` | `WtSelect` |
 | Country / state field | `LocationDropdown` | `WtSelect` |
+| Address from a map pin | `SmartLocationPicker` (one level up in `components/`, docs in `SmartLocationPicker.md`) | Leaflet + Nominatim |
 | Reimbursement type field | `ReimbursementDropdown` | `WtSelect` |
 | Toolbar filter | `ToolbarFilterSelect` | **MUI `Select`** — see below |
 

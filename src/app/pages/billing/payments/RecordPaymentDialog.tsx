@@ -9,6 +9,7 @@ import dayjs from "dayjs";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { DATE_FORMATS } from "@utils/dateFormats";
 import { recordPayment, uploadAttachments, type ClientPaymentMethod } from "@services/payments";
+import { recordBillPayment } from "@services/bills";
 import { METHOD_FIELDS, PAYMENT_METHOD_OPTIONS } from "./paymentUi";
 
 /**
@@ -26,6 +27,14 @@ export interface RecordPaymentDialogProps {
   operationId: string;
   operationNumber: string;
   outstandingAmount: number;
+  /**
+   * Which collection this belongs to.
+   *
+   * An OPERATION collects through `payment_transactions`, a BILL through
+   * `bill_payments` — two tables, each owning its own money. The form is
+   * identical either way, so the difference is one call, not one dialog each.
+   */
+  source?: "OPERATION" | "BILL";
 }
 
 const emptyForm = {
@@ -35,7 +44,7 @@ const emptyForm = {
 };
 
 const RecordPaymentDialog: React.FC<RecordPaymentDialogProps> = ({
-  open, onClose, operationId, operationNumber, outstandingAmount,
+  open, onClose, operationId, operationNumber, outstandingAmount, source = "OPERATION",
 }) => {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyForm);
@@ -51,6 +60,22 @@ const RecordPaymentDialog: React.FC<RecordPaymentDialogProps> = ({
 
   const record = useMutation({
     mutationFn: async () => {
+      if (source === "BILL") {
+        // Bills take a narrower receipt: amount, date, method and a reference.
+        // Attachments and the overpayment flag belong to the operation path,
+        // which is the one that carries a verification trail per receipt.
+        return recordBillPayment(operationId, {
+          amount,
+          paymentDate: form.paymentDate,
+          // A bill's receipt names the field `reference`, and its method list is
+          // the bill module's own — hence the cast rather than a shared type.
+          method: form.method as never,
+          reference: form.referenceNumber || form.utrNumber || form.transactionNumber || null,
+          bankName: form.bankName || null,
+          remarks: form.remarks || null,
+        });
+      }
+
       const result = await recordPayment(operationId, {
         amount,
         paymentDate: form.paymentDate,

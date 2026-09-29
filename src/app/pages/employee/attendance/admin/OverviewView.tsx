@@ -354,8 +354,8 @@ function OverviewView() {
 
   return (
     <>
-      <div className="sticky-overview-header d-flex flex-row justify-content-between align-items-center flex-wrap gap-3 mb-4">
-        <h3 className="fw-bold fs-1 mb-0 font-barlow">Overview</h3>
+      {/* No page title here: the tab bar and breadcrumb already say "Overview". */}
+      <div className="sticky-overview-header d-flex flex-row justify-content-end align-items-center flex-wrap gap-3 mb-4">
         {/* Period filter (Daily / Weekly / Monthly) with day+date label in daily mode.
             Yearly / All-Time are future scope, so they're hidden via allowedModes. */}
         <PeriodFilter

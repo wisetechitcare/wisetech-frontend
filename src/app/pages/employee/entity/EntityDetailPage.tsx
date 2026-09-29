@@ -28,7 +28,6 @@ import DocumentsTab from './detail/sections/DocumentsTab';
 import AuditSection from './detail/sections/AuditSection';
 import TeamsSection from './detail/sections/TeamsSection';
 import BillingSection from './detail/sections/BillingSection';
-import ExecutionSection from './detail/sections/ExecutionSection';
 import ProjectMeetings from './detail/sections/ProjectMeetings';
 import ProjectStatusControl from './detail/ProjectStatusControl';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -212,9 +211,6 @@ const EntityDetailPage: React.FC = () => {
             view={activeTab}
           />
         );
-      // Lead-as-master: execution stages hang off the LEAD id, same as tasks/timesheets.
-      case 'execution':
-        return <ExecutionSection projectId={lead.id} />;
       case 'tasks':
         return <TasksTab lead={lead} projectId={projectId} />;
       case 'timesheet':

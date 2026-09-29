@@ -217,6 +217,8 @@ export interface ProjectOverviewRow {
   leadId: string;
   projectNumber: string | null;
   projectName: string | null;
+  /** The client this project is for (the lead's company). */
+  clientName: string | null;
   handledByName: string | null;
   projectStartDate: string | null;
   projectStatus: { name: string; color: string | null } | null;
@@ -261,7 +263,7 @@ export interface ProjectOverviewRow {
 }
 
 export type ProjectOverviewSort =
-  | "projectNumber" | "projectName" | "poValue" | "receivedAmount"
+  | "projectNumber" | "projectName" | "clientName" | "poValue" | "receivedAmount"
   | "pendingAmount" | "lastPaymentAt" | "nextFollowUpDate";
 
 export interface ProjectOverviewParams {

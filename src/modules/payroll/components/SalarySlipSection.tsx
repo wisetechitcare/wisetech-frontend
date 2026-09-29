@@ -291,7 +291,8 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
             style={{
                 pointerEvents: 'auto',
                 filter: 'none',
-                gap: '2px',
+                // 8px between the actions: at 2px the two buttons read as one fused control.
+                gap: '8px',
                 // Full width and shared on a phone; hugging the right on desktop, where the
                 // breakdown below is the content and these are secondary actions.
                 justifyContent: isNarrow ? 'stretch' : 'flex-end',

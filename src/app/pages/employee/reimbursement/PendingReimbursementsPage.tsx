@@ -18,7 +18,6 @@ import {
 } from '@services/employee';
 import { uploadUserAsset } from '@services/uploader';
 import ReimbursementKpiRow from './components/ReimbursementKpiRow';
-import PrivacyToggle from '@app/modules/common/components/PrivacyToggle';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { TOOLBAR_ROW, lightToolbarButton } from './utils/toolbarButton';
 import { Button } from '@mui/material';
@@ -261,28 +260,6 @@ export function EmployeeDetailsSection({
 
   return (
     <Box sx={{ width: '100%', mb: 4 }}>
-      {/* The eye sits with the heading, where salary puts it — one switch for every figure
-          below it, so a total is not readable over a shoulder in an open-plan office. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25 }}>
-        <Typography className="font-barlow" sx={{ color: '#0f172a', fontSize: { xs: 20, md: 22 }, fontWeight: 800, lineHeight: 1.2 }}>
-          Employee Details
-        </Typography>
-        <Box
-          sx={{
-            ml: 'auto',
-            width: 32, height: 32, borderRadius: '50%', display: 'grid', placeItems: 'center',
-            color: '#64748b', bgcolor: '#f1f5f9', transition: 'background-color 200ms',
-            '&:hover': { bgcolor: '#e2e8f0' },
-            '& .privacy-toggle': {
-              width: 30, height: 30, cursor: 'pointer',
-              display: 'grid', placeItems: 'center', borderRadius: '50%',
-            },
-          }}
-        >
-          <PrivacyToggle isVisible={sensitive.visible} onToggle={sensitive.toggle} color="#64748b" />
-        </Box>
-      </Box>
-
       {!employee ? (
         <EmployeeDetailsSkeleton />
       ) : (

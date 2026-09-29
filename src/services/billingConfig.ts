@@ -75,3 +75,68 @@ export const resetBillingStatusLabel = async (code: string): Promise<BillingLabe
   });
   return unwrap(data);
 };
+
+// ─── tax rates ───────────────────────────────────────────────────────────────
+//
+// Unlike the labels above, these ARE rows: GST and TDS rates change by law and by
+// the service being billed, so the list gets New and Delete. What it does not get
+// is retroactive effect — every bill snapshots the rate it was raised with, so
+// correcting a slab here fixes the next bill and never restates an issued one.
+
+export interface TaxRateRow {
+  id: string;
+  name: string;
+  /** Percent, not a fraction: 18 means 18%. */
+  rate: number;
+  /** TDS only — the section of the Income Tax Act, e.g. "194J". */
+  section?: string;
+  isDefault: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  /** How many bills were raised on this rate. Non-zero means it cannot be deleted. */
+  billCount: number;
+}
+
+export interface BillingTaxConfig {
+  gstSlabs: TaxRateRow[];
+  tdsSections: TaxRateRow[];
+}
+
+export interface TaxRateInput {
+  id?: string;
+  name: string;
+  rate: number;
+  section?: string;
+  isDefault?: boolean;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+const idUrl = (path: string, id: string) =>
+  `${API_BASE_URL}/${path.replace(":id", encodeURIComponent(id))}`;
+
+export const getBillingTaxRates = async (): Promise<BillingTaxConfig> => {
+  const { data } = await axios.get(url(BILLING_CONFIG.TAX_RATES), { withCredentials: true });
+  return { gstSlabs: data.gstSlabs ?? [], tdsSections: data.tdsSections ?? [] };
+};
+
+/** Create or update — the body's optional `id` decides which, so one call does both. */
+export const saveGstSlab = async (input: TaxRateInput): Promise<TaxRateRow[]> => {
+  const { data } = await axios.put(url(BILLING_CONFIG.GST_SLABS), input, { withCredentials: true });
+  return data.gstSlabs ?? [];
+};
+
+export const deleteGstSlab = async (id: string): Promise<TaxRateRow[]> => {
+  const { data } = await axios.delete(idUrl(BILLING_CONFIG.GST_SLAB, id), { withCredentials: true });
+  return data.gstSlabs ?? [];
+};
+
+export const saveTdsSection = async (input: TaxRateInput): Promise<TaxRateRow[]> => {
+  const { data } = await axios.put(url(BILLING_CONFIG.TDS_SECTIONS), input, { withCredentials: true });
+  return data.tdsSections ?? [];
+};
+
+export const deleteTdsSection = async (id: string): Promise<TaxRateRow[]> => {
+  const { data } = await axios.delete(idUrl(BILLING_CONFIG.TDS_SECTION, id), { withCredentials: true });
+  return data.tdsSections ?? [];
+};

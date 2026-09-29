@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Paper, Skeleton, Stack, Typography } from '@mui/material';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 
 interface ReimbursementSummaryCardProps {
   totalRequestAmount?: number;
@@ -72,7 +73,10 @@ type CardItem = {
 
 // ── Single KPI Card ───────────────────────────────────────────────────────────
 
-const KpiCard = ({ item }: { item: CardItem }) => (
+const KpiCard = ({ item }: { item: CardItem }) => {
+  // Every figure follows the page's eye (Reimbursements tab bar).
+  const sensitive = useSensitiveData();
+  return (
   <Paper
     elevation={0}
     sx={{
@@ -144,6 +148,7 @@ const KpiCard = ({ item }: { item: CardItem }) => (
 
       {/* Value */}
       <Typography
+        className={sensitive.cls}
         sx={{
           fontSize: typeof item.value === 'number' ? '2rem' : '1.55rem',
           fontWeight: 800,
@@ -157,7 +162,8 @@ const KpiCard = ({ item }: { item: CardItem }) => (
       </Typography>
     </Box>
   </Paper>
-);
+  );
+};
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 

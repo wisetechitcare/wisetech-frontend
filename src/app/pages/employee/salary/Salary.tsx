@@ -10,6 +10,7 @@ import { useTabRoute } from "@app/hooks/useTabRoute";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import SalaryEmployeeData from "./admin/SalaryEmployeeData";
+import SensitiveDataProvider, { SensitiveDataHeaderToggle } from "@app/modules/common/components/SensitiveData";
 
 function Salary() {
   const tabItems: TabItem[] = [
@@ -56,7 +57,18 @@ function Salary() {
         Salary
       </PageTitle>
       {/* <SalaryView /> */}
-      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} accessSection="finance.salary" />
+      {/* Above the tabs, so the eye in the sticky bar governs every figure on My Salary. The
+          Employee Payrolls detail dialog covers the bar, so it keeps an eye of its own — on the
+          same state. */}
+      <SensitiveDataProvider>
+        <MaterialHeaderTab
+          tabItems={tabItems}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          accessSection="finance.salary"
+          headerAction={tabItems[activeTab]?.title === "My Salary" ? <SensitiveDataHeaderToggle /> : undefined}
+        />
+      </SensitiveDataProvider>
     </>
   );
 }

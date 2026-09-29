@@ -52,7 +52,9 @@ const MODULES: Array<{ key: WorkflowType; label: string }> = [
   { key: 'reimbursement', label: 'Reimbursement' },
   // Billing Request approval chain. Same generic framework as every other module —
   // configuring approvers here is all that is needed to route a billing request.
-  { key: 'billing_request', label: 'Billing Request' },
+  // Hidden while the billing REQUEST system is switched off; uncomment to restore.
+  // Saved chains are untouched — this only hides the tab.
+  // { key: 'billing_request', label: 'Billing Request' },
 ];
 
 /**
