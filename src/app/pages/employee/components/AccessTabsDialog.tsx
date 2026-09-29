@@ -3,6 +3,7 @@ import { Box } from "@mui/material";
 import RestartAltRounded from "@mui/icons-material/RestartAltRounded";
 import TuneRounded from "@mui/icons-material/TuneRounded";
 import { GlassDialog, GlassHeader, T, WtButton, WtSwitch, WtTooltip } from "@app/modules/common/components/ui";
+import { coloredActionBtn } from "@app/modules/configuration";
 import { navIcon } from "@components/navigation/NavContainers/navIcons";
 import { SECTION_TABS, tabKey } from "@utils/sectionTabs";
 import type { AccessLayoutNode } from "@utils/accessSidebarLayout";
@@ -167,19 +168,14 @@ export const AdvancedTabsButton: React.FC<Omit<Props, "open" | "onClose"> & { co
     <>
       <WtTooltip title={tip}>
         {compact ? (
-          // Cards: the same tinted square as the permission toggles, with a count when tabs are off.
+          // Cards: the configure screens' icon button, like the permission toggles beside it — amber with
+          // a count when tabs are off.
           <Box
             component="button"
             type="button"
             onClick={() => setOpen(true)}
             aria-label={tip}
-            sx={{
-              position: "relative", width: 28, height: 28, display: "grid", placeItems: "center", borderRadius: "8px",
-              border: "1px solid", borderColor: off ? `${T.color.warning}5C` : "#64748B3D",
-              bgcolor: off ? `${T.color.warning}1F` : "#64748B12", color: off ? T.color.warning : "#64748B", cursor: "pointer",
-              transition: "border-color .2s ease, color .2s ease",
-              "&:hover": { borderColor: `${T.color.brand}66`, color: T.color.brand },
-            }}
+            style={{ ...coloredActionBtn(off ? "#d97706" : "#64748B"), position: "relative" }}
           >
             <TuneRounded sx={{ fontSize: 16 }} />
             {off > 0 && (

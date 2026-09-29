@@ -17,7 +17,7 @@ export const LeadStatusPill: React.FC<{ status: Status }> = ({ status }) =>
         alignItems: "center",
         gap: "6px",
         bgcolor: status.color || "grey.600",
-        borderRadius: "16px",
+        borderRadius: "6px",
         padding: "4px 10px 4px 8px",
       }}
     >

@@ -24,6 +24,18 @@ export interface ConfigChipAction {
     onClick: () => void;
     /** Render in the danger tone (destructive actions). */
     danger?: boolean;
+    /**
+     * What KIND of action this is, when "destructive or not" is too blunt.
+     *
+     * The slot started as delete-or-nothing: red for a delete, grey otherwise.
+     * But Billing's version restores a customised label to its shipped default,
+     * and grey made it indistinguishable from the pencil beside it while red made
+     * an undo look like it destroyed something. `revert` is amber — a change you
+     * can see coming, and not the same verb as either neighbour.
+     *
+     * `danger` still wins if both are passed, so no existing caller changes.
+     */
+    tone?: 'revert' | 'neutral';
 }
 
 export interface ConfigColorChipProps {
@@ -36,6 +48,16 @@ export interface ConfigColorChipProps {
     action?: ConfigChipAction;
     /** Muted, non-interactive caption under the name (e.g. the status code). */
     caption?: string;
+    /**
+     * Render the caption as real content rather than a whisper.
+     *
+     * The default styling is built for a status CODE — something you glance at
+     * only when the label is ambiguous, so it is 10px monospace in the disabled
+     * tone. That is wrong when the caption carries the row's actual value, like a
+     * tax rate and the section it is deducted under: there the caption is the
+     * point of the row, and rendering it as a whisper makes the list unreadable.
+     */
+    captionStrong?: boolean;
     /** Hover title for the whole chip. Defaults to `name`. */
     title?: string;
     /** Short pill after the name — "Default", "Internal". Omit for none. */
@@ -64,13 +86,17 @@ const REST_SHADOW = '0 1px 3px rgba(24,28,50,0.04)';
 const HOVER_SHADOW = '0 4px 14px rgba(24,28,50,0.09)';
 
 export const ConfigColorChip: React.FC<ConfigColorChipProps> = ({
-    name, color, onEdit, action, caption, title, badge, disabled = false,
+    name, color, onEdit, action, caption, captionStrong = false, title, badge, disabled = false,
 }) => {
     const theme = useTheme();
     // No colour configured → the divider tone, which is legible in both modes.
     const rail = color || theme.palette.divider;
     const editTint = theme.palette.primary.main;
-    const actionTint = action?.danger ? theme.palette.error.main : theme.palette.text.secondary;
+    const actionTint = action?.danger
+        ? theme.palette.error.main
+        : action?.tone === 'revert'
+            ? theme.palette.warning.main
+            : theme.palette.text.secondary;
 
     return (
         <Box
@@ -161,7 +187,11 @@ export const ConfigColorChip: React.FC<ConfigColorChipProps> = ({
                 {caption && (
                     <Typography
                         noWrap
-                        sx={{ fontSize: 10, color: 'text.disabled', fontFamily: 'monospace' }}
+                        sx={
+                            captionStrong
+                                ? { fontSize: 12.5, fontWeight: 600, color: 'text.secondary', mt: 0.25 }
+                                : { fontSize: 10, color: 'text.disabled', fontFamily: 'monospace' }
+                        }
                         title={caption}
                     >
                         {caption}

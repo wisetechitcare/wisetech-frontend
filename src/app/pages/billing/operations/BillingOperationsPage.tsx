@@ -4,13 +4,21 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Box, MenuItem, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { toneAlpha, isHexColor, type SemanticTone } from "@app/modules/common/components/ui";
+import { tonePair } from "@app/theme/tokens";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import dayjs from "dayjs";
 import {listProjectOverview,type ProjectOverviewRow, type ProjectOverviewParams, type ProjectOverviewSort,
 } from "@services/billingOperations";
 import {  useBillingLabels, BILLING_LABEL_GROUP } from "../components";
-import { TrackerStatusCell, TrackerStageCell, TrackerBillPaymentCell } from "./TrackerCells";
+import { TrackerStatusCell, TrackerBillPaymentCell, SolidChip } from "./TrackerCells";
+
+/** The four chip columns sit centred, header and body alike. */
+const CENTRED = {
+  muiTableHeadCellProps: { align: "center" as const },
+  muiTableBodyCellProps: { align: "center" as const },
+};
 
 /**
  * Billing Operations — the Accounts team's workspace, at PROJECT grain.
@@ -36,7 +44,7 @@ const DASH = "—";
 
 /** Only these can be ordered in SQL; a header click on anything else is ignored. */
 const SERVER_SORTABLE: ProjectOverviewSort[] = [
-  "projectNumber", "projectName", "poValue", "receivedAmount",
+  "projectNumber", "projectName", "clientName", "poValue", "receivedAmount",
   "pendingAmount", "lastPaymentAt", "nextFollowUpDate",
 ];
 
@@ -49,10 +57,6 @@ const SERVER_SORTABLE: ProjectOverviewSort[] = [
  * matches Billing → Configure's three groups exactly — Payment Stage, Billing
  * Status, Bill Payment Status — because that is where they are renamed.
  */
-const STAGE_HINT =
-  "Configure → Payment Stage. Which of the four bands this project's billing is in. " +
-  "Normally it follows the Status; set one here to override that, or clear it to follow again.";
-
 const STATUS_HINT =
   "Configure → Billing Status. Where the billing stands. A project billed through an approved " +
   "request offers only the moves its workflow allows; one that isn't billed yet can be set to " +
@@ -146,10 +150,6 @@ const BillingOperationsPage: React.FC = () => {
     { value: "", label: "All statuses" },
     ...labels.options(BILLING_LABEL_GROUP.STATUS),
   ];
-  const stageOptions = [
-    { value: "", label: "All stages" },
-    ...labels.options(BILLING_LABEL_GROUP.STAGE),
-  ];
   const billPaymentOptions = [
     { value: "", label: "All bill payments" },
     ...labels.options(BILLING_LABEL_GROUP.BILL_PAYMENT),
@@ -162,8 +162,9 @@ const BillingOperationsPage: React.FC = () => {
   ];
 
   const filterSelects: Array<{ key: keyof typeof filters; label: string; width: number; options: { value: string; label: string }[] }> = [
-    { key: "stage", label: "Bill Stage", width: 150, options: stageOptions },
-    { key: "status", label: "Payment Status", width: 170, options: statusOptions },
+    // The Stage filter went with the Stage column — filtering on something the sheet no longer
+    // shows leaves the reader unable to see why rows disappeared.
+    { key: "status", label: "Bill Stage", width: 170, options: statusOptions },
     { key: "billPaymentStatus", label: "Bill Payment", width: 160, options: billPaymentOptions },
     { key: "projectManagerId", label: "Manager", width: 170, options: managerOptions },
   ];
@@ -209,6 +210,12 @@ const BillingOperationsPage: React.FC = () => {
         Cell: ({ cell }: any) => cell.getValue() || DASH,
       },
       {
+        accessorKey: "clientName",
+        header: "Client Company",
+        size: 180,
+        Cell: ({ cell }: any) => cell.getValue() || DASH,
+      },
+      {
         accessorKey: "handledByName",
         header: "Project Manager",
         size: 160,
@@ -221,38 +228,21 @@ const BillingOperationsPage: React.FC = () => {
         size: 150,
         enableSorting: false,
         meta: { defaultVisible: true },
+        ...CENTRED,
         Cell: ({ row }: any) => {
           const st = row?.original?.projectStatus;
-          return st?.name ? (
-            <Box sx={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              backgroundColor: st.color || 'action.hover',
-              borderRadius: '16px', padding: '4px 10px 4px 8px',
-            }}>
-              <Box sx={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'common.white' }} />
-              <Typography sx={{ fontSize: '12px', fontWeight: 600, color: 'common.white' }}>
-                {st.name}
-              </Typography>
-            </Box>
-          ) : (
-            DASH
-          );
+          return st?.name ? <SolidChip label={st.name} color={st.color} /> : DASH;
         },
       },
       {
-        accessorKey: "billStage",
-        header: "Bill Stage",
-        Header: () => <HintHeader title="Bill Stage" hint={STAGE_HINT} />,
-        size: 150,
-        enableSorting: false,
-        Cell: ({ row }: any) => <TrackerStageCell row={row.original as ProjectOverviewRow} />,
-      },
-      {
+        // One column, not two: the stage always follows this status through the four bands, so
+        // a separate Stage column repeated what this one already says.
         accessorKey: "paymentStatus",
-        header: "Payment Status",
-        Header: () => <HintHeader title="Payment Status" hint={STATUS_HINT} />,
+        header: "Bill Stage",
+        Header: () => <HintHeader title="Bill Stage" hint={STATUS_HINT} />,
         size: 195,
         enableSorting: false,
+        ...CENTRED,
         Cell: ({ row }: any) => <TrackerStatusCell row={row.original as ProjectOverviewRow} />,
       },
       {
@@ -355,6 +345,7 @@ const BillingOperationsPage: React.FC = () => {
         Header: () => <HintHeader title="Bill Payment" hint={BILL_PAYMENT_HINT} />,
         size: 175,
         enableSorting: false,
+        ...CENTRED,
         Cell: ({ row }: any) => <TrackerBillPaymentCell row={row.original as ProjectOverviewRow} />,
       },
     ],
@@ -371,7 +362,7 @@ const BillingOperationsPage: React.FC = () => {
         // Project Start Date moving to the front would never reach existing users.
         tableName="BillingProjectOverviewV2"
         isLoading={isLoading}
-        searchPlaceholder="Search project number or name…"
+        searchPlaceholder="Search project number, name or client…"
         enableColumnSpecificSearch={true}
         enableColumnResizing={true}
         layoutMode="semantic"
@@ -419,14 +410,46 @@ const BillingOperationsPage: React.FC = () => {
               : project.poStatus
                 ? "warning.main"
                 : "transparent";
+            /*
+             * The row carries its BILL STAGE as a tint — the same idea as the tint
+             * on the Leads & Projects table, pointed at the column this screen is
+             * actually about. Where a project stands with its billing is then
+             * readable across the whole row, not only in its own chip.
+             *
+             * The colour is the one configured for that stage in Billing →
+             * Configure, so recolouring a stage there recolours these rows too and
+             * the chip can never disagree with the row it sits on. A stage whose
+             * colour is a tone name resolves through the theme; a hex is used as
+             * picked. A project with no bill raised has no stage and stays plain,
+             * which is what separates "nothing to do here" from the rest.
+             *
+             * `toneAlpha` rather than the `${color}20` concatenation the Leads
+             * table uses: that silently produces "red20" and paints nothing when a
+             * colour is stored as a name, while this returns it untouched.
+             */
+            const stageTone = labels.tone(project.status);
+            const statusColor = stageTone
+              ? (isHexColor(stageTone) ? stageTone : tonePair(stageTone as SemanticTone).fg)
+              : null;
+
             return {
-              onClick: () => navigate(`/employee/lead/${project.leadId}?tab=billing`),
+              // The PROJECT view (/project/:id), not the lead view — every row here is a
+              // project, and the lead path opens the same record with the lead tab set.
+              onClick: () => navigate(`/project/${project.leadId}?tab=billing`),
               sx: {
                 cursor: "pointer",
-                // Tokens, not hex: this table has to survive the dark theme.
-                backgroundColor: "background.paper",
+                // Tokens where there is no status colour: this table has to survive
+                // the dark theme, so the FALLBACK is never a hardcoded grey.
+                // 0.22, not the 0.12 this started at: the stage colours are already
+                // dark and desaturated (a deep green, a muted amber), so a tenth of
+                // one over white was a grey that read as "no colour" rather than as
+                // the stage. High enough to scan down the row, low enough to leave
+                // the chips and the figures on top of it the strongest thing there.
+                backgroundColor: statusColor ? toneAlpha(statusColor, 0.22) : "background.paper",
                 transition: "background-color 0.15s ease",
-                "&:hover": { backgroundColor: "action.hover" },
+                "&:hover": {
+                  backgroundColor: statusColor ? toneAlpha(statusColor, 0.32) : "action.hover",
+                },
                 "& .MuiTableCell-root": {
                   fontSize: "13.5px",
                   fontFamily: "Inter",

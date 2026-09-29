@@ -14,7 +14,9 @@ import {
   getBillingStatusLabels, saveBillingStatusLabels, resetBillingStatusLabel,
   type BillingLabelEntry, type BillingTone, type BillingStatusColour,
 } from "@services/billingConfig";
+import PerOrgPrefixSettings from "@app/modules/common/components/PerOrgPrefixSettings";
 import { BILLING_LABELS_KEY } from "../components/useBillingLabels";
+import TaxRateSections from "./TaxRateSections";
 
 /**
  * Billing → Configure.
@@ -139,6 +141,34 @@ const BillingConfigurePage: React.FC = () => {
   return (
     <ConfigPageLayout>
       <Stack spacing={2}>
+        {/* Document numbering.
+            The same per-organization grid Leads Configure uses, pointed at the two
+            billing series — so an organization's proformas and its tax invoices
+            each carry its own prefix, and sister organizations can share one
+            counter while keeping separate prefixes.
+
+            The fiscal year is NOT edited here. It comes from the date on the
+            document, so the series rolls over on 1 April by itself. Changing a
+            prefix affects the next number only; everything already issued keeps
+            the number it went out with. */}
+        <ConfigSectionCard
+          title="Proforma Numbering"
+          description="The prefix each organization's proforma numbers carry. The year and the running number are added automatically — WT/PI/26-27/0001 — and the count restarts at 1 each April."
+          icon="bi-hash"
+          iconColor="blue"
+        >
+          <PerOrgPrefixSettings typeLabel="Proforma" typeValue="PROFORMA" />
+        </ConfigSectionCard>
+
+        <ConfigSectionCard
+          title="Tax Invoice Numbering"
+          description="The same, for tax invoices. A separate series from proformas, so the two never share a running number."
+          icon="bi-hash"
+          iconColor="blue"
+        >
+          <PerOrgPrefixSettings typeLabel="Tax Invoice" typeValue="INVOICE" />
+        </ConfigSectionCard>
+
         {(data?.groups ?? []).map((group) => (
           <ConfigSectionCard
             key={group.key}
@@ -161,14 +191,21 @@ const BillingConfigurePage: React.FC = () => {
                   badge={entry.isDefault ? "Default" : undefined}
                   disabled={busy}
                   onEdit={() => openEditor(entry, group.title)}
-                  // The bin the Leads chip shows, in the same slot and the same red —
-                  // but the code is an enum member, so there is nothing to delete and
-                  // this RESTORES the shipped label and colour. The tooltip says so,
-                  // and the confirm below names the outcome before anything is written.
+                  /*
+                   * A RESTORE, so it wears a restore icon.
+                   *
+                   * This slot is a red bin on Leads Configure, where it deletes a
+                   * row. Here the code is an enum member: nothing can be removed,
+                   * and the action puts the shipped wording and colour back. Copying
+                   * the bin across made every entry on this screen look deletable
+                   * and made an undo look destructive — the tooltip said otherwise,
+                   * but nobody reads a tooltip to find out what an icon they already
+                   * recognise does.
+                   */
                   action={{
-                    icon: "bi-trash",
-                    title: `Restore ${entry.code} to its default`,
-                    danger: true,
+                    icon: "bi-arrow-counterclockwise",
+                    title: `Restore ${entry.code} to its default label and colour`,
+                    tone: "revert",
                     onClick: () => confirmReset(entry),
                   }}
                 />
@@ -176,6 +213,12 @@ const BillingConfigurePage: React.FC = () => {
             </ConfigChipGrid>
           </ConfigSectionCard>
         ))}
+
+        {/* The rate lists. Below the labels because they are configured once and
+            then left alone, while the wording above is what people come here to
+            fiddle with — and unlike the codes above, these rows CAN be added and
+            deleted, which their own copy explains. */}
+        <TaxRateSections />
       </Stack>
 
       <GlassDialog

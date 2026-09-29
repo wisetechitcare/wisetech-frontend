@@ -188,8 +188,8 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
       />
 
       {/* Employee Salary Table */}
-      <div className="mt-5">
-        <h1>{title || "Yearly Salary"}</h1>
+      {/* No heading: the period tabs right above already say Yearly / All Time. */}
+      <div className="mt-4">
         <MaterialTable
           showColumnFooter={true}
           columns={[

@@ -1,4 +1,4 @@
-import { Box, Chip, Paper, Skeleton, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography } from '@mui/material';
+import { Box, Chip, Paper, Skeleton, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
 import ExportButton, { ExportColumn } from '@app/modules/common/components/ExportButton';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
@@ -86,6 +86,7 @@ const StateChip = ({ state, detail }: { state?: PayState; detail?: string }) => 
 };
 
 const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds = true, tdsLabel = 'TDS', showTds2 = false, showSensitiveData = true }: SalaryBreakdownTableProps) => {
+    const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'));
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
     if (loading) {
         return (
@@ -205,9 +206,10 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
             <Box
                 sx={{
                     display: 'flex',
-                    flexDirection: { xs: 'column', sm: 'row' },
                     justifyContent: 'space-between',
-                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    // Centred with the two-line title block, so the download button sits level
+                    // with the heading and its one-line description rather than hugging the top.
+                    alignItems: 'center',
                     gap: { xs: 1.25, sm: 2 },
                     mb: 1.5,
                 }}
@@ -217,15 +219,17 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                         Yearly Salary Breakdown
                     </Typography>
                     <Typography sx={{ mt: 0.3, fontSize: { xs: 11.5, sm: 12 }, color: '#64748b', lineHeight: 1.4 }}>
-                        Month-wise view of salary, payment status, and statutory deductions.
+                        Month-wise salary, payments and deductions.
                     </Typography>
                 </Box>
                 {hasRealRows && (
-                    // Full width on a phone. Floated right on its own line it spent a whole
-                    // row on one control and still read as detached from the card — and a
-                    // right-hugging split button is an awkward thumb reach.
-                    <Box sx={{ alignSelf: { xs: 'stretch', sm: 'center' }, flexShrink: 0 }}>
+                    // Phones: a square download button beside the title, in the header row.
+                    // The "Export ▾" split button wrapped onto a row of its own under the
+                    // description and read as detached from the card it exports.
+                    <Box sx={{ flexShrink: 0 }}>
                         <ExportButton
+                            iconOnly={isPhone}
+                            label={isPhone ? 'Export yearly salary' : undefined}
                             data={exportData}
                             columns={exportColumns}
                             filename="yearly-salary-breakdown"
@@ -234,7 +238,6 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                             sheetName="Yearly Salary"
                             showTotals
                             totalLabel="TOTAL"
-                            sx={{ width: { xs: '100%', sm: 'auto' } }}
                         />
                     </Box>
                 )}

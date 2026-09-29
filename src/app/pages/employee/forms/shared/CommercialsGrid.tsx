@@ -158,6 +158,7 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
                             }}
                             className="commercials-input form-select"
                           >
+                            <option value="">Select</option>
                             {isLead ? (
                               <>
                                 <option value="1">Rate</option>
@@ -246,9 +247,9 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
               size="sm"
               onClick={() => {
                 if (isLead) {
-                  push({ label: "", projectArea: "", costType: "1", rate: "", cost: "" });
+                  push({ label: "", projectArea: "", costType: "", rate: "", cost: "" });
                 } else {
-                  push({ label: "", area: "", costType: "RATE", rate: "", rateCost: "", lumpsumCost: "" });
+                  push({ label: "", area: "", costType: "", rate: "", rateCost: "", lumpsumCost: "" });
                 }
               }}
               className="d-flex align-items-center gap-1 fw-bold"

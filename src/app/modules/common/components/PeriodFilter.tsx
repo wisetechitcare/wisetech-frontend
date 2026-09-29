@@ -194,7 +194,8 @@ const PeriodFilter: React.FC<Props> = ({
     navMinWidth ?? (showTabs ? (dateStyle === "long" ? 260 : 190) : "fit-content");
 
   return (
-    <div className="d-flex align-items-center flex-wrap" style={{ gap: 10 }}>
+    // Phones: tabs, navigator and custom dates stack full width. Tablet up: one wrapping row.
+    <div className="d-flex flex-column flex-md-row flex-md-wrap align-items-stretch align-items-md-center w-100 w-md-auto" style={{ gap: 10 }}>
       {showTabs && (
         <PeriodTabs
           value={mode}

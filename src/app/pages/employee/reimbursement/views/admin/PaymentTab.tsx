@@ -264,22 +264,45 @@ function PaymentTab() {
 
     return (
         <Box>
-            {/* Header + period. The period governs the KPIs, the rail and both tabs. */}
+            {/*
+              * One toolbar at the top, not stacked bands. The Queue/History tabs, the status rail
+              * and the period all narrow what is below — the period governs the KPIs, the rail and
+              * both tabs — so they share one line above everything they affect. The period used to
+              * sit on a row of its own with the KPIs between it and the rest of the controls.
+              */}
             <Box sx={{
-                display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2.5,
-                alignItems: { xs: 'flex-start', lg: 'center' },
-                justifyContent: 'space-between',
+                display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
+                mb: 2.5, pb: 1,
+                borderBottom: '1px solid', borderColor: 'divider',
             }}>
-                <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontSize: 20, fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>
-                        Payments
-                    </Typography>
-                    <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
-                        Review, process and track reimbursement payments.
-                    </Typography>
-                </Box>
+                <Tabs
+                    value={tab}
+                    onChange={(_, v) => setTab(v)}
+                    sx={{
+                        minHeight: 34,
+                        '& .MuiTabs-indicator': { height: 2 },
+                        '& .MuiTab-root': { minHeight: 34, py: 0, px: 1.5, textTransform: 'none', fontSize: 13, fontWeight: 700 },
+                    }}
+                >
+                    <Tab value="queue" label={`Queue (${queueRows.length})`} />
+                    <Tab value="history" label={`History (${historyPayments.length})`} />
+                </Tabs>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                {/* The status rail filters the LIST, so it sits with the tabs on the left, behind a
+                    divider. Beside the period tabs the two segmented controls read as one. */}
+                {tab === 'queue' && (
+                    <>
+                        <Box sx={{ width: '1px', height: 24, bgcolor: 'divider', mx: 0.5 }} />
+                        <PaymentStatusRail
+                            breakdown={breakdown}
+                            value={stateFilter}
+                            onChange={setStateFilter}
+                        />
+                    </>
+                )}
+
+                {/* The period governs the whole page (KPIs + list), so it stands apart on the right. */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', ml: 'auto' }}>
                     <PeriodTabs
                         value={filter}
                         options={[
@@ -300,38 +323,8 @@ function PaymentTab() {
                 </Box>
             </Box>
 
-            <PaymentKpiCards kpis={kpis} loading={loading} />
-
-            {/*
-              * One toolbar, not three stacked bands. Tabs, the status rail and the employee
-              * filter all narrow the same list, so they belong on one line — the page used to
-              * spend a row on each, plus a fourth on a sentence restating the tab label.
-              */}
-            <Box sx={{
-                display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
-                mt: 2.5, mb: 2, pb: 1,
-                borderBottom: '1px solid', borderColor: 'divider',
-            }}>
-                <Tabs
-                    value={tab}
-                    onChange={(_, v) => setTab(v)}
-                    sx={{
-                        minHeight: 34, mr: 'auto',
-                        '& .MuiTabs-indicator': { height: 2 },
-                        '& .MuiTab-root': { minHeight: 34, py: 0, px: 1.5, textTransform: 'none', fontSize: 13, fontWeight: 700 },
-                    }}
-                >
-                    <Tab value="queue" label={`Queue (${queueRows.length})`} />
-                    <Tab value="history" label={`History (${historyPayments.length})`} />
-                </Tabs>
-
-                {tab === 'queue' && (
-                    <PaymentStatusRail
-                        breakdown={breakdown}
-                        value={stateFilter}
-                        onChange={setStateFilter}
-                    />
-                )}
+            <Box sx={{ mb: 2 }}>
+                <PaymentKpiCards kpis={kpis} loading={loading} />
             </Box>
 
             {tab === 'queue' ? (

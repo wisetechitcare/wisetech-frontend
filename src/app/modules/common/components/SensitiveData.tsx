@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import Tooltip from '@mui/material/Tooltip';
+import PrivacyToggle from './PrivacyToggle';
 
 /**
  * The eye toggle — one switch that hides every amount on a screen.
@@ -20,6 +22,8 @@ interface SensitiveDataCtx {
     toggle: () => void;
     /** The class to put on any element carrying a figure. */
     cls: string;
+    /** True inside a real provider — lets a nested provider defer to the outer one. */
+    provided: boolean;
 }
 
 const Ctx = createContext<SensitiveDataCtx>({
@@ -28,29 +32,92 @@ const Ctx = createContext<SensitiveDataCtx>({
     visible: true,
     toggle: () => undefined,
     cls: '',
+    provided: false,
 });
 
 export function SensitiveDataProvider({
     children,
     defaultVisible = false,
+    disabled = false,
 }: {
     children: React.ReactNode;
     /** Screens showing one's own data may prefer to open revealed. */
     defaultVisible?: boolean;
+    /**
+     * Hide nothing, as if there were no provider. For a page-level provider sitting above tabs
+     * where only SOME tabs offer the eye: a tab with no switch must not blur figures it gives
+     * the reader no way to reveal. The toggle's state is kept while disabled, so returning to
+     * an eye tab finds it as it was left.
+     */
+    disabled?: boolean;
 }) {
+    const parent = useContext(Ctx);
     const [visible, setVisible] = useState(defaultVisible);
     const toggle = useCallback(() => setVisible((v) => !v), []);
 
-    const value = useMemo<SensitiveDataCtx>(() => ({
-        visible,
-        toggle,
-        cls: visible ? 'sensitive-data-visible' : 'sensitive-data-hidden',
-    }), [visible, toggle]);
+    const value = useMemo<SensitiveDataCtx>(() => (disabled
+        // Still a provider (so nested ones keep deferring, and the tree shape never changes
+        // between tabs and remounts them) — it just hides nothing.
+        ? { visible: true, toggle, cls: '', provided: true }
+        : {
+            visible,
+            toggle,
+            cls: visible ? 'sensitive-data-visible' : 'sensitive-data-hidden',
+            provided: true,
+        }), [visible, toggle, disabled]);
+
+    // Nested inside another provider (e.g. a page whose eye sits in the sticky tab bar):
+    // defer to it, so there is ONE switch and it governs every figure below it. A second
+    // provider here would shadow the outer one and leave the header eye controlling nothing.
+    if (parent.provided) return <>{children}</>;
 
     return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 /** Read the toggle. `cls` goes on the element wrapping the figure. */
 export const useSensitiveData = () => useContext(Ctx);
+
+/**
+ * The eye, for a page's sticky tab bar (`MaterialHeaderTab`'s `headerAction`). A heading-level
+ * eye scrolls away, so hiding a figure halfway down meant scrolling back to the top; the bar
+ * stays pinned.
+ *
+ * Labelled, and the two states read differently at a glance, in the tab bar's own grammar:
+ * ON (amounts showing) takes the selected tab's frosted fill plus a white outline; OFF is a
+ * quiet fill with no outline, like an unselected tab on hover.
+ * The `!` utilities: Metronic's unlayered Bootstrap button rules outrank Tailwind's layer, and
+ * its focus style drew a black ring after every click. Keyboard focus keeps a ring.
+ */
+export function SensitiveDataHeaderToggle() {
+    const sensitive = useSensitiveData();
+    const label = sensitive.visible ? 'Hide amounts' : 'Show amounts';
+    return (
+        // MUI's tooltip, not the browser's `title`: on a phone the eye is
+        // icon-only, so this is the only place the label appears, and the native
+        // one renders unstyled after a delay nobody waits out.
+        <Tooltip title={label}>
+        <button
+            type="button"
+            onClick={sensitive.toggle}
+            aria-pressed={sensitive.visible}
+            aria-label={label}
+            // Phones: the eye alone, dressed like a tab cell of the phone bar — the bar stretches it to
+            // the tabs' height, it is clear when amounts are hidden (like an unselected tab) and takes
+            // the selected tab's frosted fill when they show. No outline ring: on a 40px cell it read
+            // as a stray dark square. The label stays for screen readers.
+            // `[&_svg]:block` + `place-items-center`: the eye is an inline <svg> inside PrivacyToggle's
+            // div, and inline sits on the text baseline — which nudged it off-centre.
+            className={`inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-lg! border-0! px-3.5 text-[13px] leading-none max-sm:w-11 max-sm:px-0 max-sm:rounded-[10px]! max-sm:[&_svg]:size-5 font-semibold outline-none! transition-colors motion-reduce:transition-none focus-visible:ring-2! focus-visible:ring-white/70! [&_.privacy-toggle]:pointer-events-none [&_.privacy-toggle]:grid [&_.privacy-toggle]:place-items-center [&_svg]:block [&_svg]:size-[17px] ${
+                sensitive.visible
+                    ? 'bg-white/16! text-white! shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.75)]! hover:bg-white/20! max-sm:bg-white/18! max-sm:shadow-none!'
+                    : 'bg-white/8! text-white/90! shadow-none! hover:bg-white/14! max-sm:bg-transparent! max-sm:text-white/80! active:bg-white/20!'
+            }`}
+        >
+            <PrivacyToggle isVisible={sensitive.visible} onToggle={sensitive.toggle} color="#ffffff" />
+            <span className="max-sm:sr-only">{label}</span>
+        </button>
+        </Tooltip>
+    );
+}
 
 export default SensitiveDataProvider;

@@ -5,6 +5,7 @@ import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { handleDatesChange } from '@utils/statistics';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
+import { Stack } from '@mui/material';
 import Monthly from './Monthly';
 import Yearly from './Yearly';
 import AllTime from './AllTime';
@@ -86,8 +87,19 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
 
     return (
         <>
-            <h3 className="fw-bold fs-1 mb-6 mt-6 font-barlow">Salary Report</h3>
-            <div className="d-flex flex-wrap justify-content-between align-items-center mb-8 gap-3">
+            <Stack
+                direction="row"
+                flexWrap="wrap"
+                justifyContent="space-between"
+                alignItems="center"
+                // Phones: tabs and navigator stack, so a 24px gap and 12px bands read as dead space
+                // between three controls that belong together. Tablet up keeps the roomier row.
+                gap={{ xs: 1, sm: 3 }}
+                sx={{
+                    pt: { xs: 1.25, sm: 3 },
+                    pb: { xs: 1, sm: 3 },
+                }}
+            >
                 <PeriodTabs
                     value={alignment}
                     options={[
@@ -128,7 +140,7 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
                         label={formatFiscalYearLabel(fiscalYear)}
                     />
                 )}
-            </div >
+            </Stack>
 
             {alignment == 'monthly' && <Monthly month={month} fromAdmin={fromAdmin} showSensitiveData={showSensitiveData} monthlyApiData={monthlyApiData} isApiDataLoading={isApiDataLoading} onRefreshSalaryData={onRefreshSalaryData} isRefreshing={isRefreshing} />}
             {alignment == 'yearly' && <Yearly year={year} fromAdmin={fromAdmin} showSensitiveData={showSensitiveData} />}

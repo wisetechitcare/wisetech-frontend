@@ -18,7 +18,7 @@ import MyLeaveManagementRequests from './views/my-leaves/MyLeaveManagementReques
 // import { useSelector } from 'react-redux';
 // import { RootState } from '@redux/store';
 // Shared UI kit — reusable brand button + section atoms (single source of truth).
-import { WtButton, IconBox, Eyebrow, TRIO } from '@app/modules/common/components/ui/tw';
+import { WtButton } from '@app/modules/common/components/ui/tw';
 
 const PersonalLeaveView = () => {
     const [open, setOpen] = useState(false);
@@ -92,14 +92,8 @@ const PersonalLeaveView = () => {
 
     return (
         <>
-            <div className='d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center pt-0 mb-3 mt-0 gap-3'>
-                <div className="d-flex align-items-center gap-3">
-                    <IconBox icon="calendar" trio={TRIO.blue} size={44} fs="fs-1" />
-                    <div>
-                        <h3 className="fw-bold fs-1 font-barlow mb-0">My Leaves</h3>
-                        <Eyebrow className="mt-0.5">Balance, requests &amp; history</Eyebrow>
-                    </div>
-                </div>
+            {/* No page title here: the tab bar and breadcrumb already name the page. */}
+            <div className='d-flex flex-column flex-md-row justify-content-md-end align-items-start align-items-md-center pt-0 mb-3 mt-0 gap-3'>
                 <div className='d-flex flex-column flex-sm-row justify-content-center align-items-stretch align-items-sm-center gap-2 gap-sm-4 w-100 w-md-auto'>
                     <DateNavigation fiscalYear={fiscalYear} setYear={setYear} />
                     {res && (

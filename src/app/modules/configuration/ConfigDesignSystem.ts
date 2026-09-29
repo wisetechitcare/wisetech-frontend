@@ -32,4 +32,22 @@ export const KEYFRAMES = LEGACY_CONFIG_KEYFRAMES;
 export const MOTION = LEGACY_CONFIG_MOTION;
 export { MIN_TOUCH_TARGET_PX };
 
+/**
+ * The configure screens' icon action button (Project Points' move / show / edit / delete): a square
+ * tinted with its colour, or greyed out when it can't be used. Shared by the Access editor's toggles.
+ */
+export const coloredActionBtn = (color: string, disabled = false): import('react').CSSProperties => ({
+  background: disabled ? '#f1f5f9' : `${color}14`,
+  border: `1px solid ${disabled ? '#e2e8f0' : `${color}2a`}`,
+  color: disabled ? '#cbd5e1' : color,
+  cursor: disabled ? 'not-allowed' : 'pointer',
+  padding: '8px',
+  borderRadius: '8px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  transition: 'all 0.15s ease',
+  opacity: disabled ? 0.5 : 1,
+});
+
 export default { C, FONT, T, SP, RADIUS, BTN, ICON_COLORS, KEYFRAMES };

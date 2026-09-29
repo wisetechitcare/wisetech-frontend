@@ -13,30 +13,30 @@
     height: $scrolltop-size;
     bottom: $scrolltop-bottom;
     right: $scrolltop-end;    
-    // background-color: var(--#{$prefix}scrolltop-bg-color);
-    background-color: $primary-red;
-    box-shadow: var(--#{$prefix}scrolltop-box-shadow);
+    background-color: #1E3A8A;
+    border: 1px solid #1E3A8A;
+    box-shadow: 0 4px 14px rgba(30, 58, 138, 0.25), 0 1px 3px rgba(15, 23, 42, 0.08);
     opacity: $scrolltop-opacity;
     transition: $transition-link;
     @include border-radius($border-radius);
 
     .svg-icon {
         @include svg-icon-size(24px);
-        color: var(--#{$prefix}scrolltop-icon-color);
+        color: #ffffff;
     }
 
     > i {
         font-size: 1.3rem;
-        color: var(--#{$prefix}scrolltop-icon-color);
+        color: #ffffff;
     }
 
     &:hover {
-        // background-color: var(--#{$prefix}scrolltop-bg-color-hover);
-        background-color: $primary-red;
+        background-color: #ffffff;
+        border-color: #1E3A8A;
 
         .svg-icon,
         i {
-            color: var(--#{$prefix}scrolltop-icon-color-hover);
+            color: #1E3A8A;
         }
     }
 

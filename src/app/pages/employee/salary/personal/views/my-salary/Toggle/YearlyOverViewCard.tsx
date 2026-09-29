@@ -65,7 +65,7 @@ const YearlyOverViewCard = (props: YearlyOverViewCardProps) => {
     <Paper
       elevation={0}
       sx={{
-        p: { xs: 2.5, md: 3 },
+        p: { xs: 1.75, sm: 2.5, md: 3 },
         borderRadius: '20px',
         backgroundColor: '#ffffff',
         border: '1px solid #e2e8f0',
@@ -80,18 +80,21 @@ const YearlyOverViewCard = (props: YearlyOverViewCardProps) => {
         },
       }}
     >
-      <Typography sx={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.2, mb: 3 }}>
+      <Typography sx={{ fontSize: { xs: '1.05rem', sm: '1.25rem' }, fontWeight: 800, color: '#0f172a', lineHeight: 1.2, mb: { xs: 1.5, sm: 3 } }}>
         {title}
       </Typography>
 
-      <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
+      {/* Phones: two columns of compact tiles. Six full-width rows made a short list of figures
+          take most of a screen to scroll past. */}
+      <Grid container spacing={{ xs: 1, sm: 1.5 }} sx={{ mb: { xs: 0, sm: 1.5 } }}>
         {infoRows.map((row, index) => (
-          <Grid item xs={12} sm={6} key={index}>
+          <Grid item xs={6} key={index}>
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                p: 1.25,
+                minWidth: 0,
+                p: { xs: 1, sm: 1.25 },
                 border: '1px solid #f1f5f9',
                 borderRadius: '12px',
                 backgroundColor: '#f8fafc',
@@ -108,22 +111,22 @@ const YearlyOverViewCard = (props: YearlyOverViewCardProps) => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 32,
-                  height: 32,
+                  width: { xs: 28, sm: 32 },
+                  height: { xs: 28, sm: 32 },
                   borderRadius: '8px',
                   backgroundColor: `${row.color}15`,
                   color: row.color,
-                  mr: 1.5,
+                  mr: { xs: 1, sm: 1.5 },
                   flexShrink: 0,
                 }}
               >
                 {React.cloneElement(row.icon as React.ReactElement, { style: { fontSize: '1rem' } })}
               </Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                <Typography sx={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, mb: 0.1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <Typography sx={{ fontSize: { xs: '0.66rem', sm: '0.7rem' }, color: '#64748b', fontWeight: 600, mb: 0.1, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {row.label}
                 </Typography>
-                <Typography sx={{ fontSize: '0.9rem', color: '#0f172a', fontWeight: 800 }}>
+                <Typography sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, color: '#0f172a', fontWeight: 800, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {row.value}
                 </Typography>
               </Box>
