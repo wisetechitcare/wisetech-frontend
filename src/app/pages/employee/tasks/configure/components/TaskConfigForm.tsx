@@ -33,6 +33,8 @@ interface ConfigFormProps {
   show: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  /** Create only: the row the server returned — lets a caller select what was just added. */
+  onCreated?: (created: { id: string; name: string }) => void;
   initialData?: ConfigItem | null;
   isEditing?: boolean;
   type: "taskStatus" | "taskPriority" | "presetTask" | "stage";
@@ -86,6 +88,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
   show,
   onClose,
   onSuccess,
+  onCreated,
   initialData,
   isEditing = false,
   type,
@@ -264,8 +267,10 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
         await (apiFunction as (id: string, payload: any) => Promise<any>)(initialData.id, payload);
         successConfirmation(`${effectiveTitle} updated successfully`);
       } else {
-        await (apiFunction as (payload: any) => Promise<any>)(payload);
+        const created = await (apiFunction as (payload: any) => Promise<any>)(payload);
         successConfirmation(`${effectiveTitle} created successfully`);
+        const row = created?.presetTaskStatus;
+        if (row?.id) onCreated?.(row);
       }
 
       const eventKey = getEventKey(type);

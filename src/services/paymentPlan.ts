@@ -18,6 +18,27 @@ export const getAllPaymentPlans = async () => {
     });
 };
 
+/**
+ * The plan a lead/project is billed by, with each stage's active deliverables — resolved on the
+ * server so every screen (the project's Deliverables tab, the New Task preset list) agrees on
+ * which plan that is. `null` when no plan applies.
+ */
+export const getPlanForLead = async (leadId: string): Promise<PaymentPlan | null> => {
+    const endpoint = `${API_BASE_URL}/${PAYMENT_PLAN.GET_PLAN_FOR_LEAD.replace(":leadId", leadId)}`;
+    const { data } = await axios.get(endpoint);
+    return data?.paymentPlan ?? null;
+};
+
+/** One cache entry per lead, shared by every screen that reads it. */
+export const planForLeadQuery = (leadId: string) => ({
+    queryKey: ["payment-plan-for-lead", leadId] as const,
+    queryFn: () => getPlanForLead(leadId),
+    enabled: !!leadId,
+    // Configuration is edited on another screen — re-read on every visit rather than trusting
+    // the app's 5-minute default.
+    staleTime: 0,
+});
+
 export const getPaymentPlanById = async (id: string) => {
     const endpoint = `${API_BASE_URL}/${PAYMENT_PLAN.GET_PAYMENT_PLAN_BY_ID.replace(":id", id)}`;
     const { data } = await axios.get(endpoint);

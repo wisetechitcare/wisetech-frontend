@@ -25,6 +25,8 @@ export interface ProjectDeliverable {
   id: string;
   projectStageId: string;
   paymentPlanStageDeliverableId?: string | null;
+  /** Set when the deliverable is a Project Task — its status then follows that task. */
+  presetTaskId?: string | null;
   name: string;
   description?: string | null;
   sortOrder: number;

@@ -323,6 +323,7 @@ export const ENTITY_TABS: TabDef[] = [
   { key: 'projects', label: 'Projects', icon: 'bi bi-kanban', projectOnly: true },
   { key: 'commercial', label: 'Commercial', icon: 'bi bi-cash-stack' },
   { key: 'tasks', label: 'Tasks', icon: 'bi bi-check2-square', projectOnly: true },
+  { key: 'deliverables', label: 'Deliverables', icon: 'bi bi-list-check', projectOnly: true },
   { key: 'timesheet', label: 'Timesheet', icon: 'bi bi-stopwatch', projectOnly: true },
   { key: 'reimbursement', label: 'Reimbursement', icon: 'bi bi-wallet2', projectOnly: true },
   { key: 'documents', label: 'Documents', icon: 'bi bi-file-earmark-text' },

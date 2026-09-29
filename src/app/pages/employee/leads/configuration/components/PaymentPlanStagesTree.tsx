@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { alpha, Box, Collapse, InputAdornment, MenuItem, Stack, TextField, Typography, useMediaQuery } from "@mui/material";
+import { alpha, Box, Collapse, MenuItem, Stack, TextField, Typography, useMediaQuery } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import ReorderableGroup, { DragHandle, type DragHandleProps } from "@app/modules/common/components/ReorderableGroup";
 import { WtButton, WtIconButton } from "@app/modules/common/components/ui";
 import StageDeliverableList from "./StageDeliverableList";
-import { autoFixPercentages, pct, stageTotal, toPlanStage, type PlanStage } from "./paymentPlanStages";
+import { toPlanStage, type PlanStage } from "./paymentPlanStages";
 import { getAllPaymentStageGroups } from "@services/paymentStage";
 import { stageSrNo, type PaymentStageGroup } from "@models/leads";
 
@@ -58,9 +58,6 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
     setCounts((prev) => (prev[stageId] === n ? prev : { ...prev, [stageId]: n }));
   }, []);
 
-  const total = stageTotal(stages);
-  const isValid = total === 100;
-
   const patch = (uid: string, changes: Partial<PlanStage>) =>
     onChange(stages.map((s) => (s.uid === uid ? { ...s, ...changes } : s)));
 
@@ -77,11 +74,6 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
     const next = stages.slice();
     [next[index], next[to]] = [next[to], next[index]];
     onChange(next);
-  };
-
-  const autoFix = () => {
-    const fixed = autoFixPercentages(stages.map((s) => pct(s.percentage)));
-    onChange(stages.map((s, i) => ({ ...s, percentage: fixed[i] })));
   };
 
   const toggle = (stage: PlanStage) => {
@@ -190,24 +182,8 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
             sx={{ minWidth: 0, "& .MuiInputBase-input": { fontSize: 13.5, fontWeight: 600 } }}
           />
 
-          <TextField
-            size="small"
-            type="number"
-            value={stage.percentage}
-            error={pct(stage.percentage) < 0}
-            onChange={(e) => patch(stage.uid, { percentage: e.target.value })}
-            placeholder="0"
-            inputProps={{ "aria-label": `Stage ${index + 1} percentage`, min: 0 }}
-            InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
-            sx={{
-              width: { xs: 88, sm: 104 }, flexShrink: 0,
-              "& .MuiInputBase-input": { fontSize: 13.5, fontWeight: 700, textAlign: "right" },
-            }}
-          />
-
-          {/* No count badge here on purpose. A number wedged between the percentage field
-              and the delete button competes with the percentage — the row's actual data —
-              to say something the chevron already says. And once a branch is open the list
+          {/* No count badge here on purpose. A number wedged between the name and the
+              delete button says something the chevron already says. And once a branch is open the list
               itself is the count; a "3 deliverables" heading above three visible rows is
               the same fact twice. The exact number stays available on hover and to screen
               readers via the chevron's label. */}
@@ -252,8 +228,8 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
           <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>Payment Stages</Typography>
           <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
             {showDeliverables
-              ? "Each stage is a % of the total commercial cost. Open one to configure its deliverables."
-              : "Each stage is a % of the total commercial cost."}
+              ? "Open a stage to configure its deliverables."
+              : "The stages a project is billed in."}
           </Typography>
         </Box>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ flexShrink: 0 }}>
@@ -282,15 +258,6 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
                 </MenuItem>
               ))}
             </TextField>
-          )}
-          {!isValid && stages.length > 0 && (
-            <WtButton
-              tone="primary" size="small" ghost onClick={autoFix}
-              startIcon={<KTIcon iconName="wrench" className="fs-6" />}
-              sx={{ flexShrink: 0, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
-            >
-              Auto-fix to 100%
-            </WtButton>
           )}
         </Stack>
       </Stack>
@@ -329,31 +296,13 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
         />
       )}
 
-      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mt: 1.25 }}>
-        <WtButton
-          tone="primary" size="small" ghost onClick={addStage}
-          startIcon={<KTIcon iconName="plus" className="fs-6" />}
-          sx={{ minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
-        >
-          Add Stage
-        </WtButton>
-        <Stack
-          direction="row" alignItems="center" spacing={1}
-          sx={{
-            px: 1.5, py: 0.75, borderRadius: "10px", border: "1px solid",
-            borderColor: isValid ? "success.main" : "error.main",
-            bgcolor: (t) => alpha(isValid ? t.palette.success.main : t.palette.error.main, 0.08),
-          }}
-        >
-          <Typography sx={{ fontSize: 12, fontWeight: 600, color: "text.secondary" }}>Total</Typography>
-          <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: isValid ? "success.main" : "error.main" }}>
-            {total}%
-          </Typography>
-          <Typography sx={{ fontSize: 12, fontWeight: 600, color: isValid ? "success.main" : "error.main" }}>
-            {isValid ? "✓" : "must equal 100%"}
-          </Typography>
-        </Stack>
-      </Stack>
+      <WtButton
+        tone="primary" size="small" ghost onClick={addStage}
+        startIcon={<KTIcon iconName="plus" className="fs-6" />}
+        sx={{ mt: 1.25, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
+      >
+        Add Stage
+      </WtButton>
     </Box>
   );
 };

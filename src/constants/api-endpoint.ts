@@ -654,6 +654,7 @@ export const PAYMENT_STAGE = {
 export const PAYMENT_PLAN = {
     GET_ALL_PAYMENT_PLANS: "api/payment-plans",
     GET_PAYMENT_PLAN_BY_ID: "api/payment-plans/:id",
+    GET_PLAN_FOR_LEAD: "api/payment-plans/for-lead/:leadId",
     CREATE_PAYMENT_PLAN: "api/payment-plans",
     UPDATE_PAYMENT_PLAN: "api/payment-plans/:id",
     DELETE_PAYMENT_PLAN: "api/payment-plans/:id",

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Box, CircularProgress, DialogActions, DialogContent, Stack, TextField, Typography } from "@mui/material";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Box, CircularProgress, DialogActions, DialogContent, FormHelperText, Stack, TextField, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import ReorderableGroup, { DragHandle, type DragHandleProps } from "@app/modules/common/components/ReorderableGroup";
 import {
@@ -12,8 +12,23 @@ import {
 } from "@services/paymentPlan";
 import type { PaymentPlanStageDeliverable } from "@models/leads";
 import { apiErrorMessage } from "@utils/apiError";
+import type { PresetTaskLike } from "@utils/presetTaskHierarchy";
+import { usePresetTasks } from "@pages/employee/tasks/useTaskQueries";
+import TaskPath from "@pages/employee/tasks/components/TaskPath";
+import TaskPathSelect, { buildTaskPathOptions, type TaskPathOption } from "@pages/employee/tasks/components/TaskPathSelect";
+import TaskConfigForm from "@pages/employee/tasks/configure/components/TaskConfigForm";
 
 const NAME_MAX = 100;
+
+type TaskOption = TaskPathOption;
+
+/** Every Project Task as a path row — the deliverable IS one of these, and stores its path. */
+const useTaskOptions = () => {
+  const query = usePresetTasks("PROJECT");
+  const raw: PresetTaskLike[] = useMemo(() => query.data?.presetTaskStatuses ?? [], [query.data]);
+  const options = useMemo(() => buildTaskPathOptions(raw), [raw]);
+  return { raw, options, loading: query.isLoading };
+};
 
 interface Props {
   stageId: string;
@@ -47,7 +62,16 @@ const StageDeliverableList: React.FC<Props> = ({ stageId, loaded, onCountChange 
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PaymentPlanStageDeliverable | null>(null);
-  const [name, setName] = useState("");
+  const { raw: presetTasks, options: taskOptions, loading: tasksLoading } = useTaskOptions();
+  const [task, setTask] = useState<TaskOption | null>(null);
+  // "New project task" files the new task UNDER whatever is picked, then picks it once the
+  // refetched tree contains it.
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
+  useEffect(() => {
+    const created = pendingTaskId && taskOptions.find((o) => o.id === pendingTaskId);
+    if (created) { setTask(created); setPendingTaskId(null); setFormError(null); }
+  }, [pendingTaskId, taskOptions]);
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
@@ -69,19 +93,21 @@ const StageDeliverableList: React.FC<Props> = ({ stageId, loaded, onCountChange 
   }, [stageId, loaded, commit]);
 
   const openNew = () => {
-    setEditing(null); setName(""); setDescription(""); setIsActive(true);
+    setEditing(null); setTask(null); setDescription(""); setIsActive(true);
     setFormError(null); setOpen(true);
   };
   const openEdit = (row: PaymentPlanStageDeliverable) => {
-    setEditing(row); setName(row.name); setDescription(row.description ?? ""); setIsActive(row.isActive);
+    setEditing(row); setTask(taskOptions.find((o) => o.id === row.presetTaskId) ?? null);
+    setDescription(row.description ?? ""); setIsActive(row.isActive);
     setFormError(null); setOpen(true);
   };
   const close = () => { setOpen(false); setEditing(null); setFormError(null); };
 
   const save = async () => {
-    const trimmed = name.trim();
-    if (!trimmed) { setFormError("Deliverable name is required."); return; }
-    if (trimmed.length > NAME_MAX) { setFormError(`Name cannot exceed ${NAME_MAX} characters.`); return; }
+    // A legacy free-text row may be saved untouched; anything new must be a Project Task.
+    const trimmed = task?.name ?? editing?.name ?? "";
+    if (!trimmed) { setFormError("Pick a project task."); return; }
+    if (trimmed.length > NAME_MAX) { setFormError(`This task path is longer than ${NAME_MAX} characters — shorten a task name in Project Tasks.`); return; }
     // Client-side duplicate check for a fast, inline message. The server (and a DB
     // unique index) is still the authority — this is comfort, not enforcement.
     const clash = rows.some((r) => r.id !== editing?.id && r.name.trim().toLowerCase() === trimmed.toLowerCase());
@@ -89,7 +115,12 @@ const StageDeliverableList: React.FC<Props> = ({ stageId, loaded, onCountChange 
 
     setSaving(true);
     try {
-      const payload = { name: trimmed, description: description.trim() || null, isActive };
+      const payload = {
+        ...(task || !editing ? { name: trimmed } : {}),
+        ...(task ? { presetTaskId: task.id } : {}),
+        description: description.trim() || null,
+        isActive,
+      };
       if (editing) {
         const updated = await updateDeliverable(editing.id, payload);
         commit(rows.map((r) => (r.id === updated.id ? updated : r)));
@@ -180,9 +211,13 @@ const StageDeliverableList: React.FC<Props> = ({ stageId, loaded, onCountChange 
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={0.75}>
-            <Typography sx={{ fontWeight: 600, fontSize: 13.5, lineHeight: 1.35, wordBreak: "break-word" }}>
-              {row.name}
-            </Typography>
+            {row.presetTaskId ? (
+              <TaskPath path={row.name} />
+            ) : (
+              <Typography sx={{ fontWeight: 600, fontSize: 13.5, lineHeight: 1.35, wordBreak: "break-word" }}>
+                {row.name}
+              </Typography>
+            )}
             {!row.isActive && <ToneChip tone="neutral" label="Disabled" dense />}
           </Stack>
           {row.description && (
@@ -254,6 +289,9 @@ const StageDeliverableList: React.FC<Props> = ({ stageId, loaded, onCountChange 
         open={open}
         onClose={close}
         maxWidth="xs"
+        // The task form is a Bootstrap modal on top of this one; without this MUI pulls
+        // focus back and nothing can be typed into it.
+        disableEnforceFocus={creatingTask}
         header={
           <GlassHeader
             title={editing ? "Edit Deliverable" : "New Deliverable"}
@@ -264,19 +302,34 @@ const StageDeliverableList: React.FC<Props> = ({ stageId, loaded, onCountChange 
       >
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Name"
-              size="small"
-              fullWidth
-              autoFocus
+            <Box>
+            {/* Helper text lives BELOW the row, so `stretch` sizes the button to the input
+                alone and the two line up edge to edge. */}
+            <Stack direction="row" spacing={1} alignItems="stretch">
+            <TaskPathSelect
+              value={task?.id ?? ""}
+              options={taskOptions}
+              loading={tasksLoading}
               required
-              value={name}
+              autoFocus
               error={!!formError}
-              helperText={formError ?? `${name.trim().length}/${NAME_MAX}`}
-              inputProps={{ maxLength: NAME_MAX }}
-              onChange={(e) => { setName(e.target.value); setFormError(null); }}
-              placeholder="e.g. Site Survey"
+              onChange={(next) => { setTask(next); setFormError(null); }}
             />
+            <WtIconButton
+              title={task ? `New project task under ${task.path[task.path.length - 1]}` : "New project task"}
+              onClick={() => setCreatingTask(true)}
+              sx={{ width: 40, height: "auto", borderRadius: "8px", flexShrink: 0 }}
+            >
+              <KTIcon iconName="plus" className="fs-3" />
+            </WtIconButton>
+            </Stack>
+            <FormHelperText error={!!formError} sx={{ mx: 1.75 }}>
+              {formError
+                ?? (editing && !editing.presetTaskId && !task
+                  ? `Currently "${editing.name}", not linked to a task. Pick one to link it.`
+                  : "Its status on the project follows this task.")}
+            </FormHelperText>
+            </Box>
             <TextField
               label="Description (optional)"
               size="small"
@@ -296,11 +349,21 @@ const StageDeliverableList: React.FC<Props> = ({ stageId, loaded, onCountChange 
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <WtButton ghost onClick={close} disabled={saving}>Cancel</WtButton>
-          <WtButton tone="primary" disabled={!name.trim() || saving} onClick={() => void save()}>
+          <WtButton tone="primary" disabled={(!task && !editing) || saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save"}
           </WtButton>
         </DialogActions>
       </GlassDialog>
+
+      <TaskConfigForm
+        show={creatingTask}
+        onClose={() => setCreatingTask(false)}
+        onCreated={(created) => setPendingTaskId(created.id)}
+        type="presetTask"
+        title="Project Task"
+        initialData={task ? ({ parentId: task.id } as any) : null}
+        presetTasks={presetTasks as any}
+      />
     </Box>
   );
 };

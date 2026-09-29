@@ -75,3 +75,14 @@ export function autoFixPercentages(values: number[]): number[] {
 
   return floors.map((floor, i) => floor + (bump.has(i) ? 1 : 0));
 }
+
+/**
+ * The billing split to save, now that percentages are no longer entered. A plan whose stages
+ * already hold a valid split (every stage > 0, total 100) keeps it, so existing billing does
+ * not move; once stages are added or removed the split is simply even.
+ */
+export function settlePercentages(stages: PlanStage[]): number[] {
+  const kept = stages.map((s) => pct(s.percentage));
+  if (kept.every((v) => v > 0) && stageTotal(stages) === 100) return kept;
+  return autoFixPercentages(stages.map(() => 1));
+}
