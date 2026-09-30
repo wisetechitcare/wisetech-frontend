@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { DetailCard, DetailSummaryBar, DetailRow, DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
 import { EditableDetailCard, FieldRow, SelectEditor, DateEditor, NumberEditor, TextEditor } from '@app/modules/detail-page/EditableDetailCard';
 import { updateLeadSection, type LeadSectionKey } from '@services/leadService';
@@ -9,13 +9,20 @@ import { EmptyState } from '../widgets';
 import { fmtMoney, fmtDate, DASH, type CommercialTotals } from '../entityViewModel';
 import type { CommercialLineVM, EntityVM } from '../facets';
 import { getCurrencySymbol } from '@utils/currency';
-import { IconButton, Tooltip } from '@mui/material';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 
-/** Wrapper for monetary values - blur only the text, not the container */
+/**
+ * A monetary value that blurs on demand.
+ *
+ * Uses the app-wide `sensitive-data-*` rules (main.css) rather than its own inline filter,
+ * so this reads exactly like the blur on Salary and Reimbursement — same radius, same
+ * fade — instead of being a third look that drifts from the other two.
+ */
 const BlurredAmount: React.FC<{ value: string; isBlurred: boolean }> = ({ value, isBlurred }) => (
-  <span style={isBlurred ? { filter: 'blur(5px)', userSelect: 'none', display: 'inline-block' } : {}}>
+  <span
+    className={isBlurred ? 'sensitive-data-hidden' : 'sensitive-data-visible'}
+    style={{ display: 'inline-block' }}
+  >
     {value}
   </span>
 );
@@ -39,7 +46,10 @@ const Breakdown: React.FC<{ title: string; subtitle: string; icon: string; accen
     {lines.length === 0 ? (
       <EmptyState icon="bi bi-cash-stack" title="No commercials" message="No work areas, rates or costs have been added." />
     ) : (
-      <div style={{ overflowX: 'auto' }}>
+      /* The padding is room for the blur to spread into: `overflow-x: auto` clips on BOTH
+         axes, which cut the edges off the figures in the first and last rows and columns.
+         The negative margin cancels it, so the table sits where it did. */
+      <div style={{ overflowX: 'auto', padding: '6px', margin: '-6px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter' }}>
           <thead>
             <tr style={{ textAlign: 'left' }}>
@@ -83,7 +93,10 @@ const Breakdown: React.FC<{ title: string; subtitle: string; icon: string; accen
  */
 const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawLead }) => {
   const poStatusOptions = usePoStatusOptions();
-  const [isBlurred, setIsBlurred] = useState(true);
+  // The eye lives in the page's tab bar, so the switch stays reachable while this
+  // section scrolls. State comes from the shared provider rather than from here.
+  const { visible } = useSensitiveData();
+  const isBlurred = !visible;
 
   const lead = vm.commercials.lead;
   const project = vm.commercials.project;
@@ -103,26 +116,17 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
 
   return (
     <div style={{ position: 'relative' }}>
-      <div style={{ position: 'absolute', top: 0, right: 0, zIndex: 10 }}>
-        <Tooltip title={isBlurred ? 'Click to reveal amounts' : 'Click to hide amounts'}>
-          <IconButton
-            size="small"
-            onClick={() => setIsBlurred(!isBlurred)}
-            sx={{ color: isBlurred ? 'text.secondary' : 'primary.main' }}
-          >
-            {isBlurred ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-          </IconButton>
-        </Tooltip>
-      </div>
-
+      {/* Blurred, never substituted. Dots threw the real figure away, so the tile lost its
+          shape — you could not tell a four-figure quote from a seven-figure one, and the
+          number jumped as it was revealed. A blur keeps the value in place and unreadable. */}
       <DetailSummaryBar
         items={[
-          { label: project ? 'Contract Value' : 'Estimated Value', value: isBlurred ? '●●●●●' : fmtMoney(contractValue), icon: 'bi bi-currency-rupee', accentColor: 'green' },
+          { label: project ? 'Contract Value' : 'Estimated Value', value: <BlurredAmount value={fmtMoney(contractValue)} isBlurred={isBlurred} />, icon: 'bi bi-currency-rupee', accentColor: 'green' },
           { label: 'Total Area', value: contractArea ? `${contractArea.toLocaleString('en-IN')} sqft` : DASH, icon: 'bi bi-rulers', accentColor: 'teal' },
-          { label: 'Quoted (Lead)', value: isBlurred ? '●●●●●' : fmtMoney(lead.totals.totalCost), icon: 'bi bi-tag', accentColor: 'blue' },
+          { label: 'Quoted (Lead)', value: <BlurredAmount value={fmtMoney(lead.totals.totalCost)} isBlurred={isBlurred} />, icon: 'bi bi-tag', accentColor: 'blue' },
           // Rounding to the rupee hid the real rate: 22,50,000 over 23,399 sqft read
           // as 96, not 96.16. Two decimals; a whole number renders without any.
-          { label: 'Avg / sqft', value: contractArea ? (isBlurred ? '●●●●●' : fmtMoney(+(contractValue / contractArea).toFixed(2))) : DASH, icon: 'bi bi-graph-up', accentColor: 'purple' },
+          { label: 'Avg / sqft', value: contractArea ? <BlurredAmount value={fmtMoney(+(contractValue / contractArea).toFixed(2))} isBlurred={isBlurred} /> : DASH, icon: 'bi bi-graph-up', accentColor: 'purple' },
         ]}
       />
 
