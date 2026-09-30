@@ -55,7 +55,7 @@ export function AddToRoleDialog({ open, onClose, applicantId, applicantName, com
     const role = available.find((r) => r.id === requisitionId);
 
     const addMut = useMutation({
-        mutationFn: () => createApplication({ applicantId, requisitionId }),
+        mutationFn: () => createApplication({ applicantId, requisitionId }, companyId),
         onSuccess: () => {
             toast({ icon: "success", title: `${applicantName} added to "${role?.title ?? "the role"}"` });
             qc.invalidateQueries({ queryKey: queryKeys.recruitment.all });

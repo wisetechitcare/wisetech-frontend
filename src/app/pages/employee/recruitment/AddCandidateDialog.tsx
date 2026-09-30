@@ -72,11 +72,11 @@ export function AddCandidateDialog({ open, onClose, roleRequired = false, compan
             let applicantId: string | undefined;
             let existed = false;
             if (requisitionId) {
-                const res = await createApplication({ applicant: payload, requisitionId });
+                const res = await createApplication({ applicant: payload, requisitionId }, companyId);
                 applicantId = res?.application?.applicantId;
                 existed = Boolean(res?.application?.applicantExisted);
             } else {
-                const res = await createApplicant(payload);
+                const res = await createApplicant(payload, companyId);
                 applicantId = res?.applicant?.id;
             }
             // The resume goes up once the candidate exists. Its failure is reported in the SAME toast as

@@ -118,8 +118,17 @@ export const getRequisitionById = async (id: string): Promise<JobRequisition | n
     return data?.requisition ?? null;
 };
 
-export const createRequisition = async (payload: RequisitionPayload) => {
-    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_REQUISITION}`, payload);
+/**
+ * Creates take the SELECTED organization, the same `?companyId=` the reads narrow by.
+ *
+ * Reads have always honoured the shell's organization filter; creates stamped the caller's own
+ * company regardless, so raising a role while filtered to a sub-org put it somewhere else and the
+ * list you were looking at did not contain the thing you had just made. The server validates the
+ * value against the caller's family and refuses anything outside it, and falls back to the
+ * caller's own company when none is sent — so omitting it is exactly today's behaviour. Audit M15.
+ */
+export const createRequisition = async (payload: RequisitionPayload, companyId?: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_REQUISITION}${listQuery({ companyId })}`, payload);
     return data;
 };
 
@@ -305,8 +314,8 @@ export const getApplications = async (filters: { requisitionId?: string; statusI
     return pagedList<Application>(data?.applications, data);
 };
 
-export const createApplication = async (payload: ApplicationCreatePayload) => {
-    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_APPLICATION}`, payload);
+export const createApplication = async (payload: ApplicationCreatePayload, companyId?: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_APPLICATION}${listQuery({ companyId })}`, payload);
     return data;
 };
 
@@ -436,8 +445,8 @@ export const getApplicants = async (search?: string, companyId?: string): Promis
     return pagedList<Applicant>(data?.applicants, data);
 };
 
-export const createApplicant = async (payload: ApplicantPayload) => {
-    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_APPLICANT}`, payload);
+export const createApplicant = async (payload: ApplicantPayload, companyId?: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_APPLICANT}${listQuery({ companyId })}`, payload);
     return data;
 };
 
@@ -859,8 +868,8 @@ export const getPostings = async (companyId?: string): Promise<JobPosting[]> => 
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_POSTINGS}${listQuery({ companyId })}`);
     return data?.postings ?? [];
 };
-export const createPosting = async (payload: PostingPayload) => {
-    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_POSTING}`, payload);
+export const createPosting = async (payload: PostingPayload, companyId?: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_POSTING}${listQuery({ companyId })}`, payload);
     return data;
 };
 export const updatePosting = async (id: string, payload: PostingPayload) => {

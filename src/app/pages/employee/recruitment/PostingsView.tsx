@@ -90,7 +90,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                 const { requisitionId: _role, ...rest } = form;
                 return updatePosting(editing.id, rest);
             }
-            return createPosting(form);
+            return createPosting(form, companyId);
         },
         onSuccess: () => {
             toast({ icon: "success", title: editing ? `"${form.title || editing.title}" updated` : "Advert created" });

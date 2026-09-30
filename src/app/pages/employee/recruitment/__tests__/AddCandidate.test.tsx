@@ -164,7 +164,10 @@ describe('AddToRoleDialog', () => {
         expect(names).toEqual(['MEP Supervisor']);
         await userEvent.click(screen.getByRole('option', { name: 'MEP Supervisor' }));
         await userEvent.click(screen.getByRole('button', { name: /add to role/i }));
-        await waitFor(() => expect(api.createApplication).toHaveBeenCalledWith({ applicantId: 'cand-1', requisitionId: 'r-other' }));
+        // The second argument is the selected organization, so a record lands in the org the user
+        // is looking at rather than on their own company (audit M15). Undefined here: this dialog
+        // is rendered without an org filter, which is the "no narrowing" case.
+        await waitFor(() => expect(api.createApplication).toHaveBeenCalledWith({ applicantId: 'cand-1', requisitionId: 'r-other' }, undefined));
         expect(lastToast()).toEqual({ icon: 'success', title: 'Suhel Pathan added to "MEP Supervisor"' });
     });
 });

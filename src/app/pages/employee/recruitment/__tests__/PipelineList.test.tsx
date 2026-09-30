@@ -104,7 +104,7 @@ const renderList = async () => {
      * culprit — see the note in the frontend CLAUDE.md). Restructuring these three tests is not
      * worth anyone's afternoon.
      */
-    const name = await screen.findByText('Suhel Pathan', undefined, { timeout: 30000 });
+    const name = await screen.findByText('Suhel Pathan', undefined, { timeout: 60000 });
     return name.closest('tr') as HTMLElement;
 };
 
@@ -123,7 +123,10 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-describe('Pipeline list view', () => {
+// 60s, not the global 35s: this file's measured cost is import + jsdom setup + a first render,
+// and the wall-clock for that grows with how many other files are competing for CPU (67 now,
+// 44 when the number was 12s). See the measurement above — the test is not what got slower.
+describe('Pipeline list view', { timeout: 60000 }, () => {
     test('each row has one set of named icon actions, not a stack of worded buttons', async () => {
         const row = await renderList();
         for (const name of ['Open Candidate', 'Interviews', 'Offer', 'Convert to Employee']) {
