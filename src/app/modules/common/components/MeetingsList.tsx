@@ -1187,10 +1187,6 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
                         <div key={e.employeeId} style={{ display: 'flex', alignItems: 'baseline', gap: 12, padding: '11px 16px', borderBottom: '1px solid #F4F6F9' }}>
                             <div style={{ minWidth: 0, flex: 1 }}>
                                 <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>{e.name}</div>
-                                <div style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 2 }}>
-                                    {e.meetings} meeting{e.meetings === 1 ? '' : 's'}, {hm(e.minutes)} of their time
-                                    {e.rate > 0 && ` at ${money(e.rate)}/hr`}
-                                </div>
                                 {/* The arithmetic, spelled out. An hourly rate nobody can check is
                                     an hourly rate somebody has to raise a ticket about — this line
                                     turns "why is that 67?" into a salary or a working-hours setting
