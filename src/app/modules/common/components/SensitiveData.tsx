@@ -1,5 +1,9 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import Tooltip from '@mui/material/Tooltip';
+import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import PrivacyToggle from './PrivacyToggle';
 
 /**
@@ -116,6 +120,57 @@ export function SensitiveDataHeaderToggle() {
             <PrivacyToggle isVisible={sensitive.visible} onToggle={sensitive.toggle} color="#ffffff" />
             <span className="max-sm:sr-only">{label}</span>
         </button>
+        </Tooltip>
+    );
+}
+
+/**
+ * The eye for a LIGHT surface — the detail page's underline tab bar, where the white-on-blue
+ * button above would be invisible.
+ *
+ * Labelled and outlined, not a bare icon. On a row of text tabs a lone glyph reads as
+ * decoration: it does not say it is pressable, and an eye on its own does not say WHAT it
+ * reveals. The two states are told apart by more than the glyph — hidden is quiet, showing
+ * is filled in the brand tint — so the current state is legible without hunting for the
+ * slash across the eye. The label drops on a phone, where the tab row needs the width.
+ */
+export function SensitiveDataBarToggle() {
+    const sensitive = useSensitiveData();
+    const label = sensitive.visible ? 'Hide amounts' : 'Show amounts';
+    return (
+        <Tooltip title={label}>
+            <Button
+                type="button"
+                size="small"
+                variant="outlined"
+                onClick={sensitive.toggle}
+                aria-pressed={sensitive.visible}
+                aria-label={label}
+                startIcon={sensitive.visible ? <VisibilityIcon /> : <VisibilityOffIcon />}
+                sx={{
+                    alignSelf: 'center',
+                    textTransform: 'none',
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    // No radius override: the theme gives every button the same corner, and
+                    // a pill here would read as a different KIND of control to the buttons
+                    // beside it.
+                    px: { xs: 1, sm: 1.5 },
+                    minWidth: 0,
+                    color: sensitive.visible ? 'primary.main' : 'text.secondary',
+                    borderColor: sensitive.visible ? 'primary.main' : 'divider',
+                    bgcolor: sensitive.visible ? 'action.selected' : 'transparent',
+                    '&:hover': {
+                        borderColor: 'primary.main',
+                        bgcolor: 'action.hover',
+                    },
+                    // Icon-only on a phone: the label would push the tabs off the row.
+                    '& .MuiButton-startIcon': { mr: { xs: 0, sm: 0.75 }, ml: 0 },
+                }}
+            >
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{label}</Box>
+            </Button>
         </Tooltip>
     );
 }

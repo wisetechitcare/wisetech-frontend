@@ -551,6 +551,13 @@ export const DetailSummaryBar: React.FC<{ items: SummaryItem[] }> = ({ items }) 
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
+                // `overflow: hidden` (here for the ellipsis) clips this box tight to the
+                // text, which sliced the edges off a blurred figure — a CSS blur spreads
+                // past the glyphs it is applied to, on every side. The padding gives that
+                // spread somewhere to land and the negative margin cancels it, so the
+                // value sits exactly where it did and the ellipsis still works.
+                padding: '6px',
+                margin: '-6px',
               }}
             >
               {item.value ?? '-'}
