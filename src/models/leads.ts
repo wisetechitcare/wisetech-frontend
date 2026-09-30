@@ -114,6 +114,8 @@ export interface PaymentPlanStageDeliverable {
   description?: string | null;
   sortOrder: number;
   isActive: boolean;
+  /** The Project Task this deliverable is; `name` holds its path. Null = legacy free text. */
+  presetTaskId?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -123,6 +125,7 @@ export interface DeliverablePayload {
   name?: string;
   description?: string | null;
   isActive?: boolean;
+  presetTaskId?: string | null;
 }
 
 /** A reusable, stage-wise fee break-up plan ("payment method"). */

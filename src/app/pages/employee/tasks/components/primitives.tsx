@@ -9,7 +9,7 @@
  * **No hardcoded colours.** Everything resolves through the MUI theme or a stage's own
  * configured colour, so light and dark both work without a second stylesheet.
  */
-import { Box, Chip, LinearProgress, Stack, Tooltip, Typography, Avatar, AvatarGroup, alpha, useTheme } from '@mui/material';
+import { Box, Chip, LinearProgress, Stack, Tooltip, Typography, Avatar, AvatarGroup, alpha, useTheme, type Theme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
 import { EASE_200, IconBox, SHADOW_HOVER, SHADOW_REST, TRIO, toneSurface, type Trio } from '@app/modules/common/components/ui/patterns';
@@ -608,3 +608,16 @@ export const FinalStageMark = ({ task }: { task: { status?: TaskStatusRef | null
         </Tooltip>
     );
 };
+
+/**
+ * The filled pill of the task page — its active tab and its primary actions ("Add subtask")
+ * share it, so a button and the tab it sits under read as one set of controls.
+ */
+export const primaryPillSx = {
+    flexShrink: 0, textTransform: 'none', fontWeight: 700, fontSize: 13.5,
+    borderRadius: 2.5, px: 2, py: 0.9,
+    color: '#fff', bgcolor: 'primary.main',
+    boxShadow: (t: Theme) => `0 6px 16px ${alpha(t.palette.primary.main, 0.28)}`,
+    '& .MuiButton-startIcon i, & .MuiButton-startIcon .ki-duotone': { color: '#fff' },
+    '&:hover': { bgcolor: 'primary.dark' },
+} as const;

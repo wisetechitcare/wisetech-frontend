@@ -15,7 +15,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-    isTaskFinal, isTaskOverdue, daysUntilDue, dueLabel,
+    isTaskFinal, progressForStage, isTaskOverdue, daysUntilDue, dueLabel,
     clampProgress, subtaskProgress,
     loggedSeconds, formatDuration,
     fieldsForScope, validateScopeShape, buildTaskPayload,
@@ -313,8 +313,12 @@ describe('display helpers', () => {
         assert.equal(initialsOf(''), '?');
     });
 
-    it('shortens a UUID to something a card can show', () => {
-        assert.equal(shortTaskId('4e13816b-5314-4204-a197-ef1105eacc01'), '#4e13816b');
+    it('names a task by its number in the project', () => {
+        assert.equal(shortTaskId({ id: '4e13816b-5314-4204-a197-ef1105eacc01', taskNo: 12 }), '#12');
+    });
+
+    it('falls back to a short id for a task without a number', () => {
+        assert.equal(shortTaskId({ id: '4e13816b-5314-4204-a197-ef1105eacc01' }), '#4e13816b');
     });
 });
 
@@ -344,5 +348,19 @@ describe('preset link on the payload', () => {
         const payload = buildTaskPayload({ ...base, taskTypeMode: 'CUSTOM', presetTaskId: 'n7' });
         assert.equal(payload.presetTaskId, null);
         assert.equal(payload.taskType, 'CUSTOM');
+    });
+});
+
+describe('picking a stage moves the progress', () => {
+    it('a final stage is 100%, whatever its role', () => {
+        assert.equal(progressForStage({ isFinal: true, progressRole: null }), 100);
+        assert.equal(progressForStage({ isFinal: false, progressRole: 'DONE' }), 100);
+    });
+
+    it('a not-started stage is 0%; in-progress and own phases leave it alone', () => {
+        assert.equal(progressForStage({ isFinal: false, progressRole: 'NOT_STARTED' }), 0);
+        assert.equal(progressForStage({ isFinal: false, progressRole: 'IN_PROGRESS' }), null);
+        assert.equal(progressForStage({ isFinal: false, progressRole: null }), null);
+        assert.equal(progressForStage(null), null);
     });
 });

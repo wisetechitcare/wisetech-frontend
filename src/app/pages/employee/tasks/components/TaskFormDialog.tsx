@@ -21,11 +21,12 @@ import {
 import { KTIcon } from '@metronic/helpers';
 import {
     TaskFormValues, TaskScope, TaskTypeMode, buildTaskPayload, fieldsForScope, validateScopeShape,
-    apiErrorMessage, employeeName, initialsOf, clampProgress, PresetTask,
+    apiErrorMessage, employeeName, initialsOf, clampProgress, PresetTask, progressForStage, TaskStatusRef,
 } from '../taskDomain';
-import { PATH_SEPARATOR, getPresetPath } from '@utils/presetTaskHierarchy';
+import { getPresetSubtreeIds } from '@utils/presetTaskHierarchy';
+import { useProjectDeliverables } from '../useProjectDeliverables';
 import { toWireDate } from '@utils/dateFormats';
-import { HierarchicalTaskPicker, buildTaskOptions } from './HierarchicalTaskSelect';
+import TaskPathSelect, { buildTaskPathOptions } from './TaskPathSelect';
 import {
     useAvailableProjects, useProjectAssignees, useGeneralAssignees,
     useTaskStatuses, useTaskPriorities, usePresetTasks, useCreateTask, useUpdateTask,
@@ -309,13 +310,23 @@ export const TaskFormDialog = ({
     // Presets come back FLAT; `parentId` is what makes them a tree. One picker lists every node
     // at every depth — a dropdown per level could never describe a tree whose depth is not known
     // in advance, which is what the old Main task + Sub-task pair got wrong.
-    const presetOptions = useMemo(() => buildTaskOptions(presets as PresetTask[]), [presets]);
+    // A project task picks from THAT project's deliverables — its plan's plus any added to the
+    // project alone — read from the same board its Deliverables tab shows. With no project yet,
+    // or no task-linked deliverables, the whole catalogue stays on offer rather than an empty,
+    // dead-end picker. The task being edited always stays pickable.
+    const deliverables = useProjectDeliverables(scopeFields.project ? values.projectId : null);
+    const { deliverableTaskIds } = deliverables;
+    const fromDeliverables = deliverableTaskIds.length > 0;
+    const pickedStage = deliverables.stageOf(values.presetTaskId);
 
-    /** Ancestors + own name for the selected node. Derived for display; never stored. */
-    const selectedPath = useMemo(
-        () => (values.presetTaskId ? getPresetPath(presets as PresetTask[], values.presetTaskId) : []),
-        [presets, values.presetTaskId],
-    );
+    // Each deliverable task and the work beneath it; paths still read in full from the whole tree.
+    const presetOptions = useMemo(() => {
+        const list = presets as PresetTask[];
+        if (!fromDeliverables) return buildTaskPathOptions(list);
+        const only = new Set(values.presetTaskId ? [values.presetTaskId] : []);
+        deliverableTaskIds.forEach((id) => getPresetSubtreeIds(list, id).forEach((n) => only.add(n)));
+        return buildTaskPathOptions(list, only);
+    }, [presets, fromDeliverables, deliverableTaskIds, values.presetTaskId]);
 
     const assigneesQuery = scopeFields.assigneeSource === 'general' ? generalAssigneesQuery : projectAssigneesQuery;
     const assignees: AssigneeOption[] = assigneesQuery.data?.assignees ?? [];
@@ -789,32 +800,28 @@ export const TaskFormDialog = ({
                                    selected node's own name; its ancestors are shown beneath as
                                    context and are never written into the name. `presetTaskId` is
                                    what the server derives the hierarchy from on read. */
-                                <HierarchicalTaskPicker
+                                <TaskPathSelect
                                     value={values.presetTaskId ?? ''}
                                     options={presetOptions}
-                                    isRequired
-                                    disabled={progressLock || presetsQuery.isLoading}
-                                    hasError={touched && !!nameError}
-                                    placeholder={presets.length ? 'Search and select a task…' : 'No tasks configured yet'}
+                                    required
+                                    label="Task"
+                                    disabled={progressLock || presetsQuery.isLoading || deliverables.isFetching}
+                                    loading={presetsQuery.isLoading}
+                                    error={touched && !!nameError}
+                                    placeholder={presets.length ? 'Search, e.g. electrical load sheet' : 'No tasks configured yet'}
+                                    slotProps={dropdownSlotProps}
                                     onChange={(option) => set({
-                                        presetTaskId: option?.value || '',
+                                        presetTaskId: option?.id || '',
                                         // The leaf, not the path: the hierarchy is derived, never
                                         // baked into the stored name.
-                                        taskName: option?.label || '',
+                                        taskName: option ? option.path[option.path.length - 1] : '',
                                     })}
-                                    helpText={
-                                        <Typography
-                                            variant="caption"
-                                            sx={{ display: 'block', mt: 0.5, ml: 0.25, color: touched && nameError ? 'error.main' : 'text.secondary' }}
-                                        >
-                                            {(touched && nameError)
-                                                // Only worth showing once there is a path to show — a
-                                                // root node's "hierarchy" is just its own name again.
-                                                || (selectedPath.length > 1
-                                                    ? `Hierarchy: ${selectedPath.join(PATH_SEPARATOR)}`
-                                                    : 'Search any level, or drill in with the arrows')}
-                                        </Typography>
-                                    }
+                                    helperText={(touched && nameError)
+                                        || (pickedStage
+                                            ? `Deliverable of ${pickedStage}`
+                                            : fromDeliverables
+                                                ? "This project's deliverables — type any words from the task path"
+                                                : 'Type any words from the task path')}
                                 />
                             ) : (
                                 <TextField
@@ -962,7 +969,12 @@ export const TaskFormDialog = ({
                                 select fullWidth size="small" label="Stage" disabled={progressLock}
                                 SelectProps={selectMenuProps}
                                 value={values.statusId ?? ''}
-                                onChange={(e) => set({ statusId: e.target.value })}
+                                onChange={(e) => {
+                                    // The slider follows the stage right away — "Task Completed"
+                                    // shows 100% before Save, the same rule the server applies.
+                                    const forced = progressForStage(statuses.find((s: TaskStatusRef) => s.id === e.target.value));
+                                    set({ statusId: e.target.value, ...(forced !== null ? { progress: forced } : {}) });
+                                }}
                             >
                                 <MenuItem value="">No stage</MenuItem>
                                 {statuses.map((s: { id: string; name: string; isFinal?: boolean }) => (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useDispatch } from "react-redux";
 import MaterialHeaderTab, {
   TabItem,
@@ -7,7 +7,6 @@ import { PageTitle } from "@metronic/layout/core";
 import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
-import { usePermission } from "@hooks/usePermission";
 import { useTabRoute } from "@app/hooks/useTabRoute";
 import { fetchConfiguration } from "@services/company";
 import { DATE_SETTINGS_KEY } from "@constants/configurations-key";
@@ -15,6 +14,7 @@ import { safeJsonParse } from "@utils/safeJson";
 import { TasksWorkspace } from "./TasksWorkspace";
 import TasksConfigure from "./configure/TasksConfigure";
 import TaskOverviewToggle from "./taskOverView/TaskOverviewToggle";
+import { useTasksTabs } from "./TasksSectionBar";
 
 /**
  * The Tasks section's tab bar — the same MaterialHeaderTab every other section uses.
@@ -34,7 +34,7 @@ import TaskOverviewToggle from "./taskOverView/TaskOverviewToggle";
  */
 const TasksMain = () => {
   const [dateSettingsEnabled, setDateSettingsEnabled] = useState(false);
-  const canConfigure = usePermission("tasks.manage.all");
+  const tabs = useTasksTabs();
 
   const dispatch = useDispatch<AppDispatch>();
 
@@ -63,30 +63,15 @@ const TasksMain = () => {
     fetchDateSettings();
   }, []);
 
+  // The tab list is shared with the task detail page (TasksSectionBar), so the two bars match.
   const tabItems: TabItem[] = useMemo(() => {
-    const items: TabItem[] = [
-      {
-        title: "Overview",
-        component: <TaskOverviewToggle dateSettingsEnabled={dateSettingsEnabled} />,
-        icon: "bi-grid-1x2",
-      },
-      {
-        title: "Tasks",
-        component: <TasksWorkspace />,
-        icon: "bi-check2-square",
-      },
-    ];
-
-    if (canConfigure) {
-      items.push({
-        title: "Configure",
-        component: <TasksConfigure />,
-        icon: "bi-gear",
-      });
-    }
-
-    return items;
-  }, [dateSettingsEnabled, canConfigure]);
+    const components: Record<string, ReactNode> = {
+      Overview: <TaskOverviewToggle dateSettingsEnabled={dateSettingsEnabled} />,
+      Tasks: <TasksWorkspace />,
+      Configure: <TasksConfigure />,
+    };
+    return tabs.map((t) => ({ ...t, component: components[t.title] }));
+  }, [dateSettingsEnabled, tabs]);
 
   /**
    * The open tab is the PATH (/tasks/tasks), so returning here lands where you left — a task's
