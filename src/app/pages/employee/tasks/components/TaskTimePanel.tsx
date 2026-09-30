@@ -176,6 +176,8 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
 
     /** The entry just stopped, held open for its description and attachments. */
     const [reviewTimesheetId, setReviewTimesheetId] = useState<string | null>(null);
+    // Time logged by hand — the same form as everywhere else, locked to this task.
+    const [addingLog, setAddingLog] = useState(false);
 
     /** Ticks once a second while anything is running, so the elapsed figures stay live. */
     const [now, setNow] = useState(() => Date.now());
@@ -273,6 +275,18 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
         );
     }
 
+    /** Log time without the timer — offered wherever the timer is (same people, same task). */
+    const addLogButton = (
+        <Button
+            variant="outlined"
+            startIcon={<KTIcon iconName="plus" className="fs-6" />}
+            onClick={() => setAddingLog(true)}
+            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, borderColor: 'divider', color: 'text.primary' }}
+        >
+            Add log
+        </Button>
+    );
+
     return (
         <Stack spacing={2}>
             {/* timer */}
@@ -350,6 +364,7 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
                 </Box>
                 {isThisTaskRunning ? (
                     <Stack direction="row" spacing={1} alignItems="center">
+                        {addLogButton}
                         {/* Two distinct actions, because they mean different things: pause keeps
                             this session open (resuming appends to the same entry), stop ends it
                             (the next start opens a new one). This button used to say "Stop"
@@ -372,15 +387,18 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
                         </Button>
                     </Stack>
                 ) : onThisTask ? (
-                    <Button
-                        variant="contained"
-                        startIcon={<KTIcon iconName="time" className="fs-6" />}
-                        onClick={() => void handleStart()}
-                        disabled={timer.isRunning}
-                        sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5 }}
-                    >
-                        Start timer
-                    </Button>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        {addLogButton}
+                        <Button
+                            variant="contained"
+                            startIcon={<KTIcon iconName="time" className="fs-6" />}
+                            onClick={() => void handleStart()}
+                            disabled={timer.isRunning}
+                            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5 }}
+                        >
+                            Start timer
+                        </Button>
+                    </Stack>
                 ) : (
                     // Not offered rather than offered-and-refused: a button that always fails is
                     // worse than no button, and the reason belongs where the button would be.
@@ -814,6 +832,19 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
                 // The parent owns this query; invalidating the task keys refetches the panel with it.
                 onChanged={invalidateTasks}
             />
+
+            {addingLog && (
+                <NewTimeLogForm
+                    show
+                    prefilledTaskId={task.id}
+                    prefilledProjectId={task.leadId || undefined}
+                    onClose={() => {
+                        setAddingLog(false);
+                        // A new entry — and possibly new task progress — so refresh behind it.
+                        invalidateTasks();
+                    }}
+                />
+            )}
 
             {reviewTimesheetId && (
                 <NewTimeLogForm

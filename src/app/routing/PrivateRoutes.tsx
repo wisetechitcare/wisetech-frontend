@@ -62,9 +62,9 @@ const OrganisationProfileMain = lazy(() => import('@pages/company/organisation/O
 const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/OrganizationProfilePage'))
 const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
 const TasksMain = lazy(() => import('@pages/employee/tasks/TasksMain'))
+const TasksSectionBar = lazy(() => import('@pages/employee/tasks/TasksSectionBar'))
 // Phase 4 — the rebuilt Task UI (Kanban-first workspace + task detail workspace)
 // Task configuration — statuses, priorities and the preset task tree.
-const TasksConfigure = lazy(() => import('@pages/employee/tasks/configure/TasksConfigure'))
 const TaskDetailPage = lazy(() => import('@pages/employee/tasks/TaskDetailPage'))
 const MyTimeSheetMain = lazy(() => import('@pages/employee/timesheet/mytimesheet/MyTimeSheetMain'))
 const EmployeeTimeSheetMain = lazy(() => import('@pages/employee/timesheet/employeetimesheet/EmployeeTimeSheetMain'))
@@ -582,8 +582,8 @@ const PrivateRoutes = () => {
             </SectionGuard>
           }
         />
-        {/* Its tabs as URLs. `configure` is deliberately absent — /tasks/configure is
-            its own permission-gated destination, declared just below. */}
+        {/* Its tabs as URLs. `configure` is deliberately absent — /tasks/configure carries
+            its own permission gate, declared just below. */}
         {TAB_PATHS.tasks.map((slug) => (
           <Route
             key={`/tasks/${slug}`}
@@ -598,10 +598,11 @@ const PrivateRoutes = () => {
           />
         ))}
         <Route
-          // Task Statuses / Priorities / Preset Tasks. Its own destination rather than a tab,
-          // so it can be linked to and so it can carry a permission of its own: task config is
-          // shared by EVERY tenant, which makes deactivating a status a cross-tenant outage
-          // (Phase 0 audit §4.1) rather than a personal preference.
+          // Task Statuses / Priorities / Preset Tasks. The section page with its Configure tab
+          // open, so the section's tab bar is there to navigate back out. Declared on its own
+          // (not in TAB_PATHS) to carry a permission of its own: task config is shared by EVERY
+          // tenant, which makes deactivating a status a cross-tenant outage (Phase 0 audit §4.1)
+          // rather than a personal preference.
           //
           // ⚠️ This gate is UX. The backend `task-statuses` / `task-priorities` / `task-persest`
           // write routes still carry no `authorize()` at all — hiding the page does not protect
@@ -611,7 +612,7 @@ const PrivateRoutes = () => {
             <SectionGuard module='tasks'>
               <RequirePermission perm='tasks.manage.all' redirectTo='/tasks'>
                 <SuspensedView>
-                  <TasksConfigure />
+                  <TasksMain />
                 </SuspensedView>
               </RequirePermission>
             </SectionGuard>
@@ -632,7 +633,10 @@ const PrivateRoutes = () => {
             // section blocked could deep-link straight to a task and read, edit and delete it.
             <SectionGuard module='tasks'>
               <SuspensedView>
-                <TaskDetailPage />
+                {/* Under the section's tab bar, so Overview / Tasks / Configure stay one click away. */}
+                <TasksSectionBar>
+                  <TaskDetailPage />
+                </TasksSectionBar>
               </SuspensedView>
             </SectionGuard>
           }

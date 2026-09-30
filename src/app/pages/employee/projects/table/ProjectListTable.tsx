@@ -363,7 +363,9 @@ export const ProjectListTable = ({ projects, tableName }: { projects: any[]; tab
     const nameOf = (list: any[], id: string | null, key: string) =>
       id ? list.find((x: any) => x.id === id)?.[key] : null;
     return (projects || []).map((p: any) => {
-      const start = p.startDate || p.receivedDate || null;
+      // Received Date is the day the lead became a project — that is its start.
+      // startDate was imported equal to inquiryDate on old rows, so it only stands in.
+      const start = p.receivedDate || p.startDate || null;
       const end = p.actualEndDate || p.endDate || null;
       const duration = start && end
         ? `${Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24))} days`

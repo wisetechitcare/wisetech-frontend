@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
 import PaymentPlanStagesTree from "./PaymentPlanStagesTree";
-import { pct, stageTotal, toPlanStage, type PlanStage } from "./paymentPlanStages";
+import { settlePercentages, toPlanStage, type PlanStage } from "./paymentPlanStages";
 import { createPaymentPlan, updatePaymentPlan } from "@services/paymentPlan";
 import { showSuccess, showError } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -91,12 +91,8 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
   /** "Bungalow & Duplex → Bungalow (SINGLE)" — so the type being billed is unambiguous. */
   const scopePath = scopeNodeId ? getPresetPath(categoryNodes, scopeNodeId).join(PATH_SEPARATOR) : "";
 
-  const roundedTotal = stageTotal(rows);
-  const hasNegative = rows.some((r) => pct(r.percentage) < 0);
   const hasEmptyName = rows.some((r) => !r.name.trim());
-  const isTotalValid = roundedTotal === 100;
-  const canSave =
-    !!scopeNodeId && rows.length > 0 && isTotalValid && !hasNegative && !hasEmptyName;
+  const canSave = !!scopeNodeId && rows.length > 0 && !hasEmptyName;
 
   const handleSave = async () => {
     setError(null);
@@ -113,19 +109,13 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
       setError("Every stage needs a name.");
       return;
     }
-    if (hasNegative) {
-      setError("Stage percentages cannot be negative.");
-      return;
-    }
-    if (!isTotalValid) {
-      setError(`Stage percentages must total exactly 100% (currently ${roundedTotal}%).`);
-      return;
-    }
 
+    // Percentages are no longer entered, but billing still splits by them — see settlePercentages.
+    const split = settlePercentages(rows);
     const stages: PaymentPlanStage[] = rows.map((r, idx) => ({
       ...(r.id ? { id: r.id } : {}),
       name: r.name.trim(),
-      percentage: pct(r.percentage),
+      percentage: split[idx],
       sortOrder: idx,
     }));
 

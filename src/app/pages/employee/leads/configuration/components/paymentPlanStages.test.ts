@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoFixPercentages, pct, stageTotal, toPlanStage } from "./paymentPlanStages";
+import { autoFixPercentages, pct, settlePercentages, stageTotal, toPlanStage } from "./paymentPlanStages";
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
@@ -37,5 +37,17 @@ describe("stageTotal", () => {
   it("rounds away float noise so 100 reads as 100", () => {
     const stages = [0.1, 0.2, 99.7].map((v, i) => toPlanStage(`Stage ${i}`, v));
     expect(stageTotal(stages)).toBe(100);
+  });
+});
+
+describe("settlePercentages", () => {
+  it("keeps an existing valid split, so saved plans bill as before", () => {
+    expect(settlePercentages([30, 20, 50].map((v, i) => toPlanStage(`S${i}`, v)))).toEqual([30, 20, 50]);
+  });
+
+  it("splits evenly once a stage is added or removed", () => {
+    expect(settlePercentages([30, 20, 50, ""].map((v, i) => toPlanStage(`S${i}`, v)))).toEqual([25, 25, 25, 25]);
+    const three = settlePercentages([30, 20].map((v, i) => toPlanStage(`S${i}`, v)).concat(toPlanStage("new", "")));
+    expect(sum(three)).toBe(100);
   });
 });
