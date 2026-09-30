@@ -309,7 +309,9 @@ const pagedList = <T,>(rows: T[] | undefined | null, body: unknown): PagedList<T
 };
 
 // ─── Applications ────────────────────────────────────────────────────────────
-export const getApplications = async (filters: { requisitionId?: string; statusId?: string; sourceId?: string; search?: string; applicantId?: string } = {}, companyId?: string): Promise<PagedList<Application>> => {
+// `from`/`to` window the list on the date the person applied — the same window the overview
+// counts by, so a drill-down lists the people its bar counted. Audit H8.
+export const getApplications = async (filters: { requisitionId?: string; statusId?: string; sourceId?: string; search?: string; applicantId?: string; from?: string; to?: string } = {}, companyId?: string): Promise<PagedList<Application>> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${listQuery({ ...filters, companyId })}`);
     return pagedList<Application>(data?.applications, data);
 };

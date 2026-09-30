@@ -322,11 +322,11 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                     <CardTitle
                         tone={TRIO.purple}
                         icon="entity"
-                        title="Where Candidates Come From"
-                        hint="The bar shows how many applied. The line underneath shows how many were actually hired — that is the number worth spending on."
+                        title="Where Applications Come From"
+                        hint="The bar counts applications from each source; the line underneath is how many of them were hired — that is the number worth spending on. Applications, not people, so the bar and the list behind it agree."
                     />
                     {candidatesBySource.length === 0 ? (
-                        <EmptyHint text="No applicants yet." />
+                        <EmptyHint text="No applications yet." />
                     ) : (
                         <Stack spacing={1}>
                             {candidatesBySource.map((s) => (
@@ -387,6 +387,10 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                     title={drillDown.title}
                     statusId={drillDown.statusId}
                     sourceId={drillDown.sourceId}
+                    // The period these figures were counted in, so the list behind a bar contains
+                    // the people that bar counted. Audit H8.
+                    from={period.from}
+                    to={period.to}
                     companyId={companyId}
                 />
             )}

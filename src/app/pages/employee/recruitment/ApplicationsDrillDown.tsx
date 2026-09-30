@@ -32,10 +32,22 @@ export interface ApplicationsDrillDownProps {
     statusId?: string;
     sourceId?: string;
     companyId?: string;
+    /**
+     * The period the bar was counted in. Without it this listed everyone who had ever reached that
+     * stage while the bar behind the dialog counted only the selected period — so the heading said
+     * 12 and the table showed 40, and a recruiter had no way to tell which was lying. Audit H8.
+     */
+    from?: string;
+    to?: string;
 }
 
-const ApplicationsDrillDown = ({ open, onClose, title, statusId, sourceId, companyId }: ApplicationsDrillDownProps) => {
-    const filters = { ...(statusId ? { statusId } : {}), ...(sourceId ? { sourceId } : {}) };
+const ApplicationsDrillDown = ({ open, onClose, title, statusId, sourceId, companyId, from, to }: ApplicationsDrillDownProps) => {
+    const filters = {
+        ...(statusId ? { statusId } : {}),
+        ...(sourceId ? { sourceId } : {}),
+        ...(from ? { from } : {}),
+        ...(to ? { to } : {}),
+    };
 
     const { data: rowPage, isLoading } = useQuery({
         queryKey: queryKeys.recruitment.applications({ companyId, ...filters }),
