@@ -156,7 +156,16 @@ export default function Approvals() {
                 : Promise.resolve([] as InboxTask[]),
         ]);
         const raw = (approvals as any)?.data ?? approvals ?? [];
+        /**
+         * The server bounds how many pending steps one queue scans (`meta.truncated`). Carried
+         * through so the banner below can say so: a list silently cut at 400 would tell the person
+         * accountable for the work that there was none left, which is worse than a slow screen.
+         * `pendingSteps` counts the raw steps naming them, not rendered cards, so the wording
+         * stays deliberately approximate.
+         */
+        const meta = (approvals as any)?.meta as { truncated?: boolean; limit?: number; pendingSteps?: number | null } | undefined;
         return {
+            meta,
             steps: (Array.isArray(raw) ? raw : []) as ApprovalStep[],
             tasks: (myTasks as InboxTask[]).filter((t) => {
                 const isMyType = MY_TASK_TYPES.has(t.type);
@@ -174,6 +183,8 @@ export default function Approvals() {
         appears only on the tab you are already looking at tells you nothing — the point of
         the number is to say what is waiting on the tabs you are NOT looking at. */
     const [counts, setCounts] = useState<Record<Segment, number>>({ mine: 0, awaiting: 0, done: 0 });
+    /** Set only when the server capped the scan — see the note in fetchSegment. */
+    const [queueBound, setQueueBound] = useState<{ limit: number; pendingSteps: number | null } | null>(null);
 
     const load = useCallback(async (seg: Segment = segment) => {
         setLoading(true);
@@ -181,7 +192,7 @@ export default function Approvals() {
             // All three segments on every refresh: one code path keeps the open list and the
             // badges from drifting apart, at the cost of two extra fetches.
             const results = await Promise.all(
-                SEGMENTS.map((s) => fetchSegment(s.key).catch(() => ({ steps: [] as ApprovalStep[], tasks: [] as InboxTask[] }))),
+                SEGMENTS.map((s) => fetchSegment(s.key).catch(() => ({ meta: undefined, steps: [] as ApprovalStep[], tasks: [] as InboxTask[] }))),
             );
             setCounts(
                 SEGMENTS.reduce((acc, s, i) => {
@@ -196,6 +207,7 @@ export default function Approvals() {
                 }, {} as Record<Segment, number>),
             );
             const active = results[SEGMENTS.findIndex((s) => s.key === seg)];
+            setQueueBound(active.meta?.truncated ? { limit: active.meta.limit ?? 0, pendingSteps: active.meta.pendingSteps ?? null } : null);
             setSteps(active.steps);
             setTasks(active.tasks);
         } catch {
@@ -448,6 +460,21 @@ export default function Approvals() {
                         );
                     })}
                 </Stack>
+            )}
+
+            {/* Said out loud, because a queue quietly cut at its ceiling would read as an empty
+                one to the person accountable for the work in it. The number counts the steps
+                naming them rather than the cards below, so the wording stays approximate. */}
+            {!loading && queueBound && (
+                <Box sx={{
+                    mb: 1.5, px: 1.5, py: 1, borderRadius: '10px',
+                    border: '1px solid', borderColor: 'warning.light', bgcolor: 'warning.50',
+                    fontSize: 13, color: 'text.secondary',
+                }}>
+                    Showing the {queueBound.limit} longest-waiting items
+                    {queueBound.pendingSteps ? ` of about ${queueBound.pendingSteps}` : ''}. Work through
+                    these and the rest will follow.
+                </Box>
             )}
 
             {loading ? (

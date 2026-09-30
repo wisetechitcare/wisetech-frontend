@@ -97,7 +97,14 @@ export function useNavigation() {
     fetchPendingApprovals()
       .then((res: any) => {
         const records = res?.data ?? res ?? [];
-        setPendingApprovalsCount(Array.isArray(records) ? records.length : 0);
+        // The server caps how many pending steps it scans. Past that cap the list length IS the
+        // cap, so a badge reading it would plateau and stop telling the truth about the queue.
+        const meta = res?.meta as { truncated?: boolean; pendingSteps?: number | null } | undefined;
+        setPendingApprovalsCount(
+          meta?.truncated && meta.pendingSteps
+            ? meta.pendingSteps
+            : Array.isArray(records) ? records.length : 0,
+        );
       })
       .catch(() => setPendingApprovalsCount(0));
   };
