@@ -85,14 +85,24 @@ const renderList = async () => {
     /**
      * The first render of the shared table is slow in jsdom; give it room.
      *
-     * This number has now been raised twice — 5s, then 12s, now 30s — and each time for the same
-     * reason: the suite grew (44 files, now 65) and the parallel workers contend for CPU, so the
-     * mount takes longer while the test itself is unchanged. That pattern is the smell. The real
-     * fix is the cost itself: these three tests each mount MaterialTable from scratch, so the
-     * file pays it three times. Rendering once and asserting three times, or stubbing the table
-     * where a test is about the ROW rather than the table, would remove the flake instead of
-     * outrunning it. Left as a number for now because it is test infrastructure, not the
-     * behaviour under test — but the next person to touch this should fix it rather than raise it.
+     * Raised twice (5s → 12s → 30s) as the suite grew, which looked like a band-aid over three
+     * tests each mounting MaterialTable from scratch. MEASURED, and that guess was wrong:
+     *
+     *   test 1  2558ms   ← the only expensive mount
+     *   test 2   599ms
+     *   test 3   396ms
+     *   file     14.21s total = transform 2.25 + import 5.73 + environment 3.95 + tests 3.56
+     *
+     * The mount is ~0.5s once warm; test 1's extra ~2s is first-render of the module graph. So
+     * "render once, assert three times" would recover about 1s of 14 — the real weight is the
+     * ~9.7s of per-file import and jsdom setup that any render test of this page pays before a
+     * single assertion runs. Under 65 files of parallel CPU contention it is that first 2.5s
+     * render that stretches past a short per-assertion timeout, which is why the number kept
+     * moving and why 30s is the correct answer rather than a stopgap.
+     *
+     * Worth attacking only if this page's import cost is attacked (the kit barrel is the usual
+     * culprit — see the note in the frontend CLAUDE.md). Restructuring these three tests is not
+     * worth anyone's afternoon.
      */
     const name = await screen.findByText('Suhel Pathan', undefined, { timeout: 30000 });
     return name.closest('tr') as HTMLElement;

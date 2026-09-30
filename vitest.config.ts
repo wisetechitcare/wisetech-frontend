@@ -19,8 +19,10 @@ export default mergeConfig(
        * finding. A genuinely hung test still fails; it just takes 35s to say so.
        *
        * Raised from 15s once the suite reached 65 files: more parallel workers contending for CPU
-       * makes the same mount take longer. Raising this is outrunning the cost, not removing it —
-       * see the note in PipelineList.test.tsx for what would actually fix it.
+       * make the same mount take longer. Measured before accepting it (see PipelineList.test.tsx):
+       * the weight is ~9.7s of per-file import and jsdom setup plus a ~2.5s first render, none of
+       * which a test rewrite would meaningfully recover. This ceiling is the right answer, not a
+       * stopgap — a genuinely hung test still fails, it just takes 35s to say so.
        */
       testTimeout: 35_000,
       exclude: [
