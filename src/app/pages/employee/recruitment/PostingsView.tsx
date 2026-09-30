@@ -14,6 +14,7 @@ import {
     getPostings, createPosting, updatePosting, deletePosting, getRequisitions,
     type JobPosting, type PostingPayload, type JobRequisition, type OrgScoped,
 } from "@services/recruitment";
+import { isRoleOpenForCandidates } from "@utils/requisitions";
 
 /**
  * Job adverts — the public face of an approved role.
@@ -62,7 +63,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
     // Approved AND still open: an archived role is not hiring, and the server takes its adverts
     // down — offering it here would only produce a posting nobody can see.
     const approved = useMemo(
-        () => requisitions.filter((r: JobRequisition) => r.status === 1 && r.isActive !== false),
+        () => requisitions.filter(isRoleOpenForCandidates),
         [requisitions],
     );
 

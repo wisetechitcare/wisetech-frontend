@@ -9,6 +9,7 @@ import {
     createApplicant, createApplication, getRequisitions, uploadApplicantResume,
     type ApplicantPayload, type JobRequisition,
 } from "@services/recruitment";
+import { isRoleOpenForCandidates } from "@utils/requisitions";
 import { CandidateFormFields, emptyCandidate, isCandidateFormValid } from "./CandidateFormFields";
 import { cleanCandidatePayload } from "./candidatePayload";
 
@@ -58,7 +59,9 @@ export function AddCandidateDialog({ open, onClose, roleRequired = false, compan
         enabled: open,
     });
     // Approved and still open: a draft or rejected role has no pipeline to put anyone in.
-    const openRoles = useMemo(() => requisitions.filter((r: JobRequisition) => r.status === 1 && r.isActive !== false), [requisitions]);
+    // Approved, not archived, AND with a seat left — one shared rule, because a role whose seats
+    // are all filled was still being offered here and the hire had nowhere to go.
+    const openRoles = useMemo(() => requisitions.filter(isRoleOpenForCandidates), [requisitions]);
     const role = openRoles.find((r) => r.id === requisitionId);
 
     const valid = isCandidateFormValid(form) && (!roleRequired || !!requisitionId);

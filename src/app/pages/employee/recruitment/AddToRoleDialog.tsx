@@ -6,6 +6,7 @@ import { GlassDialog, GlassHeader, WtButton, WtField, toast } from "@app/modules
 import { queryKeys } from "@/lib/queryKeys";
 import { apiErrorMessage } from "@utils/apiError";
 import { createApplication, getApplications, getRequisitions, type JobRequisition } from "@services/recruitment";
+import { isRoleOpenForCandidates } from "@utils/requisitions";
 
 /**
  * Put someone already on file into a role.
@@ -47,7 +48,7 @@ export function AddToRoleDialog({ open, onClose, applicantId, applicantName, com
 
     const alreadyIn = useMemo(() => new Set(theirApplications.map((a) => a.requisitionId).filter(Boolean) as string[]), [theirApplications]);
     const available = useMemo(
-        () => requisitions.filter((r: JobRequisition) => r.status === 1 && r.isActive !== false && !alreadyIn.has(r.id)),
+        () => requisitions.filter((r: JobRequisition) => isRoleOpenForCandidates(r) && !alreadyIn.has(r.id)),
         [requisitions, alreadyIn],
     );
     const loading = rolesLoading || appsLoading;
