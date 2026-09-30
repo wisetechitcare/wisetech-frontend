@@ -9,7 +9,7 @@
 # any dependency change; drop an entry once its parents have moved past it.
 overrides:
   nth-check: '>=2.0.1'        # ReDoS via inefficient regex complexity
-  brace-expansion: '>=2.1.2'  # DoS via exponential-time expansion
+  brace-expansion: '>=5.0.11' # DoS via exponential-time expansion / uncontrolled recursion (all paths are on 5.x)
   js-yaml: '>=4.3.0'          # quadratic CPU from YAML merge-key chains
   immutable: '>=5.1.8'        # List 32-bit trie overflow -> unrecoverable corruption
   fast-uri: '>=3.1.4'         # host confusion via literal backslash
