@@ -2,14 +2,15 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Box, Stack, Typography, ToggleButton, ToggleButtonGroup, CircularProgress, DialogContent, DialogActions,
+    Box, Stack, Typography, CircularProgress, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, AppIcon, WtEmptyState } from "@app/modules/common/components/ui";
+import { ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, WtEmptyState, ViewModeSwitch } from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
 import { COPY } from "./terms";
 import { queryKeys } from "@/lib/queryKeys";
+import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import {
     getApplications, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
     stashConversion,
@@ -32,7 +33,13 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const navigate = useNavigate();
-    const [mode, setMode] = useState<"board" | "list">("board");
+    /**
+     * Board or list, REMEMBERED. It reset to Board on every navigation, so a recruiter who works
+     * in the list re-chose it all day. Audit M20.
+     */
+    const [mode, setMode] = useRememberedChoice<"board" | "list">(
+        "recruitment:pipeline-view", ["board", "list"], "board",
+    );
     const [adding, setAdding] = useState(false);
     const [pending, setPending] = useState<PendingMove | null>(null);
     const [rejectReasonId, setRejectReasonId] = useState("");
@@ -176,13 +183,18 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 subtitle="Track candidates across stages. Drag cards between columns, or open a candidate to change their stage."
                 actions={
                     <>
-                        <ToggleButtonGroup
-                            size="small" exclusive value={mode} onChange={(_e, v) => v && setMode(v)}
-                            sx={{ "& .MuiToggleButton-root": { textTransform: "none", px: 1.25 } }}
-                        >
-                            <ToggleButton value="board"><AppIcon name="bi-kanban" />&nbsp;Board</ToggleButton>
-                            <ToggleButton value="list"><AppIcon name="bi-list-ul" />&nbsp;List</ToggleButton>
-                        </ToggleButtonGroup>
+                        {/* The kit's view toggle, which the document vault, the employee list and
+                            the task stage board all use — this screen had a raw ToggleButtonGroup
+                            with its own text-transform override. Audit M20. */}
+                        <ViewModeSwitch
+                            ariaLabel="Pipeline view"
+                            value={mode}
+                            onChange={setMode}
+                            options={[
+                                { value: "board", label: "Board", icon: "bi-kanban" },
+                                { value: "list", label: "List", icon: "bi-list-ul" },
+                            ]}
+                        />
                         {canWrite && (
                             <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
                                 Add Candidate

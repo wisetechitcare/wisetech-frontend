@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box, Skeleton, Typography } from "@mui/material";
+import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import {
   AutoGrid,
   GlassCard,
@@ -18,7 +19,8 @@ import DocumentCard from "./components/DocumentCard";
 import DocumentListRow from "./components/DocumentListRow";
 import DocumentPreviewDialog from "./components/DocumentPreviewDialog";
 
-type ViewMode = "grid" | "list";
+const VIEW_MODES = ["grid", "list"] as const;
+type ViewMode = (typeof VIEW_MODES)[number];
 
 const VIEW_MODE_KEY = "wt-documents-view-mode";
 
@@ -28,19 +30,12 @@ const VIEW_MODE_OPTIONS = [
 ];
 
 /**
- * Which layout the user last chose, remembered across visits.
- *
- * A view preference that resets on every navigation is worse than no choice at all —
- * this is the one setting a file explorer is expected to keep. localStorage (not
- * session) because the preference outlives the tab.
+ * Which layout the user last chose is remembered by `useRememberedChoice` — the reader and writer
+ * that used to live here were the first of three copies (the employee list had the second, the
+ * recruitment pipeline was about to be the third), so they moved into the hook. It also validates
+ * the stored value, which this did not: a key left by an older build put the view into a mode that
+ * no longer rendered.
  */
-const readStoredViewMode = (): ViewMode => {
-  try {
-    return localStorage.getItem(VIEW_MODE_KEY) === "list" ? "list" : "grid";
-  } catch {
-    return "grid";
-  }
-};
 
 interface DocumentVaultViewProps {
   /**
@@ -121,7 +116,7 @@ const DocumentVaultView: React.FC<DocumentVaultViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<VaultDocument | null>(null);
   const [activeCategory, setActiveCategory] = useState<VaultDocumentCategory | "all">("all");
-  const [viewMode, setViewMode] = useState<ViewMode>(readStoredViewMode);
+  const [viewMode, changeViewMode] = useRememberedChoice<ViewMode>(VIEW_MODE_KEY, VIEW_MODES, "grid");
 
   const [archiving, setArchiving] = useState(false);
 
@@ -149,14 +144,6 @@ const DocumentVaultView: React.FC<DocumentVaultViewProps> = ({
     }
   };
 
-  const changeViewMode = (mode: ViewMode) => {
-    setViewMode(mode);
-    try {
-      localStorage.setItem(VIEW_MODE_KEY, mode);
-    } catch {
-      // A blocked storage write must not stop the view from switching.
-    }
-  };
 
   useEffect(() => {
     let cancelled = false;
