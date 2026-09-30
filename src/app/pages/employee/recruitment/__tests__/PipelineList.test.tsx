@@ -82,9 +82,19 @@ const renderList = async () => {
         </Provider>,
     );
     await userEvent.click(await screen.findByRole('button', { name: /list/i }));
-    // The first render of the shared table is slow in jsdom; give it room. 5s was enough when
-    // this file ran alone and not when the suite ran it beside 43 others, which is a flake.
-    const name = await screen.findByText('Suhel Pathan', undefined, { timeout: 12000 });
+    /**
+     * The first render of the shared table is slow in jsdom; give it room.
+     *
+     * This number has now been raised twice — 5s, then 12s, now 30s — and each time for the same
+     * reason: the suite grew (44 files, now 65) and the parallel workers contend for CPU, so the
+     * mount takes longer while the test itself is unchanged. That pattern is the smell. The real
+     * fix is the cost itself: these three tests each mount MaterialTable from scratch, so the
+     * file pays it three times. Rendering once and asserting three times, or stubbing the table
+     * where a test is about the ROW rather than the table, would remove the flake instead of
+     * outrunning it. Left as a number for now because it is test infrastructure, not the
+     * behaviour under test — but the next person to touch this should fix it rather than raise it.
+     */
+    const name = await screen.findByText('Suhel Pathan', undefined, { timeout: 30000 });
     return name.closest('tr') as HTMLElement;
 };
 
