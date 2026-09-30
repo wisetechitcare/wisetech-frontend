@@ -137,6 +137,9 @@ const DepartmentConfigureForm: React.FC<DepartmentFormProps> = ({
       open={show}
       onClose={isSubmitting ? undefined : onClose}
       maxWidth="sm"
+      /* The designation picker is a react-select with a portaled menu, which MUI's focus trap
+         (the kit default since audit L17) would fight. Opted out here only. */
+      disableEnforceFocus
       header={
         <GlassHeader
           title={isEditing ? "Edit department" : "New department"}

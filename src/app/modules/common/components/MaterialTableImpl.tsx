@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { WtEmptyState } from "@app/modules/common/components/ui/WtEmptyState";
 import { useStoredState } from "@app/hooks/useStoredState";
 import ExportButton, { ExportVisibilityContext } from "@app/modules/common/components/ExportButton";
 import {
@@ -1326,11 +1327,14 @@ function MaterialTable({
               ))}
             </div>
           ) : (data ?? []).length === 0 ? (
-            // Defers to the table's own empty state so a narrow screen and a wide one say the
-            // same thing when there is nothing to show.
-            <div style={{ padding: "32px 16px", textAlign: "center", color: "#6B7280" }}>
-              No records found
-            </div>
+            // The SAME component the wide layout uses, so a narrow screen and a wide one say the
+            // same thing in the same voice — this was a grey div with its own hardcoded #6B7280.
+            <WtEmptyState
+              variant="no-match"
+              dense
+              title="No records found"
+              hint="Try adjusting your search or filters."
+            />
           ) : (
             <div className="d-flex flex-column gap-3">
               {(data ?? []).map((rowData: any, index: number) => (
@@ -1976,40 +1980,22 @@ function MaterialTable({
                 },
               };
             }}
+            /**
+             * The kit's empty state, not a hand-drawn one.
+             *
+             * This was a div tree with four hardcoded greys in inline styles — `#F9FAFB` behind the
+             * icon, `#374151` on the heading — so in dark mode every one of the 84 tables in the app
+             * showed light-grey text on a light-grey tile against a dark page. `WtEmptyState` reads
+             * the theme, and `variant="no-match"` is exactly this case: it softens the tone and
+             * deliberately offers no "create" action, because the remedy for a search that found
+             * nothing is a different search. Audit L18.
+             */
             renderEmptyRowsFallback={() => (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "56px 24px",
-                  gap: "12px",
-                }}
-              >
-                <div
-                  style={{
-                    width: "56px",
-                    height: "56px",
-                    borderRadius: "16px",
-                    backgroundColor: "#F9FAFB",
-                    border: "1px solid #E5E7EB",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <KTIcon iconName="search-list" className="fs-1 text-gray-400" />
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: "14px", fontWeight: 600, color: "#374151", margin: "0 0 4px" }}>
-                    No records found
-                  </p>
-                  <p style={{ fontSize: "13px", color: "#9CA3AF", margin: 0 }}>
-                    Try adjusting your search or filters
-                  </p>
-                </div>
-              </div>
+              <WtEmptyState
+                variant="no-match"
+                title="No records found"
+                hint="Try adjusting your search or filters."
+              />
             )}
             enableDensityToggle={false}
             initialState={{

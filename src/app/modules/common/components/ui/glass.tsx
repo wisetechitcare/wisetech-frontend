@@ -323,7 +323,22 @@ export interface GlassDialogProps extends Omit<DialogProps, 'title'> {
 
 export function GlassDialog({
   header, mobileFullScreen = true, disableBlur, plain = false, children,
-  PaperProps, slotProps, disableEnforceFocus = true, maxWidth = 'md', fullWidth = true,
+  /**
+   * `disableEnforceFocus` defaults to FALSE — the dialog keeps focus.
+   *
+   * It defaulted to true, which meant every dialog in the app let Tab walk out into the page
+   * behind it: a keyboard user tabbing through a modal ended up on the navigation underneath,
+   * with no way back and no idea the dialog was still open. A screen-reader user has it worse,
+   * because nothing announces the move. Audit L17.
+   *
+   * The permissive default existed for a real reason: react-select renders its menu in a portal
+   * OUTSIDE the dialog's DOM, so MUI's focus trap yanks focus back the moment the menu opens and
+   * the menu becomes unusable. That is a property of three dialogs, not of all of them, so those
+   * three pass `disableEnforceFocus` explicitly and everything else gets the accessible default.
+   * (`WtField searchable` is MUI Autocomplete, which the trap handles correctly — only the
+   * react-select family needs the opt-out.)
+   */
+  PaperProps, slotProps, disableEnforceFocus = false, maxWidth = 'md', fullWidth = true,
   TransitionComponent, ...rest
 }: GlassDialogProps) {
   const theme = useTheme();
