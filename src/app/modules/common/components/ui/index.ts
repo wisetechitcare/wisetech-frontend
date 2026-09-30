@@ -135,4 +135,7 @@ export { WtDateField, WtDateTimeField } from './dates';
 export type { WtDateFieldBaseProps, WtDateTimeFieldProps } from './dates';
 // Canonical wizard/multi-step indicator — responsive (compact summary on phones) + theme-aware.
 export { WtStepper } from './stepper';
+// Single-digit boxes for a PIN or one-time code — NOT a password field, so browsers never save/autofill it.
+export { PinInput } from './PinInput';
+export type { PinInputProps } from './PinInput';
 export type { WtStepperProps, WtStep } from './stepper';

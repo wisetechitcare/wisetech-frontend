@@ -11,22 +11,24 @@ import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import SalaryEmployeeData from "./admin/SalaryEmployeeData";
 import SensitiveDataProvider, { SensitiveDataHeaderToggle } from "@app/modules/common/components/SensitiveData";
+import { SecurityPinGate, SecurityPinLockButton, useSecurityPin } from "@app/modules/common/components/SecurityPin";
 
 function Salary() {
+  const { unlocked } = useSecurityPin();
   const tabItems: TabItem[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Salary",
-      component: <MySalary />,
+      component: <SecurityPinGate><MySalary /></SecurityPinGate>,
       icon: 'bi-wallet2',
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Employee Payrolls",
-      component: <SalaryEmployeeData/>,
+      component: <SecurityPinGate><SalaryEmployeeData/></SecurityPinGate>,
       icon: 'bi-cash-stack',
     }]:[]),
     ...((hasPermission(resourceNameMapWithCamelCase.salaryConfig, permissionConstToUseWithHasPermission.readOthers)) ? [{
       title: "Configure",
-      component: <SalaryConfiguration />,
+      component: <SecurityPinGate><SalaryConfiguration /></SecurityPinGate>,
       icon: 'bi-gear',
     }]:[]),
   ];
@@ -66,7 +68,14 @@ function Salary() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           accessSection="finance.salary"
-          headerAction={tabItems[activeTab]?.title === "My Salary" ? <SensitiveDataHeaderToggle /> : undefined}
+          headerAction={
+            // Lock sits beside the eye: the eye hides figures for a glance over the shoulder,
+            // Lock ends the unlock for stepping away. Lock renders nothing while locked.
+            <div className="flex items-center gap-2">
+              <SecurityPinLockButton />
+              {tabItems[activeTab]?.title === "My Salary" && unlocked && <SensitiveDataHeaderToggle />}
+            </div>
+          }
         />
       </SensitiveDataProvider>
     </>

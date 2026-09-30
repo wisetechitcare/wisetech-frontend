@@ -1,4 +1,5 @@
 import {AuthModel} from './_models'
+import {securityPinBus, isSecurityLockedResponse} from '@utils/securityPinBus'
 
 const AUTH_LOCAL_STORAGE_KEY = 'wise_tech_login'
 
@@ -160,6 +161,13 @@ export function setupAxios(axios: any) {
         }
         endSessionAndRedirect();
         return Promise.reject(error);
+      }
+
+      // Sensitive areas sit behind the security PIN (403 SECURITY_LOCKED — deliberately not a 401, so it
+      // never ends the session). Hold the request, let the lock screen collect the PIN, then
+      // replay it once. `_securityRetried` stops a loop if the unlock somehow did not take.
+      if (isSecurityLockedResponse(error) && isOwnApiUrl(error.config?.url || '') && !error.config?._securityRetried) {
+        return securityPinBus.waitForUnlock().then(() => axios({ ...error.config, _securityRetried: true }));
       }
 
       // Determine if the error is a true network failure (no response from server).

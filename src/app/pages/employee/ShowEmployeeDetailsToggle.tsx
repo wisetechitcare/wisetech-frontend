@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { SecurityPinGate } from "@app/modules/common/components/SecurityPin";
 import { useLocation, useParams } from "react-router-dom";
 import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 import { useNavigate } from "react-router-dom";
@@ -288,7 +289,7 @@ const ShowEmployeeDetailsToggle = () => {
         )}
         {activeTab === "access" && canManageAccess && (
           <div className="tab-pane fade show active">
-            <EmployeeAccessTab employeeId={employeeId!} />
+            <SecurityPinGate><EmployeeAccessTab employeeId={employeeId!} /></SecurityPinGate>
           </div>
         )}
         {activeTab === "configure" && (

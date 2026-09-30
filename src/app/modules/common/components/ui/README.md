@@ -56,6 +56,7 @@ are built from.
 | Single-select modal | `OptionPickerDialog` | a bespoke option list |
 | Date / time | `WtDateField` / `WtDateTimeField` / `TimeWheelField` | `<input type="date">` |
 | Wizard | `WtStepper` | hand-rolled circles |
+| PIN / one-time code | `PinInput` (masked by default; `masked={false}` for an emailed code; `shakeKey` to shake on a wrong entry) | `<input type="password">` — the browser saves and autofills it, which defeats a PIN meant to prove who is at the keyboard |
 | Toast / confirm | `toast` / `confirmDialog` / `alertDialog` | react-toastify, sweetalert2 directly |
 | User data inside an `html:` string | ``safeHtml`…${name}…` `` (or `escapeHtml(v)` for a generated list) | a plain template literal — see below |
 | Explanation inside a form or panel (why it is closed, what to fix first, what will happen) | `InlineNotice` (toned, `TRIO`) / `InlineHint` (quiet info line) | a Bootstrap `.alert` div with hard-coded hex, or a private `Notice` per screen |
