@@ -109,7 +109,8 @@ const renderList = async () => {
 };
 
 beforeEach(() => {
-    api.getApplications.mockResolvedValue([application]);
+    // A page, not an array: the service now returns the server's own hasMore/nextCursor.
+    api.getApplications.mockResolvedValue({ items: [application], hasMore: false, nextCursor: null });
     api.getApplicationStatuses.mockResolvedValue([applied, hired]);
     api.getRejectionReasons.mockResolvedValue([]);
     api.getRequisitions.mockResolvedValue([]);
@@ -138,6 +139,21 @@ describe('Pipeline list view', () => {
         await userEvent.click(within(row).getByText('Site Engineer'));
         const dialog = await screen.findByRole('dialog');
         expect(within(dialog).getByText('Suhel Pathan')).toBeTruthy();
+    });
+
+    test('a capped page says so, and an uncapped one stays quiet', async () => {
+        // The server pages at 200 and answers `hasMore` itself. Dropping that answer is what made
+        // a board silently miss its 201st card — the notice is the whole point of audit H3, so it
+        // gets a test rather than trust.
+        const row = await renderList();
+        expect(within(row).getByText('Suhel Pathan')).toBeTruthy();
+        expect(screen.queryByText(/Showing the first/)).toBeNull();
+
+        cleanup();
+        api.getApplications.mockResolvedValue({ items: [application], hasMore: true, nextCursor: 'app-1' });
+        await renderList();
+        expect(await screen.findByText(/Showing the first/)).toBeTruthy();
+        expect(screen.getByText(/not the whole board/)).toBeTruthy();
     });
 
     test('an action opens only its own dialog — the click does not also open the candidate', async () => {

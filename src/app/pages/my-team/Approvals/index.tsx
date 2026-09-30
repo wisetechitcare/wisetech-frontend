@@ -14,7 +14,7 @@ import {
     fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction,
 } from '@services/employee';
 import { fetchInboxTasks, acknowledgeInboxTask, type InboxTask } from '@services/inbox';
-import { ToneChip, WtButton, tonePair } from '@app/modules/common/components/ui';
+import { ToneChip, WtButton, tonePair , InlineNotice } from '@app/modules/common/components/ui';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import type { SemanticTone } from '@app/theme/tokens';
 import { RejectReasonModal } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
@@ -466,14 +466,12 @@ export default function Approvals() {
                 one to the person accountable for the work in it. The number counts the steps
                 naming them rather than the cards below, so the wording stays approximate. */}
             {!loading && queueBound && (
-                <Box sx={{
-                    mb: 1.5, px: 1.5, py: 1, borderRadius: '10px',
-                    border: '1px solid', borderColor: 'warning.light', bgcolor: 'warning.50',
-                    fontSize: 13, color: 'text.secondary',
-                }}>
-                    Showing the {queueBound.limit} longest-waiting items
-                    {queueBound.pendingSteps ? ` of about ${queueBound.pendingSteps}` : ''}. Work through
-                    these and the rest will follow.
+                <Box sx={{ mb: 1.5 }}>
+                    <InlineNotice icon="information-5">
+                        Showing the {queueBound.limit} longest-waiting items
+                        {queueBound.pendingSteps ? ` of about ${queueBound.pendingSteps}` : ''}. Work through
+                        these and the rest will follow.
+                    </InlineNotice>
                 </Box>
             )}
 

@@ -63,7 +63,9 @@ const lastToast = () => feedback.toast.mock.calls.at(-1)![0] as { icon: string; 
 
 beforeEach(() => {
     api.getRequisitions.mockResolvedValue(roles);
-    api.getApplications.mockResolvedValue([]);
+    // The service returns the server's page, not a bare array (audit H3) — mocks mirror that,
+    // or the view reads `.items` off an array and renders an empty list that passes for real.
+    api.getApplications.mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
     api.createApplication.mockResolvedValue({ application: { id: 'app-9', applicantId: 'cand-9', applicantExisted: false } });
     api.createApplicant.mockResolvedValue({ applicant: { id: 'cand-9' } });
     api.uploadApplicantResume.mockResolvedValue({});
@@ -153,7 +155,7 @@ describe('AddCandidateDialog', () => {
 
 describe('AddToRoleDialog', () => {
     test('offers only roles they are not already in, and adds them by id', async () => {
-        api.getApplications.mockResolvedValue([{ id: 'app-1', requisitionId: 'r-open' }]);
+        api.getApplications.mockResolvedValue({ items: [{ id: 'app-1', requisitionId: 'r-open' }], hasMore: false, nextCursor: null });
         wrap(<AddToRoleDialog open onClose={() => {}} applicantId="cand-1" applicantName="Suhel Pathan" />);
         await waitFor(() => expect(api.getApplications).toHaveBeenCalledWith({ applicantId: 'cand-1' }));
         await waitFor(() => expect(screen.getByRole('combobox', { name: /^role/i }).getAttribute('aria-disabled')).not.toBe('true'));

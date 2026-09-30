@@ -276,10 +276,33 @@ export interface StageMovePayload {
     statusId: string; note?: string | null; rejectionReasonId?: string | null; rejectionNote?: string | null; expectedRevisionCount?: number;
 }
 
+/**
+ * A list the server pages, with the two facts it already sends about the page.
+ *
+ * `hasMore` is the server's OWN answer — it over-fetches a single row to know, so this costs no
+ * extra query — and `nextCursor` is where a following page would start.
+ *
+ * Returned instead of a bare array because every list service here threw both away. The page is
+ * 200 rows, so a tenant past that saw a list that simply STOPPED, with an Overview KPI counting the
+ * true total sitting on the same screen disagreeing with it and nothing to say which was wrong.
+ * Audit H3.
+ */
+export interface PagedList<T> {
+    items: T[];
+    hasMore: boolean;
+    nextCursor: string | null;
+}
+
+/** Read the envelope the recruitment list endpoints send. One reader, so no caller re-derives it. */
+const pagedList = <T,>(rows: T[] | undefined | null, body: unknown): PagedList<T> => {
+    const data = body as { hasMore?: boolean; nextCursor?: string | null } | undefined;
+    return { items: rows ?? [], hasMore: Boolean(data?.hasMore), nextCursor: data?.nextCursor ?? null };
+};
+
 // ─── Applications ────────────────────────────────────────────────────────────
-export const getApplications = async (filters: { requisitionId?: string; statusId?: string; sourceId?: string; search?: string; applicantId?: string } = {}, companyId?: string): Promise<Application[]> => {
+export const getApplications = async (filters: { requisitionId?: string; statusId?: string; sourceId?: string; search?: string; applicantId?: string } = {}, companyId?: string): Promise<PagedList<Application>> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${listQuery({ ...filters, companyId })}`);
-    return data?.applications ?? [];
+    return pagedList<Application>(data?.applications, data);
 };
 
 export const createApplication = async (payload: ApplicationCreatePayload) => {
@@ -408,9 +431,9 @@ export const uploadApplicantResume = async (applicantId: string, file: File): Pr
     return data?.applicant;
 };
 
-export const getApplicants = async (search?: string, companyId?: string): Promise<Applicant[]> => {
+export const getApplicants = async (search?: string, companyId?: string): Promise<PagedList<Applicant>> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICANTS}${listQuery({ search, companyId })}`);
-    return data?.applicants ?? [];
+    return pagedList<Applicant>(data?.applicants, data);
 };
 
 export const createApplicant = async (payload: ApplicantPayload) => {

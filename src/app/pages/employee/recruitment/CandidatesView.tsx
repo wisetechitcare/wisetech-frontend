@@ -4,7 +4,7 @@ import { Box, Stack, Typography, CircularProgress, DialogContent, DialogActions,
 import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, ActionIconButton, ToneChip,
-    WtSwitchField, toast, confirmDialog, WtEmptyState, WtField,
+    WtSwitchField, toast, confirmDialog, WtEmptyState, WtField, InlineNotice,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { COPY } from "./terms";
@@ -71,11 +71,16 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
 
     // The server does the searching, so the key includes the term. The previous results stay on screen
     // while the next load — the grid used to blank to a spinner on every keystroke.
-    const { data: applicants = [], isLoading, isFetching, isError, error, refetch } = useQuery({
+    const { data: page, isLoading, isFetching, isError, error, refetch } = useQuery({
         queryKey: queryKeys.recruitment.applicants(search, companyId),
         queryFn: () => getApplicants(search || undefined, companyId),
         placeholderData: keepPreviousData,
     });
+    // `items` plus the server's own `hasMore`. The page is 200 rows; a directory that simply stops
+    // at 200 reads as "that is everyone", and the Overview's candidate count on the next tab says
+    // otherwise. Surfaced under the header instead of dropped. Audit H3.
+    const applicants = page?.items ?? [];
+    const applicantsTruncated = page?.hasMore ?? false;
     const { data: sources = [] } = useQuery({
         queryKey: queryKeys.recruitment.applicantSources(),
         queryFn: getApplicantSources,
@@ -243,6 +248,15 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                     <WtEmptyState icon="people" title={COPY.noCandidates.title} hint={COPY.noCandidates.hint} actionLabel={canWrite ? "Add Candidate" : undefined} onAction={() => setAdding(true)} />
                 )
             ) : (
+                <>
+                {applicantsTruncated && (
+                    <Box sx={{ mb: 1.5 }}>
+                        <InlineNotice icon="information-5">
+                            Showing the first {applicants.length}. There are more candidates than fit one
+                            page — search by name, email, job title or employer to narrow it.
+                        </InlineNotice>
+                    </Box>
+                )}
                 <AutoGrid min={320}>
                     {applicants.map((a: Applicant) => {
                         const exp = experienceLabel(a.totalExperienceMonths);
@@ -313,6 +327,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                         );
                     })}
                 </AutoGrid>
+                </>
             )}
 
             <AddCandidateDialog open={adding} onClose={() => setAdding(false)} companyId={companyId} />

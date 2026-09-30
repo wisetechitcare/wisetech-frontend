@@ -20,6 +20,7 @@ import OfferPanel from "./OfferPanel";
 import CandidateDrawer from "./CandidateDrawer";
 import { AddCandidateDialog } from "./AddCandidateDialog";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { InlineNotice } from "@app/modules/common/components/ui";
 import { applicationColumns, applicantName, ScoreChip, WaitingChip } from "./applicationColumns";
 
 interface PendingMove {
@@ -43,7 +44,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const [interviewsFor, setInterviewsFor] = useState<Application | null>(null);
     const [offerFor, setOfferFor] = useState<Application | null>(null);
 
-    const { data: applications = [], isLoading, isError, error, refetch } = useQuery({ queryKey: queryKeys.recruitment.applications({ companyId }), queryFn: () => getApplications({}, companyId) });
+    const { data: applicationPage, isLoading, isError, error, refetch } = useQuery({ queryKey: queryKeys.recruitment.applications({ companyId }), queryFn: () => getApplications({}, companyId) });
+    // `items` and the server's own `hasMore`: the page is 200 rows, and a board silently missing
+    // the 201st card is a card nobody works. Surfaced below rather than dropped. Audit H3.
+    const applications = applicationPage?.items ?? [];
+    const applicationsTruncated = applicationPage?.hasMore ?? false;
     const { data: statuses = [], isLoading: statusesLoading, isError: statusesError } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
     const { data: reasons = [] } = useQuery({ queryKey: queryKeys.recruitment.rejectionReasons(), queryFn: getRejectionReasons });
 
@@ -202,7 +207,18 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     actionLabel="Retry"
                     onAction={() => refetch()}
                 />
-            ) : mode === "board" ? (
+            ) : (
+                <>
+                {applicationsTruncated && (
+                    <Box sx={{ mb: 1.5 }}>
+                        <InlineNotice icon="information-5">
+                            Showing the first {applications.length}. There are more candidates in the
+                            pipeline than fit one page, so the columns below are not the whole board —
+                            filter by role to see a complete picture.
+                        </InlineNotice>
+                    </Box>
+                )}
+                {mode === "board" ? (
                 <Box sx={{ display: "flex", gap: 1.5, overflowX: "auto", pb: 1 }}>
                     {/* Candidates whose stage is missing or was removed are listed first rather than
                         silently left off the board — otherwise the column counts never add up to the list. */}
@@ -274,6 +290,8 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                         }),
                     }}
                 />
+                )}
+                </>
             )}
 
             {/* The shared Add candidate window. From the pipeline a role is required: a card with no role has no column. */}

@@ -35,11 +35,15 @@ export function AddToRoleDialog({ open, onClose, applicantId, applicantName, com
         queryFn: () => getRequisitions(companyId),
         enabled: open,
     });
-    const { data: theirApplications = [], isLoading: appsLoading } = useQuery({
+    const { data: theirApplicationPage, isLoading: appsLoading } = useQuery({
         queryKey: queryKeys.recruitment.applications({ applicantId }),
         queryFn: () => getApplications({ applicantId }),
         enabled: open,
     });
+    // Which roles they are already in. 200 is far past anyone's real application count, so this
+    // list is never truncated in practice — read through `items` because the service now returns
+    // the page, not because this screen needs to page.
+    const theirApplications = theirApplicationPage?.items ?? [];
 
     const alreadyIn = useMemo(() => new Set(theirApplications.map((a) => a.requisitionId).filter(Boolean) as string[]), [theirApplications]);
     const available = useMemo(
