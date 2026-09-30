@@ -27,7 +27,8 @@ import {
   nodeIdFromScope,
   scopeFromNodeId,
 } from "@utils/categoryScope";
-import { AppIcon } from "@app/modules/common/components/ui";
+import { AppIcon, WtSwitchField } from "@app/modules/common/components/ui";
+import StatusGlyph, { STATUS_ICONS, STATUS_ICON_LABELS } from "@app/pages/employee/tasks/components/StatusGlyph";
 
 interface ConfigFormProps {
   show: boolean;
@@ -175,6 +176,8 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
     name: initialData?.name || "",
     color: initialData?.color || "#1E3A8A",
     isActive: initialData?.isActive ?? true,
+    isFinal: initialData?.isFinal ?? false,
+    icon: initialData?.icon ?? "",
     categoryId: initialData?.categoryId || "",
     // Preset from the tree's "Add child" action, or the row's current parent when editing.
     parentId: initialData?.parentId || "",
@@ -241,6 +244,10 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
         isActive: values.isActive,
         // ...(type === 'subcategory' && values.categoryId ? { categoryId: values.categoryId } : {})
       };
+      if (type === 'taskStatus') {
+        payload.isFinal = values.isFinal;
+        payload.icon = values.icon || null;
+      }
       // Only include color if not presetTask
       if (type !== 'presetTask') {
         payload.color = values.color;
@@ -613,6 +620,49 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                   </div>
                   <ErrorMessage name="color" component="div" className="text-danger mt-1" />
                 </div>
+                )}
+
+                {type === 'taskStatus' && (
+                  <div className="mt-4">
+                    <label className="form-label fw-semibold" style={{ fontSize: 14, color: '#1a1a1a' }}>Icon</label>
+                    {/* What a task in this stage shows beside its name — shown in the stage's own
+                        colour, so the pick is made against what people will actually see. */}
+                    <div role="radiogroup" aria-label="Icon" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 8 }}>
+                      {(['', ...STATUS_ICONS] as string[]).map((key) => {
+                        const selected = (values.icon || '') === key;
+                        return (
+                          <button
+                            key={key || 'default'}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => setFieldValue("icon", key)}
+                            style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 4px',
+                              borderRadius: 10, cursor: 'pointer', fontSize: 11.5, fontWeight: 600,
+                              border: `1.5px solid ${selected ? values.color || '#1E3A8A' : '#E1E3EA'}`,
+                              background: selected ? `${values.color || '#1E3A8A'}14` : '#fff',
+                              color: selected ? '#181C32' : '#7E8299',
+                            }}
+                          >
+                            <StatusGlyph icon={key || null} color={values.color || '#1E3A8A'} size={24} />
+                            {STATUS_ICON_LABELS[(key || 'default') as keyof typeof STATUS_ICON_LABELS]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {type === 'taskStatus' && (
+                  <div className="mt-4">
+                    <WtSwitchField
+                      title="Marks the task complete"
+                      description="A task moved here is done: its progress becomes 100% and its deliverable counts as completed."
+                      checked={values.isFinal}
+                      onChange={(e) => setFieldValue("isFinal", e.target.checked)}
+                    />
+                  </div>
                 )}
               </Modal.Body>
 

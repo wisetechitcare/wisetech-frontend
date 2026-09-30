@@ -68,8 +68,6 @@ export interface PaymentPlanStage {
    * still fetched lazily, one stage at a time, when a branch is opened.
    */
   _count?: { deliverables: number };
-  /** Active deliverables, in order — present only on the plan-for-lead read. */
-  deliverables?: PaymentPlanStageDeliverable[];
   // No numbering field here: a stage's Sr No comes from the PLAN's chosen group, by
   // position. See PaymentStageGroup.
 }
@@ -118,9 +116,6 @@ export interface PaymentPlanStageDeliverable {
   isActive: boolean;
   /** The Project Task this deliverable is; `name` holds its path. Null = legacy free text. */
   presetTaskId?: string | null;
-  /** Plan-for-lead read only: the configured Task Status of the project's task for this
-   *  deliverable, or null while none exists. */
-  taskStatus?: { id: string; name: string; color: string | null; isFinal: boolean } | null;
   createdAt?: string;
   updatedAt?: string;
 }

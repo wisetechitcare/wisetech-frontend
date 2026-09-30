@@ -10,6 +10,7 @@
  * projections of one dataset: refreshing one without the other leaves them disagreeing on
  * screen, which is worse than refreshing both.
  */
+import { DELIVERABLE_BOARD_KEY } from '@services/projectExecution';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import {
@@ -239,10 +240,16 @@ export const useGeneralAssignees = (enabled = true) =>
  * Deliberately coarse. A stage move changes the board, the table, the task itself and its
  * parent's subtask counts; enumerating those precisely is how caches drift. The task dataset is
  * small enough that one broad invalidation is correct and cheap.
+ *
+ * Project Deliverables boards too: their progress and status ARE the tasks', so a task change
+ * that left them cached would show a stale stage until a reload.
  */
 export const useInvalidateTasks = () => {
     const qc = useQueryClient();
-    return () => qc.invalidateQueries({ queryKey: queryKeys.tasks.all });
+    return () => Promise.all([
+        qc.invalidateQueries({ queryKey: queryKeys.tasks.all }),
+        qc.invalidateQueries({ queryKey: DELIVERABLE_BOARD_KEY }),
+    ]);
 };
 
 export const useCreateTask = () => {

@@ -33,6 +33,7 @@ import {
     validateDocumentFile,
 } from '@utils/fileValidation';
 import { uploadUserAsset } from '@services/uploader';
+import DocumentPreviewModal from '@pages/employee/reimbursement/components/DocumentPreviewModal';
 
 /** An attachment as the API stores and returns it. */
 export interface TimeLogAttachment {
@@ -92,6 +93,7 @@ export const TimeLogAttachments = ({
     const inputRef = useRef<HTMLInputElement | null>(null);
     const [uploading, setUploading] = useState(false);
     const [dragOver, setDragOver] = useState(false);
+    const [preview, setPreview] = useState<TimeLogAttachment | null>(null);
 
     const addFiles = async (files: FileList | null) => {
         if (!files?.length || disabled) return;
@@ -212,14 +214,16 @@ export const TimeLogAttachments = ({
 
                             <Box sx={{ flex: 1, minWidth: 0 }}>
                                 <Typography
-                                    component="a"
-                                    href={file.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                    component="button"
+                                    type="button"
                                     variant="caption"
                                     noWrap
-                                    onClick={(e) => e.stopPropagation()}
-                                    sx={{ display: 'block', fontWeight: 600, color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                                    // Opens in the page — never a new tab.
+                                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); setPreview(file); }}
+                                    sx={{
+                                        display: 'block', maxWidth: '100%', p: 0, border: 0, bgcolor: 'transparent', cursor: 'pointer',
+                                        textAlign: 'left', fontWeight: 600, color: 'primary.main', '&:hover': { textDecoration: 'underline' },
+                                    }}
                                 >
                                     {file.fileName}
                                 </Typography>
@@ -250,6 +254,9 @@ export const TimeLogAttachments = ({
                         </Stack>
                     ))}
                 </Stack>
+            )}
+            {preview && (
+                <DocumentPreviewModal url={preview.url} title={preview.fileName} inPageOnly onClose={() => setPreview(null)} />
             )}
         </Box>
     );

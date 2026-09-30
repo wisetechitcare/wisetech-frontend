@@ -21,11 +21,10 @@ import {
 import { KTIcon } from '@metronic/helpers';
 import {
     TaskFormValues, TaskScope, TaskTypeMode, buildTaskPayload, fieldsForScope, validateScopeShape,
-    apiErrorMessage, employeeName, initialsOf, clampProgress, PresetTask,
+    apiErrorMessage, employeeName, initialsOf, clampProgress, PresetTask, progressForStage, TaskStatusRef,
 } from '../taskDomain';
 import { getPresetSubtreeIds } from '@utils/presetTaskHierarchy';
-import { useQuery } from '@tanstack/react-query';
-import { planForLeadQuery } from '@services/paymentPlan';
+import { useProjectDeliverables } from '../useProjectDeliverables';
 import { toWireDate } from '@utils/dateFormats';
 import TaskPathSelect, { buildTaskPathOptions } from './TaskPathSelect';
 import {
@@ -311,17 +310,15 @@ export const TaskFormDialog = ({
     // Presets come back FLAT; `parentId` is what makes them a tree. One picker lists every node
     // at every depth — a dropdown per level could never describe a tree whose depth is not known
     // in advance, which is what the old Main task + Sub-task pair got wrong.
-    // A project task picks from the deliverables configured for THAT project's payment plan —
-    // the same plan its Deliverables tab shows (resolved server-side, one rule for both). With no
-    // project yet, or a plan with no task-linked deliverables, the whole catalogue stays on offer
-    // rather than an empty, dead-end picker. The task being edited always stays pickable.
-    const planQuery = useQuery(planForLeadQuery(scopeFields.project ? (values.projectId || '') : ''));
-    const deliverableTaskIds = useMemo(
-        () => (planQuery.data?.stages ?? []).flatMap((s) => s.deliverables ?? [])
-            .map((d) => d.presetTaskId).filter((id): id is string => !!id),
-        [planQuery.data],
-    );
+    // A project task picks from THAT project's deliverables — its plan's plus any added to the
+    // project alone — read from the same board its Deliverables tab shows. With no project yet,
+    // or no task-linked deliverables, the whole catalogue stays on offer rather than an empty,
+    // dead-end picker. The task being edited always stays pickable.
+    const deliverables = useProjectDeliverables(scopeFields.project ? values.projectId : null);
+    const { deliverableTaskIds } = deliverables;
     const fromDeliverables = deliverableTaskIds.length > 0;
+    const pickedStage = deliverables.stageOf(values.presetTaskId);
+
     // Each deliverable task and the work beneath it; paths still read in full from the whole tree.
     const presetOptions = useMemo(() => {
         const list = presets as PresetTask[];
@@ -808,7 +805,7 @@ export const TaskFormDialog = ({
                                     options={presetOptions}
                                     required
                                     label="Task"
-                                    disabled={progressLock || presetsQuery.isLoading || planQuery.isFetching}
+                                    disabled={progressLock || presetsQuery.isLoading || deliverables.isFetching}
                                     loading={presetsQuery.isLoading}
                                     error={touched && !!nameError}
                                     placeholder={presets.length ? 'Search, e.g. electrical load sheet' : 'No tasks configured yet'}
@@ -820,9 +817,11 @@ export const TaskFormDialog = ({
                                         taskName: option ? option.path[option.path.length - 1] : '',
                                     })}
                                     helperText={(touched && nameError)
-                                        || (fromDeliverables
-                                            ? `Deliverables from the ${planQuery.data?.name ?? "project's"} payment plan`
-                                            : 'Type any words from the task path')}
+                                        || (pickedStage
+                                            ? `Deliverable of ${pickedStage}`
+                                            : fromDeliverables
+                                                ? "This project's deliverables — type any words from the task path"
+                                                : 'Type any words from the task path')}
                                 />
                             ) : (
                                 <TextField
@@ -970,7 +969,12 @@ export const TaskFormDialog = ({
                                 select fullWidth size="small" label="Stage" disabled={progressLock}
                                 SelectProps={selectMenuProps}
                                 value={values.statusId ?? ''}
-                                onChange={(e) => set({ statusId: e.target.value })}
+                                onChange={(e) => {
+                                    // The slider follows the stage right away — "Task Completed"
+                                    // shows 100% before Save, the same rule the server applies.
+                                    const forced = progressForStage(statuses.find((s: TaskStatusRef) => s.id === e.target.value));
+                                    set({ statusId: e.target.value, ...(forced !== null ? { progress: forced } : {}) });
+                                }}
                             >
                                 <MenuItem value="">No stage</MenuItem>
                                 {statuses.map((s: { id: string; name: string; isFinal?: boolean }) => (

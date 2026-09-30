@@ -191,3 +191,92 @@ export const reorderProjectDeliverables = async (
   const { data } = await axios.put(endpoint, { orderedIds });
   return data?.deliverables ?? [];
 };
+
+// ─── Deliverables board ──────────────────────────────────────────────────────
+
+/** Where a board row comes from: the payment plan's configuration, or added to this project. */
+export type BoardSource = "plan" | "project";
+
+export interface BoardTaskStatus {
+  id: string;
+  name: string;
+  color: string | null;
+  isFinal: boolean;
+  /** The stage's configured glyph (StatusGlyph); null = the default glyph. */
+  icon: string | null;
+}
+
+export interface BoardDeliverable {
+  id: string;
+  source: BoardSource;
+  /** The Project Task's path, e.g. "Electrical - Documents - Load Sheet". */
+  name: string;
+  description: string | null;
+  presetTaskId: string | null;
+  /** 0–100, from the project's tasks for it. */
+  progress: number;
+  /** The most recently updated task's status; null = no task yet ("Not started"). */
+  taskStatus: BoardTaskStatus | null;
+  taskCount: number;
+}
+
+export interface BoardStage {
+  id: string;
+  source: BoardSource;
+  name: string;
+  /** 0–100: every deliverable weighs the same. */
+  progress: number;
+  deliverables: BoardDeliverable[];
+}
+
+export interface DeliverableBoard {
+  planName: string | null;
+  stageLabels: string[] | null;
+  stages: BoardStage[];
+}
+
+export const getDeliverableBoard = async (projectId: string): Promise<DeliverableBoard> => {
+  const endpoint = `${API_BASE_URL}/${PROJECT_EXECUTION.GET_DELIVERABLE_BOARD.replace(":projectId", projectId)}`;
+  const { data } = await axios.get(endpoint);
+  return data.board;
+};
+
+/**
+ * One cache entry per project, shared by the Deliverables tab and the New Task form so both
+ * see the same deliverables. Re-read on every visit: tasks and configuration change on other
+ * screens, and the app default would hold this for 5 minutes.
+ */
+/** Prefix of every project's board — invalidated by every task write (useInvalidateTasks). */
+export const DELIVERABLE_BOARD_KEY = ["deliverable-board"] as const;
+
+export const deliverableBoardQuery = (projectId: string) => ({
+  queryKey: [...DELIVERABLE_BOARD_KEY, projectId] as const,
+  queryFn: () => getDeliverableBoard(projectId),
+  enabled: !!projectId,
+  staleTime: 0,
+});
+
+export const addCustomStage = async (projectId: string, name: string) => {
+  const endpoint = `${API_BASE_URL}/${PROJECT_EXECUTION.ADD_CUSTOM_STAGE.replace(":projectId", projectId)}`;
+  const { data } = await axios.post(endpoint, { name });
+  return data.stage;
+};
+
+export const deleteCustomStage = async (id: string) => {
+  const endpoint = `${API_BASE_URL}/${PROJECT_EXECUTION.DELETE_CUSTOM_STAGE.replace(":id", id)}`;
+  await axios.delete(endpoint);
+};
+
+export const addCustomDeliverable = async (
+  projectId: string,
+  payload: { stageId: string; stageSource: BoardSource; presetTaskId: string; name: string; description?: string | null },
+) => {
+  const endpoint = `${API_BASE_URL}/${PROJECT_EXECUTION.ADD_CUSTOM_DELIVERABLE.replace(":projectId", projectId)}`;
+  const { data } = await axios.post(endpoint, payload);
+  return data.deliverable;
+};
+
+export const deleteCustomDeliverable = async (id: string) => {
+  const endpoint = `${API_BASE_URL}/${PROJECT_EXECUTION.DELETE_CUSTOM_DELIVERABLE.replace(":id", id)}`;
+  await axios.delete(endpoint);
+};
