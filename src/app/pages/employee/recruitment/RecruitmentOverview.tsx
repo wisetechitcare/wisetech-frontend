@@ -99,8 +99,9 @@ const dayWord = (n: number): string => {
  * Written for a reader who does not think in averages — "usually takes 3 days" rather than
  * "3d avg", and the small-sample caveat spelled out instead of a sample count.
  */
-const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays }: {
+const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays, oldestOpenBand }: {
     name: string; color?: string | null; avgDays: number | null; samples: number; openCount: number; oldestOpenDays: number | null;
+    oldestOpenBand: 'fresh' | 'ageing' | 'stalled' | null;
 }) => (
     <Stack direction="row" alignItems="center" spacing={1.25} flexWrap="wrap" useFlexGap sx={{ py: 0.5 }}>
         <Box sx={{ width: 8, height: 8, borderRadius: 999, bgcolor: color || FALLBACK_BAR, flexShrink: 0 }} />
@@ -121,10 +122,15 @@ const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays }: 
             >
                 {/* The longest wait is the number worth acting on: a step that usually takes
                     2 days with someone sitting 40 days is one person being forgotten, and no
-                    average will ever show that. */}
+                    average will ever show that.
+
+                    The TONE is the server's band, computed from this tenant's own ageing
+                    thresholds. It used to be `days >= 14` here — the default `redDays` — so a
+                    customer who moved the threshold was shown somebody else's policy, and the
+                    same wait could be amber on a candidate card and red here. */}
                 <ToneChip
                     dense
-                    tone={(oldestOpenDays ?? 0) >= 14 ? "danger" : "neutral"}
+                    tone={oldestOpenBand === "stalled" ? "danger" : oldestOpenBand === "ageing" ? "warning" : "neutral"}
                     label={`${openCount} waiting · longest ${dayWord(oldestOpenDays ?? 0)}`}
                 />
             </WtTooltip>
@@ -303,6 +309,7 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                                 avgDays={d.avgDays}
                                 samples={d.samples}
                                 openCount={d.openCount}
+                                oldestOpenBand={d.oldestOpenBand}
                                 oldestOpenDays={d.oldestOpenDays}
                             />
                         ))}

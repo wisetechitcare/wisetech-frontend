@@ -891,6 +891,13 @@ export interface RecruitmentOverview {
     stageDurations: Array<{
         statusId: string; name: string; color?: string | null; sortOrder: number;
         avgDays: number | null; samples: number; openCount: number; oldestOpenDays: number | null;
+        /**
+         * The server's verdict on that longest wait, using the TENANT's configured thresholds.
+         * Render this rather than comparing days to a number here: the screen used to redden past
+         * a hardcoded 14, which is the default `redDays`, so a customer who moved the threshold
+         * saw somebody else's policy. The candidate cards already read the same rule.
+         */
+        oldestOpenBand: 'fresh' | 'ageing' | 'stalled' | null;
     }>;
     timeToHire: { count: number; avgDays: number | null; medianDays: number | null; p90Days: number | null };
     requisitionsByStatus: { pending: number; approved: number; rejected: number };
