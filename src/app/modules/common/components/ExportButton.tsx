@@ -10,6 +10,7 @@ import GridOnIcon from '@mui/icons-material/GridOn';
 import { saveAs } from 'file-saver';
 import { DRILLDOWN_Z_INDEX } from '@app/modules/common/components/DrillDownDialog';
 import { formatCurrencyDecimal, usesIndianGrouping, currencyPrefix } from '@utils/currency';
+import { toast } from '@app/modules/common/components/ui/feedback';
 
 // ─── Column definition ─────────────────────────────────────────────────────────
 
@@ -44,6 +45,14 @@ export interface ExportColumn<T = any> {
 
 export interface ExportButtonProps<T = any> {
     data: T[];
+    /**
+     * Fetches the rows to export at click time, in place of `data`.
+     *
+     * For a server-paginated table, whose `data` is one page: the export has to hold every
+     * row matching the current filters, and those are only on the server. Rejecting aborts
+     * the export, so a failed fetch never writes a file that looks complete but is not.
+     */
+    getData?: () => Promise<T[]>;
     columns: ExportColumn<T>[];
     /** Base filename without extension, e.g. "monthly-salary-june-2025" */
     filename?: string;
@@ -380,6 +389,7 @@ export async function exportXlsx<T>(
 
 function ExportButton<T = any>({
     data,
+    getData,
     columns,
     filename = 'export',
     title = 'Export',
@@ -430,11 +440,18 @@ function ExportButton<T = any>({
         handleClose();
         setLoading(type);
         try {
+            const rows = getData ? await getData() : data;
             if (type === 'xlsx') {
-                await exportXlsx(data, exportCols, filename, title, subtitle, sheetName, showTotals, totalLabel);
+                await exportXlsx(rows, exportCols, filename, title, subtitle, sheetName, showTotals, totalLabel);
             } else {
-                exportCsv(data, exportCols, filename, title, showTotals, totalLabel);
+                exportCsv(rows, exportCols, filename, title, showTotals, totalLabel);
             }
+        } catch (error) {
+            console.error('Export failed:', error);
+            // A `userMessage` is a refusal written for the reader (e.g. too many rows); anything
+            // else is a failure they can only retry.
+            const userMessage = (error as { userMessage?: string })?.userMessage;
+            toast({ icon: 'error', title: 'Export failed', text: userMessage ?? 'Nothing was downloaded. Please try again.' });
         } finally {
             setLoading(null);
         }

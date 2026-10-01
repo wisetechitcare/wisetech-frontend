@@ -229,16 +229,19 @@ export const deleteClientCompany = async (id: string) => {
 // Get All Client Companies
 // Pass `light=true` for dropdowns — returns a slim payload (no heavy nested relations).
 // Pass `fields` for selective column fetching — returns only the data those columns need.
-export const getAllClientCompanies = async (light = false, fields?: string[]) => {
+// Pass `params` for a server-side page: page/pageSize, sortBy/sortOrder, search and the
+// drill-down filters (see the backend's COMPANY_LIST_SPEC). Omitted → every company.
+export const getAllClientCompanies = async (light = false, fields?: string[], params?: Record<string, string | number>) => {
     try {
-        const cacheKey = `clientCompanies${light ? ':light' : ''}${fields?.length ? ':' + fields.join(',') : ''}`;
+        const cacheKey = `clientCompanies${light ? ':light' : ''}${fields?.length ? ':' + fields.join(',') : ''}${params ? ':' + JSON.stringify(params) : ''}`;
         return await cachedRequest(cacheKey, async () => {
             const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_CLIENT_COMPANIES}`;
             const { data } = await axios.get(endpoint, {
                 params: {
                     pageSize: 9999,
                     ...(light ? { light: true } : {}),
-                    ...(fields?.length ? { fields: fields.join(',') } : {})
+                    ...(fields?.length ? { fields: fields.join(',') } : {}),
+                    ...params,
                 }
             });
             return data;

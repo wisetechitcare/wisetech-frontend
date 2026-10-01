@@ -7,11 +7,10 @@ import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import { deleteConfirmation } from "@utils/modal";
 import { deleteClientContact, getAllClientContacts } from "@services/companies";
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import ClientContactsForm from "./components/ClientContactsForm";
 import { useEventBus } from "@hooks/useEventBus";
 import { getAllClientBranches } from "@services/lead";
-import { getAllClientCompanies, getAllSubCompanies } from "@services/companies";
 import eventBus from "@utils/EventBus";
 import { useNavigate } from "react-router-dom";
 import dayjs, { Dayjs } from "dayjs";
@@ -19,26 +18,20 @@ import { can, canSection } from "@utils/can";
 import { SegmentedControl, WtButton } from "@app/modules/common/components/ui";
 import GoogleContactsImportDialog from "./components/GoogleContactsImportDialog";
 import { toContactFormPrefill, type ContactFormPrefill, type GoogleContactCandidate } from "./components/googleContactPrefill";
+import { useServerPagination } from "@hooks/useServerPagination";
+import { fetchAllPages } from "@utils/fetchAllPages";
 
-// All selectable contact-table column keys (must match the `accessorKey`s below).
-const CONTACT_COLUMN_KEYS = [
-  "company", "fullName", "role", "email", "phone", "branch",
-  "category", "createdAt", "updatedAt",
-];
-
-const computeContactFields = (
-  visibility?: Record<string, boolean>,
-): string[] | undefined => {
-  if (!visibility) return undefined;
-  const visible = CONTACT_COLUMN_KEYS.filter((k) => visibility[k] !== false);
-  return visible.length >= CONTACT_COLUMN_KEYS.length ? undefined : visible;
+/**
+ * "A2O Realty", or "A&O Realty (Vashi)" for a contact filed under a sub-company. Read off the
+ * row: the server sends the names with it, so no company table has to be downloaded to say it.
+ */
+const companyLabel = (contact: any): string | undefined => {
+  if (contact.company?.companyName) return contact.company.companyName;
+  const sub = contact.subCompany;
+  if (sub) return `${sub.mainCompany?.companyName || "N/A"} (${sub.subCompanyName})`;
+  return undefined;
 };
 
-const visibilityFromKeys = (keys: string[]): Record<string, boolean> =>
-  Object.fromEntries(CONTACT_COLUMN_KEYS.map((k) => [k, keys.includes(k)]));
-
-const getFieldsKey = (fields: string[] | undefined): string =>
-  fields ? [...fields].sort().join(",") : "ALL";
 interface Props {
   contactByRolesId?: string;
   startDate?: Dayjs;
@@ -68,10 +61,12 @@ const ClientContactsMain = ({
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
-  const [allContacts, setAllContacts] = useState<any>([]);
+  const [search, setSearch] = useState("");
+  // Seeded with the table's default sort, so the first request is already in that order.
+  const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([{ id: "fullName", desc: false }]);
+  /** Google-imported contacts, tenant-wide — sizes the source switch, so never filtered. */
+  const [googleCount, setGoogleCount] = useState(0);
   const [allBranches, setAllBranches] = useState<any>([]);
-  const [allCompanies, setAllCompanies] = useState<any>([]);
-  const [allSubCompanies, setAllSubCompanies] = useState<any>([]);
   const [newContactModal, setNewContactModal] = useState(false);
   const [googleImportOpen, setGoogleImportOpen] = useState(false);
   // Imported rows carry `googleResourceId` (provenance only) — that is the whole filter.
@@ -111,54 +106,16 @@ const ClientContactsMain = ({
     }
   };
 
-  // Column visibility & selective fetching
-  const visibleColumnsRef = useRef<string[] | null>(null);
-  const lastFieldsKeyRef = useRef<string | null>(null);
-  const firstVisibilityEmissionRef = useRef(true);
-  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const loadAllContacts = useCallback(async (fields?: string[]) => {
-    try {
-      // No pagination params → backend returns ALL contacts (passing pageSize
-      // flips it into paginated mode and caps the result).
-      const contactsData = await getAllClientContacts({}, false, fields);
-      const companiesData = await getAllClientCompanies(true);
-
-      const contacts = contactsData?.data?.contacts || [];
-      const companies = companiesData?.data?.companies || [];
-
-      // Map companyId → companyName
-      const companyMap = Object.fromEntries(
-        companies.map((c: any) => [c.id, c.companyName]),
-      );
-
-      // Sort contacts by company name (ascending)
-      const sortedContacts = contacts.sort((a: any, b: any) => {
-        const nameA = companyMap[a.companyId] || "";
-        const nameB = companyMap[b.companyId] || "";
-        return nameA.localeCompare(nameB);
-      });
-
-      setAllContacts(sortedContacts);
-
-      // keep other states same
-      const branchesData = await getAllClientBranches();
-      setAllBranches(branchesData?.data?.leadBranches || []);
-
-      setAllCompanies(companies);
-
-      const subCompaniesData = await getAllSubCompanies();
-      setAllSubCompanies(subCompaniesData?.data?.subCompanies || []);
-    } catch (error) {
-      console.error("Error loading contacts:", error);
-    }
+  /**
+   * Branch names for the Branch column — a short reference list (the organization's own
+   * branches), loaded once. Only labels cells, so a failure must not blank the page. The
+   * company names come with each row from the server.
+   */
+  useEffect(() => {
+    getAllClientBranches()
+      .then((branchesData) => setAllBranches(branchesData?.data?.leadBranches || []))
+      .catch((e) => console.error("Error loading branches:", e));
   }, []);
-
-  const companyMap = useMemo(() => {
-    const map = new Map();
-    allCompanies.forEach((c: any) => map.set(c.id, c.companyName));
-    return map;
-  }, [allCompanies]);
 
   const branchMap = useMemo(() => {
     const map = new Map();
@@ -166,11 +123,12 @@ const ClientContactsMain = ({
     return map;
   }, [allBranches]);
 
-  const subCompanyMap = useMemo(() => {
-    const map = new Map();
-    allSubCompanies.forEach((s: any) => map.set(s.id, s));
-    return map;
-  }, [allSubCompanies]);
+  // A cell lookup, not a list scan per cell — and a column-memo dependency, so the names
+  // fill in once the employee list arrives instead of staying "N/A" from a stale closure.
+  const employeeNameMap = useMemo(
+    () => new Map<string, string>((allEmployees || []).map((e: any) => [e.employeeId, e.employeeName])),
+    [allEmployees],
+  );
 
   // ── Drill-down curated columns ────────────────────────────────────────────────
   // When drilled by contact role (contactByRolesId set), show lean columns.
@@ -197,48 +155,76 @@ const ClientContactsMain = ({
   // Separate pref bucket so the drill keeps its own lean defaults.
   const drillTableName = `ContactDrill_${drillContextKey ?? "base"}`;
 
-  useEventBus("clientContactUpdated", () => {
-    loadAllContacts();
+  /**
+   * The server filters, sorts and pages (CONTACT_LIST_SPEC on the backend). The date window,
+   * role, gender and Google switch each used to be a predicate over all ~6k contacts here.
+   */
+  // Primitives, so a re-reported but unchanged sort keeps the params' identity (no refetch).
+  const sortBy = sorting[0]?.id;
+  const sortDesc = sorting[0]?.desc;
+  const listParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (sortBy) {
+      params.sortBy = sortBy;
+      params.sortOrder = sortDesc ? "desc" : "asc";
+    }
+    if (search) params.search = search;
+    if (startDate) params.createdFrom = dayjs(startDate).startOf("day").toISOString();
+    if (endDate) params.createdTo = dayjs(endDate).endOf("day").toISOString();
+    if (contactByRolesId) params.contactRoleId = contactByRolesId;
+    if (gender) params.gender = gender;
+    if (source === "GOOGLE") params.source = "GOOGLE";
+    return params;
+  }, [sortBy, sortDesc, search, startDate, endDate, contactByRolesId, gender, source]);
+
+  const fetchPage = useCallback(
+    async (page: number, pageSize: number, summary = false) => {
+      const res = await getAllClientContacts({ ...listParams, page, pageSize, ...(summary && { summary: 1 }) });
+      const rows = res?.data?.contacts || [];
+      if (summary && typeof res?.data?.googleCount === "number") {
+        setGoogleCount(res.data.googleCount);
+        googleCountKnownRef.current = true;
+      }
+      return { data: rows, totalRecords: res?.data?.total ?? rows.length };
+    },
+    [listParams],
+  );
+
+  // The Google count is tenant-wide and filter-independent: asked for with the first page, and
+  // again only after a contact changes — not on every page turn or filter.
+  const googleCountKnownRef = useRef(false);
+  const fetchTablePage = useCallback(
+    (page: number, pageSize: number) => fetchPage(page, pageSize, !googleCountKnownRef.current),
+    [fetchPage],
+  );
+
+  const {
+    data: contacts,
+    pagination,
+    setPagination,
+    totalRecords,
+    isLoading,
+    refetch,
+  } = useServerPagination<any>({
+    fetchFunction: fetchTablePage,
+    initialPageSize: 50,
+    // A new filter, search or sort starts again from page 1.
+    resetKey: JSON.stringify(listParams),
   });
 
-  useEffect(() => {
-    loadAllContacts();
-  }, [loadAllContacts]);
-
-  // Clean up refetch timer on unmount
-  useEffect(() => {
-    return () => {
-      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
-    };
-  }, []);
-
-  // Handle column visibility changes and trigger selective refetch
-  const handleVisibleColumnsChange = useCallback(
-    (keys: string[]) => {
-      visibleColumnsRef.current = keys;
-      // Pass the raw visible column accessorKeys; the backend gates heavy relations
-      // (services / sub-services) on these.
-      const key = [...keys].sort().join(",");
-
-      // First emission: record baseline, don't refetch
-      if (firstVisibilityEmissionRef.current) {
-        firstVisibilityEmissionRef.current = false;
-        lastFieldsKeyRef.current = key;
-        return;
-      }
-
-      // No change detected
-      if (key === lastFieldsKeyRef.current) return;
-      lastFieldsKeyRef.current = key;
-
-      // Debounce refetch
-      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
-      columnsRefetchTimerRef.current = setTimeout(() => {
-        loadAllContacts(keys);
-      }, 500);
-    },
-    [loadAllContacts],
+  /** Export: every contact matching the current filters, not just this page. */
+  const fetchAllRows = useCallback(
+    () => fetchAllPages(async (page, pageSize) => {
+      const { data, totalRecords: total } = await fetchPage(page, pageSize);
+      return { rows: data, total };
+    }),
+    [fetchPage],
   );
+
+  useEventBus("clientContactUpdated", () => {
+    googleCountKnownRef.current = false;
+    refetch();
+  });
 
   const handleEditClick = (id: string) => {
     setEditingContactId(id);
@@ -269,6 +255,7 @@ const ClientContactsMain = ({
         {
           accessorKey: "profile",
           header: "Profile",
+          enableSorting: false,
         Cell: ({ row }) => (
           <SmartAvatar
             name={row.original.fullName}
@@ -284,18 +271,9 @@ const ClientContactsMain = ({
         accessorKey: "fullName",
         header: "Full Name",
         Cell: ({ row }) => {
-          const { id, companyId, subCompanyId } = row.original;
-
-          // Resolve the contact's company name (same logic as the Company Name column)
-          // so it can be shown in brackets next to the full name.
-          let companyName = companyMap.get(companyId);
-          if (!companyName && subCompanyId) {
-            const subCompany = subCompanyMap.get(subCompanyId);
-            if (subCompany) {
-              const mainCompName = companyMap.get(subCompany.mainCompanyId);
-              companyName = `${mainCompName || "N/A"} (${subCompany.name})`;
-            }
-          }
+          const { id } = row.original;
+          // The company in brackets next to the name, as in the Company Name column.
+          const companyName = companyLabel(row.original);
 
           return (
             <button
@@ -323,24 +301,13 @@ const ClientContactsMain = ({
       {
         accessorKey: "companyName",
         header: "Company Name",
-        accessorFn: (row: any) => {
-          const { companyId, subCompanyId } = row;
-          let companyName = companyMap.get(companyId);
-
-          if (!companyName && subCompanyId) {
-            const subCompany = subCompanyMap.get(subCompanyId);
-            if (subCompany) {
-              const mainCompName = companyMap.get(subCompany.mainCompanyId);
-              companyName = `${mainCompName || "N/A"} (${subCompany.name})`;
-            }
-          }
-          return companyName || "NA";
-        },
+        accessorFn: (row: any) => companyLabel(row) || "NA",
         Cell: ({ cell }) => cell.getValue<string>(),
       },
       {
         accessorKey: "branch",
         header: "Branch",
+        enableSorting: false,
         accessorFn: (row: any) => branchMap.get(row.branch) || "NA",
         Cell: ({ cell }) => cell.getValue<string>(),
       },
@@ -352,6 +319,7 @@ const ClientContactsMain = ({
       {
         accessorKey: "services",
         header: "Sub-services",
+        enableSorting: false,
         // Flatten the serviceMappings relation into a plain comma-separated string so the
         // "Search in All Columns" global filter can match on it. (These Service rows are
         // the new "Sub-services" after the 4-level → 3-level flatten.)
@@ -417,12 +385,7 @@ const ClientContactsMain = ({
         accessorKey: "createdById",
         header: "Created By",
         meta: { defaultVisible: false },
-        Cell: ({ row }: any) => {
-          const emp = allEmployees?.find(
-            (e: any) => e.employeeId === row.original.createdById
-          );
-          return emp?.employeeName || "N/A";
-        },
+        Cell: ({ row }: any) => employeeNameMap.get(row.original.createdById) || "N/A",
       },
       {
         accessorKey: "updatedAt",
@@ -435,12 +398,7 @@ const ClientContactsMain = ({
         accessorKey: "updatedById",
         header: "Last Edited By",
         meta: { defaultVisible: false },
-        Cell: ({ row }: any) => {
-          const emp = allEmployees?.find(
-            (e: any) => e.employeeId === row.original.updatedById
-          );
-          return emp?.employeeName || "N/A";
-        },
+        Cell: ({ row }: any) => employeeNameMap.get(row.original.updatedById) || "N/A",
       },
       {
         accessorKey: "actions",
@@ -448,13 +406,8 @@ const ClientContactsMain = ({
         Cell: ({ row }) => {
           const handleWhatsAppShare = () => {
             const contact = row.original;
-            const companyName =
-              allCompanies.find(
-                (company: any) => company.id === contact.companyId,
-              )?.companyName || "Unknown Company";
-            const branchName =
-              allBranches.find((branch: any) => branch.id === contact.branch)
-                ?.name || "Unknown Branch";
+            const companyName = companyLabel(contact) || "Unknown Company";
+            const branchName = branchMap.get(contact.branch) || "Unknown Branch";
 
             // Format address
             const { address, city, state, country, zipCode } = contact;
@@ -523,46 +476,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
         meta: { ...(col.meta || {}), defaultVisible: drillVisibleKeys.has(col.accessorKey) },
       }));
     },
-    [branchMap, companyMap, subCompanyMap, employeeId, allContacts, isDrillDown, drillVisibleKeys, canWrite],
-  );
-
-  const startDates = useMemo(
-    () => (startDate ? dayjs(startDate).startOf("day") : null),
-    [startDate],
-  );
-  const endDates = useMemo(
-    () => (endDate ? dayjs(endDate).endOf("day") : null),
-    [endDate],
-  );
-
-  const filterData = useMemo(() => {
-    const start = startDates;
-    const end = endDates;
-    return allContacts
-      ?.filter((item: any) => {
-        const createdAt = dayjs(item.createdAt);
-        if (start && createdAt.isBefore(start)) return false;
-        if (end && createdAt.isAfter(end)) return false;
-        return true;
-      })
-      ?.filter((item: any) => {
-        if (contactByRolesId) {
-          return item.contactRoleId === contactByRolesId;
-        }
-        return true;
-      })
-      ?.filter((item: any) => {
-        if (!gender) return true;
-        // A contact with no gender on record answers to UNSPECIFIED, matching how the
-        // overview counts them — otherwise they would vanish from every bucket.
-        return gender === "UNSPECIFIED" ? !item.gender : item.gender === gender;
-      })
-      ?.filter((item: any) => source === "ALL" || !!item.googleResourceId);
-  }, [allContacts, startDates, endDates, contactByRolesId, gender, source]);
-
-  const googleCount = useMemo(
-    () => (allContacts || []).filter((c: any) => c.googleResourceId).length,
-    [allContacts],
+    [branchMap, employeeNameMap, employeeId, isDrillDown, drillVisibleKeys, canWrite],
   );
 
   return (
@@ -610,7 +524,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
       </div>
       <MaterialTable
         columns={columns}
-        data={filterData}
+        data={contacts}
         tableName={isDrillDown ? drillTableName : "Client-Contacts"}
         resource="CLIENT_CONTACTS"
         viewOwn={true}
@@ -618,12 +532,24 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
         checkOwnWithOthers={true}
         employeeId={employeeId}
         defaultSorting={[{ id: "fullName", desc: false }]}
-        onVisibleColumnsChange={handleVisibleColumnsChange}
+        // The server owns paging, sorting and search — all three together, or one of them
+        // would act on the single page the browser holds while implying the whole list.
+        manualPagination
+        manualSorting
+        manualFiltering
+        rowCount={totalRecords}
+        paginationState={pagination}
+        onPaginationChange={setPagination}
+        onSortingChange={setSorting}
+        onSearchChange={setSearch}
+        fetchAllRows={fetchAllRows}
+        isLoading={isLoading}
+        // Per-column filters and grouping would act on one page only.
+        enableFilters={false}
+        enableGrouping={false}
+        // Only the rows in view are rendered, so 1000 rows per page costs what ~20 do.
+        enableRowVirtualization
         muiTableProps={{
-          sx: {
-            borderCollapse: "separate",
-            borderSpacing: "0 20px !important", // 20px vertical spacing between rows
-          },
 
           muiTableBodyRowProps: ({ row }) => ({
             // sx: {
@@ -635,7 +561,11 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
             sx: {
               cursor: "pointer",
               backgroundColor: `${row.original?.status?.color}30`,
-              // borderBottom:"5px solid red !important",
+              // The 20px gap between rows. It was `border-spacing` on the table, which a
+              // virtualized table (CSS grid, not table layout) ignores; a transparent
+              // border is measured into the row's height, so the virtualizer spaces for it.
+              borderBottom: "20px solid transparent",
+              backgroundClip: "padding-box",
               padding: "10px !important",
 
               "& .MuiTableCell-root": {
@@ -684,7 +614,8 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
         contactId={editingContactId}
         initialData={
           editingContactId
-            ? allContacts.find(
+            // Edit is opened from a row, so the contact is on the page in hand.
+            ? contacts.find(
                 (contact: any) => contact.id === editingContactId,
               )
             : undefined
