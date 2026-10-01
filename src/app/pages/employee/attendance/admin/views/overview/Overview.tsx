@@ -175,6 +175,14 @@ interface OverviewProps {
     range?: import("@app/modules/common/components/PeriodFilter").PeriodRange | null;
 }
 
+/** Rehydrate the range-calendar response into Sets for O(1) non-working lookups. */
+function hydrateNonWorking(calResp: any): { scopes: Record<string, Set<string>>; employeeScopes: Record<string, string> } {
+    const rawScopes = (calResp?.data?.scopes ?? {}) as Record<string, string[]>;
+    const scopes: Record<string, Set<string>> = {};
+    for (const key of Object.keys(rawScopes)) scopes[key] = new Set(rawScopes[key]);
+    return { scopes, employeeScopes: (calResp?.data?.employeeScopes ?? {}) as Record<string, string> };
+}
+
 function Overview({ date, range }: OverviewProps) {
     // Weekly/monthly stats load a date range instead of a single day; daily (or no
     // range) keeps the original single-day path untouched.
@@ -573,27 +581,24 @@ function Overview({ date, range }: OverviewProps) {
     const dailyPresentIds = new Set(
         presentRows.map((a: any) => a.employeeId).filter(Boolean) as string[],
     );
-    // Roster minus present minus on-leave — the SAME set the Absent modal lists.
-    // It used to be `total − present − onLeave` arithmetic against a different present
-    // source than every other card, so the card and its own list could disagree.
-    // Nobody is absent on a day the company does not work: the range path below already
-    // skipped non-working days, this daily path did not, so a weekend/holiday reported
-    // the whole roster minus whoever happened to come in.
-    // Prefer the SERVER's day kind, taken from any row on this day — it is resolved from
-    // each employee's own branch calendar, where `checkIfWeekendOrHoliday` reads the
-    // VIEWING ADMIN's. Falls back to the local check when no row carries a verdict.
-    const serverDayKinds = presentRows
-        .map((a: any) => a.dayKind as string | undefined)
-        .filter(Boolean) as string[];
-    const isNonWorkingDay = serverDayKinds.length
-        ? serverDayKinds.every((k) => k !== 'working')
-        : checkIfWeekendOrHoliday(date.toDate());
-
-    const dailyAbsentEmployees = isNonWorkingDay
-        ? []
-        : allEmployees.filter(
-            (emp) => emp?._id && !dailyPresentIds.has(emp._id) && !dailyLeaveIds.has(emp._id),
-        );
+    // Daily Absent — the SAME per-employee walk the range uses, over the single anchor day,
+    // so the two paths can't diverge. It used to be an ORG-WIDE gate: it sampled `dayKind`
+    // from whoever happened to punch in, so one person on a working-Saturday branch made the
+    // whole day "working" and dragged every off-Saturday branch's staff into absence (and
+    // with no punches it fell back to the viewing admin's branch). Now each employee is judged
+    // by their own branch calendar, exactly like the range path. The roster is already fetched
+    // scoped to who was employed on this day, so per-day employment is handled upstream.
+    const dailyDateKey = date.format('YYYY-MM-DD');
+    const dailyAbsentEmployees = computeAbsentEntries({
+        start: date,
+        end: date,
+        today: dayjs(),
+        isNonWorking: (employee: any, d: Date) => isNonWorkingForEmployee(employee?._id, dayjs(d).format('YYYY-MM-DD')),
+        presentByDay: new Map([[dailyDateKey, dailyPresentIds]]),
+        leaveByDay: new Map([[dailyDateKey, new Map(Array.from(dailyLeaveIds, (id) => [id, {}] as [string, unknown]))]]),
+        roster: allEmployees as any,
+        isEmployedOn: () => true,
+    }) as any[];
 
     // ── Grouping ────────────────────────────────────────────────────────────────
     // The stat lists are per-OCCURRENCE (one row per offending day). On a single day that
@@ -1278,32 +1283,36 @@ function Overview({ date, range }: OverviewProps) {
                     ? await fetchEmpsAttendanceRange(range!.start!.format("YYYY-MM-DD"), range!.end!.format("YYYY-MM-DD"))
                     : await fetchEmpsAttendance(date);
 
+                // Per-employee work calendar — loaded in BOTH modes now. The daily Absent walk
+                // is per-employee too (not an org-wide gate), so it needs each person's own
+                // off-days for the anchor day, not just the viewing admin's branch. Window is
+                // the range (weekly/monthly) or the single anchor day.
+                const calFromISO = (useRange && range?.start ? range.start : date).format("YYYY-MM-DD");
+                const calToISO = (useRange && range?.end ? range.end : date).format("YYYY-MM-DD");
+                const calRespP = fetchAttendanceRangeCalendar(calFromISO, calToISO).catch(() => null);
+
                 // Range mode: also pull approved leaves overlapping the window so
                 // On-Leave / Absent can be expanded per day (the attendance fetch is
                 // checkIn-filtered and carries no leave/absent rows).
                 if (useRange && range?.start && range?.end) {
                     const fromISO = range.start.format("YYYY-MM-DD");
                     const toISO = range.end.format("YYYY-MM-DD");
-                    // Leaves to expand On-Leave/Absent per day, and the per-employee work
-                    // calendar so each person's off-days come from their OWN branch. Both in
-                    // parallel — neither depends on the other.
                     const [leaveResp, calResp] = await Promise.all([
                         fetchEmployeesOnLeaveRange(fromISO, toISO),
-                        fetchAttendanceRangeCalendar(fromISO, toISO).catch(() => null),
+                        calRespP,
                     ]);
                     if (isMountedRef.current) {
                         setRangeLeaveRecords(leaveResp?.data?.leaveRecords || []);
-                        // Rehydrate each scope's date array into a Set for O(1) lookups. A
-                        // failed/absent calendar leaves the maps empty, and the predicate
+                        // A failed/absent calendar leaves the maps empty, and the predicate
                         // below falls back to the admin-branch check — degraded, not broken.
-                        const rawScopes = (calResp?.data?.scopes ?? {}) as Record<string, string[]>;
-                        const scopes: Record<string, Set<string>> = {};
-                        for (const key of Object.keys(rawScopes)) scopes[key] = new Set(rawScopes[key]);
-                        setRangeNonWorking({ scopes, employeeScopes: (calResp?.data?.employeeScopes ?? {}) as Record<string, string> });
+                        setRangeNonWorking(hydrateNonWorking(calResp));
                     }
-                } else if (isMountedRef.current) {
-                    setRangeLeaveRecords([]);
-                    setRangeNonWorking({ scopes: {}, employeeScopes: {} });
+                } else {
+                    const calResp = await calRespP;
+                    if (isMountedRef.current) {
+                        setRangeLeaveRecords([]);
+                        setRangeNonWorking(hydrateNonWorking(calResp));
+                    }
                 }
                 //     employees:employees,
                 //     rawResponse: response,

@@ -116,6 +116,23 @@ describe('computeAbsentEntries — each employee uses their OWN branch calendar'
         expect(absentIds).toContain('e2');     // works Saturdays, no punch → absent
         expect(absentIds).not.toContain('e1'); // off that Saturday → never absent
     });
+
+    test('daily: a present colleague on a working branch does not mask an off-branch employee', () => {
+        // The old DAILY path sampled dayKind org-wide: e2 (works Saturdays) punching in made
+        // the whole day "working", which dragged e1 (legitimately off) into absence. Judged
+        // per-employee over a single day, neither is absent — this guards the daily reuse.
+        const entries = computeAbsentEntries({
+            start: dayjs('2026-09-12'),
+            end: dayjs('2026-09-12'),
+            today: PAST,
+            isNonWorking: perEmployeeNonWorking,
+            presentByDay: new Map([['2026-09-12', new Set(['e2'])]]),
+            leaveByDay: new Map(),
+            roster: ROSTER,
+            isEmployedOn: () => true,
+        });
+        expect(entries.map((e) => e._id)).toEqual([]); // e1 off, e2 present → nobody absent
+    });
 });
 
 describe('computeAbsentEntries — present and on leave', () => {
