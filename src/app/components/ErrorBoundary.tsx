@@ -4,6 +4,8 @@ import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Props {
   children: React.ReactNode;
+  /** A change clears a caught error (e.g. the path, so navigating away recovers) without remounting healthy children. */
+  resetKey?: string;
 }
 
 interface State {
@@ -54,6 +56,12 @@ class ErrorBoundary extends React.Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error, componentStack: '', reference: makeReference() };
+  }
+
+  componentDidUpdate(prev: Props) {
+    if (this.state.hasError && prev.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: null, componentStack: '', showStack: false, reference: '', reported: false });
+    }
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {

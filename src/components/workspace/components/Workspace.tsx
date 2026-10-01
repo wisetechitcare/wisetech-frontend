@@ -51,8 +51,14 @@ export function Workspace() {
     // route change would measure and animate a whole page's box, including the tables and
     // charts that must never animate. Animating nothing would lose the movement entirely.
     // Position-only keeps real motion, costs nothing on navigation, and cannot distort.
+    //
+    // `layoutDependency={mode}`: measure only when the mode changes. This element re-renders
+    // on EVERY route change (the shell context carries the pathname), and inside the shared
+    // LayoutGroup one member measuring re-measures all of them — so a tab click that changed
+    // the page's height or scroll sent every dock tile sliding to its re-measured spot.
     <motion.div
       layout="position"
+      layoutDependency={mode}
       transition={{ ...workspaceSpring, delay: home ? 0 : MOTION.workspaceLag }}
       data-workspace-mode={mode}
       className={`${home ? WORKSPACE_HOME : WORKSPACE_DOCKED} ${home ? ORDER_WORKSPACE_HOME : ORDER_WORKSPACE_DOCKED}`}
