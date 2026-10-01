@@ -622,12 +622,12 @@ const ClientCompaniesMain = ({
               backgroundColor: row.original?.blacklisted
                 ? "#1a1a1a"
                 : `${row.original?.companyTypeName?.color}30`,
-              // The 20px gap between rows. It was `border-spacing` on the table, which a
-              // virtualized table (CSS grid, not table layout) ignores; a transparent
-              // border is measured into the row's height, so the virtualizer spaces for it.
-              borderBottom: "20px solid transparent",
+              // The gap between rows: a transparent border, because a virtualized table (CSS
+              // grid, not table layout) ignores `border-spacing`, and a border is measured into
+              // the row's height so the virtualizer spaces for it. No row padding — a <tr>
+              // ignored it in table layout, but in grid layout it pads every row.
+              borderBottom: "6px solid transparent",
               backgroundClip: "padding-box",
-              padding: "10px !important",
 
               "& .MuiTableCell-root": {
                 whiteSpace: "nowrap",
