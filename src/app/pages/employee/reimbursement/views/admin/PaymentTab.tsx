@@ -17,7 +17,7 @@ import LoadErrorState from '../../components/LoadErrorState';
 import { formatMoney } from '../../utils/reimbursementFormat';
 import {
     buildPaymentRows, filterQueueByPeriod, paymentsInPeriod, paymentKpis, stateBreakdown,
-    PaymentBatchRow, PaymentState, PeriodFilter, COMPACT_BUTTON_SX, EmployeeOrgDetail,
+    PaymentBatchRow, PaymentState, PeriodFilter, QueueDateBasis, COMPACT_BUTTON_SX, EmployeeOrgDetail,
 } from '../../components/payment/paymentData';
 import { useOrgFilters, OrgFilterToolbar } from '@app/modules/common/components/ui/OrgFilterToolbar';
 import { PaymentKpiCards, PaymentStatusRail } from '../../components/payment/PaymentSummary';
@@ -55,6 +55,8 @@ function PaymentTab() {
 
     // ── Period (one, for the whole screen) ────────────────────────────────────
     const [filter, setFilter] = useStoredState<PeriodFilter>('filters:PaymentTab:period', 'monthly');
+    // Which date puts a batch in a month — its expenses' month (default) or its submission day.
+    const [dateBasis, setDateBasis] = useStoredState<QueueDateBasis>('filters:PaymentTab:dateBasis', 'expense');
     const [periodDate, setPeriodDate] = useState<Dayjs>(dayjs());
     const [fiscalLabel, setFiscalLabel] = useState('');
 
@@ -123,8 +125,8 @@ function PaymentTab() {
     const batchById = useMemo(() => new Map(allRows.map((r) => [r.id, r])), [allRows]);
 
     const periodRows = useMemo(
-        () => filterQueueByPeriod(allRows, filter, periodDate),
-        [allRows, filter, periodDate],
+        () => filterQueueByPeriod(allRows, filter, periodDate, dateBasis),
+        [allRows, filter, periodDate, dateBasis],
     );
     const periodPayments = useMemo(
         () => paymentsInPeriod(allRows, filter, periodDate),
@@ -303,6 +305,18 @@ function PaymentTab() {
 
                 {/* The period governs the whole page (KPIs + list), so it stands apart on the right. */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', ml: 'auto' }}>
+                    {/* History is always by payment date, so the basis only means something on the queue. */}
+                    {tab === 'queue' && filter !== 'allTime' && (
+                        <PeriodTabs
+                            value={dateBasis}
+                            options={[
+                                { label: 'Expense month', value: 'expense' },
+                                { label: 'Submitted on', value: 'submission' },
+                            ]}
+                            onChange={(v) => setDateBasis(v as QueueDateBasis)}
+                            ariaLabel="date the queue is grouped by"
+                        />
+                    )}
                     <PeriodTabs
                         value={filter}
                         options={[

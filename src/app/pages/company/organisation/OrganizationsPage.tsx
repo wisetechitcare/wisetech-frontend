@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import Swal from 'sweetalert2';
+import { Box, InputBase, Stack, Typography, alpha, keyframes } from '@mui/material';
 import { safeHtml } from '@app/modules/common/components/ui/safeHtml';
 import { IOrgNode, IOrgStats, IOrgBranchNode } from '@models/company';
 import { fetchOrganizationTree, fetchOrganizationStats, deleteOrganizationById } from '@services/company';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
-import OrgTree from '@app/modules/common/components/OrgTree';
+import OrgTree, { ORG_TONES } from '@app/modules/common/components/OrgTree';
+import { useCountUp } from '@app/hooks/useCountUp';
 import OrganizationFormModal from './OrganizationFormModal';
 import BranchEmployeesModal from '@app/modules/common/components/BranchEmployeesModal';
-import { IconBuilding, IconHierarchy, IconBranch, IconUsers, IconSearch, IconPlus } from '@app/modules/common/components/icons/OrgIcons';
-
-const C = { brand: '#1E3A8A', brandSoft: '#FBEEEE', brandBorder: '#EBD2D2', ink: '#1F2430', inkSoft: '#5A6172', inkFaint: '#98A0B0', line: '#ECEEF3', panel: '#F7F8FA', surface: '#FFFFFF' };
+import { IconSearch, IconPlus, IconChevron, IconBuilding, IconHierarchy, IconBranch, IconUsers } from '@app/modules/common/components/icons/OrgIcons';
+import { WtButton } from '@app/modules/common/components/ui';
 
 interface Props {
   /** Called when an organization is opened — the shell switches to its profile. */
@@ -30,26 +31,56 @@ function filterTree(nodes: IOrgNode[], q: string): IOrgNode[] {
   return nodes.map(walk).filter(Boolean) as IOrgNode[];
 }
 
-function StatCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone: 'brand' | 'branch' | 'neutral' }) {
-  const fg = tone === 'brand' ? C.brand : tone === 'branch' ? '#3B6FB0' : C.inkSoft;
-  const bg = tone === 'brand' ? C.brandSoft : tone === 'branch' ? '#EAF1FB' : '#F1F3F7';
-  const bd = tone === 'brand' ? C.brandBorder : tone === 'branch' ? '#D5E3F6' : '#E3E7EF';
+const REDUCED = '@media (prefers-reduced-motion: reduce)';
+const rise = keyframes`from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; }`;
+
+/**
+ * One headline number. Its colour is the same one that tags the matching tree column, so the
+ * four tiles double as the tree's legend. The number counts up once on load.
+ */
+function StatTile({ label, value, tone, icon, index }: { label: string; value: number; tone: string; icon: React.ReactNode; index: number }) {
+  const shown = useCountUp(value);
   return (
-    <div style={{ flex: 1, minWidth: 150, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 14, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-      <div style={{ width: 42, height: 42, borderRadius: 11, background: bg, border: `1px solid ${bd}`, display: 'grid', placeItems: 'center', color: fg }}>{icon}</div>
-      <div>
-        <div style={{ fontSize: 22, fontWeight: 800, color: C.ink, lineHeight: 1 }}>{value}</div>
-        <div style={{ fontSize: 12, color: C.inkFaint, marginTop: 3, fontWeight: 600 }}>{label}</div>
-      </div>
-    </div>
+    <Stack
+      direction="row"
+      alignItems="center"
+      gap={1.75}
+      sx={{
+        position: 'relative', overflow: 'hidden', p: { xs: 1.75, md: 2.25 }, borderRadius: '14px',
+        bgcolor: 'background.paper', border: 1, borderColor: alpha(tone, 0.22),
+        backgroundImage: `linear-gradient(135deg, ${alpha(tone, 0.09)} 0%, transparent 60%)`,
+        animation: `${rise} 420ms cubic-bezier(.22,1,.36,1) both`, animationDelay: `${index * 70}ms`,
+        transition: 'transform .2s ease, box-shadow .2s ease',
+        '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 10px 24px ${alpha(tone, 0.16)}` },
+        '&::before': { content: '""', position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, bgcolor: tone },
+        [REDUCED]: { animation: 'none', transition: 'none', '&:hover': { transform: 'none' } },
+      }}
+    >
+      <Box sx={{ width: 46, height: 46, borderRadius: '12px', flexShrink: 0, display: 'grid', placeItems: 'center', color: tone, bgcolor: alpha(tone, 0.12) }}>
+        {icon}
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ fontFamily: 'Barlow', fontSize: { xs: 24, md: 28 }, fontWeight: 700, lineHeight: 1, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
+          {Math.round(shown)}
+        </Typography>
+        <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600, color: tone, mt: 0.5 }}>{label}</Typography>
+      </Box>
+    </Stack>
   );
 }
 
+/**
+ * Organizations — the hierarchy as one panel: a single toolbar (search, totals, expand,
+ * create) over the tree-table. The totals used to be four separate cards, the create button
+ * its own row and the search a third, which stacked three bands of mostly empty space above
+ * the thing people came to see.
+ */
 export default function OrganizationsPage({ onOpenOrg }: Props) {
   const [tree, setTree] = useState<IOrgNode[]>([]);
   const [stats, setStats] = useState<IOrgStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [expandSignal, setExpandSignal] = useState({ open: false, n: 0 });
   const [modal, setModal] = useState<{ show: boolean; parent: { id: string; name: string } | null }>({ show: false, parent: null });
   const [empModal, setEmpModal] = useState<{ show: boolean; branch: IOrgBranchNode | null }>({ show: false, branch: null });
 
@@ -66,6 +97,8 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
   useEffect(() => { load(); }, [load]);
 
   const visible = useMemo(() => filterTree(tree, search), [tree, search]);
+  // The next click's direction: after "Expand all" the button offers to collapse.
+  const willOpen = !expandSignal.open;
 
   async function handleDelete(org: IOrgNode) {
     const blocked = org.childCount > 0 || org.branchCount > 0 || org.employeeCount > 0;
@@ -93,69 +126,104 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
     } catch { errorConfirmation('Failed to delete organization'); }
   }
 
-  return (
-    <div style={{ background: C.panel, borderRadius: 14, padding: 'clamp(16px, 3vw, 26px)' }}>
-      {/* Header */}
-      {/* No page title here: the page header and breadcrumb already say "Organizations". */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center', justifyContent: 'flex-end', marginBottom: 18 }}>
-        <button type="button" onClick={() => setModal({ show: true, parent: null })}
-          style={{ background: C.brand, border: 'none', borderRadius: 10, padding: '10px 20px', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 2px 8px rgba(30, 58, 138,.25)' }}>
-          <IconPlus size={17} /> New Organization
-        </button>
-      </div>
+  const tiles = stats ? [
+    { value: stats.rootOrgs, label: stats.rootOrgs === 1 ? 'Organization' : 'Organizations', tone: ORG_TONES.org, icon: <IconBuilding size={22} /> },
+    { value: stats.subOrgs, label: stats.subOrgs === 1 ? 'Sub-organization' : 'Sub-organizations', tone: ORG_TONES.subOrgs, icon: <IconHierarchy size={22} /> },
+    { value: stats.totalBranches, label: stats.totalBranches === 1 ? 'Branch' : 'Branches', tone: ORG_TONES.branches, icon: <IconBranch size={22} /> },
+    { value: stats.totalEmployees, label: stats.totalEmployees === 1 ? 'Employee' : 'Employees', tone: ORG_TONES.employees, icon: <IconUsers size={22} /> },
+  ] : [];
 
-      {/* Stats */}
-      {stats && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
-          <StatCard icon={<IconBuilding size={20} />} label="Organizations" value={stats.rootOrgs} tone="brand" />
-          <StatCard icon={<IconHierarchy size={20} />} label="Sub-Organizations" value={stats.subOrgs} tone="neutral" />
-          <StatCard icon={<IconBranch size={20} />} label="Branches" value={stats.totalBranches} tone="branch" />
-          <StatCard icon={<IconUsers size={20} />} label="Employees" value={stats.totalEmployees} tone="brand" />
-        </div>
+  return (
+    <Stack gap={2}>
+      {tiles.length > 0 && (
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0,1fr))', lg: 'repeat(4, minmax(0,1fr))' }, gap: { xs: 1.5, md: 2 } }}>
+          {tiles.map((t, i) => <StatTile key={t.label} index={i} {...t} />)}
+        </Box>
       )}
 
-      {/* Search */}
-      <div style={{ position: 'relative', marginBottom: 16, maxWidth: 360 }}>
-        <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: C.inkFaint, display: 'inline-flex' }}><IconSearch size={16} /></span>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search organizations or branches…"
-          style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 13.5, background: '#fff', outline: 'none' }} />
-      </div>
-
-      {/* Tree */}
-      <div style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 14, padding: 'clamp(12px, 2vw, 20px)' }}>
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '48px 20px', color: C.inkFaint }}>
-            <div className="spinner-border" style={{ color: C.brand, width: 28, height: 28 }} />
-            <div style={{ marginTop: 12, fontSize: 13 }}>Loading organizations…</div>
-          </div>
-        ) : (
-          <OrgTree
-            organizations={visible}
-            defaultExpandedDepth={1}
-            forceExpand={!!search.trim()}
-            emptyLabel={search ? 'No organizations match your search.' : 'No organizations yet.'}
-            onSelectOrg={onOpenOrg}
-            onEditOrg={onOpenOrg}
-            onAddSubOrg={(parent) => setModal({ show: true, parent: { id: parent.id, name: parent.name } })}
-            onDeleteOrg={handleDelete}
-            onViewBranchEmployees={(branch) => setEmpModal({ show: true, branch })}
-          />
-        )}
-      </div>
-
-      <OrganizationFormModal
-        show={modal.show}
-        parentOrg={modal.parent}
-        onCreated={load}
-        onClose={() => setModal({ show: false, parent: null })}
-      />
-
-      <BranchEmployeesModal
-        show={empModal.show}
-        branchId={empModal.branch?.id}
-        branchName={empModal.branch?.name}
-        onClose={() => setEmpModal({ show: false, branch: null })}
-      />
-    </div>
+      <Box sx={{ bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: '14px', overflow: 'hidden' }}>
+        {/* Toolbar */}
+        <Stack
+          direction="row"
+          alignItems="center"
+          flexWrap="wrap"
+          gap={{ xs: 1.5, md: 2.5 }}
+          sx={{ px: { xs: 1.5, md: 2.5 }, py: 1.75, borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Stack
+            direction="row"
+            alignItems="center"
+            gap={1}
+            sx={{
+              flex: { xs: '1 1 100%', sm: '0 1 300px' }, px: 1.25, height: 38, borderRadius: '10px', border: 1, borderColor: 'divider',
+              color: 'text.secondary', transition: 'border-color .15s ease, box-shadow .15s ease',
+              '&:focus-within': { borderColor: 'primary.main', boxShadow: (t) => `0 0 0 3px ${t.palette.primary.main}22` },
+            }}
+          >
+            <IconSearch size={16} />
+            <InputBase
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search organizations or branches"
+              inputProps={{ 'aria-label': 'Search organizations or branches' }}
+              sx={{ flex: 1, fontSize: 13.5 }}
+            />
+          </Stack>
+  
+          <Stack direction="row" gap={1} sx={{ ml: 'auto' }}>
+            <WtButton
+              inverted
+              size="small"
+              disabled={!tree.length || !!search.trim()}
+              onClick={() => setExpandSignal((s) => ({ open: willOpen, n: s.n + 1 }))}
+              startIcon={<Box component="span" sx={{ display: 'inline-flex', transform: willOpen ? 'rotate(90deg)' : 'rotate(-90deg)', transition: 'transform .2s ease' }}><IconChevron size={13} /></Box>}
+              sx={{ whiteSpace: 'nowrap' }}
+            >
+              {willOpen ? 'Expand all' : 'Collapse all'}
+            </WtButton>
+            <WtButton size="small" onClick={() => setModal({ show: true, parent: null })} startIcon={<IconPlus size={15} />} sx={{ whiteSpace: 'nowrap' }}>
+              New organization
+            </WtButton>
+          </Stack>
+        </Stack>
+  
+        {/* Tree */}
+        <Box sx={{ px: { xs: 1, md: 1.5 }, py: 1.5 }}>
+          {loading ? (
+            <Stack alignItems="center" gap={1.5} sx={{ py: 6, color: 'text.secondary' }}>
+              <div className="spinner-border text-primary" role="status" />
+              <Typography sx={{ fontSize: 13 }}>Loading organizations…</Typography>
+            </Stack>
+          ) : (
+            <OrgTree
+              organizations={visible}
+              defaultExpandedDepth={1}
+              forceExpand={!!search.trim()}
+              expandSignal={expandSignal}
+              emptyLabel={search ? 'No organizations match your search.' : 'No organizations yet.'}
+              onSelectOrg={onOpenOrg}
+              onEditOrg={onOpenOrg}
+              onAddSubOrg={(parent) => setModal({ show: true, parent: { id: parent.id, name: parent.name } })}
+              onDeleteOrg={handleDelete}
+              onViewBranchEmployees={(branch) => setEmpModal({ show: true, branch })}
+            />
+          )}
+        </Box>
+  
+        <OrganizationFormModal
+          show={modal.show}
+          parentOrg={modal.parent}
+          onCreated={load}
+          onClose={() => setModal({ show: false, parent: null })}
+        />
+  
+        <BranchEmployeesModal
+          show={empModal.show}
+          branchId={empModal.branch?.id}
+          branchName={empModal.branch?.name}
+          onClose={() => setEmpModal({ show: false, branch: null })}
+        />
+      </Box>
+    </Stack>
   );
 }

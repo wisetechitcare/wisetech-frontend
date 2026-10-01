@@ -21,6 +21,7 @@ import OnboardingWorkspace from "../forms/onboarding/OnboardingWorkspace";
 import { buildEducationPayload, createEducationRow, getActiveEducationRows, getEducationCompletionValues, hasStartedEducationInfo, normalizeEducationRows } from "../../../../utils/educationUtils";
 import "../glass.css";
 import "./steps/Step2.css";
+import { EMAIL_FORMAT, isUndeliverableEmail, undeliverableEmailMessage } from "@utils/emailDomain";
 import { createNewUser, updateUser, archiveUser } from "@services/users";
 import {
   createAddressDetails,
@@ -506,8 +507,9 @@ const newEmployeeWizardSchema = [
     dateOfBirth: Yup.string().required().label("Date Of Birth"),
     anniversary: optionalString().label("Anniversary Date"),
     bloodGroup: optionalString().label("Blood Group"),
-    personalEmailId: Yup.string().email().required().label("Personal Email Address")
-      .matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, "Invalid email address"),
+    personalEmailId: Yup.string().required().label("Personal Email Address")
+      .matches(EMAIL_FORMAT, "Invalid email address")
+      .test("mail-domain", undeliverableEmailMessage, (v) => !isUndeliverableEmail(v)),
     personalPhoneNumber: Yup.string().required().label("Personal Phone Number")
       .min(10, "Phone Number must be at least 10 characters")
       .max(20, "Phone Number must be at most 20 characters")
@@ -667,7 +669,8 @@ const newEmployeeWizardSchema = [
     // enforced when something IS entered — `optionalString` lets "" through, so the
     // rules below only ever run against a real value.
     companyEmailId: optionalString().label("Company Email Address")
-      .matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, { message: "Invalid email address", excludeEmptyString: true }),
+      .matches(EMAIL_FORMAT, { message: "Invalid email address", excludeEmptyString: true })
+      .test("mail-domain", undeliverableEmailMessage, (v) => !isUndeliverableEmail(v)),
     companyPhoneNumber: optionalString().label("Company Phone Number")
       .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
       .matches(employeeOnBardingFormRegexes["companyPhoneNumber"], { message: "Phone Number can only contain numeric characters", excludeEmptyString: true }),

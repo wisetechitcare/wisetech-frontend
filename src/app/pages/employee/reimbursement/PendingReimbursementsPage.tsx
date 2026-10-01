@@ -909,7 +909,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 <div className='row gx-2 gx-lg-3'>
                   <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
                     <DropDownInput
-                      isRequired={true}
+                      isRequired={false}
                       formikField='clientTypeId'
                       inputLabel='Company Type'
                       placeholder='Select Company Type'
@@ -964,7 +964,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                   </div>
                   <div className='col-12 col-lg-8 mb-5 mb-lg-7'>
                     <DropDownInput
-                      isRequired={false}
+                      // Mirrors the schema: required on a new expense, not on an edit.
+                      isRequired={!currentReimbursement}
                       formikField='projectId'
                       inputLabel='Choose Project Name'
                       placeholder={

@@ -1,22 +1,20 @@
 import { resolveActiveOrg, resolveActiveOrgId } from '@utils/activeOrg';
-import { useState, useEffect, ChangeEvent } from 'react';
-import { Formik, Form, Field, ErrorMessage } from 'formik';
+import { useState, useEffect } from 'react';
+import { Formik, FormikProps } from 'formik';
 import { dateFormatter } from '@utils/date';
 import Flatpickr from "react-flatpickr";
-import { createCompanyOverview, fetchCompanyLogo, fetchCompanyOverview, fetchOrganizationById, updateCompanyOverview } from '@services/company';
+import { createCompanyOverview, fetchCompanyOverview, fetchOrganizationById, updateCompanyOverview } from '@services/company';
 import { uploadCompanyAsset } from '@services/uploader';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { ICompanyOverview, IFormSection, IFormField } from "@models/company";
 import { cloneDefaults, resolveFormSchema, buildValidationSchema, deriveCustomSections } from './formSchema';
-import { Modal, Row, Col } from 'react-bootstrap';
 import OrganisationInfo from './OrganisationInfo';
 import FormSchemaManager from '@app/modules/common/components/FormSchemaManager';
 import DragDropFileField from '@app/modules/common/components/DragDropFileField';
-import { IconGear } from '@app/modules/common/components/icons/OrgIcons';
-import { Box, IconButton, Typography } from '@mui/material';
-import { Close } from '@mui/icons-material';
+import { Box, Typography } from '@mui/material';
 import eventBus from '@utils/EventBus';
-import { WtDateField, AppIcon } from '@app/modules/common/components/ui';
+import { WtDateField, WtField, WtButton, WtFormDialog, WtFormSection, WtFormSpan, WtImageField, AppIcon } from '@app/modules/common/components/ui';
+import { KTIcon } from '@metronic/helpers';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@redux/store';
@@ -33,14 +31,11 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 // value is ever blank — keeping admin notifications/working from silently losing a recipient.
 export const DEFAULT_SUPER_ADMIN_EMAIL = 'wisetechandassociates@gmail.com';
 
-// Initial Values setup (consistent with Overview)
 const initialValues: ICompanyOverview = {
     name: "",
     fiscalYear: "",
-    logo: "", // Expecting a string path
-    salaryStamp: "", // Updated field name to match database column
-    // workingDays: "", // Commented out - not being used in the app
-    // workingHrs: "", // Commented out - not being used in the app
+    logo: "",
+    salaryStamp: "",
     contactNumber: "",
     foundedIn: "",
     gstNumber: "",
@@ -53,21 +48,36 @@ const initialValues: ICompanyOverview = {
     tanNo: "",
     ptecCertificate: "",
     hsnSacNo: "",
-    beneficiaryName:'',
-    bankNameAndAddress:'',
-    ifscCode:'',
-    accountNo:'',
-    micrCode:'',
-    contactPerson:'',
-    accountantNo:'',
-    additionalplacesofbusiness:'',
-    businessType:'',
-    founder:'',
+    beneficiaryName: '',
+    bankNameAndAddress: '',
+    ifscCode: '',
+    accountNo: '',
+    micrCode: '',
+    contactPerson: '',
+    accountantNo: '',
+    additionalplacesofbusiness: '',
+    businessType: '',
+    founder: '',
+};
 
-
-    // state: "", // Commented out state
-    // city: "", // Commented out city
-    // postalCode: "" // Commented out postal code
+/** Per-section look, matching the Organization Info page's cards. Unknown (custom) sections fall back to blue. */
+const SECTION_LOOK: Record<string, { icon: string; tone: string; description: string }> = {
+    basic_info: { icon: 'bi bi-briefcase', tone: '#1E3A8A', description: 'Who the organization is and how to reach it' },
+    govt: { icon: 'bi bi-file-earmark-text', tone: '#7C3AED', description: 'Registered and business addresses' },
+    admin: { icon: 'bi bi-patch-check', tone: '#0D9488', description: 'Registrations and certificates' },
+    tax: { icon: 'bi bi-receipt', tone: '#D97706', description: 'Tax identifiers used on documents' },
+    bank: { icon: 'bi bi-bank', tone: '#16A34A', description: 'Where payments are made to' },
+};
+const lookOf = (id: string) => SECTION_LOOK[id] || { icon: 'bi bi-card-text', tone: '#2563EB', description: '' };
+const titleCase = (s: string) => s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+/** Long free-text fields take a full row. */
+const isWide = (f: IFormField) => f.type === 'file' || /address|places/i.test(f.id) || /address/i.test(f.label);
+const numericOnly = (v: string) => v.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+const uploadImage = async (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const { data: { path } } = await uploadCompanyAsset(fd);
+    return path as string;
 };
 
 interface OrganisationProfileFormProps {
@@ -81,20 +91,56 @@ interface OrganisationProfileFormProps {
 
 const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: OrganisationProfileFormProps = {}) => {
     const dispatch = useDispatch<AppDispatch>();
-    const [logoPreview, setLogoPreview] = useState<string | null>(null);
-    const [stampPreview, setStampPreview] = useState<string | null>(null); // Added state for stamp preview
     const [loading, setLoading] = useState(false);
     const [isCreate, setIsCreate] = useState<boolean>(true);
     const [companyId, setCompanyId] = useState('');
-    const [logoUrl, setLogoUrl] = useState('');
-    const [stampUrl, setStampUrl] = useState('');
     const [showEditModal, setShowEditModal] = useState<boolean>(false);
     const [showSchemaManager, setShowSchemaManager] = useState(false);
     const [formSchema, setFormSchema] = useState<IFormSection[]>(cloneDefaults());
     const [schemaDirty, setSchemaDirty] = useState(false);
     const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
-    const [companyData, setCompanyData] = useState<ICompanyOverview | null>(null);
     const [formInitialValues, setFormInitialValues] = useState<ICompanyOverview>(initialValues);
+
+    const allEmployees = useSelector((state: RootState) => state.allEmployees?.list.length || 0);
+    // Preserved verbatim on save — see the dispatch below.
+    const storedCompany = useSelector((state: RootState) => (state as any)?.company?.currentCompany);
+
+    useEffect(() => {
+        dispatch(loadAllEmployeesIfNeeded());
+    }, [dispatch]);
+
+    // Load the record each time the editor opens, so it always starts from what is saved.
+    useEffect(() => {
+        if (!showEditModal) return;
+        (async () => {
+            try {
+                const { data: { companyOverview } } = organizationId
+                    ? await fetchOrganizationById(organizationId)
+                    : await fetchCompanyOverview();
+                const org = resolveActiveOrg(companyOverview);
+                if (!org) return;
+                setIsCreate(false);
+                setCompanyId(resolveActiveOrgId(companyOverview) ?? '');
+                // Resolve the data-driven form layout (saved config → legacy → defaults)
+                setFormSchema(resolveFormSchema(org));
+                setSchemaDirty(false);
+                setCustomErrors({});
+
+                const next: ICompanyOverview = { ...initialValues };
+                (Object.keys(next) as Array<keyof ICompanyOverview>).forEach((key) => {
+                    if (Object.prototype.hasOwnProperty.call(org, key) && key !== 'numberOfEmployees') {
+                        next[key] = (org[key] || '') as any;
+                        // Fall back to the default Super Admin Email if this org has none configured.
+                        if (key === 'superAdminEmail' && !next[key]) next[key] = DEFAULT_SUPER_ADMIN_EMAIL as any;
+                    }
+                });
+                next.numberOfEmployees = allEmployees.toString();
+                setFormInitialValues(next);
+            } catch {
+                errorConfirmation('Failed to fetch company details');
+            }
+        })();
+    }, [showEditModal, organizationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Update a custom field's stored value (built-in field values live in Formik)
     function updateCustomValue(sectionId: string, fieldId: string, value: string) {
@@ -118,544 +164,179 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
         return Object.keys(errs).length === 0;
     }
 
-    const allEmployees = useSelector((state: RootState) => state.allEmployees?.list.length || 0);
-    // Preserved verbatim on save — see the dispatch below.
-    const storedCompany = useSelector((state: RootState) => (state as any)?.company?.currentCompany);
-
-    // Handler for logo file upload
-    const handleLogoChange = async (event: ChangeEvent<HTMLInputElement>, setFieldValue: (field: string, value: any) => void) => {
-        const file = event.currentTarget.files?.[0];
-        if (file) {
-            try {
-                // Upload file to the server or cloud storage
-                const formData = new FormData();
-                formData.append('file', file);
-
-                const uploadResponse = await uploadCompanyAsset(formData); // Assuming this API returns the path
-                const { data: { path } } = uploadResponse;
-
-                setLogoPreview(URL.createObjectURL(file));
-                setFieldValue('logo', path); // Set the path string instead of the file object
-            } catch (error) {
-                errorConfirmation('Failed to upload the logo');
-            }
-        }
-    };
-
-    // Separate handler for stamp file upload
-    const handleStampChange = async (event: ChangeEvent<HTMLInputElement>, setFieldValue: (field: string, value: any) => void) => {
-        const file = event.currentTarget.files?.[0];
-        if (file) {
-            try {
-                // Upload file to the server or cloud storage
-                const formData = new FormData();
-                formData.append('file', file);
-
-                const uploadResponse = await uploadCompanyAsset(formData);
-                const { data: { path } } = uploadResponse;
-
-                setStampPreview(URL.createObjectURL(file));
-                setFieldValue('salaryStamp', path); // Updated field name to match database column
-            } catch (error) {
-                errorConfirmation('Failed to upload the salary stamp');
-            }
-        }
-    };
- 
-    // get logo and stamp url to download and set previews.
-    // Only valid for the default/active org — fetchCompanyLogo() returns the default
-    // company's assets, so skip it when viewing a specific organization (its own
-    // logo/stamp come from the record loaded in the edit modal's fetchCompanyDetails).
-    useEffect(()=>{
-        if (organizationId) return;
-        const getUrl = async ()=>{
-            const ALLUrl = await fetchCompanyLogo();
-            const fetchedLogoUrl = ALLUrl?.data?.logo;
-            const fetchedStampUrl = ALLUrl?.data?.salaryStamp;
-
-            setLogoUrl(fetchedLogoUrl);
-            setStampUrl(fetchedStampUrl);
-
-            // Set preview images for edit mode
-            if (fetchedLogoUrl) {
-                setLogoPreview(fetchedLogoUrl);
-            }
-            if (fetchedStampUrl) {
-                setStampPreview(fetchedStampUrl);
-            }
-        }
-        getUrl()
-    },[organizationId])
-
-
-    const downloadImage = async (imageUrl: string, filename: string) => {
+    const handleSave = async (values: ICompanyOverview) => {
+        if (!validateCustomFields()) return;
+        setLoading(true);
+        const payload = { ...values, sectionConfig: formSchema, customSections: deriveCustomSections(formSchema) };
         try {
-            const response = await fetch(imageUrl, {
-                mode: 'cors',
-            });
-    
-            if (!response.ok) {
-                throw new Error('Failed to fetch image');
+            if (isCreate) {
+                const res = await createCompanyOverview(payload as any);
+                if (!res || res.hasError) throw new Error('Failed to create organisation profile');
+                successConfirmation('Successfully created organisation profile');
+                setSchemaDirty(false);
+            } else {
+                if (!companyId) throw new Error('Company ID is missing');
+                const res = await updateCompanyOverview(companyId, payload as any);
+                if (!res || res.hasError) throw new Error('Failed to update organisation profile');
+                successConfirmation('Successfully updated organisation profile');
+                setSchemaDirty(false);
+                // This REPLACES currentCompany rather than merging, so anything
+                // this form does not own has to be carried through explicitly.
+                // The 12/24h flag is owned by Settings > Date & Time now — read it
+                // back off the store instead of writing a stale form value over it.
+                dispatch(saveCurrentCompanyInfo({ ...storedCompany, id: companyId, name: values.name, fiscalYear: values.fiscalYear }) as any);
+                setShowEditModal(false);
+                eventBus.emit('organisationProfileUpdated');
             }
-    
-            const blob = await response.blob();
-    
-            // Detect MIME type and force correct extension
-            const mimeType = blob.type;
-            const extension = mimeType.includes('jpeg') ? '.jpg' : mimeType.includes('png') ? '.png' : '';
-            const finalName = filename.endsWith(extension) ? filename : filename.replace(/\.[^/.]+$/, "") + extension;
-    
-            const blobUrl = window.URL.createObjectURL(blob);
-    
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = finalName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(blobUrl);
-        } catch (error) {
-            console.error("Download failed:", error);
-            errorConfirmation('Failed to download image');
+        } catch {
+            errorConfirmation('Failed to create/update organisation profile');
+        } finally {
+            setLoading(false);
         }
     };
 
-    useEffect(() => {
-        dispatch(loadAllEmployeesIfNeeded());
-    }, [dispatch]);
-    
-    // Show OrganisationInfo component by default with edit modal
+    /** One field, drawn from the schema. System fields bind to Formik; custom fields to the schema's own value. */
+    const renderField = (field: IFormField, sectionId: string, f: FormikProps<ICompanyOverview>) => {
+        const sys = field.isSystem;
+        const value: string = sys ? ((f.values as any)[field.id] ?? '') : (field.value ?? '');
+        const set = (v: string) => (sys ? f.setFieldValue(field.id, v) : updateCustomValue(sectionId, field.id, v));
+        const formikError = (f.touched as any)[field.id] || f.submitCount > 0 ? (f.errors as any)[field.id] : undefined;
+        const error: string | undefined = sys ? formikError : customErrors[field.id];
+
+        if (sys && field.id === 'fiscalYear') {
+            const [from, to] = value ? value.split(' to ') : [];
+            return (
+                <WtField label={field.label} required={field.required} error={error} hint="Pick the first and last day of the year.">
+                    {/* Styled to the same frame as the WtFields around it (Flatpickr renders its own input). */}
+                    <Box sx={{
+                        width: '100%',
+                        '& input': {
+                            width: '100%', height: 44, px: 1.75, fontSize: 14, fontFamily: 'inherit', color: 'text.primary',
+                            bgcolor: 'background.paper', border: 1, borderColor: error ? 'error.main' : 'divider', borderRadius: '8px', outline: 'none',
+                            transition: 'border-color .15s ease, box-shadow .15s ease',
+                            '&:hover': { borderColor: 'text.primary' },
+                            '&:focus': { borderColor: 'primary.main', boxShadow: (t: any) => `0 0 0 1px ${t.palette.primary.main}` },
+                        },
+                    }}>
+                    <Flatpickr
+                        value={from && to ? [new Date(from), new Date(to)] : []}
+                        placeholder="Select a date range"
+                        onChange={(d: Date[]) => {
+                            if (d.length === 2) f.setFieldValue('fiscalYear', `${dateFormatter.format(d[0])} to ${dateFormatter.format(d[1])}`);
+                        }}
+                        onClose={() => f.setFieldTouched('fiscalYear', true)}
+                        options={{ dateFormat: "Y-m-d", altInput: true, altFormat: "F j, Y", enableTime: false, mode: 'range' }}
+                    />
+                    </Box>
+                </WtField>
+            );
+        }
+        if (field.type === 'file') {
+            return (
+                <DragDropFileField
+                    label={field.label}
+                    required={field.required}
+                    currentFileUrl={value}
+                    currentFileName={value ? String(value).split('/').pop() : ''}
+                    uploadFn={uploadCompanyAsset}
+                    onChange={(url) => set(url)}
+                />
+            );
+        }
+        if (field.type === 'date') {
+            return (
+                <Box>
+                    <WtDateField label={field.label + (field.required ? ' *' : '')} value={value} onChange={set} />
+                    {error && <Typography sx={{ fontSize: 12, color: 'error.main', mt: 0.5, ml: 1.75 }}>{error}</Typography>}
+                </Box>
+            );
+        }
+        const isNumber = field.type === 'number';
+        const isEmail = /email/i.test(field.id);
+        return (
+            <WtField
+                label={field.label}
+                required={field.required}
+                value={value}
+                onChange={(v) => set(isNumber ? numericOnly(v) : v)}
+                error={error}
+                size="md"
+                fullWidth
+                type={isEmail ? 'email' : 'text'}
+                inputMode={isNumber ? 'decimal' : isEmail ? 'email' : undefined}
+                multiline={isWide(field)}
+                minRows={isWide(field) ? 2 : undefined}
+            />
+        );
+    };
+
+    const canRead = hasPermission(resourceNameMapWithCamelCase.organisationProfile, permissionConstToUseWithHasPermission.readOthers);
+
     return (
         <>
-        {hasPermission(resourceNameMapWithCamelCase.organisationProfile, permissionConstToUseWithHasPermission.readOthers) && <OrganisationInfo onEditClick={() => setShowEditModal(true)} organizationId={organizationId} onBack={onBack} onBranchesClick={onBranchesClick} />}
-            
+            {canRead && <OrganisationInfo onEditClick={() => setShowEditModal(true)} organizationId={organizationId} onBack={onBack} onBranchesClick={onBranchesClick} />}
 
-            {/* Edit Modal */}
-            <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="xl" centered>
-                <Box sx={{ position: "relative", backgroundColor: "#F3F4F7", p: { xs: 0, md: 3 } }}>
-                    <IconButton
-                        onClick={() => setShowEditModal(false)}
-                        sx={{
-                            position: "absolute",
-                            right: 8,
-                            top: 8,
-                            color: "text.secondary",
-                        }}
-                    >
-                        <Close />
-                    </IconButton>
-                    <Typography
-                        variant="h6"
-                        component="h2"
-                        sx={{ fontWeight: 600, pl: { xs: 2, md: 0 }, pt: { xs: 1, md: 0 } }}
-                        style={{
-                            fontSize: "20px",
-                            fontFamily: "Barlow",
-                            fontWeight: "600",
-                        }}
-                    >
-                        Edit Organization Profile
-                    </Typography>
-                    <Modal.Header></Modal.Header>
-                    <Modal.Body>
-
-                    <Formik
-                    initialValues={formInitialValues}
-                    enableReinitialize={true}
-                    validationSchema={buildValidationSchema(formSchema)}
-                    onSubmit={async (values, { resetForm }) => {
-                        if (!validateCustomFields()) return;
-                        setLoading(true);
-                        const payload = { ...values, sectionConfig: formSchema, customSections: deriveCustomSections(formSchema) };
-                        try {
-                            if (isCreate) {
-                                const res = await createCompanyOverview(payload as any);
-                                if (res && !res.hasError) {
-                                    successConfirmation('Successfully created organisation profile');
-                                    setSchemaDirty(false);
-                                    setLoading(false);
-                                    // resetForm();
-                                } else {
-                                    throw new Error('Failed to create organisation profile');
-                                }
+            <Formik
+                initialValues={formInitialValues}
+                enableReinitialize
+                validationSchema={buildValidationSchema(formSchema)}
+                onSubmit={handleSave}
+            >
+                {(f) => {
+                    const visibleSections = formSchema;
+                    const hasError = (s: IFormSection) => s.fields.some(fl =>
+                        fl.isSystem ? f.submitCount > 0 && !!(f.errors as any)[fl.id] : !!customErrors[fl.id]);
+                    return (
+                        <WtFormDialog
+                            open={showEditModal}
+                            onClose={() => setShowEditModal(false)}
+                            title={isCreate ? 'Set up organization profile' : 'Edit organization profile'}
+                            subtitle={f.values.name || undefined}
+                            icon={<KTIcon iconName="bank" className="fs-1" />}
+                            headerAction={
+                                <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)} startIcon={<AppIcon name="bi-gear" className="fs-6" />}>
+                                    Manage fields
+                                </WtButton>
                             }
-                            else {
-                                if (!companyId) {
-                                    throw new Error('Company ID is missing');
-                                }
-                                const res = await updateCompanyOverview(companyId, payload as any);
-                                if (res && !res.hasError) {
-                                    successConfirmation('Successfully updated organisation profile');
-                                    setSchemaDirty(false);
-                                    setCompanyData(values);
+                            sections={[
+                                { id: 'org-assets', title: 'Logo & Stamp', icon: 'bi bi-image' },
+                                ...visibleSections.map(s => ({ id: `org-${s.id}`, title: titleCase(s.title), icon: lookOf(s.id).icon, invalid: hasError(s) })),
+                            ]}
+                            onSubmit={(e) => { e.preventDefault(); f.handleSubmit(); }}
+                            submitLabel={isCreate ? 'Create profile' : 'Save changes'}
+                            saving={loading}
+                            dirty={f.dirty || schemaDirty}
+                        >
+                            <WtFormSection id="org-assets" title="Logo & Stamp" description="Shown on payslips, letters and the PDF profile" icon="bi bi-image" tone="#2563EB">
+                                <WtImageField label="Organization logo" value={f.values.logo} onChange={(url) => f.setFieldValue('logo', url)} upload={uploadImage} />
+                                <WtImageField label="Stamp" value={f.values.salaryStamp} onChange={(url) => f.setFieldValue('salaryStamp', url)} upload={uploadImage} />
+                            </WtFormSection>
 
-                                    // This REPLACES currentCompany rather than merging, so anything
-                                    // this form does not own has to be carried through explicitly.
-                                    // The 12/24h flag is owned by Settings > Date & Time now — read it
-                                    // back off the store instead of writing a stale form value over it.
-                                    const currentCompanyInfo = {
-                                        ...storedCompany,
-                                        id: companyId,
-                                        name: values.name,
-                                        fiscalYear: values.fiscalYear,
-                                    };
-                                    dispatch(saveCurrentCompanyInfo(currentCompanyInfo) as any);
-
-                                    setShowEditModal(false);
-                                    setLoading(false);
-                                    eventBus.emit('organisationProfileUpdated');
-                                    // resetForm();
-                                } else {
-                                    throw new Error('Failed to update organisation profile');
-                                }
-                            }
-                        } catch (error) {
-                            errorConfirmation('Failed to create/update organisation profile');
-                            setLoading(false);
-                        }
-                    }}
-                >
-                    {function ShowForm({ isSubmitting, isValid, dirty, setFieldValue, setFieldTouched, values }) {
-                        // Set number of employees from allEmployees count
-                        // useEffect(() => {
-                        //     setFieldValue('numberOfEmployees', allEmployees.toString());
-                        // }, [allEmployees, setFieldValue]);
-
-                        useEffect(() => {
-                            async function fetchCompanyDetails() {
-                                try {
-                                    const { data: { companyOverview } } = organizationId
-                                        ? await fetchOrganizationById(organizationId)
-                                        : await fetchCompanyOverview();
-                                    if (resolveActiveOrg(companyOverview)) {
-                                        setIsCreate(false);
-                                        setCompanyId((resolveActiveOrgId(companyOverview) ?? ''));
-                                        setCompanyData(resolveActiveOrg(companyOverview));
-
-                                        // Resolve the data-driven form layout (saved config → legacy → defaults)
-                                        setFormSchema(resolveFormSchema(resolveActiveOrg(companyOverview)));
-                                        setSchemaDirty(false);
-
-                                        // Create new initial values object with fetched data
-                                        const newInitialValues: ICompanyOverview = { ...initialValues };
-                                        (Object.keys(newInitialValues) as Array<keyof ICompanyOverview>).forEach((key) => {
-                                            if (resolveActiveOrg(companyOverview).hasOwnProperty(key) && key !== 'numberOfEmployees') {
-                                                newInitialValues[key] = (resolveActiveOrg(companyOverview)[key] || '') as any;
-                                                // Fall back to the default Super Admin Email if this org has none configured.
-                                                if (key === 'superAdminEmail' && !newInitialValues[key]) {
-                                                    newInitialValues[key] = DEFAULT_SUPER_ADMIN_EMAIL as any;
-                                                }
-                                            }
-                                        });
-                                        // Override numberOfEmployees with current allEmployees count
-                                        newInitialValues.numberOfEmployees = allEmployees.toString();
-
-                                        setFormInitialValues(newInitialValues);
-                                    }
-                                } catch (error) {
-                                    errorConfirmation('Failed to fetch company details');
-                                }
-                            }
-                            fetchCompanyDetails();
-                        }, [isCreate]);
-
-                        // Unified field renderer — drives every section from formSchema.
-                        // System fields bind to Formik (their value maps to a DB column);
-                        // custom fields bind to the schema's inline value.
-                        const renderField = (field: IFormField, sectionId: string) => {
-                            const reqCls = field.required ? 'required' : '';
-
-                            // ── System fields ──────────────────────────────────────────
-                            if (field.isSystem) {
-                                // Special widget: fiscal year date-range picker
-                                if (field.id === 'fiscalYear') {
-                                    return (
-                                        <>
-                                            <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
-                                            <Flatpickr
-                                                value={values.fiscalYear ? [new Date(values.fiscalYear.split(' to ')[0]), new Date(values.fiscalYear.split(' to ')[1])] : []}
-                                                className='form-control form-control-solid'
-                                                placeholder="Set fiscal year"
-                                                onChange={(selectedDates: Date[]) => {
-                                                    if (selectedDates.length === 2) {
-                                                        setFieldValue('fiscalYear', `${dateFormatter.format(selectedDates[0])} to ${dateFormatter.format(selectedDates[1])}`);
-                                                        setFieldTouched('fiscalYear', false);
-                                                    }
-                                                }}
-                                                onOpen={() => setFieldTouched('fiscalYear', true)}
-                                                options={{ dateFormat: "Y-m-d", altInput: true, altFormat: "F j, Y", enableTime: false, mode: 'range' }}
-                                            />
-                                            <ErrorMessage name="fiscalYear">{msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}</ErrorMessage>
-                                        </>
-                                    );
-                                }
-                                if (field.type === 'file') {
-                                    return (
-                                        <DragDropFileField label={field.label} required={field.required}
-                                            currentFileUrl={(values as any)[field.id]}
-                                            currentFileName={(values as any)[field.id] ? String((values as any)[field.id]).split('/').pop() : ''}
-                                            uploadFn={uploadCompanyAsset}
-                                            onChange={(url) => setFieldValue(field.id, url)} />
-                                    );
-                                }
-                                // Number built-in field: text input + strict numeric filter (reliable
-                                // across browsers — Firefox lets type="number" accept letters).
-                                if (field.type === 'number') {
-                                    return (
-                                        <>
-                                            <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
-                                            <input
-                                                type="text"
-                                                inputMode="decimal"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder={field.label}
-                                                value={(values as any)[field.id] ?? ''}
-                                                onChange={e => {
-                                                    const next = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
-                                                    setFieldValue(field.id, next);
-                                                }}
-                                            />
-                                            <ErrorMessage name={field.id}>{msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}</ErrorMessage>
-                                        </>
-                                    );
-                                }
-                                // Date built-in field: the shared WtDateField (company YYYY.MM.DD
-                                // display, themed picker) — never the browser's native calendar.
-                                if (field.type === 'date') {
-                                    return (
-                                        <>
-                                            <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
-                                            <WtDateField
-                                                value={(values as any)[field.id] ?? ''}
-                                                onChange={v => setFieldValue(field.id, v)}
-                                            />
-                                            <ErrorMessage name={field.id}>{msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}</ErrorMessage>
-                                        </>
-                                    );
-                                }
+                            {/* Data-driven sections: order, titles and fields all come from formSchema. */}
+                            {visibleSections.map(section => {
+                                const look = lookOf(section.id);
+                                const fields = section.fields.filter(fl => !fl.hidden);
                                 return (
-                                    <>
-                                        <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
-                                        <Field name={field.id} type="text" className="form-control form-control-lg form-control-solid" placeholder={field.label} />
-                                        <ErrorMessage name={field.id}>{msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}</ErrorMessage>
-                                    </>
-                                );
-                            }
-
-                            // ── Custom fields ──────────────────────────────────────────
-                            if (field.type === 'file') {
-                                return (
-                                    <DragDropFileField label={field.label} required={field.required}
-                                        currentFileUrl={field.value}
-                                        currentFileName={field.value ? field.value.split('/').pop() : ''}
-                                        uploadFn={uploadCompanyAsset}
-                                        onChange={(url) => updateCustomValue(sectionId, field.id, url)} />
-                                );
-                            }
-                            if (field.type === 'date') {
-                                return (
-                                    <>
-                                        <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
-                                        <WtDateField
-                                            value={field.value ?? ''}
-                                            onChange={v => updateCustomValue(sectionId, field.id, v)}
-                                        />
-                                        {customErrors[field.id] && <div className="fv-plugins-message-container"><div className="fv-help-block">{customErrors[field.id]}</div></div>}
-                                    </>
-                                );
-                            }
-                            const isNumber = field.type === 'number';
-                            return (
-                                <>
-                                    <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
-                                    <input
-                                        // Always a text input; for number fields we strip non-numeric input
-                                        // ourselves. This is reliable everywhere (Firefox lets type="number"
-                                        // accept letters while reporting an empty value).
-                                        type="text"
-                                        inputMode={isNumber ? 'decimal' : undefined}
-                                        className="form-control form-control-lg form-control-solid"
-                                        placeholder={field.label}
-                                        value={field.value ?? ''}
-                                        onChange={e => {
-                                            const next = isNumber ? e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1') : e.target.value;
-                                            updateCustomValue(sectionId, field.id, next);
-                                        }}
-                                    />
-                                    {customErrors[field.id] && <div className="fv-plugins-message-container"><div className="fv-help-block">{customErrors[field.id]}</div></div>}
-                                </>
-                            );
-                        };
-
-                        return (<Form className="form">
-                                    {/* ⚙ Schema manager trigger */}
-                                    <div className="d-flex justify-content-end mb-2">
-                                        <button type="button" onClick={() => setShowSchemaManager(true)}
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1.5px solid #1E3A8A', borderRadius: '8px', padding: '6px 16px', color: '#1E3A8A', fontWeight: 700, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                            <AppIcon name="bi-gear-fill" className="fs-5" style={{ lineHeight: 1 }} />
-                                            <span>Manage Form Fields</span>
-                                        </button>
-                                    </div>
-
-                                    {/* LOGO & STAMP */}
-                                    <div className="mb-4">
-                                        <fieldset style={{ borderTop: "1px solid #1E3A8A", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
-                                            <legend style={{ fontSize: "17px", fontWeight: 600, fontFamily: "Inter", marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7", width: "auto", lineHeight: "1", letterSpacing: 0, color: "#1E3A8A", padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px" }}>
-                                                <div className="ms-5" style={{ borderTop: "1px solid #1E3A8A", width: "30px", height: "0px" }}></div>
-                                                LOGO & STAMP
-                                            </legend>
-                                            <div className="card-body card responsive-card p-md-10 p-3">
-                                                <div className="d-flex gap-3 flex-wrap">
-                                                    {/* Organization Logo */}
-                                                    <div className="d-flex gap-3 align-items-center flex-grow-1" style={{ minHeight: '72px' }}>
-                                                        <div style={{ width: '64px', height: '64px', flexShrink: 0, borderRadius: '50%', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                                                            {(logoPreview || values.logo) ? (
-                                                                <img src={logoPreview || values.logo} alt="Logo Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                            ) : (
-                                                                <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    <i className="fa fa-image" style={{ color: '#9ca3af', fontSize: '24px' }}></i>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="d-flex flex-column gap-1">
-                                                            <div className="d-flex flex-column" style={{ gap: '3px' }}>
-                                                                <p style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 500, color: '#000', margin: 0, lineHeight: 'normal' }}>Organization Logo</p>
-                                                                <p style={{ fontFamily: 'Inter', fontSize: '13px', fontWeight: 400, color: '#7a8597', margin: 0, lineHeight: '1.56' }}>PNG or JPG Format only, and not more than 5MB</p>
-                                                            </div>
-                                                            <div className="d-flex gap-3" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 500, color: '#1E3A8A' }}>
-                                                                <label style={{ cursor: 'pointer', margin: 0 }}>
-                                                                    Remove
-                                                                    <input
-                                                                        type="button"
-                                                                        className="d-none"
-                                                                        onClick={() => {
-                                                                            setLogoPreview(null);
-                                                                            setFieldValue('logo', '');
-                                                                        }}
-                                                                    />
-                                                                </label>
-                                                                <label style={{ cursor: 'pointer', margin: 0 }}>
-                                                                    Change
-                                                                    <input
-                                                                        type="file"
-                                                                        accept="image/*"
-                                                                        className="d-none"
-                                                                        onChange={(event) => handleLogoChange(event, setFieldValue)}
-                                                                    />
-                                                                </label>
-                                                            </div>
-                                                            <ErrorMessage name="logo">
-                                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                                            </ErrorMessage>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Stamp */}
-                                                    <div className="d-flex gap-3 align-items-center flex-grow-1" style={{ minHeight: '72px' }}>
-                                                        <div style={{ width: '64px', height: '64px', flexShrink: 0, borderRadius: '50%', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                                                            {(stampPreview || values.salaryStamp) ? (
-                                                                <img
-                                                                    src={stampPreview || values.salaryStamp}
-                                                                    alt="Stamp Preview"
-                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                                />
-                                                            ) : (
-                                                                <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    <i className="fa fa-image" style={{ color: '#9ca3af', fontSize: '24px' }}></i>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="d-flex flex-column gap-1">
-                                                            <div className="d-flex flex-column" style={{ gap: '3px' }}>
-                                                                <p style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 500, color: '#000', margin: 0, lineHeight: 'normal' }}>
-                                                                    Stamp
-                                                                </p>
-                                                                <p style={{ fontFamily: 'Inter', fontSize: '13px', fontWeight: 400, color: '#7a8597', margin: 0, lineHeight: '1.56' }}>
-                                                                    PNG or JPG Format only, and not more than 5MB
-                                                                </p>
-                                                            </div>
-                                                            <div className="d-flex gap-3" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 500, color: '#1E3A8A' }}>
-                                                                <label style={{ cursor: 'pointer', margin: 0 }}>
-                                                                    Remove
-                                                                    <input
-                                                                        type="button"
-                                                                        className="d-none"
-                                                                        onClick={() => {
-                                                                            setStampPreview(null);
-                                                                            setFieldValue('salaryStamp', '');
-                                                                        }}
-                                                                    />
-                                                                </label>
-                                                                <label style={{ cursor: 'pointer', margin: 0 }}>
-                                                                    Change
-                                                                    <input
-                                                                        type="file"
-                                                                        accept="image/*"
-                                                                        className="d-none"
-                                                                        onChange={(event) => handleStampChange(event, setFieldValue)}
-                                                                    />
-                                                                </label>
-                                                            </div>
-                                                            <ErrorMessage name="salaryStamp">
-                                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                                            </ErrorMessage>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </fieldset>
-                                    </div>
-
-
-                                    {/* DATA-DRIVEN SECTIONS (order, titles, fields all come from formSchema) */}
-                                    {formSchema.map(section => (
-                                        <div key={section.id} className="mb-4">
-                                            <fieldset style={{ borderTop: "1px solid #1E3A8A", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
-                                                <legend style={{ fontSize: "17px", fontWeight: 600, fontFamily: "Inter", marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7", width: "auto", lineHeight: "1", letterSpacing: 0, color: "#1E3A8A", padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px" }}>
-                                                    <div className="ms-5" style={{ borderTop: "1px solid #1E3A8A", width: "30px", height: "0px" }}></div>
-                                                    {section.title}
-                                                </legend>
-                                                <div className="card-body card responsive-card p-md-10 p-3">
-                                                    <Row>
-                                                        {section.fields.filter(field => !field.hidden).map(field => (
-                                                            <Col key={field.id} md={field.type === 'file' ? 12 : 6} xs={12}>
-                                                                {renderField(field, section.id)}
-                                                            </Col>
-                                                        ))}
-                                                        {section.fields.filter(field => !field.hidden).length === 0 && (
-                                                            <Col xs={12}>
-                                                                <p className="text-muted fst-italic" style={{ fontSize: '13px' }}>No fields yet — open Manage Form Fields to add some.</p>
-                                                            </Col>
-                                                        )}
-                                                    </Row>
-                                                </div>
-                                            </fieldset>
-                                        </div>
-                                    ))}
-                                    {/* Submit Button */}
-                                    <div className="d-flex justify-content-end gap-2 mt-5">
-                                        {!isCreate && (
-                                            <button type="button" className="btn btn-secondary text-white" onClick={() => setShowEditModal(false)}>
-                                                Cancel
-                                            </button>
+                                    <WtFormSection key={section.id} id={`org-${section.id}`} title={titleCase(section.title)} description={look.description || undefined} icon={look.icon} tone={look.tone}>
+                                        {fields.map(field => (
+                                            isWide(field)
+                                                ? <WtFormSpan key={field.id}>{renderField(field, section.id, f)}</WtFormSpan>
+                                                : <Box key={field.id} sx={{ minWidth: 0 }}>{renderField(field, section.id, f)}</Box>
+                                        ))}
+                                        {!fields.length && (
+                                            <WtFormSpan>
+                                                <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+                                                    No fields in this section yet. Use Manage fields to add some.
+                                                </Typography>
+                                            </WtFormSpan>
                                         )}
-                                        <button type="submit" className="btn btn-primary" disabled={loading || (!dirty && !schemaDirty)}>
-                                            {loading ? (
-                                                <span className="indicator-progress" style={{ display: 'block' }}>
-                                                    Please wait...{' '}
-                                                    <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                                                </span>
-                                            ) : (
-                                                isCreate ? 'Submit' : 'Update'
-                                            )}
-                                        </button>
-                                    </div>
-                        </Form>)
-                    }}
-                </Formik>
-                </Modal.Body>
-                </Box>
-            </Modal>
+                                    </WtFormSection>
+                                );
+                            })}
+                        </WtFormDialog>
+                    );
+                }}
+            </Formik>
 
             <FormSchemaManager
                 show={showSchemaManager}

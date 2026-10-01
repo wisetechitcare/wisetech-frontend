@@ -1,9 +1,8 @@
 import { resolveActiveOrg } from '@utils/activeOrg';
 
 import React, { useState, useEffect } from 'react';
-import { KTCard } from '@metronic/helpers';
+import { Box, Link, Stack, Typography } from '@mui/material';
 import { fetchCompanyOverview, fetchOrganizationById } from '@services/company';
-import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import { ICompanyOverview } from "@models/company";
 import { resolveFormSchema } from './formSchema';
 import { pdf } from '@react-pdf/renderer';
@@ -12,7 +11,11 @@ import { useEventBus } from '@hooks/useEventBus';
 import { errorConfirmation } from '@utils/modal';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { AppIcon, GlassSurface, WhatsAppIcon, WtButton, WtIconButton, WtEmptyState } from '@app/modules/common/components/ui';
+import SmartAvatar from '@app/modules/common/components/SmartAvatar';
+import { DetailCard, DetailRow, type AccentColor } from '@app/modules/detail-page/DetailPageComponents';
+import { StatGrid, TwoUpGrid } from '@pages/employee/entity/detail/sections/SummarySection';
+import { DASH } from '@pages/employee/entity/detail/entityViewModel';
 
 interface OrganisationInfoProps {
     onEditClick?: () => void;
@@ -98,8 +101,6 @@ const OrganisationInfo: React.FC<OrganisationInfoProps> = ({ onEditClick, organi
     };
 
     const handleWhatsAppShare = () => {
-        console.log('Share button clicked!', companyData);
-
         if (!companyData) return;
 
         const message = `🏢 Organization Information:
@@ -173,19 +174,22 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
 
     if (loading) {
         return (
-            <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '400px' }}>
+            <Stack alignItems="center" justifyContent="center" sx={{ minHeight: 400 }}>
                 <div className="spinner-border text-primary" role="status">
                     <span className="visually-hidden">Loading...</span>
                 </div>
-            </div>
+            </Stack>
         );
     }
 
     if (!companyData) {
         return (
-            <div className="alert alert-warning" role="alert">
-                No organization data found. Please configure your organization profile first.
-            </div>
+            <WtEmptyState
+                title="No organization profile yet"
+                hint="Set up the organization profile to see its details here."
+                actionLabel={onEditClick ? 'Set up profile' : undefined}
+                onAction={onEditClick}
+            />
         );
     }
 
@@ -196,181 +200,159 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
     // true) lets admins curate what appears without affecting the edit form.
     const infoSections = resolveFormSchema(companyData).filter(s => s.showOnInfoPage !== false);
 
-    const SECTION_ICONS: Record<string, string> = {
-        basic_info: 'bi-briefcase', govt: 'bi-file-earmark-text', admin: 'bi-patch-check',
-        tax: 'bi-receipt', bank: 'bi-bank',
+    const SECTION_STYLE: Record<string, { icon: string; accent: AccentColor; subtitle: string }> = {
+        basic_info: { icon: 'bi bi-briefcase', accent: 'primary', subtitle: 'Who the organization is' },
+        govt: { icon: 'bi bi-file-earmark-text', accent: 'purple', subtitle: 'Registration and addresses' },
+        admin: { icon: 'bi bi-patch-check', accent: 'teal', subtitle: 'Registrations and certificates' },
+        tax: { icon: 'bi bi-receipt', accent: 'amber', subtitle: 'Tax identifiers' },
+        bank: { icon: 'bi bi-bank', accent: 'green', subtitle: 'Where payments go' },
     };
-    const sectionIcon = (id: string) => SECTION_ICONS[id] || 'bi-card-text';
+    const sectionStyle = (id: string) => SECTION_STYLE[id] || { icon: 'bi bi-card-text', accent: 'blue' as AccentColor, subtitle: '' };
     // Section titles are stored UPPERCASE in the schema; show them in Title Case here.
     const titleCase = (s: string) => s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 
-    // A single logo/stamp slot: shows the image, or a clean placeholder when none is set.
-    const renderAssetSlot = (url: string | undefined, label: string) => (
-        <div className="d-flex flex-column align-items-center text-center" style={{ flex: 1, gap: '10px', minWidth: 0 }}>
-            {url ? (
-                <div style={{ height: 84, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img src={url} alt={label} style={{ maxHeight: 84, maxWidth: '100%', objectFit: 'contain' }} />
-                </div>
-            ) : (
-                <div style={{ width: 84, height: 84, borderRadius: 16, border: '1.5px dashed #d3dae6', background: '#f7f9fc', display: 'grid', placeItems: 'center', color: '#aab4c6' }}>
-                    <AppIcon name="bi-image" className="fs-2qx" />
-                </div>
-            )}
-            <span style={{ fontFamily: 'Inter', fontWeight: 600, fontSize: 'clamp(11px, 2vw, 13px)', color: url ? '#2c3e50' : '#9aa4b6' }}>{label}</span>
-        </div>
-    );
+    const clean = (v?: string | null) => {
+        const t = (v ?? '').toString().trim();
+        return t && t !== '-NA-' ? t : '';
+    };
+    const href = (v: string) => (/^https?:\/\//i.test(v) ? v : `https://${v}`);
 
-    const renderFieldValue = (f: any) => {
-        const raw = f.isSystem ? (companyData as any)[f.id] : f.value;
-        const val = (raw ?? '').toString().trim();
-        if (!val) return '-NA-';
-        const isUrl = /^https?:\/\//i.test(val);
-        if (f.id === 'websiteUrl' || (f.type === 'file' && isUrl)) {
-            return (
-                <a href={val} target="_blank" rel="noopener noreferrer" className="text-decoration-none text-break" style={{ color: '#1E3A8A' }}>
-                    {f.type === 'file' ? 'View' : val}
-                </a>
-            );
-        }
+    const renderFieldValue = (f: any): React.ReactNode => {
+        const val = clean(f.isSystem ? (companyData as any)[f.id] : f.value);
+        if (!val) return DASH;
+        if (f.id === 'websiteUrl') return <Link href={href(val)} target="_blank" rel="noopener noreferrer" underline="hover" sx={{ fontSize: 'inherit', wordBreak: 'break-all' }}>{val}</Link>;
+        if (f.type === 'file' && /^https?:\/\//i.test(val)) return <Link href={val} target="_blank" rel="noopener noreferrer" underline="hover" sx={{ fontSize: 'inherit' }}>View file</Link>;
+        if (/email/i.test(f.id) && val.includes('@')) return <Link href={`mailto:${val}`} underline="hover" sx={{ fontSize: 'inherit' }}>{val}</Link>;
         return val;
     };
 
+    const website = clean(companyData.websiteUrl);
+    const phone = clean(companyData.contactNumber);
+    const email = clean(companyData.superAdminEmail);
+    const canEdit = !!onEditClick && hasPermission(resourceNameMapWithCamelCase.organisationProfile, permissionConstToUseWithHasPermission.editOthers);
+
+    /** Logo or stamp: the image on a quiet plate, or a dashed placeholder that says what is missing. */
+    const assetSlot = (url: string | undefined, label: string) => (
+        <Stack alignItems="center" gap={1.25} sx={{ flex: 1, minWidth: 0, py: 1 }}>
+            <Box sx={{
+                width: '100%', maxWidth: 200, height: 110, borderRadius: '12px', display: 'grid', placeItems: 'center', p: 1.5, overflow: 'hidden',
+                ...(url ? { bgcolor: 'action.hover' } : { border: '1.5px dashed', borderColor: 'divider', color: 'text.disabled' }),
+            }}>
+                {url
+                    ? <Box component="img" src={url} alt={label} sx={{ display: 'block', maxHeight: 86, maxWidth: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} />
+                    : <AppIcon name="bi-image" className="fs-2qx" />}
+            </Box>
+            <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: url ? 'text.primary' : 'text.disabled' }}>
+                {url ? label : `No ${label.toLowerCase()} uploaded`}
+            </Typography>
+        </Stack>
+    );
+
     return (
-        <div className="px-3 px-lg-4 py-3 py-lg-4" style={{ backgroundColor: '#f7f9fc' }}>
-            {/* Header */}
-            <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-3 gap-3">
-                <div className="d-flex align-items-center gap-2 gap-md-3">
-                    {onBack && (
-                        <button
-                            type="button"
-                            className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm flex-shrink-0"
-                            onClick={onBack}
-                            title="Back to Organizations"
-                        >
-                            <img src={miscellaneousIcons.leftArrow} alt="Back" style={{ width: '22px', height: '22px', cursor: 'pointer' }} />
-                        </button>
-                    )}
-                    <h3 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(18px, 4vw, 24px)', letterSpacing: '0.24px', color: '#000' }}>
-                        Organization Info
-                    </h3>
-                </div>
-                <div className="d-flex flex-wrap gap-2 w-100 w-sm-auto">
-                    {onBranchesClick && (
-                        <button
-                            type="button"
-                            className="btn btn-primary flex-grow-1 flex-sm-grow-0"
-                            style={{ fontSize: 'clamp(12px, 2.5vw, 14px)' }}
-                            onClick={onBranchesClick}
-                        >
-                            <AppIcon name="bi-geo-alt" className="me-2" />
-                            <span className="d-none d-sm-inline">Branches</span>
-                            <span className="d-inline d-sm-none">Branch</span>
-                        </button>
-                    )}
-                    {/* Share the organization's contact details over WhatsApp */}
-                    <button
-                        type="button"
-                        onClick={handleWhatsAppShare}
-                        className="btn flex-grow-1 flex-sm-grow-0 d-flex align-items-center justify-content-center"
-                        style={{ backgroundColor: '#25D366', borderColor: '#25D366', color: 'white', fontSize: 'clamp(12px, 2.5vw, 14px)', gap: '8px' }}
+        <Box sx={{ px: { xs: 1, md: 2 }, py: { xs: 1.5, md: 2 } }}>
+            {/* Identity header — the contact / company page's shape: avatar, name, the ways to
+                reach the organization as links, and every action in one row. */}
+            <GlassSurface
+                variant="thin"
+                radius={16}
+                sx={{ p: { xs: 2, md: 2.5 }, mb: { xs: 2, md: 2.5 }, display: 'flex', alignItems: 'flex-start', gap: { xs: 1.5, md: 2.5 }, flexWrap: { xs: 'wrap', lg: 'nowrap' } }}
+            >
+                {onBack && (
+                    <WtIconButton
+                        onClick={onBack}
+                        title="Back to organizations"
+                        sx={{ mt: 0.25, flexShrink: 0, width: 32, height: 32, borderRadius: '10px', bgcolor: 'transparent', borderColor: 'transparent', '& .fs-3': { fontSize: '1.05rem' } }}
                     >
-                        <AppIcon name="bi-whatsapp" />
-                        <span>Share</span>
-                    </button>
-                    {/* PDF Download Button — generates on demand (see handleDownloadPdf) */}
-                    <button
-                        type="button"
-                        className="btn btn-primary flex-grow-1 flex-sm-grow-0"
-                        style={{ fontSize: 'clamp(12px, 2.5vw, 14px)' }}
-                        onClick={handleDownloadPdf}
-                        disabled={pdfGenerating}
-                    >
-                        {pdfGenerating ? (
-                            <>
-                                <span className="spinner-border spinner-border-sm me-2"></span>
-                                <span className="d-none d-sm-inline">Generating...</span>
-                                <span className="d-inline d-sm-none">PDF</span>
-                            </>
-                        ) : (
-                            <>
-                                <AppIcon name="bi-download" className="me-2" />
-                                <span className="d-none d-sm-inline">Download PDF</span>
-                                <span className="d-inline d-sm-none">PDF</span>
-                            </>
+                        <AppIcon name="arrow-left" className="fs-3" />
+                    </WtIconButton>
+                )}
+                <Box sx={{ flexShrink: 0 }}>
+                    <SmartAvatar name={companyData.name} imageUrl={companyData.logo} size={84} shape="rounded" imageFit="contain" enablePreview />
+                </Box>
+                <Stack spacing={0.75} sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{companyData.name}</Typography>
+                    <Stack direction="row" alignItems="center" gap={1.25} flexWrap="wrap">
+                        {clean(companyData.businessType) && <Typography variant="body2" sx={{ fontWeight: 600 }}>{companyData.businessType}</Typography>}
+                        {clean(companyData.foundedIn) && <Typography variant="body2" color="text.secondary">Founded {companyData.foundedIn}</Typography>}
+                    </Stack>
+                    <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap" sx={{ pt: 0.25 }}>
+                        {phone && (
+                            <Link href={`tel:${phone.replace(/[^\d+]/g, '')}`} underline="hover" variant="body2" color="text.primary" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                                <AppIcon name="phone" className="fs-6" />{phone}
+                            </Link>
                         )}
-                    </button>
-
-                    {onEditClick && hasPermission(resourceNameMapWithCamelCase.organisationProfile, permissionConstToUseWithHasPermission.editOthers) && (
-                        <button
-                            type="button"
-                            className="btn flex-grow-1 flex-sm-grow-0"
-                            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A', color: 'white', padding: '8px clamp(16px, 4vw, 32px)', fontSize: 'clamp(12px, 2.5vw, 14px)', borderRadius: '6px' }}
-                            onClick={onEditClick}
-                        >
-                            Edit
-                        </button>
+                        {email && (
+                            <Link href={`mailto:${email}`} underline="hover" variant="body2" color="text.primary" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                                <AppIcon name="sms" className="fs-6" />
+                                <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{email}</Box>
+                            </Link>
+                        )}
+                        {website && (
+                            <Link href={href(website)} target="_blank" rel="noopener noreferrer" underline="hover" variant="body2" color="text.primary" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                                <AppIcon name="bi-globe" className="fs-6" />{website.replace(/^https?:\/\//i, '')}
+                            </Link>
+                        )}
+                    </Stack>
+                </Stack>
+                <Stack direction="row" gap={1} flexWrap="wrap" sx={{ flexShrink: 0, width: { xs: '100%', lg: 'auto' }, justifyContent: { lg: 'flex-end' } }}>
+                    {onBranchesClick && (
+                        <WtButton inverted size="small" onClick={onBranchesClick} startIcon={<AppIcon name="bi-geo-alt" className="fs-5" />} sx={{ whiteSpace: 'nowrap' }}>
+                            Branches
+                        </WtButton>
                     )}
-                </div>
-            </div>
+                    <WtButton inverted size="small" onClick={handleWhatsAppShare} startIcon={<WhatsAppIcon size={16} />} sx={{ whiteSpace: 'nowrap' }}>
+                        Share
+                    </WtButton>
+                    <WtButton inverted size="small" onClick={handleDownloadPdf} disabled={pdfGenerating} startIcon={<AppIcon name="bi-download" className="fs-5" />} sx={{ whiteSpace: 'nowrap' }}>
+                        {pdfGenerating ? 'Generating…' : 'Download PDF'}
+                    </WtButton>
+                    {canEdit && (
+                        <WtButton size="small" onClick={onEditClick} startIcon={<AppIcon name="pencil" className="fs-5" />} sx={{ whiteSpace: 'nowrap' }}>
+                            Edit details
+                        </WtButton>
+                    )}
+                </Stack>
+            </GlassSurface>
 
-            {/* Info sections grid */}
-            <div className="row g-3 mb-3">
-                {/* Logo & Stamp — shows the org's assets, or a clean placeholder when unset */}
-                <div className="col-12 col-lg-6">
-                    <KTCard className="shadow-sm h-100">
-                        <div className="d-flex flex-column h-100" style={{ padding: 'clamp(16px, 3vw, 24px)', gap: 'clamp(14px, 3vw, 20px)' }}>
-                            <div className="d-flex align-items-center gap-2">
-                                <div className="bg-light rounded-circle d-flex align-items-center justify-content-center" style={{ width: '44px', height: '44px', backgroundColor: '#e6eaf1' }}>
-                                    <AppIcon name="bi-building" className="fs-2 text-primary" />
-                                </div>
-                                <h5 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(16px, 3vw, 19px)', letterSpacing: '0.19px', color: 'black' }}>
-                                    Logo & Stamp
-                                </h5>
-                            </div>
-                            <div className="d-flex flex-row justify-content-around align-items-center gap-3 flex-grow-1">
-                                {renderAssetSlot(companyData.logo, 'Organization Logo')}
-                                <div style={{ width: 1, alignSelf: 'stretch', background: '#eef1f6' }} />
-                                {renderAssetSlot(companyData.salaryStamp, 'Stamp')}
-                            </div>
-                        </div>
-                    </KTCard>
-                </div>
+            {/* The facts people look up most, before the full sections. */}
+            <Box sx={{ mb: 2.5 }}>
+                <StatGrid
+                    items={[
+                        { label: 'Fiscal Year', value: clean(companyData.fiscalYear) || DASH, icon: 'bi bi-calendar-range', accent: 'teal' },
+                        { label: 'Founded', value: clean(companyData.foundedIn) || DASH, icon: 'bi bi-flag', accent: 'purple' },
+                        { label: 'GST Number', value: clean(companyData.gstNumber) || DASH, icon: 'bi bi-receipt', accent: 'amber' },
+                        { label: 'PAN', value: clean(companyData.panNo) || DASH, icon: 'bi bi-person-vcard', accent: 'primary' },
+                        { label: 'TAN', value: clean(companyData.tanNo) || DASH, icon: 'bi bi-card-text', accent: 'blue' },
+                        { label: 'Contact', value: phone || DASH, icon: 'bi bi-telephone', accent: 'green' },
+                    ]}
+                />
+            </Box>
+
+            <TwoUpGrid>
+                <DetailCard title="Logo & Stamp" subtitle="Used on documents and payslips" icon="bi bi-building" accentColor="blue">
+                    <Stack direction="row" alignItems="stretch" gap={2} sx={{ pt: 1.5 }}>
+                        {assetSlot(companyData.logo, 'Organization logo')}
+                        <Box sx={{ width: '1px', bgcolor: 'divider' }} />
+                        {assetSlot(companyData.salaryStamp, 'Stamp')}
+                    </Stack>
+                </DetailCard>
 
                 {/* Dynamic sections — rendered from the shared form schema so the info
                     page always mirrors the edit form (see infoSections above). */}
                 {infoSections.map(sec => {
                     const fields = sec.fields.filter((f: any) => !f.hidden && f.showOnInfoPage !== false);
                     if (!fields.length) return null;
+                    const st = sectionStyle(sec.id);
                     return (
-                        <div className="col-12 col-lg-6" key={sec.id}>
-                            <KTCard className="shadow-sm h-100">
-                                <div className="d-flex flex-column h-100" style={{ padding: 'clamp(16px, 3vw, 24px)', gap: 'clamp(16px, 3vw, 24px)' }}>
-                                    <div className="d-flex align-items-center gap-2">
-                                        <div className="bg-light rounded-circle d-flex align-items-center justify-content-center" style={{ width: '44px', height: '44px', backgroundColor: '#e6eaf1' }}>
-                                            <i className={`bi ${sectionIcon(sec.id)} fs-2 text-primary`}></i>
-                                        </div>
-                                        <h5 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(16px, 3vw, 19px)', letterSpacing: '0.19px', color: 'black' }}>
-                                            {titleCase(sec.title)}
-                                        </h5>
-                                    </div>
-
-                                    <div className="d-flex flex-column" style={{ gap: '10px' }}>
-                                        {fields.map((f: any) => (
-                                            <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2" key={f.id}>
-                                                <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{f.label}</span>
-                                                <span className="text-sm-end text-break" style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black', maxWidth: '60%' }}>
-                                                    {renderFieldValue(f)}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </KTCard>
-                        </div>
+                        <DetailCard key={sec.id} title={titleCase(sec.title)} subtitle={st.subtitle || undefined} icon={st.icon} accentColor={st.accent}>
+                            {fields.map((f: any, i: number) => (
+                                <DetailRow key={f.id} label={f.label} value={renderFieldValue(f)} isLast={i === fields.length - 1} />
+                            ))}
+                        </DetailCard>
                     );
                 })}
-            </div>
-        </div>
+            </TwoUpGrid>
+        </Box>
     );
 };
 

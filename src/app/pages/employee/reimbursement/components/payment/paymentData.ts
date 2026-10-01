@@ -259,9 +259,24 @@ export const inPeriod = (value: string | null | undefined, filter: PeriodFilter,
         : d.year() === date.year();
 };
 
-/** Queue scope: approved-and-owing, submitted in the period. */
-export const filterQueueByPeriod = (rows: PaymentBatchRow[], filter: PeriodFilter, date: Dayjs) =>
-    rows.filter((r) => inPeriod(r.submittedAt, filter, date));
+/**
+ * Which date places a batch in a month on the queue.
+ *  - 'expense'    — the month the expenses belong to (the batch's period). September's claims
+ *                   sit in September even when they were submitted on 1 October.
+ *  - 'submission' — the day the batch was submitted.
+ */
+export type QueueDateBasis = 'expense' | 'submission';
+
+/** Queue scope: approved-and-owing, in the period by the chosen date basis. */
+export const filterQueueByPeriod = (
+    rows: PaymentBatchRow[], filter: PeriodFilter, date: Dayjs, basis: QueueDateBasis = 'expense',
+) =>
+    rows.filter((r) => inPeriod(
+        // A batch with no recorded period falls back to its submission date rather than vanishing.
+        basis === 'expense' ? (r.periodStart ?? r.submittedAt) : r.submittedAt,
+        filter,
+        date,
+    ));
 
 /** History scope: one entry per payment recorded in the period. */
 export const paymentsInPeriod = (rows: PaymentBatchRow[], filter: PeriodFilter, date: Dayjs): PaymentRecord[] =>

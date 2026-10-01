@@ -17,9 +17,10 @@ const Content: FC<WithChildren> = ({children}) => {
     <div id='kt_content_container'
     className={clsx(classes.contentContainer.join(' '))}
     >
-      {/* Contain page crashes so one screen can't white-out the whole app.
-          Keyed by path so navigating away clears a previous error. */}
-      <ErrorBoundary key={location.pathname}>
+      {/* Contain page crashes so one screen can't white-out the whole app. A path change
+          clears a previous error — via resetKey, NOT `key`: tabs live in the path
+          (/employees/:id/projects), and a key remounted the whole page on every tab click. */}
+      <ErrorBoundary resetKey={location.pathname}>
         {children}
       </ErrorBoundary>
     </div>
