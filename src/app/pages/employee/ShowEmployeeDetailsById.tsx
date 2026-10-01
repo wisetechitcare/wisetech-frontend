@@ -1,436 +1,237 @@
-import React, { useEffect, useState, ReactNode } from "react";
-import { useParams } from "react-router-dom";
-import { fetchCurrentEmployeeByEmpId } from "@services/employee";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { useDispatch } from "react-redux";
-import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
-import type { AppDispatch } from "@redux/store";
-import Loader from "@app/modules/common/utils/Loader";
 import { fetchEmployeeTypes } from "@services/options";
-import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from "@constants/statistics";
+import { uiControlResourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
-import AppSettingsModal from "./components/AppSettingsModal";
 import { getEducationAcademicLabel, getEducationDetailValue } from "../../../utils/educationUtils";
 import { formatBloodGroup, formatPhoneWithCode } from "@utils/employeeFormat";
-import "./glass.css";
-import "./ShowEmployeeDetails.css";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { DetailCard, DetailRow, DetailInfoItem } from "@app/modules/detail-page/DetailPageComponents";
+import { Box, Link, Typography } from "@mui/material";
+import { FONT, ICON_COLORS } from "@app/modules/configuration/ConfigDesignSystem";
+import { StatGrid, SectionHeading } from "./entity/detail/sections/SummarySection";
+import { fmtDate, DASH } from "./entity/detail/entityViewModel";
 
-/* ── Presentational building blocks (className-driven, zero inline sizing) ──
-   All layout/typography comes from ShowEmployeeDetails.css tokens, so cards and rows
-   reflow fluidly with available/container width. */
+/**
+ * The employee's Details tab, built from the same pieces as the lead/project detail page
+ * (stat band → grouped DetailCards) so the two read as one product. The header (avatar,
+ * status, actions) belongs to the page, not to this tab.
+ */
 
-function DetailCard({
-  icon,
-  title,
-  iconVariant,
-  wide = false,
-  children,
-}: {
-  icon: ReactNode;
-  title: string;
-  iconVariant?: "warn" | "success";
-  wide?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <section className={`emp-card${wide ? " emp-card--wide" : ""}`}>
-      <div className="emp-card-header">
-        <span className={`emp-card-icon${iconVariant ? ` emp-card-icon--${iconVariant}` : ""}`}>{icon}</span>
-        <h3 className="emp-card-title">{title}</h3>
-      </div>
-      <div className="emp-card-body">{children}</div>
-    </section>
-  );
-}
+/** Blank and the legacy "-NA-" placeholder both read as the app-wide dash. */
+const val = (v: any): React.ReactNode => (v === null || v === undefined || v === "" || v === "-NA-" ? DASH : v);
 
-function DetailRow({ label, value, link = false }: { label: string; value: ReactNode; link?: boolean }) {
-  return (
-    <div className="emp-row">
-      <span className="emp-row-label">{label}</span>
-      <span className={`emp-row-value${link ? " emp-row-value--link" : ""}`}>{value}</span>
-    </div>
-  );
-}
+const mailLink = (email?: string | null) =>
+  email ? <Link href={`mailto:${email}`} underline="hover" sx={{ fontSize: "inherit" }}>{email}</Link> : DASH;
 
-function EmptyState({ text }: { text: string }) {
-  return <div className="emp-empty">{text}</div>;
-}
+const telLink = (phone: string) =>
+  phone && phone !== "-NA-"
+    ? <Link href={`tel:${phone.replace(/[^\d+]/g, "")}`} underline="hover" color="inherit" sx={{ fontSize: "inherit" }}>{phone}</Link>
+    : DASH;
 
-const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
-  const allemployees = useSelector((state: RootState) => state.allEmployees);
-  const [employee, setEmployee] = useState<any>(null);
+/** One record in a repeating list (a past job, a degree, a relative): title + subtitle on the left, a fact on the right. */
+const Entry: React.FC<{ title: React.ReactNode; subtitle?: React.ReactNode; meta?: React.ReactNode; isLast?: boolean }> = ({ title, subtitle, meta, isLast }) => (
+  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, py: 1.5, borderBottom: isLast ? 0 : 1, borderColor: "divider" }}>
+    <Box sx={{ minWidth: 0 }}>
+      <Typography sx={{ fontFamily: FONT.body, fontSize: 13.5, fontWeight: 600, color: "text.primary" }}>{title}</Typography>
+      {subtitle && <Typography sx={{ fontFamily: FONT.body, fontSize: 12.5, color: "text.secondary", mt: 0.25 }}>{subtitle}</Typography>}
+    </Box>
+    {meta && <Typography component="div" sx={{ fontFamily: FONT.body, fontSize: 12.5, fontWeight: 500, color: "text.secondary", textAlign: "right", flexShrink: 0 }}>{meta}</Typography>}
+  </Box>
+);
+
+const Empty: React.FC<{ text: string }> = ({ text }) => (
+  <Typography sx={{ fontFamily: FONT.body, fontSize: 13, color: "text.disabled", py: 2.75, textAlign: "center" }}>{text}</Typography>
+);
+
+/** Two cards per row on desktop. Unlike the lead page's CardGrid, an odd last card keeps its half width — a short card stretched edge to edge is mostly empty space. */
+const CARD_GRID = { display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" }, gap: 2.5, alignItems: "stretch" } as const;
+
+const range = (from?: string | null, to?: string | null) =>
+  from || to ? `${from ? fmtDate(from) : "?"} – ${to ? fmtDate(to) : "Present"}` : undefined;
+
+const ShowEmployeeDetailsById = ({ employee }: { employee: any }) => {
+  const allEmployees = useSelector((state: RootState) => state.allEmployees?.list) || [];
   const [employeeTypes, setEmployeeTypes] = useState<any[]>([]);
-  const [showAppSettingsModal, setShowAppSettingsModal] = useState(false);
-  const navigate = useNavigate();
-  const dispatch = useDispatch<AppDispatch>();
 
   useEffect(() => {
-    dispatch(loadAllEmployeesIfNeeded());
-  }, [dispatch]);
-
-  const fetchEmployeeData = async () => {
-    const { data } = await fetchCurrentEmployeeByEmpId(employeeId!);
-    setEmployee(data.employee);
-  };
-
-  useEffect(() => {
-    fetchEmployeeData();
-  }, [employeeId]);
-
-  useEffect(() => {
-    const fetchTypes = async () => {
-      const { data: { employeeTypes } } = await fetchEmployeeTypes();
-      setEmployeeTypes(employeeTypes);
-    };
-    fetchTypes();
+    fetchEmployeeTypes().then(({ data }) => setEmployeeTypes(data?.employeeTypes || [])).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('openSettings') === 'true') {
-      setShowAppSettingsModal(true);
-      // Clean up search param without triggering reload
-      const newUrl = window.location.pathname;
-      window.history.replaceState({ path: newUrl }, '', newUrl);
-    }
-  }, []);
-
-  if (!employee) return <Loader />;
 
   const {
-    users,
-    departments,
-    designations,
-    branches,
-    dateOfJoining,
-    dateOfExit,
-    companyPhoneNumber,
-    companyPhoneExtension,
-    reportsToId,
-    EmployeeAddressDetails,
-    EmployeeBankDetails,
-    EmployeeEducationalDetails,
-    EmployeePreviousExperience,
-    EmployeeRejoinHistory,
-    EmergencyContacts,
-    EmployeeEmergencyDetails,
-    companyEmailId,
-    roles,
-    ctcInLpa,
-    gender,
-    maritalStatus,
-    vegMealPreference,
-    nonVegMealPreference,
-    veganMealPreference,
-    isActive,
-    anniversary,
-    method,
-    employeeTypeId,
-    employeeTypeConfig,
-    referredById,
+    users, departments, designations, branches, dateOfJoining, dateOfExit, companyPhoneNumber,
+    companyPhoneExtension, reportsToId, EmployeeAddressDetails, EmployeeBankDetails,
+    EmployeeEducationalDetails, EmployeePreviousExperience, EmployeeRejoinHistory, EmergencyContacts,
+    EmployeeEmergencyDetails, companyEmailId, roles, ctcInLpa, gender, maritalStatus,
+    vegMealPreference, nonVegMealPreference, veganMealPreference, anniversary, method,
+    employeeTypeId, employeeTypeConfig, referredById,
   } = employee;
 
-  // Return "-NA-" for a missing value rather than a misleading default (a null gender used to
-  // read as "Female", null marital status as "Married", null method as "Remote").
-  const getGender = (val: number) => (val === 0 ? "Male" : val === 1 ? "Female" : "-NA-");
-  const getMaritalStatus = (val: number) => (val === 1 ? "Unmarried" : val === 0 ? "Married" : "-NA-");
-  const getMethod = (val: number) => (val === 0 ? "Office" : val === 1 ? "Remote" : "-NA-");
-
-  // `formatPhoneWithCode` and `formatBloodGroup` were defined here. They now live in
-  // @utils/employeeFormat because the ID card needs the same two conversions, and the
-  // second copy got both wrong ("9987221079 x 91", "AB_POS" on a printed badge).
-
-  const handleWhatsAppShare = () => {
-    const message = `CONTACT CARD
-
-${users.firstName} ${users.lastName}
-${designations?.role || 'Employee'} | ${departments?.name || 'Department'}
-Email: ${companyEmailId || 'N/A'}
-Phone: ${companyPhoneNumber ? formatPhoneWithCode(companyPhoneNumber, companyPhoneExtension) : 'N/A'}
-Mobile: ${users.personalPhoneNumber ? formatPhoneWithCode(users.personalPhoneNumber, users.personalPhoneNumberExtension) : 'N/A'}
-Company: ${employee?.companyOverview?.name || 'N/A'}
-Branch: ${branches?.name || 'N/A'}
-Location: ${branches?.address || 'N/A'}`;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
-  };
-
-  // Find reporting manager name
-  const reportingManagerName =
-    allemployees?.list?.find((emp: any) => emp.employeeId === reportsToId)?.employeeName || "Not Assigned";
-
-  // Format date function - DD/MM/YYYY
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "-NA-";
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-
-  const referredByEmployeeName = allemployees?.list?.find(
-    (emp: any) => emp.employeeId?.toString() === employee?.referredById?.toString()
-  )?.employeeName;
-
-  const mealPreference = vegMealPreference
-    ? "Vegetarian"
-    : nonVegMealPreference
-      ? "Non-Vegetarian"
-      : veganMealPreference
-        ? "Vegan"
-        : "-NA-";
-
-  const employeeType =
-    employeeTypes.find((type: any) => type.id === employeeTypeId)?.type || employeeTypeConfig?.name || "-NA-";
+  // A missing value reads as missing, never as a default (null gender used to show "Female").
+  const genderLabel = gender === 0 ? "Male" : gender === 1 ? "Female" : DASH;
+  const maritalLabel = maritalStatus === 1 ? "Unmarried" : maritalStatus === 0 ? "Married" : DASH;
+  const methodLabel = method === 0 ? "Office" : method === 1 ? "Remote" : DASH;
+  const mealPreference = vegMealPreference ? "Vegetarian" : nonVegMealPreference ? "Non-Vegetarian" : veganMealPreference ? "Vegan" : DASH;
+  const employeeType = employeeTypes.find((t: any) => t.id === employeeTypeId)?.type || employeeTypeConfig?.name || DASH;
+  const nameOf = (id: any) => allEmployees.find((e: any) => e.employeeId?.toString() === id?.toString())?.employeeName;
+  const manager = nameOf(reportsToId) || "Not assigned";
 
   const canSeePackage = hasPermission(
     uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves,
-    permissionConstToUseWithHasPermission.readOthers
+    permissionConstToUseWithHasPermission.readOthers,
   );
 
   const address = EmployeeAddressDetails?.[0];
-  const currentAddress = address
-    ? [
-        address.presentAddressLine1 || address.permanentAddressLine1,
-        address.presentAddressLine2 || address.permanentAddressLine2,
-        address.presentCity || address.permanentCity,
-        address.presentState || address.permanentState,
-        address.presentCountry || address.permanentCountry,
-        address.presentPostalCode || address.permanentPostalCode,
-      ].filter(Boolean).join(", ") || "-NA-"
-    : "-NA-";
-  const permanentAddress = address
-    ? [
-        address.permanentAddressLine1,
-        address.permanentAddressLine2,
-        address.permanentCity,
-        address.permanentState,
-        address.permanentCountry,
-        address.permanentPostalCode,
-      ].filter(Boolean).join(", ") || "-NA-"
-    : "-NA-";
+  const join = (parts: any[]) => parts.filter(Boolean).join(", ") || DASH;
+  const currentAddress = address ? join([
+    address.presentAddressLine1 || address.permanentAddressLine1,
+    address.presentAddressLine2 || address.permanentAddressLine2,
+    address.presentCity || address.permanentCity,
+    address.presentState || address.permanentState,
+    address.presentCountry || address.permanentCountry,
+    address.presentPostalCode || address.permanentPostalCode,
+  ]) : DASH;
+  const permanentAddress = address ? join([
+    address.permanentAddressLine1, address.permanentAddressLine2, address.permanentCity,
+    address.permanentState, address.permanentCountry, address.permanentPostalCode,
+  ]) : DASH;
+
+  const emergency = EmployeeEmergencyDetails?.[0];
+  const bank = EmployeeBankDetails?.[0];
+  const experience: any[] = EmployeePreviousExperience || [];
+  const education: any[] = EmployeeEducationalDetails || [];
+  const family: any[] = EmergencyContacts || [];
+  const rejoins: any[] = EmployeeRejoinHistory || [];
 
   return (
-    <div className="emp-details">
-      {/* Header actions */}
-      <div className="emp-header">
-        <div className="emp-actions">
-          <button
-            type="button"
-            onClick={handleWhatsAppShare}
-            className="emp-btn emp-btn-whatsapp"
-            title="Share Employee Details via WhatsApp"
-          >
-            <AppIcon name="bi-whatsapp" aria-hidden />
-            Share Details
-          </button>
-          {hasPermission(
-            resourceNameMapWithCamelCase.employee,
-            permissionConstToUseWithHasPermission.editOthers
-          ) && (
-            <button
-              type="button"
-              onClick={() => setShowAppSettingsModal(true)}
-              className="emp-btn emp-btn-settings"
-              title="App Settings"
-            >
-              <AppIcon name="bi-gear" aria-hidden />
-              App Settings
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Fluid card grid — reflows 2-up ↔ 1-up from available width */}
-      <div className="emp-grid">
-        {/* Personal Details */}
-        <DetailCard icon={<AppIcon name="bi-person" aria-hidden />} title="Personal Details">
-          <DetailRow label="Full Name" value={`${users.firstName} ${users.lastName}`.trim() || "-NA-"} />
-          <DetailRow label="Date of Birth" value={formatDate(users.dateOfBirth)} />
-          <DetailRow label="Gender" value={getGender(gender)} />
-          <DetailRow label="Marital Status" value={getMaritalStatus(maritalStatus)} />
-          {maritalStatus == 0 && <DetailRow label="Anniversary" value={formatDate(anniversary)} />}
-          <DetailRow label="Meal Preference" value={mealPreference} />
-        </DetailCard>
-
-        {/* Employee Details */}
-        <DetailCard icon={<AppIcon name="bi-briefcase" aria-hidden />} title="Employee Details">
-          <DetailRow label="Job Profile" value={designations?.role || "-NA-"} />
-          <DetailRow label="Department" value={departments?.name || "-NA-"} />
-          <DetailRow label="Type of Employee" value={employeeType} />
-          <DetailRow label="Working Location Type" value={getMethod(method)} />
-          <DetailRow label="Branch" value={branches?.name || "-NA-"} />
-        </DetailCard>
-
-        {/* Contact Details */}
-        <DetailCard icon={<AppIcon name="bi-telephone" aria-hidden />} title="Contact Details">
-          <DetailRow label="Company Email" value={companyEmailId || "-NA-"} link />
-          <DetailRow label="Company Phone" value={formatPhoneWithCode(companyPhoneNumber, companyPhoneExtension)} />
-          <DetailRow label="Personal Email" value={users?.personalEmailId || "-NA-"} link />
-          <DetailRow label="Personal Phone" value={formatPhoneWithCode(users?.personalPhoneNumber, users?.personalPhoneNumberExtension)} />
-          <DetailRow label="Alternate Phone" value={users?.alternatePhoneNumber || "-NA-"} />
-        </DetailCard>
-
-        {/* Hiring Details */}
-        <DetailCard icon={<AppIcon name="bi-building" aria-hidden />} title="Hiring Details">
-          <DetailRow label="Hiring Source" value={employee?.companySrcOfHire?.source || "-NA-"} />
-          {canSeePackage && (
-            <DetailRow
-              label="Current Package"
-              value={ctcInLpa ? `${(parseInt(ctcInLpa) / 100000).toFixed(2)} LPA` : "-NA-"}
-            />
-          )}
-          <DetailRow label="Date of Joining" value={formatDate(dateOfJoining)} />
-          <DetailRow label="Date of Exit" value={formatDate(dateOfExit)} />
-          <DetailRow label="Reporting Manager" value={reportingManagerName || "-NA-"} />
-          <DetailRow label="Referred By" value={referredByEmployeeName || "-NA-"} />
-          <DetailRow label="Account Role" value={roles && roles.length > 0 ? roles[0].name : "-NA-"} />
-        </DetailCard>
-
-        {/* Work Experience */}
-        <DetailCard icon={<AppIcon name="bi-briefcase" aria-hidden />} title="Work Experience">
-          {EmployeePreviousExperience && EmployeePreviousExperience.length > 0 ? (
-            <div className="emp-scroll-list">
-              {EmployeePreviousExperience.map((exp: any, index: number) => (
-                <div className="emp-list-item" key={index}>
-                  <DetailRow label="Company" value={exp.companyName || "-NA-"} />
-                  <DetailRow label="Job Title" value={exp.jobTitle || "-NA-"} />
-                  <DetailRow label="From Date" value={exp.fromDate ? formatDate(exp.fromDate) : "-NA-"} />
-                  <DetailRow label="To Date" value={exp.toDate ? formatDate(exp.toDate) : "-NA-"} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState text="No work experience data available" />
-          )}
-        </DetailCard>
-
-        {/* Re-joining History */}
-        <DetailCard icon={<AppIcon name="bi-briefcase" aria-hidden />} title="Re-joining History">
-          {EmployeeRejoinHistory && EmployeeRejoinHistory.length > 0 ? (
-            <div className="emp-scroll-list">
-              {EmployeeRejoinHistory.map((exp: any, index: number) => (
-                <div className="emp-list-item" key={index}>
-                  <DetailRow label="Date Of Re-Joining" value={formatDate(exp.dateOfReJoining)} />
-                  <DetailRow label="Date Of Re-Exit" value={formatDate(exp.dateOfReExit)} />
-                  <DetailRow label="Reason" value={exp.reason || "-NA-"} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState text="No Re-joining history available" />
-          )}
-        </DetailCard>
-
-        {/* Education */}
-        <DetailCard icon={<AppIcon name="bi-mortarboard" aria-hidden />} title="Education">
-          {EmployeeEducationalDetails && EmployeeEducationalDetails.length > 0 ? (
-            <div className="emp-scroll-list">
-              {EmployeeEducationalDetails.map((edu: any, index: number) => {
-                const academicLabel = getEducationAcademicLabel(edu);
-                const detailValue = getEducationDetailValue(edu) || "-NA-";
-                const academicValue = academicLabel === "Passing Year"
-                  ? (edu.passingYear || "-NA-")
-                  : [edu.fromDate && formatDate(edu.fromDate), edu.toDate && formatDate(edu.toDate)].filter(Boolean).join(" - ") || "-NA-";
-                return (
-                  <div className="emp-list-item" key={index}>
-                    <DetailRow label="Institute" value={edu.instituteName || "-NA-"} />
-                    <DetailRow label="Qualification" value={edu.qualificationName || edu.degree || "-NA-"} />
-                    <DetailRow label="Detail" value={detailValue} />
-                    <DetailRow label={academicLabel} value={academicValue} />
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <EmptyState text="No education data available" />
-          )}
-        </DetailCard>
-
-        {/* Address — normal card; Permanent stacks under Current to stay compact */}
-        <DetailCard icon={<AppIcon name="bi-house" aria-hidden />} title="Address">
-          {EmployeeAddressDetails && EmployeeAddressDetails.length > 0 ? (
-            <div className="emp-address-grid">
-              <div className="emp-address-block">
-                <div className="emp-subhead">Current Address</div>
-                <div className="emp-address-text">{currentAddress}</div>
-              </div>
-              <div className="emp-address-block">
-                <div className="emp-subhead">Permanent Address</div>
-                <div className="emp-address-text">{permanentAddress}</div>
-              </div>
-            </div>
-          ) : (
-            <EmptyState text="No address data available" />
-          )}
-        </DetailCard>
-
-        {/* Family Details */}
-        <DetailCard icon={<AppIcon name="bi-people" aria-hidden />} title="Family Details">
-          {EmergencyContacts && EmergencyContacts.length > 0 ? (
-            <div className="emp-scroll-list">
-              {EmergencyContacts.map((contact: any, index: number) => (
-                <div className="emp-list-item" key={index}>
-                  <DetailRow label="Relative Name" value={contact.name || "-NA-"} />
-                  <DetailRow label="Relation" value={contact.relationship || "-NA-"} />
-                  <DetailRow label="Phone" value={contact.mobileNumber || "-NA-"} />
-                  <DetailRow label="Date of Birth" value={formatDate(contact.dateOfBirth)} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState text="No family details available" />
-          )}
-        </DetailCard>
-
-        {/* Emergency Details */}
-        <DetailCard
-          icon={<AppIcon name="bi-exclamation-triangle" aria-hidden />}
-          title="Emergency Details"
-          iconVariant="warn"
-        >
-          {EmployeeEmergencyDetails && EmployeeEmergencyDetails.length > 0 ? (
-            <>
-              <DetailRow label="Blood Group" value={formatBloodGroup(EmployeeEmergencyDetails[0].bloodGroup)} />
-              <DetailRow label="Allergies" value={EmployeeEmergencyDetails[0].allergies || "-NA-"} />
-              <DetailRow label="Emergency Contact Name" value={EmployeeEmergencyDetails[0].emergencyContactName || "-NA-"} />
-              <DetailRow label="Emergency Contact Number" value={EmployeeEmergencyDetails[0].emergencyContactNumber || "-NA-"} />
-            </>
-          ) : (
-            <EmptyState text="No emergency details available" />
-          )}
-        </DetailCard>
-
-        {/* Bank Details */}
-        <DetailCard
-          icon={<AppIcon name="bi-bank" aria-hidden />}
-          title="Bank Details"
-          iconVariant="success"
-        >
-          {EmployeeBankDetails && EmployeeBankDetails.length > 0 ? (
-            <>
-              <DetailRow label="AC Number" value={EmployeeBankDetails[0].accountNumber || "-NA-"} />
-              <DetailRow label="AC Holder Name" value={EmployeeBankDetails[0].accountName || "-NA-"} />
-              <DetailRow label="IFSC" value={EmployeeBankDetails[0].ifscCode || "-NA-"} />
-            </>
-          ) : (
-            <EmptyState text="No bank details available" />
-          )}
-        </DetailCard>
-      </div>
-
-      <AppSettingsModal
-        show={showAppSettingsModal}
-        onClose={() => setShowAppSettingsModal(false)}
-        onSuccess={() => {
-          fetchEmployeeData();
-        }}
-        employeeId={employeeId}
+    <div>
+      <StatGrid
+        items={[
+          { label: "Date of Joining", value: fmtDate(dateOfJoining), icon: "bi bi-calendar-event", accent: "teal" },
+          { label: "Department", value: val(departments?.name), icon: "bi bi-diagram-3", accent: "primary" },
+          { label: "Reporting Manager", value: manager, icon: "bi bi-person-badge", accent: "purple" },
+          { label: "Branch", value: val(branches?.name), icon: "bi bi-geo-alt", accent: "blue" },
+          { label: "Employee Type", value: employeeType, icon: "bi bi-briefcase", accent: "amber" },
+          { label: "Work Mode", value: methodLabel, icon: "bi bi-building", accent: "green" },
+        ]}
       />
+
+      <Box sx={{ mt: 3 }}>
+        <SectionHeading icon="bi bi-person" title="Personal & Contact" color={ICON_COLORS.blue.color} />
+        <Box sx={CARD_GRID}>
+          <DetailCard title="Personal Details" subtitle="Who they are" icon="bi bi-person" accentColor="primary">
+            <DetailRow label="Full Name" value={val(`${users?.firstName || ""} ${users?.lastName || ""}`.trim())} />
+            <DetailRow label="Date of Birth" value={fmtDate(users?.dateOfBirth)} />
+            <DetailRow label="Gender" value={genderLabel} />
+            <DetailRow label="Marital Status" value={maritalLabel} />
+            {maritalStatus == 0 &&<DetailRow label="Anniversary" value={fmtDate(anniversary)} />}
+            <DetailRow label="Meal Preference" value={mealPreference} isLast />
+          </DetailCard>
+
+          <DetailCard title="Contact Details" subtitle="How to reach them" icon="bi bi-telephone" accentColor="blue">
+            <DetailRow label="Company Email" value={mailLink(companyEmailId)} />
+            <DetailRow label="Company Phone" value={telLink(formatPhoneWithCode(companyPhoneNumber, companyPhoneExtension))} />
+            <DetailRow label="Personal Email" value={mailLink(users?.personalEmailId)} />
+            <DetailRow label="Personal Phone" value={telLink(formatPhoneWithCode(users?.personalPhoneNumber, users?.personalPhoneNumberExtension))} />
+            <DetailRow label="Alternate Phone" value={telLink(users?.alternatePhoneNumber || "")} isLast />
+          </DetailCard>
+
+          <DetailCard title="Address" subtitle="Where they live" icon="bi bi-house" accentColor="teal">
+            <DetailInfoItem label="Current Address" value={currentAddress} borderBottom />
+            <DetailInfoItem label="Permanent Address" value={permanentAddress} />
+          </DetailCard>
+
+          <DetailCard title="Emergency Details" subtitle="Medical and who to call" icon="bi bi-heart-pulse" accentColor="danger">
+            <DetailRow label="Blood Group" value={val(emergency && formatBloodGroup(emergency.bloodGroup))} />
+            <DetailRow label="Allergies" value={val(emergency?.allergies)} />
+            <DetailRow label="Emergency Contact" value={val(emergency?.emergencyContactName)} />
+            <DetailRow label="Emergency Number" value={telLink(emergency?.emergencyContactNumber || "")} isLast />
+          </DetailCard>
+        </Box>
+      </Box>
+
+      <Box sx={{ mt: 4 }}>
+        <SectionHeading icon="bi bi-briefcase" title="Employment" color="#7c3aed" />
+        <Box sx={CARD_GRID}>
+          <DetailCard title="Role & Placement" subtitle="Where they sit in the company" icon="bi bi-briefcase" accentColor="primary">
+            <DetailRow label="Job Profile" value={val(designations?.role)} />
+            <DetailRow label="Department" value={val(departments?.name)} />
+            <DetailRow label="Type of Employee" value={employeeType} />
+            <DetailRow label="Working Location Type" value={methodLabel} />
+            <DetailRow label="Branch" value={val(branches?.name)} isLast />
+          </DetailCard>
+
+          <DetailCard title="Hiring Details" subtitle="How and when they joined" icon="bi bi-person-check" accentColor="green">
+            <DetailRow label="Hiring Source" value={val(employee?.companySrcOfHire?.source)} />
+            {canSeePackage && (
+              <DetailRow label="Current Package" value={ctcInLpa ? `${(parseInt(ctcInLpa) / 100000).toFixed(2)} LPA` : DASH} />
+            )}
+            <DetailRow label="Date of Joining" value={fmtDate(dateOfJoining)} />
+            <DetailRow label="Date of Exit" value={fmtDate(dateOfExit)} />
+            <DetailRow label="Reporting Manager" value={manager} />
+            <DetailRow label="Referred By" value={val(nameOf(referredById))} />
+            <DetailRow label="Account Role" value={val(roles?.[0]?.name)} isLast />
+          </DetailCard>
+
+          <DetailCard title="Work Experience" subtitle="Before joining" icon="bi bi-clock-history" accentColor="amber">
+            {experience.length ? experience.map((x, i) => (
+              <Entry key={i} title={val(x.companyName)} subtitle={x.jobTitle} meta={range(x.fromDate, x.toDate)} isLast={i === experience.length - 1} />
+            )) : <Empty text="No previous experience added" />}
+          </DetailCard>
+
+          <DetailCard title="Education" subtitle="Qualifications" icon="bi bi-mortarboard" accentColor="teal">
+            {education.length ? education.map((e, i) => {
+              const academic = getEducationAcademicLabel(e) === "Passing Year"
+                ? (e.passingYear ? `Passed ${e.passingYear}` : undefined)
+                : range(e.fromDate, e.toDate);
+              return (
+                <Entry
+                  key={i}
+                  title={val(e.qualificationName || e.degree)}
+                  subtitle={[e.instituteName, getEducationDetailValue(e)].filter(Boolean).join(", ") || undefined}
+                  meta={academic}
+                  isLast={i === education.length - 1}
+                />
+              );
+            }) : <Empty text="No education added" />}
+          </DetailCard>
+
+          <DetailCard title="Re-joining History" subtitle="Each return to the company" icon="bi bi-arrow-repeat" accentColor="blue">
+            {rejoins.length ? rejoins.map((r, i) => (
+              <Entry
+                key={i}
+                title={`Rejoined ${fmtDate(r.dateOfReJoining)}`}
+                subtitle={r.reason}
+                meta={r.dateOfReExit ? `Left ${fmtDate(r.dateOfReExit)}` : "Current"}
+                isLast={i === rejoins.length - 1}
+              />
+            )) : <Empty text="Has not left and rejoined" />}
+          </DetailCard>
+
+          <DetailCard title="Bank Details" subtitle="Salary account" icon="bi bi-bank" accentColor="green">
+            <DetailRow label="Account Number" value={val(bank?.accountNumber)} />
+            <DetailRow label="Account Holder" value={val(bank?.accountName)} />
+            <DetailRow label="IFSC" value={val(bank?.ifscCode)} isLast />
+          </DetailCard>
+        </Box>
+      </Box>
+
+      <Box sx={{ mt: 4 }}>
+        <SectionHeading icon="bi bi-people" title="Family" color="#9333ea" />
+        <Box sx={CARD_GRID}>
+          <DetailCard title="Family Details" subtitle={family.length ? `${family.length} on record` : "Relatives on record"} icon="bi bi-people" accentColor="purple">
+            {family.length ? family.map((f, i) => (
+              <Entry
+                key={i}
+                title={val(f.name)}
+                subtitle={[f.relationship, f.dateOfBirth && `Born ${fmtDate(f.dateOfBirth)}`].filter(Boolean).join(", ") || undefined}
+                meta={f.mobileNumber ? telLink(f.mobileNumber) : undefined}
+                isLast={i === family.length - 1}
+              />
+            )) : <Empty text="No family details added" />}
+          </DetailCard>
+        </Box>
+      </Box>
     </div>
   );
 };

@@ -36,7 +36,7 @@ interface Stat {
  * 1px gap over the border color), so several stats pack into one compact band with
  * no chunky card boxes. Used inside the unified summary panel.
  */
-const StatGrid: React.FC<{ items: Stat[] }> = ({ items }) => (
+export const StatGrid: React.FC<{ items: Stat[] }> = ({ items }) => (
   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 1, backgroundColor: C.border }}>
     {items.map((it, i) => {
       const { bg, color } = ICON_COLORS[it.accent] ?? ICON_COLORS.primary;
@@ -60,7 +60,7 @@ const StatGrid: React.FC<{ items: Stat[] }> = ({ items }) => (
  * odd the final card spans the full width (e.g. 3 cards → two on top, one
  * full-width below). Collapses to a single column on narrow screens.
  */
-const CardGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const CardGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const items = React.Children.toArray(children).filter(Boolean);
   const oddLast = items.length % 2 === 1;
   return (
@@ -75,7 +75,7 @@ const CardGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 /** Section divider with an uppercase label — used where one sub-page holds two domains. */
-const SectionHeading: React.FC<{ icon: string; title: string; color?: string }> = ({ icon, title, color = '#94A3B8' }) => (
+export const SectionHeading: React.FC<{ icon: string; title: string; color?: string }> = ({ icon, title, color = '#94A3B8' }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 9, margin: '6px 2px 12px' }}>
     <span style={{ width: 26, height: 26, borderRadius: 8, background: `${color}18`, color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
       <i className={icon} style={{ fontSize: 13 }} />
