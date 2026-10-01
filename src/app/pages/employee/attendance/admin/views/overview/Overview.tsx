@@ -6,7 +6,7 @@ import { Attendance } from "@models/employee";
 import { Employee } from "@redux/slices/employee";
 import { saveTotalEmployeeCount } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
-import { fetchAllEmployees, fetchEmployeesOnLeaveToday, fetchEmployeesOnLeaveRange } from "@services/employee";
+import { fetchAllEmployees, fetchEmployeesOnLeaveToday, fetchEmployeesOnLeaveRange, fetchAttendanceRangeCalendar } from "@services/employee";
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
@@ -189,6 +189,15 @@ function Overview({ date, range }: OverviewProps) {
     // Approved leaves overlapping the selected week/month (range mode only) — used to
     // expand On-Leave / Absent into per-day stats. Empty in daily mode.
     const [rangeLeaveRecords, setRangeLeaveRecords] = useState<any[]>([]);
+    // Non-working days PER EMPLOYEE for the selected range, from the server's work calendar
+    // (each employee's own branch). `scopes` maps a "companyId|branchId" key to its set of
+    // off-days; `employeeScopes` maps an employee to their key. Range mode only. This is the
+    // authority the Absent walk uses so a no-punch day is judged by the right branch — the
+    // browser can't, it only has the viewing admin's single branch calendar.
+    const [rangeNonWorking, setRangeNonWorking] = useState<{
+        scopes: Record<string, Set<string>>;
+        employeeScopes: Record<string, string>;
+    }>({ scopes: {}, employeeScopes: {} });
     const [attendance, setAttendance] = useState<Attendance[]>([]);
     const [showModal, setShowModal] = useState<ModalType>(null);
     // Weekly/monthly drill-in: which grouped employee is open. Only the key + name are
@@ -302,6 +311,21 @@ function Overview({ date, range }: OverviewProps) {
             dayjs(h.date).format('DD/MM/YYYY') === formattedDate
         );
         return isConfiguredWeekend || isPublicHoliday;
+    };
+
+    // Is `dateISO` (YYYY-MM-DD) a non-working day FOR THIS EMPLOYEE? Prefers the server's
+    // per-branch work calendar (loaded for the range from workCalendar.ts — weekly off +
+    // holidays + alternate off-Saturdays, each from the employee's OWN branch). Falls back
+    // to the viewing admin's branch check only when the calendar hasn't loaded or doesn't
+    // cover this employee: degraded to the old behaviour, never crashing. This is the fix
+    // for alternate off-Saturdays being counted as absences for other branches' staff.
+    const isNonWorkingForEmployee = (employeeId: string | undefined, dateISO: string): boolean => {
+        if (employeeId) {
+            const key = rangeNonWorking.employeeScopes[employeeId];
+            const set = key ? rangeNonWorking.scopes[key] : undefined;
+            if (set) return set.has(dateISO);
+        }
+        return checkIfWeekendOrHoliday(new Date(`${dateISO}T00:00:00`));
     };
 
     // Helper function: Convert time string to minutes
@@ -461,9 +485,14 @@ function Overview({ date, range }: OverviewProps) {
     // Present / on-leave / extra-day rows (weekend-worked) for the range modals.
     const presentRows = attendance.filter((a: any) => a.checkIn);
     const leaveRows = attendance.filter((a: any) => a.leaveTrackedId);
-    // Extra day = a check-in on a weekend OR a public holiday.
+    // Extra day = a check-in on a non-working day (weekend / holiday / off-Saturday).
+    // Prefer the server's verdict: every punch row is stamped with `dayKind` resolved from
+    // THAT employee's own branch calendar, so an off-Saturday worked in one branch is not
+    // judged by the viewing admin's. Falls back to the admin-branch check for any row that
+    // predates the verdict annotator.
     const extraRows = attendance.filter((a: any) => {
         if (!a.checkIn) return false;
+        if (a.dayKind) return a.dayKind !== "working";
         const day = dayjs(a.checkIn);
         const isWeekend = weekends?.[day.format("dddd").toLowerCase()] === "0";
         return isWeekend || holidayDateKeys.has(day.format(DATE_FORMATS.WIRE));
@@ -487,7 +516,9 @@ function Overview({ date, range }: OverviewProps) {
         ? computeLeaveDaysByDate({
             start: range.start,
             end: range.end,
-            isNonWorking: checkIfWeekendOrHoliday,
+            // Per-employee: a leave over an off-Saturday must not count as on-leave in the
+            // branch that takes it off, matching how the absent walk skips the same day.
+            isNonWorking: (employeeId, date) => isNonWorkingForEmployee(employeeId, dayjs(date).format('YYYY-MM-DD')),
             leaves: rangeLeaveRecords as any,
         })
         : new Map();
@@ -510,9 +541,11 @@ function Overview({ date, range }: OverviewProps) {
             start: range.start,
             end: range.end,
             today: dayjs(),
-            // The same predicate the rest of this page uses, so the modal cannot disagree
-            // with the calendar about which days are working days.
-            isNonWorking: checkIfWeekendOrHoliday,
+            // Per-employee work calendar (server-resolved, each person's own branch). A
+            // no-punch day is an absence only if it was a WORKING day for THAT employee —
+            // judging everyone by the viewing admin's branch is what counted other branches'
+            // alternate off-Saturdays as absences.
+            isNonWorking: (employee: any, date: Date) => isNonWorkingForEmployee(employee?._id, dayjs(date).format('YYYY-MM-DD')),
             // Per-DAY employment. The roster is scoped to the window, which says who
             // belongs in the period; this says which of that period's days each of them
             // was actually on the books for. Without it, someone who left on 14 August
@@ -1249,10 +1282,28 @@ function Overview({ date, range }: OverviewProps) {
                 // On-Leave / Absent can be expanded per day (the attendance fetch is
                 // checkIn-filtered and carries no leave/absent rows).
                 if (useRange && range?.start && range?.end) {
-                    const leaveResp = await fetchEmployeesOnLeaveRange(range.start.format("YYYY-MM-DD"), range.end.format("YYYY-MM-DD"));
-                    if (isMountedRef.current) setRangeLeaveRecords(leaveResp?.data?.leaveRecords || []);
+                    const fromISO = range.start.format("YYYY-MM-DD");
+                    const toISO = range.end.format("YYYY-MM-DD");
+                    // Leaves to expand On-Leave/Absent per day, and the per-employee work
+                    // calendar so each person's off-days come from their OWN branch. Both in
+                    // parallel — neither depends on the other.
+                    const [leaveResp, calResp] = await Promise.all([
+                        fetchEmployeesOnLeaveRange(fromISO, toISO),
+                        fetchAttendanceRangeCalendar(fromISO, toISO).catch(() => null),
+                    ]);
+                    if (isMountedRef.current) {
+                        setRangeLeaveRecords(leaveResp?.data?.leaveRecords || []);
+                        // Rehydrate each scope's date array into a Set for O(1) lookups. A
+                        // failed/absent calendar leaves the maps empty, and the predicate
+                        // below falls back to the admin-branch check — degraded, not broken.
+                        const rawScopes = (calResp?.data?.scopes ?? {}) as Record<string, string[]>;
+                        const scopes: Record<string, Set<string>> = {};
+                        for (const key of Object.keys(rawScopes)) scopes[key] = new Set(rawScopes[key]);
+                        setRangeNonWorking({ scopes, employeeScopes: (calResp?.data?.employeeScopes ?? {}) as Record<string, string> });
+                    }
                 } else if (isMountedRef.current) {
                     setRangeLeaveRecords([]);
+                    setRangeNonWorking({ scopes: {}, employeeScopes: {} });
                 }
                 //     employees:employees,
                 //     rawResponse: response,

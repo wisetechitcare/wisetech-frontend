@@ -214,6 +214,7 @@ export const EMPLOYEE = {
     GET_DOCUMENT_FILE: "api/employee/documents/vault",
     GET_ATTENDANCE_BY_EMP_ID: "api/employee/attendance",
     GET_ALL_ATTENDANCE: "api/employee/attendance/all",
+    GET_ATTENDANCE_RANGE_CALENDAR: "api/employee/attendance/range-calendar",
     CREATE_EMPLOYEE_ATTENDANCE: "api/employee/attendance",
     CHECK_ATTENDANCE_MARKED: "api/employee/attendance/marked",
     MARK_CHECKOUT_ATTENDANCE: "api/employee/attendance",
