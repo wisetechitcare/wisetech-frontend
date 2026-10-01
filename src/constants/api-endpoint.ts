@@ -82,6 +82,7 @@ export const USERS = {
     GET_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
     SAVE_ATTENDANCE_PERIOD_PREFERENCE: '/api/users/attendance-period-preference',
     GET_ATTENDANCE_PERIOD_PREFERENCE: '/api/users/attendance-period-preference',
+    EMAIL_CHECK: 'api/users/email-check',
 }
 
 export const COMPANY = {
