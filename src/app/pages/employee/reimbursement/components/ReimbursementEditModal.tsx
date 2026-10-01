@@ -212,7 +212,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved, editCont
               <div className="row">
                 <div className="col-lg-6 mb-7">
                   <DropDownInput
-                    isRequired={true}
+                    isRequired={false}
                     formikField="clientTypeId"
                     inputLabel="Company Type"
                     placeholder="Select Company Type"
