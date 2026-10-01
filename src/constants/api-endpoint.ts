@@ -681,6 +681,12 @@ export const PROJECT_EXECUTION = {
     // Configuration — amounts are always derived, never posted.
     RECALCULATE_STAGE_AMOUNTS: "api/projects/stages/:stageId/recalculate-amounts",
     GET_DELIVERABLE_CATEGORIES: "api/projects/deliverable-categories",
+    // Deliverables board — the plan's stages/deliverables plus project-only ones, with progress.
+    GET_DELIVERABLE_BOARD: "api/projects/:projectId/deliverable-board",
+    ADD_CUSTOM_STAGE: "api/projects/:projectId/custom-stages",
+    DELETE_CUSTOM_STAGE: "api/projects/custom-stages/:id",
+    ADD_CUSTOM_DELIVERABLE: "api/projects/:projectId/custom-deliverables",
+    DELETE_CUSTOM_DELIVERABLE: "api/projects/custom-deliverables/:id",
 }
 
 // Billing Request — the bridge from execution to finance. Approve/reject/send-back are

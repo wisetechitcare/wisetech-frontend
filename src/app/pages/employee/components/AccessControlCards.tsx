@@ -1,83 +1,53 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Box } from "@mui/material";
 import type { SvgIconComponent } from "@mui/icons-material";
-import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
 import TravelExploreOutlined from "@mui/icons-material/TravelExploreOutlined";
-import EditOutlined from "@mui/icons-material/EditOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import RestartAltRounded from "@mui/icons-material/RestartAltRounded";
 import { ACCESS_SIDEBAR_LAYOUT, AccessLayoutGroup, AccessLayoutNode, layoutLeaves } from "@utils/accessSidebarLayout";
 import { SECTION_ICON } from "@hooks/useNavContainers";
 import { sectionAccent } from "@components/navigation/NavContainers/navTheme";
 import { navIcon } from "@components/navigation/NavContainers/navIcons";
-import { AppIcon, T, WtTooltip } from "@app/modules/common/components/ui";
+import { AppIcon, WtTooltip } from "@app/modules/common/components/ui";
 
 import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
 import type { EffLevel } from "./accessControlTypes";
 import { SECTION_TABS } from "@utils/sectionTabs";
+import { coloredActionBtn } from "@app/modules/configuration";
 
-// Each permission has one icon and one colour — the kit's own (T.color): navy Read, indigo Read all,
-// green Write, bronze Commercials. Icon-only squares in the app's tinted-button style (see
-// ActionIconButton); the tooltip says what each one does.
+// The configure screens' own icon buttons (Project Points): tinted in the permission's colour when on,
+// slate when off. Read is that screen's show/hide eye — green when on, red and slashed when off.
 const KINDS = {
-  read: { name: "Read", Icon: VisibilityOutlined, tone: T.color.brand },
-  readAll: { name: "Read all", Icon: TravelExploreOutlined, tone: T.color.indigo },
-  write: { name: "Write", Icon: EditOutlined, tone: T.color.success },
-  commercial: { name: "Commercials", Icon: PaymentsOutlined, tone: T.color.warning },
+  read: { name: "Read", color: "#059669" },
+  readAll: { name: "Read all", color: "#4f46e5" },
+  write: { name: "Write", color: "#2563eb" },
+  commercial: { name: "Commercials", color: "#d97706" },
 } as const;
+const OFF = "#94a3b8";
 
-const EASE = "cubic-bezier(.22,.61,.36,1)";
-const OFF = "#64748B"; // slate: an off toggle, tinted like the kit's action buttons
+const ToggleIcon: React.FC<{ kind: keyof typeof KINDS; on: boolean }> = ({ kind, on }) => {
+  if (kind === "read") return <AppIcon name={on ? "bi-eye" : "bi-eye-slash"} className="fs-6" />;
+  if (kind === "write") return <AppIcon name="bi-pencil" className="fs-6" />;
+  const Icon = kind === "readAll" ? TravelExploreOutlined : PaymentsOutlined;
+  return <Icon sx={{ fontSize: 16 }} />;
+};
 
 const Toggle: React.FC<{ kind: keyof typeof KINDS; on: boolean; onClick: () => void; disabled?: boolean; tip: string }> = ({ kind, on, onClick, disabled, tip }) => {
-  const { name, Icon, tone } = KINDS[kind];
+  const { name, color } = KINDS[kind];
   return (
     <WtTooltip title={<><b>{name}</b> · {on ? "on" : "off"}<br />{tip}</>}>
-      <Box
-        component="button"
+      <button
         type="button"
         role="switch"
         aria-checked={on}
         aria-label={`${name}: ${tip}`}
         disabled={disabled}
         onClick={onClick}
-        sx={{
-          position: "relative",
-          overflow: "hidden",
-          width: 32,
-          height: 32,
-          flexShrink: 0,
-          display: "grid",
-          placeItems: "center",
-          borderRadius: "9px",
-          border: "1px solid",
-          // Off reads as clearly as the app's other action buttons — the same tinted square, in slate.
-          borderColor: on ? `${tone}5C` : `${OFF}3D`,
-          bgcolor: `${OFF}12`,
-          color: on ? tone : OFF,
-          cursor: disabled ? "not-allowed" : "pointer",
-          opacity: disabled ? 0.45 : 1,
-          transition: `border-color .5s ${EASE}, color .5s ${EASE}`,
-          // The tint spreads out from the centre until it fills the square — slowly, once.
-          "&::before": {
-            content: '""',
-            position: "absolute",
-            inset: 0,
-            borderRadius: "inherit",
-            bgcolor: `${tone}26`,
-            transform: on ? "scale(1)" : "scale(0)",
-            opacity: on ? 1 : 0,
-            transition: `transform .5s ${EASE}, opacity .4s ${EASE}`,
-          },
-          "& > svg": { position: "relative" },
-          "&:hover:not(:disabled)": { borderColor: `${tone}66`, color: tone },
-          "&:focus-visible": { outline: `2px solid ${tone}66`, outlineOffset: 2 },
-          "@media (prefers-reduced-motion: reduce)": { transition: "none", "&::before": { transition: "none" } },
-        }}
+        style={coloredActionBtn(kind === "read" && !on ? "#ef4444" : on ? color : OFF, disabled)}
       >
-        <Icon sx={{ fontSize: 17 }} />
-      </Box>
+        <ToggleIcon kind={kind} on={on} />
+      </button>
     </WtTooltip>
   );
 };
@@ -211,20 +181,14 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
           <Box sx={{ display: "flex", gap: 0.5, alignSelf: "flex-start", flexShrink: 0 }}>
             {isCustom && !readOnly && (
               <WtTooltip title="Reset to role">
-                <Box
-                  component="button"
+                <button
                   type="button"
                   aria-label={`Reset ${node.label} to role`}
                   onClick={() => onResetToRole?.(node.module)}
-                  sx={{
-                    width: 28, height: 28, display: "grid", placeItems: "center", borderRadius: "8px", cursor: "pointer",
-                    border: `1px solid ${OFF}3D`, bgcolor: `${OFF}12`, color: OFF,
-                    transition: "border-color .2s ease, color .2s ease",
-                    "&:hover": { borderColor: `${T.color.brand}66`, color: T.color.brand },
-                  }}
+                  style={coloredActionBtn("#64748B")}
                 >
                   <RestartAltRounded sx={{ fontSize: 16 }} />
-                </Box>
+                </button>
               </WtTooltip>
             )}
             {((tabs && SECTION_TABS[node.module]) || kids) && (

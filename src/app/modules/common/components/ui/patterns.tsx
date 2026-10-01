@@ -484,7 +484,7 @@ export interface UnderlineTabItem<K extends string = string> {
  * start drifting apart.
  */
 export function UnderlineTabs<K extends string>({
-  tabs, value, onChange, sticky = false, ariaLabel, sx,
+  tabs, value, onChange, sticky = false, ariaLabel, sx, actions,
 }: {
   tabs: ReadonlyArray<UnderlineTabItem<K>>;
   value: K;
@@ -493,6 +493,12 @@ export function UnderlineTabs<K extends string>({
   sticky?: boolean;
   ariaLabel?: string;
   sx?: SxProps<Theme>;
+  /**
+   * Controls pinned to the right-hand end of the tab row, on the same rule as the tabs —
+   * for a switch that governs the tab's content and should stay reachable while it scrolls.
+   * Outside the tablist, so it is not announced as a tab.
+   */
+  actions?: React.ReactNode;
 }) {
   return (
     <Box
@@ -510,6 +516,18 @@ export function UnderlineTabs<K extends string>({
         ...(Array.isArray(sx) ? sx : [sx]),
       ] as SxProps<Theme>}
     >
+      {/* The rule moves to this row so the tabs and the actions share one baseline. The
+          tablist keeps the scrolling; the actions stay put at the end of the row rather
+          than scrolling away with a long set of tabs. */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'stretch',
+          gap: 1,
+          borderBottom: 1,
+          borderColor: 'divider',
+        }}
+      >
       <Box
         role="tablist"
         aria-label={ariaLabel}
@@ -517,9 +535,9 @@ export function UnderlineTabs<K extends string>({
           display: 'flex',
           flexWrap: 'nowrap',
           gap: 0.5,
-          // The rule the active indicator sits on; tabs overlap it by 1px.
-          borderBottom: 1,
-          borderColor: 'divider',
+          flex: 1,
+          minWidth: 0,
+          mb: '-1px',
           overflowX: 'auto',
           // The scrollbar under a tab bar is chrome nobody needs; the row still scrolls.
           scrollbarWidth: 'none',
@@ -584,6 +602,12 @@ export function UnderlineTabs<K extends string>({
             </Box>
           );
         })}
+      </Box>
+        {actions && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0, pb: 0.25 }}>
+            {actions}
+          </Box>
+        )}
       </Box>
     </Box>
   );

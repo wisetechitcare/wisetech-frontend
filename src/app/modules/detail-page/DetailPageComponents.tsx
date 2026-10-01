@@ -1,5 +1,9 @@
 import React, { type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { toast } from 'react-toastify';
+import type { RootState } from '@redux/store';
+import { canSection } from '@utils/can';
 import { C, FONT, ICON_COLORS, RADIUS, SP } from '../configuration/ConfigDesignSystem';
 import './DetailPageResponsive.css';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -241,6 +245,11 @@ export const DetailLink: React.FC<{
   avatar?: string;
   style?: CSSProperties;
 }> = ({ href, children, external, avatar, style }) => {
+  // A company / contact page is its own section: without Read on it, the name stays as text and a
+  // click says why instead of opening a page the server would refuse. Re-renders on a live change.
+  useSelector((st: RootState) => (st as any).authz);
+  const lockedSection = href.startsWith('/companies/') ? 'crm.companies' : href.startsWith('/contacts/') ? 'crm.contacts' : null;
+  const locked = !!lockedSection && !canSection(lockedSection);
   const s: CSSProperties = {
     color: C.primary,
     textDecoration: 'none',
@@ -262,6 +271,15 @@ export const DetailLink: React.FC<{
         <a href={href} target="_blank" rel="noopener noreferrer" style={s}>
           {children}
         </a>
+      ) : locked ? (
+        <span
+          role="button"
+          tabIndex={0}
+          style={{ ...s, color: 'inherit', cursor: 'not-allowed' }}
+          onClick={() => toast.info(`You're not authorized to open ${lockedSection === 'crm.companies' ? 'Companies' : 'Contacts'}. Ask an admin for Read access.`, { toastId: 'section-not-authorized' })}
+        >
+          {children}
+        </span>
       ) : (
         <Link to={href} style={s}>
           {children}
@@ -533,6 +551,13 @@ export const DetailSummaryBar: React.FC<{ items: SummaryItem[] }> = ({ items }) 
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
+                // `overflow: hidden` (here for the ellipsis) clips this box tight to the
+                // text, which sliced the edges off a blurred figure — a CSS blur spreads
+                // past the glyphs it is applied to, on every side. The padding gives that
+                // spread somewhere to land and the negative margin cancels it, so the
+                // value sits exactly where it did and the ellipsis still works.
+                padding: '6px',
+                margin: '-6px',
               }}
             >
               {item.value ?? '-'}

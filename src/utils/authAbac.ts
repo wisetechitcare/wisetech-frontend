@@ -18,7 +18,9 @@ const RESOURCE_SECTION: Record<string, string> = {
   // Screen-level resources
   attendancerequest: "attendance",
   attendancerequestlimit: "attendance",
-  attendancereport: "attendance.employees",
+  // The Report table shows your own days (Personal) and, from Employees, other people's — so it
+  // follows SPLIT. Pinned to "attendance.employees" it hid every check-in row from an employee.
+  attendancereport: "attendance",
   leave: "attendance",
   leavecashtransfer: "attendance",
   attendanceconfig: "attendance.employees",

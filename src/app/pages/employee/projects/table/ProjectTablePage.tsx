@@ -303,10 +303,10 @@ const ProjectTablePage = () => {
           // dates live on the lead itself. lead.project is a transitional fallback.
           const project = lead?.project || null;
           const exec = lead?.execution || null;
-          // No explicit start date yet → the lead's received date IS the start
-          // date by definition, so fresh projects sort to the top instead of
-          // sinking to the bottom as "N/A".
-          const startVal = lead?.startDate || lead?.receivedDate || project?.startDate || null;
+          // The lead's received date IS the project's start date (the day it became
+          // a project). startDate was imported equal to inquiryDate on old rows, so
+          // it only stands in when there is no received date.
+          const startVal = lead?.receivedDate || lead?.startDate || project?.startDate || null;
           // actualEndDate is the REAL completion date set via the Project Status
           // control when a project is marked Completed; endDate is only the
           // planned/expected closure. Prefer the real date once it exists so
