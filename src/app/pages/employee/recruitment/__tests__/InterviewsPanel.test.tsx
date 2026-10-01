@@ -18,7 +18,9 @@ const api = vi.hoisted(() => ({
     getApplicationEvaluation: vi.fn(async () => ({ scorecardCount: 0, averageOverall: null, averagePercent: null, verdict: null })),
     getScorecardTemplateForInterview: vi.fn(async () => ({ template: null, scale: null, decisions: null })),
     createInterview: vi.fn(async () => ({})),
-    updateInterview: vi.fn(async () => ({})),
+    // Declared WITH its parameters: a bare `vi.fn(async () => ...)` types `mock.calls` as an
+    // array of empty tuples, so reading `calls[0][0]` is a compile error, not a runtime one.
+    updateInterview: vi.fn(async (_id: string, _payload?: unknown) => ({})),
     submitScorecard: vi.fn(async () => ({})),
 }));
 vi.mock('@services/recruitment', async (importOriginal) => ({
