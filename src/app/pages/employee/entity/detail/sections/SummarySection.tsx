@@ -1,4 +1,5 @@
 import React from 'react';
+import { Box } from '@mui/material';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import { DetailCard, DetailRow, DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
@@ -73,6 +74,16 @@ export const CardGrid: React.FC<{ children: React.ReactNode }> = ({ children }) 
     </div>
   );
 };
+
+/**
+ * Two cards per row on desktop, like CardGrid — but an odd last card keeps its half width.
+ * For pages of short cards, where one stretched edge to edge is mostly empty space.
+ */
+export const TwoUpGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }, gap: 2.5, alignItems: 'stretch' }}>
+    {children}
+  </Box>
+);
 
 /** Section divider with an uppercase label — used where one sub-page holds two domains. */
 export const SectionHeading: React.FC<{ icon: string; title: string; color?: string }> = ({ icon, title, color = '#94A3B8' }) => (
