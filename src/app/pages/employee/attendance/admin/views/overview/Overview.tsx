@@ -183,6 +183,13 @@ function hydrateNonWorking(calResp: any): { scopes: Record<string, Set<string>>;
     return { scopes, employeeScopes: (calResp?.data?.employeeScopes ?? {}) as Record<string, string> };
 }
 
+/** Identity of the period the data on screen belongs to — used to hide stale stats mid-fetch. */
+function periodKeyOf(useRange: boolean, range: { start: dayjs.Dayjs | null; end: dayjs.Dayjs | null } | null | undefined, date: dayjs.Dayjs): string {
+    return useRange && range?.start && range?.end
+        ? `r:${range.start.format('YYYY-MM-DD')}:${range.end.format('YYYY-MM-DD')}`
+        : `d:${date.format('YYYY-MM-DD')}`;
+}
+
 function Overview({ date, range }: OverviewProps) {
     // Weekly/monthly stats load a date range instead of a single day; daily (or no
     // range) keeps the original single-day path untouched.
@@ -190,6 +197,13 @@ function Overview({ date, range }: OverviewProps) {
     const { filterIds } = useTeamFilter();
     const dispatch = useDispatch();
     const [isLoading, setIsLoading] = useState(true);
+    // The period the data currently in state belongs to. Stats are computed synchronously on
+    // every render from this state; when the month/range changes, the new range is applied to
+    // the OLD month's attendance/leave data for one render before the refetch lands — which
+    // makes computeAbsentEntries mark everyone absent (no punches match the new dates) and the
+    // Absent card flash the full roster count. Gating the displayed numbers on this key === the
+    // selected period hides that stale frame. Set only on a successful load.
+    const [loadedKey, setLoadedKey] = useState('');
     const [error, setError] = useState<string | null>(null);
 
     const [employeesOnLeave, setEmployeesOnLeave] = useState<any[]>([]);
@@ -1370,6 +1384,8 @@ function Overview({ date, range }: OverviewProps) {
                     setEmployesLeaveDatas(employesLeaveData);
                     setAttendance(allAttendance);
                     dispatch(saveTotalEmployeeCount(activeEmployees.length));
+                    // Data now matches the selected period — stats are safe to show.
+                    setLoadedKey(periodKeyOf(useRange, range, date));
                 }
                 // console.log("employesLeaveData:=============>", employesLeaveData)
             } catch (err) {
@@ -1448,22 +1464,28 @@ function Overview({ date, range }: OverviewProps) {
         ? countDistinct(absentEntries, (e: any) => e._id)
         : dailyAbsentEmployees.length;
 
+    // Every card number is derived synchronously from the in-state data. Until that data
+    // belongs to the selected period, show a loading dash instead of a number computed against
+    // the previous month's attendance (which reads as "everyone absent"). One guard, all cards.
+    const statsReady = loadedKey === periodKeyOf(useRange, range, date);
+    const stat = (v: string | number) => (statsReady ? `${v}` : '…');
+
     const cardsData: StatCardConfig[] = [
-        { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${presentEmployees}/${totalEmployee || 0}`, label: 'Working Employees' },
-        { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${leaveEmployees}`, label: 'On Leave' },
-        { type: 'late', accent: 'late', img: toAbsoluteUrl('media/svg/misc/late.svg'), stat: `${lateCheckInsCount}`, label: 'Late Check-ins' },
+        { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: stat(`${presentEmployees}/${totalEmployee || 0}`), label: 'Working Employees' },
+        { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: stat(leaveEmployees), label: 'On Leave' },
+        { type: 'late', accent: 'late', img: toAbsoluteUrl('media/svg/misc/late.svg'), stat: stat(lateCheckInsCount), label: 'Late Check-ins' },
         {
             type: 'checkoutMissing',
             accent: 'checkout-missing',
             iconClass: 'bi bi-person-exclamation',
             iconBg: '#FFF4E6',
             iconColor: '#F59E0B',
-            stat: `${checkoutMissingCount}`,
+            stat: stat(checkoutMissingCount),
             label: 'Check-out Missing',
         },
-        { type: 'early', accent: 'early', img: toAbsoluteUrl('media/svg/misc/checkout.svg'), stat: `${earlyCheckOutsCount}`, label: 'Early Check-out' },
-        { type: 'extra', accent: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: `${extraDayCount}`, label: 'Extra Day' },
-        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentEmployees}`, label: 'Absent' },
+        { type: 'early', accent: 'early', img: toAbsoluteUrl('media/svg/misc/checkout.svg'), stat: stat(earlyCheckOutsCount), label: 'Early Check-out' },
+        { type: 'extra', accent: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: stat(extraDayCount), label: 'Extra Day' },
+        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: stat(absentEmployees), label: 'Absent' },
     ];
 
     // Apply the user's saved order; any card not in the saved order keeps its
