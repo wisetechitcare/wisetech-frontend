@@ -52,7 +52,6 @@ function Salary() {
       <PageTitle breadcrumbs={SalaryWizardBreadcrumb}>
         Salary
       </PageTitle>
-      {/* <SalaryView /> */}
       {/* Above the tabs, so the eye in the sticky bar governs every figure on My Salary. The
           Employee Payrolls detail dialog covers the bar, so it keeps an eye of its own — on the
           same state. */}
