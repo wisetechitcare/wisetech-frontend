@@ -11,6 +11,7 @@ describe("rangeCalendar", () => {
         mode: "monthly" as const,
         start: dayjs("2026-08-01"),
         end: dayjs("2026-08-07"),
+        label: "Aug 2026",
     };
 
     it("hydrates scopes into Sets and preserves employeeScopes", () => {
