@@ -6,7 +6,7 @@ import { Attendance } from "@models/employee";
 import { Employee } from "@redux/slices/employee";
 import { saveTotalEmployeeCount } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
-import { fetchAllEmployees, fetchEmployeesOnLeaveToday, fetchEmployeesOnLeaveRange } from "@services/employee";
+import { fetchAllEmployees, fetchEmployeesOnLeaveToday, fetchEmployeesOnLeaveRange, fetchAttendanceRangeCalendar } from "@services/employee";
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
@@ -56,6 +56,7 @@ import type { EmployeeStatGroup } from '@app/modules/common/components/employeeS
 import { computeAbsentEntries, computeLeaveDaysByDate } from "./absentDays";
 import { getEmployeeStatus } from "@utils/employeeStatus";
 import { getTimeTokens } from '@utils/timeFormat';
+import { hydrateNonWorking, isNonWorkingForEmployee as isNonWorkingFromCalendar } from "./rangeCalendar";
 
 // Sort/search/close modal shell and the employee card grid are shared with the
 // Dashboard daily overview — see the two components above, not a local copy.
@@ -175,6 +176,13 @@ interface OverviewProps {
     range?: import("@app/modules/common/components/PeriodFilter").PeriodRange | null;
 }
 
+/** Identity of the period the data on screen belongs to — used to hide stale stats mid-fetch. */
+function periodKeyOf(useRange: boolean, range: { start: dayjs.Dayjs | null; end: dayjs.Dayjs | null } | null | undefined, date: dayjs.Dayjs): string {
+    return useRange && range?.start && range?.end
+        ? `r:${range.start.format('YYYY-MM-DD')}:${range.end.format('YYYY-MM-DD')}`
+        : `d:${date.format('YYYY-MM-DD')}`;
+}
+
 function Overview({ date, range }: OverviewProps) {
     // Weekly/monthly stats load a date range instead of a single day; daily (or no
     // range) keeps the original single-day path untouched.
@@ -182,6 +190,13 @@ function Overview({ date, range }: OverviewProps) {
     const { filterIds } = useTeamFilter();
     const dispatch = useDispatch();
     const [isLoading, setIsLoading] = useState(true);
+    // The period the data currently in state belongs to. Stats are computed synchronously on
+    // every render from this state; when the month/range changes, the new range is applied to
+    // the OLD month's attendance/leave data for one render before the refetch lands — which
+    // makes computeAbsentEntries mark everyone absent (no punches match the new dates) and the
+    // Absent card flash the full roster count. Gating the displayed numbers on this key === the
+    // selected period hides that stale frame. Set only on a successful load.
+    const [loadedKey, setLoadedKey] = useState('');
     const [error, setError] = useState<string | null>(null);
 
     const [employeesOnLeave, setEmployeesOnLeave] = useState<any[]>([]);
@@ -189,6 +204,15 @@ function Overview({ date, range }: OverviewProps) {
     // Approved leaves overlapping the selected week/month (range mode only) — used to
     // expand On-Leave / Absent into per-day stats. Empty in daily mode.
     const [rangeLeaveRecords, setRangeLeaveRecords] = useState<any[]>([]);
+    // Non-working days PER EMPLOYEE for the selected range, from the server's work calendar
+    // (each employee's own branch). `scopes` maps a "companyId|branchId" key to its set of
+    // off-days; `employeeScopes` maps an employee to their key. Range mode only. This is the
+    // authority the Absent walk uses so a no-punch day is judged by the right branch — the
+    // browser can't, it only has the viewing admin's single branch calendar.
+    const [rangeNonWorking, setRangeNonWorking] = useState<{
+        scopes: Record<string, Set<string>>;
+        employeeScopes: Record<string, string>;
+    }>({ scopes: {}, employeeScopes: {} });
     const [attendance, setAttendance] = useState<Attendance[]>([]);
     const [showModal, setShowModal] = useState<ModalType>(null);
     // Weekly/monthly drill-in: which grouped employee is open. Only the key + name are
@@ -302,6 +326,17 @@ function Overview({ date, range }: OverviewProps) {
             dayjs(h.date).format('DD/MM/YYYY') === formattedDate
         );
         return isConfiguredWeekend || isPublicHoliday;
+    };
+
+    // Is `dateISO` (YYYY-MM-DD) a non-working day FOR THIS EMPLOYEE? Prefers the server's
+    // per-branch work calendar (same helper the summary table uses). Falls back to the
+    // viewing admin's branch check only when the calendar hasn't loaded or doesn't cover
+    // this employee: degraded to the old behaviour, never crashing.
+    const isNonWorkingForEmployee = (employeeId: string | undefined, dateISO: string): boolean => {
+        if (employeeId && rangeNonWorking.employeeScopes[employeeId]) {
+            return isNonWorkingFromCalendar(rangeNonWorking, employeeId, dateISO);
+        }
+        return checkIfWeekendOrHoliday(new Date(`${dateISO}T00:00:00`));
     };
 
     // Helper function: Convert time string to minutes
@@ -461,9 +496,14 @@ function Overview({ date, range }: OverviewProps) {
     // Present / on-leave / extra-day rows (weekend-worked) for the range modals.
     const presentRows = attendance.filter((a: any) => a.checkIn);
     const leaveRows = attendance.filter((a: any) => a.leaveTrackedId);
-    // Extra day = a check-in on a weekend OR a public holiday.
+    // Extra day = a check-in on a non-working day (weekend / holiday / off-Saturday).
+    // Prefer the server's verdict: every punch row is stamped with `dayKind` resolved from
+    // THAT employee's own branch calendar, so an off-Saturday worked in one branch is not
+    // judged by the viewing admin's. Falls back to the admin-branch check for any row that
+    // predates the verdict annotator.
     const extraRows = attendance.filter((a: any) => {
         if (!a.checkIn) return false;
+        if (a.dayKind) return a.dayKind !== "working";
         const day = dayjs(a.checkIn);
         const isWeekend = weekends?.[day.format("dddd").toLowerCase()] === "0";
         return isWeekend || holidayDateKeys.has(day.format(DATE_FORMATS.WIRE));
@@ -487,7 +527,9 @@ function Overview({ date, range }: OverviewProps) {
         ? computeLeaveDaysByDate({
             start: range.start,
             end: range.end,
-            isNonWorking: checkIfWeekendOrHoliday,
+            // Per-employee: a leave over an off-Saturday must not count as on-leave in the
+            // branch that takes it off, matching how the absent walk skips the same day.
+            isNonWorking: (employeeId, date) => isNonWorkingForEmployee(employeeId, dayjs(date).format('YYYY-MM-DD')),
             leaves: rangeLeaveRecords as any,
         })
         : new Map();
@@ -510,9 +552,11 @@ function Overview({ date, range }: OverviewProps) {
             start: range.start,
             end: range.end,
             today: dayjs(),
-            // The same predicate the rest of this page uses, so the modal cannot disagree
-            // with the calendar about which days are working days.
-            isNonWorking: checkIfWeekendOrHoliday,
+            // Per-employee work calendar (server-resolved, each person's own branch). A
+            // no-punch day is an absence only if it was a WORKING day for THAT employee —
+            // judging everyone by the viewing admin's branch is what counted other branches'
+            // alternate off-Saturdays as absences.
+            isNonWorking: (employee: any, date: Date) => isNonWorkingForEmployee(employee?._id, dayjs(date).format('YYYY-MM-DD')),
             // Per-DAY employment. The roster is scoped to the window, which says who
             // belongs in the period; this says which of that period's days each of them
             // was actually on the books for. Without it, someone who left on 14 August
@@ -540,27 +584,24 @@ function Overview({ date, range }: OverviewProps) {
     const dailyPresentIds = new Set(
         presentRows.map((a: any) => a.employeeId).filter(Boolean) as string[],
     );
-    // Roster minus present minus on-leave — the SAME set the Absent modal lists.
-    // It used to be `total − present − onLeave` arithmetic against a different present
-    // source than every other card, so the card and its own list could disagree.
-    // Nobody is absent on a day the company does not work: the range path below already
-    // skipped non-working days, this daily path did not, so a weekend/holiday reported
-    // the whole roster minus whoever happened to come in.
-    // Prefer the SERVER's day kind, taken from any row on this day — it is resolved from
-    // each employee's own branch calendar, where `checkIfWeekendOrHoliday` reads the
-    // VIEWING ADMIN's. Falls back to the local check when no row carries a verdict.
-    const serverDayKinds = presentRows
-        .map((a: any) => a.dayKind as string | undefined)
-        .filter(Boolean) as string[];
-    const isNonWorkingDay = serverDayKinds.length
-        ? serverDayKinds.every((k) => k !== 'working')
-        : checkIfWeekendOrHoliday(date.toDate());
-
-    const dailyAbsentEmployees = isNonWorkingDay
-        ? []
-        : allEmployees.filter(
-            (emp) => emp?._id && !dailyPresentIds.has(emp._id) && !dailyLeaveIds.has(emp._id),
-        );
+    // Daily Absent — the SAME per-employee walk the range uses, over the single anchor day,
+    // so the two paths can't diverge. It used to be an ORG-WIDE gate: it sampled `dayKind`
+    // from whoever happened to punch in, so one person on a working-Saturday branch made the
+    // whole day "working" and dragged every off-Saturday branch's staff into absence (and
+    // with no punches it fell back to the viewing admin's branch). Now each employee is judged
+    // by their own branch calendar, exactly like the range path. The roster is already fetched
+    // scoped to who was employed on this day, so per-day employment is handled upstream.
+    const dailyDateKey = date.format('YYYY-MM-DD');
+    const dailyAbsentEmployees = computeAbsentEntries({
+        start: date,
+        end: date,
+        today: dayjs(),
+        isNonWorking: (employee: any, d: Date) => isNonWorkingForEmployee(employee?._id, dayjs(d).format('YYYY-MM-DD')),
+        presentByDay: new Map([[dailyDateKey, dailyPresentIds]]),
+        leaveByDay: new Map([[dailyDateKey, new Map(Array.from(dailyLeaveIds, (id) => [id, {}] as [string, unknown]))]]),
+        roster: allEmployees as any,
+        isEmployedOn: () => true,
+    }) as any[];
 
     // ── Grouping ────────────────────────────────────────────────────────────────
     // The stat lists are per-OCCURRENCE (one row per offending day). On a single day that
@@ -1245,14 +1286,36 @@ function Overview({ date, range }: OverviewProps) {
                     ? await fetchEmpsAttendanceRange(range!.start!.format("YYYY-MM-DD"), range!.end!.format("YYYY-MM-DD"))
                     : await fetchEmpsAttendance(date);
 
+                // Per-employee work calendar — loaded in BOTH modes now. The daily Absent walk
+                // is per-employee too (not an org-wide gate), so it needs each person's own
+                // off-days for the anchor day, not just the viewing admin's branch. Window is
+                // the range (weekly/monthly) or the single anchor day.
+                const calFromISO = (useRange && range?.start ? range.start : date).format("YYYY-MM-DD");
+                const calToISO = (useRange && range?.end ? range.end : date).format("YYYY-MM-DD");
+                const calRespP = fetchAttendanceRangeCalendar(calFromISO, calToISO).catch(() => null);
+
                 // Range mode: also pull approved leaves overlapping the window so
                 // On-Leave / Absent can be expanded per day (the attendance fetch is
                 // checkIn-filtered and carries no leave/absent rows).
                 if (useRange && range?.start && range?.end) {
-                    const leaveResp = await fetchEmployeesOnLeaveRange(range.start.format("YYYY-MM-DD"), range.end.format("YYYY-MM-DD"));
-                    if (isMountedRef.current) setRangeLeaveRecords(leaveResp?.data?.leaveRecords || []);
-                } else if (isMountedRef.current) {
-                    setRangeLeaveRecords([]);
+                    const fromISO = range.start.format("YYYY-MM-DD");
+                    const toISO = range.end.format("YYYY-MM-DD");
+                    const [leaveResp, calResp] = await Promise.all([
+                        fetchEmployeesOnLeaveRange(fromISO, toISO),
+                        calRespP,
+                    ]);
+                    if (isMountedRef.current) {
+                        setRangeLeaveRecords(leaveResp?.data?.leaveRecords || []);
+                        // A failed/absent calendar leaves the maps empty, and the predicate
+                        // below falls back to the admin-branch check — degraded, not broken.
+                        setRangeNonWorking(hydrateNonWorking(calResp));
+                    }
+                } else {
+                    const calResp = await calRespP;
+                    if (isMountedRef.current) {
+                        setRangeLeaveRecords([]);
+                        setRangeNonWorking(hydrateNonWorking(calResp));
+                    }
                 }
                 //     employees:employees,
                 //     rawResponse: response,
@@ -1310,6 +1373,8 @@ function Overview({ date, range }: OverviewProps) {
                     setEmployesLeaveDatas(employesLeaveData);
                     setAttendance(allAttendance);
                     dispatch(saveTotalEmployeeCount(activeEmployees.length));
+                    // Data now matches the selected period — stats are safe to show.
+                    setLoadedKey(periodKeyOf(useRange, range, date));
                 }
                 // console.log("employesLeaveData:=============>", employesLeaveData)
             } catch (err) {
@@ -1388,22 +1453,28 @@ function Overview({ date, range }: OverviewProps) {
         ? countDistinct(absentEntries, (e: any) => e._id)
         : dailyAbsentEmployees.length;
 
+    // Every card number is derived synchronously from the in-state data. Until that data
+    // belongs to the selected period, show a loading dash instead of a number computed against
+    // the previous month's attendance (which reads as "everyone absent"). One guard, all cards.
+    const statsReady = loadedKey === periodKeyOf(useRange, range, date);
+    const stat = (v: string | number) => (statsReady ? `${v}` : '…');
+
     const cardsData: StatCardConfig[] = [
-        { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${presentEmployees}/${totalEmployee || 0}`, label: 'Working Employees' },
-        { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${leaveEmployees}`, label: 'On Leave' },
-        { type: 'late', accent: 'late', img: toAbsoluteUrl('media/svg/misc/late.svg'), stat: `${lateCheckInsCount}`, label: 'Late Check-ins' },
+        { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: stat(`${presentEmployees}/${totalEmployee || 0}`), label: 'Working Employees' },
+        { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: stat(leaveEmployees), label: 'On Leave' },
+        { type: 'late', accent: 'late', img: toAbsoluteUrl('media/svg/misc/late.svg'), stat: stat(lateCheckInsCount), label: 'Late Check-ins' },
         {
             type: 'checkoutMissing',
             accent: 'checkout-missing',
             iconClass: 'bi bi-person-exclamation',
             iconBg: '#FFF4E6',
             iconColor: '#F59E0B',
-            stat: `${checkoutMissingCount}`,
+            stat: stat(checkoutMissingCount),
             label: 'Check-out Missing',
         },
-        { type: 'early', accent: 'early', img: toAbsoluteUrl('media/svg/misc/checkout.svg'), stat: `${earlyCheckOutsCount}`, label: 'Early Check-out' },
-        { type: 'extra', accent: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: `${extraDayCount}`, label: 'Extra Day' },
-        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentEmployees}`, label: 'Absent' },
+        { type: 'early', accent: 'early', img: toAbsoluteUrl('media/svg/misc/checkout.svg'), stat: stat(earlyCheckOutsCount), label: 'Early Check-out' },
+        { type: 'extra', accent: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: stat(extraDayCount), label: 'Extra Day' },
+        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: stat(absentEmployees), label: 'Absent' },
     ];
 
     // Apply the user's saved order; any card not in the saved order keeps its

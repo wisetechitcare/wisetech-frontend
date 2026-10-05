@@ -2,13 +2,13 @@ import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { parseWorkingDays } from '@utils/workingDays';
 import { Bar, Donut, HeatMap, MultipleRadialBar, Polar, ReportsTable, StokedCircle, StatisticsTable, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
-import { CHECK_OUT_MISSING, EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, ON_LEAVE, TOTAL_WORKING_DAYS, months } from '@constants/statistics';
+import { CHECK_OUT_MISSING, EARLY_CHECKIN, EARLY_CHECKOUT, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, ON_LEAVE, TOTAL_WORKING_DAYS, WEEKEND, months } from '@constants/statistics';
 import { saveLeaves, savePublicHolidays } from '@redux/slices/attendanceStats';
 import { RootState, store } from '@redux/store';
 import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration } from '@services/company';
 import { fetchAttendanceClassification, fetchEmployeeLeaves } from '@services/employee';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
-import { barYearlyData, fetchEmpYearlyStatistics, pieAreaData, pieAreaLabels, donutaDataLabel, totalWorkingTime, getWorkingDaysInYear, yearHeatMap, totalProgressPercent, allStreaksIndicator, customLeaves, getWorkingDaysInRange, formatDisplay, getWorkingDaysInRangeForTotalTime } from '@utils/statistics';
+import { barYearlyData, fetchEmpYearlyStatistics, pieAreaData, pieAreaLabels, yearHeatMap, totalProgressPercent, allStreaksIndicator, customLeaves, formatDisplay } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -20,11 +20,10 @@ import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { shouldShowBranchSetupGuide } from '@utils/shouldShowBranchSetupGuide';
 import BranchSetupGuide from './components/BranchSetupGuide';
 import { LeaveStatus } from '@constants/attendance';
-import { countTotalWeekends } from '@utils/countTotalWeekend';
 import { calculateTotalDuration } from '@utils/calculateTotalDuration';
 import Loader from '@app/modules/common/utils/Loader';
-import { fetchAppSettings } from '@redux/slices/appSettings';
 import LazySection from '@app/modules/common/components/LazySection';
+import { useCalendarChartStats } from './useCalendarChartStats';
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -242,20 +241,15 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
             .catch(console.error);
     }, [selectedEmployeeId, year, endDate]);
 
-     // Memoize totalWeekend count (computed value)
-        const totalWeekendCount = useMemo(() => {
-            return countTotalWeekends(
-                year.format('YYYY-MM-DD'),
-                endDate.format('YYYY-MM-DD'),
-                filteredPublicHolidays,
-                allWeekends
-            );
-        }, [year, endDate, filteredPublicHolidays, allWeekends]);
-        
-    // Calculate chart data based on filtered data
-    const donutData = useMemo(() => donutaDataLabel(filteredAttendance, filteredLeaves, filteredPublicHolidays, fromAdmin, totalWeekendCount), 
-        [filteredAttendance, filteredLeaves, filteredPublicHolidays, fromAdmin, totalWeekendCount]);
-    
+    const {
+        workingDays: actualTotalWorkingDayInYear,
+        donut: donutData,
+        isLoading: calendarLoading,
+    } = useCalendarChartStats(selectedEmployeeId, year.startOf('year'), endDate, {
+        throughToday: dateSettingsEnabled && endDate.isSame(dayjs(), 'day'),
+    });
+    const totalWeekendCount = donutData.get(WEEKEND) || 0;
+
     const donutLabels: string[] = Array.from(donutData.keys());
     const donutSeries: number[] = Array.from(donutData.values());
     
@@ -265,16 +259,6 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
     const polarLabels: string[] = useMemo(() => pieAreaLabels(filteredYearlyStats), [filteredYearlyStats]);
     const polarSeries: number[] = useMemo(() => pieAreaData(filteredYearlyStats), [filteredYearlyStats]);
 
-    // Calculate working days
-    const totalWorkingDayInYear = useMemo(() => {
-        return getWorkingDaysInRange(year, endDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays);
-    }, [year, endDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays]);
-    
-    const findIsWeekendTrueAndCount = filteredPublicHolidays.filter((holiday: any) => holiday.isWeekend === true).length;
-    const workedOnHolidaOrWeekend = donutData.get(EXTRA_DAYS) || 0;
-    const actualTotalWorkingDayInYear = (totalWorkingDayInYear - findIsWeekendTrueAndCount) + workedOnHolidaOrWeekend;
-
-    const holidays = donutData.get(HOLIDAYS) || 0;
     const leaves = donutData.get(ON_LEAVE) || 0;
     const checkoutMissing = donutData.get(CHECK_OUT_MISSING) || 0;
     
@@ -298,16 +282,11 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
     const totalMinutes = hours * 60 + minutes;
     
     const totalAllowedTimeForOutOffValue = useMemo(() => {
-        const days  =  getWorkingDaysInRangeForTotalTime(year, endDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays) || 0;
-        const totalMinutesFinal = days*totalMinutes || 0;
-        // convert back to h m format
+        const totalMinutesFinal = (actualTotalWorkingDayInYear * totalMinutes) || 0;
         const finalHours = Math.floor(totalMinutesFinal / 60);
         const finalMinutes = totalMinutesFinal % 60;
-        const totalAllowedTime = `${finalHours}h ${finalMinutes}m`;   
-        return totalAllowedTime;
-    },
-        [year, endDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays, totalMinutes]
-    );
+        return `${finalHours}h ${finalMinutes}m`;
+    }, [actualTotalWorkingDayInYear, totalMinutes]);
     
     const totalAllowedMinutes = (actualTotalWorkingDayInYear - leaves) * totalMinutes;
     
@@ -331,7 +310,7 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
         return <BranchSetupGuide />;
     }
 
-    if (!dataLoaded) {
+    if (!dataLoaded || calendarLoading) {
         return <Loader/>
     }
 

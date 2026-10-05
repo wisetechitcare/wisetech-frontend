@@ -33,11 +33,15 @@ export interface AbsentDayOptions<T> {
      */
     today: dayjs.Dayjs;
     /**
-     * Is this a day the company does not work — weekly off, public holiday, or a one-off
-     * off-Saturday? Injected because the Overview already owns that decision and both it
-     * and this function must give the same answer.
+     * Is this a non-working day FOR THIS EMPLOYEE — their branch's weekly off, a public
+     * holiday, or a one-off off-Saturday? Per-employee, not per-board: the same calendar
+     * date can be a working day in one branch and an off-Saturday in another, and judging
+     * everyone by the viewing admin's single branch is exactly what turned alternate
+     * off-Saturdays into phantom absences. The Overview feeds this from the server's work
+     * calendar (`workCalendar.ts`, resolved per the employee's own branch), so this file
+     * no longer re-derives the calendar — it only asks.
      */
-    isNonWorking: (date: Date) => boolean;
+    isNonWorking: (employee: T, date: Date) => boolean;
     /** employeeIds with attendance, keyed YYYY-MM-DD. */
     presentByDay: ReadonlyMap<string, ReadonlySet<string>>;
     /** employeeIds on approved leave, keyed YYYY-MM-DD. */
@@ -76,15 +80,18 @@ export function computeAbsentEntries<T extends { _id?: string }>(
     const end = rangeEnd.isAfter(today) ? today : rangeEnd;
 
     for (let d = start; d.isBefore(end) || d.isSame(end, 'day'); d = d.add(1, 'day')) {
-        if (opts.isNonWorking(d.toDate())) continue;
-
         const key = d.format('YYYY-MM-DD');
+        const date = d.toDate();
         const present = opts.presentByDay.get(key);
         const onLeave = opts.leaveByDay.get(key);
 
         for (const employee of opts.roster) {
             const id = employee?._id;
             if (!id) continue;
+            // Non-working FOR THIS EMPLOYEE — their branch's off-day, a holiday, or an
+            // off-Saturday. Judged per employee because a Saturday that is off in one
+            // branch is a working day in another; one shared calendar is the bug.
+            if (opts.isNonWorking(employee, date)) continue;
             // Not employed that day — a leaver is absent on none of the days after
             // they left, and a joiner on none of the days before they arrived.
             if (!opts.isEmployedOn(employee, d)) continue;
@@ -108,8 +115,13 @@ export interface LeaveRecordLike {
 export interface LeaveDayOptions {
     start: dayjs.Dayjs;
     end: dayjs.Dayjs;
-    /** Same predicate `computeAbsentEntries` uses — see the note there. */
-    isNonWorking: (date: Date) => boolean;
+    /**
+     * Same per-employee calendar the absent walk uses — keyed here by `employeeId`,
+     * because a leave record carries one. A leave spanning an off-Saturday must not
+     * count that day as on-leave in the branch that takes it off, exactly as the absent
+     * walk skips it. See the note on `AbsentDayOptions.isNonWorking`.
+     */
+    isNonWorking: (employeeId: string, date: Date) => boolean;
     leaves: readonly LeaveRecordLike[];
 }
 
@@ -147,7 +159,7 @@ export function computeLeaveDaysByDate(
         const stop = leaveEnd.isAfter(end) ? end : leaveEnd;
 
         for (; d.isBefore(stop) || d.isSame(stop, 'day'); d = d.add(1, 'day')) {
-            if (opts.isNonWorking(d.toDate())) continue;
+            if (opts.isNonWorking(leave.employeeId, d.toDate())) continue;
             const key = d.format('YYYY-MM-DD');
             if (!byDay.has(key)) byDay.set(key, new Map());
             const slot = byDay.get(key)!;
