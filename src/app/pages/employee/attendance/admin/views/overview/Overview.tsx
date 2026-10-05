@@ -56,6 +56,7 @@ import type { EmployeeStatGroup } from '@app/modules/common/components/employeeS
 import { computeAbsentEntries, computeLeaveDaysByDate } from "./absentDays";
 import { getEmployeeStatus } from "@utils/employeeStatus";
 import { getTimeTokens } from '@utils/timeFormat';
+import { hydrateNonWorking, isNonWorkingForEmployee as isNonWorkingFromCalendar } from "./rangeCalendar";
 
 // Sort/search/close modal shell and the employee card grid are shared with the
 // Dashboard daily overview — see the two components above, not a local copy.
@@ -173,14 +174,6 @@ interface OverviewProps {
     // stat cards aggregate over [start, end]; daily (or null) keeps the single-day
     // behaviour. Optional so existing callers stay backward compatible.
     range?: import("@app/modules/common/components/PeriodFilter").PeriodRange | null;
-}
-
-/** Rehydrate the range-calendar response into Sets for O(1) non-working lookups. */
-function hydrateNonWorking(calResp: any): { scopes: Record<string, Set<string>>; employeeScopes: Record<string, string> } {
-    const rawScopes = (calResp?.data?.scopes ?? {}) as Record<string, string[]>;
-    const scopes: Record<string, Set<string>> = {};
-    for (const key of Object.keys(rawScopes)) scopes[key] = new Set(rawScopes[key]);
-    return { scopes, employeeScopes: (calResp?.data?.employeeScopes ?? {}) as Record<string, string> };
 }
 
 /** Identity of the period the data on screen belongs to — used to hide stale stats mid-fetch. */
@@ -336,16 +329,12 @@ function Overview({ date, range }: OverviewProps) {
     };
 
     // Is `dateISO` (YYYY-MM-DD) a non-working day FOR THIS EMPLOYEE? Prefers the server's
-    // per-branch work calendar (loaded for the range from workCalendar.ts — weekly off +
-    // holidays + alternate off-Saturdays, each from the employee's OWN branch). Falls back
-    // to the viewing admin's branch check only when the calendar hasn't loaded or doesn't
-    // cover this employee: degraded to the old behaviour, never crashing. This is the fix
-    // for alternate off-Saturdays being counted as absences for other branches' staff.
+    // per-branch work calendar (same helper the summary table uses). Falls back to the
+    // viewing admin's branch check only when the calendar hasn't loaded or doesn't cover
+    // this employee: degraded to the old behaviour, never crashing.
     const isNonWorkingForEmployee = (employeeId: string | undefined, dateISO: string): boolean => {
-        if (employeeId) {
-            const key = rangeNonWorking.employeeScopes[employeeId];
-            const set = key ? rangeNonWorking.scopes[key] : undefined;
-            if (set) return set.has(dateISO);
+        if (employeeId && rangeNonWorking.employeeScopes[employeeId]) {
+            return isNonWorkingFromCalendar(rangeNonWorking, employeeId, dateISO);
         }
         return checkIfWeekendOrHoliday(new Date(`${dateISO}T00:00:00`));
     };
