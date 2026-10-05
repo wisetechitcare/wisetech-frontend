@@ -1,43 +1,30 @@
-import React from 'react';
-import { projectOverviewIcons } from "@metronic/assets/sidepanelicons";
 import dayjs from "dayjs";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { Box } from "@mui/material";
+import { DetailCard, DetailRow, DetailMapLink, DetailLink } from "@app/modules/detail-page/DetailPageComponents";
+import { CardGrid } from "@app/pages/employee/entity/detail/sections/SummarySection";
+import { DASH } from "@app/pages/employee/entity/detail/entityViewModel";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
+import { AppIcon, ToneChip, WhatsAppIcon, WtButton } from "@app/modules/common/components/ui";
+import { coordsOf, telLink, mailLink, webLink, companyStatusChip } from "../../companies/components/CompanyOverview";
 
+const fmt = (v?: string | null) => (v ? dayjs(v).format("DD MMM YYYY") : DASH);
+const joinAddress = (o: any) =>
+  [o?.address, o?.area, o?.city, o?.state, o?.country, o?.zipCode].filter(Boolean).join(", ");
+
+/** Contact → Overview tab, on the same DetailCard kit as the lead / employee detail pages. */
 const ContactOverview = ({ contact }: { contact: any }) => {
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "-";
-    return dayjs(dateString).format("DD-MM-YYYY");
-  };
-
   const navigate = useNavigate();
-  const handleViewCompany = () => {
-    navigate(`/companies/${contact?.company?.id}`);
-  };
+  const company = contact?.company;
+  const contactCoords = coordsOf(contact?.latitude, contact?.longitude);
+  const companyCoords = coordsOf(company?.latitude, company?.longitude);
+
+  // The admin-configured status owns label and colour (same rule as the header).
+  const statusName: string =
+    contact?.ClientContactStatus?.name || (contact?.isContactActive === false ? "Inactive" : "Active");
+  const statusColor: string | undefined = contact?.ClientContactStatus?.color || undefined;
 
   const handleWhatsAppShare = () => {
-    // Format contact address
-    const contactAddressParts = [
-      contact?.address,
-      contact?.area,
-      contact?.city,
-      contact?.state,
-      contact?.country,
-      contact?.zipCode,
-    ].filter(Boolean);
-    const contactAddress = contactAddressParts.length ? contactAddressParts.join(", ") : 'N/A';
-
-    // Format company address
-    const companyAddressParts = contact?.company ? [
-      contact.company.address,
-      contact.company.area,
-      contact.company.city,
-      contact.company.state,
-      contact.company.country,
-      contact.company.zipCode,
-    ].filter(Boolean) : [];
-    const companyAddress = companyAddressParts.length ? companyAddressParts.join(", ") : 'N/A';
-
-    // Create comprehensive contact message
     const message = `📋 Contact Information:
 
 👤 PERSONAL DETAILS:
@@ -46,808 +33,94 @@ const ContactOverview = ({ contact }: { contact: any }) => {
 • Phone: ${contact?.phone || 'N/A'}
 ${contact?.phone2 ? `• Phone 2: ${contact.phone2}` : ''}
 • Gender: ${contact?.gender || 'N/A'}
-• Date of Birth: ${formatDate(contact?.dateOfBirth)}
+• Date of Birth: ${fmt(contact?.dateOfBirth)}
 • Role: ${contact?.roleInCompany || 'N/A'}
-• Anniversary: ${formatDate(contact?.anniversary)}
-• Address: ${contactAddress}
-• Status: ${contact?.isContactActive ? 'Active' : 'Inactive'}
+• Anniversary: ${fmt(contact?.anniversary)}
+• Address: ${joinAddress(contact) || 'N/A'}
+• Status: ${statusName}
 • Primary Contact: ${contact?.isPrimaryContact ? 'Yes' : 'No'}
 
 🏢 COMPANY DETAILS:
-• Company: ${contact?.company?.companyName || 'N/A'}
-• Status: ${contact?.company?.status === 'ACTIVE' ? 'Active' : contact?.company?.status === 'CLOSED' ? 'Inactive' : (contact?.company?.status || 'N/A')}
-• Rating: ${contact?.company?.overallRating ? `${contact.company.overallRating}/5` : 'N/A'}
-• Phone: ${contact?.company?.phone || 'N/A'}
-${contact?.company?.phone2 ? `• Phone 2: ${contact.company.phone2}` : ''}
-• Email: ${contact?.company?.email || 'N/A'}
-• Website: ${contact?.company?.website || 'N/A'}
-• Fax: ${contact?.company?.fax || 'N/A'}
-• Address: ${companyAddress}
-• Blacklisted: ${contact?.company?.blacklisted ? 'Yes' : 'No'}`;
-
-    // Create WhatsApp URL
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-
-    // Open WhatsApp
-    window.open(whatsappUrl, '_blank');
+• Company: ${company?.companyName || 'N/A'}
+• Status: ${company?.status === 'ACTIVE' ? 'Active' : company?.status === 'CLOSED' ? 'Inactive' : (company?.status || 'N/A')}
+• Rating: ${company?.overallRating ? `${company.overallRating} / 10` : 'N/A'}
+• Phone: ${company?.phone || 'N/A'}
+${company?.phone2 ? `• Phone 2: ${company.phone2}` : ''}
+• Email: ${company?.email || 'N/A'}
+• Website: ${company?.website || 'N/A'}
+• Fax: ${company?.fax || 'N/A'}
+• Address: ${joinAddress(company) || 'N/A'}
+• Blacklisted: ${company?.blacklisted ? 'Yes' : 'No'}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   return (
-    <div>
-      <div className="row mt-5">
-        {/* Contact Details */}
-        <div className="col-md-6">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between mb-5">
-                <div className="d-flex align-items-center gap-2">
-                  <img
-                    src={projectOverviewIcons.projectOverviewIcon.default}
-                    alt=""
-                    style={{ width: "44px", height: "44px", cursor: "pointer" }}
-                  />
-                  <span
-                    style={{
-                      fontFamily: "Barlow",
-                      fontSize: "19px",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Personal Details
-                  </span>
-                </div>
-                <button
-                  className="btn btn-success btn-sm d-flex align-items-center gap-1"
-                  onClick={handleWhatsAppShare}
-                  style={{
-                    padding: "6px 12px",
-                    fontSize: "14px",
-                    borderRadius: "6px"
-                  }}
-                  title="Share via WhatsApp"
-                >
-                  <i className="fab fa-whatsapp"></i>
-                  Share
-                </button>
-              </div>
+    <CardGrid>
+      <DetailCard
+        title="Personal Details"
+        subtitle="Who they are"
+        icon="bi bi-person"
+        accentColor="primary"
+        actions={
+          <WtButton inverted size="small" onClick={handleWhatsAppShare} startIcon={<WhatsAppIcon size={15} />}>
+            Share
+          </WtButton>
+        }
+      >
+        <DetailRow label="Full Name" value={contact?.fullName || DASH} />
+        <DetailRow label="Gender" value={contact?.gender || DASH} />
+        <DetailRow label="Date of Birth" value={fmt(contact?.dateOfBirth)} />
+        <DetailRow label="Anniversary" value={fmt(contact?.anniversary)} />
+        <DetailRow label="Role in Company" value={contact?.roleInCompany || DASH} />
+        <DetailRow label="Primary Contact" value={contact?.isPrimaryContact ? <ToneChip dense tone="warning" label="Primary" /> : "No"} />
+        <DetailRow label="Status" value={<ToneChip dense tone="success" color={statusColor} label={statusName} />} />
+        <DetailRow label="Visibility" value={contact?.visibility || DASH} isLast />
+      </DetailCard>
 
-              {/* Full Name */}
-              <div className="d-flex align-items-center justify-content-between mt-4">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Full Name
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.fullName || "-"}
-                </div>
-              </div>
+      <DetailCard title="Contact & Address" subtitle="How to reach them" icon="bi bi-telephone" accentColor="blue">
+        <DetailRow label="Email" value={mailLink(contact?.email)} />
+        <DetailRow label="Phone" value={telLink(contact?.phone)} />
+        <DetailRow label="Phone 2" value={telLink(contact?.phone2)} />
+        <DetailRow label="Address" value={joinAddress(contact) || DASH} isLast={!contactCoords} />
+        {contactCoords && <DetailRow label="Location" value={<DetailMapLink lat={contactCoords.lat} lng={contactCoords.lng} />} isLast />}
+      </DetailCard>
 
-              {/* Email */}
-              <div className="d-flex align-items-center justify-content-between mt-4">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Email
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.email || "-"}
-                </div>
-              </div>
+      <DetailCard
+        title="Company"
+        subtitle="Where they work"
+        icon="bi bi-buildings"
+        accentColor="purple"
+        actions={company?.id ? (
+          <WtButton inverted size="small" onClick={() => navigate(`/companies/${company.id}`)} startIcon={<AppIcon name="exit-right-corner" className="fs-6" />}>
+            View company
+          </WtButton>
+        ) : undefined}
+      >
+        <DetailRow
+          label="Company"
+          value={company?.id ? (
+            <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}>
+              <SmartAvatar name={company.companyName} id={company.id} imageUrl={company.logo} size={24} shape="rounded" />
+              <DetailLink href={`/companies/${company.id}`}>{company.companyName}</DetailLink>
+            </Box>
+          ) : DASH}
+        />
+        <DetailRow label="Status" value={companyStatusChip(company?.status)} />
+        <DetailRow label="Overall Rating" value={company?.overallRating ? `${company.overallRating} / 10` : DASH} />
+        <DetailRow label="Blacklisted" value={company?.blacklisted ? <ToneChip dense tone="danger" label="Yes" /> : company ? "No" : DASH} />
+        <DetailRow label="Visibility" value={company?.visibility || DASH} isLast />
+      </DetailCard>
 
-              {/* Phone */}
-              <div className="d-flex align-items-center justify-content-between mt-4">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Phone
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.phone || "-"}
-                </div>
-              </div>
-
-              {/* Phone 2 */}
-              <div className="d-flex align-items-center justify-content-between mt-4">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Phone 2
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.phone2 || "-"}
-                </div>
-              </div>
-
-              {/* Gender */}
-              <div className="d-flex align-items-center justify-content-between mt-4">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Gender
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.gender || "-"}
-                </div>
-              </div>
-
-              {/* Date of Birth */}
-              <div className="d-flex align-items-center justify-content-between mt-4">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Date of Birth
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {formatDate(contact?.dateOfBirth)}
-                </div>
-              </div>
-
-              {/* Role in Company */}
-              <div className="d-flex align-items-center justify-content-between mt-4">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Role in Company
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.roleInCompany || "-"}
-                </div>
-              </div>
-
-              {/* Primary Contact */}
-              <div className="d-flex align-items-center justify-content-between mt-4">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Primary Contact
-                </div>
-                {typeof contact?.isPrimaryContact === 'boolean' ? (
-                  <div
-                    style={{
-                      backgroundColor: contact.isPrimaryContact ? "green" : "gray",
-                      color: "white",
-                      padding: "5px 12px",
-                      borderRadius: "20px",
-                      opacity: "0.8",
-                      fontSize: "14px",
-                      fontWeight: "400",
-                      fontFamily: "Inter",
-                    }}
-                  >
-                    {contact.isPrimaryContact ? "Yes" : "No"}
-                  </div>
-                ) : (
-                  <div style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 400 }}>-</div>
-                )}
-              </div>
-
-              {/* Status */}
-              <div className="d-flex align-items-center justify-content-between mt-4">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Status
-                </div>
-                <div
-                  style={{
-                    backgroundColor:
-                      contact?.isContactActive ? "#50cd89" : "#f1416c",
-                    color: "white",
-                    padding: "5px 12px",
-                    borderRadius: "20px",
-                    opacity: "0.8",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                    fontFamily: "Inter",
-                  }}
-                >
-                  {contact?.isContactActive ? "Active" : "Inactive"}
-                </div>
-              </div>
-
-              {/* Visibility */}
-              <div className="d-flex align-items-center justify-content-between mt-4">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Visibility
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.visibility || "-"}
-                </div>
-              </div>
-
-              {/* Anniversary */}
-              <div className="d-flex align-items-center justify-content-between mt-4">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Anniversary
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {formatDate(contact?.anniversary)}
-                </div>
-              </div>
-
-              {/* Contact Address */}
-              <div className="d-flex align-items-center justify-content-between mt-4">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Address
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                    textAlign: "right",
-                    maxWidth: "200px"
-                  }}
-                >
-                  {(() => {
-                    const parts = [
-                      contact?.address,
-                      contact?.area,
-                      contact?.city,
-                      contact?.state,
-                      contact?.country,
-                      contact?.zipCode,
-                    ].filter(Boolean);
-                    return parts.length ? parts.join(", ") : '-';
-                  })()}
-                </div>
-              </div>
-
-              {/* View on map link for Contact - ONLY if coordinates are valid and non-zero */}
-              {(() => {
-                const lat = parseFloat(String(contact?.latitude));
-                const lng = parseFloat(String(contact?.longitude));
-                if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-                  return (
-                    <div className="d-flex align-items-center justify-content-between mt-4">
-                      <div
-                        style={{
-                          fontFamily: "Inter",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                        }}
-                      >
-                        Location
-                      </div>
-                      <div className="d-flex align-items-center" style={{ gap: "4px" }}>
-                        <img
-                          src={projectOverviewIcons.mapIcon?.default}
-                          alt=""
-                          style={{ width: "20px", height: "20px" }}
-                        />
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            color: "#1E3A8A",
-                            textDecoration: "none",
-                            fontWeight: "400",
-                            fontFamily: "Inter",
-                            fontSize: "14px"
-                          }}
-                        >
-                          View on map
-                        </a>
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-
-            </div>
-          </div>
-        </div>
-
-        {/* Company Details */}
-        <div className="col-md-6">
-          <div className="card h-100">
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between mb-4">
-                <div className="d-flex align-items-center gap-2">
-                  <img
-                    src={projectOverviewIcons.clientsIcon.default}
-                    alt=""
-                    style={{ width: "44px", height: "44px", cursor: "pointer" }}
-                  />
-                  <span
-                    style={{
-                      fontFamily: "Barlow",
-                      fontSize: "19px",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Company Info
-                  </span>
-                </div>
-                <button
-                className='btn btn-primary'
-                  onClick={handleViewCompany}
-                  style={{
-                    color: "white",
-                    padding: "8px 16px",
-                    borderRadius: "6px",
-                    border: "none",
-                    fontSize: "14px",
-                    cursor: "pointer",
-                    fontFamily: "Inter"
-                  }}
-                >
-                  View Company
-                </button>
-              </div>
-
-              {/* Company Logo */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Company Logo
-                </div>
-                <div>
-                  {contact?.company?.logo ? (
-                    <img
-                      src={contact.company.logo}
-                      alt="Company Logo"
-                      style={{
-                        width: "40px",
-                        height: "40px",
-                        objectFit: "contain",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "4px"
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: "40px",
-                        height: "40px",
-                        backgroundColor: "#f3f4f6",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "4px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      🏢
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Company Name */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Company Name
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {/* {contact?.company?.companyName || "-"} */}
-                  <Link to={`/companies/${contact?.company?.id}`}>{contact?.company?.companyName || "-"}</Link>
-                </div>
-              </div>
-
-              {/* Company Status */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Company Status
-                </div>
-                <div
-                  style={{
-                    backgroundColor: contact?.company?.status === "ACTIVE" ? "#50cd89" : "#f1416c",
-                    color: "white",
-                    padding: "5px 12px",
-                    borderRadius: "20px",
-                    opacity: "0.8",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                    fontFamily: "Inter",
-                  }}
-                >
-                  {contact?.company?.status === "ACTIVE" ? "Active" : contact?.company?.status === "CLOSED" ? "Inactive" : (contact?.company?.status || "-")}
-                </div>
-              </div>
-
-              {/* Overall Rating */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Overall Rating
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.company?.overallRating ? `${contact.company.overallRating}/5` : "-"}
-                </div>
-              </div>
-
-              {/* Company Phone */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Company Phone
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.company?.phone || "-"}
-                </div>
-              </div>
-
-              {/* Company Phone 2 */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Company Phone 2
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.company?.phone2 || "-"}
-                </div>
-              </div>
-
-              {/* Company Email */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Company Email
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.company?.email || "-"}
-                </div>
-              </div>
-
-              {/* Company Fax */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Fax
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.company?.fax || "-"}
-                </div>
-              </div>
-
-              {/* Website */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Website
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.company?.website ? (
-                    <a 
-                      href={`https://${contact.company.website}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      style={{ color: "#3b82f6", textDecoration: "none" }}
-                    >
-                      {contact.company.website}
-                    </a>
-                  ) : "-"}
-                </div>
-              </div>
-
-              {/* Company Address */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Company Address
-                </div>
-                <div style={{ 
-                  fontFamily: "Inter", 
-                  fontSize: "14px",
-                  fontWeight: "400",
-                  textAlign: "right",
-                  maxWidth: "200px"
-                }}>
-                  {(() => {
-                    if (!contact?.company) return '-';
-                    const c = contact.company;
-                    const parts = [c.address, c.area, c.city, c.state, c.country, c.zipCode].filter(Boolean);
-                    return parts.length ? parts.join(', ') : '-';
-                  })()}
-                </div>
-              </div>
-
-              {/* View on map link for Company - ONLY if coordinates are valid and non-zero */}
-              {(() => {
-                const lat = parseFloat(String(contact?.company?.latitude));
-                const lng = parseFloat(String(contact?.company?.longitude));
-                if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-                  return (
-                    <div className="d-flex align-items-center justify-content-between mt-3">
-                      <div
-                        style={{
-                          fontFamily: "Inter",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                        }}
-                      >
-                        Location
-                      </div>
-                      <div className="d-flex align-items-center" style={{ gap: "4px" }}>
-                        <img
-                          src={projectOverviewIcons.mapIcon?.default}
-                          alt=""
-                          style={{ width: "20px", height: "20px" }}
-                        />
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            color: "#1E3A8A",
-                            textDecoration: "none",
-                            fontWeight: "400",
-                            fontFamily: "Inter",
-                            fontSize: "14px"
-                          }}
-                        >
-                          View on map
-                        </a>
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-
-              {/* Blacklisted */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Blacklisted
-                </div>
-                {typeof contact?.company?.blacklisted === 'boolean' ? (
-                  <div
-                    style={{
-                      backgroundColor: contact.company.blacklisted ? "red" : "green",
-                      color: "white",
-                      padding: "5px 12px",
-                      borderRadius: "20px",
-                      opacity: "0.8",
-                      fontSize: "14px",
-                      fontWeight: "400",
-                      fontFamily: "Inter",
-                    }}
-                  >
-                    {contact.company.blacklisted ? "Yes" : "No"}
-                  </div>
-                ) : (
-                  <div style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 400 }}>-</div>
-                )}
-              </div>
-
-              {/* Company Visibility */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Company Visibility
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Inter",
-                    fontSize: "14px",
-                    fontWeight: "400",
-                  }}
-                >
-                  {contact?.company?.visibility || "-"}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      <DetailCard title="Company Contact" subtitle="The company's own details" icon="bi bi-geo-alt" accentColor="teal">
+        <DetailRow label="Phone" value={telLink(company?.phone)} />
+        <DetailRow label="Phone 2" value={telLink(company?.phone2)} />
+        <DetailRow label="Email" value={mailLink(company?.email)} />
+        <DetailRow label="Fax" value={company?.fax || DASH} />
+        <DetailRow label="Website" value={webLink(company?.website)} />
+        <DetailRow label="Address" value={joinAddress(company) || DASH} isLast={!companyCoords} />
+        {companyCoords && <DetailRow label="Location" value={<DetailMapLink lat={companyCoords.lat} lng={companyCoords.lng} />} isLast />}
+      </DetailCard>
+    </CardGrid>
   );
 };
 

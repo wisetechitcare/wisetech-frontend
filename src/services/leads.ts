@@ -4,10 +4,18 @@ import { cachedRequest } from "./_requestCache";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 
-export const getAllLeads = async (params?: { page?: number; pageSize?: number; fields?: string[]; scope?: 'projects' }) => {
+export const getAllLeads = async (params?: {
+  page?: number;
+  pageSize?: number;
+  fields?: string[];
+  scope?: 'projects';
+  /** Server-side sort, search and filters (see the backend's LEAD_LIST_SPEC), plus `summary`. */
+  filters?: Record<string, string>;
+}) => {
   try {
     const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_LEADS}`;
     const query = {
+      ...params?.filters,
       page: params?.page ?? 1,
       pageSize: params?.pageSize ?? 200,
       // Sparse fetch: when provided, the backend returns only the data these

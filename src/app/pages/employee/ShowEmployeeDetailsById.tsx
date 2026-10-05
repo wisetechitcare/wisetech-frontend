@@ -9,7 +9,7 @@ import { formatBloodGroup, formatPhoneWithCode } from "@utils/employeeFormat";
 import { DetailCard, DetailRow, DetailInfoItem } from "@app/modules/detail-page/DetailPageComponents";
 import { Box, Link, Typography } from "@mui/material";
 import { FONT, ICON_COLORS } from "@app/modules/configuration/ConfigDesignSystem";
-import { StatGrid, SectionHeading } from "./entity/detail/sections/SummarySection";
+import { StatGrid, SectionHeading, TwoUpGrid } from "./entity/detail/sections/SummarySection";
 import { fmtDate, DASH } from "./entity/detail/entityViewModel";
 
 /**
@@ -44,8 +44,6 @@ const Empty: React.FC<{ text: string }> = ({ text }) => (
   <Typography sx={{ fontFamily: FONT.body, fontSize: 13, color: "text.disabled", py: 2.75, textAlign: "center" }}>{text}</Typography>
 );
 
-/** Two cards per row on desktop. Unlike the lead page's CardGrid, an odd last card keeps its half width — a short card stretched edge to edge is mostly empty space. */
-const CARD_GRID = { display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" }, gap: 2.5, alignItems: "stretch" } as const;
 
 const range = (from?: string | null, to?: string | null) =>
   from || to ? `${from ? fmtDate(from) : "?"} – ${to ? fmtDate(to) : "Present"}` : undefined;
@@ -118,7 +116,7 @@ const ShowEmployeeDetailsById = ({ employee }: { employee: any }) => {
 
       <Box sx={{ mt: 3 }}>
         <SectionHeading icon="bi bi-person" title="Personal & Contact" color={ICON_COLORS.blue.color} />
-        <Box sx={CARD_GRID}>
+        <TwoUpGrid>
           <DetailCard title="Personal Details" subtitle="Who they are" icon="bi bi-person" accentColor="primary">
             <DetailRow label="Full Name" value={val(`${users?.firstName || ""} ${users?.lastName || ""}`.trim())} />
             <DetailRow label="Date of Birth" value={fmtDate(users?.dateOfBirth)} />
@@ -147,12 +145,12 @@ const ShowEmployeeDetailsById = ({ employee }: { employee: any }) => {
             <DetailRow label="Emergency Contact" value={val(emergency?.emergencyContactName)} />
             <DetailRow label="Emergency Number" value={telLink(emergency?.emergencyContactNumber || "")} isLast />
           </DetailCard>
-        </Box>
+        </TwoUpGrid>
       </Box>
 
       <Box sx={{ mt: 4 }}>
         <SectionHeading icon="bi bi-briefcase" title="Employment" color="#7c3aed" />
-        <Box sx={CARD_GRID}>
+        <TwoUpGrid>
           <DetailCard title="Role & Placement" subtitle="Where they sit in the company" icon="bi bi-briefcase" accentColor="primary">
             <DetailRow label="Job Profile" value={val(designations?.role)} />
             <DetailRow label="Department" value={val(departments?.name)} />
@@ -213,12 +211,12 @@ const ShowEmployeeDetailsById = ({ employee }: { employee: any }) => {
             <DetailRow label="Account Holder" value={val(bank?.accountName)} />
             <DetailRow label="IFSC" value={val(bank?.ifscCode)} isLast />
           </DetailCard>
-        </Box>
+        </TwoUpGrid>
       </Box>
 
       <Box sx={{ mt: 4 }}>
         <SectionHeading icon="bi bi-people" title="Family" color="#9333ea" />
-        <Box sx={CARD_GRID}>
+        <TwoUpGrid>
           <DetailCard title="Family Details" subtitle={family.length ? `${family.length} on record` : "Relatives on record"} icon="bi bi-people" accentColor="purple">
             {family.length ? family.map((f, i) => (
               <Entry
@@ -230,7 +228,7 @@ const ShowEmployeeDetailsById = ({ employee }: { employee: any }) => {
               />
             )) : <Empty text="No family details added" />}
           </DetailCard>
-        </Box>
+        </TwoUpGrid>
       </Box>
     </div>
   );

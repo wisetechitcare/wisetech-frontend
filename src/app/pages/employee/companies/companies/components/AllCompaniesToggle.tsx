@@ -1,18 +1,16 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate,  } from "react-router-dom";
 import { useTabKeyRoute } from "@app/hooks/useTabRoute";
-import { Button } from "react-bootstrap";
-import { KTIcon } from "@metronic/helpers";
+import { Box, Menu, MenuItem, Rating, Stack, Typography } from "@mui/material";
 import { getClientCompanyById } from "@services/companies";
 import Overview from "./CompanyOverview";
 import NewCompanyForm from "./NewCompanyForm";
-import { miscellaneousIcons } from "@metronic/assets/miscellaneousicons";
 import { Company } from "@models/companies";
 import { useEventBus } from "@hooks/useEventBus";
 import CompaniesBranchForm from "./CompaniesBranch";
 import ClientContacts from "./ClientContacts";
 import ClientContactsForm from "../../contacts/components/ClientContactsForm";
-import CompaniesRating from "./CompaniesRating";
+import CompaniesRating, { ratingBand, weightedRating } from "./CompaniesRating";
 import CompaniesProject from "./CompaniesProject";
 import CompaniesLeads from "./CompaniesLeads";
 
@@ -22,7 +20,7 @@ import Loader from "@app/modules/common/utils/Loader";
 import { getRatingByCompanyId } from "@services/projects";
 import SubCompanies from "./SubCompanies";
 import CompanyReferences from "./CompanyReferences";
-import { UnderlineTabs } from "@app/modules/common/components/ui";
+import { AppIcon, GlassSurface, ToneChip, UnderlineTabs, WtButton, WtIconButton } from "@app/modules/common/components/ui";
 import LeadReferenceTab from "./LeadReferenceTab";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { canSection } from "@utils/can";
@@ -72,8 +70,10 @@ const CompanyDetails = () => {
   const [showNewContactModal, setShowNewContactModal] = useState(false);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
-  const [rating, setRating] = useState<number>();
-  const [companyRatings, setCompanyRatings] = useState<any>();
+  // Weighted factor score, 0–10. Nothing server-side writes company.overallRating, so it is
+  // computed from the factors here and kept fresh by the Rating tab after an edit.
+  const [rating, setRating] = useState(0);
+  const [addMenuAnchor, setAddMenuAnchor] = useState<HTMLElement | null>(null);
 
   const handleNewCompanyClick = () => {
     setShowNewCompanyModal(true);
@@ -90,7 +90,6 @@ const CompanyDetails = () => {
     try {
       const response = await getClientCompanyById(companyId);
       setCompany(response?.data?.company || null);
-      setCompanyRatings(response?.data?.company?.overallRating);
     } catch (error) {
       console.error("Failed to fetch company details", error);
       setCompany(null);
@@ -99,23 +98,14 @@ const CompanyDetails = () => {
     }
   };
 
-  // const fetchRating = async () => {
-  //   if (!companyId) return;
-  //   try {
-  //     const response = await getRatingByCompanyId(companyId);
-  //     setCompanyRatings(response?.data?.rating || null);
-  //     console.log("companyRatings", companyRatings);
-  //   } catch (error) {
-  //     console.error("Failed to fetch rating", error);
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   fetchRating();
-  // }, [companyId]);
 
   useEffect(() => {
     fetchCompanyDetails();
+    if (companyId) {
+      getRatingByCompanyId(companyId)
+        .then((r: any) => setRating(weightedRating(r?.data?.companyRating || [])))
+        .catch(() => setRating(0));
+    }
   }, [companyId]);
   useEventBus("companyCreated", () => fetchCompanyDetails());
 
@@ -209,7 +199,7 @@ const CompanyDetails = () => {
       case "subcompanies":
         return <SubCompanies companyId={company.id} companyTypeId={company.companyTypeId} addRequested={addRequested} onAddHandled={() => setAddRequested(false)} />;
       case "rating":
-        return <CompaniesRating companyId={company.id} companyName={company.companyName} onRatingChange={setRating} toggleMounted={true} />
+        return <CompaniesRating companyId={company.id} companyName={company.companyName} onRatingChange={setRating} />
       case "references":
         // Companies this company referred (it is their referral company).
         return <CompanyReferences referredCompanies={(company as any).referredCompanyReferences} />;
@@ -240,269 +230,121 @@ const CompanyDetails = () => {
 
   return (
     <div className="p-2 p-md-4">
-      {/* Header */}
-      <div
-        className="d-flex align-items-center justify-content-between mb-3 mb-md-4 pt-3 pt-md-6 px-2 px-md-3"
-        style={{
-          borderRadius: 14,
+      {/* Identity header — the contact page's shape: back, avatar (status ring), name with the
+          live rating, and every page action in one row that wraps on small screens. */}
+      <GlassSurface
+        variant="thin"
+        radius={16}
+        sx={{
+          p: { xs: 2, md: 2.5 },
+          mb: { xs: 2, md: 3 },
+          display: "flex",
+          alignItems: "flex-start",
+          gap: { xs: 1.5, md: 2.5 },
+          flexWrap: { xs: "wrap", lg: "nowrap" },
         }}
       >
-        <div className="d-flex align-items-center gap-3 gap-md-4 flex-grow-1">
-          <button
-            className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-            onClick={handleBackClick}
-          >
-            <img
-              src={miscellaneousIcons.leftArrow}
-              alt=""
-              style={{
-                width: "24px",
-                height: "24px",
-                cursor: "pointer"
-              }}
-              className="d-block d-md-none"
-            />
-            <img
-              src={miscellaneousIcons.leftArrow}
-              alt=""
-              style={{
-                width: "36px",
-                height: "36px",
-                cursor: "pointer"
-              }}
-              className="d-none d-md-block"
-            />
-          </button>
-          {/* Smart, brand-aware company avatar (logo color ring, or a
-              deterministic generated avatar when there's no logo). */}
+        <WtIconButton
+          onClick={handleBackClick}
+          title="Back"
+          sx={{
+            mt: 0.25, flexShrink: 0, width: 32, height: 32, borderRadius: "10px",
+            bgcolor: "transparent", borderColor: "transparent", "& .fs-3": { fontSize: "1.05rem" },
+          }}
+        >
+          <AppIcon name="arrow-left" className="fs-3" />
+        </WtIconButton>
+
+        <Box sx={{ flexShrink: 0 }}>
           <SmartAvatar
             name={company?.companyName}
             id={company?.id}
             imageUrl={company?.logo}
-            size={104}
+            size={84}
+            shape="rounded"
             imageFit="cover"
             status={company?.status === "ACTIVE" ? "active" : "inactive"}
             enablePreview
           />
-          <div className="flex-grow-1">
-            <div className="text-muted small">Company #{company?.prefix || "N/A"}</div>
-            <div className="d-flex align-items-center gap-2">
-              <h2
-                className="mb-0 text-truncate"
-                style={{
-                  fontFamily: "Barlow",
-                  fontWeight: "700",
-                  fontSize: "24px",
-                  lineHeight: 1.2,
-                }}
-              >
-                {company.companyName}
-              </h2>
-              <div className="d-flex align-items-center gap-1">
-                <KTIcon iconName="star" className="fs-4 text-warning" />
-                <span className="text-muted">{ company?.overallRating || rating?.toFixed(1)  || companyRatings?.overallRating || 0}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        </Box>
 
-      {/* Navigation Tabs + Buttons Row */}
-      <div className="mb-4 mb-md-8 pt-3">
-        {/* Mobile Tab Dropdown */}
-        <div className="d-block d-md-none mb-3">
-          <div className="d-flex justify-content-end align-items-center gap-2">
-            {/* Mobile Action Buttons */}
-            {canWrite && (
-            <div className="d-flex align-items-center gap-1">
-              {addLabel && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setAddRequested(true)}
-                  style={{ fontFamily: "Inter", fontWeight: "600", fontSize: "12px", whiteSpace: "nowrap" }}
-                >
-                  {addLabel}
-                </Button>
-              )}
-              <div className="dropdown">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="dropdown-toggle"
-                  data-bs-toggle="dropdown"
-                  style={{
-                    fontFamily: "Inter",
-                    fontWeight: "600",
-                    fontSize: "12px",
-                  }}
-                >
-                  Add
-                </Button>
-                <ul className="dropdown-menu">
-                  {canSection("crm.leads", "write") && (
-                    <li>
-                      <a className="dropdown-item" href="#">
-                        Add Lead
-                      </a>
-                    </li>
-                  )}
-                  {canSection("projects", "write") && (
-                    <li>
-                      <a className="dropdown-item" href="#">
-                        Add Project
-                      </a>
-                    </li>
-                  )}
-                  {canSection("projects", "write") && (
-                    <li>
-                      <a className="dropdown-item" href="#">
-                        Add Project
-                      </a>
-                    </li>
-                  )}
-                  {canSection("crm.contacts", "write") && (
-                    <li>
-                      <button
-                        className="dropdown-item"
-                        onClick={handleNewContactClick}
-                      >
-                        Add Contact
-                      </button>
-                    </li>
-                  )}
-                  {canSection("crm.companies", "write") && (
-                    <li>
-                      <button
-                        className="dropdown-item"
-                        onClick={handleNewCompanyClick}
-                      >
-                        New Company
-                      </button>
-                    </li>
-                  )}
-                </ul>
-              </div>
-              {/* Edit Button show only for tab overview */}
-              {activeTab === "overview" && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleEditClick}
-                  style={{
-                    fontFamily: "Inter",
-                    fontWeight: "600",
-                    fontSize: "14px",
-                  }}
-                >
-                  Edit
-                </Button>
-              )}
-            </div>
-            )}
-          </div>
-        </div>
+        <Stack spacing={0.75} sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: "tabular-nums" }}>
+            #{company?.prefix || "N/A"}
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+            {company.companyName}
+          </Typography>
+          {/* The score is a door to the Rating tab, not just a number. */}
+          <Box
+            component="button"
+            type="button"
+            onClick={() => setActiveTab("rating")}
+            title="Open the Rating tab"
+            sx={{
+              alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 0.75,
+              border: 0, bgcolor: "transparent", p: 0, cursor: "pointer", color: "text.primary",
+              "&:hover .rating-score": { textDecoration: "underline" },
+            }}
+          >
+            <Rating value={rating / 2} precision={0.1} readOnly size="small" sx={{ color: "#F5A623" }} />
+            <Typography className="rating-score" component="span" sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+              {rating > 0 ? `${rating.toFixed(1)} / 10` : "Not rated"}
+            </Typography>
+            {rating > 0 && <ToneChip dense tone={ratingBand(rating).tone} label={ratingBand(rating).label} />}
+          </Box>
+        </Stack>
 
-        {/* Desktop actions — the tab bar below spans the full width, as on the lead page. */}
-        <div className="md-flex items-center">
-          {/* Tabs */}
-          {/* Desktop Action Buttons */}
-          
-          {canWrite && (
-          <div className="d-flex align-items-center gap-2 justify-end">
-            <div className="dropdown position-relative -bottom-8">
-              <Button
-                variant="primary"
-                className="dropdown-toggle"
-                data-bs-toggle="dropdown"
-                style={{
-                  fontFamily: "Inter",
-                  fontWeight: "600",
-                  fontSize: "14px",
-                }}
-              >
-                Add New
-              </Button>
-              <ul className="dropdown-menu">
-                {canSection("crm.leads", "write") && (
-                  <li>
-                    <button
-                      className="dropdown-item"
-                      onClick={handleNewLeadClick}
-                    >
-                      Add Lead
-                    </button>
-                  </li>
-                )}
-                {canSection("projects", "write") && (
-                  <li>
-                    <button
-                      className="dropdown-item"
-                      onClick={handleNewProjectClick}
-                    >
-                      Add Project
-                    </button>
-                  </li>
-                )}
-                {canSection("crm.contacts", "write") && (
-                  <li>
-                    <button
-                      className="dropdown-item"
-                      onClick={handleNewContactClick}
-                    >
-                      Add Contact
-                    </button>
-                  </li>
-                )}
-                {canSection("crm.companies", "write") && (
-                  <li>
-                    <button
-                      className="dropdown-item"
-                      onClick={handleNewCompanyClick}
-                    >
-                      New Company
-                    </button>
-                  </li>
-                )}
-              </ul>
-            </div>
-            {addLabel && (
-                <Button
-                  variant="primary"
-                  onClick={() => setAddRequested(true)}
-                  style={{ fontFamily: "Inter", fontWeight: "600", fontSize: "14px", whiteSpace: "nowrap" }}
-                >
-                  
-                  {addLabel}
-                </Button>
-              )}
-            
-              
-            {/* Edit Button show only for tab overview */}
-            {activeTab === "overview" && (
-              <Button
-                variant="primary"
-                onClick={handleEditClick}
-                style={{
-                  fontFamily: "Inter",
-                  fontWeight: "600",
-                  fontSize: "14px",
-                }}
-              >
-                Edit Details
-              </Button>
-            )}
-          </div>
-          )}
-        </div>
+        {canWrite && (
+          <Stack direction="row" gap={1} flexWrap="wrap"
+            sx={{ flexShrink: 0, width: { xs: "100%", lg: "auto" }, justifyContent: { lg: "flex-end" } }}>
+            <WtButton
+              inverted
+              size="small"
+              onClick={(e) => setAddMenuAnchor(e.currentTarget)}
+              startIcon={<AppIcon name="plus" className="fs-5" />}
+              endIcon={<AppIcon name="down" className="fs-7" />}
+              sx={{ whiteSpace: "nowrap" }}
+            >
+              Add new
+            </WtButton>
+            <Menu
+              anchorEl={addMenuAnchor}
+              open={!!addMenuAnchor}
+              onClose={() => setAddMenuAnchor(null)}
+              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+              transformOrigin={{ vertical: "top", horizontal: "right" }}
+            >
+              {[
+                canSection("crm.leads", "write") && { label: "Lead", onClick: handleNewLeadClick },
+                canSection("projects", "write") && { label: "Project", onClick: handleNewProjectClick },
+                canSection("crm.contacts", "write") && { label: "Contact", onClick: handleNewContactClick },
+                canSection("crm.companies", "write") && { label: "Company", onClick: handleNewCompanyClick },
+              ].filter(Boolean).map((item: any) => (
+                <MenuItem key={item.label} onClick={() => { setAddMenuAnchor(null); item.onClick(); }} sx={{ fontSize: 13.5 }}>
+                  {item.label}
+                </MenuItem>
+              ))}
+            </Menu>
+            <WtButton size="small" onClick={handleEditClick} startIcon={<AppIcon name="pencil" className="fs-5" />} sx={{ whiteSpace: "nowrap" }}>
+              Edit details
+            </WtButton>
+          </Stack>
+        )}
+      </GlassSurface>
 
-        <UnderlineTabs
-          tabs={tabs}
-          value={activeTab}
-          onChange={setActiveTab}
-          ariaLabel="Company sections"
-        />
-      </div>
+      {/* A tab's own "create" action rides the tab bar's action slot, on the tabs' rule. */}
+      <UnderlineTabs
+        tabs={tabs}
+        value={activeTab}
+        onChange={setActiveTab}
+        ariaLabel="Company sections"
+        actions={canWrite && addLabel ? (
+          <WtButton size="small" onClick={() => setAddRequested(true)} startIcon={<AppIcon name="plus" className="fs-5" />} sx={{ whiteSpace: "nowrap" }}>
+            {addLabel}
+          </WtButton>
+        ) : undefined}
+      />
 
       {/* Tab Content */}
       <div className="tab-content">{renderTabContent()}</div>

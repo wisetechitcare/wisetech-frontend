@@ -136,3 +136,8 @@ export type { WtDateFieldBaseProps, WtDateTimeFieldProps } from './dates';
 // Canonical wizard/multi-step indicator — responsive (compact summary on phones) + theme-aware.
 export { WtStepper } from './stepper';
 export type { WtStepperProps, WtStep } from './stepper';
+// Long forms: a dialog shell with section nav + sticky footer, titled field groups, and an image uploader.
+export { WtFormDialog, WtFormSection, WtFormSpan } from './WtFormDialog';
+export type { WtFormDialogProps, WtFormSectionProps, WtFormNavItem } from './WtFormDialog';
+export { WtImageField } from './WtImageField';
+export type { WtImageFieldProps } from './WtImageField';

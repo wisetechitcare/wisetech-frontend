@@ -205,6 +205,14 @@ export interface MaterialTableProps {
   manualFiltering?: boolean;
   /** Fires with the DEBOUNCED search query so the page can refetch. */
   onSearchChange?: (query: string) => void;
+  /**
+   * Every row matching the current server-side filters, for the built-in Export.
+   *
+   * A server-paginated table holds one page in `data`, so without this its Export would
+   * silently write that page and nothing else. Ignored while rows are selected — a selection
+   * exports exactly the selected rows, as on every other table.
+   */
+  fetchAllRows?: () => Promise<any[]>;
   /** When false, column/sort/etc. preferences are neither loaded from nor saved to the DB —
    *  the table always renders the code-defined defaults (meta.defaultVisible). Use for
    *  ephemeral tables such as chart drill-down modals, where a persisted per-instance bucket
@@ -408,6 +416,7 @@ function MaterialTable({
   onVisibleColumnsChange,
   manualFiltering = false,
   onSearchChange,
+  fetchAllRows,
   enableRowSelection = false,
   onSelectedRowsChange,
   renderSelectionActions,
@@ -719,6 +728,27 @@ function MaterialTable({
   // Published every render rather than once on mount: `updateSorting` closes over preference
   // state, so a handle captured at mount would go stale and clear a sort that no longer exists.
   if (apiRef) apiRef.current = { clearSorting: () => updateSorting([]) };
+
+  /**
+   * The page learns the sort from the PREFERENCE, not from header clicks.
+   *
+   * A header click is only one of three ways the sort changes: the saved sort (or
+   * `defaultSorting`) is applied when preferences load, and "Reset layout" restores the
+   * default. Reporting clicks alone meant a server-sorted table fetched in the server's own
+   * order while the header arrow showed the saved column — the rows and the arrow disagreed
+   * until the user clicked a header. Gated on content, so an unchanged sort never refetches;
+   * seeded with "no sort" because every page starts from that, so an unsorted table's first
+   * load is not reported as a change.
+   */
+  const lastSortSigRef = useRef<string>("[]");
+  useEffect(() => {
+    if (!isInitialized || !onSortingChangeProp) return;
+    const sorting = preferences.sorting ?? [];
+    const sig = JSON.stringify(sorting);
+    if (sig === lastSortSigRef.current) return;
+    lastSortSigRef.current = sig;
+    onSortingChangeProp(sorting);
+  }, [isInitialized, preferences.sorting, onSortingChangeProp]);
 
   // ── Column drag-and-drop ────────────────────────────────────────────────────
   /** Honours the same prop MRT's own column dragging used to. */
@@ -1688,15 +1718,8 @@ function MaterialTable({
             onColumnSizingChange={updateColumnSizing}
             onColumnPinningChange={updateColumnPinning}
             manualSorting={manualSorting}
-            onSortingChange={(updater: any) => {
-              // Persist first (unchanged behaviour), then hand the page the
-              // resolved value. MRT passes either a value or an updater fn.
-              updateSorting(updater);
-              if (onSortingChangeProp) {
-                const next = typeof updater === "function" ? updater(preferences.sorting) : updater;
-                onSortingChangeProp(next ?? []);
-              }
-            }}
+            // Persisted here; the page hears about it from the effect on preferences.sorting.
+            onSortingChange={updateSorting}
             muiTableBodyProps={muiTableBodyProps}
             onPaginationChange={onPaginationChange || updatePagination}
             onDensityChange={updateDensity}
@@ -1714,6 +1737,10 @@ function MaterialTable({
             enableSorting={enableSorting ?? true}
             enableExpandAll={enableExpandAll ?? true}
             enableRowVirtualization={enableRowVirtualization}
+            // Rows rendered beyond each edge of the viewport (MRT's default is 4). They exist
+            // before they scroll in — no blank band on a fast scroll — and are MEASURED while
+            // still off screen, so a row-height correction never shifts the rows being read.
+            rowVirtualizerOptions={{ overscan: 10 }}
             enableStickyHeader
             enableStickyFooter={showColumnFooter}
             enableBottomToolbar={enableBottomToolbar ?? true}
@@ -1906,8 +1933,11 @@ function MaterialTable({
               ...customMuiTableContainerProps,
               sx: {
                 overflowX: "auto",
-                // Sticky footer/header only bite inside a height-bounded scroller.
-                ...(showColumnFooter ? { maxHeight: "70vh" } : {}),
+                // Sticky footer/header only bite inside a height-bounded scroller — and so
+                // does row virtualization: unbounded, the container grows to fit every row
+                // and the virtualizer has no viewport to window against. A page's own
+                // maxHeight (customMuiTableContainerProps.sx, spread below) still wins.
+                ...(showColumnFooter || enableRowVirtualization ? { maxHeight: "70vh" } : {}),
                 scrollSnapType: "x proximity",
                 scrollPaddingLeft: `${leftPinnedWidth}px`,
                 ...pinnedLeftSx,
@@ -2423,6 +2453,7 @@ function MaterialTable({
                           // rows means those rows, not the whole table. Falls back to
                           // everything when nothing is selected, which is the old behaviour.
                           data={selectedRows.length > 0 ? selectedRows : tableData}
+                          getData={selectedRows.length === 0 ? fetchAllRows : undefined}
                           columns={autoExportCols}
                           filename={tableName}
                           title={autoExportTitle}

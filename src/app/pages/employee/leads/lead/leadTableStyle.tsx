@@ -44,7 +44,15 @@ export const leadRowSx = (color?: string | null) => {
   return {
     cursor: "pointer",
     backgroundColor: color ? `${color}20` : undefined,
-    transition: "all 0.2s ease",
+    // The 4px gap between rows on a virtualized (CSS grid) table, where leadTableSx's
+    // border-spacing does nothing. A semantic table ignores row borders, so this is
+    // inert on the tables that still use border-spacing.
+    borderBottom: "4px solid transparent",
+    backgroundClip: "padding-box",
+    // Never `all`: a virtualized table places each row with an inline `transform`, and
+    // transitioning it made every row SLIDE to its new position on each scroll frame and
+    // re-measure — the scroll flicker. Only the hover colours animate.
+    transition: "background-color 0.2s ease, box-shadow 0.2s ease",
     "& .MuiTableCell-root": {
       fontSize: "15.5px",
       fontFamily: "Inter",

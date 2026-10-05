@@ -223,6 +223,40 @@ Rules:
   label itself, so it sits with the field and is announced by screen readers —
   never hand-write an asterisk in the label string.
 
+### Long forms in a dialog — `WtFormDialog`
+
+For a record with several groups of fields (a profile, a master with sections), don't
+hand-build the modal. `WtFormDialog` gives you the header, a section navigator that
+tracks the scroll and flags sections with errors, and a sticky footer with
+unsaved-changes status and Cancel / Save. It is a real `<form>`.
+
+```tsx
+<Formik initialValues={…} validationSchema={…} onSubmit={save}>
+  {(f) => (
+    <WtFormDialog
+      open={open} onClose={close} title="Edit vendor" subtitle={f.values.name}
+      sections={[{ id: 'v-basic', title: 'Basic', icon: 'bi bi-briefcase' },
+                 { id: 'v-bank',  title: 'Bank',  icon: 'bi bi-bank', invalid: !!f.errors.ifsc }]}
+      onSubmit={(e) => { e.preventDefault(); f.handleSubmit(); }}
+      dirty={f.dirty} saving={saving}
+    >
+      <WtFormSection id="v-basic" title="Basic" icon="bi bi-briefcase" tone="#1E3A8A">
+        <WtField label="Name" required value={f.values.name} onChange={(v) => f.setFieldValue('name', v)} />
+        <WtField label="Phone" value={…} onChange={…} />
+        <WtFormSpan><WtField label="Address" multiline minRows={2} … /></WtFormSpan>
+      </WtFormSection>
+      <WtFormSection id="v-bank" title="Bank" icon="bi bi-bank" tone="#16A34A">…</WtFormSection>
+    </WtFormDialog>
+  )}
+</Formik>
+```
+
+- Section `id`s must match the nav items' `id`s. Fewer than 3 sections → no nav.
+- `WtFormSection` lays children out two-up (`columns` to change); `WtFormSpan` takes a full row.
+- Images (logo, stamp, signature): `WtImageField` — preview, drag-and-drop, Change / Remove,
+  type and size checks. Pass `upload={(file) => Promise<url>}`; it doesn't know your endpoint.
+- Reference: `pages/company/organisation/OrganisationProfileForm.tsx`.
+
 ## Capitalisation
 
 Headlines and button labels are title-cased by the KIT, not by call sites:
