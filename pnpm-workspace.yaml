@@ -18,14 +18,6 @@ overrides:
   socket.io-parser: '>=4.2.7' # zero-attachment memory exhaustion
   nanoid: '>=3.3.16'          # non-secure generator can loop indefinitely
 
-# Advisories with no published fix yet. Drop once a patched version lands on npm
-# and can be pinned under `overrides` above.
-# GHSA-vfj7-8cjw-p6xm — braces stack-exhaustion DoS; advisory wants >=3.0.4 but
-# registry latest is still 3.0.3 (dev-only via micromatch / eslint / @types/jest).
-audit:
-  ignore:
-    - GHSA-vfj7-8cjw-p6xm
-
 # pnpm blocks dependency install scripts by default. These need theirs:
 #   esbuild, @swc/core   -> Vite's bundler + the React SWC plugin (build breaks without)
 #   canvas               -> native addon behind react-pdf/pdfjs rendering
