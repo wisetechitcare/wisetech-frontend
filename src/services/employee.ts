@@ -1515,6 +1515,25 @@ export const fetchAllEmployeesAttendanceRange = async (from: string, to: string)
     }
 }
 
+/**
+ * Non-working days per employee over a week/month, each from their OWN branch work
+ * calendar (weekly off + holidays + alternate off-Saturdays). The admin Overview's Absent
+ * walk consumes this so a no-punch day is judged by the right branch — the browser cannot,
+ * because it only has the viewing admin's single branch calendar.
+ *
+ * Returns `{ scopes: { "companyId|branchId": string[] }, employeeScopes: { empId: scopeKey } }`.
+ */
+export const fetchAttendanceRangeCalendar = async (from: string, to: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ATTENDANCE_RANGE_CALENDAR}?from=${from}&to=${to}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const fetchEmpAttendanceStatistics = async (employeeId: string, startDate: string, endDate: string, page?: number, limit?: number) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_STATISTICS}?employeeId=${employeeId}&startDate=${startDate}&endDate=${endDate}`;

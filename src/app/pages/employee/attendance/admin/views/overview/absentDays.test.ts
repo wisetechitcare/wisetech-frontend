@@ -16,7 +16,10 @@ const TODAY = dayjs('2026-08-17');
 const ROSTER = [{ _id: 'e1', name: 'Aabid' }, { _id: 'e2', name: 'Kaif' }];
 
 const OFF_DATES = new Set(['2026-08-08', '2026-08-29', '2026-08-15']);
-const isNonWorking = (d: Date) => {
+// First arg (the employee, or employeeId for leaves) is ignored here: these cases model a
+// single branch, so one calendar answers for everyone. The per-employee behaviour has its
+// own describe block below.
+const isNonWorking = (_who: unknown, d: Date) => {
     const day = dayjs(d);
     return day.day() === 0 || OFF_DATES.has(day.format('YYYY-MM-DD'));
 };
@@ -80,6 +83,55 @@ describe('computeAbsentEntries — non-working days', () => {
         expect(datesFor('e1', run('2026-08-16', '2026-08-16'))).toEqual([]); // Sunday
         expect(datesFor('e1', run('2026-08-22', '2026-08-22', {}, {}, dayjs('2026-08-31'))))
             .toEqual(['2026-08-22']);
+    });
+});
+
+describe('computeAbsentEntries — each employee uses their OWN branch calendar', () => {
+    // The admin Overview bug: ONE calendar (the viewing admin's branch) was applied to
+    // every employee. Here 12 Sep is an alternate off-Saturday for e1's branch but a
+    // WORKING Saturday for e2's branch — each must be judged by their own.
+    const PAST = dayjs('2026-09-30');
+    const offByEmployee: Record<string, Set<string>> = {
+        e1: new Set(['2026-09-12']), // e1's branch takes this Saturday off
+        e2: new Set<string>(),       // e2's branch works every Saturday
+    };
+    const perEmployeeNonWorking = (emp: { _id?: string }, d: Date) => {
+        const day = dayjs(d);
+        if (day.day() === 0) return true; // Sunday is off for everyone
+        return emp._id ? offByEmployee[emp._id]?.has(day.format('YYYY-MM-DD')) ?? false : false;
+    };
+
+    test('an off-Saturday for one branch is a working day for another', () => {
+        const entries = computeAbsentEntries({
+            start: dayjs('2026-09-12'),
+            end: dayjs('2026-09-12'),
+            today: PAST,
+            isNonWorking: perEmployeeNonWorking,
+            presentByDay: new Map(),
+            leaveByDay: new Map(),
+            roster: ROSTER,
+            isEmployedOn: () => true,
+        });
+        const absentIds = entries.map((e) => e._id);
+        expect(absentIds).toContain('e2');     // works Saturdays, no punch → absent
+        expect(absentIds).not.toContain('e1'); // off that Saturday → never absent
+    });
+
+    test('daily: a present colleague on a working branch does not mask an off-branch employee', () => {
+        // The old DAILY path sampled dayKind org-wide: e2 (works Saturdays) punching in made
+        // the whole day "working", which dragged e1 (legitimately off) into absence. Judged
+        // per-employee over a single day, neither is absent — this guards the daily reuse.
+        const entries = computeAbsentEntries({
+            start: dayjs('2026-09-12'),
+            end: dayjs('2026-09-12'),
+            today: PAST,
+            isNonWorking: perEmployeeNonWorking,
+            presentByDay: new Map([['2026-09-12', new Set(['e2'])]]),
+            leaveByDay: new Map(),
+            roster: ROSTER,
+            isEmployedOn: () => true,
+        });
+        expect(entries.map((e) => e._id)).toEqual([]); // e1 off, e2 present → nobody absent
     });
 });
 
