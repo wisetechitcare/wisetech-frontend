@@ -1,11 +1,7 @@
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import MaterialHeaderTab, { TabItem } from "@app/modules/common/components/MaterialHeaderTab";
-import { BarChart } from "@mui/icons-material";
 import SalaryConfiguration from "./admin/SalaryConfiguration";
 import MySalary from "./admin/MySalary";
-import SalaryView from "./personal/SalaryView";
-import AllEmployeeData from "./admin/AllEmployeesData";
-import { financeSalaryAllIcoon, leadsIcons } from "@metronic/assets/sidepanelicons";
 import { useTabRoute } from "@app/hooks/useTabRoute";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
