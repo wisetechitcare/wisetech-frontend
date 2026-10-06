@@ -417,6 +417,19 @@ function CustomCalendar() {
     useEffect(() => {
         async function getData() {
           if (!employeeId || !branchId) return;
+
+          // Everyone else's birthdays / work / marriage anniversaries need People Read
+          // (or Calendar Write for HR managing the board). Calendar Read alone is only
+          // enough for this person's own dates from their profile.
+          const canSeeOthersMoments =
+            hasPermission(
+              resourceNameMapWithCamelCase.employee,
+              permissionConstToUseWithHasPermission.readOthers,
+            )
+            || hasPermission(
+              resourceNameMapWithCamelCase.holiday,
+              permissionConstToUseWithHasPermission.editOthers,
+            );
       
           // Fetch data sequentially with individual await statements
           const holidaysRes = await fetchPublicHolidays(currentYear, "India").catch(() => null);
@@ -444,9 +457,10 @@ function CustomCalendar() {
             meetingsRes
           ] = await Promise.all([
             fetchAllColors().catch(() => null),
-            // Listing every user is `users.view.all`. Calendar Read is enough to see
-            // your own birthday; a 403 here must not blank the rest of the grid.
-            fetchAllUsers().catch(() => ({ data: { users: [] } })),
+            // Company-wide roster for moments — skipped when this person may only see their own.
+            canSeeOthersMoments
+              ? fetchAllUsers().catch(() => ({ data: { users: [] } }))
+              : Promise.resolve({ data: { users: [] } }),
             // A not-yet-configured module makes the GET endpoint respond 400. Catch each
             // config request so one missing module can't reject the whole batch and blank
             // out birthdays / anniversaries / meetings / weekends on the calendar. A null
@@ -464,7 +478,9 @@ function CustomCalendar() {
             fetchConfiguration(SHOW_SUNDAY_ON_CALENDAR).catch(() => null),
             fetchConfiguration(SHOW_MEETINGS_ON_CALENDAR).catch(() => null),
             fetchConfiguration(SHOW_HOLIDAYS_ON_CALENDAR).catch(() => null),
-            fetchAllEmployees(true).catch(() => ({ data: { employees: [] } })),
+            canSeeOthersMoments
+              ? fetchAllEmployees(true).catch(() => ({ data: { employees: [] } }))
+              : Promise.resolve({ data: { employees: [] } }),
             getMeetings(employeeId).catch(() => [])
           ]);
           const colors = colorsRes?.data?.colors;
@@ -598,9 +614,12 @@ function CustomCalendar() {
               .filter(Boolean) as [any, any][]
           );
 
-          // Fetch contacts birthdays if external configs are enabled
+          // External contacts are company-wide moments — same gate as colleagues.
           let allContacts: any[] = [];
-          if (showBirthdaysExternalEnabled || showAnniversariesExternalEnabled) {
+          if (
+            canSeeOthersMoments
+            && (showBirthdaysExternalEnabled || showAnniversariesExternalEnabled || showMarriageAnnyExternalEnabled)
+          ) {
             try {
               const contactsRes = await getUpcomingContactsBirthdays(`${currentYear}-01-01`, `${currentYear}-12-31`);
               allContacts = contactsRes?.allContacts || [];
@@ -609,10 +628,10 @@ function CustomCalendar() {
             }
           }
 
-          // 1. Process user birthdays (Internal Team)
+          // 1. Process user birthdays (Internal Team) — only when People Read allows it.
           let userBirthdays: any[] = [];
-          
-          userBirthdays = allUsers?.data?.users
+
+          userBirthdays = !canSeeOthersMoments ? [] : allUsers?.data?.users
             ?.filter((user: any) => user.dateOfBirth)
             .map((user: any) => {
               const birthDate = dayjs(user.dateOfBirth);
@@ -685,8 +704,8 @@ function CustomCalendar() {
 
           // 3. Process employee anniversaries (Internal Team)
           let employeeAnniversaries: any[] = [];
-          
-          employeeAnniversaries = allEmployeeDateOfjoining?.data?.employees
+
+          employeeAnniversaries = !canSeeOthersMoments ? [] : allEmployeeDateOfjoining?.data?.employees
             ?.filter((employee: any) => employee.dateOfJoining && employee?.users)
             .map((employee: any) => {
               const nextAnniversary = anniversaryDateOrNull(dayjs(employee.dateOfJoining), Number(currentYear));
@@ -755,7 +774,7 @@ function CustomCalendar() {
           // doesn't collide with the Work Anniversary category/legend/filters.
           let employeeMarriageAnniversaries: any[] = [];
 
-          employeeMarriageAnniversaries = allEmployeeDateOfjoining?.data?.employees
+          employeeMarriageAnniversaries = !canSeeOthersMoments ? [] : allEmployeeDateOfjoining?.data?.employees
             ?.filter((employee: any) => employee.anniversary && employee?.users)
             .map((employee: any) => {
               const nextMarriageAnniversary = anniversaryDateOrNull(dayjs(employee.anniversary), Number(currentYear));
@@ -821,10 +840,8 @@ function CustomCalendar() {
               .filter(Boolean);
           }
 
-          // Calendar Read does not include listing every user. If that call was
-          // empty, still paint this person's own birthday / anniversaries from
-          // the profile already on the session — the same events colleagues with
-          // People access would see for them.
+          // Own birthday / anniversaries always come from the session profile when
+          // Calendar Read is enough — and also fill gaps if the roster call missed them.
           const ownUserId = currentUser?.id;
           const ownName = [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ').trim();
           const ownAvatar = currentEmployee?.avatar || null;
