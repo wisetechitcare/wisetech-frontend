@@ -176,7 +176,7 @@ const PendingRequestsTable = () => {
     try {
       setIsLoading(true);
       const [batchRes, approvalRes] = await Promise.all([
-        fetchReimbursementBatches(),
+        fetchReimbursementBatches({ for: 'inbox' }),
         fetchPendingApprovals(),
       ]);
       const allBatches: any[] = batchRes?.data?.batches || batchRes?.batches || [];
