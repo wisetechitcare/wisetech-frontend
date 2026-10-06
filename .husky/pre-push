@@ -32,15 +32,12 @@ echo "pre-push: dependency audit (high/critical)..."
 # floor in pnpm-workspace.yaml) is cheaper than a red merge into dev.
 if ! audit_out=$(pnpm audit --audit-level high 2>&1); then
   echo "$audit_out"
-  case "$audit_out" in
-    *TimeoutError*|*aborted due to timeout*|*ERR_PNPM_AUDIT*|*ERR_PNPM_FETCH*|*ENOTFOUND*|*ECONNRESET*|*socket hang up*)
-      echo "pre-push: advisory registry unreachable — dependency audit skipped."
-      ;;
-    *)
-      echo "pre-push: pnpm audit --audit-level high failed. Pin the patched floor in pnpm-workspace.yaml overrides." >&2
-      exit 1
-      ;;
-  esac
+  if printf '%s\n' "$audit_out" | grep -qE 'TimeoutError|aborted due to timeout|ERR_PNPM_(AUDIT|FETCH)|ENOTFOUND|ECONNRESET|socket hang up'; then
+    echo "pre-push: advisory registry unreachable — dependency audit skipped."
+  else
+    echo "pre-push: pnpm audit --audit-level high failed. Pin the patched floor in pnpm-workspace.yaml overrides." >&2
+    exit 1
+  fi
 else
   echo "$audit_out"
 fi
