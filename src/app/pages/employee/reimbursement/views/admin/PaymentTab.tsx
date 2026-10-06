@@ -3,7 +3,7 @@ import { Box, Tab, Tabs, Typography } from '@mui/material';
 import dayjs, { Dayjs } from 'dayjs';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { can } from '@utils/can';
+import { canSection } from '@utils/can';
 import { toast, alertDialog } from '@app/modules/common/components/ui/feedback';
 import { escapeHtml } from '@app/modules/common/components/ui/safeHtml';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
@@ -11,12 +11,12 @@ import PeriodTabs from '@app/modules/common/components/PeriodTabs';
 import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
-import { fetchReimbursementBatches, createReimbursementPayment, fetchAllEmployees } from '@services/employee';
+import { fetchReimbursementBatches, createReimbursementPayment, fetchAllEmployees, fetchReimbursementOrgPayments } from '@services/employee';
 import { BatchDetailModal } from '../../shared/ReimbursementBatchShared';
 import LoadErrorState from '../../components/LoadErrorState';
 import { formatMoney } from '../../utils/reimbursementFormat';
 import {
-    buildPaymentRows, filterQueueByPeriod, paymentsInPeriod, paymentKpis, stateBreakdown,
+    buildPaymentRows, filterQueueByPeriod, paymentKpis, stateBreakdown, mapOrgPayments,
     PaymentBatchRow, PaymentState, PeriodFilter, QueueDateBasis, COMPACT_BUTTON_SX, EmployeeOrgDetail,
 } from '../../components/payment/paymentData';
 import { useOrgFilters, OrgFilterToolbar } from '@app/modules/common/components/ui/OrgFilterToolbar';
@@ -36,7 +36,9 @@ import { useStoredState } from '@app/hooks/useStoredState';
  * screen could show three different months at once and neither table said which question it was
  * answering.
  *
- * ONE period governs the whole screen. The two tabs read it on different date axes on purpose:
+ * ONE period governs the whole screen. It opens on this month so September mixed outstanding
+ * (WT-80) does not dump onto October; finance records that payment by navigating to September
+ * (or All time). The two tabs read the period on different date axes on purpose:
  * the queue asks "what do we still owe?" (submission date, so a partially-paid batch cannot
  * vanish from every month after its last payment) and the history asks "what moved?" (payment
  * date, matching the employee-facing payment history). See paymentData.ts.
@@ -51,7 +53,10 @@ function PaymentTab() {
     // The same grant the backend enforces on POST /reimbursement/payment, and the one that put
     // this tab on screen. A viewer without it still gets the numbers, the queue, search, filters
     // and export — everything except the ability to record money moving.
-    const canPay = can('finance.manage.team');
+    // Same grant that mounts this tab and that POST /reimbursement/payment authorizes via
+    // finance.reimbursements (write) — not finance.manage.team, which locked out people who
+    // could see Record Payment but got 403 on submit (or the reverse).
+    const canPay = canSection('finance.reimbursements', 'write');
 
     // ── Period (one, for the whole screen) ────────────────────────────────────
     const [filter, setFilter] = useStoredState<PeriodFilter>('filters:PaymentTab:period', 'monthly');
@@ -62,6 +67,7 @@ function PaymentTab() {
 
     // ── Data ──────────────────────────────────────────────────────────────────
     const [rawBatches, setRawBatches] = useState<any[]>([]);
+    const [historyRaw, setHistoryRaw] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
@@ -76,26 +82,57 @@ function PaymentTab() {
     const [batchModalId, setBatchModalId] = useState<string | null>(null);
     const [batchModalInstanceId, setBatchModalInstanceId] = useState<string | null>(null);
 
+    const [fiscalBounds, setFiscalBounds] = useState<{ start: string; end: string } | null>(null);
+
     useEffect(() => {
-        if (filter !== 'yearly') return;
+        if (filter !== 'yearly') {
+            setFiscalBounds(null);
+            return;
+        }
         generateFiscalYearFromGivenYear(periodDate)
-            .then(({ startDate, endDate }) => setFiscalLabel(formatFiscalYearLabel(`${startDate} to ${endDate}`)))
+            .then(({ startDate, endDate }) => {
+                setFiscalLabel(formatFiscalYearLabel(`${startDate} to ${endDate}`));
+                setFiscalBounds({ start: startDate, end: endDate });
+            })
             .catch(() => undefined);
     }, [filter, periodDate]);
 
+    const periodQuery = useMemo(() => {
+        if (filter === 'allTime') return { startDate: undefined as string | undefined, endDate: undefined as string | undefined };
+        if (filter === 'yearly') {
+            if (!fiscalBounds) return null;
+            return { startDate: fiscalBounds.start, endDate: fiscalBounds.end };
+        }
+        const start = periodDate.startOf('month').format('YYYY-MM-DD');
+        const end = periodDate.endOf('month').format('YYYY-MM-DD');
+        return { startDate: start, endDate: end };
+    }, [filter, periodDate, fiscalBounds]);
+
     const load = useCallback(async () => {
+        if (!periodQuery) return;
         setLoading(true);
         setLoadError(false);
         try {
-            const res = await fetchReimbursementBatches();
-            setRawBatches(res?.data?.batches || res?.batches || []);
+            const [queueRes, history] = await Promise.all([
+                fetchReimbursementBatches({
+                    for: 'payment',
+                    owing: true,
+                    startDate: periodQuery.startDate,
+                    endDate: periodQuery.endDate,
+                    dateBasis,
+                }),
+                fetchReimbursementOrgPayments(periodQuery.startDate, periodQuery.endDate),
+            ]);
+            setRawBatches(queueRes?.data?.batches || queueRes?.batches || []);
+            setHistoryRaw(history);
         } catch {
             setRawBatches([]);
+            setHistoryRaw([]);
             setLoadError(true);
         } finally {
             setLoading(false);
         }
-    }, [refreshKey]);
+    }, [refreshKey, periodQuery, dateBasis]);
 
     useEffect(() => { load(); }, [load]);
     useEventBus(EVENT_KEYS.reimbursementChanged, () => setRefreshKey((k) => k + 1));
@@ -125,13 +162,10 @@ function PaymentTab() {
     const batchById = useMemo(() => new Map(allRows.map((r) => [r.id, r])), [allRows]);
 
     const periodRows = useMemo(
-        () => filterQueueByPeriod(allRows, filter, periodDate, dateBasis),
-        [allRows, filter, periodDate, dateBasis],
+        () => (periodQuery ? allRows : filterQueueByPeriod(allRows, filter, periodDate, dateBasis)),
+        [allRows, filter, periodDate, dateBasis, periodQuery],
     );
-    const periodPayments = useMemo(
-        () => paymentsInPeriod(allRows, filter, periodDate),
-        [allRows, filter, periodDate],
-    );
+    const periodPayments = useMemo(() => mapOrgPayments(historyRaw), [historyRaw]);
 
     // The org filters offer what the period actually contains, so a branch with no payments this
     // month is not a dead option.
@@ -141,9 +175,17 @@ function PaymentTab() {
     // population than the table beneath them.
     const scopedRows = useMemo(() => periodRows.filter(filters.matches), [periodRows, filters]);
     const scopedPayments = useMemo(() => {
-        const allowed = new Set(scopedRows.map((r) => r.id));
-        return periodPayments.filter((p) => allowed.has(p.batchId));
-    }, [periodPayments, scopedRows]);
+        return periodPayments.filter((p) => {
+            const org = orgById.get(p.employeeId);
+            return filters.matches({
+                subOrganization: org?.subOrganization ?? 'N/A',
+                department: org?.department ?? 'N/A',
+                branch: org?.branch ?? 'N/A',
+                team: org?.team ?? 'N/A',
+                isActive: org?.isActive,
+            } as PaymentBatchRow);
+        });
+    }, [periodPayments, filters, orgById]);
 
     const kpis = useMemo(() => paymentKpis(scopedRows, scopedPayments), [scopedRows, scopedPayments]);
     const breakdown = useMemo(() => stateBreakdown(scopedRows), [scopedRows]);

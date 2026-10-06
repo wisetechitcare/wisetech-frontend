@@ -1,5 +1,5 @@
 import dayjs, { Dayjs } from 'dayjs';
-import { resolveStatusNum } from '../../utils/reimbursementFormat';
+import { resolveStatusNum, STATUS } from '../../utils/reimbursementFormat';
 
 /**
  * Everything the Payment page knows about money, in one place.
@@ -65,6 +65,8 @@ export interface PaymentLine {
     /** Approval status (0/1/2) — a batch can hold rejected lines that are never payable. */
     status: number;
     paymentStatus: string;
+    /** Denormalised remaining helper — 0 when the line has never been paid. */
+    amountPaid: number;
 }
 
 export interface PaymentRecord {
@@ -138,12 +140,25 @@ export interface PaymentBatchRow {
 }
 
 /**
- * Approved batches, with their money resolved.
+ * Whether this batch belongs on the Payment desk.
  *
- * Only `status === 1` batches appear: an unapproved batch cannot be paid, which is why the
- * payment universe has always been this filter. Batches whose approved total is zero (every
- * line rejected) are dropped too — they are unpayable by definition, and listing them put
- * ₹0.00 rows in a queue of things to do.
+ * Payability is per LINE, every month: a fully approved sibling is payable even if another
+ * line was rejected. Rejected / open lines never enter the amount. Period filters (this month
+ * by default) keep closed months off the desk until finance navigates there.
+ */
+export function isBatchReadyForPayment(batch: {
+    reimbursements?: Array<{ status?: unknown; amount?: unknown }>;
+}): boolean {
+    const lines = batch.reimbursements ?? [];
+    return lines.some(
+        (line) => resolveStatusNum(line.status) === STATUS.APPROVED && Number(line.amount || 0) > 0,
+    );
+}
+
+/**
+ * Batches with payable approved money, with their money resolved.
+ *
+ * Eligibility is `isBatchReadyForPayment`. Approved amounts still count approved lines only.
  */
 export function buildPaymentRows(
     rawBatches: any[],
@@ -152,7 +167,7 @@ export function buildPaymentRows(
     const rows: PaymentBatchRow[] = [];
 
     for (const b of rawBatches ?? []) {
-        if (resolveStatusNum(b.status) !== 1) continue;
+        if (!isBatchReadyForPayment(b)) continue;
 
         const employeeId = b.employee?.id || b.employeeId || '';
         const employeeName = fullName(b.employee?.users);
@@ -169,6 +184,7 @@ export function buildPaymentRows(
             expenseDate: r.expenseDate ?? null,
             status: resolveStatusNum(r.status),
             paymentStatus: String(r.paymentStatus || 'UNPAID').toUpperCase(),
+            amountPaid: Number(r.amountPaid || 0),
         }));
 
         const approvedLines = allLines.filter((l) => l.status === 1);
@@ -193,7 +209,9 @@ export function buildPaymentRows(
                 employeeCode,
             }));
 
-        const paidAmount = payments.reduce((s, p) => s + p.amountPaid, 0);
+        const paidAmount = payments.length > 0
+            ? payments.reduce((s, p) => s + p.amountPaid, 0)
+            : approvedLines.reduce((s, l) => s + l.amountPaid, 0);
         const remainingAmount = Math.max(0, approvedAmount - paidAmount);
 
         const state: PaymentState =
@@ -284,6 +302,28 @@ export const paymentsInPeriod = (rows: PaymentBatchRow[], filter: PeriodFilter, 
         .flatMap((r) => r.payments)
         .filter((p) => inPeriod(p.paymentDate, filter, date))
         .sort((a, b) => String(b.paymentDate ?? '').localeCompare(String(a.paymentDate ?? '')));
+
+/** Org-wide history payload → the same PaymentRecord the queue already knows. */
+export function mapOrgPayments(raw: any[]): PaymentRecord[] {
+    return (raw ?? [])
+        .filter(COUNTS_AS_PAYMENT)
+        .map((p: any) => ({
+            id: p.id,
+            paymentDate: p.paymentDate ?? null,
+            amountPaid: Number(p.amountPaid || 0),
+            paymentMethod: p.paymentMethod ?? null,
+            transactionId: p.transactionId ?? null,
+            remarks: p.remarks ?? null,
+            status: p.status,
+            processedBy: fullName(p.processor?.users),
+            batchId: p.batchId || p.batch?.id || '',
+            submissionId: p.batch?.submissionId || p.batchId || p.id,
+            employeeId: p.employeeId || p.employee?.id || '',
+            employeeName: fullName(p.employee?.users),
+            employeeCode: p.employee?.employeeCode || 'N/A',
+        }))
+        .sort((a, b) => String(b.paymentDate ?? '').localeCompare(String(a.paymentDate ?? '')));
+}
 
 export interface PaymentKpis {
     pendingAmount: number;

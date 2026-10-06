@@ -1171,7 +1171,7 @@ function SubmissionsTable({
           }
           if (s === MIXED_STATUS) {
             return (
-              <Tooltip title="Some requests in this batch were approved, others rejected — open it to see which">
+              <Tooltip title="This batch has mixed outcomes — some expenses may still be pending, approved, rejected, or awaiting your reply. Open it to see which. Approved lines are already payable on the Payment desk.">
                 <span className="badge badge-light-info fw-semibold fs-8">Partly approved</span>
               </Tooltip>
             );

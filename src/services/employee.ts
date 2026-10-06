@@ -1795,8 +1795,30 @@ export const submitReimbursementBatch = async (employeeId: string) => {
     return data;
 };
 
-export const fetchReimbursementBatches = async () => {
-    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_BATCHES}`);
+export const fetchReimbursementBatches = async (opts?: {
+    for?: 'payment' | 'inbox';
+    owing?: boolean;
+    startDate?: string;
+    endDate?: string;
+    dateBasis?: 'expense' | 'submission';
+}) => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_BATCHES}`, {
+        params: {
+            ...(opts?.for ? { for: opts.for } : {}),
+            ...(opts?.owing ? { owing: '1' } : {}),
+            ...(opts?.startDate ? { startDate: opts.startDate } : {}),
+            ...(opts?.endDate ? { endDate: opts.endDate } : {}),
+            ...(opts?.dateBasis ? { dateBasis: opts.dateBasis } : {}),
+        },
+    });
+    return data;
+};
+
+/** O(1) badge count for the Payment tab — not a full batch dump. */
+export const fetchReimbursementPaymentQueueCount = async () => {
+    const { data } = await axios.get(
+        `${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_PAYMENT_QUEUE_COUNT}`,
+    );
     return data;
 };
 
@@ -2647,6 +2669,16 @@ export const createReimbursementPayment = async (payload: {
         throw err;
     }
 }
+
+export const fetchReimbursementOrgPayments = async (startDate?: string, endDate?: string) => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_PAYMENTS}`, {
+        params: {
+            ...(startDate ? { startDate } : {}),
+            ...(endDate ? { endDate } : {}),
+        },
+    });
+    return data?.data?.payments ?? data?.payments ?? [];
+};
 
 export const fetchReimbursementPayments = async (employeeId: string, startDate?: string, endDate?: string) => {
     try {

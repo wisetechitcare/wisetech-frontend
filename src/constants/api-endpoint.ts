@@ -252,6 +252,7 @@ export const EMPLOYEE = {
     DELETE_PENDING_DRAFT: "api/employee/reimbursement/pending-draft",
     SUBMIT_REIMBURSEMENT_BATCH: "api/employee/reimbursement/submit-batch",
     GET_REIMBURSEMENT_BATCHES: "api/employee/reimbursement/batches",
+    GET_REIMBURSEMENT_PAYMENT_QUEUE_COUNT: "api/employee/reimbursement/batches/payment-queue-count",
     GET_REIMBURSEMENT_BATCH: "api/employee/reimbursement/batches",
     PROCESS_BATCH_REQUEST: "api/employee/reimbursement/batches",
     GET_UNPAID_APPROVED_REIMBURSEMENTS: "api/employee/reimbursement/unpaid-approved",
