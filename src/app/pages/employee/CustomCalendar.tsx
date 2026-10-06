@@ -160,6 +160,15 @@ const LEGEND: {
 /** Every leaf key the legend can toggle — used to drop stale persisted entries. */
 const LEGEND_KEYS = new Set(LEGEND.flatMap((group) => group.children.map((child) => child.key)));
 
+/** Birthday date on the year being viewed — this year if still ahead, otherwise `viewYear`. */
+const nextBirthdayOnCalendar = (from: string | Date, viewYear: number) => {
+    const birthDate = dayjs(from);
+    const today = dayjs().startOf('day');
+    let next = birthDate.year(today.year());
+    if (next.isBefore(today, 'day')) next = birthDate.year(viewYear);
+    return next.format('YYYY-MM-DD');
+};
+
 // View options shown in the shared PeriodTabs (same control used app-wide).
 const CALENDAR_VIEW_OPTIONS = [
     { label: 'Day', value: 'dayGridDay' },
@@ -209,10 +218,11 @@ function CustomCalendar() {
     const anniversariesColor = useSelector((state:RootState) => state?.customColors?.momentsThatMatter?.anniversariesColor);  
 
 
-    const dateOfBirth = useSelector((state: RootState) => state.auth.currentUser.dateOfBirth);
-
-
-    const anniversaryDate = useSelector((state: RootState) => state.employee.currentEmployee.anniversary);
+    const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+    const dateOfBirth = currentUser?.dateOfBirth;
+    const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee);
+    const anniversaryDate = currentEmployee?.anniversary;
+    const dateOfJoining = currentEmployee?.dateOfJoining;
     const [holidays, setHolidays] = useState<any[]>([]);
     // console.log("hodlidays","holidays =>",holidays)
     const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
@@ -409,10 +419,11 @@ function CustomCalendar() {
           if (!employeeId || !branchId) return;
       
           // Fetch data sequentially with individual await statements
-          const { data: { publicHolidays } } = await fetchPublicHolidays(currentYear, "India");
+          const holidaysRes = await fetchPublicHolidays(currentYear, "India").catch(() => null);
+          const publicHolidays = holidaysRes?.data?.publicHolidays || [];
           
-          const branchRes = await fetchBranchById(branchId);
-          const calendarRes = await fetchCalendarEvents(employeeId);
+          const branchRes = await fetchBranchById(branchId).catch(() => null);
+          const calendarRes = await fetchCalendarEvents(employeeId).catch(() => ({ data: { calendarEvents: [] } }));
           const [
             colorsRes,
             allUsers,
@@ -432,8 +443,10 @@ function CustomCalendar() {
             allEmployeeDateOfjoining,
             meetingsRes
           ] = await Promise.all([
-            fetchAllColors(),
-            fetchAllUsers(),
+            fetchAllColors().catch(() => null),
+            // Listing every user is `users.view.all`. Calendar Read is enough to see
+            // your own birthday; a 403 here must not blank the rest of the grid.
+            fetchAllUsers().catch(() => ({ data: { users: [] } })),
             // A not-yet-configured module makes the GET endpoint respond 400. Catch each
             // config request so one missing module can't reject the whole batch and blank
             // out birthdays / anniversaries / meetings / weekends on the calendar. A null
@@ -451,8 +464,8 @@ function CustomCalendar() {
             fetchConfiguration(SHOW_SUNDAY_ON_CALENDAR).catch(() => null),
             fetchConfiguration(SHOW_MEETINGS_ON_CALENDAR).catch(() => null),
             fetchConfiguration(SHOW_HOLIDAYS_ON_CALENDAR).catch(() => null),
-            fetchAllEmployees(true),
-            getMeetings(employeeId)
+            fetchAllEmployees(true).catch(() => ({ data: { employees: [] } })),
+            getMeetings(employeeId).catch(() => [])
           ]);
           const colors = colorsRes?.data?.colors;
           const parsedBdayInt = safeJsonParse(showBirthdaysInternalRes?.data?.configuration?.configuration || '{}');
@@ -469,18 +482,18 @@ function CustomCalendar() {
           const parsedMeetings = safeJsonParse(showMeetingsRes?.data?.configuration?.configuration || '{}');
           const parsedHolidaysCfg = safeJsonParse(showHolidaysRes?.data?.configuration?.configuration || '{}');
 
-          const showBirthdaysInternalEnabled = parsedBdayInt.enabled ?? parsedBdayInt.showBirthdaysInternal ?? false;
+          const showBirthdaysInternalEnabled = parsedBdayInt.enabled ?? parsedBdayInt.showBirthdaysInternal ?? true;
           const showBirthdaysInternalInactiveEnabled = parsedBdayIntInactive.enabled ?? false;
           const showBirthdaysExternalEnabled = parsedBdayExt.enabled ?? parsedBdayExt.showBirthdaysExternal ?? false;
-          const showAnniversariesInternalEnabled = parsedAnnyInt.enabled ?? parsedAnnyInt.showAnniversariesInternal ?? false;
+          const showAnniversariesInternalEnabled = parsedAnnyInt.enabled ?? parsedAnnyInt.showAnniversariesInternal ?? true;
           const showAnniversariesInternalInactiveEnabled = parsedAnnyIntInactive.enabled ?? false;
           const showAnniversariesExternalEnabled = parsedAnnyExt.enabled ?? parsedAnnyExt.showAnniversariesExternal ?? false;
-          const showMarriageAnnyInternalEnabled = parsedMarriageAnnyInt.enabled ?? false;
+          const showMarriageAnnyInternalEnabled = parsedMarriageAnnyInt.enabled ?? true;
           const showMarriageAnnyInternalInactiveEnabled = parsedMarriageAnnyIntInactive.enabled ?? false;
           const showMarriageAnnyExternalEnabled = parsedMarriageAnnyExt.enabled ?? false;
           const showSaturdayEnabled = parsedSaturday.enabled ?? false;
           const showSundayEnabled = parsedSunday.enabled ?? false;
-          const showMeetingsEnabled = parsedMeetings.enabled ?? false;
+          const showMeetingsEnabled = parsedMeetings.enabled ?? true;
           // Holidays default ON when never configured — they always showed historically.
           const showHolidaysEnabled = parsedHolidaysCfg.enabled ?? true;
 
@@ -808,6 +821,86 @@ function CustomCalendar() {
               .filter(Boolean);
           }
 
+          // Calendar Read does not include listing every user. If that call was
+          // empty, still paint this person's own birthday / anniversaries from
+          // the profile already on the session — the same events colleagues with
+          // People access would see for them.
+          const ownUserId = currentUser?.id;
+          const ownName = [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ').trim();
+          const ownAvatar = currentEmployee?.avatar || null;
+          if (ownUserId && ownName) {
+            const hasOwn = (events: any[]) => events.some((e: any) => e?.extendedProps?.user?.id === ownUserId);
+
+            if (showBirthdaysInternalEnabled && dateOfBirth && !hasOwn(userBirthdays)) {
+              userBirthdays = [
+                ...userBirthdays,
+                {
+                  title: `${ownName}'s Birthday`,
+                  start: nextBirthdayOnCalendar(dateOfBirth, Number(currentYear)),
+                  allDay: true,
+                  color: parsedColorBdayInt,
+                  textColor: '#FFFFFF',
+                  borderColor: parsedColorBdayInt,
+                  className: 'birthday-event',
+                  extendedProps: {
+                    type: 'birthday',
+                    filterKey: 'birthday:active',
+                    icon: parsedBdayInt.icon,
+                    user: { id: ownUserId, name: ownName, avatar: ownAvatar },
+                  },
+                },
+              ];
+            }
+
+            if (showAnniversariesInternalEnabled && dateOfJoining && !hasOwn(employeeAnniversaries)) {
+              const nextWork = anniversaryDateOrNull(dayjs(dateOfJoining), Number(currentYear));
+              if (nextWork) {
+                employeeAnniversaries = [
+                  ...employeeAnniversaries,
+                  {
+                    title: `${ownName}'s Work Anniversary`,
+                    start: nextWork.format('YYYY-MM-DD'),
+                    allDay: true,
+                    color: parsedColorAnnyInt,
+                    textColor: '#FFFFFF',
+                    borderColor: parsedColorAnnyInt,
+                    className: 'anniversary-event',
+                    extendedProps: {
+                      type: 'anniversary',
+                      filterKey: 'anniversary:active',
+                      icon: parsedAnnyInt.icon,
+                      user: { id: ownUserId, name: ownName, avatar: ownAvatar },
+                    },
+                  },
+                ];
+              }
+            }
+
+            if (showMarriageAnnyInternalEnabled && anniversaryDate && !hasOwn(employeeMarriageAnniversaries)) {
+              const nextMarriage = anniversaryDateOrNull(dayjs(anniversaryDate), Number(currentYear));
+              if (nextMarriage) {
+                employeeMarriageAnniversaries = [
+                  ...employeeMarriageAnniversaries,
+                  {
+                    title: `${ownName}'s Marriage Anniversary`,
+                    start: nextMarriage.format('YYYY-MM-DD'),
+                    allDay: true,
+                    color: parsedColorMarriageAnnyInt,
+                    textColor: '#FFFFFF',
+                    borderColor: parsedColorMarriageAnnyInt,
+                    className: 'marriage-anniversary-event',
+                    extendedProps: {
+                      type: 'marriage-anniversary',
+                      filterKey: 'marriage:active',
+                      icon: parsedMarriageAnnyInt.icon,
+                      user: { id: ownUserId, name: ownName, avatar: ownAvatar },
+                    },
+                  },
+                ];
+              }
+            }
+          }
+
           for (let d = start; d.isBefore(end); d = d.add(1, 'day')) {
             const dayIndex = d.day(); // 0: Sunday, 6: Saturday
             const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -896,10 +989,12 @@ function CustomCalendar() {
           setCalendarEvents([...calendarEventList]);
         }
       
-        getData();
+        getData().catch((err) => {
+          console.error('Failed to load calendar events:', err);
+        });
 
         // console.log("=> => =>",currentYear, employeeId, branchId, dateOfBirth, anniversaryDate, holidayRefresh)
-      }, [currentYear, employeeId, branchId, dateOfBirth, anniversaryDate, holidayRefresh]);
+      }, [currentYear, employeeId, branchId, dateOfBirth, dateOfJoining, anniversaryDate, holidayRefresh, currentUser?.id, currentUser?.firstName, currentUser?.lastName, currentEmployee?.avatar]);
 
     function handleDayCellClassNames(arg: any) {
         const classNamesToAdd = [];

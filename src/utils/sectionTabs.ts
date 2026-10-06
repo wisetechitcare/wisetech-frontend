@@ -51,7 +51,7 @@ export const SECTION_TABS: Record<string, SectionTab[]> = {
   calendar: [
     { key: "calendar", label: "Calendar", icon: "bi-calendar-event", hint: "The shared calendar" },
     { key: "meetings", label: "Meetings", icon: "bi-people", hint: "Meetings list" },
-    { key: "holidays", label: "Holidays", icon: "bi-calendar-check", hint: "Holiday list" , needsWrite: true },
+    { key: "holidays", label: "Holidays", icon: "bi-calendar-check", hint: "Holiday list" },
     configure("the calendar"),
   ],
   "attendance.personal": [
