@@ -14,7 +14,7 @@ import ReimbursementConfiguration from "./views/admin/ReimbursementConfiguration
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
 import { canSection } from "@utils/can";
-import { fetchReimbursementBatches } from "@services/employee";
+import { fetchReimbursementPaymentQueueCount } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -51,12 +51,9 @@ function AdminAndEmployeeReimbursementViewer() {
   const loadBadgeCounts = useCallback(async () => {
     if (!canSection('finance.reimbursements', 'write')) return;
     try {
-      const res = await fetchReimbursementBatches();
-      const batches: any[] = res?.data?.batches || res?.batches || [];
-      // Approved batches that are not fully paid — the same population the Payment tab opens on.
-      setPendingPaymentCount(
-        batches.filter((b: any) => Number(b.status) === 1 && b.paidStatus !== 'PAID').length,
-      );
+      // Server COUNT — same eligibility as the Payment queue, without downloading every batch.
+      const res = await fetchReimbursementPaymentQueueCount();
+      setPendingPaymentCount(Number(res?.data?.count ?? res?.count ?? 0));
     } catch {
       setPendingPaymentCount(0);   // a badge is a hint; failing to load one must not break the page
     }
