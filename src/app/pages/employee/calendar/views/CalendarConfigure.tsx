@@ -112,7 +112,7 @@ const SECTIONS: EventSection[] = [
     id: 'birthdays', tone: TRIO.amber, icon: 'gift',
     title: 'Birthdays', desc: 'Whose birthdays land on the calendar.',
     items: [
-      { key: SHOW_BIRTHDAYS_INTERNAL, label: 'Current employees', desc: 'Everyone on the active roster.', sample: "[Name]'s Birthday", defaultColor: '#E91E63' },
+      { key: SHOW_BIRTHDAYS_INTERNAL, label: 'Current employees', desc: 'Everyone on the active roster.', sample: "[Name]'s Birthday", defaultColor: '#E91E63', defaultEnabled: true },
       { key: SHOW_BIRTHDAYS_INTERNAL_INACTIVE, label: 'Former employees', desc: 'People who have since left the company.', sample: "[Name]'s Birthday (Inactive Employee)", defaultColor: '#E91E63' },
       { key: SHOW_BIRTHDAYS_EXTERNAL, label: 'External contacts', desc: 'Client, vendor and partner contacts.', sample: "[Name]'s Birthday", defaultColor: '#0288D1' },
     ],
@@ -121,7 +121,7 @@ const SECTIONS: EventSection[] = [
     id: 'work', tone: TRIO.purple, icon: 'award',
     title: 'Work Anniversaries', desc: 'Whose joining date is marked each year.',
     items: [
-      { key: SHOW_ANNIVERSARIES_INTERNAL, label: 'Current employees', desc: 'Everyone on the active roster.', sample: "[Name]'s Work Anniversary", defaultColor: '#9C27B0' },
+      { key: SHOW_ANNIVERSARIES_INTERNAL, label: 'Current employees', desc: 'Everyone on the active roster.', sample: "[Name]'s Work Anniversary", defaultColor: '#9C27B0', defaultEnabled: true },
       { key: SHOW_ANNIVERSARIES_INTERNAL_INACTIVE, label: 'Former employees', desc: 'People who have since left the company.', sample: "[Name]'s Work Anniversary (Inactive Employee)", defaultColor: '#9C27B0' },
       { key: SHOW_ANNIVERSARIES_EXTERNAL, label: 'External contacts', desc: 'Client, vendor and partner contacts.', sample: "[Name]'s Anniversary", defaultColor: '#F57C00' },
     ],
@@ -130,7 +130,7 @@ const SECTIONS: EventSection[] = [
     id: 'marriage', tone: TRIO.rose, icon: 'heart',
     title: 'Marriage Anniversaries', desc: 'Whose wedding anniversary is marked each year.',
     items: [
-      { key: SHOW_MARRIAGE_ANNIVERSARY_INTERNAL, label: 'Current employees', desc: 'Everyone on the active roster.', sample: "[Name]'s Marriage Anniversary", defaultColor: '#E64980' },
+      { key: SHOW_MARRIAGE_ANNIVERSARY_INTERNAL, label: 'Current employees', desc: 'Everyone on the active roster.', sample: "[Name]'s Marriage Anniversary", defaultColor: '#E64980', defaultEnabled: true },
       { key: SHOW_MARRIAGE_ANNIVERSARY_INTERNAL_INACTIVE, label: 'Former employees', desc: 'People who have since left the company.', sample: "[Name]'s Marriage Anniversary (Inactive Employee)", defaultColor: '#E64980' },
       { key: SHOW_MARRIAGE_ANNIVERSARY_EXTERNAL, label: 'External contacts', desc: 'Client, vendor and partner contacts.', sample: "[Name]'s Marriage Anniversary", defaultColor: '#AE3EC9' },
     ],
@@ -167,7 +167,7 @@ const MEETING_SECTIONS: EventSection[] = [
     id: 'meetings', tone: TRIO.blue, icon: 'people',
     title: 'Meetings on the calendar', desc: 'Whether scheduled meetings show as calendar events.',
     items: [
-      { key: SHOW_MEETINGS_ON_CALENDAR, label: 'Team meetings', desc: 'Meetings you organise or are invited to.', sample: '[Meeting title]', defaultColor: '#2196F3' },
+      { key: SHOW_MEETINGS_ON_CALENDAR, label: 'Team meetings', desc: 'Meetings you organise or are invited to.', sample: '[Meeting title]', defaultColor: '#2196F3', defaultEnabled: true },
     ],
   },
   {
