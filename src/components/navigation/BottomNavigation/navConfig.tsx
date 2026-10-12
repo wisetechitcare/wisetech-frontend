@@ -129,6 +129,15 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
     isVisible: () => !isSectionBlocked('crm.contacts'),
   },
   {
+    id: 'courtesy-desk',
+    label: 'Courtesy Desk',
+    icon: 'bi-gift',
+    to: '/courtesy-desk',
+    match: ['/courtesy-desk', '/courtesy-desk/'],
+    order: 105,
+    isVisible: () => !isSectionBlocked('crm.contacts'),
+  },
+  {
     id: 'people',
     label: 'People',
     icon: 'bi-people',

@@ -73,6 +73,16 @@ const TaskDetails = lazy(() => import('@pages/employee/tasks/tasks/components/Ta
 const TasksMainCalenderPage = lazy(() => import('@pages/employee/tasks/calender/TasksMainCalenderPage'))
 const EmployeeTeamLevelMain = lazy(() => import('@pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain'))
 const ContactsNavbar = lazy(() => import('@pages/employee/companies/contacts/contactsNavbar'))
+const CourtesyDeskMain = lazy(() => import('@pages/employee/courtesy-desk/CourtesyDeskMain'))
+const CourtesyGroupEditorPage = lazy(
+  () => import('@pages/employee/courtesy-desk/pages/GroupEditorPage')
+)
+const CourtesyDriveCreatePage = lazy(
+  () => import('@pages/employee/courtesy-desk/pages/DriveCreatePage')
+)
+const CourtesyDriveDetailPage = lazy(
+  () => import('@pages/employee/courtesy-desk/pages/DriveDetailPage')
+)
 const OrganisationInfoProfileMain = lazy(() => import('@pages/company/organisationInfo/OrganisationInfoProfileMain'))
 const SearchResultsPage = lazy(() => import('@pages/employee/search/SearchResultsPage'))
 const ProposalConfigurationPage = lazy(() => import('@pages/employee/leads/lead/components/ProposalConfigurationPage'))
@@ -684,6 +694,55 @@ const PrivateRoutes = () => {
             </SuspensedView>
           </SectionGuard>,
         )}
+        {tabRoutes(
+          '/courtesy-desk',
+          TAB_PATHS.courtesyDesk,
+          <SectionGuard module='crm.contacts'>
+            <SuspensedView>
+              <CourtesyDeskMain />
+            </SuspensedView>
+          </SectionGuard>,
+        )}
+        <Route
+          path='/courtesy-desk/groups/new'
+          element={
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <CourtesyGroupEditorPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          path='/courtesy-desk/groups/:groupId'
+          element={
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <CourtesyGroupEditorPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          path='/courtesy-desk/drives/new'
+          element={
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <CourtesyDriveCreatePage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          path='/courtesy-desk/drives/:driveId'
+          element={
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <CourtesyDriveDetailPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
         {tabRoutes(
           '/companies',
           TAB_PATHS.companies,

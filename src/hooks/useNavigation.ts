@@ -314,7 +314,10 @@ export function useNavigation() {
         type: 'section',
         id: 'crm-section',
         title: 'CRM',
-        visible: !isSectionBlocked('crm.leads') || !isSectionBlocked('crm.companies') || !isSectionBlocked('crm.contacts'),
+        visible:
+          !isSectionBlocked('crm.leads') ||
+          !isSectionBlocked('crm.companies') ||
+          !isSectionBlocked('crm.contacts'),
       },
       {
         type: 'item',
@@ -338,6 +341,15 @@ export function useNavigation() {
         to: '/contacts',
         title: 'Contacts',
         fontIcon: 'bi-person-lines-fill',
+        visible: !isSectionBlocked('crm.contacts'),
+      },
+      {
+        type: 'item',
+        id: 'crm-courtesy-desk',
+        to: '/courtesy-desk',
+        title: 'Courtesy Desk',
+        fontIcon: 'bi-gift',
+        // Prototype: visible with Contacts until a dedicated crm.courtesyDesk permission exists.
         visible: !isSectionBlocked('crm.contacts'),
       },
 
