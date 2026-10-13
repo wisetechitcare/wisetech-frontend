@@ -13,7 +13,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import {
     getApplications, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
-    stashConversion,
+    stashConversion, getRecruitmentSettings,
     type Application, type ApplicationStatus, type OrgScoped,
 } from "@services/recruitment";
 import InterviewsPanel from "./InterviewsPanel";
@@ -33,6 +33,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const navigate = useNavigate();
+    const { data: settings } = useQuery({
+        queryKey: queryKeys.recruitment.settings(),
+        queryFn: getRecruitmentSettings,
+    });
+    const useWizard = settings?.candidateWizardEnabled === true;
     /**
      * Board or list, REMEMBERED. It reset to Board on every navigation, so a recruiter who works
      * in the list re-chose it all day. Audit M20.
@@ -41,6 +46,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         "recruitment:pipeline-view", ["board", "list"], "board",
     );
     const [adding, setAdding] = useState(false);
+
+    const startAdd = () => {
+        if (useWizard) navigate("/recruitment/candidates/new?roleRequired=1");
+        else setAdding(true);
+    };
     const [pending, setPending] = useState<PendingMove | null>(null);
     const [rejectReasonId, setRejectReasonId] = useState("");
     const [rejectNote, setRejectNote] = useState("");
@@ -196,7 +206,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                             ]}
                         />
                         {canWrite && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
+                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
                                 Add Candidate
                             </WtButton>
                         )}

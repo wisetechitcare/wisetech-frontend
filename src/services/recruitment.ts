@@ -190,7 +190,13 @@ export interface Applicant {
     /** Full annual amounts. */
     currentCtc?: number | string | null;
     expectedCtc?: number | string | null; noticePeriodDays?: number | null; resumeS3Url?: string | null;
-    resumeFileName?: string | null; linkedInUrl?: string | null; sourceId?: string | null; source?: ApplicantSource | null;
+    resumeFileName?: string | null;
+    photoS3Url?: string | null; photoFileName?: string | null;
+    linkedInUrl?: string | null; sourceId?: string | null; referredById?: string | null;
+    source?: ApplicantSource | null;
+    /** Candidate wizard nested profile (API alias for preHireProfileJson). */
+    preHireProfile?: Record<string, unknown> | null;
+    preHireProfileJson?: Record<string, unknown> | null;
     isBlacklisted: boolean; isActive: boolean; createdAt: string;
     /** Optimistic-concurrency counter: sent back as expectedRevisionCount so a stale edit is refused, not silently applied. */
     revisionCount?: number;
@@ -272,6 +278,10 @@ export interface ApplicantPayload {
     expectedCtc?: number | null;
     noticePeriodDays?: number | null;
     sourceId?: string | null;
+    referredById?: string | null;
+    linkedInUrl?: string | null;
+    /** Nested candidate-wizard profile — schemaVersion 1. */
+    preHireProfile?: Record<string, unknown> | null;
 }
 export interface ApplicationCreatePayload {
     applicantId?: string | null;
@@ -464,6 +474,35 @@ export const updateApplicant = async (id: string, payload: Partial<ApplicantPayl
     return data;
 };
 
+/** Candidate wizard photo — authenticated recruiters only. */
+export const uploadApplicantPhoto = async (id: string, file: File) => {
+    const form = new FormData();
+    form.append("photo", file);
+    const { data } = await axios.post(
+        `${API_BASE_URL}/${RECRUITMENT.UPLOAD_APPLICANT_PHOTO.replace(":id", id)}`,
+        form,
+    );
+    return data?.applicant;
+};
+
+/** Identity/statutory doc (Aadhaar, PAN, …) — authenticated recruiters only. */
+export const uploadApplicantDocument = async (
+    id: string,
+    file: File,
+    documentId: string,
+    identityNumber?: string | null,
+) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("documentId", documentId);
+    if (identityNumber) form.append("identityNumber", identityNumber);
+    const { data } = await axios.post(
+        `${API_BASE_URL}/${RECRUITMENT.UPLOAD_APPLICANT_DOCUMENT.replace(":id", id)}`,
+        form,
+    );
+    return data?.applicant;
+};
+
 // ─── Pipeline config masters ─────────────────────────────────────────────────
 const cfgPath = (type: string) => RECRUITMENT.CONFIG_ENTITY.replace(":type", type);
 const cfgByIdPath = (type: string, id: string) => RECRUITMENT.CONFIG_ENTITY_BY_ID.replace(":type", type).replace(":id", id);
@@ -543,6 +582,8 @@ export interface RecruitmentSettings {
      * customer. Null when unset, and the field is then simply left empty.
      */
     defaultRecruiterId?: string | null;
+    /** Kill switch: false keeps legacy Add/Edit dialogs. */
+    candidateWizardEnabled?: boolean;
 }
 
 export const getRecruitmentSettings = async (): Promise<RecruitmentSettings> => {

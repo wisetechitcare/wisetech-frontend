@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Box, Stack, Typography, CircularProgress, DialogContent, DialogActions, LinearProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
@@ -14,6 +15,7 @@ import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
 import {
     getApplicants, getApplicantById, updateApplicant, getApplicantSources, uploadApplicantResume,
+    getRecruitmentSettings,
     type Applicant, type ApplicantPayload, type ApplicantSource, type OrgScoped,
 } from "@services/recruitment";
 import { CandidateFormFields, emptyCandidate, isCandidateFormValid } from "./CandidateFormFields";
@@ -53,7 +55,15 @@ const SEARCH_DEBOUNCE_MS = 300;
  */
 const CandidatesView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
+    const navigate = useNavigate();
     const qc = useQueryClient();
+    const { data: settings } = useQuery({
+        queryKey: queryKeys.recruitment.settings(),
+        queryFn: getRecruitmentSettings,
+    });
+    /** Kill switch: false (or unset) keeps legacy dialogs until pilot enables the wizard. */
+    const useWizard = settings?.candidateWizardEnabled === true;
+
     const [searchInput, setSearchInput] = useState("");
     const [search, setSearch] = useState("");
     useEffect(() => {
@@ -166,6 +176,10 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
     });
 
     const openEdit = (a: Applicant) => {
+        if (useWizard) {
+            navigate(`/recruitment/candidates/${a.id}/edit`);
+            return;
+        }
         setEditing(a);
         setForm({
             firstName: a.firstName ?? "", lastName: a.lastName ?? "", email: a.email ?? "", phone: a.phone ?? "",
@@ -183,6 +197,11 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
         setBlacklisted(a.isBlacklisted);
         setFormFile(null);
         setAttempted(false);
+    };
+
+    const startAdd = () => {
+        if (useWizard) navigate("/recruitment/candidates/new");
+        else setAdding(true);
     };
     const closeEdit = () => { setEditing(null); setFormFile(null); setAttempted(false); };
 
@@ -225,7 +244,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                             sx={{ width: { xs: "100%", sm: 280 } }}
                         />
                         {canWrite && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
+                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
                                 Add Candidate
                             </WtButton>
                         )}
@@ -245,7 +264,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 search ? (
                     <WtEmptyState variant="no-match" {...COPY.noSearchMatch(search)} />
                 ) : (
-                    <WtEmptyState icon="people" title={COPY.noCandidates.title} hint={COPY.noCandidates.hint} actionLabel={canWrite ? "Add Candidate" : undefined} onAction={() => setAdding(true)} />
+                    <WtEmptyState icon="people" title={COPY.noCandidates.title} hint={COPY.noCandidates.hint} actionLabel={canWrite ? "Add Candidate" : undefined} onAction={startAdd} />
                 )
             ) : (
                 <>

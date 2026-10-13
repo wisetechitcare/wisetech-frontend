@@ -2,6 +2,8 @@
 
 HRMS web client (Metronic-based admin theme). React 18 + TypeScript + Vite. Pairs with `../wisetech-backend`.
 
+**Team handbook:** [docs/HANDBOOK.md](docs/HANDBOOK.md) · **Tenancy:** [docs/multi-tenancy.md](docs/multi-tenancy.md)
+
 ## Commands
 - Dev: `pnpm run dev` (Vite) · LAN: `pnpm run dev:host`
 - Build: `pnpm run build` (`tsc && vite build`) — **the build typechecks; it fails on any TS error.**

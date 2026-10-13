@@ -49,6 +49,7 @@ const EmployeesLoanMain = lazy(() => import('@pages/employee/loans/admin/Employe
 const PersonalKpiMain = lazy(() => import('@pages/employee/kpis/personal/PersonalKpiMain'))
 const LeadsMain = lazy(() => import('@pages/employee/leads/LeadsMain'))
 const RecruitmentMain = lazy(() => import('@pages/employee/recruitment/RecruitmentMain'))
+const CandidateWizardHost = lazy(() => import('@pages/employee/recruitment/CandidateWizardHost'))
 // Opt-in beta: migrated EnterpriseForm wizard (parallel to classic LeadFormModal)
 const LeadWizardBetaPage = lazy(() => import('@pages/employee/leads/lead/LeadWizardBetaPage'))
 const ProjectsMain = lazy(() => import('@pages/employee/projects/ProjectsMain'))
@@ -523,6 +524,25 @@ const PrivateRoutes = () => {
             </SuspensedView>
           </SectionGuard>,
         )}
+        {/* Candidate Add/Edit wizard — full page, outside the recruitment tab shell */}
+        <Route
+          path='/recruitment/candidates/new'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <CandidateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
+        <Route
+          path='/recruitment/candidates/:applicantId/edit'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <CandidateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
         <Route
           path='/recruitment/*'
           element={
