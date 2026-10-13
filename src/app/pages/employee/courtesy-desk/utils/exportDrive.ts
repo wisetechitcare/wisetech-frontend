@@ -1,8 +1,12 @@
-import { getCourtesyDeskState } from '../store/courtesyDeskStore';
-import type { CourtesyDrive, CourtesyRecipient } from '../types';
-import { deliveryModeLabel, deliveryStatusLabel, type CourtesyConfig } from '../types';
+import { getCourtesyDeskState } from "../store/courtesyDeskStore";
+import type { CourtesyDrive, CourtesyRecipient } from "../types";
+import {
+  deliveryStatusLabel,
+  DELIVERY_MODE_LABELS,
+  type CourtesyConfig,
+} from "../types";
 
-export type ExportScope = 'ALL' | 'PENDING' | 'DELIVERED';
+export type ExportScope = "ALL" | "PENDING" | "DELIVERED";
 
 export interface ExportRow {
   name: string;
@@ -17,14 +21,19 @@ export interface ExportRow {
   remark: string;
 }
 
-function filterRecipients(drive: CourtesyDrive, scope: ExportScope): CourtesyRecipient[] {
+function filterRecipients(
+  drive: CourtesyDrive,
+  scope: ExportScope,
+): CourtesyRecipient[] {
   switch (scope) {
-    case 'ALL':
+    case "ALL":
       return drive.recipients;
-    case 'PENDING':
-      return drive.recipients.filter((r) => r.status === 'PENDING' || r.status === 'OUT');
-    case 'DELIVERED':
-      return drive.recipients.filter((r) => r.status === 'DELIVERED');
+    case "PENDING":
+      return drive.recipients.filter(
+        (r) => r.status === "PENDING" || r.status === "OUT",
+      );
+    case "DELIVERED":
+      return drive.recipients.filter((r) => r.status === "DELIVERED");
     default: {
       const _exhaustive: never = scope;
       return _exhaustive;
@@ -34,47 +43,50 @@ function filterRecipients(drive: CourtesyDrive, scope: ExportScope): CourtesyRec
 
 export function buildExportRows(
   drive: CourtesyDrive,
-  scope: ExportScope = 'ALL',
-  config?: CourtesyConfig
+  scope: ExportScope = "ALL",
+  config?: CourtesyConfig,
 ): ExportRow[] {
   const cfg = config;
   return filterRecipients(drive, scope).map((r) => ({
     name: r.fullName,
-    source: r.memberType === 'CONTACT' ? 'Contact' : 'Employee',
-    company: r.companyName || '—',
-    areaAddress: [r.area, r.address].filter(Boolean).join(' · ') || '—',
+    source: r.memberType === "CONTACT" ? "Contact" : "Employee",
+    company: r.companyName || "—",
+    areaAddress: [r.area, r.address].filter(Boolean).join(" · ") || "—",
     gift: drive.giftItem,
     quantity: r.quantity ?? 1,
     status: cfg ? deliveryStatusLabel(cfg, r.status) : r.status,
     mode: DELIVERY_MODE_LABELS[r.mode],
-    assignee: r.assigneeName || '—',
-    remark: r.remark || '—',
+    assignee: r.assigneeName || "—",
+    remark: r.remark || "—",
   }));
 }
 
 export function exportFilename(drive: CourtesyDrive) {
-  const safe = drive.title.replace(/[^\w\-]+/g, '_').replace(/_+/g, '_').slice(0, 60);
+  const safe = drive.title
+    .replace(/[^\w\-]+/g, "_")
+    .replace(/_+/g, "_")
+    .slice(0, 60);
   const day = (drive.driveDate || drive.createdAt).slice(0, 10);
   return `${safe}_${day}`;
 }
 
-export function downloadCsv(drive: CourtesyDrive, scope: ExportScope = 'ALL') {
+export function downloadCsv(drive: CourtesyDrive, scope: ExportScope = "ALL") {
   const rows = buildExportRows(drive, scope, getCourtesyDeskState().config);
   const headers = [
-    'Name',
-    'Source',
-    'Company',
-    'Area/Address',
-    'Gift',
-    'Qty',
-    'Status',
-    'Mode',
-    'Assignee',
-    'Remark',
+    "Name",
+    "Source",
+    "Company",
+    "Area/Address",
+    "Gift",
+    "Qty",
+    "Status",
+    "Mode",
+    "Assignee",
+    "Remark",
   ];
   const escape = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
   const lines = [
-    headers.join(','),
+    headers.join(","),
     ...rows.map((r) =>
       [
         r.name,
@@ -89,38 +101,55 @@ export function downloadCsv(drive: CourtesyDrive, scope: ExportScope = 'ALL') {
         r.remark,
       ]
         .map(escape)
-        .join(',')
+        .join(","),
     ),
   ];
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob([lines.join("\n")], {
+    type: "text/csv;charset=utf-8;",
+  });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = `${exportFilename(drive)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-export async function downloadPdf(drive: CourtesyDrive, scope: ExportScope = 'ALL') {
+export async function downloadPdf(
+  drive: CourtesyDrive,
+  scope: ExportScope = "ALL",
+) {
   const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
-    import('jspdf'),
-    import('jspdf-autotable'),
+    import("jspdf"),
+    import("jspdf-autotable"),
   ]);
   const rows = buildExportRows(drive, scope, getCourtesyDeskState().config);
-  const doc = new jsPDF({ orientation: 'landscape' });
+  const doc = new jsPDF({ orientation: "landscape" });
   doc.setFontSize(14);
   doc.text(drive.title, 14, 16);
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.text(
-    `${drive.giftItem} · ${drive.sourceGroupName} · ${(drive.driveDate || '').slice(0, 10)}`,
+    `${drive.giftItem} · ${drive.sourceGroupName} · ${(drive.driveDate || "").slice(0, 10)}`,
     14,
-    23
+    23,
   );
 
   autoTable(doc, {
     startY: 28,
-    head: [['Name', 'Source', 'Company', 'Area/Address', 'Qty', 'Status', 'Mode', 'Assignee', 'Remark']],
+    head: [
+      [
+        "Name",
+        "Source",
+        "Company",
+        "Area/Address",
+        "Qty",
+        "Status",
+        "Mode",
+        "Assignee",
+        "Remark",
+      ],
+    ],
     body: rows.map((r) => [
       r.name,
       r.source,
