@@ -6,15 +6,19 @@ import type {
   ConfigOption,
   DeliveryMode,
   DeliveryStatus,
-  DriveStatus,
   PeopleGroup,
   PersonRef,
   SkippedReason,
-} from '../types';
-import { DEFAULT_OCCASIONS, DEFAULT_STATUS_COLORS } from '../types';
-import { seedCourtesyDeskState } from '../seed/demoData';
+} from "../types";
+import {
+  DEFAULT_DELIVERY_MODES,
+  DEFAULT_DELIVERY_STATUSES,
+  DEFAULT_GIFT_RUN_STATUSES,
+  DEFAULT_OCCASIONS,
+} from "../types";
+import { seedCourtesyDeskState } from "../seed/demoData";
 
-const STORAGE_KEY = 'wisetech.courtesyDesk.v2';
+const STORAGE_KEY = "wisetech.courtesyDesk.v2";
 
 type Listener = () => void;
 
@@ -29,25 +33,49 @@ function nowIso() {
 function defaultConfig(): CourtesyConfig {
   return {
     occasions: DEFAULT_OCCASIONS.map((o) => ({ ...o })),
-    statusColors: { ...DEFAULT_STATUS_COLORS },
+    deliveryStatuses: DEFAULT_DELIVERY_STATUSES.map((s) => ({ ...s })),
+    giftRunStatuses: DEFAULT_GIFT_RUN_STATUSES.map((s) => ({ ...s })),
+    deliveryModes: DEFAULT_DELIVERY_MODES.map((m) => ({ ...m })),
   };
 }
 
-function normalizeState(raw: any): CourtesyDeskState {
-  const drives = (Array.isArray(raw?.drives) ? raw.drives : []).map((d: any) => ({
-    ...d,
-    recipients: (d.recipients || []).map((r: any) => ({
-      ...r,
-      quantity: typeof r.quantity === 'number' && r.quantity > 0 ? r.quantity : 1,
-    })),
+function migrateDeliveryStatuses(raw: any): ConfigOption[] {
+  if (raw?.config?.deliveryStatuses?.length) {
+    return raw.config.deliveryStatuses;
+  }
+  const legacy = raw?.config?.statusColors || {};
+  return DEFAULT_DELIVERY_STATUSES.map((s) => ({
+    ...s,
+    color: legacy[s.id] || s.color,
   }));
+}
+
+function normalizeState(raw: any): CourtesyDeskState {
+  const drives = (Array.isArray(raw?.drives) ? raw.drives : []).map(
+    (d: any) => ({
+      ...d,
+      recipients: (d.recipients || []).map((r: any) => ({
+        ...r,
+        quantity:
+          typeof r.quantity === "number" && r.quantity > 0 ? r.quantity : 1,
+      })),
+    }),
+  );
   return {
     version: 2,
     groups: Array.isArray(raw?.groups) ? raw.groups : [],
     drives,
     config: {
-      occasions: raw?.config?.occasions?.length ? raw.config.occasions : defaultConfig().occasions,
-      statusColors: { ...DEFAULT_STATUS_COLORS, ...(raw?.config?.statusColors || {}) },
+      occasions: raw?.config?.occasions?.length
+        ? raw.config.occasions
+        : defaultConfig().occasions,
+      deliveryStatuses: migrateDeliveryStatuses(raw),
+      giftRunStatuses: raw?.config?.giftRunStatuses?.length
+        ? raw.config.giftRunStatuses
+        : defaultConfig().giftRunStatuses,
+      deliveryModes: raw?.config?.deliveryModes?.length
+        ? raw.config.deliveryModes
+        : defaultConfig().deliveryModes,
     },
   };
 }
@@ -57,7 +85,7 @@ function loadState(): CourtesyDeskState {
     const v2 = localStorage.getItem(STORAGE_KEY);
     if (v2) return normalizeState(JSON.parse(v2));
     // migrate v1 if present
-    const v1 = localStorage.getItem('wisetech.courtesyDesk.v1');
+    const v1 = localStorage.getItem("wisetech.courtesyDesk.v1");
     if (v1) {
       const migrated = normalizeState(JSON.parse(v1));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
@@ -84,7 +112,7 @@ function setState(next: CourtesyDeskState) {
   persist();
 }
 
-export function getCourtesyDeskState() {
+export function getCourtesyDeskState(): CourtesyDeskState {
   return state;
 }
 
@@ -121,19 +149,67 @@ export function deleteOccasion(id: string) {
   });
 }
 
-export function setStatusColor(status: DeliveryStatus, color: string) {
+export function saveDeliveryStatus(option: ConfigOption) {
+  const exists = state.config.deliveryStatuses.some((s) => s.id === option.id);
+  const deliveryStatuses = exists
+    ? state.config.deliveryStatuses.map((s) =>
+        s.id === option.id ? option : s,
+      )
+    : [...state.config.deliveryStatuses, option];
+  setState({ ...state, config: { ...state.config, deliveryStatuses } });
+}
+
+export function deleteDeliveryStatus(id: string) {
   setState({
     ...state,
     config: {
       ...state.config,
-      statusColors: { ...state.config.statusColors, [status]: color },
+      deliveryStatuses: state.config.deliveryStatuses.filter(
+        (s) => s.id !== id,
+      ),
+    },
+  });
+}
+
+export function saveGiftRunStatus(option: ConfigOption) {
+  const exists = state.config.giftRunStatuses.some((s) => s.id === option.id);
+  const giftRunStatuses = exists
+    ? state.config.giftRunStatuses.map((s) => (s.id === option.id ? option : s))
+    : [...state.config.giftRunStatuses, option];
+  setState({ ...state, config: { ...state.config, giftRunStatuses } });
+}
+
+export function deleteGiftRunStatus(id: string) {
+  setState({
+    ...state,
+    config: {
+      ...state.config,
+      giftRunStatuses: state.config.giftRunStatuses.filter((s) => s.id !== id),
+    },
+  });
+}
+
+export function saveDeliveryMode(option: ConfigOption) {
+  const exists = state.config.deliveryModes.some((m) => m.id === option.id);
+  const deliveryModes = exists
+    ? state.config.deliveryModes.map((m) => (m.id === option.id ? option : m))
+    : [...state.config.deliveryModes, option];
+  setState({ ...state, config: { ...state.config, deliveryModes } });
+}
+
+export function deleteDeliveryMode(id: string) {
+  setState({
+    ...state,
+    config: {
+      ...state.config,
+      deliveryModes: state.config.deliveryModes.filter((m) => m.id !== id),
     },
   });
 }
 
 export function listGroups(includeArchived = false) {
   return state.groups
-    .filter((g) => includeArchived || g.status === 'ACTIVE')
+    .filter((g) => includeArchived || g.status === "ACTIVE")
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
@@ -158,7 +234,7 @@ export function saveGroup(input: {
   name: string;
   notes?: string;
   members: PersonRef[];
-  status?: PeopleGroup['status'];
+  status?: PeopleGroup["status"];
 }) {
   const ts = nowIso();
   if (input.id) {
@@ -167,22 +243,22 @@ export function saveGroup(input: {
         ? {
             ...g,
             name: input.name.trim(),
-            notes: input.notes?.trim() || '',
+            notes: input.notes?.trim() || "",
             members: dedupeMembers(input.members),
             status: input.status ?? g.status,
             updatedAt: ts,
           }
-        : g
+        : g,
     );
     setState({ ...state, groups });
     return groups.find((g) => g.id === input.id)!;
   }
 
   const group: PeopleGroup = {
-    id: uid('grp'),
+    id: uid("grp"),
     name: input.name.trim(),
-    notes: input.notes?.trim() || '',
-    status: 'ACTIVE',
+    notes: input.notes?.trim() || "",
+    status: "ACTIVE",
     members: dedupeMembers(input.members),
     createdAt: ts,
     updatedAt: ts,
@@ -193,7 +269,7 @@ export function saveGroup(input: {
 
 export function cloneGroup(groupId: string, newName: string) {
   const source = getGroup(groupId);
-  if (!source) throw new Error('Group not found');
+  if (!source) throw new Error("Group not found");
   return saveGroup({
     name: newName.trim() || `${source.name} (copy)`,
     notes: source.notes,
@@ -203,21 +279,25 @@ export function cloneGroup(groupId: string, newName: string) {
 
 export function archiveGroup(groupId: string) {
   const groups = state.groups.map((g) =>
-    g.id === groupId ? { ...g, status: 'ARCHIVED' as const, updatedAt: nowIso() } : g
+    g.id === groupId
+      ? { ...g, status: "ARCHIVED" as const, updatedAt: nowIso() }
+      : g,
   );
   setState({ ...state, groups });
 }
 
 export function unarchiveGroup(groupId: string) {
   const groups = state.groups.map((g) =>
-    g.id === groupId ? { ...g, status: 'ACTIVE' as const, updatedAt: nowIso() } : g
+    g.id === groupId
+      ? { ...g, status: "ACTIVE" as const, updatedAt: nowIso() }
+      : g,
   );
   setState({ ...state, groups });
 }
 
 export function listDrives(includeArchived = false) {
   return state.drives
-    .filter((d) => includeArchived || d.status !== 'ARCHIVED')
+    .filter((d) => includeArchived || d.status !== "ARCHIVED")
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
@@ -225,10 +305,13 @@ export function getDrive(id: string) {
   return state.drives.find((d) => d.id === id);
 }
 
-function snapshotRecipients(members: PersonRef[]): CourtesyRecipient[] {
+function snapshotRecipients(
+  members: PersonRef[],
+  fallbackQty = 1,
+): CourtesyRecipient[] {
   const ts = nowIso();
   return members.map((m) => ({
-    id: uid('rcp'),
+    id: uid("rcp"),
     memberType: m.memberType,
     personId: m.personId,
     fullName: m.fullName,
@@ -237,16 +320,20 @@ function snapshotRecipients(members: PersonRef[]): CourtesyRecipient[] {
     address: m.address,
     phone: m.phone,
     email: m.email,
-    status: 'PENDING' as const,
-    mode: 'IN_PERSON' as const,
-    quantity: 1,
-    remark: '',
-    skippedReason: '' as const,
+    avatarUrl: m.avatarUrl,
+    status: "PENDING" as const,
+    mode: "IN_PERSON" as const,
+    quantity:
+      typeof m.giftQuantity === "number" && m.giftQuantity > 0
+        ? m.giftQuantity
+        : fallbackQty,
+    remark: "",
+    skippedReason: "" as const,
     updatedAt: ts,
   }));
 }
 
-function personKey(m: Pick<PersonRef, 'memberType' | 'personId'>) {
+function personKey(m: Pick<PersonRef, "memberType" | "personId">) {
   return `${m.memberType}:${m.personId}`;
 }
 
@@ -256,23 +343,27 @@ export function createDrive(input: {
   giftItem: string;
   driveDate?: string;
   sourceGroupId: string;
+  defaultQuantity?: number;
 }) {
   const group = getGroup(input.sourceGroupId);
-  if (!group) throw new Error('People Group not found');
-  if (!group.members.length) throw new Error('Group has no members');
+  if (!group) throw new Error("People Group not found");
+  if (!group.members.length) throw new Error("Group has no members");
 
   const ts = nowIso();
   const drive: CourtesyDrive = {
-    id: uid('drv'),
+    id: uid("drv"),
     title: input.title.trim(),
     occasionType: input.occasionType,
     giftItem: input.giftItem.trim(),
     driveDate: input.driveDate || ts.slice(0, 10),
     sourceGroupId: group.id,
     sourceGroupName: group.name,
-    status: 'IN_PROGRESS',
-    defaultMode: 'IN_PERSON',
-    recipients: snapshotRecipients(group.members),
+    status: "IN_PROGRESS",
+    defaultMode: "IN_PERSON",
+    recipients: snapshotRecipients(
+      group.members,
+      Math.max(1, input.defaultQuantity ?? 1),
+    ),
     createdAt: ts,
     updatedAt: ts,
   };
@@ -285,19 +376,19 @@ export function updateDriveMeta(
   patch: Partial<
     Pick<
       CourtesyDrive,
-      | 'title'
-      | 'giftItem'
-      | 'driveDate'
-      | 'status'
-      | 'occasionType'
-      | 'defaultAssigneeEmployeeId'
-      | 'defaultAssigneeName'
-      | 'defaultMode'
+      | "title"
+      | "giftItem"
+      | "driveDate"
+      | "status"
+      | "occasionType"
+      | "defaultAssigneeEmployeeId"
+      | "defaultAssigneeName"
+      | "defaultMode"
     >
-  >
+  >,
 ) {
   const drives = state.drives.map((d) =>
-    d.id === driveId ? { ...d, ...patch, updatedAt: nowIso() } : d
+    d.id === driveId ? { ...d, ...patch, updatedAt: nowIso() } : d,
   );
   setState({ ...state, drives });
   return drives.find((d) => d.id === driveId);
@@ -310,22 +401,26 @@ export function applyDriveAssigneeMode(
     assigneeEmployeeId?: string;
     assigneeName?: string;
     mode: DeliveryMode;
-  }
+  },
 ) {
   const drives = state.drives.map((d) => {
     if (d.id !== driveId) return d;
     const ts = nowIso();
     return {
       ...d,
-      defaultAssigneeEmployeeId: input.assigneeEmployeeId || '',
-      defaultAssigneeName: input.assigneeName || '',
+      defaultAssigneeEmployeeId: input.assigneeEmployeeId || "",
+      defaultAssigneeName: input.assigneeName || "",
       defaultMode: input.mode,
       updatedAt: ts,
       recipients: d.recipients.map((r) => ({
         ...r,
         mode: input.mode,
-        assigneeEmployeeId: input.mode === 'IN_PERSON' ? input.assigneeEmployeeId : r.assigneeEmployeeId,
-        assigneeName: input.mode === 'IN_PERSON' ? input.assigneeName : r.assigneeName,
+        assigneeEmployeeId:
+          input.mode === "IN_PERSON"
+            ? input.assigneeEmployeeId
+            : r.assigneeEmployeeId,
+        assigneeName:
+          input.mode === "IN_PERSON" ? input.assigneeName : r.assigneeName,
         updatedAt: ts,
       })),
     };
@@ -337,7 +432,7 @@ export function applyDriveAssigneeMode(
 /** Add people to gift run AND to the source group. */
 export function addPeopleToDrive(driveId: string, people: PersonRef[]) {
   const drive = getDrive(driveId);
-  if (!drive) throw new Error('Gift Run not found');
+  if (!drive) throw new Error("Gift Run not found");
   const existing = new Set(drive.recipients.map((r) => personKey(r)));
   const additions = people.filter((p) => !existing.has(personKey(p)));
   if (!additions.length) return { added: 0, drive };
@@ -351,7 +446,7 @@ export function addPeopleToDrive(driveId: string, people: PersonRef[]) {
               members: dedupeMembers([...g.members, ...additions]),
               updatedAt: nowIso(),
             }
-          : g
+          : g,
       )
     : state.groups;
 
@@ -372,7 +467,7 @@ export function addPeopleToDrive(driveId: string, people: PersonRef[]) {
 /** Remove people from gift run AND from the source group. */
 export function removePeopleFromDrive(driveId: string, recipientIds: string[]) {
   const drive = getDrive(driveId);
-  if (!drive) throw new Error('Gift Run not found');
+  if (!drive) throw new Error("Gift Run not found");
   const idSet = new Set(recipientIds);
   const removed = drive.recipients.filter((r) => idSet.has(r.id));
   const removeKeys = new Set(removed.map((r) => personKey(r)));
@@ -386,7 +481,7 @@ export function removePeopleFromDrive(driveId: string, recipientIds: string[]) {
               members: g.members.filter((m) => !removeKeys.has(personKey(m))),
               updatedAt: nowIso(),
             }
-          : g
+          : g,
       )
     : state.groups;
 
@@ -410,40 +505,43 @@ export function updateRecipient(
   patch: Partial<
     Pick<
       CourtesyRecipient,
-      | 'status'
-      | 'mode'
-      | 'quantity'
-      | 'assigneeEmployeeId'
-      | 'assigneeName'
-      | 'remark'
-      | 'skippedReason'
+      | "status"
+      | "mode"
+      | "quantity"
+      | "assigneeEmployeeId"
+      | "assigneeName"
+      | "remark"
+      | "skippedReason"
     >
-  >
+  >,
 ) {
   const drives = state.drives.map((d) => {
     if (d.id !== driveId) return d;
     const recipients = d.recipients.map((r) =>
-      r.id === recipientId ? { ...r, ...patch, updatedAt: nowIso() } : r
+      r.id === recipientId ? { ...r, ...patch, updatedAt: nowIso() } : r,
     );
     // recompute mixed defaults
     const modes = new Set(recipients.map((r) => r.mode));
     const assignees = new Set(
-      recipients.filter((r) => r.mode === 'IN_PERSON').map((r) => r.assigneeEmployeeId || '')
+      recipients
+        .filter((r) => r.mode === "IN_PERSON")
+        .map((r) => r.assigneeEmployeeId || ""),
     );
-    let defaultMode: CourtesyDrive['defaultMode'] = d.defaultMode;
+    let defaultMode: CourtesyDrive["defaultMode"] = d.defaultMode;
     let defaultAssigneeEmployeeId = d.defaultAssigneeEmployeeId;
     let defaultAssigneeName = d.defaultAssigneeName;
-    if (modes.size > 1) defaultMode = 'MIXED';
+    if (modes.size > 1) defaultMode = "MIXED";
     else if (modes.size === 1) defaultMode = [...modes][0];
     if (assignees.size > 1) {
-      defaultAssigneeEmployeeId = '';
-      defaultAssigneeName = '';
+      defaultAssigneeEmployeeId = "";
+      defaultAssigneeName = "";
     } else if (assignees.size === 1) {
       const id = [...assignees][0];
       const match = recipients.find((r) => r.assigneeEmployeeId === id);
       defaultAssigneeEmployeeId = id;
-      defaultAssigneeName = match?.assigneeName || '';
-      if (defaultMode !== 'MIXED' && defaultMode !== 'COURIER') defaultMode = 'IN_PERSON';
+      defaultAssigneeName = match?.assigneeName || "";
+      if (defaultMode !== "MIXED" && defaultMode !== "COURIER")
+        defaultMode = "IN_PERSON";
     }
     return {
       ...d,
@@ -462,8 +560,15 @@ export function bulkUpdateRecipients(
   driveId: string,
   recipientIds: string[],
   patch: Partial<
-    Pick<CourtesyRecipient, 'status' | 'mode' | 'assigneeEmployeeId' | 'assigneeName' | 'skippedReason'>
-  >
+    Pick<
+      CourtesyRecipient,
+      | "status"
+      | "mode"
+      | "assigneeEmployeeId"
+      | "assigneeName"
+      | "skippedReason"
+    >
+  >,
 ) {
   for (const id of recipientIds) {
     updateRecipient(driveId, id, patch);
@@ -473,7 +578,7 @@ export function bulkUpdateRecipients(
 
 export function getOverviewStats(fyStart?: string, fyEnd?: string) {
   const drives = listDrives(true).filter((d) => {
-    if (d.status === 'ARCHIVED') return false;
+    if (d.status === "ARCHIVED") return false;
     if (!fyStart || !fyEnd) return true;
     const day = (d.driveDate || d.createdAt).slice(0, 10);
     return day >= fyStart && day <= fyEnd;
@@ -487,28 +592,29 @@ export function getOverviewStats(fyStart?: string, fyEnd?: string) {
   drives.forEach((d) => {
     d.recipients.forEach((r) => {
       switch (r.status) {
-        case 'PENDING':
+        case "PENDING":
           pending += 1;
           break;
-        case 'DELIVERED':
+        case "DELIVERED":
           delivered += 1;
           break;
-        case 'OUT':
+        case "OUT":
           out += 1;
           break;
-        case 'SKIPPED':
+        case "SKIPPED":
           skipped += 1;
           break;
-        default: {
-          const _exhaustive: never = r.status;
-          void _exhaustive;
-        }
+        default:
+          pending += 1;
+          break;
       }
     });
   });
 
   return {
-    activeDriveCount: drives.filter((d) => d.status === 'IN_PROGRESS' || d.status === 'DRAFT').length,
+    activeDriveCount: drives.filter(
+      (d) => d.status === "IN_PROGRESS" || d.status === "DRAFT",
+    ).length,
     pending,
     out,
     delivered,
@@ -516,12 +622,14 @@ export function getOverviewStats(fyStart?: string, fyEnd?: string) {
     drives: drives.map((d) => ({
       id: d.id,
       title: d.title,
-      status: d.status as DriveStatus,
+      status: d.status,
       giftItem: d.giftItem,
       occasionType: d.occasionType,
       total: d.recipients.length,
-      delivered: d.recipients.filter((r) => r.status === 'DELIVERED').length,
-      pending: d.recipients.filter((r) => r.status === 'PENDING' || r.status === 'OUT').length,
+      delivered: d.recipients.filter((r) => r.status === "DELIVERED").length,
+      pending: d.recipients.filter(
+        (r) => r.status === "PENDING" || r.status === "OUT",
+      ).length,
     })),
   };
 }

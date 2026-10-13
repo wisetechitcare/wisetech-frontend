@@ -25,13 +25,23 @@
  *   OS locale (`dd-mm-yyyy`, `mm/dd/yyyy`), which is exactly the format drift the standard forbids.
  * - Empty string / null both mean "no value"; clearing emits `""`.
  */
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { DatePicker, MobileDatePicker, DateTimePicker, MobileDateTimePicker } from '@mui/x-date-pickers';
-import { useMediaQuery, useTheme, type SxProps, type Theme } from '@mui/material';
-import dayjs, { Dayjs } from 'dayjs';
-import { DATE_FORMATS } from '@utils/dateFormats';
-import { getTimeTokens } from '@utils/timeFormat';
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import {
+  DatePicker,
+  MobileDatePicker,
+  DateTimePicker,
+  MobileDateTimePicker,
+} from "@mui/x-date-pickers";
+import {
+  useMediaQuery,
+  useTheme,
+  type SxProps,
+  type Theme,
+} from "@mui/material";
+import dayjs, { Dayjs } from "dayjs";
+import { DATE_FORMATS } from "@utils/dateFormats";
+import { getTimeTokens } from "@utils/timeFormat";
 
 export interface WtDateFieldBaseProps {
   label?: string;
@@ -74,7 +84,7 @@ const parse = (value?: string | null): Dayjs | null => {
 /** Shared slotProps so both variants present identically. */
 const textFieldSlot = (p: WtDateFieldBaseProps) => ({
   textField: {
-    size: 'small' as const,
+    size: "small" as const,
     fullWidth: p.fullWidth ?? true,
     required: p.required,
     error: p.error,
@@ -83,7 +93,9 @@ const textFieldSlot = (p: WtDateFieldBaseProps) => ({
     sx: p.sx,
   },
   // A visible Clear action — the native input had one and losing it is a regression.
-  actionBar: { actions: ['clear', 'today', 'accept'] as ('clear' | 'today' | 'accept')[] },
+  actionBar: {
+    actions: ["clear", "today", "accept"] as ("clear" | "today" | "accept")[],
+  },
   // Calendar sits ABOVE nested dialogs. MUI's popper/dialog default to zIndex.modal
   // (1300); dialogs that open over another dialog bump to modal+2 (1302), which would
   // otherwise render the calendar behind them. 1350 clears app dialogs, stays under
@@ -97,9 +109,21 @@ const textFieldSlot = (p: WtDateFieldBaseProps) => ({
  * Drop-in replacement for `<TextField type="date">`.
  */
 export function WtDateField(props: WtDateFieldBaseProps) {
-  const { label, value, onChange, disabled, minDate, maxDate, open, onOpen, onClose } = props;
+  const {
+    label,
+    value,
+    onChange,
+    disabled,
+    minDate,
+    maxDate,
+    open,
+    onOpen,
+    onClose,
+  } = props;
   // `noSsr` avoids the light-then-dark double render this would otherwise cause on first paint.
-  const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'), { noSsr: true });
+  const isPhone = useMediaQuery(useTheme().breakpoints.down("sm"), {
+    noSsr: true,
+  });
   const Picker = isPhone ? MobileDatePicker : DatePicker;
 
   return (
@@ -107,7 +131,9 @@ export function WtDateField(props: WtDateFieldBaseProps) {
       <Picker
         label={label}
         value={parse(value)}
-        onChange={(next: Dayjs | null) => onChange(next && next.isValid() ? next.format(DATE_FORMATS.WIRE) : '')}
+        onChange={(next: Dayjs | null) =>
+          onChange(next && next.isValid() ? next.format(DATE_FORMATS.WIRE) : "")
+        }
         disabled={disabled}
         minDate={parse(minDate) ?? undefined}
         maxDate={parse(maxDate) ?? undefined}
@@ -132,7 +158,9 @@ export interface WtDateTimeFieldProps extends WtDateFieldBaseProps {
  */
 export function WtDateTimeField(props: WtDateTimeFieldProps) {
   const { label, value, onChange, disabled, minDateTime, maxDateTime } = props;
-  const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'), { noSsr: true });
+  const isPhone = useMediaQuery(useTheme().breakpoints.down("sm"), {
+    noSsr: true,
+  });
   const Picker = isPhone ? MobileDateTimePicker : DateTimePicker;
 
   return (
@@ -140,7 +168,13 @@ export function WtDateTimeField(props: WtDateTimeFieldProps) {
       <Picker
         label={label}
         value={parse(value)}
-        onChange={(next: Dayjs | null) => onChange(next && next.isValid() ? next.format(DATE_FORMATS.WIRE_DATETIME) : '')}
+        onChange={(next: Dayjs | null) =>
+          onChange(
+            next && next.isValid()
+              ? next.format(DATE_FORMATS.WIRE_DATETIME)
+              : "",
+          )
+        }
         disabled={disabled}
         minDateTime={parse(minDateTime) ?? undefined}
         maxDateTime={parse(maxDateTime) ?? undefined}

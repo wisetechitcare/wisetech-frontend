@@ -1,126 +1,240 @@
-import { FC, lazy, ReactElement, Suspense, useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useParams } from 'react-router-dom'
-import { TAB_PATHS } from './tabPaths'
-import { MasterLayout } from '../../_metronic/layout/MasterLayout'
-import TopBarProgress from 'react-topbar-progress-indicator'
-import { DashboardWrapper } from '../pages/dashboard/DashboardWrapper'
-import { getCSSVariableValue } from '../../_metronic/assets/ts/_utils'
-import { WithChildren } from '../../_metronic/helpers'
-import { hasPermission } from '@utils/authAbac'
-import { permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from '@constants/statistics'
-import { RootState, store } from '@redux/store'
-import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
-import { fetchAuthzCapabilities } from '@redux/slices/authz'
-import { useSelector } from 'react-redux'
-import { NEW_MY_TEAM_IA } from '@utils/featureFlags'
-import { SectionGuard } from '@app/modules/common/components/SectionGuard'
-import NoAccessPage from '@app/modules/common/components/NoAccessPage'
-import { RequirePermission } from '@app/modules/common/components/RequirePermission'
-import { can } from '@utils/can'
+import { FC, lazy, ReactElement, Suspense, useEffect, useState } from "react";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useParams,
+} from "react-router-dom";
+import { TAB_PATHS } from "./tabPaths";
+import { MasterLayout } from "../../_metronic/layout/MasterLayout";
+import TopBarProgress from "react-topbar-progress-indicator";
+import { DashboardWrapper } from "../pages/dashboard/DashboardWrapper";
+import { getCSSVariableValue } from "../../_metronic/assets/ts/_utils";
+import { WithChildren } from "../../_metronic/helpers";
+import { hasPermission } from "@utils/authAbac";
+import {
+  permissionConstToUseWithHasPermission,
+  uiControlResourceNameMapWithCamelCase,
+} from "@constants/statistics";
+import { RootState, store } from "@redux/store";
+import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
+import { fetchAuthzCapabilities } from "@redux/slices/authz";
+import { useSelector } from "react-redux";
+import { NEW_MY_TEAM_IA } from "@utils/featureFlags";
+import { SectionGuard } from "@app/modules/common/components/SectionGuard";
+import NoAccessPage from "@app/modules/common/components/NoAccessPage";
+import { RequirePermission } from "@app/modules/common/components/RequirePermission";
+import { can } from "@utils/can";
 
-const PublicHoliday = lazy(() => import('@pages/company/PublicHoliday'))
-const CustomCalendar = lazy(() => import('@pages/employee/CustomCalendar'))
-const Overview = lazy(() => import('@pages/company/Overview'))
-const NewEmployeeWizard = lazy(() => import('@pages/employee/wizard/NewEmployeeWizard'))
-const Branches = lazy(() => import('@pages/company/Branches'))
-const Departments = lazy(() => import('@pages/company/Departments'))
+const PublicHoliday = lazy(() => import("@pages/company/PublicHoliday"));
+const CustomCalendar = lazy(() => import("@pages/employee/CustomCalendar"));
+const Overview = lazy(() => import("@pages/company/Overview"));
+const NewEmployeeWizard = lazy(
+  () => import("@pages/employee/wizard/NewEmployeeWizard"),
+);
+const Branches = lazy(() => import("@pages/company/Branches"));
+const Departments = lazy(() => import("@pages/company/Departments"));
 // Documents module. The HR directory and one employee's wall are separate routes;
 // `MyDocumentsPage` is the same wall scoped to the signed-in employee.
-const DocumentsDirectory = lazy(() => import('@pages/employee/documents/DocumentsDirectory'))
-const EmployeeDocumentsPage = lazy(() => import('@pages/employee/documents/EmployeeDocumentsPage'))
-const MyDocumentsPage = lazy(() => import('@pages/employee/documents/MyDocumentsPage'))
-const Branding = lazy(() => import('@pages/company/organisation/Branding'))
-const Designations = lazy(() => import('@pages/company/Designation'))
-const OnBoardingDocs = lazy(() => import('@pages/company/OnboardingDocs'))
-const PersonalAttendanceView = lazy(() => import('@pages/employee/PersonalAttendanceView'))
-const EmployeesAttendanceView = lazy(() => import('@pages/employee/EmployeesAttendanceView'))
-const AdminAndEmployeeReimbursementViewer = lazy(() => import('@pages/employee/reimbursement/AdminAndEmployeeReimbursementViewer'))
-const BillingRoutes = lazy(() => import('@pages/billing/routes/BillingRoutes'))
-const Salary = lazy(() => import('@pages/employee/salary/Salary'))
-const Increment = lazy(() => import('@pages/employee/increment/Increment'))
-const Media = lazy(() => import('@pages/company/Media'))
-const EmployeeDocumentTable = lazy(() => import('@app/modules/accounts/components/documents/EmployeeDocumentTable'))
-const Calendar = lazy(() => import('@pages/employee/calendar/Calendar'))
-const Announcements = lazy(() => import('@pages/company/announcement/Announcements'))
-const Notifications = lazy(() => import('@pages/employee/notifications/Notifications'))
-const PersonalLoanMain = lazy(() => import('@pages/employee/loans/personal/PersonalLoanMain'))
-const LoanDetails = lazy(() => import('@pages/employee/loans/personal/views/LoanDetails'))
-const EmployeesLoanMain = lazy(() => import('@pages/employee/loans/admin/EmployeesLoanMain'))
-const PersonalKpiMain = lazy(() => import('@pages/employee/kpis/personal/PersonalKpiMain'))
-const LeadsMain = lazy(() => import('@pages/employee/leads/LeadsMain'))
-const RecruitmentMain = lazy(() => import('@pages/employee/recruitment/RecruitmentMain'))
+const DocumentsDirectory = lazy(
+  () => import("@pages/employee/documents/DocumentsDirectory"),
+);
+const EmployeeDocumentsPage = lazy(
+  () => import("@pages/employee/documents/EmployeeDocumentsPage"),
+);
+const MyDocumentsPage = lazy(
+  () => import("@pages/employee/documents/MyDocumentsPage"),
+);
+const Branding = lazy(() => import("@pages/company/organisation/Branding"));
+const Designations = lazy(() => import("@pages/company/Designation"));
+const OnBoardingDocs = lazy(() => import("@pages/company/OnboardingDocs"));
+const PersonalAttendanceView = lazy(
+  () => import("@pages/employee/PersonalAttendanceView"),
+);
+const EmployeesAttendanceView = lazy(
+  () => import("@pages/employee/EmployeesAttendanceView"),
+);
+const AdminAndEmployeeReimbursementViewer = lazy(
+  () =>
+    import("@pages/employee/reimbursement/AdminAndEmployeeReimbursementViewer"),
+);
+const BillingRoutes = lazy(() => import("@pages/billing/routes/BillingRoutes"));
+const Salary = lazy(() => import("@pages/employee/salary/Salary"));
+const Increment = lazy(() => import("@pages/employee/increment/Increment"));
+const Media = lazy(() => import("@pages/company/Media"));
+const EmployeeDocumentTable = lazy(
+  () =>
+    import("@app/modules/accounts/components/documents/EmployeeDocumentTable"),
+);
+const Calendar = lazy(() => import("@pages/employee/calendar/Calendar"));
+const Announcements = lazy(
+  () => import("@pages/company/announcement/Announcements"),
+);
+const Notifications = lazy(
+  () => import("@pages/employee/notifications/Notifications"),
+);
+const PersonalLoanMain = lazy(
+  () => import("@pages/employee/loans/personal/PersonalLoanMain"),
+);
+const LoanDetails = lazy(
+  () => import("@pages/employee/loans/personal/views/LoanDetails"),
+);
+const EmployeesLoanMain = lazy(
+  () => import("@pages/employee/loans/admin/EmployeesLoanMain"),
+);
+const PersonalKpiMain = lazy(
+  () => import("@pages/employee/kpis/personal/PersonalKpiMain"),
+);
+const LeadsMain = lazy(() => import("@pages/employee/leads/LeadsMain"));
+const RecruitmentMain = lazy(
+  () => import("@pages/employee/recruitment/RecruitmentMain"),
+);
 // Opt-in beta: migrated EnterpriseForm wizard (parallel to classic LeadFormModal)
-const LeadWizardBetaPage = lazy(() => import('@pages/employee/leads/lead/LeadWizardBetaPage'))
-const ProjectsMain = lazy(() => import('@pages/employee/projects/ProjectsMain'))
-const CompaniesMain = lazy(() => import('@pages/employee/companies/CompaniesMain'))
-const AllCompaniesToggle = lazy(() => import('@pages/employee/companies/companies/components/AllCompaniesToggle'))
+const LeadWizardBetaPage = lazy(
+  () => import("@pages/employee/leads/lead/LeadWizardBetaPage"),
+);
+const ProjectsMain = lazy(
+  () => import("@pages/employee/projects/ProjectsMain"),
+);
+const CompaniesMain = lazy(
+  () => import("@pages/employee/companies/CompaniesMain"),
+);
+const AllCompaniesToggle = lazy(
+  () =>
+    import("@pages/employee/companies/companies/components/AllCompaniesToggle"),
+);
 // Unified Entity (Lead = Project): one detail page for both; legacy
 // /projects/:id URLs resolve to the owning lead via ProjectEntityRedirect.
-const EntityDetailPage = lazy(() => import('@pages/employee/entity/EntityDetailPage'))
-const ProjectEntityRedirect = lazy(() => import('@pages/employee/entity/ProjectEntityRedirect'))
-const OrganisationProfileMain = lazy(() => import('@pages/company/organisation/OrganisationProfileMain'))
-const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/OrganizationProfilePage'))
-const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
-const TasksMain = lazy(() => import('@pages/employee/tasks/TasksMain'))
-const TasksSectionBar = lazy(() => import('@pages/employee/tasks/TasksSectionBar'))
+const EntityDetailPage = lazy(
+  () => import("@pages/employee/entity/EntityDetailPage"),
+);
+const ProjectEntityRedirect = lazy(
+  () => import("@pages/employee/entity/ProjectEntityRedirect"),
+);
+const OrganisationProfileMain = lazy(
+  () => import("@pages/company/organisation/OrganisationProfileMain"),
+);
+const OrganizationProfilePage = lazy(
+  () => import("@pages/company/organisation/OrganizationProfilePage"),
+);
+const ContactMainToggle = lazy(
+  () =>
+    import("@pages/employee/companies/contacts/components/ContactMainToggle"),
+);
+const TasksMain = lazy(() => import("@pages/employee/tasks/TasksMain"));
+const TasksSectionBar = lazy(
+  () => import("@pages/employee/tasks/TasksSectionBar"),
+);
 // Phase 4 — the rebuilt Task UI (Kanban-first workspace + task detail workspace)
 // Task configuration — statuses, priorities and the preset task tree.
-const TaskDetailPage = lazy(() => import('@pages/employee/tasks/TaskDetailPage'))
-const MyTimeSheetMain = lazy(() => import('@pages/employee/timesheet/mytimesheet/MyTimeSheetMain'))
-const EmployeeTimeSheetMain = lazy(() => import('@pages/employee/timesheet/employeetimesheet/EmployeeTimeSheetMain'))
-const ShowEmployeeDetailsToggle = lazy(() => import('@pages/employee/ShowEmployeeDetailsToggle'))
-const TaskDetails = lazy(() => import('@pages/employee/tasks/tasks/components/TaskDetails'))
-const TasksMainCalenderPage = lazy(() => import('@pages/employee/tasks/calender/TasksMainCalenderPage'))
-const EmployeeTeamLevelMain = lazy(() => import('@pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain'))
-const ContactsNavbar = lazy(() => import('@pages/employee/companies/contacts/contactsNavbar'))
-const CourtesyDeskMain = lazy(() => import('@pages/employee/courtesy-desk/CourtesyDeskMain'))
+const TaskDetailPage = lazy(
+  () => import("@pages/employee/tasks/TaskDetailPage"),
+);
+const MyTimeSheetMain = lazy(
+  () => import("@pages/employee/timesheet/mytimesheet/MyTimeSheetMain"),
+);
+const EmployeeTimeSheetMain = lazy(
+  () =>
+    import("@pages/employee/timesheet/employeetimesheet/EmployeeTimeSheetMain"),
+);
+const ShowEmployeeDetailsToggle = lazy(
+  () => import("@pages/employee/ShowEmployeeDetailsToggle"),
+);
+const TaskDetails = lazy(
+  () => import("@pages/employee/tasks/tasks/components/TaskDetails"),
+);
+const TasksMainCalenderPage = lazy(
+  () => import("@pages/employee/tasks/calender/TasksMainCalenderPage"),
+);
+const EmployeeTeamLevelMain = lazy(
+  () => import("@pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain"),
+);
+const ContactsNavbar = lazy(
+  () => import("@pages/employee/companies/contacts/contactsNavbar"),
+);
+const CourtesyDeskMain = lazy(
+  () => import("@pages/employee/courtesy-desk/CourtesyDeskMain"),
+);
 const CourtesyGroupEditorPage = lazy(
-  () => import('@pages/employee/courtesy-desk/pages/GroupEditorPage')
-)
+  () => import("@pages/employee/courtesy-desk/pages/GroupEditorPage"),
+);
 const CourtesyDriveCreatePage = lazy(
-  () => import('@pages/employee/courtesy-desk/pages/DriveCreatePage')
-)
+  () => import("@pages/employee/courtesy-desk/pages/DriveCreatePage"),
+);
 const CourtesyDriveDetailPage = lazy(
-  () => import('@pages/employee/courtesy-desk/pages/DriveDetailPage')
-)
-const OrganisationInfoProfileMain = lazy(() => import('@pages/company/organisationInfo/OrganisationInfoProfileMain'))
-const SearchResultsPage = lazy(() => import('@pages/employee/search/SearchResultsPage'))
-const ProposalConfigurationPage = lazy(() => import('@pages/employee/leads/lead/components/ProposalConfigurationPage'))
-const TemplateDocumentationBuilderPage = lazy(() => import('@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage'))
-const MyTeamLayout = lazy(() => import('@pages/my-team/MyTeamLayout'))
-const MyTeamOverview = lazy(() => import('@pages/my-team/Overview'))
-const MyTeamApprovals = lazy(() => import('@pages/my-team/Approvals'))
-const MyTeamDelegations = lazy(() => import('@pages/my-team/Delegations'))
-const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
-const WizardsPage = lazy(() => import('../modules/wizards/WizardsPage'))
-const AccountPage = lazy(() => import('../modules/accounts/AccountPage'))
-const WidgetsPage = lazy(() => import('../modules/widgets/WidgetsPage'))
-const ChatPage = lazy(() => import('../modules/apps/chat/ChatPage'))
-const UsersPage = lazy(() => import('../modules/apps/user-management/UsersPage'))
-const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
-const AppSettings = lazy(() => import('@pages/admin/AppSettings').then(m => ({ default: m.AppSettings })))
-const RolesPermissions = lazy(() => import('@pages/admin/RolesPermissions').then(m => ({ default: m.RolesPermissions })))
+  () => import("@pages/employee/courtesy-desk/pages/DriveDetailPage"),
+);
+
+const CourtesyDeskLegacyRedirect: FC = () => {
+  const location = useLocation();
+  const next = `${location.pathname.replace("/courtesy-desk", "/gift-management")}${location.search}`;
+  return <Navigate to={next} replace />;
+};
+const OrganisationInfoProfileMain = lazy(
+  () => import("@pages/company/organisationInfo/OrganisationInfoProfileMain"),
+);
+const SearchResultsPage = lazy(
+  () => import("@pages/employee/search/SearchResultsPage"),
+);
+const ProposalConfigurationPage = lazy(
+  () =>
+    import("@pages/employee/leads/lead/components/ProposalConfigurationPage"),
+);
+const TemplateDocumentationBuilderPage = lazy(
+  () =>
+    import("@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage"),
+);
+const MyTeamLayout = lazy(() => import("@pages/my-team/MyTeamLayout"));
+const MyTeamOverview = lazy(() => import("@pages/my-team/Overview"));
+const MyTeamApprovals = lazy(() => import("@pages/my-team/Approvals"));
+const MyTeamDelegations = lazy(() => import("@pages/my-team/Delegations"));
+const ProfilePage = lazy(() => import("../modules/profile/ProfilePage"));
+const WizardsPage = lazy(() => import("../modules/wizards/WizardsPage"));
+const AccountPage = lazy(() => import("../modules/accounts/AccountPage"));
+const WidgetsPage = lazy(() => import("../modules/widgets/WidgetsPage"));
+const ChatPage = lazy(() => import("../modules/apps/chat/ChatPage"));
+const UsersPage = lazy(
+  () => import("../modules/apps/user-management/UsersPage"),
+);
+const EmployeesList = lazy(() => import("@pages/employee/EmployeesList"));
+const AppSettings = lazy(() =>
+  import("@pages/admin/AppSettings").then((m) => ({ default: m.AppSettings })),
+);
+const RolesPermissions = lazy(() =>
+  import("@pages/admin/RolesPermissions").then((m) => ({
+    default: m.RolesPermissions,
+  })),
+);
 // Workspace shell (launcher-morph navigation) — Phase 1: additive only. See
 // src/components/workspace/WorkspaceShell.tsx for why it is a pathless LAYOUT route.
-const WorkspaceShell = lazy(() => import('@components/workspace/WorkspaceShell'))
-const WorkspaceHomeStage = lazy(() => import('@components/workspace/pages/HomeStage'))
-const AppWorkspacePage = lazy(() => import('@components/workspace/pages/AppWorkspacePage'))
+const WorkspaceShell = lazy(
+  () => import("@components/workspace/WorkspaceShell"),
+);
+const WorkspaceHomeStage = lazy(
+  () => import("@components/workspace/pages/HomeStage"),
+);
+const AppWorkspacePage = lazy(
+  () => import("@components/workspace/pages/AppWorkspacePage"),
+);
 
 /**
  * Old detail URL kept alive. `<Navigate>` cannot interpolate a route param, so the
  * param is read here and spliced into the new path.
  */
 const LegacyLeadRedirect: FC = () => {
-  const { leadId } = useParams()
-  return <Navigate to={`/leads/${leadId}`} replace />
-}
+  const { leadId } = useParams();
+  return <Navigate to={`/leads/${leadId}`} replace />;
+};
 const PrivateRoutes = () => {
-  const [isStored, setIsStored] = useState(false)
+  const [isStored, setIsStored] = useState(false);
   // Which routes exist depends on access (the `hasPermission(...) && <Route>` entries below). Without
   // subscribing, an access change made by an admin while this person is signed in updated the
   // sidebar but not the routes — the new page's URL then fell through to `employees/:employeeId`
   // ("This Page Isn't Available") until a reload.
-  const authzTier = useSelector((state: RootState) => (state as any).authz)?.tier;
+  const authzTier = useSelector(
+    (state: RootState) => (state as any).authz,
+  )?.tier;
   // Roles & Permissions is Admin and above — a tier, never a checkbox (the server enforces the same).
   const canManageRoles = authzTier != null;
   useEffect(() => {
@@ -129,14 +243,14 @@ const PrivateRoutes = () => {
       await store.dispatch(fetchAuthzCapabilities());
       setIsStored(true);
     }
-    fetchAndStore()
-  }, [])
-
+    fetchAndStore();
+  }, []);
 
   return (
-    isStored && <Routes>
-      <Route element={<MasterLayout />}>
-        {/* ── THE WORKSPACE SHELL WRAPS EVERY ROUTE ─────────────────────────────
+    isStored && (
+      <Routes>
+        <Route element={<MasterLayout />}>
+          {/* ── THE WORKSPACE SHELL WRAPS EVERY ROUTE ─────────────────────────────
             A PATHLESS layout route. React Router does not remount a parent element when a
             child route changes, so the application rail mounted inside it PERSISTS across
             every destination — the launcher and the rail are one component in two layout
@@ -150,681 +264,1021 @@ const PrivateRoutes = () => {
             Route PATHS below are untouched — every existing URL, bookmark, redirect and
             deep link still resolves exactly as before. Rollback: delete this one wrapper
             element and its closing tag. */}
-        <Route element={<SuspensedView><WorkspaceShell /></SuspensedView>}>
-        {/* Redirect to Dashboard after success login/registartion */}
-        <Route path='auth/*' element={<Navigate to='/dashboard' />} />
-        {/* Pages */}
-        <Route path='dashboard' element={<DashboardWrapper />} />
+          <Route
+            element={
+              <SuspensedView>
+                <WorkspaceShell />
+              </SuspensedView>
+            }
+          >
+            {/* Redirect to Dashboard after success login/registartion */}
+            <Route path="auth/*" element={<Navigate to="/dashboard" />} />
+            {/* Pages */}
+            <Route path="dashboard" element={<DashboardWrapper />} />
 
-        {/* ── Legacy URL redirects ──────────────────────────────────────────────────
+            {/* ── Legacy URL redirects ──────────────────────────────────────────────────
             These paths shipped, so they are in bookmarks, in already-sent emails, and
             — for /finance/bills — written into notification ROWS in the database by
             the backend. Renaming without these would break every one of them, so the
             old path stays as a one-line redirect rather than a 404. */}
-        <Route path='/finance/bills' element={<Navigate to='/finance/reimbursements' replace />} />
-        <Route path='/qc/leads' element={<Navigate to='/leads' replace />} />
-        <Route path='/qc/leads/configuration' element={<Navigate to='/leads/configuration' replace />} />
-        <Route path='/qc/leads/wizard-beta' element={<Navigate to='/leads/wizard-beta' replace />} />
-        <Route path='/qc/leads/documentation-builder' element={<Navigate to='/leads/documentation-builder' replace />} />
-        <Route path='/qc/projects' element={<Navigate to='/projects' replace />} />
-        <Route path='/qc/contacts' element={<Navigate to='/contacts' replace />} />
-        <Route path='/qc/companies' element={<Navigate to='/companies' replace />} />
-        <Route path='/company/teams' element={<Navigate to='/tasks/calendar' replace />} />
-        <Route path='/employee/lead/:leadId' element={<LegacyLeadRedirect />} />
-        {/* `/home` was the legacy Transform launcher; the workspace shell supersedes it.
+            <Route
+              path="/finance/bills"
+              element={<Navigate to="/finance/reimbursements" replace />}
+            />
+            <Route
+              path="/qc/leads"
+              element={<Navigate to="/leads" replace />}
+            />
+            <Route
+              path="/qc/leads/configuration"
+              element={<Navigate to="/leads/configuration" replace />}
+            />
+            <Route
+              path="/qc/leads/wizard-beta"
+              element={<Navigate to="/leads/wizard-beta" replace />}
+            />
+            <Route
+              path="/qc/leads/documentation-builder"
+              element={<Navigate to="/leads/documentation-builder" replace />}
+            />
+            <Route
+              path="/qc/projects"
+              element={<Navigate to="/projects" replace />}
+            />
+            <Route
+              path="/qc/contacts"
+              element={<Navigate to="/contacts" replace />}
+            />
+            <Route
+              path="/qc/companies"
+              element={<Navigate to="/companies" replace />}
+            />
+            <Route
+              path="/company/teams"
+              element={<Navigate to="/tasks/calendar" replace />}
+            />
+            <Route
+              path="/employee/lead/:leadId"
+              element={<LegacyLeadRedirect />}
+            />
+            {/* `/home` was the legacy Transform launcher; the workspace shell supersedes it.
             In classic-sidebar mode WorkspaceShell bounces /workspace/* to /dashboard, so this
             resolves correctly in both navigation modes without reading the flag twice. */}
-        <Route path='home' element={<Navigate to='/workspace' replace />} />
-        {/* The shell's own two destinations: the launcher, and an application landing. */}
-        <Route path='workspace'>
-          <Route index element={<SuspensedView><WorkspaceHomeStage /></SuspensedView>} />
-          <Route path=':appId' element={<SuspensedView><AppWorkspacePage /></SuspensedView>} />
-        </Route>
+            <Route path="home" element={<Navigate to="/workspace" replace />} />
+            {/* The shell's own two destinations: the launcher, and an application landing. */}
+            <Route path="workspace">
+              <Route
+                index
+                element={
+                  <SuspensedView>
+                    <WorkspaceHomeStage />
+                  </SuspensedView>
+                }
+              />
+              <Route
+                path=":appId"
+                element={
+                  <SuspensedView>
+                    <AppWorkspacePage />
+                  </SuspensedView>
+                }
+              />
+            </Route>
 
-        {NEW_MY_TEAM_IA && <Route path='my-team' element={<MyTeamLayout />}>
-          <Route index element={<Navigate to='/my-team/overview' replace />} />
-          <Route path='overview/*' element={<MyTeamOverview />} />
-          <Route path='members' element={<Navigate to='/employees' replace />} />
-          <Route path='attendance' element={<Navigate to='/my-team/overview' replace />} />
-          <Route path='leaves' element={<Navigate to='/my-team/overview' replace />} />
+            {NEW_MY_TEAM_IA && (
+              <Route path="my-team" element={<MyTeamLayout />}>
+                <Route
+                  index
+                  element={<Navigate to="/my-team/overview" replace />}
+                />
+                <Route path="overview/*" element={<MyTeamOverview />} />
+                <Route
+                  path="members"
+                  element={<Navigate to="/employees" replace />}
+                />
+                <Route
+                  path="attendance"
+                  element={<Navigate to="/my-team/overview" replace />}
+                />
+                <Route
+                  path="leaves"
+                  element={<Navigate to="/my-team/overview" replace />}
+                />
 
-          <Route path='salary' element={<Navigate to='/finance/salary' replace />} />
-          {/* Phase 4 §27 — this was '/tasks/employee-level-teams', a route that never existed:
+                <Route
+                  path="salary"
+                  element={<Navigate to="/finance/salary" replace />}
+                />
+                {/* Phase 4 §27 — this was '/tasks/employee-level-teams', a route that never existed:
               it fell through to '/tasks/:taskId' and rendered a crashed detail page on every
               click. The destination below is the real team page defined further down this file.
               '/projects' and '/leads' are the current homes of both screens; the '/qc/*' paths
               they used to live at are now redirect stubs a few lines above. */}
-          <Route path='tasks' element={<Navigate to='/company/employee-level-teams' replace />} />
-          <Route path='projects' element={<Navigate to='/projects' replace />} />
-          <Route path='leads' element={<Navigate to='/leads' replace />} />
-          <Route path='approvals/*' element={<MyTeamApprovals />} />
-          <Route path='delegations/*' element={<MyTeamDelegations />} />
-        </Route>}
+                <Route
+                  path="tasks"
+                  element={
+                    <Navigate to="/company/employee-level-teams" replace />
+                  }
+                />
+                <Route
+                  path="projects"
+                  element={<Navigate to="/projects" replace />}
+                />
+                <Route
+                  path="leads"
+                  element={<Navigate to="/leads" replace />}
+                />
+                <Route path="approvals/*" element={<MyTeamApprovals />} />
+                <Route path="delegations/*" element={<MyTeamDelegations />} />
+              </Route>
+            )}
 
-        <Route path='inbox' element={<Navigate to='/my-team/approvals' replace />} />
-        {NEW_MY_TEAM_IA && <Route path='approvals/inbox/*' element={<Navigate to='/my-team/approvals' replace />} />}
-        {NEW_MY_TEAM_IA && <Route path='approvals/my-team/*' element={<Navigate to='/my-team/overview' replace />} />}
-        {NEW_MY_TEAM_IA && <Route path='approvals/delegations/*' element={<Navigate to='/my-team/delegations' replace />} />}
-        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/my-team/*' element={<Navigate to='/my-team/overview' replace />} />}
-        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/approval-inbox/*' element={<Navigate to='/my-team/approvals' replace />} />}
-        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/delegations/*' element={<Navigate to='/my-team/delegations' replace />} />}
-        {!NEW_MY_TEAM_IA && <Route path='approvals/inbox' element={<MyTeamApprovals />} />}
-        {!NEW_MY_TEAM_IA && <Route path='approvals/my-team' element={<MyTeamOverview />} />}
-        {!NEW_MY_TEAM_IA && <Route path='approvals/delegations' element={<MyTeamDelegations />} />}
-        <Route
-          path='/leads/documentation-builder'
-          element={
-            <SuspensedView>
-              <TemplateDocumentationBuilderPage />
-            </SuspensedView>}
-        />
-        {/* Lazy Modules */}
-        <Route
-          path='crafted/pages/profile/*'
-          element={
-            <SuspensedView>
-              <ProfilePage />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='crafted/pages/wizards/*'
-          element={
-            <SuspensedView>
-              <WizardsPage />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='crafted/widgets/*'
-          element={
-            <SuspensedView>
-              <WidgetsPage />
-            </SuspensedView>
-          }
-        />
+            <Route
+              path="inbox"
+              element={<Navigate to="/my-team/approvals" replace />}
+            />
+            {NEW_MY_TEAM_IA && (
+              <Route
+                path="approvals/inbox/*"
+                element={<Navigate to="/my-team/approvals" replace />}
+              />
+            )}
+            {NEW_MY_TEAM_IA && (
+              <Route
+                path="approvals/my-team/*"
+                element={<Navigate to="/my-team/overview" replace />}
+              />
+            )}
+            {NEW_MY_TEAM_IA && (
+              <Route
+                path="approvals/delegations/*"
+                element={<Navigate to="/my-team/delegations" replace />}
+              />
+            )}
+            {NEW_MY_TEAM_IA && (
+              <Route
+                path="attendance-leaves/my-team/*"
+                element={<Navigate to="/my-team/overview" replace />}
+              />
+            )}
+            {NEW_MY_TEAM_IA && (
+              <Route
+                path="attendance-leaves/approval-inbox/*"
+                element={<Navigate to="/my-team/approvals" replace />}
+              />
+            )}
+            {NEW_MY_TEAM_IA && (
+              <Route
+                path="attendance-leaves/delegations/*"
+                element={<Navigate to="/my-team/delegations" replace />}
+              />
+            )}
+            {!NEW_MY_TEAM_IA && (
+              <Route path="approvals/inbox" element={<MyTeamApprovals />} />
+            )}
+            {!NEW_MY_TEAM_IA && (
+              <Route path="approvals/my-team" element={<MyTeamOverview />} />
+            )}
+            {!NEW_MY_TEAM_IA && (
+              <Route
+                path="approvals/delegations"
+                element={<MyTeamDelegations />}
+              />
+            )}
+            <Route
+              path="/leads/documentation-builder"
+              element={
+                <SuspensedView>
+                  <TemplateDocumentationBuilderPage />
+                </SuspensedView>
+              }
+            />
+            {/* Lazy Modules */}
+            <Route
+              path="crafted/pages/profile/*"
+              element={
+                <SuspensedView>
+                  <ProfilePage />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="crafted/pages/wizards/*"
+              element={
+                <SuspensedView>
+                  <WizardsPage />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="crafted/widgets/*"
+              element={
+                <SuspensedView>
+                  <WidgetsPage />
+                </SuspensedView>
+              }
+            />
 
-        {/* Billing is its own top-level ERP module: one nested route tree that owns its
+            {/* Billing is its own top-level ERP module: one nested route tree that owns its
             header tabs, so every Billing page is a real URL under /billing/*. Access per
             tab is handled inside via the `billing.*` access areas. */}
-        <Route
-          path='/billing/*'
-          element={
-            <SuspensedView>
-              <BillingRoutes />
-            </SuspensedView>
-          }
-        />
-        {/* The Accounts queue used to live under Finance; keep the old link working. */}
-        <Route path='/finance/billing-queue' element={<Navigate to='/billing/accounts' replace />} />
-        <Route
-          path='/finance/reimbursements/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <AdminAndEmployeeReimbursementViewer />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/finance/salary/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Salary />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/finance/increment/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Increment />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        {tabRoutes(
-          '/finance/loans',
-          TAB_PATHS.loans,
-          <SuspensedView>
-            <PersonalLoanMain />
-          </SuspensedView>,
-        )}
-        <Route
-          path='employee/profile/*'
-          element={
-            <SuspensedView>
-              <AccountPage />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='apps/chat/*'
-          element={
-            <SuspensedView>
-              <ChatPage />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='apps/user-management/*'
-          element={
-            <SuspensedView>
-              <UsersPage />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/company/public-holiday'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.holidaysUnderReports, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <PublicHoliday onClose={() => console.log('Hey')} setShowNewHolidayForm={undefined} />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/company/overview'
-          element={
-            <SuspensedView>
-              <Overview />
-            </SuspensedView>}
-        />
-        <Route
-          path='/company/branches'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Branches />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/company/departments'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Departments />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        {/* <Route
+            <Route
+              path="/billing/*"
+              element={
+                <SuspensedView>
+                  <BillingRoutes />
+                </SuspensedView>
+              }
+            />
+            {/* The Accounts queue used to live under Finance; keep the old link working. */}
+            <Route
+              path="/finance/billing-queue"
+              element={<Navigate to="/billing/accounts" replace />}
+            />
+            <Route
+              path="/finance/reimbursements/*"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <AdminAndEmployeeReimbursementViewer />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="/finance/salary/*"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.salaryUnderFinance,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <Salary />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="/finance/increment/*"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.incrementUnderFinance,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <Increment />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            {tabRoutes(
+              "/finance/loans",
+              TAB_PATHS.loans,
+              <SuspensedView>
+                <PersonalLoanMain />
+              </SuspensedView>,
+            )}
+            <Route
+              path="employee/profile/*"
+              element={
+                <SuspensedView>
+                  <AccountPage />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="apps/chat/*"
+              element={
+                <SuspensedView>
+                  <ChatPage />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="apps/user-management/*"
+              element={
+                <SuspensedView>
+                  <UsersPage />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="/company/public-holiday"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.holidaysUnderReports,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <PublicHoliday
+                      onClose={() => console.log("Hey")}
+                      setShowNewHolidayForm={undefined}
+                    />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="/company/overview"
+              element={
+                <SuspensedView>
+                  <Overview />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="/company/branches"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.branchesUnderCompany,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <Branches />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="/company/departments"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.departmentsUnderCompany,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <Departments />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            {/* <Route
           path='/company/employee-types'
           element={
             <SuspensedView>
               <Masters />
             </SuspensedView>}
         /> */}
-        {/* Roles & Permissions moved to App Settings; old bookmarks land there. */}
-        <Route path='/company/settings' element={<Navigate to='/admin/roles-permissions' replace />} />
-        {tabRoutes(
-          'employees',
-          TAB_PATHS.employees,
-          <SuspensedView>
-            <EmployeesList />
-          </SuspensedView>,
-        )}
-        <Route
-          path='employees/calendar/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers)) ? (<SectionGuard module='calendar'>
+            {/* Roles & Permissions moved to App Settings; old bookmarks land there. */}
+            <Route
+              path="/company/settings"
+              element={<Navigate to="/admin/roles-permissions" replace />}
+            />
+            {tabRoutes(
+              "employees",
+              TAB_PATHS.employees,
               <SuspensedView>
-                <Calendar />
-              </SuspensedView>
-            </SectionGuard>) : <NoAccessPage />}
-        />
-        <Route
-          path='employees/notifications'
-          element={
-            <SuspensedView>
-              <Notifications />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='employee/attendance-and-leaves/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <PersonalAttendanceView />
-            </SuspensedView>) : <NoAccessPage />}
-        />
+                <EmployeesList />
+              </SuspensedView>,
+            )}
+            <Route
+              path="employees/calendar/*"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.calendar,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SectionGuard module="calendar">
+                    <SuspensedView>
+                      <Calendar />
+                    </SuspensedView>
+                  </SectionGuard>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="employees/notifications"
+              element={
+                <SuspensedView>
+                  <Notifications />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="employee/attendance-and-leaves/*"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <PersonalAttendanceView />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
 
-        <Route
-          path='employees/attendance-and-leaves/*'
-          element={((hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) || can('attendance.employees.view.all'))) ? (<SectionGuard module='attendance.employees'>
-              <SuspensedView>
-                <EmployeesAttendanceView />
-              </SuspensedView>
-            </SectionGuard>) : <NoAccessPage />}
-        />
-        <Route
-          path='employees/create-new'
-          element={
-            <SuspensedView>
-              <NewEmployeeWizard editMode={false} openModal={true} />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='employees/edit/:employeeId'
-          element={
-            <SuspensedView>
-              <NewEmployeeWizard editMode={true} openModal={true} />
-            </SuspensedView>
-          }
-        />
-        {/* HR directory + one employee's wall. Both are cross-employee views, so both
+            <Route
+              path="employees/attendance-and-leaves/*"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) || can("attendance.employees.view.all") ? (
+                  <SectionGuard module="attendance.employees">
+                    <SuspensedView>
+                      <EmployeesAttendanceView />
+                    </SuspensedView>
+                  </SectionGuard>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="employees/create-new"
+              element={
+                <SuspensedView>
+                  <NewEmployeeWizard editMode={false} openModal={true} />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="employees/edit/:employeeId"
+              element={
+                <SuspensedView>
+                  <NewEmployeeWizard editMode={true} openModal={true} />
+                </SuspensedView>
+              }
+            />
+            {/* HR directory + one employee's wall. Both are cross-employee views, so both
             sit behind the same readOthers gate the nav entry uses; the API enforces it
             again per employee. */}
-        <Route
-          path='/employee/documents'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <DocumentsDirectory />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/employee/documents/:employeeId'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <EmployeeDocumentsPage />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        {/* Your own documents: Documents → My Documents, which every employee has by default. */}
-        <Route
-          path='/my-documents'
-          element={
-            <SectionGuard module='documents.my'>
-              <SuspensedView>
-                <MyDocumentsPage />
-              </SuspensedView>
-            </SectionGuard>}
-        />
-        <Route
-          path='/company/organisation-profile'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <OrganisationProfileMain />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        {TAB_PATHS.organisationProfile.map((slug) => (
             <Route
-              key={`/company/organisation-profile/${slug}`}
-              path={`/company/organisation-profile/${slug}`}
-              element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (
-                <SuspensedView>
-                  <OrganisationProfileMain />
-                </SuspensedView>
-                ) : <NoAccessPage />}
+              path="/employee/documents"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.documentsUnderPeople,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <DocumentsDirectory />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
             />
-          ))}
-        <Route
-          path='/company/organisation-profile/:orgId'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <OrganizationProfilePage />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/company/organisation-info/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <OrganisationInfoProfileMain />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/company/announcements'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.announcementsUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Announcements />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/company/branding'
-          element={
-            <SuspensedView>
-              <Branding />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/company/designations'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Designations />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/company/media'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Media />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/company/media/:adminId'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Media />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/company/media/:adminId/:employeeId'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Media />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/company/onboardingdocs'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <OnBoardingDocs />
-            </SuspensedView>) : <NoAccessPage />}
-        />
-        <Route
-          path='/company/documents/:employeeId'
-          element={
-            <SuspensedView>
-              <EmployeeDocumentTable />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/finance/loans/:loanId'
-          element={
-            <SuspensedView>
-              <LoanDetails />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='employee/report/kpis/*'
-          element={
-            <SectionGuard module='reports.kpi'>
-              <SuspensedView>
-                <PersonalKpiMain />
-              </SuspensedView>
-            </SectionGuard>}
-        />
-        <Route
-          path='/leads/configuration'
-          element={
-            <SuspensedView>
-              <ProposalConfigurationPage />
-            </SuspensedView>}
-        />
-        {tabRoutes(
-          '/leads',
-          TAB_PATHS.leads,
-          <SectionGuard module='crm.leads'>
-            <SuspensedView>
-              <LeadsMain />
-            </SuspensedView>
-          </SectionGuard>,
-        )}
-        <Route
-          path='/recruitment/*'
-          element={
-            <SectionGuard module='recruitment'>
-              <SuspensedView>
-                <RecruitmentMain />
-              </SuspensedView>
-            </SectionGuard>}
-        />
-        {/* Opt-in beta: migrated EnterpriseForm wizard UI (classic flow stays default) */}
-        <Route
-          path='/leads/wizard-beta'
-          element={
-            <SuspensedView>
-              <LeadWizardBetaPage />
-            </SuspensedView>}
-        />
-        <Route
-          path='/leads/wizard-beta/:id'
-          element={
-            <SuspensedView>
-              <LeadWizardBetaPage />
-            </SuspensedView>}
-        />
-        <Route
-          path='/leads/:id/*'
-          element={
-            <SuspensedView>
-              <EntityDetailPage />
-            </SuspensedView>
-          }
-        />
-        {/* Same page, same id (the LEAD id — lead-as-master), different lens. The
+            <Route
+              path="/employee/documents/:employeeId"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.documentsUnderPeople,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <EmployeeDocumentsPage />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            {/* Your own documents: Documents → My Documents, which every employee has by default. */}
+            <Route
+              path="/my-documents"
+              element={
+                <SectionGuard module="documents.my">
+                  <SuspensedView>
+                    <MyDocumentsPage />
+                  </SuspensedView>
+                </SectionGuard>
+              }
+            />
+            <Route
+              path="/company/organisation-profile"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <OrganisationProfileMain />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            {TAB_PATHS.organisationProfile.map((slug) => (
+              <Route
+                key={`/company/organisation-profile/${slug}`}
+                path={`/company/organisation-profile/${slug}`}
+                element={
+                  hasPermission(
+                    uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany,
+                    permissionConstToUseWithHasPermission.readOthers,
+                  ) ? (
+                    <SuspensedView>
+                      <OrganisationProfileMain />
+                    </SuspensedView>
+                  ) : (
+                    <NoAccessPage />
+                  )
+                }
+              />
+            ))}
+            <Route
+              path="/company/organisation-profile/:orgId"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <OrganizationProfilePage />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="/company/organisation-info/*"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <OrganisationInfoProfileMain />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="/company/announcements"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.announcementsUnderCompany,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <Announcements />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="/company/branding"
+              element={
+                <SuspensedView>
+                  <Branding />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="/company/designations"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.designationUnderCompany,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <Designations />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="/company/media"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.mediaUnderCompany,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <Media />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="/company/media/:adminId"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.mediaUnderCompany,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <Media />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="/company/media/:adminId/:employeeId"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.mediaUnderCompany,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <Media />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="/company/onboardingdocs"
+              element={
+                hasPermission(
+                  uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany,
+                  permissionConstToUseWithHasPermission.readOthers,
+                ) ? (
+                  <SuspensedView>
+                    <OnBoardingDocs />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage />
+                )
+              }
+            />
+            <Route
+              path="/company/documents/:employeeId"
+              element={
+                <SuspensedView>
+                  <EmployeeDocumentTable />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="/finance/loans/:loanId"
+              element={
+                <SuspensedView>
+                  <LoanDetails />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="employee/report/kpis/*"
+              element={
+                <SectionGuard module="reports.kpi">
+                  <SuspensedView>
+                    <PersonalKpiMain />
+                  </SuspensedView>
+                </SectionGuard>
+              }
+            />
+            <Route
+              path="/leads/configuration"
+              element={
+                <SuspensedView>
+                  <ProposalConfigurationPage />
+                </SuspensedView>
+              }
+            />
+            {tabRoutes(
+              "/leads",
+              TAB_PATHS.leads,
+              <SectionGuard module="crm.leads">
+                <SuspensedView>
+                  <LeadsMain />
+                </SuspensedView>
+              </SectionGuard>,
+            )}
+            <Route
+              path="/recruitment/*"
+              element={
+                <SectionGuard module="recruitment">
+                  <SuspensedView>
+                    <RecruitmentMain />
+                  </SuspensedView>
+                </SectionGuard>
+              }
+            />
+            {/* Opt-in beta: migrated EnterpriseForm wizard UI (classic flow stays default) */}
+            <Route
+              path="/leads/wizard-beta"
+              element={
+                <SuspensedView>
+                  <LeadWizardBetaPage />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="/leads/wizard-beta/:id"
+              element={
+                <SuspensedView>
+                  <LeadWizardBetaPage />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="/leads/:id/*"
+              element={
+                <SuspensedView>
+                  <EntityDetailPage />
+                </SuspensedView>
+              }
+            />
+            {/* Same page, same id (the LEAD id — lead-as-master), different lens. The
             path is what tells the detail page which view to open: /leads/:id is
             the lead view, /project/:id the project view. It lives in the URL and
             not in history.state so the choice is shareable, survives a refresh,
             and cannot be lost by a navigation that forgets to carry state.
             Singular, so it never collides with '/projects/:projectId' below,
             which takes a legacy PROJECT id and redirects here. */}
-        <Route
-          path='/project/:id/*'
-          element={
-            <SuspensedView>
-              <EntityDetailPage />
-            </SuspensedView>
-          }
-        />
-        <Route
-          // The section's tab bar (Overview · Tasks · Configure). The Tasks tab renders the
-          // board that used to be mounted here directly, so this URL still lands on it.
-          path='/tasks'
-          element={
-            <SectionGuard module='tasks'>
-              <SuspensedView>
-                <TasksMain />
-              </SuspensedView>
-            </SectionGuard>
-          }
-        />
-        {/* Its tabs as URLs. `configure` is deliberately absent — /tasks/configure carries
+            <Route
+              path="/project/:id/*"
+              element={
+                <SuspensedView>
+                  <EntityDetailPage />
+                </SuspensedView>
+              }
+            />
+            <Route
+              // The section's tab bar (Overview · Tasks · Configure). The Tasks tab renders the
+              // board that used to be mounted here directly, so this URL still lands on it.
+              path="/tasks"
+              element={
+                <SectionGuard module="tasks">
+                  <SuspensedView>
+                    <TasksMain />
+                  </SuspensedView>
+                </SectionGuard>
+              }
+            />
+            {/* Its tabs as URLs. `configure` is deliberately absent — /tasks/configure carries
             its own permission gate, declared just below. */}
-        {TAB_PATHS.tasks.map((slug) => (
-          <Route
-            key={`/tasks/${slug}`}
-            path={`/tasks/${slug}`}
-            element={
-              <SectionGuard module='tasks'>
+            {TAB_PATHS.tasks.map((slug) => (
+              <Route
+                key={`/tasks/${slug}`}
+                path={`/tasks/${slug}`}
+                element={
+                  <SectionGuard module="tasks">
+                    <SuspensedView>
+                      <TasksMain />
+                    </SuspensedView>
+                  </SectionGuard>
+                }
+              />
+            ))}
+            <Route
+              // Task Statuses / Priorities / Preset Tasks. The section page with its Configure tab
+              // open, so the section's tab bar is there to navigate back out. Declared on its own
+              // (not in TAB_PATHS) to carry a permission of its own: task config is shared by EVERY
+              // tenant, which makes deactivating a status a cross-tenant outage (Phase 0 audit §4.1)
+              // rather than a personal preference.
+              //
+              // ⚠️ This gate is UX. The backend `task-statuses` / `task-priorities` / `task-persest`
+              // write routes still carry no `authorize()` at all — hiding the page does not protect
+              // the endpoints. See RSK-091.
+              path="/tasks/configure"
+              element={
+                <SectionGuard module="tasks">
+                  <RequirePermission
+                    perm="tasks.manage.all"
+                    redirectTo="/tasks"
+                  >
+                    <SuspensedView>
+                      <TasksMain />
+                    </SuspensedView>
+                  </RequirePermission>
+                </SectionGuard>
+              }
+            />
+            <Route
+              path="/tasks/timesheet"
+              element={
                 <SuspensedView>
-                  <TasksMain />
+                  <MyTimeSheetMain />
                 </SuspensedView>
-              </SectionGuard>
-            }
-          />
-        ))}
-        <Route
-          // Task Statuses / Priorities / Preset Tasks. The section page with its Configure tab
-          // open, so the section's tab bar is there to navigate back out. Declared on its own
-          // (not in TAB_PATHS) to carry a permission of its own: task config is shared by EVERY
-          // tenant, which makes deactivating a status a cross-tenant outage (Phase 0 audit §4.1)
-          // rather than a personal preference.
-          //
-          // ⚠️ This gate is UX. The backend `task-statuses` / `task-priorities` / `task-persest`
-          // write routes still carry no `authorize()` at all — hiding the page does not protect
-          // the endpoints. See RSK-091.
-          path='/tasks/configure'
-          element={
-            <SectionGuard module='tasks'>
-              <RequirePermission perm='tasks.manage.all' redirectTo='/tasks'>
+              }
+            />
+            <Route
+              path="/tasks/:taskId"
+              element={
+                // Phase 0 audit §4.4 — this route had NO SectionGuard, so a user with the tasks
+                // section blocked could deep-link straight to a task and read, edit and delete it.
+                <SectionGuard module="tasks">
+                  <SuspensedView>
+                    {/* Under the section's tab bar, so Overview / Tasks / Configure stay one click away. */}
+                    <TasksSectionBar>
+                      <TaskDetailPage />
+                    </TasksSectionBar>
+                  </SuspensedView>
+                </SectionGuard>
+              }
+            />
+            <Route
+              path="/tasks/employee-timesheet"
+              element={
                 <SuspensedView>
-                  <TasksMain />
+                  <EmployeeTimeSheetMain />
                 </SuspensedView>
-              </RequirePermission>
-            </SectionGuard>
-          }
-        />
-        <Route
-          path='/tasks/timesheet'
-          element={
-            <SuspensedView>
-              <MyTimeSheetMain />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/tasks/:taskId'
-          element={
-            // Phase 0 audit §4.4 — this route had NO SectionGuard, so a user with the tasks
-            // section blocked could deep-link straight to a task and read, edit and delete it.
-            <SectionGuard module='tasks'>
-              <SuspensedView>
-                {/* Under the section's tab bar, so Overview / Tasks / Configure stay one click away. */}
-                <TasksSectionBar>
-                  <TaskDetailPage />
-                </TasksSectionBar>
-              </SuspensedView>
-            </SectionGuard>
-          }
-        />
-        <Route
-          path='/tasks/employee-timesheet'
-          element={
-            <SuspensedView>
-              <EmployeeTimeSheetMain />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/tasks/calendar'
-          element={
-            <SuspensedView>
-              <TasksMainCalenderPage />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/company/employee-level-teams'
-          element={
-            <SuspensedView>
-              <EmployeeTeamLevelMain />
-            </SuspensedView>
-          }
-        />
+              }
+            />
+            <Route
+              path="/tasks/calendar"
+              element={
+                <SuspensedView>
+                  <TasksMainCalenderPage />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="/company/employee-level-teams"
+              element={
+                <SuspensedView>
+                  <EmployeeTeamLevelMain />
+                </SuspensedView>
+              }
+            />
 
-        {tabRoutes(
-          '/projects',
-          TAB_PATHS.projects,
-          <SectionGuard module='projects'>
-            <SuspensedView>
-              <ProjectsMain />
-            </SuspensedView>
-          </SectionGuard>,
-        )}
-        {tabRoutes(
-          '/contacts',
-          TAB_PATHS.contacts,
-          <SectionGuard module='crm.contacts'>
-            <SuspensedView>
-              <ContactsNavbar />
-            </SuspensedView>
-          </SectionGuard>,
-        )}
-        {tabRoutes(
-          '/courtesy-desk',
-          TAB_PATHS.courtesyDesk,
-          <SectionGuard module='crm.contacts'>
-            <SuspensedView>
-              <CourtesyDeskMain />
-            </SuspensedView>
-          </SectionGuard>,
-        )}
-        <Route
-          path='/courtesy-desk/groups/new'
-          element={
-            <SectionGuard module='crm.contacts'>
-              <SuspensedView>
-                <CourtesyGroupEditorPage />
-              </SuspensedView>
-            </SectionGuard>
-          }
-        />
-        <Route
-          path='/courtesy-desk/groups/:groupId'
-          element={
-            <SectionGuard module='crm.contacts'>
-              <SuspensedView>
-                <CourtesyGroupEditorPage />
-              </SuspensedView>
-            </SectionGuard>
-          }
-        />
-        <Route
-          path='/courtesy-desk/drives/new'
-          element={
-            <SectionGuard module='crm.contacts'>
-              <SuspensedView>
-                <CourtesyDriveCreatePage />
-              </SuspensedView>
-            </SectionGuard>
-          }
-        />
-        <Route
-          path='/courtesy-desk/drives/:driveId'
-          element={
-            <SectionGuard module='crm.contacts'>
-              <SuspensedView>
-                <CourtesyDriveDetailPage />
-              </SuspensedView>
-            </SectionGuard>
-          }
-        />
-        {tabRoutes(
-          '/companies',
-          TAB_PATHS.companies,
-          <SectionGuard module='crm.companies'>
-            <SuspensedView>
-              <CompaniesMain />
-            </SuspensedView>
-          </SectionGuard>,
-        )}
-        <Route
-          path='/companies/:companyId/*'
-          element={
-            <SectionGuard module='crm.companies'>
-              <SuspensedView>
-                <AllCompaniesToggle />
-              </SuspensedView>
-            </SectionGuard>
-          }
-        />
-        <Route
-          path='/projects/:projectId'
-          element={
-            <SuspensedView>
-              <ProjectEntityRedirect />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/employees/:employeeId/*'
-          element={
-            <SuspensedView>
-              <ShowEmployeeDetailsToggle />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/contacts/:contactId/*'
-          element={
-            <SectionGuard module='crm.contacts'>
-              <SuspensedView>
-                <ContactMainToggle />
-              </SuspensedView>
-            </SectionGuard>
-          }
-        />
-        {/* A time log is now read in a dialog over the timesheet it belongs to, not on a page
+            {tabRoutes(
+              "/projects",
+              TAB_PATHS.projects,
+              <SectionGuard module="projects">
+                <SuspensedView>
+                  <ProjectsMain />
+                </SuspensedView>
+              </SectionGuard>,
+            )}
+            {tabRoutes(
+              "/contacts",
+              TAB_PATHS.contacts,
+              <SectionGuard module="crm.contacts">
+                <SuspensedView>
+                  <ContactsNavbar />
+                </SuspensedView>
+              </SectionGuard>,
+            )}
+            <Route
+              path="/courtesy-desk/*"
+              element={<CourtesyDeskLegacyRedirect />}
+            />
+            {tabRoutes(
+              "/gift-management",
+              TAB_PATHS.giftManagement,
+              <SectionGuard module="crm.contacts">
+                <SuspensedView>
+                  <CourtesyDeskMain />
+                </SuspensedView>
+              </SectionGuard>,
+            )}
+            <Route
+              path="/gift-management/groups/new"
+              element={
+                <SectionGuard module="crm.contacts">
+                  <SuspensedView>
+                    <CourtesyGroupEditorPage />
+                  </SuspensedView>
+                </SectionGuard>
+              }
+            />
+            <Route
+              path="/gift-management/groups/:groupId"
+              element={
+                <SectionGuard module="crm.contacts">
+                  <SuspensedView>
+                    <CourtesyGroupEditorPage />
+                  </SuspensedView>
+                </SectionGuard>
+              }
+            />
+            <Route
+              path="/gift-management/drives/new"
+              element={
+                <SectionGuard module="crm.contacts">
+                  <SuspensedView>
+                    <CourtesyDriveCreatePage />
+                  </SuspensedView>
+                </SectionGuard>
+              }
+            />
+            <Route
+              path="/gift-management/drives/:driveId"
+              element={
+                <SectionGuard module="crm.contacts">
+                  <SuspensedView>
+                    <CourtesyDriveDetailPage />
+                  </SuspensedView>
+                </SectionGuard>
+              }
+            />
+            {tabRoutes(
+              "/companies",
+              TAB_PATHS.companies,
+              <SectionGuard module="crm.companies">
+                <SuspensedView>
+                  <CompaniesMain />
+                </SuspensedView>
+              </SectionGuard>,
+            )}
+            <Route
+              path="/companies/:companyId/*"
+              element={
+                <SectionGuard module="crm.companies">
+                  <SuspensedView>
+                    <AllCompaniesToggle />
+                  </SuspensedView>
+                </SectionGuard>
+              }
+            />
+            <Route
+              path="/projects/:projectId"
+              element={
+                <SuspensedView>
+                  <ProjectEntityRedirect />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="/employees/:employeeId/*"
+              element={
+                <SuspensedView>
+                  <ShowEmployeeDetailsToggle />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="/contacts/:contactId/*"
+              element={
+                <SectionGuard module="crm.contacts">
+                  <SuspensedView>
+                    <ContactMainToggle />
+                  </SuspensedView>
+                </SectionGuard>
+              }
+            />
+            {/* A time log is now read in a dialog over the timesheet it belongs to, not on a page
             of its own. Old links land on the list rather than a 404. */}
-        <Route
-          path='/tasks/timesheet/:timesheetId/:employeeId/:startDate/:endDate'
-          element={<Navigate to='/tasks/timesheet' replace />}
-        />
-        <Route
-          path='/search-results'
-          element={
-            <SuspensedView>
-              <SearchResultsPage />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/admin/app-settings'
-          element={
-            <SuspensedView>
-              <AppSettings />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/admin/roles-permissions'
-          element={canManageRoles ? (
-            <SuspensedView>
-              <RolesPermissions />
-            </SuspensedView>
-          ) : <NoAccessPage title="Roles & Permissions is for Admins" message="Only an Admin or Super Admin can manage roles and access." />}
-        />
-        {/* Page Not Found */}
-        <Route path='*' element={<Navigate to='/error/404' />} />
-        </Route>{/* ── end workspace shell wrapper ── */}
-      </Route>
-    </Routes>
-  )
-}
+            <Route
+              path="/tasks/timesheet/:timesheetId/:employeeId/:startDate/:endDate"
+              element={<Navigate to="/tasks/timesheet" replace />}
+            />
+            <Route
+              path="/search-results"
+              element={
+                <SuspensedView>
+                  <SearchResultsPage />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="/admin/app-settings"
+              element={
+                <SuspensedView>
+                  <AppSettings />
+                </SuspensedView>
+              }
+            />
+            <Route
+              path="/admin/roles-permissions"
+              element={
+                canManageRoles ? (
+                  <SuspensedView>
+                    <RolesPermissions />
+                  </SuspensedView>
+                ) : (
+                  <NoAccessPage
+                    title="Roles & Permissions is for Admins"
+                    message="Only an Admin or Super Admin can manage roles and access."
+                  />
+                )
+              }
+            />
+            {/* Page Not Found */}
+            <Route path="*" element={<Navigate to="/error/404" />} />
+          </Route>
+          {/* ── end workspace shell wrapper ── */}
+        </Route>
+      </Routes>
+    )
+  );
+};
 
 /**
  * A tabbed page, mounted at its base path AND at one static path per tab
@@ -832,21 +1286,27 @@ const PrivateRoutes = () => {
  * `/:tab` because a dynamic segment would be ambiguous against the detail routes
  * on the same base (`/projects/:projectId`). Slugs live in routing/tabPaths.ts.
  */
-const tabRoutes = (base: string, slugs: readonly string[], element: ReactElement) => [
+const tabRoutes = (
+  base: string,
+  slugs: readonly string[],
+  element: ReactElement,
+) => [
   <Route key={base} path={base} element={element} />,
-  ...slugs.map((slug) => <Route key={`${base}/${slug}`} path={`${base}/${slug}`} element={element} />),
-]
+  ...slugs.map((slug) => (
+    <Route key={`${base}/${slug}`} path={`${base}/${slug}`} element={element} />
+  )),
+];
 
 const SuspensedView: FC<WithChildren> = ({ children }) => {
-  const baseColor = getCSSVariableValue('--bs-primary')
+  const baseColor = getCSSVariableValue("--bs-primary");
   TopBarProgress.config({
     barColors: {
-      '0': baseColor,
+      "0": baseColor,
     },
     barThickness: 5,
     shadowBlur: 5,
-  })
-  return <Suspense fallback={<TopBarProgress />}>{children}</Suspense>
-}
+  });
+  return <Suspense fallback={<TopBarProgress />}>{children}</Suspense>;
+};
 
-export { PrivateRoutes }
+export { PrivateRoutes };

@@ -6,20 +6,15 @@ import Overview from './components/Overview';
 import PeopleGroupsList from './components/PeopleGroupsList';
 import DrivesList from './components/DrivesList';
 import Configure from './components/Configure';
+import { giftTabIndexFromPath } from './GiftManagementTabBar';
+import { GIFT_MANAGEMENT_BASE } from './giftPaths';
 
 const TAB_TITLES = ['Overview', 'People Groups', 'Gift Runs', 'Configure'] as const;
-
-function tabIndexFromPath(pathname: string): number {
-  if (pathname.includes('/people-groups')) return 1;
-  if (pathname.includes('/drives') || pathname.includes('/gift-runs')) return 2;
-  if (pathname.includes('/configure')) return 3;
-  return 0;
-}
 
 export default function CourtesyDeskMain() {
   const location = useLocation();
   const navigate = useNavigate();
-  const activeTab = tabIndexFromPath(location.pathname);
+  const activeTab = giftTabIndexFromPath(location.pathname);
 
   const tabItems: TabItem[] = useMemo(
     () => [
@@ -33,10 +28,10 @@ export default function CourtesyDeskMain() {
 
   const onTabChange = (index: number) => {
     const title = TAB_TITLES[index];
-    if (title === 'Overview') navigate('/courtesy-desk/overview');
-    else if (title === 'People Groups') navigate('/courtesy-desk/people-groups');
-    else if (title === 'Gift Runs') navigate('/courtesy-desk/drives');
-    else navigate('/courtesy-desk/configure');
+    if (title === 'Overview') navigate(`${GIFT_MANAGEMENT_BASE}/overview`);
+    else if (title === 'People Groups') navigate(`${GIFT_MANAGEMENT_BASE}/people-groups`);
+    else if (title === 'Gift Runs') navigate(`${GIFT_MANAGEMENT_BASE}/drives`);
+    else navigate(`${GIFT_MANAGEMENT_BASE}/configure`);
   };
 
   const breadcrumbs = [
@@ -44,12 +39,12 @@ export default function CourtesyDeskMain() {
     { title: '', path: '', isSeparator: true, isActive: false },
     { title: 'CRM', path: '/workspace/crm', isSeparator: false, isActive: false },
     { title: '', path: '', isSeparator: true, isActive: false },
-    { title: 'Courtesy Desk', path: '/courtesy-desk', isSeparator: false, isActive: true },
+    { title: 'Gift Managements', path: GIFT_MANAGEMENT_BASE, isSeparator: false, isActive: true },
   ];
 
   return (
     <>
-      <PageTitle breadcrumbs={breadcrumbs}>Courtesy Desk</PageTitle>
+      <PageTitle breadcrumbs={breadcrumbs}>Gift Managements</PageTitle>
       <MaterialHeaderTab
         tabItems={tabItems}
         activeTab={activeTab}

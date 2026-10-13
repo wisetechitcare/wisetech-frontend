@@ -1,5 +1,10 @@
 import type { CourtesyDeskState, CourtesyDrive, PeopleGroup } from '../types';
-import { DEFAULT_OCCASIONS, DEFAULT_STATUS_COLORS } from '../types';
+import {
+  DEFAULT_DELIVERY_MODES,
+  DEFAULT_DELIVERY_STATUSES,
+  DEFAULT_GIFT_RUN_STATUSES,
+  DEFAULT_OCCASIONS,
+} from '../types';
 
 export function seedCourtesyDeskState(): CourtesyDeskState {
   const now = new Date();
@@ -148,7 +153,9 @@ export function seedCourtesyDeskState(): CourtesyDeskState {
     version: 2,
     config: {
       occasions: DEFAULT_OCCASIONS.map((o) => ({ ...o })),
-      statusColors: { ...DEFAULT_STATUS_COLORS },
+      deliveryStatuses: DEFAULT_DELIVERY_STATUSES.map((s) => ({ ...s })),
+      giftRunStatuses: DEFAULT_GIFT_RUN_STATUSES.map((s) => ({ ...s })),
+      deliveryModes: DEFAULT_DELIVERY_MODES.map((m) => ({ ...m })),
     },
     groups: [rezaGroup, bandraGroup, staffGroup],
     drives: [perfumeDrive],

@@ -1,163 +1,243 @@
-import { useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
-  Button,
   MenuItem,
   Stack,
   TextField,
   Typography,
-} from '@mui/material';
-import PremiumButton from '@app/modules/common/components/PremiumButton';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { WtDateField } from '@app/modules/common/components/ui';
-import { useCourtesyDesk } from '../hooks/useCourtesyDesk';
-import { createDrive, listGroups } from '../store/courtesyDeskStore';
-import { GIFT_RUN_LABEL } from '../types';
+  useTheme,
+} from "@mui/material";
+import { KTIcon } from "@metronic/helpers";
+import { toast } from "react-toastify";
+import PremiumButton from "@app/modules/common/components/PremiumButton";
+import {
+  GlassDialog,
+  GlassHeader,
+  WtButton,
+  WtDateField,
+} from "@app/modules/common/components/ui";
+import { menuOptionSx } from "@app/modules/common/components/ui/patterns";
+import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
+import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
+import { createDrive, listGroups } from "../store/courtesyDeskStore";
+import type { ConfigOption } from "../types";
+import { GIFT_RUN_LABEL } from "../types";
 
-export default function DriveCreate() {
+const fieldHeightSx = {
+  "& .MuiOutlinedInput-root": { minHeight: 56 },
+  "& .MuiInputBase-input": { py: 1.75 },
+};
+
+const selectFieldSx = {
+  "& .MuiOutlinedInput-root": { minHeight: 56 },
+  "& .MuiSelect-select": { display: "flex", alignItems: "center", py: 1.75 },
+};
+
+type DriveCreateModalProps = {
+  open: boolean;
+  onClose: () => void;
+  presetGroupId?: string;
+};
+
+export function DriveCreateModal({
+  open,
+  onClose,
+  presetGroupId,
+}: DriveCreateModalProps) {
+  const theme = useTheme();
   const desk = useCourtesyDesk();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
   const groups = listGroups();
   const occasions = desk.config.occasions;
-  const presetGroup = params.get('groupId') || groups[0]?.id || '';
 
-  const [groupId, setGroupId] = useState(presetGroup);
-  const [title, setTitle] = useState('');
-  const [occasionType, setOccasionType] = useState(occasions[0]?.id || '');
-  const [giftItem, setGiftItem] = useState('Perfume');
-  const [driveDate, setDriveDate] = useState(new Date().toISOString().slice(0, 10));
-  const [error, setError] = useState('');
+  const [groupId, setGroupId] = useState("");
+  const [title, setTitle] = useState("");
+  const [occasionType, setOccasionType] = useState("");
+  const [giftItem, setGiftItem] = useState("");
+  const [driveDate, setDriveDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [defaultQuantity, setDefaultQuantity] = useState(1);
 
-  const selectedGroup = useMemo(() => groups.find((g) => g.id === groupId), [groups, groupId]);
+  useEffect(() => {
+    if (!open) return;
+    const gs = listGroups();
+    setGroupId(presetGroupId || gs[0]?.id || "");
+    setTitle("");
+    setOccasionType("");
+    setGiftItem("");
+    setDriveDate(new Date().toISOString().slice(0, 10));
+    setDefaultQuantity(1);
+  }, [open, presetGroupId]);
 
-  const onCreate = () => {
-    setError('');
+  const onCreate = (e: FormEvent) => {
+    e.preventDefault();
     try {
-      if (!groupId) throw new Error('Choose a People Group.');
-      if (!title.trim()) throw new Error(`${GIFT_RUN_LABEL} title is required.`);
-      if (!giftItem.trim()) throw new Error('Gift item is required.');
-      if (!occasionType) throw new Error('Choose an occasion (add new ones under Configure).');
+      if (!groups.length) throw new Error("Create a People Group first.");
+      if (!groupId) throw new Error("Choose a People Group.");
+      if (!title.trim())
+        throw new Error(`${GIFT_RUN_LABEL} title is required.`);
+      if (!giftItem.trim()) throw new Error("Gift item is required.");
+      if (!occasionType)
+        throw new Error("Choose an occasion (add new ones under Configure).");
       const drive = createDrive({
         title,
         occasionType,
         giftItem,
         driveDate,
         sourceGroupId: groupId,
+        defaultQuantity: Math.max(1, defaultQuantity || 1),
       });
-      navigate(`/courtesy-desk/drives/${drive.id}`);
-    } catch (e: any) {
-      setError(e?.message || `Could not create ${GIFT_RUN_LABEL.toLowerCase()}.`);
+      toast.success(`${GIFT_RUN_LABEL} created`);
+      onClose();
+      navigate(`${GIFT_MANAGEMENT_BASE}/drives/${drive.id}`);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : `Could not create ${GIFT_RUN_LABEL.toLowerCase()}.`;
+      toast.error(msg);
     }
   };
 
+  const close = () => onClose();
+
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 720 }}>
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h5" fontWeight={700}>
-          New {GIFT_RUN_LABEL}
-        </Typography>
-        <Typography color="text.secondary">
-          People come from the group by default. Add occasions under Configure.
-        </Typography>
-      </Box>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {!groups.length ? (
-        <Alert severity="info">
-          Create a People Group first, then start a {GIFT_RUN_LABEL}.
-          <Box sx={{ mt: 1 }}>
-            <PremiumButton onClick={() => navigate('/courtesy-desk/groups/new')}>New People Group</PremiumButton>
-          </Box>
-        </Alert>
-      ) : (
-        <Stack spacing={2}>
-          <TextField
-            select
-            label="People Group"
-            value={groupId}
-            onChange={(e) => setGroupId(e.target.value)}
-            fullWidth
-          >
-            {groups.map((g) => (
-              <MenuItem key={g.id} value={g.id}>
-                {g.name} ({g.members.length})
+    <GlassDialog open={open} onClose={close} maxWidth="sm" fullWidth>
+      <GlassHeader
+        icon={<KTIcon iconName="gift" className="fs-1" />}
+        title={`New ${GIFT_RUN_LABEL}`}
+        subtitle="Recipients come from the group. Occasions are managed under Configure."
+        onClose={close}
+      />
+      <Box
+        component="form"
+        onSubmit={onCreate}
+        sx={{ px: { xs: 2, md: 3 }, pb: 3, pt: 2.5 }}
+      >
+        {!groups.length ? (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Create a People Group first, then start a {GIFT_RUN_LABEL}.
+            <Box sx={{ mt: 1 }}>
+              <PremiumButton
+                onClick={() => {
+                  close();
+                  navigate(`${GIFT_MANAGEMENT_BASE}/groups/new`);
+                }}
+              >
+                New People Group
+              </PremiumButton>
+            </Box>
+          </Alert>
+        ) : (
+          <Stack spacing={2.5}>
+            <TextField
+              select
+              label="People Group"
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              fullWidth
+              required
+              sx={selectFieldSx}
+              SelectProps={{
+                MenuProps: { PaperProps: { sx: menuOptionSx(theme) } },
+              }}
+            >
+              {groups.map((g) => (
+                <MenuItem key={g.id} value={g.id}>
+                  {g.name} ({g.members.length})
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label={`${GIFT_RUN_LABEL} title`}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Perfume for Reza Peoples"
+              fullWidth
+              required
+              sx={fieldHeightSx}
+            />
+            <TextField
+              label="Gift item"
+              value={giftItem}
+              onChange={(e) => setGiftItem(e.target.value)}
+              placeholder="Perfume / Khajur / Sweets"
+              fullWidth
+              required
+              sx={fieldHeightSx}
+            />
+            <TextField
+              select
+              label="Occasion"
+              value={occasionType}
+              onChange={(e) => setOccasionType(e.target.value)}
+              fullWidth
+              required
+              sx={selectFieldSx}
+              InputLabelProps={{ shrink: true }}
+              SelectProps={{
+                displayEmpty: true,
+                MenuProps: { PaperProps: { sx: menuOptionSx(theme) } },
+                renderValue: (selected) => {
+                  if (!selected) {
+                    return (
+                      <Typography variant="body2" color="text.secondary">
+                        Select occasion
+                      </Typography>
+                    );
+                  }
+                  const name = occasions.find((o) => o.id === selected)?.name;
+                  return name ?? String(selected);
+                },
+              }}
+            >
+              <MenuItem disabled value="">
+                Select occasion
               </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            select
-            label="Occasion"
-            value={occasionType}
-            onChange={(e) => setOccasionType(e.target.value)}
-            fullWidth
-          >
-            {occasions.map((o) => (
-              <MenuItem key={o.id} value={o.id}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Box
-                    sx={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: '50%',
-                      bgcolor: o.color,
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span>{o.name}</span>
-                </Stack>
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            label="Gift item"
-            value={giftItem}
-            onChange={(e) => setGiftItem(e.target.value)}
-            placeholder="Perfume / Khajur / Sweets / Welcome Kit"
-            fullWidth
-          />
-
-          <TextField
-            label={`${GIFT_RUN_LABEL} title`}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Perfume for Reza Peoples"
-            fullWidth
-          />
-
-          <WtDateField
-            label="Date"
-            value={driveDate}
-            onChange={(v) => setDriveDate(v || '')}
-            fullWidth
-          />
-
-          {selectedGroup && (
-            <Alert severity="success">
-              Will include <strong>{selectedGroup.members.length}</strong> people from{' '}
-              <strong>{selectedGroup.name}</strong> as Pending.
-            </Alert>
-          )}
-
-          <Stack direction="row" spacing={1}>
-            <Button startIcon={<AppIcon name="bi-arrow-left" />} onClick={() => navigate('/courtesy-desk/drives')}>
-              Back
-            </Button>
-            <PremiumButton icon="bi-check-lg" onClick={onCreate}>
-              Create {GIFT_RUN_LABEL}
-            </PremiumButton>
+              {occasions.map((o: ConfigOption) => (
+                <MenuItem key={o.id} value={o.id}>
+                  {o.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <WtDateField
+              label="Date"
+              value={driveDate}
+              onChange={(v) => setDriveDate(v || "")}
+              fullWidth
+              sx={fieldHeightSx}
+            />
+            <TextField
+              type="number"
+              label="Default quantity per person"
+              value={defaultQuantity}
+              onChange={(e) =>
+                setDefaultQuantity(Math.max(1, Number(e.target.value) || 1))
+              }
+              inputProps={{ min: 1, step: 1 }}
+              fullWidth
+              sx={fieldHeightSx}
+            />
           </Stack>
+        )}
+
+        <Stack
+          direction="row"
+          spacing={1}
+          justifyContent="flex-end"
+          sx={{ mt: 3 }}
+        >
+          <WtButton ghost={true} type="button" onClick={close}>
+            Cancel
+          </WtButton>
+          <WtButton type="submit" disabled={!groups.length}>
+            Create {GIFT_RUN_LABEL}
+          </WtButton>
         </Stack>
-      )}
-    </Box>
+      </Box>
+    </GlassDialog>
   );
 }

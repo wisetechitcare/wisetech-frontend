@@ -1,5 +1,6 @@
+import { getCourtesyDeskState } from '../store/courtesyDeskStore';
 import type { CourtesyDrive, CourtesyRecipient } from '../types';
-import { DELIVERY_MODE_LABELS, DELIVERY_STATUS_LABELS } from '../types';
+import { deliveryModeLabel, deliveryStatusLabel, type CourtesyConfig } from '../types';
 
 export type ExportScope = 'ALL' | 'PENDING' | 'DELIVERED';
 
@@ -31,7 +32,12 @@ function filterRecipients(drive: CourtesyDrive, scope: ExportScope): CourtesyRec
   }
 }
 
-export function buildExportRows(drive: CourtesyDrive, scope: ExportScope = 'ALL'): ExportRow[] {
+export function buildExportRows(
+  drive: CourtesyDrive,
+  scope: ExportScope = 'ALL',
+  config?: CourtesyConfig
+): ExportRow[] {
+  const cfg = config;
   return filterRecipients(drive, scope).map((r) => ({
     name: r.fullName,
     source: r.memberType === 'CONTACT' ? 'Contact' : 'Employee',
@@ -39,7 +45,7 @@ export function buildExportRows(drive: CourtesyDrive, scope: ExportScope = 'ALL'
     areaAddress: [r.area, r.address].filter(Boolean).join(' · ') || '—',
     gift: drive.giftItem,
     quantity: r.quantity ?? 1,
-    status: DELIVERY_STATUS_LABELS[r.status],
+    status: cfg ? deliveryStatusLabel(cfg, r.status) : r.status,
     mode: DELIVERY_MODE_LABELS[r.mode],
     assignee: r.assigneeName || '—',
     remark: r.remark || '—',
@@ -53,7 +59,7 @@ export function exportFilename(drive: CourtesyDrive) {
 }
 
 export function downloadCsv(drive: CourtesyDrive, scope: ExportScope = 'ALL') {
-  const rows = buildExportRows(drive, scope);
+  const rows = buildExportRows(drive, scope, getCourtesyDeskState().config);
   const headers = [
     'Name',
     'Source',
@@ -100,7 +106,7 @@ export async function downloadPdf(drive: CourtesyDrive, scope: ExportScope = 'AL
     import('jspdf'),
     import('jspdf-autotable'),
   ]);
-  const rows = buildExportRows(drive, scope);
+  const rows = buildExportRows(drive, scope, getCourtesyDeskState().config);
   const doc = new jsPDF({ orientation: 'landscape' });
   doc.setFontSize(14);
   doc.text(drive.title, 14, 16);

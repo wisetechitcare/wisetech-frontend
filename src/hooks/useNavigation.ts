@@ -345,9 +345,9 @@ export function useNavigation() {
       },
       {
         type: 'item',
-        id: 'crm-courtesy-desk',
-        to: '/courtesy-desk',
-        title: 'Courtesy Desk',
+        id: 'crm-gift-management',
+        to: '/gift-management',
+        title: 'Gift Managements',
         fontIcon: 'bi-gift',
         // Prototype: visible with Contacts until a dedicated crm.courtesyDesk permission exists.
         visible: !isSectionBlocked('crm.contacts'),

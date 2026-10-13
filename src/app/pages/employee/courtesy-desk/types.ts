@@ -24,6 +24,9 @@ export interface PersonRef {
   phone?: string;
   email?: string;
   doNotGift?: boolean;
+  avatarUrl?: string;
+  /** Default gift count when copied into a Gift Run. */
+  giftQuantity?: number;
 }
 
 export interface PeopleGroup {
@@ -46,9 +49,10 @@ export interface CourtesyRecipient {
   address?: string;
   phone?: string;
   email?: string;
-  status: DeliveryStatus;
+  avatarUrl?: string;
+  status: string;
   mode: DeliveryMode;
-  /** Gift / kit count for this person — editable on the Gift Run table. */
+  /** Gift / kit count per person. */
   quantity: number;
   assigneeEmployeeId?: string;
   assigneeName?: string;
@@ -66,7 +70,7 @@ export interface CourtesyDrive {
   driveDate?: string;
   sourceGroupId: string;
   sourceGroupName: string;
-  status: DriveStatus;
+  status: string;
   /** Drive-level defaults — apply to all, or leave empty when mixed. */
   defaultAssigneeEmployeeId?: string;
   defaultAssigneeName?: string;
@@ -84,8 +88,14 @@ export interface ConfigOption {
 
 export interface CourtesyConfig {
   occasions: ConfigOption[];
-  /** Colors keyed by DeliveryStatus. */
-  statusColors: Record<DeliveryStatus, string>;
+  /** Handover statuses on Gift Run recipient lists (editable in Configure). */
+  deliveryStatuses: ConfigOption[];
+  /** Gift Run lifecycle statuses (editable in Configure). */
+  giftRunStatuses: ConfigOption[];
+  /** Delivery mode options per recipient (editable in Configure). */
+  deliveryModes: ConfigOption[];
+  /** @deprecated migrated to deliveryStatuses — kept for localStorage normalize only */
+  statusColors?: Record<string, string>;
 }
 
 export interface CourtesyDeskState {
@@ -116,6 +126,22 @@ export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
   SKIPPED: 'Skipped',
 };
 
+export const DEFAULT_DELIVERY_STATUSES: ConfigOption[] = (
+  Object.keys(DELIVERY_STATUS_LABELS) as DeliveryStatus[]
+).map((id) => ({
+  id,
+  name: DELIVERY_STATUS_LABELS[id],
+  color: DEFAULT_STATUS_COLORS[id],
+}));
+
+export function deliveryStatusLabel(config: CourtesyConfig, statusId: string) {
+  return config.deliveryStatuses.find((s) => s.id === statusId)?.name || statusId;
+}
+
+export function deliveryStatusColor(config: CourtesyConfig, statusId: string) {
+  return config.deliveryStatuses.find((s) => s.id === statusId)?.color || '#64748b';
+}
+
 export const DELIVERY_MODE_LABELS: Record<DeliveryMode, string> = {
   IN_PERSON: 'In Person',
   COURIER: 'Courier',
@@ -127,6 +153,45 @@ export const DRIVE_STATUS_LABELS: Record<DriveStatus, string> = {
   COMPLETED: 'Completed',
   ARCHIVED: 'Archived',
 };
+
+export const DEFAULT_DELIVERY_MODES: ConfigOption[] = (
+  Object.keys(DELIVERY_MODE_LABELS) as DeliveryMode[]
+).map((id) => ({
+  id,
+  name: DELIVERY_MODE_LABELS[id],
+  color: id === 'COURIER' ? '#2563eb' : '#0d9488',
+}));
+
+export const DEFAULT_GIFT_RUN_STATUSES: ConfigOption[] = (
+  Object.keys(DRIVE_STATUS_LABELS) as DriveStatus[]
+).map((id) => ({
+  id,
+  name: DRIVE_STATUS_LABELS[id],
+  color:
+    id === 'COMPLETED'
+      ? '#16a34a'
+      : id === 'IN_PROGRESS'
+        ? '#2563eb'
+        : id === 'ARCHIVED'
+          ? '#64748b'
+          : '#d97706',
+}));
+
+export function giftRunStatusLabel(config: CourtesyConfig, statusId: string) {
+  return config.giftRunStatuses.find((s) => s.id === statusId)?.name || statusId;
+}
+
+export function giftRunStatusColor(config: CourtesyConfig, statusId: string) {
+  return config.giftRunStatuses.find((s) => s.id === statusId)?.color || '#64748b';
+}
+
+export function deliveryModeLabel(config: CourtesyConfig, modeId: string) {
+  return config.deliveryModes.find((m) => m.id === modeId)?.name || modeId;
+}
+
+export function deliveryModeColor(config: CourtesyConfig, modeId: string) {
+  return config.deliveryModes.find((m) => m.id === modeId)?.color || '#64748b';
+}
 
 export function occasionLabel(config: CourtesyConfig, occasionId: string) {
   return config.occasions.find((o) => o.id === occasionId)?.name || occasionId;

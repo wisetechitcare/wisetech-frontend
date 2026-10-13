@@ -17,7 +17,7 @@ export const TAB_PATHS = {
     leads: ['overview', 'leads', 'files', 'configure'],
     companies: ['overview', 'companies', 'map', 'configure'],
     contacts: ['overview', 'contacts', 'calendar', 'map', 'configure'],
-    courtesyDesk: ['overview', 'people-groups', 'drives', 'configure'],
+    giftManagement: ['overview', 'people-groups', 'drives', 'configure'],
     // `configure` is absent on purpose: /tasks/configure is declared with its own permission gate.
     tasks: ['overview', 'tasks'],
     loans: [

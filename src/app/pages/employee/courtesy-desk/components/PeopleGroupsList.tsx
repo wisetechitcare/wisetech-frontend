@@ -1,19 +1,21 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, IconButton, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Box, IconButton, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { MRT_ColumnDef } from 'material-react-table';
-import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
-import ArchiveRoundedIcon from '@mui/icons-material/ArchiveRounded';
-import UnarchiveRoundedIcon from '@mui/icons-material/UnarchiveRounded';
-import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import PremiumButton from '@app/modules/common/components/PremiumButton';
+import StatusBadge from '@app/modules/common/components/StatusBadge';
+import { actionsColumn } from '@app/modules/common/components/table/columns';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { WtTooltip } from '@app/modules/common/components/ui';
+import { GIFT_MANAGEMENT_BASE } from '../giftPaths';
 import { useCourtesyDesk } from '../hooks/useCourtesyDesk';
 import { archiveGroup, cloneGroup, listGroups, unarchiveGroup } from '../store/courtesyDeskStore';
 import type { PeopleGroup } from '../types';
+
+const GROUP_STATUS_COLOR = { ACTIVE: '#16a34a', ARCHIVED: '#94a3b8' } as const;
 
 export default function PeopleGroupsList() {
   useCourtesyDesk();
@@ -64,21 +66,30 @@ export default function PeopleGroupsList() {
       {
         accessorKey: 'status',
         header: 'Status',
-        size: 100,
-        Cell: ({ cell }) => (cell.getValue<string>() === 'ACTIVE' ? 'Active' : 'Archived'),
+        size: 120,
+        Cell: ({ row }) => {
+          const active = row.original.status === 'ACTIVE';
+          return (
+            <StatusBadge
+              label={active ? 'Active' : 'Archived'}
+              color={GROUP_STATUS_COLOR[row.original.status]}
+            />
+          );
+        },
       },
-      {
-        id: 'actions',
-        header: 'Actions',
-        size: 200,
-        enableSorting: false,
+      actionsColumn({
+        size: 148,
         Cell: ({ row }) => {
           const g = row.original;
           return (
             <Stack direction="row" spacing={0.25} alignItems="center" onClick={(e) => e.stopPropagation()}>
-              <WtTooltip title="Update Group">
-                <IconButton size="small" onClick={() => navigate(`/courtesy-desk/groups/${g.id}`)}>
-                  <EditRoundedIcon fontSize="small" />
+              <WtTooltip title="Edit group">
+                <IconButton
+                  size="small"
+                  onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/groups/${g.id}`)}
+                  sx={{ color: 'primary.main' }}
+                >
+                  <AppIcon name="bi-pencil" className="fs-6" />
                 </IconButton>
               </WtTooltip>
               <WtTooltip title="Clone group">
@@ -88,10 +99,10 @@ export default function PeopleGroupsList() {
                     const name = window.prompt('New group name', `${g.name} (copy)`);
                     if (!name) return;
                     const cloned = cloneGroup(g.id, name);
-                    navigate(`/courtesy-desk/groups/${cloned.id}`);
+                    navigate(`${GIFT_MANAGEMENT_BASE}/groups/${cloned.id}`);
                   }}
                 >
-                  <ContentCopyRoundedIcon fontSize="small" />
+                  <AppIcon name="bi-files" className="fs-6" />
                 </IconButton>
               </WtTooltip>
               {g.status === 'ACTIVE' ? (
@@ -101,24 +112,33 @@ export default function PeopleGroupsList() {
                     onClick={() => {
                       if (window.confirm(`Archive “${g.name}”?`)) archiveGroup(g.id);
                     }}
+                    sx={{ color: 'warning.main' }}
                   >
-                    <ArchiveRoundedIcon fontSize="small" />
+                    <AppIcon name="bi-archive" className="fs-6" />
                   </IconButton>
                 </WtTooltip>
               ) : (
-                <WtTooltip title="Remove from Archive">
-                  <IconButton size="small" onClick={() => unarchiveGroup(g.id)}>
-                    <UnarchiveRoundedIcon fontSize="small" />
+                <WtTooltip title="Restore">
+                  <IconButton size="small" onClick={() => unarchiveGroup(g.id)} sx={{ color: 'success.main' }}>
+                    <AppIcon name="bi-arrow-counterclockwise" className="fs-6" />
                   </IconButton>
                 </WtTooltip>
               )}
-              <Button size="small" onClick={() => navigate(`/courtesy-desk/drives/new?groupId=${g.id}`)}>
-                Gift Run
-              </Button>
+              <WtTooltip title="New gift run">
+                <IconButton
+                  size="small"
+                  onClick={() =>
+                    navigate(`${GIFT_MANAGEMENT_BASE}/drives?new=1&groupId=${encodeURIComponent(g.id)}`)
+                  }
+                  sx={{ color: 'secondary.main' }}
+                >
+                  <AppIcon name="bi-gift" className="fs-6" />
+                </IconButton>
+              </WtTooltip>
             </Stack>
           );
         },
-      },
+      }),
     ],
     [navigate]
   );
@@ -149,14 +169,14 @@ export default function PeopleGroupsList() {
             <MenuItem value="active">Active only</MenuItem>
             <MenuItem value="all">Include archived</MenuItem>
           </TextField>
-          <PremiumButton icon="bi-plus-lg" onClick={() => navigate('/courtesy-desk/groups/new')}>
+          <PremiumButton icon="bi-plus-lg" onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/groups/new`)}>
             New Group
           </PremiumButton>
         </Stack>
       </Stack>
 
       <MaterialTable
-        tableName="Courtesy-People-Groups"
+        tableName="Gift-Management-People-Groups"
         columns={columns}
         data={groups}
         employeeId={employeeId}
@@ -164,7 +184,7 @@ export default function PeopleGroupsList() {
         enableGrouping={false}
         muiTableProps={{
           muiTableBodyRowProps: ({ row }) => ({
-            onClick: () => navigate(`/courtesy-desk/groups/${row.original.id}`),
+            onClick: () => navigate(`${GIFT_MANAGEMENT_BASE}/groups/${row.original.id}`),
             sx: { cursor: 'pointer' },
           }),
         }}
