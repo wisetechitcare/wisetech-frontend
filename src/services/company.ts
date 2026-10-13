@@ -193,6 +193,32 @@ export const fetchCompanyOverview = async () => {
     }
 }
 
+/** Optional `companyId` — Super Admin targets another tenant’s root; others ignore / 403. */
+export const fetchTenantEntitlements = async (companyId?: string) => {
+    try {
+        const qs = companyId ? `?companyId=${encodeURIComponent(companyId)}` : '';
+        const endpoint = `${API_BASE_URL}/${COMPANY.GET_ENTITLEMENTS}${qs}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
+export const updateTenantEntitlements = async (
+    packs: Record<string, boolean>,
+    companyId?: string,
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.PUT_ENTITLEMENTS}`;
+        const body = companyId ? { ...packs, companyId } : packs;
+        const { data } = await axios.put(endpoint, body);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
 // ─── Multi-organization endpoints ──────────────────────────────────────────────
 
 export const fetchOrganizationById = async (orgId: string) => {

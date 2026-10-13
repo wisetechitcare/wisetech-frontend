@@ -1,3 +1,11 @@
+/**
+ * LEGACY ADAPTER — do not use for new plain single-selects.
+ *
+ * Prefer **`WtFieldFormik`** (Sandwich floating-label look) for Formik forms.
+ * Keep this file only when you need avatar / colour option rows, smart sort, or
+ * “+ Add” → CommonModal. The Add control is kit `WtAddOptionButton` (same look as
+ * `WtField addOption` with `placement: 'label'`). See docs/bootstrap-to-kit-migration.md §3.
+ */
 import { useField } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
 import { components as RSComponents } from "react-select";
@@ -7,16 +15,10 @@ import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
 import { ColourOption, SingleValue, AvatarOption, AvatarSingleValue } from "./ColorInDropdwon";
 import DropdownChevron from "./DropdownChevron";
-// The kit's select engine — one place owns menu behaviour, theming and a11y.
 import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
+import { WtAddOptionButton } from "@app/modules/common/components/ui/WtAddOption";
 
-// Plain react-select renders EVERY option to the DOM, so menus with thousands of
-// options (e.g. the full contacts list) are slow to open and scroll. For large lists
-// we swap in a windowed MenuList that only renders the visible rows. Small lists keep
-// the default rendering so nothing changes for the rest of the app.
 const VIRTUALIZE_THRESHOLD = 80;
-// Windowing now lives in the kit engine (WtSelect). This threshold is still ours to
-// choose per call site, so it is passed through rather than hardcoded there.
 
 /**
  * The option row is clamped to one line, so a long label is ellipsised. Carry the full
@@ -189,25 +191,7 @@ function DropDownInput({
                     {isRequired && <Box component="span" aria-hidden sx={{ color: 'error.main' }}>*</Box>}
                 </Box>
                 {showAddBtn && (
-                    <Box
-                        component="button"
-                        type="button"
-                        onClick={(e: React.MouseEvent) => { e.preventDefault(); handleShow(); }}
-                        sx={{
-                            flexShrink: 0,
-                            border: 0,
-                            background: 'none',
-                            p: 0,
-                            fontSize: 12,
-                            fontWeight: 600,
-                            lineHeight: 1.2,
-                            color: 'primary.main',
-                            cursor: 'pointer',
-                            '&:hover': { textDecoration: 'underline' },
-                        }}
-                    >
-                        + Add
-                    </Box>
+                    <WtAddOptionButton label="Add" onAdd={handleShow} disabled={disabled} />
                 )}
             </Box>
             {/* Delegates to the kit engine: portal, auto-flip, bounded + windowed menu,

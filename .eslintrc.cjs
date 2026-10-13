@@ -93,6 +93,14 @@ module.exports = {
             name: 'sweetalert2',
             message: 'Use toast / alertDialog / confirmDialog from @app/modules/common/components/ui — they sanitise `html`; raw Swal does not. Build the string with safeHtml`…`. See ui/README.md → Toast / confirm.',
           },
+          {
+            name: 'react-select',
+            message: 'Use WtField / WtFieldFormik / ToolbarFilterSelect / MultiSelectWithInlineCreate — not raw react-select. WtSelect is the engine inside kit adapters only. See docs/bootstrap-to-kit-migration.md §3.',
+          },
+          {
+            name: 'react-select/creatable',
+            message: 'Use WtSelect (isCreatable) via a kit adapter — not react-select/creatable from a feature file.',
+          },
         ],
       },
     ],
@@ -231,8 +239,44 @@ module.exports = {
         'src/app/modules/common/components/ui/**',
         'src/app/modules/common/inputs/**',
         'src/app/modules/common/components/TimeWheelField.tsx',
+        'src/app/modules/common/components/MultiSelectWithInlineCreate.tsx',
+        'src/app/modules/common/utils/DropdownAdd.tsx',
       ],
       rules: { 'no-restricted-syntax': 'off', 'no-restricted-imports': 'off' },
+    },
+    {
+      /* DROPDOWN MIGRATION BACKLOG — still import react-select outside the kit. Warn while
+       * converting; delete entries as files move to WtField / WtSelect adapters.
+       * Do NOT add new feature files here — use WtFieldFormik / MultiSelectWithInlineCreate. */
+      files: [
+        'src/app/pages/employee/tasks/components/HierarchicalTaskSelect.tsx',
+        'src/app/pages/company/PublicHoliday.tsx',
+        'src/app/modules/common/components/PublicHolidayForm.tsx',
+        'src/app/components/ApprovalSettings.tsx',
+        'src/app/pages/employee/companies/contacts/components/ClientContactsForm.tsx',
+        'src/app/modules/detail-page/EditableDetailCard.tsx',
+        'src/app/pages/employee/companies/companyConfig/components/CompanyConfigForm.tsx',
+        'src/app/pages/employee/companies/companies/components/SubServiceModal.tsx',
+        'src/app/pages/employee/companies/companies/components/NewCompanyForm.tsx',
+        'src/app/pages/employee/attendance/personal/views/overview/RaiseRequestForEmployee.tsx',
+      ],
+      rules: {
+        'no-restricted-imports': [
+          'warn',
+          {
+            paths: [
+              {
+                name: 'react-select',
+                message: 'Migrate to WtField / WtFieldFormik / MultiSelectWithInlineCreate / WtSelect adapter.',
+              },
+              {
+                name: 'react-select/creatable',
+                message: 'Migrate to WtSelect (isCreatable) via a kit adapter.',
+              },
+            ],
+          },
+        ],
+      },
     },
     {
       /* MIGRATION BACKLOG — files that still contain a banned *primitive* (native date/time

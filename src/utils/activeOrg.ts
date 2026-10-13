@@ -48,3 +48,44 @@ export const resolveActiveOrg = (companyOverview?: any[]): any | undefined => {
 
 export const resolveActiveOrgId = (companyOverview?: any[]): string | undefined =>
   resolveActiveOrg(companyOverview)?.id;
+
+/**
+ * The tenant root for the **logged-in** user — walk from their `companyId` up to
+ * the org with no parent.
+ *
+ * Super Admin's overview includes every platform root (WISETECH, CrafTech, …).
+ * `resolveActiveOrg` / overview`[0]` can land on a foreign root; the session home
+ * company must win, matching backend `resolveSessionCompanyId`.
+ *
+ * Falls back to {@link resolveActiveOrg} only when the home id is missing or not
+ * in the overview (still loading, or no employee row yet).
+ */
+export const resolveHomeRootOrg = (
+  companyOverview?: any[],
+  homeCompanyId?: string | null,
+): any | undefined => {
+  if (!Array.isArray(companyOverview) || companyOverview.length === 0) return undefined;
+
+  const byId = new Map<string, any>();
+  for (const row of companyOverview) {
+    if (row?.id) byId.set(row.id, row);
+  }
+
+  const homeId = typeof homeCompanyId === 'string' ? homeCompanyId.trim() : '';
+  let cur = homeId ? byId.get(homeId) : undefined;
+  if (cur) {
+    const seen = new Set<string>();
+    while (cur?.parentOrganizationId && byId.has(cur.parentOrganizationId) && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      cur = byId.get(cur.parentOrganizationId);
+    }
+    return cur;
+  }
+
+  return resolveActiveOrg(companyOverview);
+};
+
+export const resolveHomeRootOrgId = (
+  companyOverview?: any[],
+  homeCompanyId?: string | null,
+): string | undefined => resolveHomeRootOrg(companyOverview, homeCompanyId)?.id;

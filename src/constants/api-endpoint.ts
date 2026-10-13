@@ -124,6 +124,8 @@ export const COMPANY = {
     GET_ORGANIZATION_STATS: "api/company/overview/stats",
     DELETE_OVERVIEW_BY_ID: "api/company/overview/:id",
     GET_CONFIGURATION: "api/feature/config",
+    GET_ENTITLEMENTS: "api/company/entitlements",
+    PUT_ENTITLEMENTS: "api/company/entitlements",
 
     GET_ALL_FAQS: "api/company/faqs",
     POST_FAQ: "api/company/faq",

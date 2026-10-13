@@ -9,6 +9,7 @@ import { TimeClock } from '@mui/x-date-pickers/TimeClock';
 import { clockClasses, clockNumberClasses, clockPointerClasses } from '@mui/x-date-pickers/TimeClock';
 import dayjs, { type Dayjs } from 'dayjs';
 import { TRIO, type Trio } from '@app/modules/common/components/ui/tw';
+import { scrimSx, sheetSx } from '@app/theme/surfaces';
 
 /**
  * TimePickerField — the app's canonical time picker.
@@ -274,21 +275,16 @@ export function TimePickerField({
                 slotProps={{
                     backdrop: {
                         sx: {
-                            bgcolor: alpha('#000', isDark ? 0.6 : 0.32),
+                            ...scrimSx(theme),
                             transition: `opacity ${DUR_IN}ms ${EASE_IN} !important`,
                         },
                     },
                 }}
                 PaperProps={{
                     sx: {
-                        // M3 time-picker container: 28px radius, tonal surface, 24px padding.
+                        // M3 time-picker container — solid elevated sheet from the theme kit.
+                        ...sheetSx(theme),
                         borderRadius: '28px',
-                        backgroundImage: 'none',
-                        bgcolor: isDark
-                            ? alpha(theme.palette.common.white, 0.06)
-                            : theme.palette.background.paper,
-                        border: `1px solid ${theme.palette.divider}`,
-                        boxShadow: '0 24px 64px -12px rgba(0,0,0,0.38)',
                         p: 3,
                         m: 2,
                         width: 'auto',

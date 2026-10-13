@@ -6,7 +6,7 @@ import dayjs from "dayjs";
 import { Option } from "@models/dropdown";
 import { IReimbursementsUpdate } from "@models/employee";
 import TextInput from "@app/modules/common/inputs/TextInput";
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import { WtField, WtFieldFormik } from "@app/modules/common/components/ui";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropdown";
 import { updateReimbursementById } from "@services/employee";
@@ -211,21 +211,27 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved, editCont
 
               <div className="row">
                 <div className="col-lg-6 mb-7">
-                  <DropDownInput
-                    isRequired={false}
-                    formikField="clientTypeId"
-                    inputLabel="Company Type"
+                  <WtFieldFormik
+                    name="clientTypeId"
+                    label="Company Type"
                     placeholder="Select Company Type"
                     options={companyTypeOptions}
-                    onChange={(option: any) => handleClientTypeChange(option, formikProps.setFieldValue)}
-                    value={selectedClientType}
+                    searchable
+                    clearable
+                    onValueChange={(v) =>
+                      handleClientTypeChange(
+                        v
+                          ? { value: v, label: companyTypeOptions.find((o: any) => o.value === v)?.label ?? v }
+                          : null,
+                        formikProps.setFieldValue,
+                      )
+                    }
                   />
                 </div>
                 <div className="col-lg-6 mb-7">
-                  <DropDownInput
-                    isRequired={false}
-                    formikField="clientCompanyId"
-                    inputLabel="Company Name"
+                  <WtFieldFormik
+                    name="clientCompanyId"
+                    label="Company Name"
                     placeholder={
                       !formikProps.values.clientTypeId
                         ? "Select Company Type First"
@@ -237,19 +243,24 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved, editCont
                       .sort((a: any, b: any) => a.companyName.localeCompare(b.companyName))
                       .map((c: any) => ({ value: c.id, label: c.companyName }))}
                     disabled={!formikProps.values.clientTypeId}
-                    onChange={(option: any) => handleClientCompanyChange(option, formikProps.setFieldValue)}
-                    value={selectedClientCompany}
+                    searchable
+                    clearable
+                    onValueChange={(v) => {
+                      const opt = filteredCompanies.find((c: any) => c.id === v);
+                      handleClientCompanyChange(
+                        v ? { value: v, label: opt?.companyName ?? v } : null,
+                        formikProps.setFieldValue,
+                      );
+                    }}
                   />
                 </div>
               </div>
 
               <div className="row">
                 <div className="col-lg-4 mb-7">
-                  {/* Filter only — no formikField, so it never reaches the saved record. */}
-                  <DropDownInput
-                    isRequired={false}
-                    formikField=""
-                    inputLabel="Project Status"
+                  {/* Filter only — never part of the saved record. */}
+                  <WtField
+                    label="Project Status"
                     placeholder={
                       projectsLoading
                         ? "Loading..."
@@ -259,15 +270,21 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved, editCont
                     }
                     options={projectStatusOptions}
                     disabled={projectsLoading || projectStatusOptions.length === 0}
-                    onChange={(option: any) => handleProjectStatusChange(option)}
-                    value={selectedProjectStatus}
+                    value={selectedProjectStatus?.value ?? ''}
+                    onChange={(v) =>
+                      handleProjectStatusChange(
+                        v
+                          ? projectStatusOptions.find((o: any) => o.value === v) ?? { value: v, label: v }
+                          : null,
+                      )
+                    }
+                    clearable
                   />
                 </div>
                 <div className="col-lg mb-7">
-                  <DropDownInput
-                    isRequired={false}
-                    formikField="projectId"
-                    inputLabel="Choose Project Name"
+                  <WtFieldFormik
+                    name="projectId"
+                    label="Choose Project Name"
                     placeholder={
                       projectsLoading
                         ? "Loading Projects..."
@@ -277,9 +294,17 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved, editCont
                     }
                     options={projectOptions}
                     disabled={projectsLoading}
-                    onChange={(option: any) => handleProjectChange(option, formikProps.setFieldValue)}
-                    value={selectedProject}
-                    disableAlphabeticalSort={true}
+                    searchable
+                    clearable
+                    disableAlphabeticalSort
+                    onValueChange={(v) =>
+                      handleProjectChange(
+                        v
+                          ? projectOptions.find((o: any) => o.value === v) ?? { value: v, label: v }
+                          : null,
+                        formikProps.setFieldValue,
+                      )
+                    }
                   />
                 </div>
               </div>

@@ -10,6 +10,8 @@ import { getTimeTokens } from "./timeFormat";
  * DOT separated. `2025.12.03` ✅ · `2025-12-03` ❌ (dashes) · `03.12.2025` ❌ (day first).
  * Every date a USER SEES must render through `DATE_FORMATS.DISPLAY` / `formatDate()`.
  *
+ * WEEK START: Monday app-wide — see `@utils/configureWeekStart` (bootstrapped in `main.tsx`).
+ *
  * DISPLAY vs WIRE — the one distinction that matters:
  *   • DISPLAY (`YYYY.MM.DD`) — anything rendered to a human: fields, tables, cards, exports,
  *     PDFs, emails. This is what the company standard governs.

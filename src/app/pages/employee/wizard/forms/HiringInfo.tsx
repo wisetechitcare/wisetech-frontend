@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Box } from "@mui/material";
 import { fetchAllEmployees } from "@services/employee";
 import { fetchSrcOfHire } from "@services/options";
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import { WtFieldFormik } from "@app/modules/common/components/ui";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import RejoinHistory from "./RejoinHistory";
 import AddAnotherBtn from "@app/modules/common/utils/AddAnotherBtn";
@@ -42,12 +42,13 @@ function HiringInfo({ formikProps, rejoinRows = [], onAddRejoin, onRemoveRejoin 
                         somebody but never corrected or pruned; it is maintained in
                         Employees → Configure → Sources of Hire alongside every other
                         onboarding dropdown. */}
-                    <DropDownInput
-                        isRequired={false}
-                        formikField="sourceOfHireId"
-                        inputLabel="Source Of Hire"
+                    <WtFieldFormik
+                        name="sourceOfHireId"
+                        label="Source Of Hire"
                         placeholder="Select source of hire"
                         options={srcOfHireOptions}
+                        searchable
+                        clearable
                     />
                 </div>
 

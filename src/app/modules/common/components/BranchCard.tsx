@@ -35,19 +35,30 @@ export default function BranchCard({
 }: BranchCardProps) {
   const employees = branch?._count?.Employees ?? 0;
 
+  const canOpen = isAdmin && canManage;
+
   return (
     <Card
       variant="outlined"
+      onClick={canOpen ? onEdit : undefined}
+      role={canOpen ? 'button' : undefined}
+      tabIndex={canOpen ? 0 : undefined}
+      aria-label={canOpen ? `Edit branch ${branch?.name ?? ''}` : undefined}
+      onKeyDown={canOpen ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEdit(); }
+      } : undefined}
       sx={{
         height: '100%', display: 'flex', flexDirection: 'column',
         borderRadius: `${T.radius.md}px`, borderLeft: 5, borderLeftColor: T.color.brand, overflow: 'hidden',
         fontFamily: T.font.family,
+        cursor: canOpen ? 'pointer' : 'default',
         // No hardcoded background. The white-to-near-white gradient that stood here
         // painted the card white on a dark page — the identical bug already fixed on
         // the biometric stat tile. `Card variant="outlined"` resolves background.paper
         // for whichever theme is active, which is the whole point of using it.
         transition: 'box-shadow .2s ease, transform .2s ease, border-color .2s ease',
         '&:hover': { boxShadow: T.shadow.cardHover, transform: 'translateY(-3px)', borderColor: T.color.brandRing },
+        '&:focus-visible': { outline: 2, outlineColor: T.color.brand, outlineOffset: 2 },
       }}
     >
       {/* Identity */}
@@ -71,20 +82,25 @@ export default function BranchCard({
               {branch?.address ?? ''}
             </Typography>
           </WtTooltip>
+          {canOpen && (
+            <Typography sx={{ fontFamily: T.font.family, fontSize: 11.5, color: T.color.brand, fontWeight: 600, mt: 0.75 }}>
+              Click to edit
+            </Typography>
+          )}
         </Box>
       </Stack>
 
       <Box sx={{ flex: 1 }} />
       <Divider sx={{ mx: 2.25, borderColor: T.color.line }} />
 
-      {/* Actions */}
-      <Stack direction="row" sx={{ p: 2.25, pt: 1.75, alignItems: 'center', justifyContent: 'space-between', gap: 1.25, flexWrap: 'wrap' }}>
+      {/* Actions — stopPropagation so Employees / Devices / admin icons stay distinct from card→edit. */}
+      <Stack
+        direction="row"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        sx={{ p: 2.25, pt: 1.75, alignItems: 'center', justifyContent: 'space-between', gap: 1.25, flexWrap: 'wrap' }}
+      >
         <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
-          {/* Both buttons open a detail modal, so both wear the same clothes.
-              Devices used to be amber — the app's caution colour — which read as a
-              warning about a branch that had nothing wrong with it. Colour should
-              mean something; two neighbouring buttons doing the same KIND of thing
-              in two different colours means nothing and costs a moment's decoding. */}
           <Button
             size="small" variant="outlined" onClick={onViewEmployees}
             startIcon={<KTIcon iconName="people" className="fs-5" />}
@@ -101,7 +117,7 @@ export default function BranchCard({
           </Button>
         </Stack>
 
-        {isAdmin && canManage && (
+        {canOpen && (
           <Stack direction="row" spacing={0.75}>
             <ActionIconButton
               iconName="arrow-up-right"

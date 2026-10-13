@@ -398,14 +398,14 @@
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Brand Primary — WiseTech Navy Brand (T.color.brand*) */
-  --wt-primary:           #1E3A8A;                    /* T.color.brand */
-  --wt-primary-mid:       #2C56C4;                    /* T.color.brandGradientLeftToRight start */
-  --wt-primary-dark:      #15265C;                    /* T.color.brandGradientLeftToRight end */
-  --wt-primary-light:     #E9EEF8;                    /* T.color.brandSoft */
-  --wt-primary-border:    rgba(30, 58, 138, 0.16);    /* T.color.brandRing */
-  --wt-primary-shadow:    rgba(30, 58, 138, 0.15);    /* navy shadow */
-  --wt-primary-shadow-md: rgba(30, 58, 138, 0.22);    /* navy shadow md */
+  /* ── Brand Primary — defaults = WiseTech Navy; ColorMode overwrites from Appearance */
+  --wt-primary:           var(--wt-brand, #1E3A8A);
+  --wt-primary-mid:       #2C56C4;
+  --wt-primary-dark:      #15265C;
+  --wt-primary-light:     #E9EEF8;
+  --wt-primary-border:    rgba(30, 58, 138, 0.16);
+  --wt-primary-shadow:    rgba(30, 58, 138, 0.15);
+  --wt-primary-shadow-md: rgba(30, 58, 138, 0.22);
 
   /* ── Semantic Colors — C.success / warning / danger / info */
   --wt-success:           #17c964;                    /* C.success */

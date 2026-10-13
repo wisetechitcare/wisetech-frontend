@@ -1,15 +1,14 @@
 import { useFormik } from 'formik';
 import { useState } from 'react';
 import * as Yup from 'yup';
-import Flatpickr from "react-flatpickr";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { KTCard, KTCardBody } from '@metronic/helpers';
 import { ICompanyOverview } from "@models/company";
 import { createCompanyOverview } from '@services/company';
 import { uploadCompanyAsset } from '@services/uploader';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
-import { dateFormatter } from '@utils/date';
 import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle';
+import { FiscalYearRangeField } from '@app/modules/common/components/ui';
 
 const overviewBreadcrumbs: Array<PageLink> = [
     {
@@ -122,35 +121,21 @@ function Overview() {
                             </div>
 
                             <div className='col-lg-6 fv-row'>
-                                <label className='required col-lg-4 col-form-label fw-bold fs-6 mb-3'>Fiscal Year</label>
-                                <Flatpickr
-                                    value={formik.values.fiscalYear}
-                                    className='form-control form-control-solid'
-                                    placeholder={"Set fiscal year"}
-                                    onChange={(selectedDates: Date[]) => {
-                                        if (selectedDates.length === 2) {
-                                            const startDate = dateFormatter.format(selectedDates[0]);
-                                            const endDate = dateFormatter.format(selectedDates[1]);
-                                            formik.setFieldValue("fiscalYear", `${startDate} to ${endDate}`);
-                                            formik.setFieldTouched("fiscalYear", false);
-                                        }
+                                <FiscalYearRangeField
+                                    value={formik.values.fiscalYear || ''}
+                                    onChange={(next) => {
+                                        formik.setFieldValue('fiscalYear', next);
+                                        formik.setFieldTouched('fiscalYear', true, false);
                                     }}
-                                    onOpen={() => {
-                                        formik.setFieldTouched("fiscalYear", true);
-                                    }}
-                                    options={{
-                                        dateFormat: "Y-m-d",
-                                        altInput: true,
-                                        altFormat: "F j, Y",
-                                        enableTime: false,
-                                        mode: 'range'
-                                    }}
+                                    onBlur={() => formik.setFieldTouched('fiscalYear', true)}
+                                    required
+                                    error={Boolean(formik.touched.fiscalYear && formik.errors.fiscalYear)}
+                                    helperText={
+                                        formik.touched.fiscalYear && formik.errors.fiscalYear
+                                            ? String(formik.errors.fiscalYear)
+                                            : undefined
+                                    }
                                 />
-                                {formik.touched.fiscalYear && formik.errors.fiscalYear && (
-                                    <div className='fv-plugins-message-container'>
-                                        <div className='fv-help-block'>{formik.errors.fiscalYear}</div>
-                                    </div>
-                                )}
                             </div>
                         </div>
 

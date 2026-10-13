@@ -7,7 +7,6 @@ import { formatDate } from "@utils/date";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { useDispatch, useSelector } from "react-redux";
-import { Modal } from "react-bootstrap";
 import GoogleMaps from '@pages/employee/attendance/personal/views/overview/GoogleMaps';
 import { saveCoordinates, saveCurrentAddress, saveWorkingMethodOptions, toggleLocationPermission, toggleOpenModal } from "@redux/slices/attendance";
 import { fetchAddressDetails } from "@services/location";
