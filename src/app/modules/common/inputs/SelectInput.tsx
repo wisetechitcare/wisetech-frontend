@@ -1,10 +1,13 @@
+/**
+ * Thin WtSelect adapter for header company/branch/export switchers.
+ * Labelled form fields must use WtField / WtFieldFormik — not this.
+ */
 import { WtSelect } from '@app/modules/common/components/ui/WtSelect';
 import { isEmpty } from 'lodash';
 import { useDispatch } from 'react-redux';
 import { saveCurrentBranchInfo, saveCurrentCompanyInfo } from '@redux/slices/company';
 import { useMemo } from 'react';
 import { sortOptionsAlphabetically } from '@utils/sortUtils';
-
 
 interface SelectInputProps {
     options: any;

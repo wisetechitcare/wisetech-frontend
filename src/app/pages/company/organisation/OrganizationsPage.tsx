@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { Box, InputBase, Stack, Typography, alpha, keyframes } from '@mui/material';
 import { safeHtml } from '@app/modules/common/components/ui/safeHtml';
@@ -76,6 +77,7 @@ function StatTile({ label, value, tone, icon, index }: { label: string; value: n
  * the thing people came to see.
  */
 export default function OrganizationsPage({ onOpenOrg }: Props) {
+  const navigate = useNavigate();
   const [tree, setTree] = useState<IOrgNode[]>([]);
   const [stats, setStats] = useState<IOrgStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,6 +85,12 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
   const [expandSignal, setExpandSignal] = useState({ open: false, n: 0 });
   const [modal, setModal] = useState<{ show: boolean; parent: { id: string; name: string } | null }>({ show: false, parent: null });
   const [empModal, setEmpModal] = useState<{ show: boolean; branch: IOrgBranchNode | null }>({ show: false, branch: null });
+
+  /** Branch row → parent org profile with Branches open and that branch ready to edit. */
+  const openBranch = useCallback((branch: IOrgBranchNode, org: IOrgNode) => {
+    const params = new URLSearchParams({ openBranches: '1', branchId: branch.id });
+    navigate(`/company/organisation-profile/${org.id}?${params.toString()}`);
+  }, [navigate]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -203,6 +211,7 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
               emptyLabel={search ? 'No organizations match your search.' : 'No organizations yet.'}
               onSelectOrg={onOpenOrg}
               onEditOrg={onOpenOrg}
+              onSelectBranch={openBranch}
               onAddSubOrg={(parent) => setModal({ show: true, parent: { id: parent.id, name: parent.name } })}
               onDeleteOrg={handleDelete}
               onViewBranchEmployees={(branch) => setEmpModal({ show: true, branch })}

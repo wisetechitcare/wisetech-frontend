@@ -1,9 +1,7 @@
 import React from 'react';
-import { getAllClientCompanies, getAllClientContacts } from '@services/companies';
-import { getAllLeads } from '@services/leads';
-import { getAllProjects } from '@services/projects';
-import { fetchAllEmployeesSelectedData } from '@services/employee';
-import { getAllTasks } from '@services/tasks';
+import axios from 'axios';
+import type { TenantPackKey } from '@constants/entitlements';
+import { isPackEnabled } from '@utils/tenantPacks';
 
 /**
  * Compact a string to alphanumeric-only (drops spaces, punctuation, @, dashes,
@@ -159,17 +157,50 @@ export interface SearchMatchField {
   isMatch: boolean;
 }
 
+export type SearchResultType =
+  | 'Company'
+  | 'Contact'
+  | 'Lead'
+  | 'Project'
+  | 'Employee'
+  | 'Task'
+  | 'Navigation'
+  | 'KPI';
+
 export interface UnifiedSearchResult {
   id: string;
   title: string;
   subtitle: string;
-  type: 'Company' | 'Contact' | 'Lead' | 'Project' | 'Employee' | 'Task' | 'Navigation' | 'KPI';
+  type: SearchResultType;
   path: string;
   icon: string;
+  /** When set, item is hidden unless that tenant pack is enabled. */
+  pack?: TenantPackKey;
   matches?: SearchMatchField[];
   tags?: string[];
   metadata?: any;
 }
+
+/** Dynamic result types → pack (Navigation/KPI use per-item `pack`). */
+export const SEARCH_TYPE_PACK: Partial<Record<SearchResultType, TenantPackKey>> = {
+  Company: 'psa',
+  Contact: 'psa',
+  Lead: 'psa',
+  Project: 'psa',
+  Task: 'psa',
+  // Employee / Navigation / KPI: core or item-level
+};
+
+export const isSearchTypeEnabled = (type: SearchResultType): boolean => {
+  const pack = SEARCH_TYPE_PACK[type];
+  if (!pack) return true;
+  return isPackEnabled(pack);
+};
+
+export const isSearchItemPackEnabled = (item: Pick<UnifiedSearchResult, 'type' | 'pack'>): boolean => {
+  if (item.pack) return isPackEnabled(item.pack);
+  return isSearchTypeEnabled(item.type);
+};
 
 /**
  * Static Search Index for Pages, Navigation, and KPIs
@@ -177,21 +208,21 @@ export interface UnifiedSearchResult {
 export const STATIC_SEARCH_INDEX: Omit<UnifiedSearchResult, 'id'>[] = [
   // Core Pages
   { title: 'Dashboard', subtitle: 'Main Overview', type: 'Navigation', path: '/dashboard', icon: 'element-11', tags: ['home', 'main', 'index'] },
-  { title: 'Leads', subtitle: 'Manage Inquiries', type: 'Navigation', path: '/leads', icon: 'graph-3', tags: ['inquiry', 'sales', 'potential'] },
-  { title: 'Companies', subtitle: 'Client Companies', type: 'Navigation', path: '/companies', icon: 'briefcase', tags: ['client', 'organization', 'firm'] },
-  { title: 'Contacts', subtitle: 'Client Contacts', type: 'Navigation', path: '/contacts', icon: 'profile-circle', tags: ['people', 'person', 'phonebook'] },
-  { title: 'Projects', subtitle: 'Manage Projects', type: 'Navigation', path: '/projects', icon: 'element-11', tags: ['work', 'plan', 'active'] },
+  { title: 'Leads', subtitle: 'Manage Inquiries', type: 'Navigation', path: '/leads', icon: 'graph-3', tags: ['inquiry', 'sales', 'potential'], pack: 'psa' },
+  { title: 'Companies', subtitle: 'Client Companies', type: 'Navigation', path: '/companies', icon: 'briefcase', tags: ['client', 'organization', 'firm'], pack: 'psa' },
+  { title: 'Contacts', subtitle: 'Client Contacts', type: 'Navigation', path: '/contacts', icon: 'profile-circle', tags: ['people', 'person', 'phonebook'], pack: 'psa' },
+  { title: 'Projects', subtitle: 'Manage Projects', type: 'Navigation', path: '/projects', icon: 'element-11', tags: ['work', 'plan', 'active'], pack: 'psa' },
   { title: 'Employees', subtitle: 'Staff Management', type: 'Navigation', path: '/employees', icon: 'profile-user', tags: ['staff', 'workers', 'team'] },
-  { title: 'Tasks', subtitle: 'Daily Tasks', type: 'Navigation', path: '/tasks', icon: 'check-square', tags: ['todo', 'action', 'assignment'] },
-  
+  { title: 'Tasks', subtitle: 'Daily Tasks', type: 'Navigation', path: '/tasks', icon: 'check-square', tags: ['todo', 'action', 'assignment'], pack: 'psa' },
+
   // Finance & HR
-  { title: 'Attendance', subtitle: 'Attendance & Leaves', type: 'Navigation', path: '/employees/attendance-and-leaves', icon: 'calendar-tick', tags: ['leave', 'holiday', 'absent', 'present', 'clock'] },
-  { title: 'Salary', subtitle: 'Payroll & Salary', type: 'Navigation', path: '/finance/salary', icon: 'wallet', tags: ['pay', 'money', 'income', 'payroll', 'slip'] },
-  { title: 'Loans', subtitle: 'Employee Loans', type: 'Navigation', path: '/finance/loans', icon: 'bank', tags: ['advance', 'borrow', 'credit', 'money'] },
-  { title: 'Reimbursements', subtitle: 'Bills & Expenses', type: 'Navigation', path: '/finance/reimbursements', icon: 'bill', tags: ['expense', 'claim', 'money', 'refund'] },
-  { title: 'Timesheet', subtitle: 'My Time Sheet', type: 'Navigation', path: '/tasks/timesheet', icon: 'time', tags: ['hours', 'log', 'work'] },
-  { title: 'Employee Timesheet', subtitle: 'Team Time Sheets', type: 'Navigation', path: '/tasks/employee-timesheet', icon: 'timer', tags: ['team', 'hours', 'log'] },
-  
+  { title: 'Attendance', subtitle: 'Attendance & Leaves', type: 'Navigation', path: '/employees/attendance-and-leaves', icon: 'calendar-tick', tags: ['leave', 'holiday', 'absent', 'present', 'clock'], pack: 'workforce' },
+  { title: 'Salary', subtitle: 'Payroll & Salary', type: 'Navigation', path: '/finance/salary', icon: 'wallet', tags: ['pay', 'money', 'income', 'payroll', 'slip'], pack: 'pay' },
+  { title: 'Loans', subtitle: 'Employee Loans', type: 'Navigation', path: '/finance/loans', icon: 'bank', tags: ['advance', 'borrow', 'credit', 'money'], pack: 'pay' },
+  { title: 'Reimbursements', subtitle: 'Bills & Expenses', type: 'Navigation', path: '/finance/reimbursements', icon: 'bill', tags: ['expense', 'claim', 'money', 'refund'], pack: 'pay' },
+  { title: 'Timesheet', subtitle: 'My Time Sheet', type: 'Navigation', path: '/tasks/timesheet', icon: 'time', tags: ['hours', 'log', 'work'], pack: 'psa' },
+  { title: 'Employee Timesheet', subtitle: 'Team Time Sheets', type: 'Navigation', path: '/tasks/employee-timesheet', icon: 'timer', tags: ['team', 'hours', 'log'], pack: 'psa' },
+
   // Company Admin
   { title: 'Departments', subtitle: 'Organization Departments', type: 'Navigation', path: '/company/departments', icon: 'category', tags: ['group', 'unit', 'team'] },
   { title: 'Designations', subtitle: 'Job Roles', type: 'Navigation', path: '/company/designations', icon: 'crown', tags: ['position', 'role', 'title'] },
@@ -200,12 +231,12 @@ export const STATIC_SEARCH_INDEX: Omit<UnifiedSearchResult, 'id'>[] = [
   { title: 'Media', subtitle: 'Company Assets', type: 'Navigation', path: '/company/media', icon: 'gallery', tags: ['image', 'video', 'file', 'attachment'] },
   { title: 'Announcements', subtitle: 'Notices & News', type: 'Navigation', path: '/company/announcements', icon: 'notification', tags: ['broadcast', 'alert', 'message'] },
   { title: 'Settings', subtitle: 'Global Settings', type: 'Navigation', path: '/settings', icon: 'setting-2', tags: ['config', 'setup', 'admin'] },
-  
+
   // KPI / Dashboard Labels
-  { title: 'Absent Employees', subtitle: 'KPI • Who is off today', type: 'KPI', path: '/employees/attendance-and-leaves', icon: 'user-cross', tags: ['leave', 'not here', 'absent'] },
-  { title: 'Working Employees', subtitle: 'KPI • Who is working', type: 'KPI', path: '/employees/attendance-and-leaves', icon: 'user-tick', tags: ['present', 'duty', 'active'] },
-  { title: 'Pending Tasks', subtitle: 'KPI • Overdue tasks', type: 'KPI', path: '/tasks', icon: 'notification-bing', tags: ['late', 'todo', 'pending'] },
-  { title: 'Active Leads', subtitle: 'KPI • Hot leads', type: 'KPI', path: '/leads', icon: 'star', tags: ['priority', 'hot', 'new'] },
+  { title: 'Absent Employees', subtitle: 'KPI • Who is off today', type: 'KPI', path: '/employees/attendance-and-leaves', icon: 'user-cross', tags: ['leave', 'not here', 'absent'], pack: 'workforce' },
+  { title: 'Working Employees', subtitle: 'KPI • Who is working', type: 'KPI', path: '/employees/attendance-and-leaves', icon: 'user-tick', tags: ['present', 'duty', 'active'], pack: 'workforce' },
+  { title: 'Pending Tasks', subtitle: 'KPI • Overdue tasks', type: 'KPI', path: '/tasks', icon: 'notification-bing', tags: ['late', 'todo', 'pending'], pack: 'psa' },
+  { title: 'Active Leads', subtitle: 'KPI • Hot leads', type: 'KPI', path: '/leads', icon: 'star', tags: ['priority', 'hot', 'new'], pack: 'psa' },
 ];
 
 /**
@@ -309,14 +340,13 @@ const FIELD_WEIGHTS: Record<string, number> = {
   others: 3
 };
 
-import axios from 'axios';
-
 export const performGlobalSearch = async (query: string, signal?: AbortSignal): Promise<UnifiedSearchResult[]> => {
   if (!query || query.trim().length < 2) return [];
 
   try {
     const queryInfo = processSearchQuery(query);
     const results: (UnifiedSearchResult & { score: number })[] = [];
+    const psaOn = isPackEnabled('psa');
 
     // 1. Concurrent Search: Static Local + Dynamic Backend
     const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
@@ -332,14 +362,16 @@ export const performGlobalSearch = async (query: string, signal?: AbortSignal): 
       })
     ]);
 
-    // 2. Static Navigation & Label Search (Local for speed)
+    // 2. Static Navigation & Label Search (Local for speed) — pack-gated
     STATIC_SEARCH_INDEX.forEach((item, idx) => {
+      if (!isSearchItemPackEnabled(item)) return;
+
       const titleScore = calculateMatchScore(item.title, queryInfo) * (FIELD_WEIGHTS.title || 3);
       const subtitleScore = calculateMatchScore(item.subtitle, queryInfo) * (FIELD_WEIGHTS.others || 3);
       const tagScore = item.tags ? Math.max(...item.tags.map(t => calculateMatchScore(t, queryInfo))) * (FIELD_WEIGHTS.others || 3) : 0;
-      
+
       let score = titleScore + subtitleScore + tagScore;
-      
+
       // Fuzzy fallback for static items
       if (score === 0 && isFuzzyMatch(item.title, query)) {
         score = 20;
@@ -354,11 +386,11 @@ export const performGlobalSearch = async (query: string, signal?: AbortSignal): 
       }
     });
 
-    // 3. Process Backend Results
+    // 3. Process Backend Results (FE defense-in-depth if API is older than pack gate)
     const backendData = backendRes.data?.results || {};
-    
-    // Helper to map backend results to UnifiedSearchResult
-    const mapResult = (item: any, type: UnifiedSearchResult['type'], pathBase: string, icon: string) => {
+
+    const mapResult = (item: any, type: SearchResultType, pathBase: string, icon: string) => {
+      if (!isSearchTypeEnabled(type)) return;
       results.push({
         id: item.id,
         title: item.title,
@@ -367,14 +399,15 @@ export const performGlobalSearch = async (query: string, signal?: AbortSignal): 
         path: `${pathBase}/${item.id}`,
         icon,
         score: item.score,
-        metadata: item.data
+        metadata: item.data,
+        pack: SEARCH_TYPE_PACK[type],
       });
     };
 
-    if (backendData.projects) backendData.projects.forEach((p: any) => mapResult(p, 'Project', '/projects', 'element-11'));
-    if (backendData.leads) backendData.leads.forEach((l: any) => mapResult(l, 'Lead', '/employee/lead', 'graph-3'));
-    if (backendData.companies) backendData.companies.forEach((c: any) => mapResult(c, 'Company', '/companies', 'briefcase'));
-    if (backendData.contacts) backendData.contacts.forEach((c: any) => mapResult(c, 'Contact', '/contacts', 'profile-circle'));
+    if (psaOn && backendData.projects) backendData.projects.forEach((p: any) => mapResult(p, 'Project', '/projects', 'element-11'));
+    if (psaOn && backendData.leads) backendData.leads.forEach((l: any) => mapResult(l, 'Lead', '/employee/lead', 'graph-3'));
+    if (psaOn && backendData.companies) backendData.companies.forEach((c: any) => mapResult(c, 'Company', '/companies', 'briefcase'));
+    if (psaOn && backendData.contacts) backendData.contacts.forEach((c: any) => mapResult(c, 'Contact', '/contacts', 'profile-circle'));
     if (backendData.employees) backendData.employees.forEach((e: any) => mapResult(e, 'Employee', '/employees', 'profile-user'));
     if (backendData.pages) backendData.pages.forEach((pg: any) => mapResult(pg, 'Navigation', '', 'explore'));
 

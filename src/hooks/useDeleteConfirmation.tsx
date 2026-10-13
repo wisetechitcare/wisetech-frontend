@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import DeleteConfirmationModal from '../components/common/DeleteConfirmationModal';
-import { DeleteFunction, DeleteConfirmationConfig, DropdownOption } from '../types/deleteConfirmation';
-import Swal from 'sweetalert2';
+import { DeleteFunction, DeleteConfirmationConfig } from '../types/deleteConfirmation';
+import { toast } from '@app/modules/common/components/ui';
 import { errorConfirmation } from '@utils/modal';
 import { apiErrorMessage } from '@utils/apiError';
 
@@ -54,27 +54,13 @@ export const useDeleteConfirmation = ({
         try {
             setLoading(true);
             await deleteFunction(currentItemId, targetId);
-            
-            // Show success modal using SweetAlert2
-            await Swal.fire({
-                title: 'Deleted!',
-                text: `Data has been deleted successfully.`,
+
+            toast({
                 icon: 'success',
-                confirmButtonText: 'OK',
-                willOpen: () => {
-                    const element = document.getElementById('kt_content');
-                    if (element) {
-                        element.style.minHeight = 'calc(100vh - 40px)';
-                    }
-                },
-                willClose: () => {
-                    const element = document.getElementById('kt_content');
-                    if (element) {
-                        element.style.minHeight = '100vh';
-                    }
-                }
+                title: 'Deleted',
+                text: 'Data has been deleted successfully.',
             });
-            
+
             onSuccess?.();
             closeModal();
         } catch (error) {

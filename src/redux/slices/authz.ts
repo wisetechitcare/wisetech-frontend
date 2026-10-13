@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { fetchCapabilities } from '@services/auth';
+import { DEFAULT_TENANT_PACKS, normalizePackFlags, TenantPackFlags } from '@constants/entitlements';
 
 // The signed-in employee's section access, as GET /api/auth/capabilities returns it. Read through
 // @utils/can (canSection / can) — never directly — so every screen follows one decision.
@@ -11,6 +12,8 @@ interface AuthzState {
   records: Record<string, { readAll: boolean; commercial: boolean }>;
   /** Tabs turned off for this person (Access → Advanced), as `<section>/<tab>`. */
   deniedTabs: string[];
+  /** Tenant subscription packs (root org). Missing → all on. */
+  packs: TenantPackFlags;
   isLoading: boolean;
   error: string | null;
 }
@@ -21,6 +24,7 @@ const initialState: AuthzState = {
   keys: [],
   records: {},
   deniedTabs: [],
+  packs: { ...DEFAULT_TENANT_PACKS },
   isLoading: false,
   error: null,
 };
@@ -33,6 +37,7 @@ export const fetchAuthzCapabilities = createAsyncThunk('authz/fetchCapabilities'
     keys: response?.data?.keys || [],
     records: response?.data?.records || {},
     deniedTabs: response?.data?.deniedTabs || [],
+    packs: normalizePackFlags(response?.data?.packs),
   };
 });
 
@@ -54,6 +59,7 @@ export const authzSlice = createSlice({
       state.keys = action.payload.keys;
       state.records = action.payload.records;
       state.deniedTabs = action.payload.deniedTabs;
+      state.packs = action.payload.packs;
     });
     builder.addCase(fetchAuthzCapabilities.rejected, (state, action) => {
       state.isLoading = false;

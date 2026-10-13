@@ -20,7 +20,6 @@ import {
   successConfirmation,
   deleteConfirmation,
 } from "@utils/modal";
-import { Modal } from "react-bootstrap";
 import { IPublicHolidayUpdate } from "@models/company";
 import { hasPermission } from "@utils/authAbac";
 import {
@@ -30,7 +29,8 @@ import {
 import eventBus from "../../../../../utils/EventBus";
 import { ConfigSectionCard, KEYFRAMES } from "@app/modules/configuration";
 import Holiday from "@pages/company/Holiday";
-import { T } from "@app/modules/common/components/ui/tokens";
+import { Box } from "@mui/material";
+import { GlassDialog, PlainDialogHeader, T } from "@app/modules/common/components/ui";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // Interface for the transformed holiday data displayed in the table
@@ -583,40 +583,22 @@ const PREMIUM_TABLE_CSS = `
         </div>
       </div>
 
-      {/* Edit Holiday Modal — same name/type/status/color fields as Add Holiday
-          (both render the shared <Holiday> form), just pre-filled and pointed at
-          the update endpoint via isEditMode/editData. Previously this only exposed
-          a bare name field, so renaming a holiday couldn't touch its type/status/
-          color even though Add could set all of them from the start. */}
-      <Modal
-        show={showEditModal}
-        onHide={handleCloseModal}
-        centered
-        backdrop="static"
-        fullscreen="md-down"
-        contentClassName="rounded-4 border-0 shadow-lg prem-holiday-modal"
+      {/* Edit Holiday — same name/type/status/color fields as Add (shared <Holiday> form). */}
+      <GlassDialog
+        open={showEditModal}
+        onClose={handleCloseModal}
+        maxWidth="sm"
+        plain
+        header={
+          <PlainDialogHeader
+            title="Edit Holiday"
+            subtitle="Update this holiday's details"
+            icon={<KTIcon iconName="pencil" className="fs-3" />}
+            onClose={handleCloseModal}
+          />
+        }
       >
-        <Modal.Header closeButton style={{ border: 'none', padding: '22px 24px 6px' }}>
-          <div className="d-flex align-items-center gap-3">
-            <div
-              style={{
-                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: `linear-gradient(135deg, ${T.color.brand}1F, ${T.color.brand}0D)`,
-                color: T.color.brand,
-              }}
-            >
-              <KTIcon iconName="pencil" className="fs-3" />
-            </div>
-            <div>
-              <Modal.Title style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.2px', margin: 0 }}>
-                Edit Holiday
-              </Modal.Title>
-              <div style={{ fontSize: 12.5, color: '#64748B', marginTop: 1 }}>Update this holiday's details</div>
-            </div>
-          </div>
-        </Modal.Header>
-        <Modal.Body style={{ padding: '10px 24px 24px' }}>
+        <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3, pt: 1 }}>
           {currentEditHolidayData && (
             <Holiday
               isEditMode
@@ -635,38 +617,30 @@ const PREMIUM_TABLE_CSS = `
               refreshHolidayList={handleEditSaved}
             />
           )}
-        </Modal.Body>
-      </Modal>
+        </Box>
+      </GlassDialog>
 
-      {/* Add Holiday Modal */}
-      <Modal show={showAddModal} onHide={() => setShowAddModal(false)} centered backdrop="static" fullscreen="md-down" contentClassName="rounded-4 border-0 shadow-lg prem-holiday-modal">
-        <Modal.Header closeButton style={{ border: 'none', padding: '22px 24px 6px' }}>
-          <div className="d-flex align-items-center gap-3">
-            <div
-              style={{
-                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: `linear-gradient(135deg, ${T.color.brand}1F, ${T.color.brand}0D)`,
-                color: T.color.brand,
-              }}
-            >
-              <KTIcon iconName="plus" className="fs-3" />
-            </div>
-            <div>
-              <Modal.Title style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.2px', margin: 0 }}>
-                Add Holiday
-              </Modal.Title>
-              <div style={{ fontSize: 12.5, color: '#64748B', marginTop: 1 }}>Add a new holiday to the master list</div>
-            </div>
-          </div>
-        </Modal.Header>
-        <Modal.Body style={{ padding: '10px 24px 24px' }}>
+      <GlassDialog
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        maxWidth="sm"
+        plain
+        header={
+          <PlainDialogHeader
+            title="Add Holiday"
+            subtitle="Add a new holiday to the master list"
+            icon={<KTIcon iconName="plus" className="fs-3" />}
+            onClose={() => setShowAddModal(false)}
+          />
+        }
+      >
+        <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3, pt: 1 }}>
           <Holiday
             onCloseHolidayForm={() => setShowAddModal(false)}
             refreshHolidayList={handleAddSaved}
           />
-        </Modal.Body>
-      </Modal>
+        </Box>
+      </GlassDialog>
     </>
   );
 }

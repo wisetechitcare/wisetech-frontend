@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { PageTitle, PageLink } from '@metronic/layout/core';
@@ -19,11 +19,29 @@ const breadcrumbs: Array<PageLink> = [
  * Renders the same editable Organization Profile used for the default org, scoped
  * to the selected organization. The org's branches open in a modal from the
  * "Branches" button beside Download PDF.
+ *
+ * Deep-link from the org tree: `?openBranches=1&branchId=<id>` opens the Branches
+ * modal and auto-loads that branch's edit form.
  */
 export default function OrganizationProfilePage() {
   const { orgId } = useParams<{ orgId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showBranches, setShowBranches] = useState(false);
+  const [editBranchId, setEditBranchId] = useState<string | undefined>();
+
+  useEffect(() => {
+    const wantBranches = searchParams.get('openBranches') === '1';
+    const branchId = searchParams.get('branchId') || undefined;
+    if (!wantBranches && !branchId) return;
+    setShowBranches(true);
+    if (branchId) setEditBranchId(branchId);
+    // Consume the query so refresh / back doesn't keep re-opening the edit form.
+    const next = new URLSearchParams(searchParams);
+    next.delete('openBranches');
+    next.delete('branchId');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   return (
     <>
@@ -36,26 +54,9 @@ export default function OrganizationProfilePage() {
         onBranchesClick={() => setShowBranches(true)}
       />
 
-      {/* Branches modal for this organization.
-          enforceFocus/restoreFocus disabled: the nested MUI Dialogs (device &
-          branch-form modals) portal to <body>, outside this modal's DOM — with
-          react-bootstrap's focus-trap on, it would steal focus back and you
-          couldn't type in those dialogs' fields. */}
-      {/* The kit's dialog, not react-bootstrap's.
-          What stood here was a <Modal> carrying an inline <style> block (banned —
-          it leaks global CSS and styles by class name from inside a component), a
-          FOURTH copy of GlassHeader's gradient and accent rule, a second close
-          button, and two hardcoded light-mode colours: the #F6F7F9 body and a
-          #D4D8E0 scrollbar. Those are why this dialog stayed pale in dark mode and
-          why its heading missed the app-wide uppercase change — it never went
-          through the kit.
-
-          enforceFocus/restoreFocus are gone with react-bootstrap: the nested
-          dialogs they were disabled for (device and branch-form) are MUI dialogs,
-          and MUI hands focus to the topmost one on its own. */}
       <GlassDialog
         open={showBranches}
-        onClose={() => setShowBranches(false)}
+        onClose={() => { setShowBranches(false); setEditBranchId(undefined); }}
         maxWidth="xl"
         fullWidth
         header={
@@ -63,12 +64,19 @@ export default function OrganizationProfilePage() {
             title="Branches"
             subtitle="Manage this organization’s locations"
             icon={<KTIcon iconName="bank" className="fs-1" />}
-            onClose={() => setShowBranches(false)}
+            onClose={() => { setShowBranches(false); setEditBranchId(undefined); }}
           />
         }
       >
         <Box sx={{ bgcolor: 'background.default', maxHeight: '76vh', overflowY: 'auto', pb: 3 }}>
-          <Branches key={`branches-${orgId}`} companyId={orgId} embedded hideHeading />
+          <Branches
+            key={`branches-${orgId}`}
+            companyId={orgId}
+            embedded
+            hideHeading
+            editBranchId={editBranchId}
+            onEditBranchConsumed={() => setEditBranchId(undefined)}
+          />
         </Box>
       </GlassDialog>
     </>

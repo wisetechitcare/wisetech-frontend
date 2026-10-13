@@ -1,5 +1,5 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Form, Formik, FormikValues, useField, useFormik } from 'formik'
 import * as Yup from 'yup'
 import { KTIcon } from '@metronic/helpers'
@@ -185,6 +185,10 @@ interface BranchesProps {
   embedded?: boolean;
   /** Hide the "Branches" heading (e.g. when the host modal already shows a title). */
   hideHeading?: boolean;
+  /** Deep-link: open the edit form for this branch once the list has loaded. */
+  editBranchId?: string;
+  /** Fired after `editBranchId` has been consumed (success or miss) so the host can clear it. */
+  onEditBranchConsumed?: () => void;
 }
 
 /**
@@ -198,7 +202,7 @@ interface BranchesProps {
 const toBranchTimeFormat = (value: string): boolean | null =>
   value === '1' ? true : value === '0' ? false : null;
 
-function Branches({ companyId, embedded = false, hideHeading = false }: BranchesProps = {}) {
+function Branches({ companyId, embedded = false, hideHeading = false, editBranchId, onEditBranchConsumed }: BranchesProps = {}) {
   const dispatch = useDispatch()
   const { countries } = useSelector((state: RootState) => state.locations)
   // Read through the hook, not the slice: the slice holds raw records or a slimmed
@@ -242,10 +246,12 @@ function Branches({ companyId, embedded = false, hideHeading = false }: Branches
   const [isDeviceNotDesktop, setIsDeviceNotDesktop] = useState(false)
 
   const [branches, setBranches] = useState([])
+  const [listReady, setListReady] = useState(false)
   const [orgOptions, setOrgOptions] = useState<{ value: string; label: string }[]>([])
   const [empModal, setEmpModal] = useState<{ show: boolean; branch: any | null }>({ show: false, branch: null })
   const [devicesModal, setDevicesModal] = useState<{ show: boolean; branch: any | null }>({ show: false, branch: null })
   const [loading, setLoading] = useState(false)
+  const consumedEditBranchId = useRef<string | null>(null)
 
   const handlePromoteBranch = async (branch: any) => {
     const empCount = branch._count?.Employees ?? 0
@@ -460,6 +466,26 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     setCitiesOptions([])
   }
 
+  // Deep-link from the org tree: open edit once the branch list has loaded.
+  useEffect(() => {
+    if (!editBranchId || !listReady) return;
+    if (consumedEditBranchId.current === editBranchId) return;
+    consumedEditBranchId.current = editBranchId;
+    let cancelled = false;
+    (async () => {
+      try {
+        await handleEdit(editBranchId);
+      } catch {
+        if (!cancelled) errorConfirmation('Could not open that branch for editing');
+      } finally {
+        if (!cancelled) onEditBranchConsumed?.();
+      }
+    })();
+    return () => { cancelled = true; };
+    // handleEdit is intentionally stable enough for a one-shot open; listReady gates the race.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editBranchId, listReady]);
+
   const handleSubmit = async (values: any, actions: FormikValues) => {
     try {
       setLoading(true)
@@ -601,11 +627,13 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
 
   useEffect(() => {
     async function fetchData() {
+      setListReady(false)
       const promise = [fetchAllBranches()]
       const [branchesResponse] = await Promise.all(promise)
       const all = branchesResponse.data.branches
       // When scoped to an organization, only show that org's branches.
       setBranches(companyId ? all.filter((b: any) => b.companyId === companyId) : all)
+      setListReady(true)
     }
 
     fetchTowns()

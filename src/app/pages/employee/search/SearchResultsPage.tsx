@@ -3,10 +3,25 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { KTIcon } from "@metronic/helpers";
 import {
   HighlightMatch,
+  isSearchTypeEnabled,
   performGlobalSearch,
   UnifiedSearchResult,
   SearchMatchField,
+  SearchResultType,
 } from "@app/utils/search";
+import { isPackEnabled } from "@utils/tenantPacks";
+
+const ALL_RESULT_TABS: Array<"All" | SearchResultType> = [
+  "All",
+  "Navigation",
+  "KPI",
+  "Company",
+  "Contact",
+  "Lead",
+  "Project",
+  "Employee",
+  "Task",
+];
 
 const SearchResultsPage: React.FC = () => {
   const location = useLocation();
@@ -24,6 +39,12 @@ const SearchResultsPage: React.FC = () => {
   );
 
   const query = q;
+  const visibleTabs = ALL_RESULT_TABS.filter(
+    (type) => type === "All" || isSearchTypeEnabled(type),
+  );
+  const effectiveTab = visibleTabs.includes(activeTab as (typeof visibleTabs)[number])
+    ? activeTab
+    : "All";
 
   useEffect(() => {
     if (!query) return;
@@ -44,12 +65,12 @@ const SearchResultsPage: React.FC = () => {
   }, [query]);
 
   useEffect(() => {
-    if (activeTab === "All") {
+    if (effectiveTab === "All") {
       setFilteredResults(allResults);
     } else {
-      setFilteredResults(allResults.filter((r) => r.type === activeTab));
+      setFilteredResults(allResults.filter((r) => r.type === effectiveTab));
     }
-  }, [allResults, activeTab]);
+  }, [allResults, effectiveTab]);
 
   return (
     <div className="card shadow-sm">
@@ -72,17 +93,7 @@ const SearchResultsPage: React.FC = () => {
             </div>
             <div className="card-toolbar">
               <div className="d-flex flex-wrap gap-2">
-                {[
-                  "All",
-                  "Navigation",
-                  "KPI",
-                  "Company",
-                  "Contact",
-                  "Lead",
-                  "Project",
-                  "Employee",
-                  "Task",
-                ].map((type) => {
+                {visibleTabs.map((type) => {
                   const label =
                     type === "All"
                       ? "All"
@@ -98,7 +109,7 @@ const SearchResultsPage: React.FC = () => {
                   return (
                     <button
                       key={type}
-                      className={`btn btn-sm ${activeTab === type ? "btn-primary" : "btn-light-primary"}`}
+                      className={`btn btn-sm ${effectiveTab === type ? "btn-primary" : "btn-light-primary"}`}
                       onClick={() => setActiveTab(type)}
                     >
                       {label} ({count})
@@ -196,10 +207,11 @@ const SearchResultsPage: React.FC = () => {
             ) : (
               <div className="text-center py-20">
                 <KTIcon iconName="search" className="fs-3x text-muted mb-5" />
-                <h4 className="fw-bold">No Results Found</h4>
-                <p className="text-muted">
-                  Try adjusting your search or filters to find what you're
-                  looking for.
+                <h4 className="fw-bold">No results found</h4>
+                <p className="text-muted mx-auto" style={{ maxWidth: 420 }}>
+                  {isPackEnabled("psa")
+                    ? "Try a different name, code, or page title — or clear the type filter."
+                    : "Try an employee name, code, or an HR page (Attendance, Departments, Settings). CRM and projects are not in this plan."}
                 </p>
               </div>
             )}

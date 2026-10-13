@@ -1,6 +1,6 @@
 import { useSelector } from "react-redux";
 import { useFormikContext } from "formik";
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import { WtFieldFormik } from "@app/modules/common/components/ui";
 import type { RootState } from "@redux/store";
 
 /**
@@ -21,7 +21,7 @@ export default function AppRoleField({ employeeId, roles, isRequired = true }: {
 
     return (
         <>
-            <DropDownInput isRequired={isRequired} formikField="appRole" inputLabel="App Role" options={options} disabled={isSelf} />
+            <WtFieldFormik required={isRequired} name="appRole" label="App Role" options={options} disabled={isSelf} />
             {isSelf && <div className="text-muted fs-8 mt-1">You can't change your own role. Another Admin or Super Admin can.</div>}
         </>
     );
