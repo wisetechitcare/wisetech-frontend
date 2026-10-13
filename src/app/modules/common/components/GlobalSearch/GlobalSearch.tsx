@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { KTIcon } from '@metronic/helpers';
-import { HighlightMatch, performGlobalSearch, UnifiedSearchResult, SearchMatchField } from '@app/utils/search';
+import {
+  HighlightMatch,
+  isSearchTypeEnabled,
+  performGlobalSearch,
+  UnifiedSearchResult,
+  SearchMatchField,
+  SearchResultType,
+} from '@app/utils/search';
+import { isPackEnabled } from '@utils/tenantPacks';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import BusinessIcon from '@mui/icons-material/Business';
 import PersonIcon from '@mui/icons-material/Person';
@@ -200,15 +208,37 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
     return () => clearTimeout(timer);
   }, [query, restrictType]);
 
+  const filterMap: Record<string, SearchResultType | 'All'> = {
+    All: 'All',
+    Projects: 'Project',
+    Leads: 'Lead',
+    Companies: 'Company',
+    Contacts: 'Contact',
+    Employees: 'Employee',
+    Tasks: 'Task',
+    Pages: 'Navigation',
+  };
+
+  const types = (
+    ['All', 'Projects', 'Leads', 'Companies', 'Contacts', 'Employees', 'Tasks', 'Pages'] as const
+  ).filter((t) => t === 'All' || isSearchTypeEnabled(filterMap[t] as SearchResultType));
+
+  // Drop stale filter if pack turned off mid-session
+  const effectiveFilter = types.includes(filterType as (typeof types)[number]) ? filterType : 'All';
+  const filteredResults =
+    effectiveFilter === 'All' ? results : results.filter((r) => r.type === filterMap[effectiveFilter]);
+  const bestMatches = effectiveFilter === 'All' ? results.slice(0, 3) : [];
+  const bestMatchIds = new Set(bestMatches.map((r) => r.id));
+  // Categorized list excludes items already shown in Best Match to avoid duplication
+  const categorizedResults = filteredResults.filter((r) => !bestMatchIds.has(r.id));
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    const filteredResults = filterType === 'All' ? results : results.filter(r => r.type === filterType);
-    
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveIndex(prev => (prev < filteredResults.length - 1 ? prev + 1 : prev));
+      setActiveIndex((prev) => (prev < filteredResults.length - 1 ? prev + 1 : prev));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActiveIndex(prev => (prev > -1 ? prev - 1 : prev));
+      setActiveIndex((prev) => (prev > -1 ? prev - 1 : prev));
     } else if (e.key === 'Enter') {
       if (activeIndex >= 0) {
         addToHistory(query);
@@ -233,7 +263,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
   const handleResultClick = (result: UnifiedSearchResult) => {
     // Analytics (Phase 4)
     console.log(`[Search Analytics] Selected ${result.type}: ${result.title} (ID: ${result.id})`);
-    
+
     addToHistory(query);
     if (onSelect) {
       onSelect(result);
@@ -244,24 +274,6 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
     setIsExpanded(false);
     setQuery('');
   };
-
-  const filterMap: Record<string, string> = {
-    'All': 'All',
-    'Projects': 'Project',
-    'Leads': 'Lead',
-    'Companies': 'Company',
-    'Contacts': 'Contact',
-    'Employees': 'Employee',
-    'Tasks': 'Task',
-    'Pages': 'Navigation'
-  };
-
-  const filteredResults = filterType === 'All' ? results : results.filter(r => r.type === filterMap[filterType]);
-  const bestMatches = filterType === 'All' ? results.slice(0, 3) : [];
-  const bestMatchIds = new Set(bestMatches.map(r => r.id));
-  // Categorized list excludes items already shown in Best Match to avoid duplication
-  const categorizedResults = filteredResults.filter(r => !bestMatchIds.has(r.id));
-  const types = ['All', 'Projects', 'Leads', 'Companies', 'Contacts', 'Employees', 'Tasks', 'Pages'];
 
 
   return (
@@ -335,7 +347,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
               {types.map(t => (
                 <button
                   key={t}
-                  className={`btn btn-sm btn-flex py-1 px-3 fs-9 fw-bold rounded-pill transition-all ${filterType === t ? 'btn-primary' : 'btn-light text-gray-600'}`}
+                  className={`btn btn-sm btn-flex py-1 px-3 fs-9 fw-bold rounded-pill transition-all ${effectiveFilter === t ? 'btn-primary' : 'btn-light text-gray-600'}`}
                   onClick={() => setFilterType(t)}
                 >
                   {t}
@@ -386,7 +398,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
           ) : query.length >= 2 && results.length > 0 ? (
             <div className="search-results-list scroll-y mh-400px">
               {/* Best Match Section */}
-              {filterType === 'All' && bestMatches.length > 0 && (
+              {effectiveFilter === 'All' && bestMatches.length > 0 && (
                 <div className="search-section bg-light-primary-subtle border-bottom border-gray-200">
                   <div className="search-section-header px-4 py-2 d-flex align-items-center">
                     <span className="section-title fw-bold text-primary fs-8 text-uppercase">Best Match</span>
@@ -406,8 +418,12 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
               )}
 
               {/* Categorized Results */}
-              {['Navigation', 'KPI', 'Company', 'Contact', 'Lead', 'Project', 'Employee', 'Task']
-                .filter(type => filterType === 'All' || filterMap[filterType] === type)
+              {(['Navigation', 'KPI', 'Company', 'Contact', 'Lead', 'Project', 'Employee', 'Task'] as SearchResultType[])
+                .filter(
+                  (type) =>
+                    isSearchTypeEnabled(type) &&
+                    (effectiveFilter === 'All' || filterMap[effectiveFilter] === type),
+                )
                 .map((type) => {
                   const typeResults = categorizedResults.filter(r => r.type === type);
                   if (typeResults.length === 0) return null;
@@ -452,10 +468,14 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
               )}
             </div>
           ) : query.length >= 2 && !isLoading && (
-            <div className="search-empty-state py-10">
+            <div className="search-empty-state py-10 px-4 text-center">
               <KTIcon iconName="search" className="fs-1 text-muted mb-2" />
               <p className="fw-bold text-gray-700">No results found for "{query}"</p>
-              <span className="text-muted fs-7">Try refining your search or removing filters</span>
+              <span className="text-muted fs-7">
+                {isPackEnabled('psa')
+                  ? 'Try refining your search or removing filters'
+                  : 'Try an employee name, code, or HR page — CRM and projects are not in this plan'}
+              </span>
             </div>
           )}
         </div>

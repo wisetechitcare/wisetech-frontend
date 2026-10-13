@@ -7,18 +7,18 @@ import TextInput from '../inputs/TextInput';
 import { fetchAllPrefixSettings, createPrefixSetting, updatePrefixSetting } from '@services/options';
 import { fetchCompanyOverview } from '@services/company';
 import { successConfirmation } from '@utils/modal';
-import Flatpickr from "react-flatpickr";
+import { FiscalYearRangeField } from '@app/modules/common/components/ui';
 import { canonicalFiscalYear } from '@utils/fiscalYearSegment';
+import {
+  toISODateString,
+  getDefaultFiscalYear,
+  convertFiscalYearToDates,
+  toCanonicalFiscalYearRange,
+} from '@utils/fiscalYearRange';
 
-// Format a Date object to "YYYY-MM-DD" — used when storing fiscal year range in the DB.
-// We do NOT use Intl.DateTimeFormat here because en-IN locale produces "DD/MM/YYYY"
-// which cannot be parsed back by new Date() reliably.
-export const toISODateString = (date: Date): string => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
+// Re-export helpers so existing PerOrg / LeadWizard imports keep working.
+// Canonical home is `@utils/fiscalYearRange`.
+export { toISODateString, getDefaultFiscalYear, convertFiscalYearToDates };
 
 // Props interface simplified - parent only needs to provide type information
 interface PrefixSettingsFormProps {
@@ -73,33 +73,6 @@ export interface PrefixSettingsFormValues {
   id?: string;
 }
 
-// Generate default fiscal year (April to March of next year)
-export const getDefaultFiscalYear = () => {
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth() + 1; // getMonth() returns 0-11, so add 1
-  if (currentMonth >= 4) {
-    // Current fiscal year: April current year to March next year
-    return `${currentYear}-04-01 to ${currentYear + 1}-03-31`;
-  } else {
-    // Previous fiscal year: April previous year to March current year
-    return `${currentYear - 1}-04-01 to ${currentYear}-03-31`;
-  }
-};
-
-// Parse a date string to a Date object, handling both storage formats:
-//   "YYYY-MM-DD"  (correct format, what we save now)
-//   "DD/MM/YYYY"  (legacy format saved by en-IN dateFormatter bug)
-const parseDateString = (str: string): Date => {
-  const trimmed = str.trim();
-  // DD/MM/YYYY  e.g. "01/04/2026"
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
-    const [dd, mm, yyyy] = trimmed.split('/');
-    return new Date(`${yyyy}-${mm}-${dd}`);
-  }
-  // YYYY-MM-DD  e.g. "2026-04-01"
-  return new Date(trimmed);
-};
-
 /**
  * The short year segment for a stored fiscal-year string.
  *
@@ -112,25 +85,9 @@ const parseDateString = (str: string): Date => {
 export const convertFiscalYearToYearFormat = (fiscalYear: string) =>
   canonicalFiscalYear(fiscalYear);
 
-// Convert fiscal year date range to date objects for Flatpickr
-export const convertFiscalYearToDates = (fiscalYear: string): Date[] => {
-  if (fiscalYear.includes(' to ')) {
-    const [startDate, endDate] = fiscalYear.split(' to ');
-    return [parseDateString(startDate), parseDateString(endDate)];
-  }
-  return [];
-};
-
-// Convert old year format to full date format (for backward compatibility)
-const convertOldYearFormatToFullDate = (yearFormat: string): string => {
-  if (yearFormat.includes('-') && !yearFormat.includes(' to ')) {
-    // Old format like "2030-2031", convert to full date format
-    const [startYear, endYear] = yearFormat.split('-');
-    return `${startYear}-04-01 to ${endYear}-03-31`;
-  }
-  // Already in full format or invalid format
-  return yearFormat;
-};
+/** @deprecated use {@link toCanonicalFiscalYearRange} from `@utils/fiscalYearRange` */
+const convertOldYearFormatToFullDate = (yearFormat: string): string =>
+  toCanonicalFiscalYearRange(yearFormat) || yearFormat;
 
 /**
  * Live "this is what your numbers will look like" line, built from the values
@@ -339,39 +296,28 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
               />
             </div>
 
-            {/* Fiscal Year (date range picker) */}
+            {/* Fiscal Year — shared kit field (ISO wire). */}
             <div className={perOrganization ? "col-md-3 mb-4" : "col-md-4 mb-4"}>
-              <label className="form-label">Fiscal Year <span className="text-danger">*</span></label>
               <Field name="year">
                 {({ field, form }: any) => (
-                  <>
-                    <Flatpickr
-                      value={field.value ? convertFiscalYearToDates(field.value) : (companyFiscalYear ? convertFiscalYearToDates(companyFiscalYear) : [])}
-                      className={`form-control ${errors.year && touched.year ? 'is-invalid' : ''}`}
-                      placeholder={companyFiscalYear ? `Current: ${convertFiscalYearToYearFormat(companyFiscalYear)}` : "Set Fiscal Year"}
-                      onChange={(selectedDates: Date[]) => {
-                        if (selectedDates.length === 2) {
-                          const startDate = toISODateString(selectedDates[0]);
-                          const endDate = toISODateString(selectedDates[1]);
-                          form.setFieldValue("year", `${startDate} to ${endDate}`);
-                          form.setFieldTouched("year", false);
-                        }
-                      }}
-                      onOpen={() => {
-                        form.setFieldTouched("year", true);
-                      }}
-                      options={{
-                        dateFormat: "Y-m-d",
-                        altInput: true,
-                        altFormat: "d/m/Y", // ← shows "01/04/2026 to 31/03/2027"
-                        enableTime: false,
-                        mode: 'range'
-                      }}
-                    />
-                    {errors.year && touched.year && (
-                      <div className="text-danger mt-1">{errors.year}</div>
-                    )}
-                  </>
+                  <FiscalYearRangeField
+                    value={field.value || companyFiscalYear || ''}
+                    onChange={(next) => {
+                      form.setFieldValue('year', next);
+                      form.setFieldTouched('year', true, false);
+                    }}
+                    onBlur={() => form.setFieldTouched('year', true)}
+                    required
+                    error={Boolean(errors.year && touched.year)}
+                    helperText={
+                      errors.year && touched.year
+                        ? String(errors.year)
+                        : companyFiscalYear
+                          ? `Org default: ${convertFiscalYearToYearFormat(companyFiscalYear)}`
+                          : undefined
+                    }
+                    density="compact"
+                  />
                 )}
               </Field>
             </div>

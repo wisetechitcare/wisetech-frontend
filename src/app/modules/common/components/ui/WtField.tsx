@@ -4,6 +4,14 @@ import type { SxProps, Theme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { AppIcon } from './AppIcon';
 import { menuOptionSx } from './patterns';
+import {
+    DEFAULT_ADD_OPTION_LABEL,
+    resolveWtAddOption,
+    WtAddOptionButton,
+    type WtAddOption,
+} from './WtAddOption';
+
+export type { WtAddOption, WtAddOptionPlacement } from './WtAddOption';
 
 /**
  * WtField — the one labelled control in the app.
@@ -37,9 +45,9 @@ import { menuOptionSx } from './patterns';
  * ONE MESSAGE SLOT. `error` is a MESSAGE, not a boolean, and it replaces `hint` when set —
  * so a field can never show a red border with cheerful guidance underneath it.
  *
- * DELEGATION, NOT REIMPLEMENTATION. A single searchable select is MUI Autocomplete, which keeps the
- * floating label; multi-select and creatable stay `WtSelect` (react-select), used directly. Dates stay
- * `WtDateField` / `WtDateTimeField`. This owns the frame, not every engine in it.
+ * DELEGATION, NOT REIMPLEMENTATION. Searchable and multi-select use MUI Autocomplete (floating label).
+ * Grouped / creatable / avatar lists stay on `WtSelect` via adapters. Dates stay `WtDateField` /
+ * `WtDateTimeField`. This owns the frame, not every engine in it.
  */
 
 export type WtFieldSize = 'sm' | 'md';
@@ -49,6 +57,14 @@ export interface WtFieldOption {
     label: string;
     disabled?: boolean;
 }
+
+/**
+ * Single-select call sites pass `(v: string) => void` / `setState`; multi passes `string[]`.
+ * Typed as `any` (not `string | string[]`) so under `strictFunctionTypes` + `React.FC` remapping
+ * we do not reject every `Dispatch<SetStateAction<string>>` or force a cast at each caller.
+ * Runtime always emits `string` or `string[]` from this component.
+ */
+export type WtFieldChangeHandler = (value: any) => void;
 
 export interface WtFieldProps {
     /** Omit only when a visible label sits elsewhere. */
@@ -75,9 +91,11 @@ export interface WtFieldProps {
      * `children` replaces the input entirely, and a picker that opens a dialog has no
      * string value to hand back. On any other control, omitting them silently makes the
      * field read-only, so treat them as required unless you are passing `children`.
+     *
+     * Multi-select (`multiple`) passes `string[]`.
      */
-    value?: string | number;
-    onChange?: (value: string) => void;
+    value?: string | number | string[];
+    onChange?: WtFieldChangeHandler;
 
     /** Present ⇒ this is a select. Absent ⇒ a text/number input. */
     options?: WtFieldOption[];
@@ -123,9 +141,27 @@ export interface WtFieldProps {
 
     /**
      * Type-to-search for a long single-select (needs `options`). Same floating label, height and outline
-     * as a plain select, so a searchable field and a plain one can share a row. Multi / creatable: `WtSelect`.
+     * as a plain select, so a searchable field and a plain one can share a row.
      */
     searchable?: boolean;
+
+    /**
+     * Multi-select with chips — MUI Autocomplete, same floating Sandwich label as single-select.
+     * Prefer this over wrapping `WtSelect` in `children` (which forces a label-above look).
+     * Grouped / creatable / avatar lists still use `WtSelect` via an adapter.
+     */
+    multiple?: boolean;
+
+    /**
+     * Canonical “+ Add …” action — one prop for every labelled select.
+     * Prefer this over inventing a button beside the field.
+     * @see WtAddOption
+     */
+    addOption?: WtAddOption;
+    /** @deprecated Use `addOption={{ onAdd, label }}` */
+    onAddOption?: () => void;
+    /** @deprecated Use `addOption={{ onAdd, label }}` */
+    addOptionLabel?: string;
 
     /**
      * Shows a clear button once there is something to clear, and empties the field.
@@ -183,11 +219,13 @@ const controlSx = (tone: string | undefined, invalid: boolean): SxProps<Theme> =
     },
 });
 
+const ADD_OPTION_VALUE = '__wt_add__';
+
 export const WtField: React.FC<WtFieldProps> = ({
     label, ariaLabel, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, placeholder,
     size = 'sm', fullWidth = true, minWidth, icon, prefix, tone,
     type = 'text', multiline, minRows = 3, inputMode, min, max, step,
-    searchable, clearable, id, name, autoFocus, sx, children,
+    searchable, multiple, addOption, onAddOption, addOptionLabel, clearable, id, name, autoFocus, sx, children,
 }) => {
     const reactId = useId();
     const fieldId = id ?? `wtf-${reactId}`;
@@ -195,7 +233,12 @@ export const WtField: React.FC<WtFieldProps> = ({
     const invalid = Boolean(error);
     const message = error || hint;
     const isSelect = Boolean(options);
-    const hasValue = String(value ?? '').length > 0;
+    const hasValue = Array.isArray(value)
+        ? value.length > 0
+        : String(value ?? '').length > 0;
+    const resolvedAdd = resolveWtAddOption(addOption, onAddOption, addOptionLabel);
+    const addInMenu = resolvedAdd?.placement !== 'label' ? resolvedAdd : undefined;
+    const addOnLabel = resolvedAdd?.placement === 'label' ? resolvedAdd : undefined;
 
     // The tint says "this filter is set". Applying it to an empty control would say
     // "active" about nothing.
@@ -258,21 +301,55 @@ export const WtField: React.FC<WtFieldProps> = ({
     ] as SxProps<Theme>;
 
     const selected = (options ?? []).find((o) => o.value === String(value ?? ''));
+    const selectedMulti = (options ?? []).filter((o) =>
+        Array.isArray(value) && value.includes(o.value),
+    );
 
     /**
-     * A long single-select, with type-to-search. MUI's Autocomplete renders a real outlined
-     * TextField, so it keeps the SAME floating label in the border as every other field — the
-     * react-select engine this used could not cut that gap, put its label on a line above, and
-     * sat in a row beside ordinary fields at a different height with a different label.
+     * Autocomplete (single searchable or multi) keeps the SAME floating label in the border as
+     * every other WtField — react-select cannot cut that gap and looks “legacy” beside Sandwich.
      */
-    if (searchable && options && !children) {
+    // `addOption` with menu placement needs Autocomplete so the “+ Add” row can live in the list.
+    if ((searchable || multiple || Boolean(addInMenu)) && options && !children) {
+        const addLabel = addInMenu?.label ?? DEFAULT_ADD_OPTION_LABEL;
+        const listOptions: WtFieldOption[] = addInMenu
+            ? [{ value: ADD_OPTION_VALUE, label: `+ ${addLabel}` }, ...options]
+            : options;
+
         return (
             <Box sx={frameSx}>
+                {addOnLabel && (
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
+                        <WtAddOptionButton
+                            label={addOnLabel.label}
+                            onAdd={addOnLabel.onAdd}
+                            disabled={disabled}
+                        />
+                    </Box>
+                )}
                 <Autocomplete
                     id={fieldId}
-                    options={options}
-                    value={selected ?? null}
-                    onChange={(_e, opt) => onChange(opt?.value ?? '')}
+                    multiple={multiple}
+                    options={listOptions}
+                    value={multiple ? selectedMulti : (selected ?? null)}
+                    onChange={(_e, opt) => {
+                        if (multiple) {
+                            const list = (opt as WtFieldOption[]) || [];
+                            if (list.some((o) => o.value === ADD_OPTION_VALUE)) {
+                                addInMenu?.onAdd();
+                                onChange(list.filter((o) => o.value !== ADD_OPTION_VALUE).map((o) => o.value));
+                                return;
+                            }
+                            onChange(list.map((o) => o.value));
+                            return;
+                        }
+                        const one = opt as WtFieldOption | null;
+                        if (one?.value === ADD_OPTION_VALUE) {
+                            addInMenu?.onAdd();
+                            return;
+                        }
+                        onChange(one?.value ?? '');
+                    }}
                     getOptionLabel={(o) => o.label}
                     getOptionDisabled={(o) => Boolean(o.disabled)}
                     isOptionEqualToValue={(o, v) => o.value === v.value}
@@ -281,6 +358,38 @@ export const WtField: React.FC<WtFieldProps> = ({
                     autoHighlight
                     size={size === 'md' ? 'medium' : 'small'}
                     fullWidth
+                    // Multi tags follow Appearance brand (same primary as menuOptionSx / focus ring),
+                    // not MUI's neutral grey default — so selected chips match the bluish product chrome.
+                    ChipProps={multiple ? {
+                        size: 'small' as const,
+                        sx: {
+                            fontWeight: 600,
+                            borderRadius: '6px',
+                            bgcolor: (t: Theme) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.28 : 0.12),
+                            color: (t: Theme) => (t.palette.mode === 'dark' ? t.palette.primary.light : t.palette.primary.dark),
+                            '& .MuiChip-deleteIcon': { color: 'inherit', opacity: 0.72 },
+                        },
+                    } : undefined}
+                    renderOption={(props, option) => {
+                        const { key, ...rest } = props as React.HTMLAttributes<HTMLLIElement> & { key?: string };
+                        const isAdd = option.value === ADD_OPTION_VALUE;
+                        return (
+                            <Box
+                                component="li"
+                                key={key ?? option.value}
+                                {...rest}
+                                sx={{
+                                    fontSize: 13.5,
+                                    fontWeight: isAdd ? 600 : 400,
+                                    color: isAdd ? 'primary.main' : 'inherit',
+                                    borderBottom: isAdd ? '1px solid' : undefined,
+                                    borderColor: isAdd ? 'divider' : undefined,
+                                }}
+                            >
+                                {option.label}
+                            </Box>
+                        );
+                    }}
                     // Above app dialogs (1300, nested 1302), as the date pickers do. The offset keeps a list
                     // that opens UPWARD clear of the floating label, which sits on the field's top border —
                     // flush against it, the list covered the label ("Designation" hidden under an option).
@@ -319,23 +428,34 @@ export const WtField: React.FC<WtFieldProps> = ({
     if (custom || labelPlacement === 'above') {
         return (
             <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 0.5 }, ...(frameSx as object[])] as SxProps<Theme>}>
-                {label && (
-                    <Typography
-                        component="label"
-                        htmlFor={fieldId}
-                        // Styling IS allowed here: on this path there is no legend to disagree with.
-                        sx={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            lineHeight: 1.3,
-                            color: invalid ? 'error.main' : 'text.secondary',
-                            cursor: disabled ? 'default' : 'pointer',
-                            userSelect: 'none',
-                        }}
-                    >
-                        {label}
-                        {required && <Box component="span" aria-hidden="true" sx={{ color: 'error.main', ml: 0.25 }}>*</Box>}
-                    </Typography>
+                {(label || addOnLabel) && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                        {label ? (
+                            <Typography
+                                component="label"
+                                htmlFor={fieldId}
+                                // Styling IS allowed here: on this path there is no legend to disagree with.
+                                sx={{
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    lineHeight: 1.3,
+                                    color: invalid ? 'error.main' : 'text.secondary',
+                                    cursor: disabled ? 'default' : 'pointer',
+                                    userSelect: 'none',
+                                }}
+                            >
+                                {label}
+                                {required && <Box component="span" aria-hidden="true" sx={{ color: 'error.main', ml: 0.25 }}>*</Box>}
+                            </Typography>
+                        ) : <span />}
+                        {addOnLabel && (
+                            <WtAddOptionButton
+                                label={addOnLabel.label}
+                                onAdd={addOnLabel.onAdd}
+                                disabled={disabled}
+                            />
+                        )}
+                    </Box>
                 )}
 
                 {custom ?? (
@@ -373,7 +493,16 @@ export const WtField: React.FC<WtFieldProps> = ({
     }
 
     return (
-        <Box sx={[{ display: 'flex' }, ...(frameSx as object[])] as SxProps<Theme>}>
+        <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 0.5 }, ...(frameSx as object[])] as SxProps<Theme>}>
+            {addOnLabel && (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <WtAddOptionButton
+                        label={addOnLabel.label}
+                        onAdd={addOnLabel.onAdd}
+                        disabled={disabled}
+                    />
+                </Box>
+            )}
             <TextField
                 id={fieldId}
                 name={name}

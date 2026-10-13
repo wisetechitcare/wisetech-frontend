@@ -1,6 +1,6 @@
 import { useState } from "react";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import { WtFieldFormik } from "@app/modules/common/components/ui";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { BLOOD_GROUP_OPTIONS } from "@utils/employeeFormat";
 
@@ -36,10 +36,9 @@ function EmergencyDetails({ formikProps }: any) {
   {/* Row 1: Blood Group, Allergies */}
   <div className="row g-3">
     <div className="col-lg-6 col-md-6 col-sm-12">
-      <DropDownInput
-        isRequired={false}
-        formikField="emergencyDetails.bloodGroup"
-        inputLabel="Blood Group"
+      <WtFieldFormik
+        name="emergencyDetails.bloodGroup"
+        label="Blood Group"
         placeholder="Select blood group"
         options={bloodGroupOptions}
       />

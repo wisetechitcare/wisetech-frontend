@@ -1,333 +1,344 @@
-import React, { useState, forwardRef, useImperativeHandle, useMemo } from 'react';
-import Select, { components, MultiValue, ActionMeta } from 'react-select';
-import { Modal } from 'react-bootstrap';
+import React, {
+    useState,
+    forwardRef,
+    useImperativeHandle,
+    useMemo,
+    useCallback,
+} from 'react';
+import { MultiValue } from 'react-select';
 import { useFormikContext } from 'formik';
+import { Box, Stack, Typography } from '@mui/material';
 import { sortOptionsAlphabetically } from '@utils/sortUtils';
-import { FLOATING_MENU_BEHAVIOUR, MENU_PORTAL_STYLE } from "@app/modules/common/inputs/selectMenuProps";
+import { createAddOptionMenuListFromProp } from '@app/modules/common/inputs/SelectMenuAddRow';
+import {
+    GlassDialog,
+    PlainDialogHeader,
+    WtButton,
+    WtField,
+    WtSelect,
+    type WtAddOption,
+} from '@app/modules/common/components/ui';
 
-// TypeScript interfaces
 export interface Option {
-  value: string;
-  label: string;
-  color?: string;
+    value: string;
+    label: string;
+    color?: string;
 }
 
 export interface MultiSelectWithInlineCreateProps {
-  formikField: string;
-  inputLabel: string;
-  options: Option[];
-  placeholder?: string;
-  isRequired?: boolean;
-  disabled?: boolean;
-  onCreate?: (name: string, parentId?: string) => Promise<Option | void>;
-  onRefreshOptions?: () => Promise<void>;
-  createModalTitle?: string;
-  createButtonText?: string;
-  createFieldLabel?: string;
-  createFieldPlaceholder?: string;
-  isLoading?: boolean;
-  className?: string;
-  // Optional "parent" picker shown inside the create modal. When provided, the new
-  // item is filed under the chosen parent (its id is passed as the 2nd arg to
-  // onCreate) — e.g. a Service created under a Company Type, or a Sub-service under
-  // a Service. This makes the popup explicitly show which parent the item lands in.
-  parentOptions?: Option[];
-  parentSelectLabel?: string;
-  parentPlaceholder?: string;
-  defaultParentId?: string;
-  requireParent?: boolean;
-  parentEmptyHint?: string;
+    formikField: string;
+    inputLabel: string;
+    options: Option[];
+    placeholder?: string;
+    isRequired?: boolean;
+    disabled?: boolean;
+    onCreate?: (name: string, parentId?: string) => Promise<Option | void>;
+    onRefreshOptions?: () => Promise<void>;
+    createModalTitle?: string;
+    createButtonText?: string;
+    createFieldLabel?: string;
+    createFieldPlaceholder?: string;
+    isLoading?: boolean;
+    className?: string;
+    parentOptions?: Option[];
+    parentSelectLabel?: string;
+    parentPlaceholder?: string;
+    defaultParentId?: string;
+    requireParent?: boolean;
+    parentEmptyHint?: string;
+    /**
+     * Parent owns the create UI (e.g. Lead Categories → category master modal).
+     * "+ Add New" calls `onCreate` immediately — no GlassDialog.
+     */
+    externalCreate?: boolean;
 }
 
 export interface MultiSelectWithInlineCreateRef {
-  refreshOptions: () => Promise<void>;
+    refreshOptions: () => Promise<void>;
 }
 
-// Custom MenuList component with "Add New" option
-const CustomMenuList = ({ onCreate, createButtonText, ...props }: any) => {
-  const handleAddNew = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onCreate) {
-      onCreate();
-    }
-  };
-
-  return (
-    <components.MenuList {...props}>
-      <div
-        className="dropdown-add-option"
-        onClick={handleAddNew}
-        style={{
-          padding: '8px 12px',
-          display: 'flex',
-          alignItems: 'center',
-          cursor: 'pointer',
-          borderBottom: '1px solid #e9ecef',
-          color: '#1E3A8A',
-          fontSize: '14px',
-          fontWeight: 500
-        }}
-      >
-        <span style={{ marginRight: '8px', fontSize: '16px', fontWeight: 'bold' }}>+</span>
-        <span>{createButtonText || 'Add New'}</span>
-      </div>
-      {props.children}
-    </components.MenuList>
-  );
-};
-
-const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, MultiSelectWithInlineCreateProps>(({
-  formikField,
-  inputLabel,
-  options,
-  placeholder = 'Select options...',
-  isRequired = false,
-  disabled = false,
-  onCreate,
-  onRefreshOptions,
-  createModalTitle = 'Create New Item',
-  createButtonText = 'Add New',
-  createFieldLabel = 'Name',
-  createFieldPlaceholder = 'Enter name...',
-  isLoading = false,
-  className = '',
-  parentOptions,
-  parentSelectLabel = 'Parent',
-  parentPlaceholder = 'Select parent...',
-  defaultParentId,
-  requireParent = false,
-  parentEmptyHint,
+const MultiSelectWithInlineCreate = forwardRef<
+    MultiSelectWithInlineCreateRef,
+    MultiSelectWithInlineCreateProps
+>(({
+    formikField,
+    inputLabel,
+    options,
+    placeholder = 'Select options...',
+    isRequired = false,
+    disabled = false,
+    onCreate,
+    onRefreshOptions,
+    createModalTitle = 'Create New Item',
+    createButtonText = 'Add New',
+    createFieldLabel = 'Name',
+    createFieldPlaceholder = 'Enter name...',
+    isLoading = false,
+    className = '',
+    parentOptions,
+    parentSelectLabel = 'Parent',
+    parentPlaceholder = 'Select parent...',
+    defaultParentId,
+    requireParent = false,
+    parentEmptyHint,
+    externalCreate = false,
 }, ref) => {
-  const { values, setFieldValue, errors, touched } = useFormikContext<any>();
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createValue, setCreateValue] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [parentId, setParentId] = useState('');
+    const { values, setFieldValue, errors, touched } = useFormikContext<any>();
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [createValue, setCreateValue] = useState('');
+    const [isCreating, setIsCreating] = useState(false);
+    const [parentId, setParentId] = useState('');
+    const [menuIsOpen, setMenuIsOpen] = useState(false);
 
-  const showParentPicker = Array.isArray(parentOptions);
+    const showParentPicker = Array.isArray(parentOptions);
 
-  const sortedOptions = useMemo(() => {
-    return sortOptionsAlphabetically(options || []);
-  }, [options]);
+    /** Grouped option lists need WtSelect; flat lists use Sandwich WtField multiple. */
+    const hasGroupedOptions = useMemo(
+        () => (options || []).some((o: any) => o && Array.isArray(o.options)),
+        [options],
+    );
 
-  // Options may be flat (Option[]) or grouped ({ label, options: Option[] }[]).
-  // Flatten so a selected value's label resolves in either shape.
-  const flatOptions: Option[] = useMemo(() => {
-    const flat: Option[] = [];
-    (options || []).forEach((o: any) => {
-      if (o && Array.isArray(o.options)) flat.push(...o.options);
-      else if (o) flat.push(o);
-    });
-    return flat;
-  }, [options]);
+    const sortedOptions = useMemo(
+        () => sortOptionsAlphabetically(options || []),
+        [options],
+    );
 
-  // Get current field value - ensure it's always an array
-  const fieldValue = values[formikField] || [];
-  const selectedOptions: Option[] = Array.isArray(fieldValue)
-    ? fieldValue.map((val: string) => flatOptions.find(opt => opt.value === val)).filter((opt): opt is Option => opt !== undefined)
-    : [];
+    const flatOptions: Option[] = useMemo(() => {
+        const flat: Option[] = [];
+        (options || []).forEach((o: any) => {
+            if (o && Array.isArray(o.options)) flat.push(...o.options);
+            else if (o) flat.push(o);
+        });
+        return flat;
+    }, [options]);
 
-  // Get error state
-  const hasError = touched[formikField] && errors[formikField];
+    const fieldValue = values[formikField] || [];
+    const selectedIds: string[] = Array.isArray(fieldValue) ? fieldValue : [];
+    const selectedOptions: Option[] = selectedIds
+        .map((val: string) => flatOptions.find((opt) => opt.value === val))
+        .filter((opt): opt is Option => opt !== undefined);
 
-  // Handle multi-select change
-  const handleChange = (newValue: MultiValue<Option>, actionMeta: ActionMeta<Option>) => {
-    const values = newValue ? newValue.map(option => option.value) : [];
-    setFieldValue(formikField, values);
-  };
+    const hasError = !!(touched[formikField] && errors[formikField]);
+    const errorMessage = hasError ? String(errors[formikField]) : undefined;
 
-  // Handle opening create modal
-  const handleOpenCreateModal = () => {
-    setShowCreateModal(true);
-    setCreateValue('');
-    // Pre-select the parent: the caller-provided default, or the only candidate.
-    const initialParent =
-      defaultParentId ||
-      (parentOptions && parentOptions.length === 1 ? parentOptions[0].value : '');
-    setParentId(initialParent);
-  };
+    const handleSelectChange = (newValue: MultiValue<Option> | null) => {
+        const next = newValue ? newValue.map((option) => option.value) : [];
+        setFieldValue(formikField, next);
+    };
 
-  // Handle closing create modal
-  const handleCloseCreateModal = () => {
-    setShowCreateModal(false);
-    setCreateValue('');
-    setParentId('');
-    setIsCreating(false);
-  };
+    const handleFieldMultiChange = (next: string | string[]) => {
+        setFieldValue(formikField, Array.isArray(next) ? next : next ? [next] : []);
+    };
 
-  // Handle creating new item
-  const handleCreate = async () => {
-    if (!createValue.trim() || !onCreate) return;
-    if (requireParent && !parentId) return;
+    const openInlineCreateDialog = useCallback(() => {
+        setCreateValue('');
+        const initialParent =
+            defaultParentId ||
+            (parentOptions && parentOptions.length === 1 ? parentOptions[0].value : '');
+        setParentId(initialParent);
+        setShowCreateModal(true);
+    }, [defaultParentId, parentOptions]);
 
-    setIsCreating(true);
-    try {
-      const newOption = await onCreate(createValue.trim(), parentId || undefined);
-      
-      if (newOption) {
-        // Add the new option to current selection
-        const currentValues = Array.isArray(fieldValue) ? fieldValue : [];
-        setFieldValue(formikField, [...currentValues, newOption.value]);
-      }
+    const handleAddNew = useCallback(() => {
+        setMenuIsOpen(false);
+        if (!onCreate) return;
 
-      // Refresh options if function provided
-      if (onRefreshOptions) {
-        await onRefreshOptions();
-      }
+        if (externalCreate) {
+            void onCreate('');
+            return;
+        }
 
-      handleCloseCreateModal();
-    } catch (error) {
-      console.error('Error creating new item:', error);
-    } finally {
-      setIsCreating(false);
-    }
-  };
+        window.setTimeout(() => openInlineCreateDialog(), 0);
+    }, [onCreate, externalCreate, openInlineCreateDialog]);
 
-  // Handle Enter key in create modal
-  const handleCreateKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !isCreating) {
-      handleCreate();
-    }
-  };
+    const handleCloseCreateModal = useCallback(() => {
+        setShowCreateModal(false);
+        setCreateValue('');
+        setParentId('');
+        setIsCreating(false);
+    }, []);
 
-  // Expose refresh function via ref
-  useImperativeHandle(ref, () => ({
-    refreshOptions: async () => {
-      if (onRefreshOptions) {
-        await onRefreshOptions();
-      }
-    }
-  }));
+    const handleCreate = async () => {
+        if (!createValue.trim() || !onCreate) return;
+        if (requireParent && !parentId) return;
 
-  return (
-    <>
-      <div className={`d-flex flex-column fv-row ${className}`}>
-        <label className={`form-label ${isRequired ? 'required' : ''}`}>
-          {inputLabel}
-        </label>
-        
-        <Select{...FLOATING_MENU_BEHAVIOUR}
-          isMulti
-          name={formikField}
-          options={sortedOptions}
-          value={selectedOptions}
-          onChange={handleChange}
-          placeholder={placeholder}
-          isDisabled={disabled}
-          isLoading={isLoading}
-          isClearable
-          className={`react-select-styled ${hasError ? 'is-invalid' : ''}`}
-          classNamePrefix="react-select"
-          components={onCreate ? { 
-            MenuList: (props) => CustomMenuList({ 
-              ...props, 
-              onCreate: handleOpenCreateModal, 
-              createButtonText 
-            }) 
-          } : undefined}
-          // MENU_PORTAL_STYLE must always be merged in: the menu is portalled to
-          // <body>, and without its z-index it paints BEHIND any dialog/modal that
-          // owns the field — the menu opens, but is invisible and unclickable.
-          styles={{
-            ...MENU_PORTAL_STYLE,
-            ...(hasError ? {
-              control: (base: any) => ({
-                ...base,
-                borderColor: '#dc3545',
-                '&:hover': {
-                  borderColor: '#dc3545',
-                },
-              }),
-            } : {}),
-          }}
-        />
+        setIsCreating(true);
+        try {
+            const newOption = await onCreate(createValue.trim(), parentId || undefined);
 
-        {hasError && (
-          <div className="fv-plugins-message-container">
-            <div className="fv-help-block">
-              <span role="alert">{errors[formikField] as string}</span>
-            </div>
-          </div>
-        )}
-      </div>
+            if (newOption) {
+                const currentValues = Array.isArray(fieldValue) ? fieldValue : [];
+                setFieldValue(formikField, [...currentValues, newOption.value]);
+            }
 
-      {/* Create New Item Modal */}
-      {onCreate && (
-        <Modal show={showCreateModal} onHide={handleCloseCreateModal} centered>
-          <Modal.Header closeButton>
-            <Modal.Title>{createModalTitle}</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {showParentPicker && (
-              <div className="fv-row mb-4">
-                <label className="required fs-6 fw-bold form-label mb-2">
-                  {parentSelectLabel}
-                </label>
-                {parentOptions && parentOptions.length > 0 ? (
-                  <Select{...FLOATING_MENU_BEHAVIOUR}
-                    options={sortOptionsAlphabetically(parentOptions)}
-                    value={parentOptions.find((o) => o.value === parentId) || null}
-                    onChange={(opt: any) => setParentId(opt?.value || '')}
-                    placeholder={parentPlaceholder}
-                    isDisabled={isCreating}
-                    classNamePrefix="react-select"
-                    className="react-select-styled"
-                    menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
-                    menuPosition="fixed"
-                    styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
-                  />
+            if (onRefreshOptions) {
+                await onRefreshOptions();
+            }
+
+            handleCloseCreateModal();
+        } catch (error) {
+            console.error('Error creating new item:', error);
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
+    useImperativeHandle(ref, () => ({
+        refreshOptions: async () => {
+            if (onRefreshOptions) {
+                await onRefreshOptions();
+            }
+        },
+    }));
+
+    const addOptionProp: WtAddOption | undefined = useMemo(
+        () => (onCreate
+            ? { onAdd: handleAddNew, label: createButtonText, placement: 'menu' as const }
+            : undefined),
+        [onCreate, handleAddNew, createButtonText],
+    );
+
+    const AddOptionMenuList = useMemo(
+        () => (addOptionProp ? createAddOptionMenuListFromProp(addOptionProp) : undefined),
+        [addOptionProp],
+    );
+
+    const sortedParentOptions = useMemo(
+        () => (parentOptions ? sortOptionsAlphabetically(parentOptions) : []),
+        [parentOptions],
+    );
+
+    const createDisabled =
+        !createValue.trim() || isCreating || (requireParent && !parentId);
+
+    /** Flat lists → Sandwich floating WtField; grouped (company services) → WtSelect adapter. */
+    const useFloatingMulti = !hasGroupedOptions;
+
+    return (
+        <>
+            <Box className={className}>
+                {useFloatingMulti ? (
+                    <WtField
+                        label={inputLabel}
+                        required={isRequired}
+                        error={errorMessage}
+                        disabled={disabled || isLoading}
+                        placeholder={placeholder}
+                        multiple
+                        clearable
+                        options={flatOptions.map((o) => ({ value: o.value, label: o.label }))}
+                        value={selectedIds}
+                        onChange={handleFieldMultiChange}
+                        addOption={addOptionProp}
+                    />
                 ) : (
-                  <div className="text-muted fst-italic">
-                    {parentEmptyHint || `Select a ${parentSelectLabel.toLowerCase()} first.`}
-                  </div>
+                    <WtField
+                        label={inputLabel}
+                        required={isRequired}
+                        error={errorMessage}
+                        disabled={disabled}
+                    >
+                        <WtSelect
+                            name={formikField}
+                            ariaLabel={inputLabel}
+                            isMulti
+                            options={sortedOptions}
+                            value={selectedOptions}
+                            onChange={handleSelectChange}
+                            placeholder={placeholder}
+                            isDisabled={disabled}
+                            isLoading={isLoading}
+                            isClearable
+                            error={hasError}
+                            menuIsOpen={menuIsOpen}
+                            onMenuOpen={() => setMenuIsOpen(true)}
+                            onMenuClose={() => setMenuIsOpen(false)}
+                            components={AddOptionMenuList ? { MenuList: AddOptionMenuList } : undefined}
+                        />
+                    </WtField>
                 )}
-              </div>
+            </Box>
+
+            {onCreate && !externalCreate && (
+                <GlassDialog
+                    open={showCreateModal}
+                    onClose={handleCloseCreateModal}
+                    maxWidth="sm"
+                    plain
+                    sx={{ zIndex: 1600 }}
+                    header={
+                        <PlainDialogHeader
+                            title={createModalTitle}
+                            onClose={handleCloseCreateModal}
+                        />
+                    }
+                >
+                    <Box sx={{ px: { xs: 2, sm: 3 }, py: 2 }}>
+                        <Stack
+                            spacing={2.5}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !isCreating && !createDisabled) {
+                                    e.preventDefault();
+                                    void handleCreate();
+                                }
+                            }}
+                        >
+                            {showParentPicker && (
+                                parentOptions && parentOptions.length > 0 ? (
+                                    <WtField
+                                        label={parentSelectLabel}
+                                        required={requireParent}
+                                        searchable
+                                        clearable
+                                        placeholder={parentPlaceholder}
+                                        options={sortedParentOptions.map((o) => ({
+                                            value: o.value,
+                                            label: o.label,
+                                        }))}
+                                        value={parentId}
+                                        onChange={(v) => setParentId(typeof v === 'string' ? v : '')}
+                                        disabled={isCreating}
+                                    />
+                                ) : (
+                                    <Typography
+                                        sx={{ fontSize: 13, color: 'text.secondary', fontStyle: 'italic' }}
+                                    >
+                                        {parentEmptyHint || `Select a ${parentSelectLabel.toLowerCase()} first.`}
+                                    </Typography>
+                                )
+                            )}
+                            <WtField
+                                label={createFieldLabel}
+                                required
+                                placeholder={createFieldPlaceholder}
+                                value={createValue}
+                                onChange={(v) => setCreateValue(typeof v === 'string' ? v : '')}
+                                disabled={isCreating}
+                                autoFocus
+                            />
+                            <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+                                <WtButton
+                                    type="button"
+                                    ghost
+                                    onClick={handleCloseCreateModal}
+                                    disabled={isCreating}
+                                >
+                                    Cancel
+                                </WtButton>
+                                <WtButton
+                                    type="button"
+                                    onClick={() => { void handleCreate(); }}
+                                    disabled={createDisabled}
+                                >
+                                    {isCreating ? 'Creating…' : 'Create'}
+                                </WtButton>
+                            </Stack>
+                        </Stack>
+                    </Box>
+                </GlassDialog>
             )}
-            <div className="fv-row">
-              <label className="required fs-6 fw-bold form-label mb-2">
-                {createFieldLabel}
-              </label>
-              <input
-                type="text"
-                className="form-control form-control-solid"
-                placeholder={createFieldPlaceholder}
-                value={createValue}
-                onChange={(e) => setCreateValue(e.target.value)}
-                onKeyPress={handleCreateKeyPress}
-                disabled={isCreating}
-                autoFocus
-              />
-            </div>
-          </Modal.Body>
-          <Modal.Footer>
-            <button
-              type="button"
-              className="btn btn-light"
-              onClick={handleCloseCreateModal}
-              disabled={isCreating}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleCreate}
-              disabled={!createValue.trim() || isCreating || (requireParent && !parentId)}
-            >
-              {isCreating ? (
-                <>
-                  <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                  Creating...
-                </>
-              ) : (
-                'Create'
-              )}
-            </button>
-          </Modal.Footer>
-        </Modal>
-      )}
-    </>
-  );
+        </>
+    );
 });
 
 MultiSelectWithInlineCreate.displayName = 'MultiSelectWithInlineCreate';

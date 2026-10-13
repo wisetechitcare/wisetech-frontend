@@ -143,10 +143,22 @@ export function ColorModeProvider({ children }: { children: React.ReactNode }) {
     // The brand, as CSS custom properties, for the stylesheets that cannot reach
     // the MUI theme. Derived shades ship alongside the four picks so a hover or
     // a tint is never invented per-screen from a raw hex.
+    //
+    // `--wt-primary*` mirrors the same primary into Enterprise wizard CSS
+    // (Workspace.css). Without this, MUI Autocomplete followed Appearance brand
+    // while the lead wizard stayed on a hardcoded navy — teal chips next to a
+    // navy header. One brand axis → one set of vars.
     root.style.setProperty('--wt-brand', brand.primary);
     root.style.setProperty('--wt-brand-hover', shade(brand.primary, -0.15));
     root.style.setProperty('--wt-brand-soft', shade(brand.primary, 0.85));
     root.style.setProperty('--wt-brand-on', readableOn(brand.primary));
+    root.style.setProperty('--wt-primary', brand.primary);
+    root.style.setProperty('--wt-primary-mid', shade(brand.primary, 0.22));
+    root.style.setProperty('--wt-primary-dark', shade(brand.primary, -0.18));
+    root.style.setProperty('--wt-primary-light', shade(brand.primary, 0.88));
+    root.style.setProperty('--wt-primary-border', `color-mix(in srgb, ${brand.primary} 16%, transparent)`);
+    root.style.setProperty('--wt-primary-shadow', `color-mix(in srgb, ${brand.primary} 15%, transparent)`);
+    root.style.setProperty('--wt-primary-shadow-md', `color-mix(in srgb, ${brand.primary} 22%, transparent)`);
     root.style.setProperty('--wt-secondary', brand.secondary);
     root.style.setProperty('--wt-accent', brand.accent);
     root.style.setProperty('--wt-ink', brand.ink);

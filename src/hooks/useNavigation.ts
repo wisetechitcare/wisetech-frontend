@@ -13,6 +13,7 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags';
 import { useRootOrgName } from './useRootOrgNames';
 import { RootState } from '@redux/store';
+import { isPackEnabled } from '@utils/tenantPacks';
 
 export type NavigationItemType = 'item' | 'sub' | 'section';
 
@@ -63,9 +64,11 @@ export function useNavigation() {
   // Subscribe to section access so the menu re-evaluates whenever it loads or refreshes
   // (drives can(), canSection() and isSectionBlocked()).
   const capabilities = useSelector((state: RootState) => (state as any).authz?.access);
+  // Tenant packs — hide whole product areas when the subscription does not include them.
+  const packs = useSelector((state: RootState) => (state as any).authz?.packs);
   // Admin / Super Admin: Roles & Permissions is theirs alone, by tier rather than any checkbox.
   const tier = useSelector((state: RootState) => (state as any).authz?.tier);
-  // Drives the dynamic "<Org> Team" label on the Employees row (see below).
+  // Logged-in user's tenant root name for the Employees row (never overview[0]).
   const orgName = useRootOrgName();
 
   // The Inbox badge counts the CALLER'S OWN open tasks, whoever they are. It used to count
@@ -181,11 +184,11 @@ export function useNavigation() {
         // bookmark to it keep working.
         title: 'HR Department',
         visible:
-          !isSectionBlocked('attendance') ||
+          (isPackEnabled('workforce') && !isSectionBlocked('attendance')) ||
           !isSectionBlocked('users') ||
           !isSectionBlocked('settings') ||
           !isSectionBlocked('reports') ||
-          (!isSectionBlocked('recruitment') && can('recruitment.view.team')) ||
+          (isPackEnabled('talent') && !isSectionBlocked('recruitment') && can('recruitment.view.team')) ||
           (NEW_MY_TEAM_IA && (can('approvals.view.team') || can('approvals.approve.team') || can('approvals.manage.all'))),
       },
       {
@@ -194,7 +197,7 @@ export function useNavigation() {
         to: '/employee/attendance-and-leaves',
         title: 'My Attendance & Leaves',
         fontIcon: 'bi-calendar-check',
-        visible: !isSectionBlocked('attendance') && isSubsectionVisible('attendance.personal', hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
+        visible: isPackEnabled('workforce') && !isSectionBlocked('attendance') && isSubsectionVisible('attendance.personal', hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
       },
       {
         type: 'item',
@@ -202,7 +205,7 @@ export function useNavigation() {
         to: '/employees/attendance-and-leaves',
         title: 'Attendance & Leaves',
         fontIcon: 'bi-calendar2-week',
-        visible: !isSectionBlocked('attendance') && isSubsectionVisible('attendance.employees', hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
+        visible: isPackEnabled('workforce') && !isSectionBlocked('attendance') && isSubsectionVisible('attendance.employees', hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
       },
       // Dynamic label, ported from that branch's `overlay()` in useNavigation.ts:
       // the row is named after the root organization ("WISETECH GROUP Team"), not
@@ -257,14 +260,14 @@ export function useNavigation() {
         children: [
           { type: 'item', id: 'tm-overview', to: '/my-team/overview', title: 'Overview', fontIcon: 'bi-grid-1x2', visible: true },
           { type: 'item', id: 'tm-members', to: '/my-team/members', title: 'Members', fontIcon: 'bi-people', visible: true },
-          { type: 'item', id: 'tm-attendance', to: '/my-team/attendance', title: 'Attendance', fontIcon: 'bi-calendar2-week', visible: true },
-          { type: 'item', id: 'tm-leaves', to: '/my-team/leaves', title: 'Leaves', fontIcon: 'bi-calendar-check', visible: true },
+          { type: 'item', id: 'tm-attendance', to: '/my-team/attendance', title: 'Attendance', fontIcon: 'bi-calendar2-week', visible: isPackEnabled('workforce') },
+          { type: 'item', id: 'tm-leaves', to: '/my-team/leaves', title: 'Leaves', fontIcon: 'bi-calendar-check', visible: isPackEnabled('workforce') },
           // Shortcut into Finance's route — Finance owns /finance/reimbursements. See `alias`.
-          { type: 'item', id: 'tm-reimbursements', to: '/finance/reimbursements', title: 'Reimbursements', fontIcon: 'bi-receipt', visible: true, alias: true },
-          { type: 'item', id: 'tm-salary', to: '/my-team/salary', title: 'Salary', fontIcon: 'bi-cash-coin', visible: true },
-          { type: 'item', id: 'tm-tasks', to: '/my-team/tasks', title: 'Tasks', fontIcon: 'bi-check2-square', visible: true },
-          { type: 'item', id: 'tm-projects', to: '/my-team/projects', title: 'Projects', fontIcon: 'bi-briefcase', visible: true },
-          { type: 'item', id: 'tm-leads', to: '/my-team/leads', title: 'Leads', fontIcon: 'bi-megaphone', visible: true },
+          { type: 'item', id: 'tm-reimbursements', to: '/finance/reimbursements', title: 'Reimbursements', fontIcon: 'bi-receipt', visible: isPackEnabled('pay'), alias: true },
+          { type: 'item', id: 'tm-salary', to: '/my-team/salary', title: 'Salary', fontIcon: 'bi-cash-coin', visible: isPackEnabled('pay') },
+          { type: 'item', id: 'tm-tasks', to: '/my-team/tasks', title: 'Tasks', fontIcon: 'bi-check2-square', visible: isPackEnabled('psa') },
+          { type: 'item', id: 'tm-projects', to: '/my-team/projects', title: 'Projects', fontIcon: 'bi-briefcase', visible: isPackEnabled('psa') },
+          { type: 'item', id: 'tm-leads', to: '/my-team/leads', title: 'Leads', fontIcon: 'bi-megaphone', visible: isPackEnabled('psa') },
           { type: 'item', id: 'tm-approvals', to: '/my-team/approvals', title: 'Approvals', fontIcon: 'bi-check2-circle', badgeCount: pendingApprovalsCount, visible: can('approvals.approve.team') },
           { type: 'item', id: 'tm-delegations', to: '/my-team/delegations', title: 'Delegations', fontIcon: 'bi-arrow-left-right', visible: can('approvals.manage.all') },
         ]
@@ -294,7 +297,7 @@ export function useNavigation() {
         to: '/recruitment',
         title: 'Recruitment',
         fontIcon: 'bi-person-badge',
-        visible: !isSectionBlocked('recruitment') && can('recruitment.view.team'),
+        visible: isPackEnabled('talent') && !isSectionBlocked('recruitment') && can('recruitment.view.team'),
       },
       {
         type: 'item',
@@ -302,7 +305,8 @@ export function useNavigation() {
         to: '/employee/report/kpis',
         title: 'KPI',
         fontIcon: 'bi-bar-chart',
-        visible: !isSectionBlocked('reports') && isSubsectionVisible('reports.kpi', hasPermission(uiControlResourceNameMapWithCamelCase.kpiUnderReports, permissionConstToUseWithHasPermission.readOthers)),
+        // HR-first: attendance-derived KPI needs Workforce (not Core-alone).
+        visible: isPackEnabled('workforce') && !isSectionBlocked('reports') && isSubsectionVisible('reports.kpi', hasPermission(uiControlResourceNameMapWithCamelCase.kpiUnderReports, permissionConstToUseWithHasPermission.readOthers)),
       },
       // Finance used to sit here as a collapsible `sub`, which made it a labelled
       // cluster inside the HR & People workspace. It is its own application now —
@@ -314,7 +318,7 @@ export function useNavigation() {
         type: 'section',
         id: 'crm-section',
         title: 'CRM',
-        visible: !isSectionBlocked('crm.leads') || !isSectionBlocked('crm.companies') || !isSectionBlocked('crm.contacts'),
+        visible: isPackEnabled('psa') && (!isSectionBlocked('crm.leads') || !isSectionBlocked('crm.companies') || !isSectionBlocked('crm.contacts')),
       },
       {
         type: 'item',
@@ -322,7 +326,7 @@ export function useNavigation() {
         to: '/leads',
         title: 'Leads',
         fontIcon: 'bi-megaphone',
-        visible: !isSectionBlocked('crm.leads'),
+        visible: isPackEnabled('psa') && !isSectionBlocked('crm.leads'),
       },
       {
         type: 'item',
@@ -330,7 +334,7 @@ export function useNavigation() {
         to: '/companies',
         title: 'Companies',
         fontIcon: 'bi-building',
-        visible: !isSectionBlocked('crm.companies'),
+        visible: isPackEnabled('psa') && !isSectionBlocked('crm.companies'),
       },
       {
         type: 'item',
@@ -338,7 +342,7 @@ export function useNavigation() {
         to: '/contacts',
         title: 'Contacts',
         fontIcon: 'bi-person-lines-fill',
-        visible: !isSectionBlocked('crm.contacts'),
+        visible: isPackEnabled('psa') && !isSectionBlocked('crm.contacts'),
       },
 
       // ── Project Department ────────────────────────────────────────────────
@@ -350,7 +354,7 @@ export function useNavigation() {
         type: 'section',
         id: 'projects-section',
         title: 'Project Department',
-        visible: !isSectionBlocked('projects') || !isSectionBlocked('tasks') || !isSectionBlocked('timesheets'),
+        visible: isPackEnabled('psa') && (!isSectionBlocked('projects') || !isSectionBlocked('tasks') || !isSectionBlocked('timesheets')),
       },
       {
         type: 'item',
@@ -358,7 +362,7 @@ export function useNavigation() {
         to: '/projects',
         title: 'Projects',
         fontIcon: 'bi-briefcase',
-        visible: !isSectionBlocked('projects'),
+        visible: isPackEnabled('psa') && !isSectionBlocked('projects'),
       },
       {
         type: 'item',
@@ -366,7 +370,7 @@ export function useNavigation() {
         to: '/tasks',
         title: 'Tasks',
         fontIcon: 'bi-check2-square',
-        visible: !isSectionBlocked('tasks'),
+        visible: isPackEnabled('psa') && !isSectionBlocked('tasks'),
       },
       // The "TimeSheet" wrapper group is flattened away — both timesheets are
       // top-level rows in NAV_CONFIG.
@@ -376,7 +380,7 @@ export function useNavigation() {
         to: '/tasks/timesheet',
         title: 'My Timesheet',
         fontIcon: 'bi-clock-history',
-        visible: !isSectionBlocked('timesheets') && isSubsectionVisible('timesheets.my', hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
+        visible: isPackEnabled('psa') && !isSectionBlocked('timesheets') && isSubsectionVisible('timesheets.my', hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
       },
       {
         type: 'item',
@@ -384,7 +388,7 @@ export function useNavigation() {
         to: '/tasks/employee-timesheet',
         title: 'Employees Timesheet',
         fontIcon: 'bi-clipboard-data',
-        visible: !isSectionBlocked('timesheets') && isSubsectionVisible('timesheets.employees', hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
+        visible: isPackEnabled('psa') && !isSectionBlocked('timesheets') && isSubsectionVisible('timesheets.employees', hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
       },
 
       // ── Purchase Department ────────────────────────────────────────────────
@@ -402,7 +406,7 @@ export function useNavigation() {
         type: 'section',
         id: 'purchase-section',
         title: 'Purchase Department',
-        visible: true,
+        visible: isPackEnabled('psa'),
         allowEmpty: true,
       },
 
@@ -425,7 +429,9 @@ export function useNavigation() {
         title: 'Finance/Account Department',
         // Billing has its own permission section, so the header must survive a user
         // who has Billing but not the rest of Finance.
-        visible: !isSectionBlocked('finance') || !isSectionBlocked('billing'),
+        visible:
+          (isPackEnabled('pay') && !isSectionBlocked('finance')) ||
+          (isPackEnabled('psa') && !isSectionBlocked('billing')),
       },
       // Billing — a top-level ERP module in its own right, NOT a project sub-page.
       // A single flat entry by design: the module's own header tabs handle everything
@@ -438,7 +444,7 @@ export function useNavigation() {
         // Not `bi-receipt` — Reimbursements owns that; the long-receipt variant keeps
         // the two Finance rows distinguishable at a glance.
         fontIcon: 'bi-receipt-cutoff',
-        visible: !isSectionBlocked('billing'),
+        visible: isPackEnabled('psa') && !isSectionBlocked('billing'),
       },
       // As `sub` children these rows carried no icon of their own and inherited the
       // group's glyph, which ModuleGrid does for cluster children only. Top-level
@@ -450,7 +456,7 @@ export function useNavigation() {
         to: '/finance/reimbursements',
         title: 'Reimbursements',
         fontIcon: 'bi-receipt',
-        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.reimbursements', hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+        visible: isPackEnabled('pay') && !isSectionBlocked('finance') && isSubsectionVisible('finance.reimbursements', hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
       },
       {
         type: 'item',
@@ -458,7 +464,7 @@ export function useNavigation() {
         to: '/finance/salary',
         title: 'Salary',
         fontIcon: 'bi-cash-coin',
-        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.salary', hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+        visible: isPackEnabled('pay') && !isSectionBlocked('finance') && isSubsectionVisible('finance.salary', hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
       },
       {
         type: 'item',
@@ -466,7 +472,7 @@ export function useNavigation() {
         to: '/finance/increment',
         title: 'Increment',
         fontIcon: 'bi-graph-up-arrow',
-        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.increment', hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+        visible: isPackEnabled('pay') && !isSectionBlocked('finance') && isSubsectionVisible('finance.increment', hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
       },
             {
         type: 'item',
@@ -474,7 +480,7 @@ export function useNavigation() {
         to: '/finance/loans',
         title: 'Loans',
         fontIcon: 'bi-cash-stack',
-        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.loans', hasPermission(uiControlResourceNameMapWithCamelCase.loanUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+        visible: isPackEnabled('pay') && !isSectionBlocked('finance') && isSubsectionVisible('finance.loans', hasPermission(uiControlResourceNameMapWithCamelCase.loanUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
       },
 
       // ── Organization ──────────────────────────────────────────────────────
@@ -558,6 +564,15 @@ export function useNavigation() {
       },
       {
         type: 'item',
+        id: 'admin-tenant-modules',
+        to: '/admin/app-settings?area=tenant-modules',
+        title: 'Tenant modules',
+        fontIcon: 'bi-boxes',
+        // Commercial packs — platform Super Admin only (not tenant Admin self-serve).
+        visible: tier === 'SUPER_ADMIN',
+      },
+      {
+        type: 'item',
         id: 'admin-app-settings',
         to: '/admin/app-settings',
         title: 'Settings',
@@ -567,7 +582,7 @@ export function useNavigation() {
     ];
 
     return items;
-  }, [intl, inboxCount, pendingApprovalsCount, capabilities, orgName, tier]);
+  }, [intl, inboxCount, pendingApprovalsCount, capabilities, packs, orgName, tier]);
 
   return menu;
 }

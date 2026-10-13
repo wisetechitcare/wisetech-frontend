@@ -25,12 +25,15 @@ import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 import { canViewCommercial } from '@utils/can';
 
+/** Formik setFieldValue — named so LeadSections / LeadWorkspace props stay readable. */
+export type LeadSetFieldValue = (field: string, value: any, shouldValidate?: boolean) => void;
+
 interface LeadSectionsProps {
   // ── Organization (drives the lead's prefix and inquiry-number series) ──────
   /** Organizations the user may file this lead under, as `{ value, label }`. */
   organizationOptions?: { value: string; label: string }[];
   /** Switch organizations; re-numbers the lead (confirming first if hand-edited). */
-  onOrganizationChange?: (organizationId: string, setFieldValue: Function) => void;
+  onOrganizationChange?: (organizationId: string, setFieldValue: LeadSetFieldValue) => void;
   /** Why no inquiry number could be generated, if that happened. */
   prefixError?: string | null;
   /** Fired when the inquiry number is edited by hand. */
@@ -66,17 +69,17 @@ interface LeadSectionsProps {
   setShowCompanyTypeModal: (show: boolean) => void;
 
   // address handlers
-  handleAddressCountryChange: (index: number, countryId: string, setFieldValue: Function) => void;
-  handleAddressStateChange: (index: number, stateId: string, countryId: string, setFieldValue: Function) => void;
+  handleAddressCountryChange: (index: number, countryId: string, setFieldValue: LeadSetFieldValue) => void;
+  handleAddressStateChange: (index: number, stateId: string, countryId: string, setFieldValue: LeadSetFieldValue) => void;
 
   // team filtering logic
   teamFilteredCompanies: any;
   teamFilteredSubCompanies: any;
-  handleCompanyTypeChange: (index: number, typeId: string, setFieldValue: Function) => void;
-  handleCompanyChange: (index: number, companyId: string, setFieldValue: Function) => void;
-  handleSubCompanyChange: (index: number, subCompanyId: string, companyId: string, setFieldValue: Function) => void;
+  handleCompanyTypeChange: (index: number, typeId: string, setFieldValue: LeadSetFieldValue) => void;
+  handleCompanyChange: (index: number, companyId: string, setFieldValue: LeadSetFieldValue) => void;
+  handleSubCompanyChange: (index: number, subCompanyId: string, companyId: string, setFieldValue: LeadSetFieldValue) => void;
   // Reverse cascade: selecting a Contact Person back-fills Company Type / Company / Sub Company.
-  handleContactChange: (index: number, contactId: string, setFieldValue: Function) => void;
+  handleContactChange: (index: number, contactId: string, setFieldValue: LeadSetFieldValue) => void;
   teamFilteredContacts: any;
 
   // other options
@@ -172,6 +175,7 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
             options={transformToOptions(props.services)}
             placeholder="Select services..."
             isRequired={false}
+            externalCreate
             onCreate={async () => {
               props.setShowServiceModal(true);
             }}
@@ -184,6 +188,7 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
             options={transformToOptions(props.categories)}
             placeholder="Select categories..."
             isRequired={false}
+            externalCreate
             onCreate={async () => {
               props.setShowCategoryModal(true);
             }}
@@ -196,6 +201,7 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
             options={transformToOptions(props.subcategories)}
             placeholder="Select subcategories..."
             isRequired={false}
+            externalCreate
             onCreate={async () => {
               props.setShowSubcategoryModal(true);
             }}
@@ -1669,6 +1675,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
             options={transformToOptions(props.services)}
             placeholder="Select services…"
             isRequired={false}
+            externalCreate
             onCreate={async () => props.setShowServiceModal(true)}
           />
         </Grid>
@@ -1679,6 +1686,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
             options={transformToOptions(props.categories)}
             placeholder="Select categories…"
             isRequired={false}
+            externalCreate
             onCreate={async () => props.setShowCategoryModal(true)}
           />
         </Grid>
@@ -1689,6 +1697,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
             options={transformToOptions(props.subcategories)}
             placeholder="Select subcategories…"
             isRequired={false}
+            externalCreate
             onCreate={async () => props.setShowSubcategoryModal(true)}
           />
         </Grid>

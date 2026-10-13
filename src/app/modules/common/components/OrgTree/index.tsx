@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Box, Stack, Typography, alpha, keyframes } from '@mui/material';
 import { IOrgNode, IOrgBranchNode } from '@models/company';
-import { IconBuilding, IconHierarchy, IconBranch, IconEdit, IconTrash, IconChevron } from '@app/modules/common/components/icons/OrgIcons';
+import { IconBuilding, IconHierarchy, IconBranch, IconEdit, IconTrash, IconChevron, IconUsers } from '@app/modules/common/components/icons/OrgIcons';
 import SmartAvatar from '@app/modules/common/components/SmartAvatar';
 import { WtTooltip } from '@app/modules/common/components/ui';
 
@@ -157,8 +157,27 @@ function BranchRow({ branch, org, depth, guides, last, order, onSelect, onViewEm
   branch: IOrgBranchNode; org: IOrgNode; depth: number; guides: boolean[]; last: boolean; order: number;
   onSelect?: (b: IOrgBranchNode, o: IOrgNode) => void; onViewEmployees?: (b: IOrgBranchNode) => void;
 }) {
+  const clickable = Boolean(onSelect);
+  const openBranch = () => onSelect?.(branch, org);
   return (
-    <Box onClick={() => onSelect?.(branch, org)} sx={{ ...rowSx(order), minHeight: 48, cursor: onSelect ? 'pointer' : 'default' }}>
+    <Box
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      aria-label={clickable ? `Open branch ${branch.name}` : undefined}
+      onClick={clickable ? openBranch : undefined}
+      onKeyDown={clickable ? (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openBranch(); }
+      } : undefined}
+      sx={{
+        ...rowSx(order),
+        minHeight: 48,
+        cursor: clickable ? 'pointer' : 'default',
+        ...(clickable && {
+          '&:hover': { bgcolor: alpha(ORG_TONES.branches, 0.06) },
+          '&:focus-visible': { outline: 2, outlineColor: ORG_TONES.branches, outlineOffset: -2 },
+        }),
+      }}
+    >
       <Guides guides={guides} last={last} tone={ORG_TONES.branches} />
       <Stack direction="row" alignItems="center" gap={1.25} sx={{ pl: `${nameInset(depth)}px`, minWidth: 0 }}>
         <Box sx={{ width: 28, height: 28, borderRadius: '8px', flexShrink: 0, display: 'grid', placeItems: 'center', color: ORG_TONES.branches, bgcolor: alpha(ORG_TONES.branches, 0.1) }}>
@@ -167,6 +186,9 @@ function BranchRow({ branch, org, depth, guides, last, order, onSelect, onViewEm
         <Box sx={{ minWidth: 0 }}>
           <Stack direction="row" alignItems="center" gap={0.75}>
             <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 600 }}>{branch.name}</Typography>
+            <Typography component="span" sx={{ fontSize: 10.5, fontWeight: 700, color: ORG_TONES.branches, bgcolor: alpha(ORG_TONES.branches, 0.1), borderRadius: 99, px: 0.9, py: 0.1, flexShrink: 0 }}>
+              Branch
+            </Typography>
             {branch.isActive === false && (
               <Typography component="span" sx={{ fontSize: 10.5, fontWeight: 700, color: 'text.disabled', border: 1, borderColor: 'divider', borderRadius: 99, px: 0.75 }}>Inactive</Typography>
             )}
@@ -182,7 +204,29 @@ function BranchRow({ branch, org, depth, guides, last, order, onSelect, onViewEm
         onClick={onViewEmployees ? () => onViewEmployees(branch) : undefined}
         title={onViewEmployees ? 'View employees in this branch' : undefined}
       />
-      <Box sx={{ display: { xs: 'none', md: 'block' } }} />
+      {(clickable || onViewEmployees) ? (
+        <Stack
+          direction="row"
+          gap={0.75}
+          justifyContent="flex-end"
+          className="org-actions"
+          sx={{
+            gridColumn: { xs: 'span 2', md: 'auto' }, pb: { xs: 1, md: 0 },
+            opacity: { xs: 1, md: 0 }, transform: { md: 'translateX(4px)' },
+            transition: 'opacity .18s ease, transform .18s ease',
+            [REDUCED]: { transition: 'none' },
+          }}
+        >
+          {onViewEmployees && (
+            <ActionBtn title="View employees" onClick={() => onViewEmployees(branch)}><IconUsers size={14} /></ActionBtn>
+          )}
+          {clickable && (
+            <ActionBtn title="Open branch" onClick={openBranch}><IconEdit size={14} /></ActionBtn>
+          )}
+        </Stack>
+      ) : (
+        <Box sx={{ display: { xs: 'none', md: 'block' } }} />
+      )}
     </Box>
   );
 }

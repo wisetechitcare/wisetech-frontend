@@ -9,8 +9,7 @@ import { DEDUCTIONS } from "@constants/configurations-key";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import TextInput from "@app/modules/common/inputs/TextInput";
-import DropdownInput from "@app/modules/common/inputs/DropdownInput";
-import { WtSwitch } from "@app/modules/common/components/ui";
+import { WtFieldFormik, WtSwitch } from "@app/modules/common/components/ui";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { currencyPrefix } from '@utils/currency';
 
@@ -821,14 +820,14 @@ function DeductionRules() {
                   <div className="row mb-4 align-items-center">
                     <div className="col-2" style={styles.labelCol}>Last Month</div>
                     <div className="col-4">
-                      <DropdownInput
-                        formikField="male.lastMonth.month"
-                        inputLabel=""
-                        options={monthOptions}
-                        isRequired={true}
+                      <WtFieldFormik
+                        name="male.lastMonth.month"
+                        ariaLabel="Male last month"
+                        options={monthOptions.map((o) => ({ label: o.label, value: String(o.value) }))}
+                        required
                         placeholder="Select Month"
-                        value={monthOptions.find(opt => opt.value === values.male.lastMonth.month)}
-                        onChange={(option) => setFieldValue("male.lastMonth.month", option.value)}
+                        disableAlphabeticalSort
+                        onValueChange={(v) => setFieldValue('male.lastMonth.month', v === '' ? '' : Number(v))}
                       />
                     </div>
                     <div className="col-4">
@@ -916,14 +915,14 @@ function DeductionRules() {
                   <div className="row mb-4 align-items-center">
                     <div className="col-2" style={styles.labelCol}>Last Month</div>
                     <div className="col-4">
-                      <DropdownInput
-                        formikField="female.lastMonth.month"
-                        inputLabel=""
-                        options={monthOptions}
-                        isRequired={true}
+                      <WtFieldFormik
+                        name="female.lastMonth.month"
+                        ariaLabel="Female last month"
+                        options={monthOptions.map((o) => ({ label: o.label, value: String(o.value) }))}
+                        required
                         placeholder="Select Month"
-                        value={monthOptions.find(opt => opt.value === values.female.lastMonth.month)}
-                        onChange={(option) => setFieldValue("female.lastMonth.month", option.value)}
+                        disableAlphabeticalSort
+                        onValueChange={(v) => setFieldValue('female.lastMonth.month', v === '' ? '' : Number(v))}
                       />
                     </div>
                     <div className="col-4">

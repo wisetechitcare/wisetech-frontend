@@ -3,7 +3,7 @@ import { Box, Button, MenuItem, Stack, TextField, Typography } from "@mui/materi
 import { KTIcon } from "@metronic/helpers";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { getTaskList, getAllTasksWithMetrics, getAvailableProjects, deleteTask } from "@services/tasks";
-import { OverlayTrigger, Tooltip } from "react-bootstrap";
+import { WtTooltip } from "@app/modules/common/components/ui";
 import dayjs from "dayjs";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
@@ -137,26 +137,19 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
         const taskName = row?.original?.taskName || "N/A";
 
         return (
-          <OverlayTrigger
-            placement="top"
-            overlay={
-              <Tooltip id={`tooltip-taskname-${row?.original?.id}`}>
-                {taskName}
-              </Tooltip>
-            }
-          >
+          <WtTooltip title={taskName}>
             <div
               style={{
                 maxWidth: '200px',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               {taskName}
             </div>
-          </OverlayTrigger>
+          </WtTooltip>
         );
       },
     },
@@ -167,26 +160,19 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
         const taskDescription = row?.original?.taskDescription || "N/A";
 
         return (
-          <OverlayTrigger
-            placement="top"
-            overlay={
-              <Tooltip id={`tooltip-description-${row?.original?.id}`}>
-                {taskDescription}
-              </Tooltip>
-            }
-          >
+          <WtTooltip title={taskDescription}>
             <div
               style={{
                 maxWidth: '250px',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               {taskDescription}
             </div>
-          </OverlayTrigger>
+          </WtTooltip>
         );
       },
     },

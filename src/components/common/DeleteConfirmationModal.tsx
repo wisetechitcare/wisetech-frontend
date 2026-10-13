@@ -1,5 +1,15 @@
-import React, { useState } from 'react';
-import { Modal, Button, Form, Alert } from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import { Box, Stack } from '@mui/material';
+import {
+    GlassDialog,
+    InlineHint,
+    InlineNotice,
+    PlainDialogHeader,
+    TRIO,
+    WtButton,
+    WtField,
+    WtSwitchField,
+} from '@app/modules/common/components/ui';
 import { DropdownOption } from '../../types/deleteConfirmation';
 
 export interface DeleteConfirmationModalProps {
@@ -14,6 +24,11 @@ export interface DeleteConfirmationModalProps {
     transferDescription?: string;
 }
 
+/**
+ * Destructive delete with optional reassign-before-delete.
+ * Kit surface: GlassDialog + WtField / WtSwitchField — not Bootstrap Modal.
+ * Prefer plain `confirmDialog` when there is no transfer UI.
+ */
 const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
     visible,
     onCancel,
@@ -23,28 +38,34 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
     dropdownOptions = [],
     loading = false,
     showTransferOption = true,
-    transferDescription
+    transferDescription,
 }) => {
     const [showTransfer, setShowTransfer] = useState(false);
-    const [selectedTargetId, setSelectedTargetId] = useState<string>('');
+    const [selectedTargetId, setSelectedTargetId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const entityLabel = entityName.toLowerCase();
+
+    useEffect(() => {
+        if (!visible) {
+            setShowTransfer(false);
+            setSelectedTargetId('');
+            setIsSubmitting(false);
+        }
+    }, [visible]);
 
     const handleTransferChange = (checked: boolean) => {
         setShowTransfer(checked);
-        if (!checked) {
-            setSelectedTargetId('');
-        }
+        if (!checked) setSelectedTargetId('');
     };
 
     const handleConfirm = async () => {
-        if (showTransfer && !selectedTargetId) {
-            return; // Don't proceed if transfer is selected but no target chosen
-        }
+        if (showTransfer && !selectedTargetId) return;
 
         setIsSubmitting(true);
         try {
             await onConfirm(showTransfer ? selectedTargetId : undefined);
-            onCancel(); // Close modal on success
+            onCancel();
         } catch (error) {
             console.error('Delete failed:', error);
         } finally {
@@ -54,114 +75,98 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
 
     const isConfirmDisabled = loading || isSubmitting || (showTransfer && !selectedTargetId);
 
+    const transferOptions = dropdownOptions.map((o) => ({
+        value: o.key,
+        label: o.value,
+    }));
+
     return (
-        <Modal
-            show={visible}
-            onHide={onCancel}
-            centered
-            backdrop="static"
-            keyboard={false}
+        <GlassDialog
+            open={visible}
+            onClose={() => {
+                if (!isSubmitting) onCancel();
+            }}
+            maxWidth="sm"
+            plain
+            disableEscapeKeyDown={isSubmitting}
+            header={
+                <PlainDialogHeader
+                    title="Confirm delete"
+                    subtitle={`Remove this ${entityLabel}`}
+                    onClose={isSubmitting ? undefined : onCancel}
+                />
+            }
         >
-            <Modal.Header closeButton>
-                <Modal.Title>
-                    ⚠️ Confirm Delete
-                </Modal.Title>
-            </Modal.Header>
+            <Box sx={{ px: { xs: 2, sm: 3 }, py: 2 }}>
+                <Stack spacing={2.5}>
+                    <InlineNotice trio={TRIO.amber} icon="information-5" role="alert">
+                        Are you sure you want to delete &ldquo;{entityDisplayName}&rdquo;? This action cannot be undone.
+                    </InlineNotice>
 
-            <Modal.Body>
-                <div className="alert alert-warning" role="alert">
-                    <strong>Warning!</strong> Are you sure you want to delete "{entityDisplayName}"? This action cannot be undone.
-                </div>
-
-                {showTransferOption && dropdownOptions.length > 0 && (
-                    <Form>
-                        <Form.Group className="mb-3">
-                            <Form.Check
-                                type="checkbox"
-                                id="transfer-checkbox"
-                                label={`Transfer existing data to another ${entityName.toLowerCase()}`}
+                    {showTransferOption && dropdownOptions.length > 0 && (
+                        <Stack spacing={2}>
+                            <WtSwitchField
+                                title={`Transfer existing data to another ${entityLabel}`}
                                 checked={showTransfer}
                                 onChange={(e) => handleTransferChange(e.target.checked)}
+                                disabled={isSubmitting}
+                                size="sm"
                             />
-                        </Form.Group>
 
-                        {showTransfer && (
-                            <>
-                                <div className="mb-3">
-                                    <small className="text-muted">
-                                        {transferDescription}
-                                    </small>
-                                </div>
-
-                                <Form.Group className="mb-3">
-                                    <Form.Label>Select target {entityName.toLowerCase()} *</Form.Label>
-                                    <Form.Select
-                                        value={selectedTargetId}
-                                        onChange={(e) => setSelectedTargetId(e.target.value)}
+                            {showTransfer && (
+                                <Stack spacing={1.25}>
+                                    {transferDescription ? (
+                                        <InlineHint>{transferDescription}</InlineHint>
+                                    ) : null}
+                                    <WtField
+                                        label={`Target ${entityLabel}`}
                                         required
-                                    >
-                                        <option value="">Choose a {entityName.toLowerCase()} to transfer data to</option>
-                                        {dropdownOptions.map(option => (
-                                            <option key={option.key} value={option.key}>
-                                                {option.value}
-                                            </option>
-                                        ))}
-                                    </Form.Select>
-                                </Form.Group>
+                                        options={transferOptions}
+                                        value={selectedTargetId}
+                                        onChange={(v) => {
+                                            if (typeof v === 'string') setSelectedTargetId(v);
+                                        }}
+                                        placeholder={`Choose a ${entityLabel} to transfer data to`}
+                                        disabled={isSubmitting}
+                                        searchable={transferOptions.length > 8}
+                                    />
+                                    {!selectedTargetId ? (
+                                        <InlineHint>
+                                            Select a target before deleting.
+                                        </InlineHint>
+                                    ) : null}
+                                </Stack>
+                            )}
+                        </Stack>
+                    )}
 
-                                <div className="mb-3">
-                                    <small className="text-muted">
-                                        Please select a target before proceeding with deletion.
-                                    </small>
-                                </div>
-                            </>
-                        )}
-                    </Form>
-                )}
+                    {showTransferOption && dropdownOptions.length === 0 && (
+                        <InlineNotice trio={TRIO.blue} icon="information-2">
+                            No other {entityLabel}s are available to transfer data to. This {entityLabel} will be deleted directly.
+                        </InlineNotice>
+                    )}
 
-                {showTransferOption && dropdownOptions.length === 0 && (
-                    <div className="alert alert-info" role="alert">
-                        <strong>No Transfer Options Available</strong><br />
-                        There are no other {entityName.toLowerCase()}s available to transfer data to. The {entityName.toLowerCase()} will be deleted directly.
-                    </div>
-                )}
+                    {!showTransferOption && (
+                        <InlineNotice trio={TRIO.blue} icon="information-2">
+                            This {entityLabel} will be deleted directly without transferring data.
+                        </InlineNotice>
+                    )}
 
-                {!showTransferOption && (
-                    <div className="alert alert-info" role="alert">
-                        <strong>Direct Deletion</strong><br />
-                        The {entityName.toLowerCase()} will be deleted directly without transferring data.
-                    </div>
-                )}
-            </Modal.Body>
-
-            <Modal.Footer className="d-flex justify-content-end gap-2">
-                <Button 
-                    variant="outline-secondary" 
-                    onClick={onCancel} 
-                    disabled={isSubmitting}
-                    style={{
-                        minWidth: '80px',
-                        fontWeight: '500',
-                        border: '1px solid black',
-                        
-                    }}
-                >
-                    Cancel
-                </Button>
-                <Button
-                    variant="danger"
-                    onClick={handleConfirm}
-                    disabled={isConfirmDisabled}
-                    style={{
-                        minWidth: '80px',
-                        fontWeight: '500',
-                        
-                    }}
-                >
-                    {isSubmitting ? 'Deleting...' : 'Delete'}
-                </Button>
-            </Modal.Footer>
-        </Modal>
+                    <Stack direction="row" justifyContent="flex-end" spacing={1.25}>
+                        <WtButton inverted onClick={onCancel} disabled={isSubmitting}>
+                            Cancel
+                        </WtButton>
+                        <WtButton
+                            tone="danger"
+                            onClick={() => { void handleConfirm(); }}
+                            disabled={isConfirmDisabled}
+                        >
+                            {isSubmitting ? 'Deleting…' : 'Delete'}
+                        </WtButton>
+                    </Stack>
+                </Stack>
+            </Box>
+        </GlassDialog>
     );
 };
 
