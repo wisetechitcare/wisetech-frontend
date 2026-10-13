@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   DialogContent, DialogActions,
-  Tooltip, TextField, MenuItem,
+  Tooltip, TextField,
   Checkbox, FormControlLabel, CircularProgress, Box, Stack, Typography, Chip,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
@@ -29,7 +29,7 @@ import { safeJsonParse } from "@utils/safeJson";
 // Shared UI kit (single import surface): tokens, CTA/icon buttons, and the reusable
 // glassmorphism primitives (GlassSurface / GlassDialog / GlassHeader) — see ui/index.ts.
 import {
-  T, WtButton, WtIconButton, WtSwitch, GlassSurface, GlassDialog, GlassHeader,
+  T, WtButton, WtIconButton, WtSwitch, WtField, GlassSurface, GlassDialog, GlassHeader,
   TRIO, EASE_200, SHADOW_REST, SHADOW_HOVER, IconBox, StatusBadge, StatTile,
   type Trio,
 } from "@app/modules/common/components/ui";
@@ -418,11 +418,16 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
               <TextField label="Rule Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Diwali Bridge" fullWidth size="small" />
               <TextField label="Description (Optional)" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this rule for?" fullWidth size="small" multiline minRows={2} />
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 2 }}>
-                <TextField select label="Category" value={category} onChange={(e) => setCategory(e.target.value as any)} size="small">
-                  <MenuItem value="custom">Custom</MenuItem>
-                  <MenuItem value="holiday-bridge">Holiday-Bridge</MenuItem>
-                  <MenuItem value="weekend-bridge">Weekend-Bridge</MenuItem>
-                </TextField>
+                <WtField
+                  label="Category"
+                  value={category}
+                  onChange={(v) => setCategory(v as any)}
+                  options={[
+                    { value: 'custom', label: 'Custom' },
+                    { value: 'holiday-bridge', label: 'Holiday-Bridge' },
+                    { value: 'weekend-bridge', label: 'Weekend-Bridge' },
+                  ]}
+                />
                 {/* Exact run length, OR toggle "Any" to match a bridge of any length (catch-all).
                     The label is short because this field is half-width at sm and the toggle sits
                     beside it — "Interior off-day run length" could not fit and collided with the
@@ -444,11 +449,16 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
                   </Tooltip>
                 </Box>
               </Box>
-              <TextField select label="Interior Days Must Be" value={pattern.interiorDayType ?? 'any'} onChange={(e) => set({ interiorDayType: e.target.value as any })} size="small" fullWidth>
-                <MenuItem value="any">Holiday or Weekend (either)</MenuItem>
-                <MenuItem value="holiday">Holiday only (not a weekend)</MenuItem>
-                <MenuItem value="weekend">Weekend only (branch off-day)</MenuItem>
-              </TextField>
+              <WtField
+                label="Interior Days Must Be"
+                value={pattern.interiorDayType ?? 'any'}
+                onChange={(v) => set({ interiorDayType: v as any })}
+                options={[
+                  { value: 'any', label: 'Holiday or Weekend (either)' },
+                  { value: 'holiday', label: 'Holiday only (not a weekend)' },
+                  { value: 'weekend', label: 'Weekend only (branch off-day)' },
+                ]}
+              />
             </Stack>
           </GlassSurface>
 
@@ -458,11 +468,16 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
               <FormControlLabel sx={controlLabelSx} control={<WtSwitch size="sm" checked={pattern.leadingRequired} onChange={(e) => set({ leadingRequired: e.target.checked })} />} label="Leading Leave Day Required?" />
               {pattern.leadingRequired && (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 1.5, alignItems: 'center' }}>
-                  <TextField select label="Leading Day Must Be" value={pattern.leadingPaidCondition} onChange={(e) => set({ leadingPaidCondition: e.target.value as any })} size="small">
-                    <MenuItem value="any">Paid or Unpaid</MenuItem>
-                    <MenuItem value="paid">Paid only</MenuItem>
-                    <MenuItem value="unpaid">Unpaid only</MenuItem>
-                  </TextField>
+                  <WtField
+                    label="Leading Day Must Be"
+                    value={pattern.leadingPaidCondition}
+                    onChange={(v) => set({ leadingPaidCondition: v as any })}
+                    options={[
+                      { value: 'any', label: 'Paid or Unpaid' },
+                      { value: 'paid', label: 'Paid only' },
+                      { value: 'unpaid', label: 'Unpaid only' },
+                    ]}
+                  />
                   <FormControlLabel sx={controlLabelSx} control={<Checkbox size="small" checked={pattern.excludeLeadingDayFromSalary} onChange={(e) => set({ excludeLeadingDayFromSalary: e.target.checked })} />} label="Exclude leading day from salary when paid" />
                 </Box>
               )}
@@ -475,11 +490,16 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
               <FormControlLabel sx={controlLabelSx} control={<WtSwitch size="sm" checked={pattern.trailingRequired} onChange={(e) => set({ trailingRequired: e.target.checked })} />} label="Trailing Leave Day Required?" />
               {pattern.trailingRequired && (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 1.5, alignItems: 'center' }}>
-                  <TextField select label="Trailing Day Must Be" value={pattern.trailingPaidCondition} onChange={(e) => set({ trailingPaidCondition: e.target.value as any })} size="small">
-                    <MenuItem value="any">Paid or Unpaid</MenuItem>
-                    <MenuItem value="paid">Paid only</MenuItem>
-                    <MenuItem value="unpaid">Unpaid only</MenuItem>
-                  </TextField>
+                  <WtField
+                    label="Trailing Day Must Be"
+                    value={pattern.trailingPaidCondition}
+                    onChange={(v) => set({ trailingPaidCondition: v as any })}
+                    options={[
+                      { value: 'any', label: 'Paid or Unpaid' },
+                      { value: 'paid', label: 'Paid only' },
+                      { value: 'unpaid', label: 'Unpaid only' },
+                    ]}
+                  />
                   <FormControlLabel sx={controlLabelSx} control={<Checkbox size="small" checked={pattern.excludeTrailingDayFromSalary} onChange={(e) => set({ excludeTrailingDayFromSalary: e.target.checked })} />} label="Exclude trailing day from salary when paid" />
                 </Box>
               )}

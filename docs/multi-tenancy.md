@@ -1,25 +1,62 @@
-# WiseTech multi-tenancy (frontend)
+﻿# Frontend multi-tenancy checklist
 
-Backend is the authority: [`wisetech-backend/docs/multi-tenancy.md`](../../wisetech-backend/docs/multi-tenancy.md).
+**Last updated:** 2026-10-07  
+**Companion (authority):** [`wisetech-backend/docs/multi-tenancy.md`](../../wisetech-backend/docs/multi-tenancy.md)  
+**Industry context (local):** `summary/architecture/MULTI_TENANCY_INDUSTRY.md`
 
-## What the FE owns
+The UI is **not** the security boundary. The API enforces org-family scope. The frontendΓÇÖs job is to **never invite** forged `companyId` / `employeeId` values and to reuse the shared org-scope patterns already in the tree.
 
-| Concern | Do this |
-|---------|---------|
-| Org filter UI | `useOrgScope` from `@hooks/useOrgScope` |
-| API `companyId` param | `toCompanyIdParam(scopeId)` — `'All'` / `ALL_ORGS` → omit param (whole family) |
-| Options source | Company overview / session-backed list — not a free-typed UUID |
-| Tables & lists | Pass scope through the existing service methods; do not invent parallel org fetchers |
+---
 
-## What the FE must never do
+## Model (same as backend)
 
-- Treat a query-string or form `companyId` as proof of access.
-- Hardcode another root org’s id to browse “Tenant B.”
-- Re-derive org trees per feature when `useOrgScope` already covers it (kit README: org filter data → `useOrgScope`).
+| Concept | FE meaning |
+|---------|------------|
+| Org family | Orgs returned by company overview / session ΓÇö WISETECH GROUP + children |
+| `companyId` on HRMS APIs | Always an **Organization** id from that family (or omit = whole family) |
+| CRM ΓÇ£companyΓÇ¥ | Client company in leads/contacts ΓÇö **different id space**; never use as HRMS tenant |
 
-## Checklist for a new company-scoped screen
+---
 
-1. Drop in `useOrgScope` (include `ALL_ORGS` only if the API supports family-wide reads).
-2. Wire `toCompanyIdParam` into the list/detail service call.
-3. Confirm the backend route uses `resolveTenantScope` / `resolveWriteCompanyId` (or equivalent) — FE alone is insufficient.
-4. Prefer kit dropdowns (`WtField` / toolbar filters) for the control chrome.
+## Canonical reuse (do not reinvent)
+
+| Need | Use |
+|------|-----|
+| Org filter / picker for company-scoped screens | `useOrgScope` + `toCompanyIdParam` / `ALL_ORGS` ΓÇö [`src/hooks/useOrgScope.ts`](../src/hooks/useOrgScope.ts) |
+| Current org display / logo / date format | Redux `company.currentCompany` (filled from overview) ΓÇö do not invent a parallel store |
+| Employee lists for pickers | Existing employee services that hit family-scoped APIs ΓÇö do not load ΓÇ£all employeesΓÇ¥ via a raw unscoped call |
+
+Examples already in tree: FAQs board, recruitment main, prefix settings, lead org dialogs.
+
+---
+
+## Rules for new / edited screens
+
+1. **Org-scoped GETs** ΓÇö Prefer `toCompanyIdParam(scopeId)` so `'All'` omits `companyId` (backend = whole family). Never invent a UUID the user did not pick from `useOrgScope` options.
+2. **Employee-scoped GETs** ΓÇö Pass `employeeId` only from: self (`currentUser`), a row returned by a family-scoped list, or a manager/HR picker fed by those lists. Never from free-typed UUIDs or another tenantΓÇÖs deep link without a 403 path.
+3. **CRM vs org** ΓÇö `useCompanyHierarchy` / client companies are for **clients**, not employer tenancy. Do not send a CRM `companyId` to HRMS options/salary/leave endpoints.
+4. **Realtime** ΓÇö Ignore socket events for another org when `useRealtimeSync` (or equivalent) already filters on `currentCompany`; do not broaden.
+5. **Errors** ΓÇö Treat **403 / 404** on profile/bank/salary as ΓÇ£no accessΓÇ¥, not a retry with a different guessed id.
+6. **Security theater** ΓÇö Hiding a menu item is UX. Do not claim the feature is tenant-safe until the API call cannot widen scope.
+
+---
+
+## Checklist before merging UI that touches people / money / config
+
+- [ ] Org dropdown uses `useOrgScope` (or documents why a one-off is required and still only lists family orgs).
+- [ ] API `companyId` comes from that selection or is omitted ΓÇö not from query string of another app, localStorage of a foreign id, or hardcoding.
+- [ ] Any `employeeId` in the request is from self or a list already loaded under the current session.
+- [ ] No new axios call that bypasses `src/services/` with a hand-rolled URL and arbitrary ids.
+- [ ] Cross-tenant deep links fail closed in the UI (empty state / redirect), matching API 403/404.
+
+---
+
+## Verification
+
+Backend smoke (authoritative): see `wisetech-backend/scripts/tenant-security-smoke/README.md`.
+
+Manual FE spot-check:
+
+1. Log in as WiseTech user ΓÇö People / org filters must not list **Tenant B Test Co** staff.
+2. As Tenant B user ΓÇö must not see WiseTech people in pickers.
+3. DevTools: no request should send Tenant BΓÇÖs `companyId` while logged into WiseTech (except if you forged it ΓÇö API must still deny).

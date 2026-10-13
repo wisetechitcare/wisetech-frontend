@@ -1,24 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Box, Stack, Typography, CircularProgress } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { Box, Stack, Typography, CircularProgress, alpha } from '@mui/material';
 import { fetchEmployeesByBranch } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
 import { GlassDialog, GlassHeader, ToneChip } from '@app/modules/common/components/ui';
 import SmartAvatar from '@app/modules/common/components/SmartAvatar';
-import { IconUsers, IconBranch } from '@app/modules/common/components/icons/OrgIcons';
+import { IconUsers, IconBranch, IconChevron } from '@app/modules/common/components/icons/OrgIcons';
 
 /**
  * Employees in one branch.
  *
- * ON THE KIT, AND THAT IS A BUG FIX, NOT A REPAINT. This was a react-bootstrap
- * Modal, and its parent (the Branches dialog) has moved to the kit's MUI dialog.
- * Bootstrap and MUI keep separate stacking levels — Bootstrap's modal sits below
- * MUI's — so this one opened BEHIND the dialog that launched it and could not be
- * read or dismissed. Two dialog systems in one app is what produces that class of
- * defect; the fix is to have one.
- *
- * Everything else here was hand-rolled too: an inline <style> block, a local
- * eight-colour palette, its own close button, a Bootstrap spinner class, and an
- * avatar assembled from an <img> plus a fallback.
+ * Rows open the employee profile — this used to be a static roster with no
+ * drill-in, so operators saw a name and had to hunt through Employees to act.
  */
 
 interface EmpRow {
@@ -41,6 +34,7 @@ interface Props {
 }
 
 export default function BranchEmployeesModal({ show, branchId, branchName, onClose }: Props) {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState<EmpRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -61,13 +55,18 @@ export default function BranchEmployeesModal({ show, branchId, branchName, onClo
     return () => { cancelled = true; };
   }, [show, branchId]);
 
+  function openEmployee(empId: string) {
+    onClose();
+    navigate(`/employees/${empId}`);
+  }
+
   return (
     <GlassDialog
       open={show} onClose={onClose} maxWidth="md" fullWidth
       header={
         <GlassHeader
           title={`${branchName || 'Branch'} — Employees`}
-          subtitle={loading ? 'Loading…' : `${employees.length} employee${employees.length !== 1 ? 's' : ''}`}
+          subtitle={loading ? 'Loading…' : `${employees.length} employee${employees.length !== 1 ? 's' : ''} · click a row to open`}
           icon={<IconBranch size={22} />}
           onClose={onClose}
         />
@@ -90,14 +89,27 @@ export default function BranchEmployeesModal({ show, branchId, branchName, onClo
               const avatarUrl = getAvatar(emp.avatar || '', Number(emp.gender) === 1 ? 1 : Number(emp.gender) === 0 ? 0 : 2);
               return (
                 <Stack
-                  key={emp.id} direction="row" spacing={1.5} alignItems="center"
+                  key={emp.id}
+                  component="button"
+                  type="button"
+                  direction="row"
+                  spacing={1.5}
+                  alignItems="center"
+                  onClick={() => openEmployee(emp.id)}
+                  aria-label={`Open ${name}`}
                   sx={{
+                    width: '100%', textAlign: 'left', font: 'inherit',
                     bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
-                    borderRadius: '10px', px: 1.75, py: 1.25,
+                    borderRadius: '10px', px: 1.75, py: 1.25, cursor: 'pointer',
+                    transition: 'background-color .15s ease, border-color .15s ease, box-shadow .15s ease',
+                    '&:hover': {
+                      borderColor: 'primary.light',
+                      bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.12 : 0.06),
+                      boxShadow: (t) => `0 4px 14px ${alpha(t.palette.primary.main, 0.12)}`,
+                    },
+                    '&:focus-visible': { outline: 2, outlineColor: 'primary.main', outlineOffset: 2 },
                   }}
                 >
-                  {/* SmartAvatar owns the image-plus-initials fallback — this file
-                      had its own <img> in a bordered circle with no fallback. */}
                   <SmartAvatar imageUrl={avatarUrl} name={name} id={emp.id} size={38} />
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
@@ -121,6 +133,9 @@ export default function BranchEmployeesModal({ show, branchId, branchName, onClo
                       {emp.companyEmailId || emp.users?.personalEmailId}
                     </Typography>
                   )}
+                  <Box sx={{ color: 'text.disabled', display: 'grid', placeItems: 'center', flexShrink: 0 }} aria-hidden>
+                    <IconChevron size={16} />
+                  </Box>
                 </Stack>
               );
             })}

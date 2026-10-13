@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react'
 import ApexChart from 'react-apexcharts';
-import { Box, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { Card } from 'react-bootstrap';
 import { CompanyDialogModal } from './CompanyDialogModal';
 import dayjs, { Dayjs } from 'dayjs';
+import { WtField } from '@app/modules/common/components/ui';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { currencyPrefix } from '@utils/currency';
 import { canViewCommercial } from '@utils/can';
@@ -103,16 +104,15 @@ function CompaniesByLocationAndSatatus({ data, startDate, endDate }: { data: Com
     return options;
   }, [filterData]);
 
-  const handleFilterChange = (event: SelectChangeEvent<string>, filterName: keyof LocationFilterType) => {
-    const value = event.target.value;
+  const handleFilterChange = (filterName: keyof LocationFilterType) => (val: string) => {
     if (filterName === 'country') {
-      setFilters({ country: value, state: 'All', city: 'All', locality: 'All', status: filters.status, sortBy: filters.sortBy });
+      setFilters({ country: val, state: 'All', city: 'All', locality: 'All', status: filters.status, sortBy: filters.sortBy });
     } else if (filterName === 'state') {
-      setFilters({ ...filters, state: value, city: 'All', locality: 'All' });
+      setFilters({ ...filters, state: val, city: 'All', locality: 'All' });
     } else if (filterName === 'city') {
-      setFilters({ ...filters, city: value, locality: 'All' });
+      setFilters({ ...filters, city: val, locality: 'All' });
     } else {
-      setFilters({ ...filters, [filterName]: value });
+      setFilters({ ...filters, [filterName]: val });
     }
   };
 
@@ -295,76 +295,38 @@ const processedData = useMemo(() => {
             mb: 3,
             gap: 2,
             flexWrap: 'wrap',
-            '& .MuiFormControl-root': {
-              minWidth: { xs: '100%', sm: '150px', md: '180px' },
-            }
           }}>
             {(['country', 'state', 'city', 'locality', 'status'] as (keyof LocationFilterType)[]).map((filterName) => (
-              <FormControl key={filterName} size="small">
-                <InputLabel
-                  sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}
-                >
-                  {filterName[0].toUpperCase() + filterName.slice(1)}
-                </InputLabel>
-                <Select
-                  value={filters[filterName] || 'All'}
-                  label={filterName[0].toUpperCase() + filterName.slice(1)}
-                  onChange={(e) => handleFilterChange(e, filterName)}
-                  sx={{
-                    color: '#1E3A8A',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '& .MuiSelect-icon': {
-                      color: '#1E3A8A',
-                    },
-                  }}
-                >
-                  {filterOptions[filterKeyMap[filterName]]?.map((val: string) => (
-                    <MenuItem key={val} value={val}>{val}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <WtField
+                key={filterName}
+                label={filterName[0].toUpperCase() + filterName.slice(1)}
+                size="sm"
+                minWidth={180}
+                value={filters[filterName] || 'All'}
+                onChange={handleFilterChange(filterName)}
+                options={(filterOptions[filterKeyMap[filterName]] ?? []).map((v) => ({ value: v, label: v }))}
+              />
             ))}
 
-            <FormControl size="small">
-              <InputLabel
-                sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}
-              >
-                Sort By
-              </InputLabel>
-              <Select
-                value={filters.sortBy}
-                label="Sort By"
-                onChange={(e) => handleFilterChange(e, 'sortBy')}
-                sx={{
-                  color: '#1E3A8A',
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#1E3A8A',
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#1E3A8A',
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#1E3A8A',
-                  },
-                  '& .MuiSelect-icon': {
-                    color: '#1E3A8A',
-                  },
-                }}
-              >
-                <MenuItem value="aToZ">A to Z</MenuItem>
-                <MenuItem value="zToA">Z to A</MenuItem>
-                <MenuItem value="highToLow">High to Low ({canViewCommercial('projects') ? 'Cost' : 'Companies'})</MenuItem>
-                <MenuItem value="lowToHigh">Low to High ({canViewCommercial('projects') ? 'Cost' : 'Companies'})</MenuItem>
-              </Select>
-            </FormControl>
+            <WtField
+              label="Sort By"
+              size="sm"
+              minWidth={180}
+              value={filters.sortBy}
+              onChange={handleFilterChange('sortBy')}
+              options={[
+                { value: 'aToZ', label: 'A to Z' },
+                { value: 'zToA', label: 'Z to A' },
+                {
+                  value: 'highToLow',
+                  label: `High to Low (${canViewCommercial('projects') ? 'Cost' : 'Companies'})`,
+                },
+                {
+                  value: 'lowToHigh',
+                  label: `Low to High (${canViewCommercial('projects') ? 'Cost' : 'Companies'})`,
+                },
+              ]}
+            />
           </Box>
 
           {/* Chart */}

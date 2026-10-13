@@ -1,7 +1,7 @@
 import { Children, forwardRef, isValidElement } from 'react';
 import {
   Box, BoxProps, Dialog, DialogActions, DialogContent, DialogProps, Fade, Grow, IconButton,
-  Stack, Typography, useMediaQuery, useTheme,
+  Stack, Typography, useMediaQuery,
 } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
 import { alpha } from '@mui/material/styles';
@@ -12,10 +12,11 @@ import { toTitleCase, HEADING_CASE_SX } from './text';
 import { GH_DARK } from '@app/theme/githubDark';
 import { MRD_EASE } from './buttons';
 import { WtCloseButton } from './tw/WtCloseButton';
+import { useIsDark } from './tw/useIsDark';
 
-/** Read the active MUI theme mode as our ThemeMode ('light' | 'dark'). */
+/** Mode from the html class ColorModeProvider stamps — avoids MUI ThemeContext during HMR. */
 function useMode(): ThemeMode {
-  return (useTheme().palette.mode as ThemeMode) ?? 'light';
+  return useIsDark() ? 'dark' : 'light';
 }
 
 // ─── Apple-style dialog transition ────────────────────────────────────────────────────────────
@@ -341,12 +342,11 @@ export function GlassDialog({
   PaperProps, slotProps, disableEnforceFocus = false, maxWidth = 'md', fullWidth = true,
   TransitionComponent, ...rest
 }: GlassDialogProps) {
-  const theme = useTheme();
-  const mode = (theme.palette.mode as ThemeMode) ?? 'light';
+  const mode = useMode();
   // Subscribed, not read: a plain read would keep painting whichever treatment
   // was current when the dialog mounted.
   const surface = useSurfaceStyle();
-  const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
+  const isPhone = useMediaQuery('(max-width:600px)');
   const fullScreen = mobileFullScreen && isPhone;
   const scrim = T.glass[mode].scrim;
   const scrimBlur = `blur(${T.glass[mode].scrimBlur}px)`;

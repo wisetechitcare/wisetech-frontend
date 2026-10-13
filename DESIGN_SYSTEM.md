@@ -3,6 +3,8 @@
 > **Status:** Approved plan · **Date:** 2026-07-09 · **Scope:** `@app/modules/configuration` first, tokens app-capable
 > **Locked decisions:** Brand = **navy `#1E3A8A`** · Theme = **light + dark** · Structure = **Apple HIG (iOS/macOS 26–27)** · Font = **retire Barlow, all-system-stack** · Semantic = **Apple hues toned ~10%**
 
+**Bootstrap residual:** phased retirement of `react-bootstrap` chrome → kit primitives lives in [`docs/bootstrap-to-kit-migration.md`](./docs/bootstrap-to-kit-migration.md). Do not ad-hoc rewrite entire modules; follow that plan.
+
 ---
 
 ## Context

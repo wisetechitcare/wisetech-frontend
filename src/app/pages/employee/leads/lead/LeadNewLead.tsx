@@ -15,7 +15,9 @@ import {
   TextField,
   InputAdornment,
 } from "@mui/material";
-import { getAllLeadsComplete } from "@services/leads";
+import { getAllLeads } from "@services/leads";
+import { fetchAllPages } from "@utils/fetchAllPages";
+import { useServerPagination } from "@hooks/useServerPagination";
 import { getMyLeadReminders } from "@services/leadService";
 import { getMeetingLeadIds } from "@services/employee";
 import { saveLeadPeriodPreference, getLeadPeriodPreference, getUserTablePreferences } from "@services/users";
@@ -40,12 +42,6 @@ import {
   getAllProjectSubcategories,
   getAllProjectCategories,
 } from "@services/projects";
-import {
-  fetchAllCountries,
-  fetchAllStates,
-  fetchAllCities,
-} from "@services/options";
-import { getAllClientCompanies, getAllCompanyTypes } from "@services/companies";
 import { AppDispatch, RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import eventBus from "@utils/EventBus";
@@ -91,22 +87,6 @@ type DateMode =
   | "yearly"
   | "allyear"
   | "custom";
-
-type LeadNewLeadProps = {
-  statusId?: any;
-  serviceId?: any;
-  categoryId?: any;
-  referralId?: any;
-  sourceId?: any;
-  subCategoryId?: any;
-  companyTypeId?: any;
-  topLeadsId?: any;
-  locationId?: any;
-  monthlyStatusName?: any;
-  monthlyStatusId?: any;
-  startDate?: dayjs.Dayjs;
-  endDate?: dayjs.Dayjs;
-};
 
 // ─── Navigation Buttons ────────────────────────────────────────────────────────
 
@@ -182,24 +162,122 @@ const NavigationButtons: React.FC<{
 
 // All selectable leads-table column keys (must match the `accessorKey`s below and the
 
+/**
+ * One API lead → one table row. Pure, so a page of leads is shaped the same way whether it
+ * fills the table or an export.
+ */
+const toLeadRow = (lead: any) => {
+  const s = lead?.project?.startDate
+    ? new Date(lead.project.startDate)
+    : null;
+  const e = lead?.project?.endDate
+    ? new Date(lead.project.endDate)
+    : null;
+  const duration =
+    s && e
+      ? `${Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24))} days`
+      : "N/A";
+  const countryId = lead?.additionalDetails?.country || "";
+  const stateId = lead?.additionalDetails?.state || "";
+  const cityId = lead?.additionalDetails?.city || "";
+
+  return {
+    id: lead.id,
+    prefix: lead?.prefix || "",
+    organizationId: lead?.organizationId || "",
+    // Leads created before organizations existed have none; the column
+    // and filter both call that out rather than showing a blank cell.
+    organization: lead?.organization?.name || UNASSIGNED_ORG_LABEL,
+    projectName: lead.title || "",
+    totalCost:
+      Array.isArray(lead.commercials) && lead.commercials.length > 0
+        ? lead.commercials.reduce(
+          (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+          0,
+        )
+        : lead.budget || 0,
+    client:
+      lead?.company?.companyName ||
+      lead?.leadTeams?.[0]?.company?.companyName ||
+      "",
+    service:
+      lead?.projectServiceId || lead?.services?.[0]?.serviceId || "",
+    category:
+      lead?.projectCategoryId ||
+      lead?.leadCategories?.[0]?.category?.id ||
+      "",
+    subCategory:
+      lead?.projectSubCategoryId ||
+      lead?.leadSubCategories?.[0]?.subcategory?.id ||
+      "",
+    status: lead?.status || null,
+    poStatus: lead?.poStatus || null,
+    assignedTo: lead?.assignedToId || "",
+    inquiryDate: lead.inquiryDate || "",
+    startDate: lead?.startDate || lead?.project?.startDate || "",
+    endDate: lead?.endDate || "",
+    duration,
+    contact:
+      lead?.contact?.fullName ||
+      lead?.leadTeams?.[0]?.contact?.fullName ||
+      "",
+    createdAt: lead?.createdAt || "",
+    createdBy: lead?.createdById || "",
+    updatedBy: lead?.updatedById || "",
+    // Stored as NAMES ("India", "Maharashtra", "Mumbai") — there is nothing to look up.
+    country: String(countryId),
+    city: String(cityId),
+    state: String(stateId),
+    area:
+      (Array.isArray(lead.commercials) && lead.commercials.length > 0
+        ? lead.commercials[0]?.area
+        : null) ||
+      lead?.additionalDetails?.projectArea ||
+      lead?.addresses?.[0]?.projectArea ||
+      "",
+    cost:
+      Array.isArray(lead.commercials) && lead.commercials.length > 0
+        ? lead.commercials.reduce(
+          (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+          0,
+        )
+        : 0,
+    companyId: lead.companyId || "",
+    branchId: lead.branchId || "",
+    description: lead.description || "",
+    priority: lead.priority || "",
+    estimatedHours: lead.estimatedHours || "",
+    budget:
+      Array.isArray(lead.commercials) && lead.commercials.length > 0
+        ? lead.commercials.reduce(
+          (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+          0,
+        )
+        : lead.budget || "",
+    rate: lead.rate || "",
+    leadSource:
+      lead.source?.name || lead.sourceId || lead?.leadSource || "",
+    referrals: lead.referrals || [],
+    companyType: lead.company?.companyTypeId || "",
+    receivedDate: lead?.receivedDate || "",
+    // THIS READER'S reminder and whether the lead has a meeting are added at render by
+    // `withRowExtras` — they are per-viewer, so they are not part of the lead.
+    fileLocation: lead?.fileLocation || "",
+    fileLocationCompany: lead?.fileLocationCompany || "",
+    fileLocationCompanyType: lead?.fileLocationCompanyType || "",
+    // Resolved by the server for this page's leads; absent when the stored value is not an id.
+    fileLocationCompanyName: lead?.fileLocationCompanyName || "",
+    fileLocationCompanyTypeName: lead?.fileLocationCompanyTypeName || "",
+  };
+};
+
+/** A stable "nothing yet", so a memo depending on a list does not rebuild every render. */
+const EMPTY: any[] = [];
+
 /** Filter params this screen owns; they persist between visits. */
 const LEAD_FILTER_KEYS = ["status", "org", "assignee"] as const;
 
-const LeadNewLead: React.FC<LeadNewLeadProps> = ({
-  statusId,
-  serviceId,
-  categoryId,
-  referralId,
-  sourceId,
-  subCategoryId,
-  companyTypeId,
-  topLeadsId,
-  locationId,
-  monthlyStatusName,
-  monthlyStatusId,
-  startDate,
-  endDate,
-}) => {
+const LeadNewLead: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const today = dayjs();
@@ -214,14 +292,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // lead's prefix and number series.
   const [showOrgPicker, setShowOrgPicker] = useState(false);
   const [formValues, setFormValues] = useState<any>(null);
-  // Lookup maps to resolve the File Location columns (which store company / company-type
-  // IDs) into human-readable names.
-  const [fileLocCompanyMap, setFileLocCompanyMap] = useState<Map<string, string>>(new Map());
-  const [fileLocTypeMap, setFileLocTypeMap] = useState<Map<string, string>>(new Map());
   const [showChartSettingsModal, setShowChartSettingsModal] = useState(false);
   // ── Bulk import state (from file 2) ─────────────────────────────────────────
   const [showBulkImport, setShowBulkImport] = useState(false);
-  const [pagination] = useState({ pageIndex: 0, pageSize: 10 });
 
   // ── Per-row actions: the reminder note and the meeting ──────────────────────
   // Each holds the ROW the icon was clicked on, not just its id — both dialogs need the
@@ -234,9 +307,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   // ── Date mode ────────────────────────────────────────────────────────────────
   const [alignment, setAlignment] = useState<DateMode>("monthly");
-  const [searchText, setSearchText] = useState("");
-  const [debouncedSearchText, setDebouncedSearchText] = useState("");
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The table's search box, debounced by the table and applied by the server.
+  const [search, setSearch] = useState("");
+  // Seeded with the table's default sort, so the first request is already in that order.
+  const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([{ id: "inquiryDate", desc: true }]);
 
   // Daily
   const [day, setDay] = useState<Dayjs>(today);
@@ -317,62 +391,244 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   );
 
   // ── Screen data ──────────────────────────────────────────────────────────────
-  // One cached query instead of six pieces of state filled by a mount effect.
-  // Returning from a lead detail page re-renders straight from the cache: no
-  // spinner, no request storm, the rows are simply still there.
-  // `loadLeadsScreen` is a hoisted function declaration further down — the rows
-  // it returns are read all over the body above it.
-  // Named once and reused by the two in-place row patches below. A second literal spelling
-  // of this key would be a patch that writes to a cache entry nothing reads.
-  const leadsScreenKey = ["leads-screen", currentEmployeeId];
   const queryClient = useQueryClient();
-  const { data: leadsScreen, isPending, refetch } = useQuery({
-    queryKey: leadsScreenKey,
-    queryFn: loadLeadsScreen,
+
+  // The lists that name a lead's service, category and status. Reference data: loaded once and
+  // cached, so returning from a lead re-renders them without a request.
+  const { data: lookups } = useQuery({
+    queryKey: ["leads-lookups"],
+    queryFn: async () => {
+      const [servicesRes, subcatRes, catRes, statusRes] = await Promise.all([
+        getAllProjectServices(),
+        getAllProjectSubcategories(),
+        getAllProjectCategories(),
+        getAllLeadStatus(),
+      ]);
+      return {
+        projectServices: servicesRes?.services || [],
+        projectSubcategories: subcatRes?.projectSubCategories || [],
+        projectCategories: catRes?.projectCategories || [],
+        leadStatuses: statusRes?.leadStatuses || [],
+      };
+    },
+  });
+  const projectServices: any[] = lookups?.projectServices ?? EMPTY;
+  const projectSubcategories: any[] = lookups?.projectSubcategories ?? EMPTY;
+  const projectCategories: any[] = lookups?.projectCategories ?? EMPTY;
+  const leadStatuses: any[] = lookups?.leadStatuses ?? EMPTY;
+
+  // MY reminders and which leads have a meeting, fetched BESIDE the leads rather than
+  // joined onto them. The leads list is the heaviest read in the app and is shared by the
+  // dashboard, the drill-downs and the exports — making it viewer-dependent to serve one
+  // column would cost all of them. Safe to cache because the query key carries
+  // currentEmployeeId, so one person's reminders can never be served to another.
+  //
+  // Both are best-effort. A failure in either is not a failure of the page: the table
+  // still lists every lead, with the Reminder column simply empty and the Action column
+  // offering `+` everywhere — wrong, but not broken.
+  const rowExtrasKey = ["lead-row-extras", currentEmployeeId];
+  const { data: rowExtras } = useQuery({
+    queryKey: rowExtrasKey,
+    queryFn: async () => {
+      const [remindersResponse, meetingLeadsResponse] = await Promise.all([
+        getMyLeadReminders().catch((e) => {
+          console.warn("Could not load your reminders", e);
+          return null;
+        }),
+        getMeetingLeadIds().catch((e) => {
+          console.warn("Could not load which leads have meetings", e);
+          return null;
+        }),
+      ]);
+      // `leadService.ts` goes through `api`, whose helpers already return `r.data` — so what
+      // resolves here IS the envelope, and the payload is at `.data`. Read one level deeper,
+      // this silently yields `undefined`: every save appeared to work, and the reminder
+      // vanished on the next load.
+      return {
+        reminders: Object.fromEntries(
+          (remindersResponse?.data?.reminders || []).map(
+            (r: any) => [String(r.leadId), { note: r.note, color: r.color }],
+          ),
+        ) as Record<string, { note: string; color: string | null }>,
+        meetingLeadIds: ((meetingLeadsResponse?.data?.leadIds || []) as any[]).map(String),
+      };
+    },
   });
 
+  /** The page's rows with this viewer's reminder and meeting folded in. */
+  const withRowExtras = useCallback(
+    (rows: any[]) => {
+      const meetings = new Set(rowExtras?.meetingLeadIds ?? []);
+      return rows.map((r) => ({
+        ...r,
+        // Named `reminder`, not `notes`: the lead has a shared `notes` field of its own.
+        reminder: rowExtras?.reminders[String(r.id)]?.note || "",
+        reminderColor: rowExtras?.reminders[String(r.id)]?.color || "",
+        // Drives the Action column: an icon means the thing exists on this lead.
+        hasMeeting: meetings.has(String(r.id)),
+      }));
+    },
+    [rowExtras],
+  );
+
   /**
-   * Change one field on one row, without going back to the server.
+   * Change one viewer-specific field on one row, without going back to the server.
    *
-   * Folds a saved reminder, or a newly booked meeting, back into the row it belongs to.
-   * A stable identity, so the memoised column definitions can close over it without going
-   * stale and without rebuilding the column model.
-   *
-   * The rows live in the query cache now rather than in component state, so this writes
-   * there — same intent as the `setTableData` it replaces, same reason: `refetch` pulls every
-   * lead plus its country/state/city lookups, which is a full reload of the screen to show
-   * one edited sentence, and it loses the table's scroll position doing it.
+   * Folds a saved reminder, or a newly booked meeting, back into the row it belongs to. They
+   * live in the row-extras cache, so that is what is written — a refetch would reload the
+   * page of leads to show one edited sentence and lose the table's scroll position.
+   * A stable identity, so the memoised columns can close over it.
    */
   const patchCachedRow = useCallback(
-    (leadId: string, patch: Record<string, any>) => {
-      queryClient.setQueryData(leadsScreenKey, (prev: any) => (prev ? {
-        ...prev,
-        leads: prev.leads.map((r: any) => (r.id === leadId ? { ...r, ...patch } : r)),
-      } : prev));
+    (leadId: string, patch: { reminder?: string; reminderColor?: string | null; hasMeeting?: boolean }) => {
+      queryClient.setQueryData(rowExtrasKey, (prev: any) => {
+        if (!prev) return prev;
+        const id = String(leadId);
+        const reminders = { ...prev.reminders };
+        if ("reminder" in patch || "reminderColor" in patch) {
+          const current = reminders[id] ?? { note: "", color: null };
+          reminders[id] = {
+            note: patch.reminder ?? current.note,
+            color: "reminderColor" in patch ? patch.reminderColor ?? null : current.color,
+          };
+        }
+        const meetingLeadIds = patch.hasMeeting && !prev.meetingLeadIds.includes(id)
+          ? [...prev.meetingLeadIds, id]
+          : prev.meetingLeadIds;
+        return { ...prev, reminders, meetingLeadIds };
+      });
     },
     // The key is rebuilt each render; its CONTENT is what matters, so depend on that.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [queryClient, currentEmployeeId],
   );
-  const fetchAllData = refetch;
-  const tableData: any[] = leadsScreen?.leads || [];
-  const rawLeadsDatas: any[] = leadsScreen?.rawLeads || [];
-  const projectServices: any[] = leadsScreen?.projectServices || [];
-  const projectSubcategories: any[] = leadsScreen?.projectSubcategories || [];
-  const projectCategories: any[] = leadsScreen?.projectCategories || [];
-  const leadStatuses: any[] = leadsScreen?.leadStatuses || [];
-  // Only the first ever load blanks the screen. A background revalidation keeps
-  // the rows up, which is the whole point of coming back to a warm cache.
-  const loading = isPending;
-  const rawLeadsData = rawLeadsDatas;
 
-  // Derive assigned-to employees directly from lead data so new assignees appear automatically.
+  /**
+   * What the server filters, sorts and pages by (LEAD_LIST_SPEC on the backend). The period,
+   * status, organization, assignee and search used to be predicates over every lead here.
+   * Built from primitives, so an unchanged filter keeps its identity and never refetches.
+   */
+  const sortBy = sorting[0]?.id;
+  const sortDesc = sorting[0]?.desc;
+  const listParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (sortBy) {
+      params.sortBy = sortBy;
+      params.sortOrder = sortDesc ? "desc" : "asc";
+    }
+    if (search) params.search = search;
+    // The period window on the inquiry date. A lead with no inquiry date falls outside every
+    // window and inside "All", exactly as before.
+    const [from, to]: [Dayjs | null | undefined, Dayjs | null | undefined] =
+      alignment === "daily" ? [day.startOf("day"), day.endOf("day")]
+        : alignment === "weekly" ? [weekStart.startOf("day"), weekEnd.endOf("day")]
+          : alignment === "monthly" ? [monthStart.startOf("day"), monthEnd.endOf("day")]
+            : alignment === "yearly" ? [yearStart?.startOf("day"), yearEnd?.endOf("day")]
+              : alignment === "custom" ? [customStartDate?.startOf("day"), customEndDate?.endOf("day")]
+                : [null, null];
+    if (from) params.inquiryFrom = from.toISOString();
+    if (to) params.inquiryTo = to.toISOString();
+    if (statusFilter) params.status = statusFilter;
+    if (organizationFilter) {
+      params.organizationIds = organizationFilter === UNASSIGNED_ORG_VALUE ? "unassigned" : organizationFilter;
+    }
+    if (assignedToFilter) params.assignee = assignedToFilter;
+    return params;
+  }, [
+    sortBy, sortDesc, search, alignment, day, weekStart, weekEnd, monthStart, monthEnd,
+    yearStart, yearEnd, customStartDate, customEndDate, statusFilter, organizationFilter, assignedToFilter,
+  ]);
+
+  /** The figures beside the table, computed by the server over the whole result set. */
+  const [summary, setSummary] = useState<{
+    totalValue: number;
+    scopeTotal: number;
+    assigneeIds: Array<string | null>;
+    hasUnassignedOrganization: boolean;
+  } | null>(null);
+  // Only the newest request may write the summary — two quick filter changes race otherwise.
+  const summaryRequestRef = useRef(0);
+
+  const fetchPage = useCallback(
+    async (page: number, pageSize: number, withSummary = false) => {
+      const requestId = withSummary ? ++summaryRequestRef.current : 0;
+      const res = await getAllLeads({
+        page,
+        pageSize,
+        filters: { ...listParams, ...(withSummary && { summary: "1" }) },
+      });
+      const payload = res?.data?.data;
+      if (withSummary && payload?.summary && requestId === summaryRequestRef.current) {
+        setSummary(payload.summary);
+      }
+      const rows = (payload?.leads || []).map(toLeadRow);
+      return { data: rows, totalRecords: payload?.total ?? rows.length };
+    },
+    [listParams],
+  );
+
+  /**
+   * The summary describes the FILTERS — not the page, not the sort — so it is asked for only
+   * when they change (or after a lead changes). Over a large table it is three aggregate
+   * queries, too expensive to repeat on every page turn.
+   */
+  const summaryFilterKey = useMemo(() => {
+    const { sortBy: _sortBy, sortOrder: _sortOrder, ...filtersOnly } = listParams;
+    return JSON.stringify(filtersOnly);
+  }, [listParams]);
+  const summaryKeyRef = useRef<string | null>(null);
+
+  const fetchTablePage = useCallback(
+    (page: number, pageSize: number) => {
+      const withSummary = summaryKeyRef.current !== summaryFilterKey;
+      summaryKeyRef.current = summaryFilterKey;
+      return fetchPage(page, pageSize, withSummary);
+    },
+    [fetchPage, summaryFilterKey],
+  );
+
+  const {
+    data: pageRows,
+    pagination,
+    setPagination,
+    totalRecords,
+    isLoading: pageLoading,
+    isInitialLoading,
+    refetch,
+  } = useServerPagination<any>({
+    fetchFunction: fetchTablePage,
+    initialPageSize: 50,
+    // A new filter, search or sort starts again from page 1.
+    resetKey: JSON.stringify(listParams),
+  });
+
+  const tableData = useMemo(() => withRowExtras(pageRows), [pageRows, withRowExtras]);
+
+  /** A lead was created, edited or deleted: the page AND the totals beside it are stale. */
+  const refetchWithSummary = useCallback(() => {
+    summaryKeyRef.current = null;
+    refetch();
+  }, [refetch]);
+
+  /** Export: every lead matching the current filters, not just this page. */
+  const fetchAllRows = useCallback(
+    () => fetchAllPages(async (page, pageSize) => {
+      const { data, totalRecords: total } = await fetchPage(page, pageSize);
+      return { rows: withRowExtras(data), total };
+    }),
+    [fetchPage, withRowExtras],
+  );
+
+  // Only the first ever load blanks the screen; later fetches keep the rows up.
+  const loading = isInitialLoading;
+
+  // The Assigned To options: everyone assigned a lead anywhere in scope (from the server
+  // summary), so an option does not vanish because another filter hid that person's leads.
   const NA_OPTION = { employeeId: "__NA__", employeeName: "N/A", avatar: "" };
 
+  const assigneeIds = summary?.assigneeIds;
   const assignedEmployeesFromLeads = useMemo(() => {
-    const assignedIds = new Set(
-      tableData.map((l: any) => l.assignedTo).filter(Boolean),
-    );
+    const assignedIds = new Set((assigneeIds ?? []).filter(Boolean));
     const matched = (allemployees || []).filter((e: any) =>
       assignedIds.has(e.employeeId),
     );
@@ -386,12 +642,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             : e.employeeName,
         isInactive: e.isActive === false,
       }));
-  }, [tableData, allemployees]);
+  }, [assigneeIds, allemployees]);
 
-  const hasUnassignedLeads = useMemo(
-    () => tableData.some((l: any) => !l.assignedTo),
-    [tableData],
-  );
+  const hasUnassignedLeads = (assigneeIds ?? []).includes(null);
 
   const assignedToOptions = useMemo(
     () =>
@@ -518,314 +771,50 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     loadPreference();
   }, []);
 
-  // Returns the whole screen's payload instead of writing six pieces of state, so
-  // React Query can cache it. Declared as a function so the useQuery call near the
-  // top of the component — above every reader of its rows — can name it.
-  async function loadLeadsScreen() {
-      // MY reminders and which leads have a meeting, fetched BESIDE the leads rather than
-      // joined onto them. The leads list is the heaviest read in the app and is shared by the
-      // dashboard, the drill-downs and the exports — making it viewer-dependent to serve one
-      // column would cost all of them. Safe to cache because the query key carries
-      // currentEmployeeId, so one person's reminders can never be served to another.
-      //
-      // Both are best-effort. A failure in either is not a failure of the page: the table
-      // still lists every lead, with the Reminder column simply empty and the Action column
-      // offering `+` everywhere — wrong, but not broken.
-      const [leadsResponse, remindersResponse, meetingLeadsResponse] = await Promise.all([
-        getAllLeadsComplete(),
-        getMyLeadReminders().catch((e) => {
-          console.warn("Could not load your reminders", e);
-          return null;
-        }),
-        getMeetingLeadIds().catch((e) => {
-          console.warn("Could not load which leads have meetings", e);
-          return null;
-        }),
-      ]);
-      const leadsWithMeetings = new Set<string>(
-        (meetingLeadsResponse?.data?.leadIds || []).map(String),
-      );
-      const leadsData = leadsResponse?.data?.data?.leads || [];
-      // ONE `.data` LESS THAN THE LEADS ABOVE, and that is not a typo.
-      //
-      // The two calls come from different clients. `services/leads.ts` uses raw axios and
-      // returns the whole axios response, so the envelope is at `.data` and the payload at
-      // `.data.data`. `leadService.ts` goes through `api`, whose helpers already return
-      // `r.data` — so what resolves here IS the envelope, and the payload is at `.data`.
-      //
-      // Read the deeper way, this silently yields `undefined`: every save appeared to work,
-      // the row updated in place, and the reminder vanished on the next load.
-      const reminderByLead = new Map<string, { note: string; color: string | null }>(
-        (remindersResponse?.data?.reminders || []).map(
-          (r: any) => [String(r.leadId), { note: r.note, color: r.color }] as const,
-        ),
-      );
-
-      const [servicesRes, subcatRes, catRes, statusRes, countriesData] =
-        await Promise.all([
-          getAllProjectServices(),
-          getAllProjectSubcategories(),
-          getAllProjectCategories(),
-          getAllLeadStatus(),
-          fetchAllCountries(),
-        ]);
-      const lookups = {
-        rawLeads: leadsData,
-        projectServices: servicesRes?.services || [],
-        projectSubcategories: subcatRes?.projectSubCategories || [],
-        projectCategories: catRes?.projectCategories || [],
-        leadStatuses: statusRes?.leadStatuses || [],
-      };
-
-      if (leadsData.length > 0) {
-        const uniqueCountryIds = new Set<any>();
-        const uniqueStateIds = new Map<any, Set<any>>();
-        const uniqueCityIds = new Map<any, Set<any>>();
-
-        leadsData.forEach((lead: any) => {
-          if (lead?.additionalDetails?.country) {
-            uniqueCountryIds.add(lead.additionalDetails.country);
-            if (lead?.additionalDetails?.state) {
-              if (!uniqueStateIds.has(lead.additionalDetails.country))
-                uniqueStateIds.set(lead.additionalDetails.country, new Set());
-              uniqueStateIds
-                .get(lead.additionalDetails.country)!
-                .add(lead.additionalDetails.state);
-              if (lead?.additionalDetails?.city) {
-                if (!uniqueCityIds.has(lead.additionalDetails.state))
-                  uniqueCityIds.set(lead.additionalDetails.state, new Set());
-                uniqueCityIds
-                  .get(lead.additionalDetails.state)!
-                  .add(lead.additionalDetails.city);
-              }
-            }
-          }
-        });
-
-        const countriesMap = new Map<string, any>();
-        const statesMap = new Map<string, any>();
-        const citiesMap = new Map<string, any>();
-        (countriesData || []).forEach((c: any) =>
-          countriesMap.set(c.id.toString(), c),
-        );
-
-        const statesResults = await Promise.all(
-          [...uniqueCountryIds].map((cid) => {
-            const c = countriesMap.get(String(cid));
-            return c?.iso2 ? fetchAllStates(c.iso2) : Promise.resolve([]);
-          }),
-        );
-        let allStates: any[] = [];
-        statesResults.forEach((r) => {
-          if (Array.isArray(r)) allStates = [...allStates, ...r];
-        });
-        allStates.forEach((s) => statesMap.set(s.id.toString(), s));
-
-        const stateToCountry = new Map<string, string>();
-        for (const [cid, sids] of uniqueStateIds.entries())
-          for (const sid of sids) stateToCountry.set(String(sid), String(cid));
-
-        const citiesResults = await Promise.all(
-          [...uniqueCityIds.keys()].map((sid) => {
-            const s = statesMap.get(String(sid));
-            const cid = stateToCountry.get(String(sid));
-            const c = cid ? countriesMap.get(cid) : null;
-            return s?.iso2 && c?.iso2
-              ? fetchAllCities(c.iso2, s.iso2)
-              : Promise.resolve([]);
-          }),
-        );
-        let allCities: any[] = [];
-        citiesResults.forEach((r) => {
-          if (Array.isArray(r)) allCities = [...allCities, ...r];
-        });
-        allCities.forEach((c) => citiesMap.set(c.id.toString(), c));
-
-        const transformedLeads = leadsData.map((lead: any) => {
-          const s = lead?.project?.startDate
-            ? new Date(lead.project.startDate)
-            : null;
-          const e = lead?.project?.endDate
-            ? new Date(lead.project.endDate)
-            : null;
-          const duration =
-            s && e
-              ? `${Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24))} days`
-              : "N/A";
-          const countryId = lead?.additionalDetails?.country || "";
-          const stateId = lead?.additionalDetails?.state || "";
-          const cityId = lead?.additionalDetails?.city || "";
-
-          return {
-            id: lead.id,
-            prefix: lead?.prefix || "",
-            organizationId: lead?.organizationId || "",
-            // Leads created before organizations existed have none; the column
-            // and filter both call that out rather than showing a blank cell.
-            organization: lead?.organization?.name || UNASSIGNED_ORG_LABEL,
-            projectName: lead.title || "",
-            totalCost:
-              Array.isArray(lead.commercials) && lead.commercials.length > 0
-                ? lead.commercials.reduce(
-                  (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
-                  0,
-                )
-                : lead.budget || 0,
-            client:
-              lead?.company?.companyName ||
-              lead?.leadTeams?.[0]?.company?.companyName ||
-              "",
-            service:
-              lead?.projectServiceId || lead?.services?.[0]?.serviceId || "",
-            category:
-              lead?.projectCategoryId ||
-              lead?.leadCategories?.[0]?.category?.id ||
-              "",
-            subCategory:
-              lead?.projectSubCategoryId ||
-              lead?.leadSubCategories?.[0]?.subcategory?.id ||
-              "",
-            status: lead?.status || null,
-            poStatus: lead?.poStatus || null,
-            assignedTo: lead?.assignedToId || "",
-            inquiryDate: lead.inquiryDate || "",
-            startDate: lead?.startDate || lead?.project?.startDate || "",
-            endDate: lead?.endDate || "",
-            duration,
-            contact:
-              lead?.contact?.fullName ||
-              lead?.leadTeams?.[0]?.contact?.fullName ||
-              "",
-            createdAt: lead?.createdAt || "",
-            createdBy: lead?.createdById || "",
-            updatedBy: lead?.updatedById || "",
-            country:
-              countriesMap.get(String(countryId))?.name || String(countryId),
-            countryId,
-            city: citiesMap.get(String(cityId))?.name || String(cityId),
-            cityId,
-            state: statesMap.get(String(stateId))?.name || String(stateId),
-            stateId,
-            area:
-              (Array.isArray(lead.commercials) && lead.commercials.length > 0
-                ? lead.commercials[0]?.area
-                : null) ||
-              lead?.additionalDetails?.projectArea ||
-              lead?.addresses?.[0]?.projectArea ||
-              "",
-            cost:
-              Array.isArray(lead.commercials) && lead.commercials.length > 0
-                ? lead.commercials.reduce(
-                  (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
-                  0,
-                )
-                : 0,
-            companyId: lead.companyId || "",
-            branchId: lead.branchId || "",
-            description: lead.description || "",
-            priority: lead.priority || "",
-            estimatedHours: lead.estimatedHours || "",
-            budget:
-              Array.isArray(lead.commercials) && lead.commercials.length > 0
-                ? lead.commercials.reduce(
-                  (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
-                  0,
-                )
-                : lead.budget || "",
-            rate: lead.rate || "",
-            leadSource:
-              lead.source?.name || lead.sourceId || lead?.leadSource || "",
-            referrals: lead.referrals || [],
-            companyType: lead.company?.companyTypeId || "",
-            receivedDate: lead?.receivedDate || "",
-            // THIS READER'S reminder. Named `reminder`, not `notes`: the lead has a `notes`
-            // field of its own, a different and shared thing that predates this, and one of
-            // the two had to stop borrowing the other's name. Seeded onto the row so both the
-            // inline cell and the dialog open with no fetch of their own.
-            reminder: reminderByLead.get(String(lead.id))?.note || "",
-            reminderColor: reminderByLead.get(String(lead.id))?.color || "",
-            // Drives the Action column: an icon means the thing exists on this lead.
-            hasMeeting: leadsWithMeetings.has(String(lead.id)),
-            fileLocation: lead?.fileLocation || "",
-            fileLocationCompany: lead?.fileLocationCompany || "",
-            fileLocationCompanyType: lead?.fileLocationCompanyType || "",
-          };
-        });
-
-        return { ...lookups, leads: transformedLeads };
-      }
-      return { ...lookups, leads: [] as any[] };
-  }
-
-  // Debounce search input (300ms delay before filtering)
-  useEffect(() => {
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => {
-      setDebouncedSearchText(searchText);
-    }, 300);
-    return () => {
-      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    };
-  }, [searchText]);
-
-  // Clear any pending timers on unmount.
-  useEffect(
-    () => () => {
-      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    },
-    [],
-  );
-
-  // Fired by MaterialTable after preferences load and whenever a column is shown/hidden.
-  // Auto-refetch with only the visible columns' data — but only when the visible SET
-  // actually changed (the callback also fires on unrelated re-renders such as searching).
   useEffect(() => {
     dispatch(fetchAllEmployeesAsync());
   }, []);
 
-  // Load company + company-type lookups so the File Location column can resolve the
-  // stored IDs into names.
-  useEffect(() => {
-    (async () => {
-      try {
-        const [companiesRes, typesRes] = await Promise.all([
-          getAllClientCompanies(true),
-          getAllCompanyTypes(),
-        ]);
-        const companies =
-          companiesRes?.data?.companies || companiesRes?.companies || [];
-        const types = typesRes?.companyTypes || [];
-        setFileLocCompanyMap(
-          new Map(companies.map((c: any) => [String(c.id), c.companyName])),
-        );
-        setFileLocTypeMap(
-          new Map(types.map((t: any) => [String(t.id), t.name])),
-        );
-      } catch (err) {
-        console.warn("Failed to load file-location company lookups:", err);
-      }
-    })();
-  }, []);
-
   // ── Event bus subscriptions ───────────────────────────────────────────────
-  // Ignore the event payload; refetch in "auto" mode (respects the saved column selection).
-  useEventBus(EVENT_KEYS.leadCreated, () => fetchAllData());
-  useEventBus(EVENT_KEYS.leadUpdated, () => fetchAllData());
-  useEventBus(EVENT_KEYS.leadDeleted, () => fetchAllData());
+  // Ignore the event payload; refetch the page in hand (and the summary beside it).
+  useEventBus(EVENT_KEYS.leadCreated, refetchWithSummary);
+  useEventBus(EVENT_KEYS.leadUpdated, refetchWithSummary);
+  useEventBus(EVENT_KEYS.leadDeleted, refetchWithSummary);
   // chartSettingsUpdated only changes visual config — no data re-fetch needed
   useEventBus(EVENT_KEYS.closeChartDialogModal, handleCloseChartSettingsModal);
 
-  const hideNewLeadButton =
-    statusId ||
-    serviceId ||
-    categoryId ||
-    referralId ||
-    sourceId ||
-    subCategoryId ||
-    companyTypeId ||
-    topLeadsId ||
-    locationId ||
-    monthlyStatusId;
+  // ── Memoized lookup maps for O(1) access (instead of O(n) .find()) ────────────
+  const employeeMap = useMemo(() => {
+    const map = new Map<string, string>();
+    allemployees?.forEach((e: any) => {
+      if (e.employeeId) map.set(e.employeeId, e.employeeName);
+    });
+    return map;
+  }, [allemployees]);
+
+  const serviceMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projectServices?.forEach((s: any) => {
+      if (s.id) map.set(s.id, s.name);
+    });
+    return map;
+  }, [projectServices]);
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projectCategories?.forEach((c: any) => {
+      if (c.id) map.set(c.id, c.name);
+    });
+    return map;
+  }, [projectCategories]);
+
+  const subCategoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projectSubcategories?.forEach((s: any) => {
+      if (s.id) map.set(s.id, s.name);
+    });
+    return map;
+  }, [projectSubcategories]);
 
   // ── Columns ──────────────────────────────────────────────────────────────────
   // Memoized so the array keeps a stable identity across renders. An unstable identity
@@ -914,6 +903,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     },
     {
       accessorKey: "reminder",
+      // Computed in the browser, so the server cannot order by it.
+      enableSorting: false,
       header: "Reminder",
       // One number, shared with the cell — which caps its own content to it. A column whose
       // width and whose content ceiling can disagree is a column that grows.
@@ -979,6 +970,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     },
     {
       accessorKey: "totalCost",
+      // Computed in the browser, so the server cannot order by it.
+      enableSorting: false,
       header: "Total Cost",
       size: 130,
       meta: { defaultVisible: false },
@@ -1017,8 +1010,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       size: 150,
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
-        projectServices?.find((s: any) => s.id === cell.getValue())?.name ||
-        "N/A",
+        serviceMap.get(cell.getValue()) || "N/A",
     },
     {
       accessorKey: "category",
@@ -1026,8 +1018,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       size: 150,
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
-        projectCategories?.find((c: any) => c.id === cell.getValue())?.name ||
-        "N/A",
+        categoryMap.get(cell.getValue()) || "N/A",
     },
     {
       accessorKey: "subCategory",
@@ -1035,8 +1026,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       size: 150,
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
-        projectSubcategories?.find((s: any) => s.id === cell.getValue())
-          ?.name || "N/A",
+        subCategoryMap.get(cell.getValue()) || "N/A",
     },
     {
       accessorKey: "status",
@@ -1082,8 +1072,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       header: "Assigned To",
       size: 160,
       Cell: ({ cell }: { cell: any }) =>
-        allemployees?.find((e: any) => e.employeeId === cell.getValue())
-          ?.employeeName || "N/A",
+        employeeMap.get(cell.getValue()) || "N/A",
     },
     {
       accessorKey: "startDate",
@@ -1097,6 +1086,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     },
     {
       accessorKey: "duration",
+      // Computed in the browser, so the server cannot order by it.
+      enableSorting: false,
       header: "Duration",
       size: 120,
       meta: { defaultVisible: false },
@@ -1126,8 +1117,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       size: 150,
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
-        allemployees?.find((e: any) => e.employeeId === cell.getValue())
-          ?.employeeName || "N/A",
+        employeeMap.get(cell.getValue()) || "N/A",
     },
     {
       accessorKey: "updatedBy",
@@ -1135,8 +1125,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       size: 140,
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
-        allemployees?.find((e: any) => e.employeeId === cell.getValue())
-          ?.employeeName || "N/A",
+        employeeMap.get(cell.getValue()) || "N/A",
     },
     {
       accessorKey: "country",
@@ -1161,6 +1150,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     },
     {
       accessorKey: "area",
+      // Computed in the browser, so the server cannot order by it.
+      enableSorting: false,
       header: "Area",
       size: 120,
       meta: { defaultVisible: false },
@@ -1168,6 +1159,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     },
     {
       accessorKey: "cost",
+      // Computed in the browser, so the server cannot order by it.
+      enableSorting: false,
       header: "Cost",
       size: 120,
       meta: { defaultVisible: false },
@@ -1176,21 +1169,17 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     },
     {
       accessorKey: "fileLocation",
+      // Computed in the browser, so the server cannot order by it.
+      enableSorting: false,
       header: "File Location",
       size: 200,
       // "File Location in Computer" in the form = Company Type + Company. The lead stores
       // those as IDs, so resolve them to names; fall back to the free-text path.
       Cell: ({ row }: { row: any }) => {
-        const companyId = row?.original?.fileLocationCompany;
-        const typeId = row?.original?.fileLocationCompanyType;
         const path = row?.original?.fileLocation;
-        // Resolve IDs → names (fall back to the raw value if it's already a name / unmapped).
-        const company = companyId
-          ? fileLocCompanyMap.get(String(companyId)) || companyId
-          : "";
-        const type = typeId
-          ? fileLocTypeMap.get(String(typeId)) || typeId
-          : "";
+        // Names resolved by the server; the raw value when it is already a name / unmapped.
+        const company = row?.original?.fileLocationCompanyName || row?.original?.fileLocationCompany || "";
+        const type = row?.original?.fileLocationCompanyTypeName || row?.original?.fileLocationCompanyType || "";
         if (company) {
           return (
             <span style={{ whiteSpace: "nowrap" }}>
@@ -1221,13 +1210,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       },
     },
   ].filter((c: any) => canViewCommercial('crm.leads') || !['totalCost', 'cost'].includes(c.accessorKey)), [
-    projectServices,
-    projectCategories,
-    projectSubcategories,
-    allemployees,
-    rawLeadsData,
-    fileLocCompanyMap,
-    fileLocTypeMap,
+    serviceMap,
+    categoryMap,
+    subCategoryMap,
+    employeeMap,
     // Stable via useCallback, so listing it never rebuilds the column model — it only stops
     // the reminder cell closing over a stale writer if that ever changes.
     patchCachedRow,
@@ -1270,223 +1256,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     { key: 'updatedBy', header: 'Edited By', type: 'text' as const },
   ].filter((c) => canViewCommercial('crm.leads') || !['totalCost', 'cost'].includes(c.key)), []);
 
-  // ── Prop-driven filters ───────────────────────────────────────────────────────
-  const startDates = startDate ? dayjs(startDate) : null;
-  const endDates = endDate ? dayjs(endDate) : null;
-
-  const propDateFiltered = tableData?.filter((item: any) => {
-    const d = dayjs(item.createdAt);
-    if (startDates && d.isBefore(startDates.startOf("day"))) return false;
-    if (endDates && d.isAfter(endDates.endOf("day"))) return false;
-    return true;
-  });
-
-  const filteredByProps = (() => {
-    if (statusId)
-      return propDateFiltered?.filter(
-        (item: any) => item.status?.id === statusId,
-      );
-    if (serviceId)
-      return propDateFiltered?.filter(
-        (item: any) => item.service === serviceId,
-      );
-    if (categoryId)
-      return propDateFiltered?.filter(
-        (item: any) => item.category === categoryId,
-      );
-    if (referralId)
-      return propDateFiltered?.filter((item: any) =>
-        item.referrals?.some((r: any) => r.referralTypeId === referralId),
-      );
-    if (sourceId)
-      return propDateFiltered?.filter(
-        (item: any) =>
-          item.leadSource?.toLowerCase() === sourceId?.toLowerCase(),
-      );
-    if (subCategoryId)
-      return propDateFiltered?.filter(
-        (item: any) => item.subCategory === subCategoryId,
-      );
-    if (companyTypeId)
-      return propDateFiltered?.filter(
-        (item: any) => item.companyType === companyTypeId,
-      );
-    if (topLeadsId?.length)
-      return tableData?.filter((item: any) =>
-        topLeadsId?.includes(item.id.trim()),
-      );
-    if (locationId) {
-      return propDateFiltered?.filter((item: any) => {
-        if (locationId.toLowerCase() !== "unknown") {
-          return (
-            item.countryId?.toString() === locationId ||
-            item.stateId?.toString() === locationId ||
-            item.cityId?.toString() === locationId ||
-            item.country?.toLowerCase() === locationId.toLowerCase() ||
-            item.state?.toLowerCase() === locationId.toLowerCase() ||
-            item.city?.toLowerCase() === locationId.toLowerCase()
-          );
-        }
-        return !(
-          item.countryId ||
-          item.stateId ||
-          item.cityId ||
-          item.country ||
-          item.state ||
-          item.city
-        );
-      });
-    }
-    if (monthlyStatusName && monthlyStatusId) {
-      return propDateFiltered?.filter(
-        (item: any) =>
-          dayjs(item.createdAt).format("MMMM") === monthlyStatusName &&
-          item.status?.name === monthlyStatusId,
-      );
-    }
-    return propDateFiltered;
-  })();
-
-  // ── Memoized lookup maps for O(1) access (instead of O(n) .find()) ────────────
-  const employeeMap = useMemo(() => {
-    const map = new Map<string, string>();
-    allemployees?.forEach((e: any) => {
-      if (e.employeeId) map.set(e.employeeId, e.employeeName);
-    });
-    return map;
-  }, [allemployees]);
-
-  const serviceMap = useMemo(() => {
-    const map = new Map<string, string>();
-    projectServices?.forEach((s: any) => {
-      if (s.id) map.set(s.id, s.name);
-    });
-    return map;
-  }, [projectServices]);
-
-  const categoryMap = useMemo(() => {
-    const map = new Map<string, string>();
-    projectCategories?.forEach((c: any) => {
-      if (c.id) map.set(c.id, c.name);
-    });
-    return map;
-  }, [projectCategories]);
-
-  const subCategoryMap = useMemo(() => {
-    const map = new Map<string, string>();
-    projectSubcategories?.forEach((s: any) => {
-      if (s.id) map.set(s.id, s.name);
-    });
-    return map;
-  }, [projectSubcategories]);
-
-  // ── Quick filter: date + status + assigned (AND) ───────────────────────────────
-  const quickFilteredData = useMemo(() => {
-    return filteredByProps?.filter((item: any) => {
-      let dateMatch = true;
-      const d = item.inquiryDate ? dayjs(item.inquiryDate) : null;
-      if (alignment === "daily") {
-        dateMatch = d ? d.isSame(day, "day") : false;
-      } else if (alignment === "weekly") {
-        dateMatch = d
-          ? !d.isBefore(weekStart.startOf("day")) &&
-          !d.isAfter(weekEnd.endOf("day"))
-          : false;
-      } else if (alignment === "monthly") {
-        dateMatch = d
-          ? !d.isBefore(monthStart.startOf("day")) &&
-          !d.isAfter(monthEnd.endOf("day"))
-          : false;
-      } else if (alignment === "yearly" && yearStart && yearEnd) {
-        dateMatch = d
-          ? !d.isBefore(yearStart.startOf("day")) &&
-          !d.isAfter(yearEnd.endOf("day"))
-          : false;
-      } else if (alignment === "allyear") {
-        dateMatch = true;
-      } else if (alignment === "custom") {
-        if (customStartDate || customEndDate) {
-          if (!d) dateMatch = false;
-          else {
-            if (customStartDate && d.isBefore(customStartDate.startOf("day")))
-              dateMatch = false;
-            if (customEndDate && d.isAfter(customEndDate.endOf("day")))
-              dateMatch = false;
-          }
-        }
-      }
-      const statusMatch = statusFilter
-        ? item.status?.name?.toLowerCase() === statusFilter.toLowerCase()
-        : true;
-      const organizationMatch = organizationFilter
-        ? organizationFilter === UNASSIGNED_ORG_VALUE
-          ? !item.organizationId
-          : item.organizationId === organizationFilter
-        : true;
-      const assignedMatch = assignedToFilter
-        ? assignedToFilter === "__NA__"
-          ? !item.assignedTo
-          : item.assignedTo === assignedToFilter
-        : true;
-
-      let searchMatch = true;
-      if (debouncedSearchText) {
-        const q = debouncedSearchText.toLowerCase();
-        // Use memoized maps instead of .find() for O(1) lookups
-        const employeeName = employeeMap.get(item.assignedTo) || "";
-        const serviceName = serviceMap.get(item.service) || "";
-        const categoryName = categoryMap.get(item.category) || "";
-        const subCategoryName = subCategoryMap.get(item.subCategory) || "";
-
-        searchMatch =
-          item.projectName?.toLowerCase().includes(q) ||
-          item.prefix?.toLowerCase().includes(q) ||
-          item.client?.toLowerCase().includes(q) ||
-          item.status?.name?.toLowerCase().includes(q) ||
-          employeeName.toLowerCase().includes(q) ||
-          serviceName.toLowerCase().includes(q) ||
-          categoryName.toLowerCase().includes(q) ||
-          subCategoryName.toLowerCase().includes(q) ||
-          item.city?.toLowerCase().includes(q) ||
-          item.state?.toLowerCase().includes(q) ||
-          item.country?.toLowerCase().includes(q) ||
-          item.area?.toLowerCase().includes(q);
-      }
-
-      return dateMatch && statusMatch && organizationMatch && assignedMatch && searchMatch;
-    });
-  }, [
-    filteredByProps,
-    alignment,
-    day,
-    weekStart,
-    weekEnd,
-    monthStart,
-    monthEnd,
-    yearStart,
-    yearEnd,
-    customStartDate,
-    customEndDate,
-    statusFilter,
-    organizationFilter,
-    assignedToFilter,
-    debouncedSearchText,
-    employeeMap,
-    serviceMap,
-    categoryMap,
-    subCategoryMap,
-  ]);
-
   // Organization filter options: every organization the user can see, plus an
   // "Unassigned" entry only when legacy leads without one are actually present —
   // no point offering a filter that can only ever return nothing.
   const organizationFilterOptions = useMemo(() => {
     const options = leadOrganizations.map((org) => ({ value: org.id, label: org.name }));
-    const hasUnassigned = (tableData ?? []).some((item: any) => !item.organizationId);
-    return hasUnassigned
+    return summary?.hasUnassignedOrganization
       ? [...options, { value: UNASSIGNED_ORG_VALUE, label: UNASSIGNED_ORG_LABEL }]
       : options;
-  }, [leadOrganizations, tableData]);
+  }, [leadOrganizations, summary?.hasUnassignedOrganization]);
 
   // Only show the full-page loader on the INITIAL load (no data yet). Placed AFTER all
   // hooks so the hook order is identical on every render (React requires this — an early
@@ -1494,21 +1272,16 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // refetches the table stays mounted instead of flashing the loader.
   if (loading && tableData.length === 0) return <Loader />;
 
-  const hasAnyFilter = statusFilter || organizationFilter || assignedToFilter || debouncedSearchText;
+  const hasAnyFilter = statusFilter || organizationFilter || assignedToFilter;
   const clearAllFilters = () => {
     setStatusFilter("");
     setOrganizationFilter("");
     setAssignedToFilter("");
-    setSearchText("");
-    setDebouncedSearchText("");
   };
 
   // ── Total cost for filtered data ─────────────────────────────────────────────
-  const totalFilteredCost = (quickFilteredData ?? []).reduce(
-    (acc: number, item: any) =>
-      acc + (parseFloat(item.totalCost) || parseFloat(item.cost) || 0),
-    0,
-  );
+  // Summed by the server over every matching lead, not just the page in hand.
+  const totalFilteredCost = summary?.totalValue ?? 0;
   const formatCost = (amount: number) => {
     if (amount >= 1_00_00_000)
       return `${currencyPrefix()}${(amount / 1_00_00_000).toFixed(2)} Cr`;
@@ -1566,7 +1339,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   return (
     <>
-      {!hideNewLeadButton && (
       <Box sx={{ px: { xs: 2, md: 3 }, py: 1.5, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
         {/* ONE ROW: period selector on the left; Bulk Import, + New Lead and the KPI
             summary on the right. */}
@@ -1714,7 +1486,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
                   <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
-                    {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
+                    {totalRecords} / {summary?.scopeTotal ?? totalRecords}
                   </span>
                 </div>
               </div>
@@ -1792,16 +1564,29 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           </div>
         )}
       </Box>
-      )}
 
       {/* MaterialTable opens with a shared `pt-6` (24px) gutter; tightened here, same as
           Projects. `!important` because Bootstrap's own `.pt-6` utility carries it. */}
       <Box sx={{ "& > .pt-6": { paddingTop: "8px !important" } }}>
         <MaterialTable
           columns={columns}
-          data={quickFilteredData}
+          data={tableData}
           tableName="LeadsTablesMainV2"
           defaultSorting={[{ id: "inquiryDate", desc: true }]}
+          // The server owns paging, sorting and search — all three together, or one of them
+          // would act on the single page the browser holds while implying every lead.
+          manualPagination
+          manualSorting
+          manualFiltering
+          rowCount={totalRecords}
+          paginationState={pagination}
+          onPaginationChange={setPagination}
+          onSortingChange={setSorting}
+          onSearchChange={setSearch}
+          isLoading={pageLoading}
+          // Per-column filters and grouping would act on one page only.
+          enableFilters={false}
+          enableGrouping={false}
           // Returns elements, not a <FilterToolbar/> component declared in render —
           // a fresh component type each render remounts the controls mid-interaction
           // (the Assigned To autocomplete would lose focus on every keystroke).
@@ -2064,7 +1849,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           )}
           renderExportActions={() => (
             <ExportButton
-              data={quickFilteredData}
+              data={tableData}
+              // Every lead matching the filters, not just this page.
+              getData={fetchAllRows}
               columns={leadsExportColumns}
               filename="leads-management"
               title="Leads Management"
@@ -2072,7 +1859,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
               sheetName="Leads"
               showTotals
               totalLabel="TOTAL"
-              disabled={!quickFilteredData?.length}
+              disabled={!totalRecords}
             />
           )}
           employeeId={currentEmployeeId}
@@ -2082,6 +1869,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           checkOwnWithOthers={true}
           enableColumnResizing={true}
           layoutMode="semantic"
+          // Only the rows in view are rendered, so 1000 rows per page costs what ~20 do.
+          // Switches MRT to grid layout; the 700px maxHeight below is the viewport it windows.
+          enableRowVirtualization
           muiTableContainerProps={{
             sx: { maxHeight: "700px", overflowX: "auto" },
           }}

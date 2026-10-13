@@ -54,7 +54,7 @@ describe('WtField', () => {
             const [v, setV] = useState('');
             return (
                 <>
-                    <WtField label="Designation" value={v} onChange={setV} options={options} searchable />
+                    <WtField label="Designation" value={v} onChange={(next) => setV(typeof next === 'string' ? next : '')} options={options} searchable />
                     <output data-testid="value">{v}</output>
                 </>
             );

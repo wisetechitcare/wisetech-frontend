@@ -14,6 +14,7 @@ import { fetchAuthzCapabilities } from '@redux/slices/authz'
 import { useSelector } from 'react-redux'
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags'
 import { SectionGuard } from '@app/modules/common/components/SectionGuard'
+import { PackGuard } from '@app/modules/common/components/PackGuard'
 import NoAccessPage from '@app/modules/common/components/NoAccessPage'
 import { RequirePermission } from '@app/modules/common/components/RequirePermission'
 import { can } from '@utils/can'
@@ -241,37 +242,53 @@ const PrivateRoutes = () => {
         <Route
           path='/billing/*'
           element={
-            <SuspensedView>
-              <BillingRoutes />
-            </SuspensedView>
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <BillingRoutes />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         {/* The Accounts queue used to live under Finance; keep the old link working. */}
         <Route path='/finance/billing-queue' element={<Navigate to='/billing/accounts' replace />} />
         <Route
           path='/finance/reimbursements/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <AdminAndEmployeeReimbursementViewer />
-            </SuspensedView>) : <NoAccessPage />}
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (
+            <PackGuard pack="pay">
+              <SuspensedView>
+                <AdminAndEmployeeReimbursementViewer />
+              </SuspensedView>
+            </PackGuard>
+          ) : <NoAccessPage />}
         />
         <Route
           path='/finance/salary/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Salary />
-            </SuspensedView>) : <NoAccessPage />}
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (
+            <PackGuard pack="pay">
+              <SuspensedView>
+                <Salary />
+              </SuspensedView>
+            </PackGuard>
+          ) : <NoAccessPage />}
         />
         <Route
           path='/finance/increment/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Increment />
-            </SuspensedView>) : <NoAccessPage />}
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (
+            <PackGuard pack="pay">
+              <SuspensedView>
+                <Increment />
+              </SuspensedView>
+            </PackGuard>
+          ) : <NoAccessPage />}
         />
         {tabRoutes(
           '/finance/loans',
           TAB_PATHS.loans,
-          <SuspensedView>
-            <PersonalLoanMain />
-          </SuspensedView>,
+          <PackGuard pack="pay">
+            <SuspensedView>
+              <PersonalLoanMain />
+            </SuspensedView>
+          </PackGuard>,
         )}
         <Route
           path='employee/profile/*'
@@ -356,9 +373,13 @@ const PrivateRoutes = () => {
         />
         <Route
           path='employee/attendance-and-leaves/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <PersonalAttendanceView />
-            </SuspensedView>) : <NoAccessPage />}
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)) ? (
+            <SectionGuard module='attendance.personal'>
+              <SuspensedView>
+                <PersonalAttendanceView />
+              </SuspensedView>
+            </SectionGuard>
+          ) : <NoAccessPage />}
         />
 
         <Route
@@ -494,9 +515,11 @@ const PrivateRoutes = () => {
         <Route
           path='/finance/loans/:loanId'
           element={
-            <SuspensedView>
-              <LoanDetails />
-            </SuspensedView>
+            <PackGuard pack="pay">
+              <SuspensedView>
+                <LoanDetails />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         <Route
@@ -511,9 +534,11 @@ const PrivateRoutes = () => {
         <Route
           path='/leads/configuration'
           element={
-            <SuspensedView>
-              <ProposalConfigurationPage />
-            </SuspensedView>}
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <ProposalConfigurationPage />
+              </SuspensedView>
+            </PackGuard>}
         />
         {tabRoutes(
           '/leads',
@@ -556,23 +581,29 @@ const PrivateRoutes = () => {
         <Route
           path='/leads/wizard-beta'
           element={
-            <SuspensedView>
-              <LeadWizardBetaPage />
-            </SuspensedView>}
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <LeadWizardBetaPage />
+              </SuspensedView>
+            </PackGuard>}
         />
         <Route
           path='/leads/wizard-beta/:id'
           element={
-            <SuspensedView>
-              <LeadWizardBetaPage />
-            </SuspensedView>}
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <LeadWizardBetaPage />
+              </SuspensedView>
+            </PackGuard>}
         />
         <Route
           path='/leads/:id/*'
           element={
-            <SuspensedView>
-              <EntityDetailPage />
-            </SuspensedView>
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <EntityDetailPage />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         {/* Same page, same id (the LEAD id — lead-as-master), different lens. The
@@ -585,9 +616,11 @@ const PrivateRoutes = () => {
         <Route
           path='/project/:id/*'
           element={
-            <SuspensedView>
-              <EntityDetailPage />
-            </SuspensedView>
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <EntityDetailPage />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         <Route
@@ -641,9 +674,11 @@ const PrivateRoutes = () => {
         <Route
           path='/tasks/timesheet'
           element={
-            <SuspensedView>
-              <MyTimeSheetMain />
-            </SuspensedView>
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <MyTimeSheetMain />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         <Route
@@ -664,12 +699,15 @@ const PrivateRoutes = () => {
         <Route
           path='/tasks/employee-timesheet'
           element={
-            <SuspensedView>
-              <EmployeeTimeSheetMain />
-            </SuspensedView>
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <EmployeeTimeSheetMain />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         <Route
+          // Org "Teams" calendar (settings.teams) — not PSA pack-gated; lives under /tasks path historically.
           path='/tasks/calendar'
           element={
             <SuspensedView>
@@ -726,9 +764,11 @@ const PrivateRoutes = () => {
         <Route
           path='/projects/:projectId'
           element={
-            <SuspensedView>
-              <ProjectEntityRedirect />
-            </SuspensedView>
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <ProjectEntityRedirect />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         <Route

@@ -1,7 +1,8 @@
 import { forwardRef } from 'react';
-import { Button, ButtonProps, IconButton, IconButtonProps, Tooltip, useTheme } from '@mui/material';
+import { Button, ButtonProps, IconButton, IconButtonProps, Tooltip } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { titleCaseNode } from './text';
+import { useIsDark } from './tw/useIsDark';
 
 /**
  * Reusable button primitives for the premium UI kit — single source of truth for CTA physics.
@@ -162,7 +163,9 @@ export interface WtButtonProps extends ButtonProps {
 export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function WtButton(
   { tone = 'primary', ghost = false, inverted = false, flat = false, sx, variant, children, ...rest }, ref,
 ) {
-  const dark = useTheme().palette.mode === 'dark';
+  // Read dark from the html class ColorModeProvider stamps — not MUI useTheme —
+  // so CTAs stay mode-aware even when a subtree's ThemeContext is briefly unavailable (HMR).
+  const dark = useIsDark();
   const base = ghost ? ghostSx : inverted ? invertedSx : ctaSx(tone, flat);
   const darkOverride = dark ? (ghost ? ghostDarkSx : inverted ? invertedDarkSx : ctaDarkSx) : null;
   return (

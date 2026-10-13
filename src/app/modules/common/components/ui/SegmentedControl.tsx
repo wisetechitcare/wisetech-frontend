@@ -1,6 +1,7 @@
-import { Box, useTheme } from '@mui/material';
+import { Box } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
 import type { ReactNode } from 'react';
+import { useIsDark } from './tw/useIsDark';
 
 export interface SegmentedOption<T extends string> {
   value: T;
@@ -57,7 +58,7 @@ export function SegmentedControl<T extends string>({
    * Mode-aware palette, so the track and labels stay legible on a dark page. In light
    * mode the selection is pure white over the lightest-grey unselected segments.
    */
-  const dark = useTheme().palette.mode === 'dark';
+  const dark = useIsDark();
   const C = dark
     ? { track: '#161b22', pill: '#21262d', hover: '#1c2128', border: '#30363d', idle: '#8b949e', on: '#8AA3EC', line: '#8AA3EC' }
     : { track: '#F8FAFC', pill: '#ffffff', hover: '#F1F5F9', border: '#E2E8F0', idle: '#64748B', on: '#1E3A8A', line: '#1E3A8A' };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 // import { Button } from "react-bootstrap";
 import { Button } from "@mui/material";
@@ -6,9 +6,10 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import {
   getAllClientCompanies,
-  getAllCompanyTypes,
   deleteClientCompany,
 } from "@services/companies";
+import { useServerPagination } from "@hooks/useServerPagination";
+import { fetchAllPages } from "@utils/fetchAllPages";
 import NewCompanyForm from "./components/NewCompanyForm";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { MRT_ColumnDef } from "material-react-table";
@@ -20,26 +21,6 @@ import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
-
-// All selectable company-table column keys (must match the `accessorKey`s below).
-const COMPANY_COLUMN_KEYS = [
-  "companyName", "companyTypeId", "industry", "location", "createdAt", "updatedAt",
-  "budget", "projectCount", "referenceType", "internalReference", "externalReference",
-];
-
-const computeCompanyFields = (
-  visibility?: Record<string, boolean>,
-): string[] | undefined => {
-  if (!visibility) return undefined;
-  const visible = COMPANY_COLUMN_KEYS.filter((k) => visibility[k] !== false);
-  return visible.length >= COMPANY_COLUMN_KEYS.length ? undefined : visible;
-};
-
-const visibilityFromKeys = (keys: string[]): Record<string, boolean> =>
-  Object.fromEntries(COMPANY_COLUMN_KEYS.map((k) => [k, keys.includes(k)]));
-
-const getFieldsKey = (fields: string[] | undefined): string =>
-  fields ? [...fields].sort().join(",") : "ALL";
 
 interface ProcessedCompany extends Company {
   companyTypeName: string;
@@ -66,6 +47,59 @@ interface Props {
 const employeeName = (emp: any): string =>
   `${emp?.users?.firstName ?? ""} ${emp?.users?.lastName ?? ""}`.trim();
 
+/** One API company → one table row: the joined, display-ready columns the table renders. */
+const processCompany = (company: Company): ProcessedCompany => {
+  // Process references to handle multiple entries
+  const referenceTypes =
+    company.references?.map((ref) => ref.referenceType).join(", ") ||
+    "N/A";
+  const internalRefs =
+    company.references
+      ?.filter((ref) => ref.internalReferenceEmployeeId)
+      .map((ref) => {
+        const emp = ref.internalReferenceEmployee;
+        if (!emp) return ref.internalReferenceEmployeeId;
+        if (emp.users) return `${emp.users.firstName} ${emp.users.lastName}`;
+        return ref.internalReferenceEmployeeId;
+      })
+      .join(", ") || "N/A";
+  const externalRefs =
+    company.references
+      ?.filter((ref) => ref.externalReferenceContactId)
+      .map(
+        (ref) =>
+          ref.externalReferenceContact?.fullName ||
+          ref.externalReferenceContactId,
+      )
+      .join(", ") || "N/A";
+
+  // Show ALL of the company's types (a company can have many). Fall back to the legacy
+  // single primary type — named by its `companyType` relation, which the list payload
+  // carries, so no separate company-types request is needed to label it — then to "N/A".
+  const allTypeNames = (() => {
+    const mappings = (company as any).companyTypeMappings;
+    if (Array.isArray(mappings) && mappings.length > 0) {
+      const names = mappings
+        .map((m: any) => m.companyType?.name || m.companyTypeId)
+        .filter(Boolean);
+      if (names.length > 0) return names.join(", ");
+    }
+    return (company as any).companyType?.name || company.companyTypeId || "N/A";
+  })();
+
+  return {
+    ...company,
+    companyTypeName: allTypeNames,
+    referenceType: referenceTypes,
+    internalReferenceEmployeeId: internalRefs,
+    externalReferenceContactId: externalRefs,
+    // Both come from the server, which resolves them the way the company's own Projects
+    // tab does — never derived here.
+    totalBudget: Number((company as any).totalBudget) || 0,
+    projectCount: Number((company as any).projectCount) || 0,
+  };
+};
+
 const ClientCompaniesMain = ({
   statusId,
   companyTypeId,
@@ -84,150 +118,84 @@ const ClientCompaniesMain = ({
   const allEmployees = useSelector(
     (state: RootState) => state.allEmployees?.list,
   );
-
-  const [showNewCompanyForm, setShowNewCompanyForm] = useState(false);
-  const [companies, setCompanies] = useState<ProcessedCompany[]>([]);
-  const [companyTypesMap, setCompanyTypesMap] = useState<
-    Record<string, string>
-  >({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
-
-  // Column visibility & selective fetching
-  const visibleColumnsRef = useRef<string[] | null>(null);
-  const lastFieldsKeyRef = useRef<string | null>(null);
-  const firstVisibilityEmissionRef = useRef(true);
-  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const fetchData = useCallback(async (fields?: string[]) => {
-    setIsLoading(true);
-    try {
-      // First fetch company types
-      const typesResponse = await getAllCompanyTypes();
-      const typesMap: Record<string, string> = {};
-      typesResponse?.companyTypes?.forEach((type: any) => {
-        typesMap[type.id] = type.name;
-      });
-      setCompanyTypesMap(typesMap);
-
-      // Then fetch companies and map the types
-      const companiesResponse = await getAllClientCompanies(false, fields);
-      const companiesData = companiesResponse?.data?.companies || [];
-      const processedCompanies = companiesData.map((company: Company) => {
-        // Process references to handle multiple entries
-        const referenceTypes =
-          company.references?.map((ref) => ref.referenceType).join(", ") ||
-          "N/A";
-        const internalRefs =
-          company.references
-            ?.filter((ref) => ref.internalReferenceEmployeeId)
-            .map((ref) => {
-              const emp = ref.internalReferenceEmployee;
-              if (!emp) return ref.internalReferenceEmployeeId;
-              if (emp.users) return `${emp.users.firstName} ${emp.users.lastName}`;
-              return ref.internalReferenceEmployeeId;
-            })
-            .join(", ") || "N/A";
-        const externalRefs =
-          company.references
-            ?.filter((ref) => ref.externalReferenceContactId)
-            .map(
-              (ref) =>
-                ref.externalReferenceContact?.fullName ||
-                ref.externalReferenceContactId,
-            )
-            .join(", ") || "N/A";
-
-        // Both come from the server, which resolves them the way the company's own
-        // Projects tab does. They used to be derived here from `projectCompanyMappings`
-        // and `_count.leads` — a relation this payload never carried, and a legacy scalar
-        // link that is effectively never set — so every row read ₹0 and 0 projects.
-        const totalBudget = Number((company as any).totalBudget) || 0;
-
-        // Show ALL of the company's types (a company can have many). Fall back to the legacy
-        // single primary type, then to "N/A".
-        const allTypeNames = (() => {
-          const mappings = (company as any).companyTypeMappings;
-          if (Array.isArray(mappings) && mappings.length > 0) {
-            const names = mappings
-              .map((m: any) => m.companyType?.name || (m.companyTypeId && typesMap[m.companyTypeId]) || m.companyTypeId)
-              .filter(Boolean);
-            if (names.length > 0) return names.join(", ");
-          }
-          return company.companyTypeId && typesMap[company.companyTypeId]
-            ? typesMap[company.companyTypeId]
-            : company.companyTypeId || "N/A";
-        })();
-
-        return {
-          ...company,
-          companyTypeName: allTypeNames,
-          referenceType: referenceTypes,
-          internalReferenceEmployeeId: internalRefs,
-          externalReferenceContactId: externalRefs,
-          totalBudget: totalBudget,
-          projectCount: Number((company as any).projectCount) || 0,
-        };
-      });
-
-      setCompanies(processedCompanies);
-    } catch (error) {
-      console.error("Failed to fetch data", error);
-      setCompanies([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Clean up refetch timer on unmount
-  useEffect(() => {
-    return () => {
-      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
-    };
-  }, []);
-
-  // Handle column visibility changes and trigger selective refetch
-  const handleVisibleColumnsChange = useCallback(
-    (keys: string[]) => {
-      visibleColumnsRef.current = keys;
-      // Pass the raw visible column accessorKeys; the backend gates the heavy
-      // `references` relation on these.
-      const key = [...keys].sort().join(",");
-
-      // First emission: record baseline, don't refetch
-      if (firstVisibilityEmissionRef.current) {
-        firstVisibilityEmissionRef.current = false;
-        lastFieldsKeyRef.current = key;
-        return;
-      }
-
-      // No change detected
-      if (key === lastFieldsKeyRef.current) return;
-      lastFieldsKeyRef.current = key;
-
-      // Debounce refetch
-      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
-      columnsRefetchTimerRef.current = setTimeout(() => {
-        fetchData(keys);
-      }, 500);
-    },
-    [fetchData],
+  // A cell lookup, not a list scan per cell — and a column-memo dependency, so the names
+  // fill in once the employee list arrives instead of staying stale in the closure.
+  const employeeNameMap = useMemo(
+    () => new Map<string, string>((allEmployees || []).map((e: any) => [e.employeeId, e.employeeName])),
+    [allEmployees],
   );
 
-  // Add event listener for data refresh
+  const [showNewCompanyForm, setShowNewCompanyForm] = useState(false);
+  const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  // Seeded with the table's default sort, so the first request is already in that order.
+  const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([{ id: "companyName", desc: false }]);
+
+  /**
+   * The server filters, sorts and pages (COMPANY_LIST_SPEC on the backend). Every
+   * drill-down prop here used to be a predicate over the whole company table in the browser.
+   */
+  // Primitives, so a re-reported but unchanged sort keeps the params' identity (no refetch).
+  const sortBy = sorting[0]?.id;
+  const sortDesc = sorting[0]?.desc;
+  const listParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (sortBy) {
+      params.sortBy = sortBy;
+      params.sortOrder = sortDesc ? "desc" : "asc";
+    }
+    if (search) params.search = search;
+    if (startDate) params.createdFrom = dayjs(startDate).startOf("day").toISOString();
+    if (endDate) params.createdTo = dayjs(endDate).endOf("day").toISOString();
+    // "Others" = companies with at least one type outside the top 10; it replaces the
+    // single-type filter rather than narrowing it, as before.
+    if (isOthersView && top10Ids) params.excludeTypeIds = top10Ids.join(",");
+    else if (companyTypeId) params.companyTypeId = companyTypeId;
+    if (serviceId) params.serviceId = serviceId;
+    if (subServiceId) params.subServiceId = subServiceId;
+    if (statusId) params.status = statusId;
+    if (locationId) params.location = locationId;
+    return params;
+  }, [sortBy, sortDesc, search, startDate, endDate, isOthersView, top10Ids, companyTypeId, serviceId, subServiceId, statusId, locationId]);
+
+  const fetchPage = useCallback(
+    async (page: number, pageSize: number) => {
+      const res = await getAllClientCompanies(false, undefined, { ...listParams, page, pageSize });
+      const rows: Company[] = res?.data?.companies || [];
+      return { data: rows.map(processCompany), totalRecords: res?.data?.total ?? rows.length };
+    },
+    [listParams],
+  );
+
+  const {
+    data: companies,
+    pagination,
+    setPagination,
+    totalRecords,
+    isLoading,
+    refetch,
+  } = useServerPagination<ProcessedCompany>({
+    fetchFunction: fetchPage,
+    initialPageSize: 50,
+    // A new filter, search or sort starts again from page 1.
+    resetKey: JSON.stringify(listParams),
+  });
+
+  /** Export: every company matching the current filters, not just this page. */
+  const fetchAllRows = useCallback(
+    () => fetchAllPages(async (page, pageSize) => {
+      const { data, totalRecords: total } = await fetchPage(page, pageSize);
+      return { rows: data, total };
+    }),
+    [fetchPage],
+  );
+
   useEffect(() => {
-    const handleRefresh = () => {
-      fetchData();
-    };
-    eventBus.on("companyCreated", handleRefresh);
+    eventBus.on("companyCreated", refetch);
     return () => {
-      eventBus.off("companyCreated", handleRefresh);
+      eventBus.off("companyCreated", refetch);
     };
-  }, []);
+  }, [refetch]);
 
   const isDrillDown = !!(statusId || companyTypeId || serviceId || subServiceId || locationId);
   const hideNewCompanyButton = isDrillDown || !canSection("crm.companies", "write");
@@ -291,6 +259,7 @@ const ClientCompaniesMain = ({
       },
       {
         accessorKey: "logo",
+        enableSorting: false,
         header: "Logo",
         Cell: ({ row }) => (
           <SmartAvatar
@@ -324,11 +293,13 @@ const ClientCompaniesMain = ({
       },
       {
         accessorKey: "companyTypeName",
+        enableSorting: false,
         header: "Company Type",
         Cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "referenceType",
+        enableSorting: false,
         header: "Reference Type",
         Cell: ({ cell }: { cell: any }) => {
           const reference = cell.getValue();
@@ -339,11 +310,11 @@ const ClientCompaniesMain = ({
       },
       {
         accessorKey: "internalReferenceEmployeeId",
+        enableSorting: false,
         header: "Internal Referred By",
         Cell: ({ cell }) => {
           return (
-            allEmployees?.find((emp) => emp.employeeId === cell.getValue())
-              ?.employeeName ||
+            employeeNameMap.get(cell.getValue()) ||
             cell.getValue() ||
             "N/A"
           );
@@ -351,6 +322,7 @@ const ClientCompaniesMain = ({
       },
       {
         accessorKey: "externalReferenceContactId",
+        enableSorting: false,
         header: "External Referred By",
         Cell: ({ cell }) => {
           return cell.getValue() || "N/A";
@@ -369,6 +341,7 @@ const ClientCompaniesMain = ({
       },
       {
         accessorKey: "projectCount",
+        enableSorting: false,
         header: "No. of Projects",
         size: 110,
         Cell: ({ cell }) => cell.getValue() ?? 0,
@@ -387,6 +360,7 @@ const ClientCompaniesMain = ({
       },
       {
         accessorKey: "totalBudget",
+        enableSorting: false,
         header: "Budget",
         Cell: ({ cell }) => {
           const budget = Number(cell.getValue()) || 0;
@@ -483,7 +457,7 @@ const ClientCompaniesMain = ({
         // employee list is only in the store once some other screen has fetched it, and
         // keying off it alone printed "N/A" over a name the response already carried.
         Cell: ({ row }: any) => employeeName(row.original.createdBy)
-          || allEmployees?.find((e: any) => e.employeeId === row.original.createdById)?.employeeName
+          || employeeNameMap.get(row.original.createdById)
           || "N/A",
       },
       {
@@ -498,7 +472,7 @@ const ClientCompaniesMain = ({
         header: "Last Edited By",
         meta: { defaultVisible: false },
         Cell: ({ row }: any) => employeeName(row.original.updatedBy)
-          || allEmployees?.find((e: any) => e.employeeId === row.original.updatedById)?.employeeName
+          || employeeNameMap.get(row.original.updatedById)
           || "N/A",
       },
       ...(!hideNewCompanyButton
@@ -537,7 +511,7 @@ const ClientCompaniesMain = ({
         meta: { ...(col.meta || {}), defaultVisible: drillVisibleKeys.has(col.accessorKey) },
       }));
     },
-    [navigate, isDrillDown, drillVisibleKeys],
+    [navigate, isDrillDown, drillVisibleKeys, employeeNameMap],
   );
 
   const handleEditClick = (companyId: string) => {
@@ -565,95 +539,6 @@ const ClientCompaniesMain = ({
     setShowNewCompanyForm(false);
     setEditingCompanyId(null);
   };
-
-  const startDates = startDate ? dayjs(startDate).startOf("day") : null;
-  const endDates = endDate ? dayjs(endDate).endOf("day") : null;
-
-  const dateFilteredData = companies?.filter((item: any) => {
-    const createdAt = dayjs(item.createdAt);
-
-    if (startDates && createdAt.isBefore(dayjs(startDates).startOf("day")))
-      return false;
-    if (endDates && createdAt.isAfter(dayjs(endDates).endOf("day")))
-      return false;
-
-    return true;
-  });
-
-  // All type ids a company belongs to (multi-type aware). Falls back to the legacy single type.
-  const getCompanyTypeIds = (item: any): string[] => {
-    const mappings = item.companyTypeMappings;
-    if (Array.isArray(mappings) && mappings.length > 0) {
-      const ids = mappings.map((m: any) => m.companyTypeId || m.companyType?.id).filter(Boolean);
-      if (ids.length > 0) return ids;
-    }
-    return item.companyTypeId ? [item.companyTypeId] : [];
-  };
-
-  // All service ids a company is tagged with (via the company↔service join).
-  const getCompanyServiceIds = (item: any): string[] => {
-    const mappings = item.companyServicesMapping;
-    if (Array.isArray(mappings)) {
-      return mappings.map((m: any) => m.serviceId || m.service?.id).filter(Boolean);
-    }
-    return [];
-  };
-
-  // All sub-service ids a company is tagged with (via the company↔sub-service join).
-  const getCompanySubServiceIds = (item: any): string[] => {
-    const mappings = item.subServiceMappings || item.companySubServicesMapping;
-    if (Array.isArray(mappings)) {
-      return mappings.map((m: any) => m.subServiceId || m.subService?.id).filter(Boolean);
-    }
-    return [];
-  };
-
-  const filteredData = dateFilteredData?.filter((item: any) => {
-    const typeIds = getCompanyTypeIds(item);
-    if (isOthersView && top10Ids) {
-      // "Others" = companies that have at least one type outside the top 10.
-      if (!typeIds.some((id) => !top10Ids.includes(id))) return false;
-    } else {
-      // Match if ANY of the company's types is the selected type.
-      if (companyTypeId && !typeIds.includes(companyTypeId)) return false;
-    }
-
-    // Match if the company is tagged with the selected service.
-    if (serviceId && !getCompanyServiceIds(item).includes(serviceId)) return false;
-
-    // Match if the company is tagged with the selected sub-service.
-    if (subServiceId && !getCompanySubServiceIds(item).includes(subServiceId)) return false;
-
-    if (statusId && item.status !== statusId) return false;
-
-    if (locationId) {
-      if (locationId.toLowerCase() !== "unknown") {
-        if (
-          item.countryId?.toString() !== locationId &&
-          item.stateId?.toString() !== locationId &&
-          item.cityId?.toString() !== locationId &&
-          item.country?.toLowerCase() !== locationId.toLowerCase() &&
-          item.state?.toLowerCase() !== locationId.toLowerCase() &&
-          item.city?.toLowerCase() !== locationId.toLowerCase()
-        ) {
-          return false;
-        }
-      } else {
-        if (
-          item.countryId ||
-          item.stateId ||
-          item.cityId ||
-          item.country ||
-          item.state ||
-          item.city
-        ) {
-          return false;
-        }
-      }
-    }
-
-    return true;
-  });
 
   return (
     <div className="row ">
@@ -696,7 +581,7 @@ const ClientCompaniesMain = ({
       </div>
       <MaterialTable
         columns={columns}
-        data={filteredData}
+        data={companies}
         tableName={isDrillDown ? drillTableName : "Client-Companies"}
         employeeId={employeeIdCurrent}
         resource="COMPANIES"
@@ -704,12 +589,24 @@ const ClientCompaniesMain = ({
         viewOthers={true}
         checkOwnWithOthers={true}
         defaultSorting={[{ id: "companyName", desc: false }]}
-        onVisibleColumnsChange={handleVisibleColumnsChange}
+        // The server owns paging, sorting and search — all three together, or one of them
+        // would act on the single page the browser holds while implying the whole list.
+        manualPagination
+        manualSorting
+        manualFiltering
+        rowCount={totalRecords}
+        paginationState={pagination}
+        onPaginationChange={setPagination}
+        onSortingChange={setSorting}
+        onSearchChange={setSearch}
+        fetchAllRows={fetchAllRows}
+        isLoading={isLoading}
+        // Per-column filters and grouping would act on one page only.
+        enableFilters={false}
+        enableGrouping={false}
+        // Only the rows in view are rendered, so 1000 rows per page costs what ~20 do.
+        enableRowVirtualization
         muiTableProps={{
-          sx: {
-            borderCollapse: "separate",
-            borderSpacing: "0 20px !important", // 20px vertical spacing between rows
-          },
 
           muiTableBodyRowProps: ({ row }) => ({
             // sx: {
@@ -725,8 +622,12 @@ const ClientCompaniesMain = ({
               backgroundColor: row.original?.blacklisted
                 ? "#1a1a1a"
                 : `${row.original?.companyTypeName?.color}30`,
-              // borderBottom:"5px solid red !important",
-              padding: "10px !important",
+              // The gap between rows: a transparent border, because a virtualized table (CSS
+              // grid, not table layout) ignores `border-spacing`, and a border is measured into
+              // the row's height so the virtualizer spaces for it. No row padding — a <tr>
+              // ignored it in table layout, but in grid layout it pads every row.
+              borderBottom: "6px solid transparent",
+              backgroundClip: "padding-box",
 
               "& .MuiTableCell-root": {
                 whiteSpace: "nowrap",

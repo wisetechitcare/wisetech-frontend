@@ -49,8 +49,10 @@ export function NavCard({ icon, tone, title, description, meta, onClick, disable
         opacity: disabled ? 0.55 : 1,
         border: '1px solid',
         borderColor: 'divider',
+        // Same accent-top scan cue as SettingsSection / billing entity cards.
+        borderTop: `3.5px solid ${tone.c}`,
         transition: 'transform .15s, box-shadow .15s, border-color .15s',
-        '&:hover': disabled ? undefined : { borderColor: 'primary.main', transform: 'translateY(-1px)' },
+        '&:hover': disabled ? undefined : { borderColor: tone.c, transform: 'translateY(-2px)' },
         '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
       }}
     >

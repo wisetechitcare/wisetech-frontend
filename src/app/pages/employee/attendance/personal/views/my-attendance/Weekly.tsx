@@ -4,7 +4,7 @@ import { parseWorkingDays } from '@utils/workingDays';
 import { Bar, Donut, Dumbell, HeatMap, MultipleRadialBar, Polar, ReportsTable, StatisticsTable, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
 import { usePagination } from '@pages/employee/attendance/personal/views/my-attendance/hooks/usePagination';
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
-import { EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, TOTAL_WORKING_DAYS, weekDays } from '@constants/statistics';
+import { EARLY_CHECKIN, EARLY_CHECKOUT, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, ON_LEAVE, TOTAL_WORKING_DAYS, WEEKEND, weekDays } from '@constants/statistics';
 import { resourseAndView } from '@models/company';
 import { saveFilteredPublicHolidays, saveLeaves, savePublicHolidays } from '@redux/slices/attendanceStats';
 import { RootState, store } from '@redux/store';
@@ -19,15 +19,10 @@ import {
     fetchEmpWeeklyStatistics,
     pieAreaData,
     pieAreaLabels,
-    donutaDataLabel,
-    totalWorkingTime,
     customLeaves,
     weekHeatMap,
     allStreaksIndicator,
-    countWeekdays,
-    getWorkingDaysInRange,
     formatDisplay,
-    getWorkingDaysInRangeForTotalTime,
     filterLeavesPublicHolidays
 } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
@@ -35,11 +30,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import BranchSetupGuide from './components/BranchSetupGuide';
 import { LeaveStatus } from '@constants/attendance';
-import { countTotalWeekends } from '@utils/countTotalWeekend';
 import Loader from '@app/modules/common/utils/Loader';
 import { calculateTotalDuration } from '@utils/calculateTotalDuration';
-import { fetchAppSettings } from '@redux/slices/appSettings';
 import LazySection from '@app/modules/common/components/LazySection';
+import { useCalendarChartStats } from './useCalendarChartStats';
 
 const Weekly = ({ 
     startWeek, 
@@ -294,35 +288,15 @@ const Weekly = ({
             .catch(console.error);
     }, [selectedEmployeeId, startWeek, endWeek]);
 
-     // Memoize totalWeekend count (computed value)
-        const totalWeekendCount = useMemo(() => {
-            return countTotalWeekends(
-                startWeek.format('YYYY-MM-DD'),
-                endWeek.format('YYYY-MM-DD'),
-                filteredPublicHolidays,
-                allWeekends
-            );
-        }, [startWeek, endWeek, filteredPublicHolidays, allWeekends]);
-        
-    // Calculate total working days and holidays for the week
-    const totalWorkingDay = useMemo(() => 
-        getWorkingDaysInRange(startWeek, endWeek, dateSettingsEnabled, allWeekends, filteredPublicHolidays),
-        [startWeek, endWeek, dateSettingsEnabled, allWeekends, filteredPublicHolidays]
-    );
+    const {
+        workingDays: actualTotalWorkingDay,
+        donut: donutData,
+        isLoading: calendarLoading,
+    } = useCalendarChartStats(selectedEmployeeId, startWeek, endWeek, {
+        throughToday: dateSettingsEnabled && endWeek.isSame(dayjs(), 'day'),
+    });
+    const totalWeekendCount = donutData.get(WEEKEND) || 0;
 
-
-    const findIsWeekendTrueAndCount = filteredPublicHolidays.filter((holiday: any) => holiday.isWeekend === true).length;
-    
-
-    // Memoize all chart data calculations
-    const donutData = useMemo(() => 
-        donutaDataLabel(filteredAttendance, filteredLeaves, filteredPublicHolidays, fromAdmin, totalWeekendCount), 
-        [filteredAttendance, filteredLeaves, filteredPublicHolidays,fromAdmin, totalWeekendCount]
-    );
-
-    const workedOnHolidaOrWeekend = donutData.get(EXTRA_DAYS) || 0;
-    const actualTotalWorkingDay = (totalWorkingDay - findIsWeekendTrueAndCount) + workedOnHolidaOrWeekend;
-    
     const donutLabels = useMemo(() => Array.from(donutData.keys()), [donutData]);
     const donutSeries = useMemo(() => Array.from(donutData.values()), [donutData]);
 
@@ -355,10 +329,7 @@ const Weekly = ({
         [filteredAttendance, startWeek, effectiveEndDate, fromAdmin]
     );
 
-    const holidays = donutData.get(HOLIDAYS) || 0;
-    const leaves = donutData.get("Leaves") || 0;
-
-    // const totalWorkingHours = "8h 30m";
+    const leaves = donutData.get(ON_LEAVE) || 0;
 
     const [hoursPart, minutesPart] = totalWorkingHours.split(" ");
     const hours = parseInt(hoursPart.replace("h", ""), 10) || 0;
@@ -368,16 +339,11 @@ const Weekly = ({
     const totalMinutes = hours * 60 + minutes;
 
     const totalAllowedTimeForOutOffValue = useMemo(() => {
-        const days  =  getWorkingDaysInRangeForTotalTime(startWeek, endWeek, dateSettingsEnabled, allWeekends, filteredPublicHolidays) || 0;
-        const totalMinutesFinal = days*totalMinutes || 0;
-        // convert back to h m format
+        const totalMinutesFinal = (actualTotalWorkingDay * totalMinutes) || 0;
         const finalHours = Math.floor(totalMinutesFinal / 60);
         const finalMinutes = totalMinutesFinal % 60;
-        const totalAllowedTime = `${finalHours}h ${finalMinutes}m`;   
-        return totalAllowedTime;
-    },
-        [startWeek, endWeek, dateSettingsEnabled, allWeekends, filteredPublicHolidays, totalMinutes]
-    );
+        return `${finalHours}h ${finalMinutes}m`;
+    }, [actualTotalWorkingDay, totalMinutes]);
     
     const totalAllowedMinutes = (actualTotalWorkingDay - leaves) * totalMinutes;
     
@@ -411,7 +377,7 @@ const Weekly = ({
         return <BranchSetupGuide />;
     }
 
-    if (!dataLoaded) {
+    if (!dataLoaded || calendarLoading) {
         return <Loader/>
     }
 

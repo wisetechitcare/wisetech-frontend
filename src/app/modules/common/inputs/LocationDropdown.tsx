@@ -1,11 +1,9 @@
-import { useField } from "formik";
-import HighlightErrors from "../../errors/components/HighlightErrors";
-import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
-import { useState, useMemo } from "react";
-import { Box } from "@mui/material";
-import { sortOptionsAlphabetically } from "@utils/sortUtils";
-import CommonModal from "../components/CommonModal";
-import DropdownChevron from "./DropdownChevron";
+import React, { useState, useMemo } from 'react';
+import { useField } from 'formik';
+import { sortOptionsAlphabetically } from '@utils/sortUtils';
+import CommonModal from '../components/CommonModal';
+import DropdownChevron from './DropdownChevron';
+import { WtField, WtSelect } from '@app/modules/common/components/ui';
 
 interface LocationDropdownProps {
     isRequired: boolean;
@@ -23,60 +21,71 @@ interface LocationDropdownProps {
     functionToSetFieldOptions?: any;
 }
 
-const LocationDropdown = ({ formikField, inputLabel, options, isRequired, placeholder, showAddBtn = false,functionToCallOnModalSubmit, fieldName, functionToSetFieldOptions,isDisabled = false, handleChange, value }: LocationDropdownProps) => {
-    
+/**
+ * Location (country/state) Formik select — WtField frame + WtSelect with prefix filter.
+ * Prefer WtFieldFormik when prefix-match is not required.
+ * “+ Add” uses the kit `addOption` prop (`placement: 'label'`).
+ */
+const LocationDropdown = ({
+    formikField,
+    inputLabel,
+    options,
+    isRequired,
+    placeholder,
+    showAddBtn = false,
+    functionToCallOnModalSubmit,
+    fieldName,
+    functionToSetFieldOptions,
+    isDisabled = false,
+    handleChange,
+    value,
+}: LocationDropdownProps) => {
+    const [, meta] = useField(formikField);
     const [show, setShow] = useState(false);
-    const handleShow = () => setShow(true);
+    const hasError = !!(meta.touched && meta.error);
+    const errorMessage = hasError ? String(meta.error) : undefined;
 
-    const sortedOptions = useMemo(() => {
-        return sortOptionsAlphabetically(options || []);
-    }, [options]);
+    const sortedOptions = useMemo(
+        () => sortOptionsAlphabetically(options || []),
+        [options],
+    );
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-     <Box sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            {/* Asterisk rendered explicitly — it came from Metronic's `.required::after`,
-                which disappears with the Bootstrap class. */}
-            <Box component="label" sx={{
-                display: 'flex', alignItems: 'center', gap: 0.5, mb: 0,
-                fontSize: 13.5, fontWeight: 500, color: 'text.primary',
-            }}>
-                {inputLabel}
-                {isRequired && <Box component="span" aria-hidden sx={{ color: 'error.main' }}>*</Box>}
-            </Box>
-            {showAddBtn && (
-                <Box component="button" type="button"
-                    onClick={(e: React.MouseEvent) => { e.preventDefault(); handleShow(); }}
-                    sx={{
-                        flexShrink: 0, border: 0, background: 'none', p: 0,
-                        fontSize: 12, fontWeight: 600, lineHeight: 1.2,
-                        color: 'primary.main', cursor: 'pointer',
-                        '&:hover': { textDecoration: 'underline' },
+        <>
+            <WtField
+                label={inputLabel}
+                required={isRequired}
+                error={errorMessage}
+                disabled={isDisabled}
+                addOption={showAddBtn ? { onAdd: () => setShow(true), label: 'Add', placement: 'label' } : undefined}
+            >
+                <WtSelect
+                    name={formikField}
+                    ariaLabel={inputLabel}
+                    isDisabled={isDisabled}
+                    options={sortedOptions}
+                    onChange={handleChange}
+                    placeholder={placeholder}
+                    value={value}
+                    error={hasError}
+                    components={{ DropdownIndicator: DropdownChevron }}
+                    filterOption={(option: any, inputValue: string) => {
+                        if (!inputValue) return true;
+                        return String(option.label)
+                            .toLowerCase()
+                            .startsWith(inputValue.toLowerCase());
                     }}
-                >+ Add</Box>
-            )}
-        </Box>
-            <WtSelect
-                name={formikField}
-                isDisabled={isDisabled}
-                options={sortedOptions}
-                onChange={handleChange}
-                placeholder={placeholder}
-                value={value}
-                components={{ DropdownIndicator: DropdownChevron }}
-                // Prefix match, not substring: country/state lists are long and
-                // alphabetical, so typing "in" should reach India rather than every
-                // name that merely contains "in".
-                filterOption={(option: any, inputValue: string) => {
-                    if (!inputValue) return true;
-                    return String(option.label).toLowerCase().startsWith(inputValue.toLowerCase());
-                }}
+                />
+            </WtField>
+            <CommonModal
+                functionToCallOnModalSubmit={functionToCallOnModalSubmit}
+                show={show}
+                setShow={setShow}
+                fieldName={fieldName}
+                functionToSetFieldOptions={functionToSetFieldOptions}
             />
-            
-            <HighlightErrors isRequired={isRequired} formikField={formikField} />
-             <CommonModal functionToCallOnModalSubmit={functionToCallOnModalSubmit} show={show} setShow={setShow} fieldName={fieldName} functionToSetFieldOptions={functionToSetFieldOptions}/>
-        </Box>
-    )
-}
+        </>
+    );
+};
 
 export default LocationDropdown;

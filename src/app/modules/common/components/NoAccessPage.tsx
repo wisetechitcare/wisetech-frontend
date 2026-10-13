@@ -5,6 +5,7 @@ import LockOutlined from "@mui/icons-material/LockOutlined";
 import BoltRounded from "@mui/icons-material/BoltRounded";
 import { T, WtButton } from "@app/modules/common/components/ui";
 import { AREA_LABELS } from "@utils/accessAreas";
+import { TENANT_PACK_META, type TenantPackKey } from "@constants/entitlements";
 
 /**
  * The one "no access" screen — shown wherever a page can't be opened for lack of access: a section
@@ -16,7 +17,9 @@ interface Props {
   /** Section key (e.g. "crm.leads") — named in the message. */
   section?: string;
   /** "record": one lead / project / employee that isn't theirs, rather than a whole section. */
-  kind?: "section" | "record";
+  kind?: "section" | "record" | "entitlement";
+  /** When kind is entitlement — which pack is disabled. */
+  pack?: TenantPackKey;
   title?: string;
   message?: string;
 }
@@ -27,13 +30,21 @@ const pulse = keyframes`
   100% { transform: scale(1.18); opacity: 0; }
 `;
 
-const NoAccessPage: React.FC<Props> = ({ section, kind = "section", title, message }) => {
+const NoAccessPage: React.FC<Props> = ({ section, kind = "section", pack, title, message }) => {
   const navigate = useNavigate();
   const name = section ? AREA_LABELS[section] ?? section : null;
-  const heading = title ?? (kind === "record" ? "You don't have access to this record" : `You don't have access to ${name ?? "this page"}`);
-  const body = message ?? (kind === "record"
-    ? "It isn't assigned to you and you're not on its team, or it no longer exists. Ask an admin if you need it."
-    : `Your role doesn't include ${name ?? "this page"}, or an admin has just changed your access. Ask an admin if you need it.`);
+  const packLabel = pack ? TENANT_PACK_META[pack]?.title ?? pack : null;
+  const heading = title ?? (kind === "entitlement"
+    ? `${packLabel ?? "This module"} isn't in your plan`
+    : kind === "record"
+      ? "You don't have access to this record"
+      : `You don't have access to ${name ?? "this page"}`);
+  const body = message ?? (kind === "entitlement"
+    ? `${packLabel ?? "This product area"} isn't included for your organisation. Ask an administrator to enable it under App Settings → Tenant modules, or contact your account team.`
+    : kind === "record"
+      ? "It isn't assigned to you and you're not on its team, or it no longer exists. Ask an admin if you need it."
+      : `Your role doesn't include ${name ?? "this page"}, or an admin has just changed your access. Ask an admin if you need it.`);
+  const badge = kind === "entitlement" ? "Not in plan" : "No access";
 
   return (
     <Box sx={{ minHeight: "62vh", display: "grid", placeItems: "center", px: 2, py: 6 }}>
@@ -65,7 +76,7 @@ const NoAccessPage: React.FC<Props> = ({ section, kind = "section", title, messa
           display: "inline-block", mb: 1.5, px: 1.25, py: "3px", borderRadius: 999, fontSize: 11, fontWeight: 700,
           letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary", bgcolor: "action.hover", border: "1px solid", borderColor: "divider",
         }}>
-          No access
+          {badge}
         </Box>
         <Box component="h2" sx={{ m: 0, mb: 1, fontSize: { xs: 19, sm: 21 }, fontWeight: 700, color: "text.primary", lineHeight: 1.3 }}>
           {heading}
@@ -78,6 +89,12 @@ const NoAccessPage: React.FC<Props> = ({ section, kind = "section", title, messa
           <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.75, mt: 2.5, px: 1.5, py: 0.75, borderRadius: "10px", fontSize: 12.5, color: "text.secondary", bgcolor: "action.hover" }}>
             <BoltRounded sx={{ fontSize: 16, color: T.color.warning }} />
             This page opens by itself as soon as you're given access.
+          </Box>
+        )}
+        {kind === "entitlement" && (
+          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.75, mt: 2.5, px: 1.5, py: 0.75, borderRadius: "10px", fontSize: 12.5, color: "text.secondary", bgcolor: "action.hover" }}>
+            <BoltRounded sx={{ fontSize: 16, color: T.color.warning }} />
+            Navigation and APIs stay off until the module is enabled for your org.
           </Box>
         )}
 

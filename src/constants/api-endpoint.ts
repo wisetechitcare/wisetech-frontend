@@ -84,6 +84,7 @@ export const USERS = {
     GET_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
     SAVE_ATTENDANCE_PERIOD_PREFERENCE: '/api/users/attendance-period-preference',
     GET_ATTENDANCE_PERIOD_PREFERENCE: '/api/users/attendance-period-preference',
+    EMAIL_CHECK: 'api/users/email-check',
 }
 
 export const COMPANY = {
@@ -125,6 +126,8 @@ export const COMPANY = {
     GET_ORGANIZATION_STATS: "api/company/overview/stats",
     DELETE_OVERVIEW_BY_ID: "api/company/overview/:id",
     GET_CONFIGURATION: "api/feature/config",
+    GET_ENTITLEMENTS: "api/company/entitlements",
+    PUT_ENTITLEMENTS: "api/company/entitlements",
 
     GET_ALL_FAQS: "api/company/faqs",
     POST_FAQ: "api/company/faq",
@@ -215,6 +218,7 @@ export const EMPLOYEE = {
     GET_DOCUMENT_FILE: "api/employee/documents/vault",
     GET_ATTENDANCE_BY_EMP_ID: "api/employee/attendance",
     GET_ALL_ATTENDANCE: "api/employee/attendance/all",
+    GET_ATTENDANCE_RANGE_CALENDAR: "api/employee/attendance/range-calendar",
     CREATE_EMPLOYEE_ATTENDANCE: "api/employee/attendance",
     CHECK_ATTENDANCE_MARKED: "api/employee/attendance/marked",
     MARK_CHECKOUT_ATTENDANCE: "api/employee/attendance",
@@ -252,6 +256,7 @@ export const EMPLOYEE = {
     DELETE_PENDING_DRAFT: "api/employee/reimbursement/pending-draft",
     SUBMIT_REIMBURSEMENT_BATCH: "api/employee/reimbursement/submit-batch",
     GET_REIMBURSEMENT_BATCHES: "api/employee/reimbursement/batches",
+    GET_REIMBURSEMENT_PAYMENT_QUEUE_COUNT: "api/employee/reimbursement/batches/payment-queue-count",
     GET_REIMBURSEMENT_BATCH: "api/employee/reimbursement/batches",
     PROCESS_BATCH_REQUEST: "api/employee/reimbursement/batches",
     GET_UNPAID_APPROVED_REIMBURSEMENTS: "api/employee/reimbursement/unpaid-approved",

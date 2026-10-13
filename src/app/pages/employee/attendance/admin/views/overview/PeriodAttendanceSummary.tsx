@@ -10,11 +10,10 @@ import { RootState } from "@redux/store";
 import { safeJsonParse } from "@utils/safeJson";
 import { formatDateLong } from "@utils/dateFormats";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
-import { fetchAllEmployees, fetchEmployeesOnLeaveRange, fetchAttendanceClassificationBatch } from "@services/employee";
+import { fetchAllEmployees, fetchEmployeesOnLeaveRange, fetchAttendanceClassificationBatch, fetchAttendanceRangeCalendar } from "@services/employee";
 import { useTeamFilter } from "@/contexts/TeamFilterContext";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import Loader from "@app/modules/common/utils/Loader";
-import { countWorkingDays } from "@utils/periodRange";
 import { getEmployeeStatus } from "@utils/employeeStatus";
 import { employeeIdSet } from "@utils/activeEmployee";
 import { saveEmployeesAttendance } from "@redux/slices/attendance";
@@ -27,6 +26,12 @@ import {
     type EmployeePeriodSummary,
     type ClassificationCounts,
 } from "./attendancePeriodSummary";
+import {
+    hydrateNonWorking,
+    isNonWorkingForEmployee,
+    countWorkingDaysFromCalendar,
+    type RangeNonWorking,
+} from "./rangeCalendar";
 
 /**
  * PeriodAttendanceSummary — the Attendance table in Weekly/Monthly mode: one row per
@@ -67,6 +72,13 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
     const [roster, setRoster] = useState<any[]>([]);
     const [leaveRecords, setLeaveRecords] = useState<any[]>([]);
     const [classifications, setClassifications] = useState<Map<string, ClassificationCounts>>(new Map());
+    // Same server work-calendar payload the Overview stat cards use — without it the
+    // summary table re-derives working days from the viewing admin's weekend map and
+    // disagrees with the cards on alternate Saturdays / holidays (audit A1).
+    const [rangeNonWorking, setRangeNonWorking] = useState<RangeNonWorking>({
+        scopes: {},
+        employeeScopes: {},
+    });
     const [isLoading, setIsLoading] = useState(true);
     const [openEmployee, setOpenEmployee] = useState<string | null>(null);
 
@@ -85,9 +97,9 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
         if (!startWire || !endWire) return;
         if (!silent) setIsLoading(true);
         try {
-            // One round trip each, in parallel — the three are independent, and serialising
+            // One round trip each, in parallel — the four are independent, and serialising
             // them would make the section's time-to-content the sum rather than the max.
-            const [attendance, employeesRes, leaveResp] = await Promise.all([
+            const [attendance, employeesRes, leaveResp, calResp] = await Promise.all([
                 fetchEmpsAttendanceRange(startWire, endWire),
                 // Scoped to the SAME window as the attendance and leave calls.
                 // A summary for August must cover whoever was employed during
@@ -95,6 +107,9 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
                 // they were there — which is how payroll already reads a period.
                 fetchAllEmployees(true, startWire, endWire),
                 fetchEmployeesOnLeaveRange(startWire, endWire),
+                // Same endpoint Overview cards use — non-fatal if it fails (falls
+                // back to the admin weekend map so the table still renders).
+                fetchAttendanceRangeCalendar(startWire, endWire).catch(() => null),
             ]);
             if (!isMountedRef.current) return;
             setRows(attendance || []);
@@ -113,9 +128,15 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
              */
             setRoster(employeesRes?.data?.employees || []);
             setLeaveRecords(leaveResp?.data?.leaveRecords || []);
+            setRangeNonWorking(calResp ? hydrateNonWorking(calResp) : { scopes: {}, employeeScopes: {} });
         } catch (error) {
             console.error('Error loading period attendance summary:', error);
-            if (isMountedRef.current) { setRows([]); setRoster([]); setLeaveRecords([]); }
+            if (isMountedRef.current) {
+                setRows([]);
+                setRoster([]);
+                setLeaveRecords([]);
+                setRangeNonWorking({ scopes: {}, employeeScopes: {} });
+            }
         } finally {
             if (isMountedRef.current && !silent) setIsLoading(false);
         }
@@ -171,33 +192,37 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
 
     const weekends = useMemo(() => safeJsonParse(getAllWeekends), [getAllWeekends]);
 
-    /** Non-weekend days in the window — the denominator for "absent". */
-    const workingDays = useMemo(() => countWorkingDays(range, weekends), [range, weekends]);
+    /**
+     * Period heading denominator — viewing admin's own calendar when available,
+     * else the branch weekend map. Per-employee denominators below are what
+     * drive Absent; this is only the "N working days" label.
+     */
+    const workingDays = useMemo(
+        () => countWorkingDaysFromCalendar(range, rangeNonWorking, {
+            employeeId: employeeIdCurrent,
+            weekends,
+        }),
+        [range, rangeNonWorking, employeeIdCurrent, weekends],
+    );
 
     /**
-     * Per-employee working-day denominator, clipped to their own employment
-     * inside the period.
-     *
-     * The period figure above is the right number for a heading ("22 working
-     * days in August") and the wrong one for an individual: someone who left on
-     * the 14th had 10, and charging them 22 invented twelve absences for days
-     * they were not employed. That is what the Absent drill-in was showing.
-     *
-     * Memoised as a Map rather than computed per row: the summary calls this
-     * once per employee, and re-walking the month for each of ~210 people on
-     * every render would be ~4,600 date steps per keystroke elsewhere on the page.
-     *
-     * `getEmployeeStatus` is the shared frontend twin of the backend's
-     * employment-window predicate, and is rejoin-aware.
+     * Per-employee working-day denominator from the SERVER work calendar (same
+     * source Overview cards use), clipped to their own employment inside the
+     * period. Alternate Saturdays / holidays are judged by EACH employee's
+     * branch — not the viewing admin's weekend map.
      */
     const workingDaysByEmployee = useMemo(() => {
         const map = new Map<string, number>();
         for (const e of roster as any[]) {
             if (!e?.id) continue;
-            map.set(e.id, countWorkingDays(range, weekends, (day) => getEmployeeStatus(e, day) === 1));
+            map.set(e.id, countWorkingDaysFromCalendar(range, rangeNonWorking, {
+                employeeId: e.id,
+                weekends,
+                isEmployedOn: (day) => getEmployeeStatus(e, day) === 1,
+            }));
         }
         return map;
-    }, [roster, range, weekends]);
+    }, [roster, range, weekends, rangeNonWorking]);
 
     const workingDaysFor = useCallback(
         // Falls back to the period figure only for someone absent from the roster
@@ -210,7 +235,8 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
     /**
      * employeeId → weighted leave days inside the window. A leave row is a SPAN, so it is
      * expanded day by day and clipped to the window and to working days — counting the
-     * whole span would credit June days to a July total.
+     * whole span would credit June days to a July total. Working-day judgement uses the
+     * same server calendar as the Absent denominator (not the admin weekend map).
      */
     const leaveDaysByEmployee = useMemo(() => {
         const totals = new Map<string, number>();
@@ -225,7 +251,14 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
             if (!cursor.isValid() || !last.isValid()) continue;
             while (cursor.isBefore(last) || cursor.isSame(last, 'day')) {
                 const inWindow = !cursor.isBefore(rangeStart) && !cursor.isAfter(rangeEnd);
-                const isWorkingDay = weekends?.[cursor.format('dddd').toLowerCase()] !== '0';
+                const dateISO = cursor.format('YYYY-MM-DD');
+                const hasServerScope = !!(
+                    rangeNonWorking.employeeScopes[record.employeeId] &&
+                    rangeNonWorking.scopes[rangeNonWorking.employeeScopes[record.employeeId]]
+                );
+                const isWorkingDay = hasServerScope
+                    ? !isNonWorkingForEmployee(rangeNonWorking, record.employeeId, dateISO)
+                    : weekends?.[cursor.format('dddd').toLowerCase()] !== '0';
                 if (inWindow && isWorkingDay) {
                     totals.set(record.employeeId, (totals.get(record.employeeId) ?? 0) + (record.isHalfDay ? 0.5 : 1));
                 }
@@ -233,7 +266,7 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
             }
         }
         return totals;
-    }, [leaveRecords, range.start, range.end, weekends]);
+    }, [leaveRecords, range.start, range.end, weekends, rangeNonWorking]);
 
     /**
      * Attendance rows for the period, restricted to people still on the roster.

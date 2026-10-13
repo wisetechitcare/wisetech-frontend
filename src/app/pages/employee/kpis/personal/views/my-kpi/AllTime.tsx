@@ -8,7 +8,8 @@ import ScoreOverview from "../../components/ScoreOverview";
 import AttendanceIcon from "@metronic/assets/miscellaneousicons/attendance.svg";
 import LeavesIcon from "@metronic/assets/miscellaneousicons/leaves.svg";
 import PerformanceBadge from "../../components/PerformanceBadge";
-import { Container, Spinner } from "react-bootstrap";
+import { Box } from "@mui/material";
+import Loader from "@app/modules/common/utils/Loader";
 import { canSection } from "@utils/can";
 
 const iconMapping: Record<string, string> = {
@@ -109,15 +110,7 @@ const AllTime: React.FC<AllTimeProps> = ({
   }));
 
   if (loading) {
-    return (
-      <Container
-        fluid
-        className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
-        style={{ minHeight: "300px" }}
-      >
-        <Spinner animation="border" variant="primary" />
-      </Container>
-    );
+    return <Loader minHeight={300} />;
   }
 
   if (!showData)
@@ -125,9 +118,9 @@ const AllTime: React.FC<AllTimeProps> = ({
 
   if (!modules.length) {
     return (
-      <Container fluid className="my-4 px-0">
+      <Box sx={{ my: 2, px: 0 }}>
         <p>No KPI data available.</p>
-      </Container>
+      </Box>
     );
   }
 
@@ -146,9 +139,9 @@ const AllTime: React.FC<AllTimeProps> = ({
 
       <ScoreOverview data={overviewData} />
 
-      <Container fluid className="my-4 px-0">
+      <Box sx={{ my: 2, px: 0 }}>
         <KpiStatisticsTable data={modules} />
-      </Container>
+      </Box>
     </>
   );
 };
