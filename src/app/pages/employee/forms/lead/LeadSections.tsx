@@ -25,8 +25,8 @@ import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 import { canViewCommercial } from '@utils/can';
 
-/** Formik setFieldValue — named so LeadSections props stay readable. */
-type LeadSetFieldValue = (field: string, value: any, shouldValidate?: boolean) => void;
+/** Formik setFieldValue — named so LeadSections / LeadWorkspace props stay readable. */
+export type LeadSetFieldValue = (field: string, value: any, shouldValidate?: boolean) => void;
 
 interface LeadSectionsProps {
   // ── Organization (drives the lead's prefix and inquiry-number series) ──────

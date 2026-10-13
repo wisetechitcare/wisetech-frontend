@@ -59,12 +59,12 @@ export interface WtFieldOption {
 }
 
 /**
- * Bivariant so single-select callers can keep `(v: string) => void` while multi passes `string[]`.
- * Same pattern React uses for DOM event handlers under `strictFunctionTypes`.
+ * Single-select call sites pass `(v: string) => void` / `setState`; multi passes `string[]`.
+ * Typed as `any` (not `string | string[]`) so under `strictFunctionTypes` + `React.FC` remapping
+ * we do not reject every `Dispatch<SetStateAction<string>>` or force a cast at each caller.
+ * Runtime always emits `string` or `string[]` from this component.
  */
-export type WtFieldChangeHandler = {
-    bivarianceHack(value: string | string[]): void;
-}['bivarianceHack'];
+export type WtFieldChangeHandler = (value: any) => void;
 
 export interface WtFieldProps {
     /** Omit only when a visible label sits elsewhere. */
