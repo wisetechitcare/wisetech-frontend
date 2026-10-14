@@ -15,6 +15,7 @@ overrides:
   socket.io-parser: '>=4.2.7'
   nanoid: '>=3.3.16'
   source-map-js: '>=1.2.2'
+  seroval: '>=1.6.3'
 
 importers:
 
@@ -4593,10 +4594,10 @@ packages:
     resolution: {integrity: sha512-HXuLAX2pu/UByPpaeo/TaMfvMIi+1QqIoPJYCcAtU8QkVNwgR6MPlGuCQTErV1JwraaMbYaWVIBX7mppzGLATQ==}
     engines: {node: '>=10'}
     peerDependencies:
-      seroval: ^1.0
+      seroval: '>=1.6.3'
 
-  seroval@1.5.6:
-    resolution: {integrity: sha512-rVQVWjjSvlINzaQPZH5JFqsqEsIWdTxY3iJZCnTL/5gQbXIRooVZKI60tVCkOVfzcRPejboxO2t0P89dg5mQaA==}
+  seroval@1.6.9:
+    resolution: {integrity: sha512-UeEzHwAK+yl0YLbsvROV1t5yMYEwZZ0CfKYxDvUgS2fO9Vxdf8djqVIB+OuVpuawRNPqw68LE1Du/GMsW2ZPqA==}
     engines: {node: '>=10'}
 
   setimmediate@1.0.5:
@@ -9512,11 +9513,11 @@ snapshots:
 
   semver@7.8.5: {}
 
-  seroval-plugins@1.5.6(seroval@1.5.6):
+  seroval-plugins@1.5.6(seroval@1.6.9):
     dependencies:
-      seroval: 1.5.6
+      seroval: 1.6.9
 
-  seroval@1.5.6: {}
+  seroval@1.6.9: {}
 
   setimmediate@1.0.5: {}
 
@@ -9593,8 +9594,8 @@ snapshots:
   solid-js@1.9.15:
     dependencies:
       csstype: 3.2.3
-      seroval: 1.5.6
-      seroval-plugins: 1.5.6(seroval@1.5.6)
+      seroval: 1.6.9
+      seroval-plugins: 1.5.6(seroval@1.6.9)
 
   solid-presence@0.2.0(solid-js@1.9.15):
     dependencies:
