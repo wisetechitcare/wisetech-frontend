@@ -39,6 +39,15 @@ const STATUSES = [
     { value: "NO_SHOW", label: "No-show" },
     { value: "CANCELLED", label: "Cancelled" },
 ];
+/**
+ * Statuses past which an interview cannot be edited.
+ *
+ * Nothing is gained by moving an interview that has already happened, and everything is lost by
+ * mailing a panel "this has moved" about it. Cancelling then booking a fresh round is the right
+ * shape for "it is happening after all".
+ */
+const CLOSED_STATUSES = new Set(["COMPLETED", "CANCELLED", "NO_SHOW"]);
+
 const labelOf = (list: { value: string; label: string }[], code: string) => list.find((o) => o.value === code)?.label ?? code;
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 // The rating scale and the decision wording are NOT declared here. They are
@@ -140,6 +149,15 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
     const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const [scheduleOpen, setScheduleOpen] = useState(false);
+    /**
+     * The interview being edited, or null when the dialog is booking a new one.
+     *
+     * ONE dialog for both. A booked interview could not be changed at all before this: the only
+     * control on a row was Status, so moving one meant cancelling it and booking a second, which
+     * left the candidate holding an invitation to a slot nobody was attending. A separate
+     * "reschedule" form would have been a second copy of every field and every validation rule.
+     */
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [form, setForm] = useState<InterviewPayload>({ ...emptySchedule(), applicationId });
     // Text, not a number: a number state turns a cleared field back into "1" mid-typing, so
     // replacing 1 with 2 produced 12.
@@ -194,15 +212,30 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
     const roundValid = Number.isInteger(round) && round >= 1;
 
     const scheduleMut = useMutation({
-        mutationFn: () => createInterview({
-            ...form,
-            applicationId,
-            round,
-            scheduledStart: form.scheduledStart ? new Date(form.scheduledStart).toISOString() : "",
-            scheduledEnd: form.scheduledEnd ? new Date(form.scheduledEnd).toISOString() : "",
+        mutationFn: () => {
+            const payload = {
+                ...form,
+                applicationId,
+                round,
+                scheduledStart: form.scheduledStart ? new Date(form.scheduledStart).toISOString() : "",
+                scheduledEnd: form.scheduledEnd ? new Date(form.scheduledEnd).toISOString() : "",
+            };
+            return editingId ? updateInterview(editingId, payload) : createInterview(payload);
+        },
+        onSuccess: () => {
+            // The server decides whether this was a reschedule or an ordinary edit and words the
+            // mail accordingly, so the toast says who was told rather than guessing which.
+            toast({
+                icon: "success",
+                title: editingId ? "Interview updated — the panel and the candidate were told" : "Interview scheduled — invites sent",
+            });
+            closeSchedule();
+            invalidate();
+        },
+        onError: (err) => toast({
+            icon: "error",
+            title: apiErrorMessage(err, editingId ? "Could not update the interview" : "Could not schedule the interview"),
         }),
-        onSuccess: () => { toast({ icon: "success", title: "Interview scheduled — invites sent" }); setScheduleOpen(false); invalidate(); },
-        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not schedule the interview") }),
     });
 
     const statusMut = useMutation({
@@ -221,10 +254,32 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
         // Tomorrow, on the hour — a clean slot rather than "this exact minute plus a day".
         const start = dayjs().add(1, "day").startOf("hour").toDate();
         const end = dayjs(start).add(45, "minute").toDate();
+        // The mode is part of the form, and this is where the form is defined. Clearing it on
+        // CLOSE instead would work today only because the dialog cannot go from edit to new
+        // without closing — a dependency on teardown order that nothing states.
+        setEditingId(null);
         setForm({ ...emptySchedule(), applicationId, scheduledStart: toLocalInput(start), scheduledEnd: toLocalInput(end) });
         setRoundText(String(interviews.length + 1));
         setScheduleOpen(true);
     };
+
+    const openEdit = (iv: Interview) => {
+        setEditingId(iv.id);
+        setForm({
+            applicationId,
+            type: iv.type,
+            mode: iv.mode,
+            scheduledStart: toLocalInput(new Date(iv.scheduledStart)),
+            scheduledEnd: toLocalInput(new Date(iv.scheduledEnd)),
+            meetingLink: iv.meetingLink ?? "",
+            location: iv.location ?? "",
+            panelistIds: iv.panelistIds ?? [],
+        });
+        setRoundText(String(iv.round));
+        setScheduleOpen(true);
+    };
+
+    const closeSchedule = () => setScheduleOpen(false);
     const openScorecard = (iv: Interview) => { setScore(blankScorecard()); setScoreFor(iv); };
 
     const endAfterStart = !!form.scheduledStart && !!form.scheduledEnd && dayjs(form.scheduledEnd).isAfter(dayjs(form.scheduledStart));
@@ -288,6 +343,14 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                                         disabled={statusMut.isPending}
                                         sx={{ flex: 1, minWidth: 150 }}
                                     />
+                                    {/* Hidden once the interview is over or off: there is nothing
+                                        left to move, and an edit would mail a panel about a slot
+                                        that has already been and gone. */}
+                                    {!CLOSED_STATUSES.has(iv.status) && (
+                                        <WtIconButton title="Reschedule or Edit" onClick={() => openEdit(iv)}>
+                                            <KTIcon iconName="pencil" className="fs-5" />
+                                        </WtIconButton>
+                                    )}
                                     <WtIconButton title="Add Scorecard" onClick={() => openScorecard(iv)}>
                                         <KTIcon iconName="questionnaire-tablet" className="fs-5" />
                                     </WtIconButton>
@@ -302,9 +365,18 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
             {/* Schedule interview */}
             <GlassDialog
                 open={scheduleOpen}
-                onClose={() => setScheduleOpen(false)}
+                onClose={closeSchedule}
                 maxWidth="sm"
-                header={<GlassHeader title="Schedule Interview" subtitle={`${applicantName} and the panel are emailed an invite`} icon={<KTIcon iconName="message-text-2" className="fs-2" />} onClose={() => setScheduleOpen(false)} />}
+                header={(
+                    <GlassHeader
+                        title={editingId ? "Reschedule Interview" : "Schedule Interview"}
+                        subtitle={editingId
+                            ? `${applicantName} and the panel are emailed the change`
+                            : `${applicantName} and the panel are emailed an invite`}
+                        icon={<KTIcon iconName="message-text-2" className="fs-2" />}
+                        onClose={closeSchedule}
+                    />
+                )}
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
@@ -340,8 +412,12 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <WtButton ghost onClick={() => setScheduleOpen(false)}>Cancel</WtButton>
-                    <WtButton tone="primary" disabled={!canSchedule || scheduleMut.isPending} onClick={() => scheduleMut.mutate()}>{scheduleMut.isPending ? "Scheduling…" : "Schedule & Invite"}</WtButton>
+                    <WtButton ghost onClick={closeSchedule}>Cancel</WtButton>
+                    <WtButton tone="primary" disabled={!canSchedule || scheduleMut.isPending} onClick={() => scheduleMut.mutate()}>
+                        {scheduleMut.isPending
+                            ? (editingId ? "Saving…" : "Scheduling…")
+                            : (editingId ? "Save & Notify" : "Schedule & Invite")}
+                    </WtButton>
                 </DialogActions>
             </GlassDialog>
 

@@ -1,18 +1,12 @@
 // CompaniesByLocationAndStatus.tsx
 import React, { useMemo, useState } from "react";
-import {
-  Box,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  SelectChangeEvent,
-} from "@mui/material";
+import { Box } from "@mui/material";
 import { ChartDialogModal } from "../components/ChartDialogModal";
 import dayjs from "dayjs";
 import { AnalyticsCard, RankedBarChart, ChartDatum, ChartMetric, applyMetric } from "@pages/dashboard/leadAnalytics";
 import { getCurrencySymbol } from '@utils/currency';
 import { canViewCommercial } from '@utils/can';
+import { WtField } from "@app/modules/common/components/ui";
 
 
 type Filters = {
@@ -188,10 +182,8 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
   const cityGrouped = useMemo(() => createGroupedData(item => item.cityId, item => normalize(item.city)), [filteredData]);
   const localityGrouped = useMemo(() => createGroupedData(item => item.localityId, item => normalize(item.locality)), [filteredData]);
 
-  // Change handlers with cascading resets
-  const handleChange = (key: keyof Filters) => (e: SelectChangeEvent<string>) => {
-    const val = e.target.value;
-
+  // Change handlers with cascading resets (WtField onChange → string value)
+  const handleChange = (key: keyof Filters) => (val: string) => {
     if (key === "status") {
       setFilters({
         country: "All",
@@ -228,6 +220,9 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
       }));
     }
   };
+
+  const toFieldOptions = (values: string[]) =>
+    values.map((v) => ({ value: v, label: v }));
 
   // This chart is reused for both leads and projects, so the tooltip/subtitle
   // noun follows the scope instead of always reading "Leads".
@@ -295,155 +290,46 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
               </span>
             </div>
             <Box sx={{ display: "flex", gap: 1.5, flexWrap: "nowrap", justifyContent: "flex-end", minWidth: "fit-content" }}>
-              <FormControl sx={{ minWidth: 140 }} size="small">
-                <InputLabel id="status-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>Status</InputLabel>
-                <Select
-                  labelId="status-label"
-                  value={filters.status}
-                  label="Status"
-                  onChange={handleChange("status")}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '& .MuiSelect-select': {
-                      color: '#1E3A8A',
-                    }
-                  }}
-                >
-                  {statusOptions.map((s) => (
-                    <MenuItem key={s} value={s}>
-                      {s}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl sx={{ minWidth: 140 }} size="small">
-                <InputLabel id="country-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>Country</InputLabel>
-                <Select
-                  labelId="country-label"
-                  value={filters.country}
-                  label="Country"
-                  onChange={handleChange("country")}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '& .MuiSelect-select': {
-                      color: '#1E3A8A',
-                    }
-                  }}
-                >
-                  {countryOptions.map((c) => (
-                    <MenuItem key={c} value={c}>
-                      {c}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl sx={{ minWidth: 140 }} size="small">
-                <InputLabel id="state-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>State</InputLabel>
-                <Select
-                  labelId="state-label"
-                  value={filters.state}
-                  label="State"
-                  onChange={handleChange("state")}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '& .MuiSelect-select': {
-                      color: '#1E3A8A',
-                    }
-                  }}
-                >
-                  {stateOptions.map((s) => (
-                    <MenuItem key={s} value={s}>
-                      {s}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl sx={{ minWidth: 140 }} size="small">
-                <InputLabel id="city-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>City</InputLabel>
-                <Select
-                  labelId="city-label"
-                  value={filters.city}
-                  label="City"
-                  onChange={handleChange("city")}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '& .MuiSelect-select': {
-                      color: '#1E3A8A',
-                    }
-                  }}
-                >
-                  {cityOptions.map((c) => (
-                    <MenuItem key={c} value={c}>
-                      {c}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl sx={{ minWidth: 140 }} size="small">
-                <InputLabel id="locality-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>Locality</InputLabel>
-                <Select
-                  labelId="locality-label"
-                  value={filters.locality}
-                  label="Locality"
-                  onChange={handleChange("locality")}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '& .MuiSelect-select': {
-                      color: '#1E3A8A',
-                    }
-                  }}
-                >
-                  {localityOptions.map((l) => (
-                    <MenuItem key={l} value={l}>
-                      {l}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <WtField
+                label="Status"
+                size="sm"
+                minWidth={140}
+                value={filters.status}
+                onChange={handleChange("status")}
+                options={toFieldOptions(statusOptions)}
+              />
+              <WtField
+                label="Country"
+                size="sm"
+                minWidth={140}
+                value={filters.country}
+                onChange={handleChange("country")}
+                options={toFieldOptions(countryOptions)}
+              />
+              <WtField
+                label="State"
+                size="sm"
+                minWidth={140}
+                value={filters.state}
+                onChange={handleChange("state")}
+                options={toFieldOptions(stateOptions)}
+              />
+              <WtField
+                label="City"
+                size="sm"
+                minWidth={140}
+                value={filters.city}
+                onChange={handleChange("city")}
+                options={toFieldOptions(cityOptions)}
+              />
+              <WtField
+                label="Locality"
+                size="sm"
+                minWidth={140}
+                value={filters.locality}
+                onChange={handleChange("locality")}
+                options={toFieldOptions(localityOptions)}
+              />
             </Box>
           </Box>
 

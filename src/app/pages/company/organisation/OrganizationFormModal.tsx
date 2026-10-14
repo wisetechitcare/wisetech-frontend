@@ -1,31 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Box, Stack, TextField, Typography } from '@mui/material';
-import dayjs from 'dayjs';
 import { createCompanyOverview } from '@services/company';
 import { uploadCompanyAsset } from '@services/uploader';
-import { dateFormatter } from '@utils/date';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
-import { GlassDialog, GlassHeader, WtButton, WtDateField } from '@app/modules/common/components/ui';
+import { GlassDialog, GlassHeader, WtButton, FiscalYearRangeField } from '@app/modules/common/components/ui';
 import { IconBuilding, IconHierarchy, IconImage } from '@app/modules/common/components/icons/OrgIcons';
+import { splitFiscalYearRange } from '@utils/fiscalYearRange';
 
 /**
  * Create an organization, or a sub-organization under one.
  *
- * REBUILT ON THE KIT. What this file used to be, and why none of it survived:
- *
- *  • a react-bootstrap <Modal> with an inline <style> block — banned, because it
- *    leaks global CSS and targets a class name from inside a component;
- *  • its own seven-colour palette (`const C = { brand: '#1E3A8A', … }`) and a
- *    white panel, so the whole dialog stayed light-mode whatever the theme said;
- *  • hand-styled <label> + <input> pairs via `labelStyle`/`inputStyle` objects,
- *    which is precisely what made this form look like a different application
- *    from every other form in the app;
- *  • two hand-rolled <button>s and a third close button of its own;
- *  • a sibling .responsive.css file to re-do what a breakpoint object does.
- *
- * The behaviour is unchanged: same validation, same upload, and the fiscal year
- * is still stored as "<start> to <end>" in `dateFormatter`'s format, which is
- * what the API and the profile screen read.
+ * Fiscal year uses the shared {@link FiscalYearRangeField} (ISO `"start to end"`),
+ * the same control as prefix / org profile — not a one-off pair of date fields.
  */
 
 interface Props {
@@ -50,10 +36,7 @@ const blank: FormState = { name: '', logo: '', workingHrs: '8', workingDays: '5'
 
 export default function OrganizationFormModal({ show, parentOrg, onCreated, onClose }: Props) {
   const [form, setForm] = useState<FormState>(blank);
-  // The fiscal year is a RANGE. Held as two wire-format dates and composed on
-  // submit, so the picker is the app's own date field instead of Flatpickr's.
-  const [fiscalFrom, setFiscalFrom] = useState('');
-  const [fiscalTo, setFiscalTo] = useState('');
+  const [fiscalYear, setFiscalYear] = useState('');
   const [logoPreview, setLogoPreview] = useState('');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -62,7 +45,7 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
   useEffect(() => {
     if (show) {
       setForm(blank); setLogoPreview(''); setErrors({});
-      setFiscalFrom(''); setFiscalTo('');
+      setFiscalYear('');
     }
   }, [show]);
 
@@ -92,8 +75,9 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
   function validate(): boolean {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = 'Organization name is required';
-    if (!fiscalFrom || !fiscalTo) e.fiscalYear = 'Fiscal year is required';
-    else if (fiscalFrom > fiscalTo) e.fiscalYear = 'The start date must be on or before the end date';
+    const { from, to } = splitFiscalYearRange(fiscalYear);
+    if (!from || !to) e.fiscalYear = 'Fiscal year is required';
+    else if (from > to) e.fiscalYear = 'The start date must be on or before the end date';
     if (!form.workingHrs.trim()) e.workingHrs = 'Required';
     if (!form.workingDays.trim()) e.workingDays = 'Required';
     setErrors(e);
@@ -102,25 +86,57 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
 
   async function handleSubmit() {
     if (!validate()) return;
+    if (fiscalYear.length > 64) {
+      setErrors((e) => ({ ...e, fiscalYear: 'Fiscal year range is too long to save — pick calendar dates again' }));
+      return;
+    }
     setSaving(true);
     try {
-      // Same string the old Flatpickr range produced — the API and the profile
-      // screen both parse this shape, so it is not ours to modernise here.
-      const fiscalYear = `${dateFormatter.format(dayjs(fiscalFrom).toDate())} to ${dateFormatter.format(dayjs(fiscalTo).toDate())}`;
       const payload: any = { ...form, fiscalYear, ...(parentOrg ? { parentOrganizationId: parentOrg.id } : {}) };
       const res = await createCompanyOverview(payload);
       if (res && !res.hasError) {
         successConfirmation(parentOrg ? 'Sub-organization created successfully' : 'Organization created successfully');
         onCreated();
         onClose();
-      } else throw new Error();
-    } catch { errorConfirmation('Failed to create organization'); }
+      } else {
+        throw Object.assign(new Error(res?.message || 'Failed to create organization'), { response: { data: res } });
+      }
+    } catch (err: any) {
+      const data = err?.response?.data ?? (err?.message && typeof err === 'object' ? err : null);
+      const detail = typeof data?.detail === 'string' ? data.detail : '';
+      const prismaCode = data?.prismaCode as string | undefined;
+      if (prismaCode === 'P2002' || /unique/i.test(detail)) {
+        errorConfirmation(`An organization named "${form.name.trim()}" already exists. Choose a different name.`);
+      } else if (/fiscal_year/i.test(detail) || (/fiscal/i.test(detail) && /too long/i.test(detail))) {
+        errorConfirmation('Fiscal year value is too long for the database. Pick the start and end dates again.');
+      } else if (prismaCode === 'P2000' || /too long/i.test(detail)) {
+        const fieldHint = detail.match(/`(\w+)`/)?.[1];
+        errorConfirmation(
+          fieldHint
+            ? `The ${fieldHint.replace(/_/g, ' ')} value is too long. Shorten it and try again.`
+            : (detail && detail !== 'A database error occurred'
+              ? detail
+              : 'One of the fields is too long for the database. Shorten it and try again.'),
+        );
+      } else if (data?.validationError?.length) {
+        const first = data.validationError[0];
+        const field = first?.field ? `${first.field}: ` : '';
+        errorConfirmation(`${field}${(first?.errors || []).join(', ') || data.detail || 'Invalid organization details'}`);
+      } else {
+        const msg =
+          (typeof data?.message === 'string' && data.message) ||
+          (detail && detail !== 'A database error occurred' ? detail : '') ||
+          'Failed to create organization';
+        errorConfirmation(msg);
+      }
+    }
     finally { setSaving(false); }
   }
 
   return (
     <GlassDialog
       open={show} onClose={onClose} maxWidth="md" fullWidth
+      preset="form"
       header={
         <GlassHeader
           title={parentOrg ? 'Add Sub-Organization' : 'New Organization'}
@@ -130,8 +146,7 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
         />
       }
     >
-      <Box sx={{ p: { xs: 2, sm: 2.75 }, maxHeight: '66vh', overflowY: 'auto' }}>
-        {/* Logo */}
+      <Box sx={{ p: { xs: 2, sm: 2.75 } }}>
         <Stack direction="row" spacing={1.75} alignItems="center" sx={{ mb: 2.5 }}>
           <Box sx={{
             width: 64, height: 64, borderRadius: '12px', overflow: 'hidden', flexShrink: 0,
@@ -143,9 +158,6 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
               : <IconImage size={26} />}
           </Box>
           <Box sx={{ minWidth: 0 }}>
-            {/* The upload control is a real button that happens to wrap a file
-                input — `component="label"` keeps the native picker without a
-                second button style existing anywhere in the app. */}
             <WtButton
               inverted size="small" component="label" disabled={uploading}
               sx={{ mb: 0.5 }}
@@ -168,21 +180,18 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
             error={Boolean(errors.name)} helperText={errors.name}
           />
 
-          {/* Two fields, not a range picker: the app has one date control, and it
-              is the one that renders the company format and stays themed. */}
-          <WtDateField
-            label="Fiscal Year Start" value={fiscalFrom}
-            onChange={(v: string) => { setFiscalFrom(v); if (errors.fiscalYear) setErrors(e => { const n = { ...e }; delete n.fiscalYear; return n; }); }}
-            maxDate={fiscalTo || undefined}
-          />
-          <WtDateField
-            label="Fiscal Year End" value={fiscalTo}
-            onChange={(v: string) => { setFiscalTo(v); if (errors.fiscalYear) setErrors(e => { const n = { ...e }; delete n.fiscalYear; return n; }); }}
-            minDate={fiscalFrom || undefined}
-          />
-          {errors.fiscalYear && (
-            <Typography sx={{ gridColumn: '1 / -1', mt: -1, fontSize: 12, color: 'error.main' }}>{errors.fiscalYear}</Typography>
-          )}
+          <Box sx={{ gridColumn: '1 / -1' }}>
+            <FiscalYearRangeField
+              value={fiscalYear}
+              onChange={(v) => {
+                setFiscalYear(v);
+                if (errors.fiscalYear) setErrors(e => { const n = { ...e }; delete n.fiscalYear; return n; });
+              }}
+              required
+              error={Boolean(errors.fiscalYear)}
+              helperText={errors.fiscalYear}
+            />
+          </Box>
 
           <TextField
             label="Business Type" size="small" fullWidth placeholder="e.g. Consultancy"

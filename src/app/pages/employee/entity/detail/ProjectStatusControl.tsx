@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Stack, Typography } from '@mui/material';
+import { Box, Checkbox, FormControlLabel, Stack, Typography } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { getAllProjectStatuses } from '@services/projects';
 import { updateLeadSection } from '@services/leadService';
@@ -59,23 +59,34 @@ const ProjectStatusControl: React.FC<{
   const [showModal, setShowModal] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(projectStatusId || null);
   const [endDateDraft, setEndDateDraft] = useState('');
+  // Ask whether the Internal + External teams should end on the project's end date.
+  const [endTeams, setEndTeams] = useState(true);
 
   const handleOpen = () => {
     setSelectedId(projectStatusId || null);
     setEndDateDraft(toDateInputValue(actualEndDate) || toDateInputValue(new Date()));
+    // Already Completed: don't re-end the teams unless the user opts in again.
+    setEndTeams(!isCompletedStatus(current));
     setShowModal(true);
   };
 
   const selectedStatus = useMemo(() => statuses.find((s: any) => s.id === selectedId) || null, [statuses, selectedId]);
   const showEndDate = isCompletedStatus(selectedStatus);
+  // Nothing to save when the status is unchanged and the Completed options are untouched.
+  const hasChanges = (id: string | null) =>
+    id !== projectStatusId ||
+    (showEndDate && (endDateDraft !== toDateInputValue(actualEndDate) || endTeams));
 
   const select = async (id: string) => {
-    if (id === projectStatusId && !(showEndDate && endDateDraft !== toDateInputValue(actualEndDate))) return;
+    if (!hasChanges(id)) return;
     if (saving) return;
     setSaving(true);
     try {
       const data: any = { projectStatusId: id };
-      if (showEndDate) data.actualEndDate = endDateDraft || null;
+      if (showEndDate) {
+        data.actualEndDate = endDateDraft || null;
+        if (endTeams) data.endTeamsOnComplete = true;
+      }
       await updateLeadSection(leadId, 'projectStatus', data, null);
       onChanged?.();
       setShowModal(false);
@@ -89,8 +100,7 @@ const ProjectStatusControl: React.FC<{
   const [hover, setHover] = useState(false);
 
   const confirmDisabled =
-    saving || !selectedId ||
-    (selectedId === projectStatusId && !(showEndDate && endDateDraft !== toDateInputValue(actualEndDate)));
+    saving || !selectedId || !hasChanges(selectedId);
 
   return (
     <>
@@ -164,6 +174,41 @@ const ProjectStatusControl: React.FC<{
             <Box sx={{ mt: 1.25 }}>
               <PlainDatePicker value={endDateDraft} onChange={setEndDateDraft} placeholder="Select date" />
             </Box>
+            {/* Whole card is the click target (not just the tiny box), and it visibly
+                reacts to the checked state so the choice is obvious at a glance. */}
+            <FormControlLabel
+              sx={{
+                mt: 1.5, mx: 0, width: '100%', alignItems: 'flex-start', gap: 0.5,
+                p: 1.25, pl: 0.75, borderRadius: 2,
+                border: '1px solid',
+                borderColor: endTeams ? TRIO.green.c : 'divider',
+                bgcolor: endTeams ? `${TRIO.green.c}14` : 'transparent',
+                transition: 'border-color 0.15s ease, background-color 0.15s ease',
+                '&:hover': { borderColor: TRIO.green.c },
+                '& .MuiFormControlLabel-label': { flex: 1, minWidth: 0 },
+              }}
+              control={
+                <Checkbox
+                  checked={endTeams}
+                  onChange={(e) => setEndTeams(e.target.checked)}
+                  sx={{
+                    p: 0.5, mt: -0.25,
+                    '&.Mui-checked': { color: TRIO.green.c },
+                    '& .MuiSvgIcon-root': { fontSize: 22 },
+                  }}
+                />
+              }
+              label={
+                <Box>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, lineHeight: 1.35, color: 'text.primary' }}>
+                    Also end Internal &amp; External team members
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: 'text.secondary', mt: 0.25 }}>
+                    Sets the same end date on the team rosters. Members who already have an earlier end date keep it.
+                  </Typography>
+                </Box>
+              }
+            />
           </GlassSurface>
         )}
       </OptionPickerDialog>

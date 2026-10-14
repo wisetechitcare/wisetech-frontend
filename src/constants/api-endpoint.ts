@@ -47,6 +47,8 @@ export const RECRUITMENT = {
     GET_APPLICANT_BY_ID: "api/recruitment/applicants/:id",
     UPDATE_APPLICANT: "api/recruitment/applicants/:id",
     UPLOAD_APPLICANT_RESUME: "api/recruitment/applicants/:id/resume",
+    UPLOAD_APPLICANT_PHOTO: "api/recruitment/applicants/:id/photo",
+    UPLOAD_APPLICANT_DOCUMENT: "api/recruitment/applicants/:id/documents",
     SCORECARD_TEMPLATES: "api/recruitment/config/scorecard-templates",
     SCORECARD_TEMPLATE_BY_ID: "api/recruitment/config/scorecard-templates/:id",
     SCORECARD_TEMPLATE_FOR_INTERVIEW: "api/recruitment/interviews/:id/scorecard-template",
@@ -143,6 +145,8 @@ export const COMPANY = {
     GET_ORGANIZATION_STATS: "api/company/overview/stats",
     DELETE_OVERVIEW_BY_ID: "api/company/overview/:id",
     GET_CONFIGURATION: "api/feature/config",
+    GET_ENTITLEMENTS: "api/company/entitlements",
+    PUT_ENTITLEMENTS: "api/company/entitlements",
 
     GET_ALL_FAQS: "api/company/faqs",
     POST_FAQ: "api/company/faq",

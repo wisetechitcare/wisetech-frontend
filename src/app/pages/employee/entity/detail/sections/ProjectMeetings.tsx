@@ -126,6 +126,7 @@ const ProjectMeetings: React.FC<Props> = ({ leadId, leadName, contact }) => {
                 mode={contactId ? 'contact' : 'project'}
                 targetId={contactId ?? leadId!}
                 reloadToken={reloadToken}
+                viewerEmployeeId={currentEmployeeId}
                 onCreate={canCreate ? (startIso) => { setEditing(null); setCreateOn(startIso ?? null); setOpen(true); } : undefined}
                 onEdit={canWrite ? (m) => { setEditing(toEditableMeeting(m)); setCreateOn(null); setOpen(true); } : undefined}
                 onCancel={canWrite ? handleCancel : undefined}

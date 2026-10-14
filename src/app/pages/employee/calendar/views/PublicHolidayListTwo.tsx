@@ -5,7 +5,6 @@ import { RootState } from "@redux/store";
 import { usePermission } from "@hooks/usePermission";
 import { KTIcon } from "@metronic/helpers";
 import { errorConfirmation, successConfirmation, deleteConfirmation } from "@utils/modal";
-import { Modal } from "react-bootstrap";
 import PublicHoliday from "@pages/company/PublicHoliday";
 import { IPublicHolidayUpdate } from "@models/company";
 import { hasPermission } from "@utils/authAbac";
@@ -15,7 +14,8 @@ import { useEventBus } from "@hooks/useEventBus";
 import { deletePublicHolidayById, fetchAllBranches, fetchPublicHolidays, fetchHolidays, generateHolidaysForYear, fetchCompanyOverview, fetchWeekendAudit, generateWeekendSchedule, type WeekendAudit } from "@services/company";
 import { resolveActiveOrgId } from "@utils/activeOrg";
 import { T } from "@app/modules/common/components/ui/tokens";
-import { confirmDialog } from "@app/modules/common/components/ui";
+import { Box } from "@mui/material";
+import { GlassDialog, PlainDialogHeader, confirmDialog } from "@app/modules/common/components/ui";
 
 interface PublicHoliday {
     id: string;
@@ -1296,59 +1296,43 @@ function PublicHolidaysListTwo({
                 </div>
             </div>
 
-            {/* Edit Holiday Modal */}
-            <Modal show={showEditModal} onHide={() => setShowEditModal(false)} centered size="lg" fullscreen="md-down" contentClassName="rounded-4 border-0 shadow-lg">
-                <Modal.Header closeButton style={{ border: 'none', padding: '22px 24px 6px' }}>
-                    <div className="d-flex align-items-center gap-3">
-                        <div
-                            style={{
-                                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: `linear-gradient(135deg, ${T.color.brand}1F, ${T.color.brand}0D)`,
-                                color: T.color.brand,
-                            }}
-                        >
-                            <KTIcon iconName="pencil" className="fs-3" />
-                        </div>
-                        <div>
-                            <Modal.Title style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.2px', margin: 0 }}>
-                                Edit Holiday
-                            </Modal.Title>
-                            <div style={{ fontSize: 12.5, color: '#64748B', marginTop: 1 }}>Update this holiday's details</div>
-                        </div>
-                    </div>
-                </Modal.Header>
-                <Modal.Body style={{ padding: '10px 24px 24px' }}>
+            <GlassDialog
+                open={showEditModal}
+                onClose={() => setShowEditModal(false)}
+                maxWidth="md"
+                plain
+                header={
+                    <PlainDialogHeader
+                        title="Edit Holiday"
+                        subtitle="Update this holiday's details"
+                        icon={<KTIcon iconName="pencil" className="fs-3" />}
+                        onClose={() => setShowEditModal(false)}
+                    />
+                }
+            >
+                <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3, pt: 1 }}>
                     <PublicHoliday onClose={() => setShowEditModal(false)} setShowNewHolidayForm={setShowEditModal} isEditMode={true} editData={currentEditHolidayData || undefined} holidayNameForEditMode={holidayNameForEditMode} setRefetch={setRefetch} />
-                </Modal.Body>
-            </Modal>
+                </Box>
+            </GlassDialog>
 
-            {/* Add Holiday Modal */}
-            <Modal show={showAddModal} onHide={() => setShowAddModal(false)} centered size="lg" fullscreen="md-down" contentClassName="rounded-4 border-0 shadow-lg">
-                <Modal.Header closeButton style={{ border: 'none', padding: '22px 24px 6px' }}>
-                    <div className="d-flex align-items-center gap-3">
-                        <div
-                            style={{
-                                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: `linear-gradient(135deg, ${T.color.brand}1F, ${T.color.brand}0D)`,
-                                color: T.color.brand,
-                            }}
-                        >
-                            <KTIcon iconName="calendar" className="fs-3" />
-                        </div>
-                        <div>
-                            <Modal.Title style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.2px', margin: 0 }}>
-                                Add Holiday
-                            </Modal.Title>
-                            <div style={{ fontSize: 12.5, color: '#64748B', marginTop: 1 }}>Schedule a new holiday for {selectedYear}</div>
-                        </div>
-                    </div>
-                </Modal.Header>
-                <Modal.Body style={{ padding: '10px 24px 24px' }}>
+            <GlassDialog
+                open={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                maxWidth="md"
+                plain
+                header={
+                    <PlainDialogHeader
+                        title="Add Holiday"
+                        subtitle={`Schedule a new holiday for ${selectedYear}`}
+                        icon={<KTIcon iconName="calendar" className="fs-3" />}
+                        onClose={() => setShowAddModal(false)}
+                    />
+                }
+            >
+                <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3, pt: 1 }}>
                     <PublicHoliday onClose={() => setShowAddModal(false)} setShowNewHolidayForm={undefined} sendNotification={() => setRefetch(prev => !prev)} />
-                </Modal.Body>
-            </Modal>
+                </Box>
+            </GlassDialog>
         </div>
     );
 }

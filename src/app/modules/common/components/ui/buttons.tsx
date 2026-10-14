@@ -1,7 +1,8 @@
 import { forwardRef } from 'react';
-import { Button, ButtonProps, IconButton, IconButtonProps, Tooltip, useTheme } from '@mui/material';
+import { Button, ButtonProps, IconButton, IconButtonProps, Tooltip } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { titleCaseNode } from './text';
+import { useIsDark } from './tw/useIsDark';
 
 /**
  * Reusable button primitives for the premium UI kit — single source of truth for CTA physics.
@@ -23,24 +24,40 @@ import { titleCaseNode } from './text';
 export const MRD_EASE = 'cubic-bezier(.22,.61,.36,1)';
 
 /**
- * The height every full-size control shares.
+ * Control density SSOT (modern SaaS mid-scale).
  *
- * Written three times inside this file before it had a name, which is how a search
- * field beside a button ended up 6px shorter: MUI `size="small"` is 40, this is 46.
- * Anything that sits in a row with a WtButton should use `controlHeightSx` rather than
- * guessing.
+ * - Default / row (`WT_CONTROL_HEIGHT` = 40): toolbars, list headers, most forms.
+ * - Spacious (`WT_CONTROL_HEIGHT_MD` = 44): opt-in dialog forms via `size="md"` / `size="medium"`.
+ *
+ * Anything that sits in a row with a WtButton should use `controlHeightSx` (or
+ * `controlHeightSxFor('md')`) rather than guessing heights per screen.
  */
-export const WT_CONTROL_HEIGHT = 46;
+export const WT_CONTROL_HEIGHT = 40;
+export const WT_CONTROL_HEIGHT_MD = 44;
 
 /**
  * Make a MUI input match button height. Applied to the OUTER root and the inner input,
  * because MUI sizes the input element independently of the wrapper — setting only the
  * root leaves the text off-centre.
  */
-export const controlHeightSx = {
-    "& .MuiOutlinedInput-root": { minHeight: WT_CONTROL_HEIGHT },
-    "& .MuiOutlinedInput-input": { paddingTop: 0, paddingBottom: 0, height: WT_CONTROL_HEIGHT - 2 },
+export const controlHeightSxFor = (density: 'sm' | 'md' = 'sm') => {
+  const h = density === 'md' ? WT_CONTROL_HEIGHT_MD : WT_CONTROL_HEIGHT;
+  return {
+    '& .MuiOutlinedInput-root': { minHeight: h },
+    '& .MuiOutlinedInput-input': { paddingTop: 0, paddingBottom: 0, height: h - 2 },
+  } as const;
 };
+
+/** Default (40px) — alias kept so existing imports keep working. */
+export const controlHeightSx = controlHeightSxFor('sm');
+
+const buttonHeightSx = (h: number, compact: boolean): SxProps<Theme> => ({
+  minHeight: h,
+  fontSize: compact ? 13.5 : 14,
+  px: compact ? 2 : 2.5,
+  py: compact ? 0.75 : 0.9,
+  borderRadius: compact ? '11px' : '12px',
+});
 
 export type WtCtaTone = 'primary' | 'accent' | 'danger' | 'success';
 
@@ -71,9 +88,8 @@ export const ctaSx = (tone: WtCtaTone = 'primary', flat = false): SxProps<Theme>
     : `0 3px 6px ${c.glow}59, 0 18px 32px -10px ${c.glow}cc, inset 0 1px 0 rgba(255,255,255,.16)`;
 
   return {
-    textTransform: 'none', fontWeight: 700, letterSpacing: '-0.01em', borderRadius: '13px',
-    // Larger, more tappable, more readable — a proper primary CTA.
-    fontSize: 14.5, lineHeight: 1.2, minHeight: WT_CONTROL_HEIGHT, px: 2.75, py: 1.1,
+    textTransform: 'none', fontWeight: 700, letterSpacing: '-0.01em', borderRadius: '12px',
+    lineHeight: 1.2,
     background: `linear-gradient(135deg, ${c.from}, ${c.to})`, color: '#fff',
     boxShadow: rest,
     transition: `transform .16s ${MRD_EASE}, box-shadow .2s, filter .15s`,
@@ -100,7 +116,7 @@ export const ctaSx = (tone: WtCtaTone = 'primary', flat = false): SxProps<Theme>
  * reads as a real, tappable secondary action (not just text). */
 export const ghostSx: SxProps<Theme> = {
   textTransform: 'none', fontWeight: 650, letterSpacing: '-0.01em', borderRadius: '12px', color: '#334155',
-  fontSize: 14.5, lineHeight: 1.2, minHeight: WT_CONTROL_HEIGHT, px: 2.5, py: 1.1,
+  lineHeight: 1.2,
   // White on a visible border, and a hover that goes DARKER.
   //
   // It used to sit at #F8FAFC behind a #E2E8F0 border and hover to #EEF2F7 — all three within a
@@ -121,7 +137,7 @@ export const ghostSx: SxProps<Theme> = {
  * also works on light surfaces (thin blue-tinted border + soft shadow). Same lift/press physics. */
 export const invertedSx: SxProps<Theme> = {
   textTransform: 'none', fontWeight: 700, letterSpacing: '-0.01em', borderRadius: '12px',
-  fontSize: 14.5, lineHeight: 1.2, minHeight: WT_CONTROL_HEIGHT, px: 2.5, py: 1.1,
+  lineHeight: 1.2,
   bgcolor: '#fff', color: '#1E3A8A', border: '1px solid #dbeafe',
   boxShadow: '0 1px 2px rgba(16,24,40,0.06)',
   transition: `background-color .15s, border-color .15s, transform .16s ${MRD_EASE}, box-shadow .2s`,
@@ -160,17 +176,26 @@ export interface WtButtonProps extends ButtonProps {
 }
 
 export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function WtButton(
-  { tone = 'primary', ghost = false, inverted = false, flat = false, sx, variant, children, ...rest }, ref,
+  { tone = 'primary', ghost = false, inverted = false, flat = false, size, sx, variant, children, ...rest }, ref,
 ) {
-  const dark = useTheme().palette.mode === 'dark';
-  const base = ghost ? ghostSx : inverted ? invertedSx : ctaSx(tone, flat);
+  // Read dark from the html class ColorModeProvider stamps — not MUI useTheme —
+  // so CTAs stay mode-aware even when a subtree's ThemeContext is briefly unavailable (HMR).
+  const dark = useIsDark();
+  // `small` = toolbar / ListHeader (40px + flatter glow). `medium` = spacious (44px).
+  // Default = mid density (40px). Toolbar CTAs force flat so glow doesn't bloom beside search.
+  const compact = size === 'small';
+  const spacious = size === 'medium' || size === 'large';
+  const h = spacious ? WT_CONTROL_HEIGHT_MD : WT_CONTROL_HEIGHT;
+  const useFlat = flat || compact;
+  const base = ghost ? ghostSx : inverted ? invertedSx : ctaSx(tone, useFlat);
   const darkOverride = dark ? (ghost ? ghostDarkSx : inverted ? invertedDarkSx : ctaDarkSx) : null;
   return (
     <Button
       ref={ref}
+      size={size}
       variant={ghost ? 'text' : (variant ?? 'contained')}
-      // recipe → dark override → caller sx, so per-use tweaks (width, margins) always win
-      sx={[base, darkOverride, ...(Array.isArray(sx) ? sx : [sx])].filter(Boolean) as SxProps<Theme>}
+      // recipe → height → dark override → caller sx, so per-use tweaks always win
+      sx={[base, buttonHeightSx(h, compact), darkOverride, ...(Array.isArray(sx) ? sx : [sx])].filter(Boolean) as SxProps<Theme>}
       {...rest}
     >
       {/* Labels are title-cased here so every button reads the same without

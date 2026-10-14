@@ -1,6 +1,6 @@
 import { ChangeEvent, useEffect, useState } from "react";
 import { fetchAllCities, fetchAllCountries, fetchAllStates, fetchCountryName, fetchStateName } from "@services/options";
-import TextInput from "@app/modules/common/inputs/TextInput";
+import { WtFieldFormik } from "@app/modules/common/components/ui";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { saveCountries } from "@redux/slices/locations";
@@ -9,16 +9,8 @@ import { useParams } from "react-router-dom";
 import { Option } from "@models/dropdown";
 import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
 
-// const presentAddress = {
-//     presentAddressLine1: "",
-//     presentAddressLine2: "",
-//     presentCountry: "",
-//     presentState: "",
-//     presentCity: "",
-//     presentPostalCode: "",
-// }
-
-function AddressInfo({ formikProps }: any) {
+function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; softRequired?: boolean }) {
+    const addressRequired = !softRequired;
     const dispatch = useDispatch();
     const { countries } = useSelector((state: RootState) => state.locations);
 
@@ -371,12 +363,11 @@ function AddressInfo({ formikProps }: any) {
     {/* Row 1: Address */}
     <div className="row g-3">
       <div className="col-12">
-        <TextInput
-          isRequired={true}
+        <WtFieldFormik
+          name="addressInfo.presentAddressLine1"
           label="Address"
-          margin="mb-0"
-          maxLength={150}
-          formikField="addressInfo.presentAddressLine1"
+          required={addressRequired}
+          fullWidth
         />
       </div>
     </div>
@@ -467,22 +458,11 @@ function AddressInfo({ formikProps }: any) {
     {/* Row 3: Address Line 2, Zip Code */}
     <div className="row g-3">
       <div className="col-lg-6 col-md-6 col-sm-12">
-        <TextInput
-          isRequired={false}
-          label="Address Line 2"
-          margin="mb-0"
-          maxLength={150}
-          formikField="addressInfo.presentAddressLine2"
-        />
+        <WtFieldFormik name="addressInfo.presentAddressLine2" label="Address Line 2" fullWidth />
       </div>
 
       <div className="col-lg-6 col-md-6 col-sm-12">
-        <TextInput
-          isRequired={false}
-          label="Zip Code"
-          margin="mb-0"
-          formikField="addressInfo.presentPostalCode"
-        />
+        <WtFieldFormik name="addressInfo.presentPostalCode" label="Zip Code" fullWidth />
       </div>
     </div>
   </div>
@@ -533,12 +513,11 @@ function AddressInfo({ formikProps }: any) {
     {/* Row 1: Address */}
     <div className="row g-3">
       <div className="col-12">
-        <TextInput
-          isRequired={true}
+        <WtFieldFormik
+          name="addressInfo.permanentAddressLine1"
           label="Address"
-          margin="mb-0"
-          maxLength={150}
-          formikField="addressInfo.permanentAddressLine1"
+          required={addressRequired}
+          fullWidth
         />
       </div>
     </div>
@@ -627,22 +606,11 @@ function AddressInfo({ formikProps }: any) {
     {/* Row 3: Address Line 2, Zip Code */}
     <div className="row g-3">
       <div className="col-lg-6 col-md-6 col-sm-12">
-        <TextInput
-          isRequired={false}
-          label="Address Line 2"
-          margin="mb-0"
-          maxLength={150}
-          formikField="addressInfo.permanentAddressLine2"
-        />
+        <WtFieldFormik name="addressInfo.permanentAddressLine2" label="Address Line 2" fullWidth />
       </div>
 
       <div className="col-lg-6 col-md-6 col-sm-12">
-        <TextInput
-          isRequired={false}
-          label="Zip Code"
-          margin="mb-0"
-          formikField="addressInfo.permanentPostalCode"
-        />
+        <WtFieldFormik name="addressInfo.permanentPostalCode" label="Zip Code" fullWidth />
       </div>
     </div>
   </div>

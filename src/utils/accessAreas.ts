@@ -104,7 +104,6 @@ export const ACCESS_AREAS: AccessArea[] = [
       { module: "settings.profile", label: "Organization Profile" },
       { module: "settings.announcements", label: "Announcements" },
       { module: "settings.media", label: "Media" },
-      { module: "settings.onboarding", label: "Onboarding Docs" },
       { module: "settings.teams", label: "Teams" },
       { module: "settings.employeeLevel", label: "Employee Level" },
     ],

@@ -111,6 +111,10 @@ export interface WtSelectProps {
   menuPortalTarget?: HTMLElement | null;
   /** Cap dropdown list height (scroll inside menu). Defaults to FLOATING_MENU_BEHAVIOUR. */
   maxMenuHeight?: number;
+  /** Controlled menu open state — e.g. close before opening a create dialog above the portal. */
+  menuIsOpen?: boolean;
+  onMenuOpen?: () => void;
+  onMenuClose?: () => void;
   className?: string;
   classNamePrefix?: string;
 }
@@ -251,6 +255,9 @@ export function WtSelect({
   filterOption,
   menuPortalTarget,
   maxMenuHeight,
+  menuIsOpen,
+  onMenuOpen,
+  onMenuClose,
   className = "react-select-styled",
   classNamePrefix = "react-select",
 }: WtSelectProps) {
@@ -424,6 +431,9 @@ export function WtSelect({
       isLoading={isLoading}
       filterOption={filterOption}
       formatOptionLabel={formatOptionLabel}
+      {...(menuIsOpen !== undefined ? { menuIsOpen } : {})}
+      onMenuOpen={onMenuOpen}
+      onMenuClose={onMenuClose}
       className={className}
       classNamePrefix={classNamePrefix}
       styles={styles}

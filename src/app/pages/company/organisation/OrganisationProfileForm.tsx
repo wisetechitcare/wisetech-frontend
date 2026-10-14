@@ -1,8 +1,6 @@
 import { resolveActiveOrg, resolveActiveOrgId } from '@utils/activeOrg';
 import { useState, useEffect } from 'react';
 import { Formik, FormikProps } from 'formik';
-import { dateFormatter } from '@utils/date';
-import Flatpickr from "react-flatpickr";
 import { createCompanyOverview, fetchCompanyOverview, fetchOrganizationById, updateCompanyOverview } from '@services/company';
 import { uploadCompanyAsset } from '@services/uploader';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
@@ -13,7 +11,8 @@ import FormSchemaManager from '@app/modules/common/components/FormSchemaManager'
 import DragDropFileField from '@app/modules/common/components/DragDropFileField';
 import { Box, Typography } from '@mui/material';
 import eventBus from '@utils/EventBus';
-import { WtDateField, WtField, WtButton, WtFormDialog, WtFormSection, WtFormSpan, WtImageField, AppIcon } from '@app/modules/common/components/ui';
+import { WtDateField, WtField, WtButton, WtFormDialog, WtFormSection, WtFormSpan, WtImageField, AppIcon, FiscalYearRangeField } from '@app/modules/common/components/ui';
+import { toCanonicalFiscalYearRange } from '@utils/fiscalYearRange';
 import { KTIcon } from '@metronic/helpers';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { useSelector, useDispatch } from 'react-redux';
@@ -204,31 +203,15 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
         const error: string | undefined = sys ? formikError : customErrors[field.id];
 
         if (sys && field.id === 'fiscalYear') {
-            const [from, to] = value ? value.split(' to ') : [];
             return (
-                <WtField label={field.label} required={field.required} error={error} hint="Pick the first and last day of the year.">
-                    {/* Styled to the same frame as the WtFields around it (Flatpickr renders its own input). */}
-                    <Box sx={{
-                        width: '100%',
-                        '& input': {
-                            width: '100%', height: 44, px: 1.75, fontSize: 14, fontFamily: 'inherit', color: 'text.primary',
-                            bgcolor: 'background.paper', border: 1, borderColor: error ? 'error.main' : 'divider', borderRadius: '8px', outline: 'none',
-                            transition: 'border-color .15s ease, box-shadow .15s ease',
-                            '&:hover': { borderColor: 'text.primary' },
-                            '&:focus': { borderColor: 'primary.main', boxShadow: (t: any) => `0 0 0 1px ${t.palette.primary.main}` },
-                        },
-                    }}>
-                    <Flatpickr
-                        value={from && to ? [new Date(from), new Date(to)] : []}
-                        placeholder="Select a date range"
-                        onChange={(d: Date[]) => {
-                            if (d.length === 2) f.setFieldValue('fiscalYear', `${dateFormatter.format(d[0])} to ${dateFormatter.format(d[1])}`);
-                        }}
-                        onClose={() => f.setFieldTouched('fiscalYear', true)}
-                        options={{ dateFormat: "Y-m-d", altInput: true, altFormat: "F j, Y", enableTime: false, mode: 'range' }}
-                    />
-                    </Box>
-                </WtField>
+                <FiscalYearRangeField
+                    value={toCanonicalFiscalYearRange(value) || value}
+                    onChange={(next) => f.setFieldValue('fiscalYear', next)}
+                    onBlur={() => f.setFieldTouched('fiscalYear', true)}
+                    required={field.required}
+                    error={Boolean(error)}
+                    helperText={error || 'Pick the first and last day of the year.'}
+                />
             );
         }
         if (field.type === 'file') {

@@ -9,7 +9,7 @@ import { MRT_ColumnDef } from "material-react-table";
 import { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import * as Yup from "yup";
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import { WtFieldFormik } from "@app/modules/common/components/ui";
 import { deleteConfirmation, successConfirmation } from "@utils/modal";
 import { fetchConfiguration, updateConfigurationById } from "@services/company";
 import { GROSS_PAY } from "@constants/configurations-key";
@@ -408,11 +408,12 @@ const GrossPayDistribution = () => {
                   </div>
 
                   <div className="col-12">
-                    <DropDownInput
-                      isRequired={true}
-                      formikField="type"
-                      inputLabel="Enter Type"
-                      options={options} />
+                    <WtFieldFormik
+                      required
+                      name="type"
+                      label="Enter Type"
+                      options={options}
+                    />
                   </div>
                 </div>
 

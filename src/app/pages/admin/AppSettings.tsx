@@ -11,17 +11,41 @@
  * therefore linkable — someone can send "the appearance settings" rather than
  * "Settings, then the second card" — and Back behaves the way the browser's own
  * Back does, because it IS the browser's Back.
+ *
+ * Detail view uses {@link EntityPageHeader} — the same title block Billing
+ * entity pages open with — so Settings and Billing read as one product.
  */
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Box, Stack } from '@mui/material';
+import { useSelector } from 'react-redux';
+import { Box, Stack, Typography } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { AutoGrid, ListHeader, NavCard, WtButton } from '@app/modules/common/components/ui';
+import {
+  AutoGrid,
+  EntityPageHeader,
+  NavCard,
+  WtButton,
+  TRIO,
+} from '@app/modules/common/components/ui';
+import { countEnabledOptionalPacks, normalizePackFlags } from '@constants/entitlements';
+import type { RootState } from '@redux/store';
 import { SETTINGS_AREAS, findArea } from './settings/registry';
 
 export function AppSettings() {
   const [params, setParams] = useSearchParams();
+  const tier = useSelector((state: RootState) => state.authz.tier);
+  const packs = useSelector((state: RootState) => state.authz.packs);
+  const visibleAreas = useMemo(
+    () =>
+      SETTINGS_AREAS.filter((a) => {
+        if (a.superAdminOnly) return tier === 'SUPER_ADMIN';
+        if (a.adminTierOnly) return tier != null;
+        return true;
+      }),
+    [tier],
+  );
   const active = findArea(params.get('area'));
+  const activeAllowed = active && visibleAreas.some((a) => a.id === active.id);
 
   const open = useCallback(
     (id: string) => {
@@ -39,36 +63,84 @@ export function AppSettings() {
     setParams(next);
   }, [params, setParams]);
 
+  const backBtn = (
+    <WtButton
+      ghost
+      size="small"
+      onClick={close}
+      startIcon={<KTIcon iconName="arrow-left" className="fs-6" />}
+      sx={{ minHeight: 36, borderRadius: '10px', fontSize: 13 }}
+    >
+      All Settings
+    </WtButton>
+  );
+
+  const detailActions = (
+    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+      {backBtn}
+      {activeAllowed && active?.HeaderActions ? <active.HeaderActions /> : null}
+    </Stack>
+  );
+
   return (
     <Box sx={{ maxWidth: 1100, mx: 'auto', px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3 } }}>
-      {active ? (
+      {active && activeAllowed ? (
         <Stack spacing={2}>
-          <ListHeader
+          <EntityPageHeader
+            icon={active.icon}
+            trio={active.tone}
             title={active.title}
-            subtitle={active.description}
-            actions={
-              <WtButton ghost onClick={close} startIcon={<KTIcon iconName="arrow-left" className="fs-4" />}>
-                all settings
-              </WtButton>
-            }
+            description={active.description}
+            action={detailActions}
+            mb={0}
           />
           <active.Panel />
         </Stack>
+      ) : active && !activeAllowed ? (
+        <Stack spacing={2}>
+          <EntityPageHeader
+            icon="setting-2"
+            trio={TRIO.slate}
+            title="Settings"
+            description="Configure how the app works and looks for you."
+            action={backBtn}
+            mb={0}
+          />
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            That settings area is only available to platform operators (Super Admin).
+          </Typography>
+        </Stack>
       ) : (
         <Stack spacing={2}>
-          <ListHeader title="settings" subtitle="Configure how the app works and looks for you." />
+          <EntityPageHeader
+            icon="setting-2"
+            trio={TRIO.blue}
+            title="Settings"
+            description="Configure how the app works and looks for you."
+            mb={0}
+          />
           <AutoGrid min={320}>
-            {SETTINGS_AREAS.map((area) => (
-              <NavCard
-                key={area.id}
-                icon={area.icon}
-                tone={area.tone}
-                title={area.title}
-                description={area.description}
-                disabled={area.comingSoon}
-                onClick={() => open(area.id)}
-              />
-            ))}
+            {visibleAreas.map((area) => {
+              const meta =
+                area.id === 'tenant-modules'
+                  ? (() => {
+                      const n = countEnabledOptionalPacks(normalizePackFlags(packs));
+                      return n === 4 ? 'All optional modules on' : `${n} of 4 optional modules on`;
+                    })()
+                  : area.useMeta?.();
+              return (
+                <NavCard
+                  key={area.id}
+                  icon={area.icon}
+                  tone={area.tone}
+                  title={area.title}
+                  description={area.description}
+                  meta={meta}
+                  disabled={area.comingSoon}
+                  onClick={() => open(area.id)}
+                />
+              );
+            })}
           </AutoGrid>
         </Stack>
       )}

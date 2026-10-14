@@ -1,6 +1,7 @@
 import type { SxProps, Theme } from "@mui/material";
 import { WtField } from "@app/modules/common/components/ui";
 import { useRecruitmentBranches } from "@/hooks/useRecruitmentBranches";
+import { SEARCHABLE_FROM } from "@utils/requisitions";
 
 /**
  * The Branch field on a requisition or an offer.
@@ -21,14 +22,20 @@ interface Props {
     disabled?: boolean;
     /** A server or form message; replaces the currency hint when set. */
     error?: string;
+    /**
+     * Narrow the offered branches to one organization — the shell's organization filter.
+     *
+     * Without it a user working inside one sub-org was offered every other org's branches, and
+     * picking one silently set the record's currency from a company they were not looking at.
+     * The branch the record ALREADY has stays listed either way, so an existing record does not
+     * lose its own value from its own field. Audit M15.
+     */
+    companyId?: string;
     sx?: SxProps<Theme>;
 }
 
-/** Past this many branches a plain menu becomes a scroll hunt, so the field turns searchable. */
-const SEARCHABLE_FROM = 8;
-
-export const RecruitmentBranchField = ({ value, onChange, required, disabled, error, sx }: Props) => {
-    const { branches, byId, isLoading, isError, spansOrgs } = useRecruitmentBranches();
+export const RecruitmentBranchField = ({ value, onChange, required, disabled, error, companyId, sx }: Props) => {
+    const { branches, byId, isLoading, isError, spansOrgs } = useRecruitmentBranches({ companyId, keepId: value });
     const selected = value ? byId.get(value) : undefined;
 
     const options = branches.map((b) => ({

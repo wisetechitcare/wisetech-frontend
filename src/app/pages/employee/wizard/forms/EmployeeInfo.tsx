@@ -6,7 +6,7 @@ import { fetchOrganizationTree } from "@services/company";
 import { getAllEmployeeLevels } from "@services/employee";
 import { getAllTeams } from "@services/projects";
 import { fetchAllOrganizationConfigurations, fetchAllEmployeeConfigurations } from "@services/configurations";
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import { WtFieldFormik } from "@app/modules/common/components/ui";
 import HierarchicalTaskSelect, { buildTaskOptions, type HierarchicalTaskOption } from "@app/pages/employee/tasks/components/HierarchicalTaskSelect";
 import { IOrgNode } from "@models/company";
 
@@ -165,8 +165,8 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
     // times in a row makes Formik re-validate each call against a stale snapshot,
     // which re-adds the "Organization is a required field" error even right after
     // an organization is picked. setValues validates once with all fields updated.
-    const handleOrgChange = (opt: any) => {
-        setValues((prev: any) => ({ ...prev, organizationId: opt?.value || '', subOrganizationId: '', branchId: '' }), true);
+    const handleOrgChange = (value: string) => {
+        setValues((prev: any) => ({ ...prev, organizationId: value || '', subOrganizationId: '', branchId: '' }), true);
     };
     /**
      * Job profiles are a TREE — the same self-referencing table the preset-task configure page
@@ -185,8 +185,7 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
 
     // A department that does not offer the chosen job profile clears it, rather than leaving a
     // pairing the server will refuse on save.
-    const handleDepartmentChange = (opt: { value?: string } | null) => {
-        const nextDepartment = opt?.value || '';
+    const handleDepartmentChange = (nextDepartment: string) => {
         if (values.designationId && !dd.isPairAllowed(nextDepartment, values.designationId)) {
             setFieldValue('designationId', '', false);
         }
@@ -199,8 +198,8 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
         }
     };
 
-    const handleSubOrgChange = (opt: any) => {
-        setValues((prev: any) => ({ ...prev, subOrganizationId: opt?.value || '', branchId: '' }), true);
+    const handleSubOrgChange = (value: string) => {
+        setValues((prev: any) => ({ ...prev, subOrganizationId: value || '', branchId: '' }), true);
     };
 
     return (
@@ -210,35 +209,37 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
       selected org has none. */}
   <div className="row mb-4">
     <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
-      <DropDownInput
-        isRequired={true}
-        formikField="organizationId"
-        inputLabel="Organization"
+      <WtFieldFormik
+        required
+        name="organizationId"
+        label="Organization"
         options={orgOptions}
-        onChange={handleOrgChange}
+        onValueChange={handleOrgChange}
+        searchable
       />
     </div>
 
     <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
-      <DropDownInput
-        isRequired={false}
-        formikField="subOrganizationId"
-        inputLabel="Sub-Organization"
+      <WtFieldFormik
+        name="subOrganizationId"
+        label="Sub-Organization"
         options={subOrgOptions}
-        onChange={handleSubOrgChange}
+        onValueChange={handleSubOrgChange}
         disabled={!hasSubOrgs}
         placeholder={hasSubOrgs ? undefined : 'No sub-organizations for this organization'}
+        searchable
       />
     </div>
 
     <div className="col-lg-4 col-md-6 col-sm-12">
-      <DropDownInput
-        isRequired={true}
-        formikField="branchId"
-        inputLabel="Choose Branch"
+      <WtFieldFormik
+        required
+        name="branchId"
+        label="Choose Branch"
         options={scopedBranchOptions}
         disabled={!effectiveOrgId}
         placeholder={!effectiveOrgId ? 'Select an organization first' : undefined}
+        searchable
       />
     </div>
   </div>
@@ -247,18 +248,17 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
   <div className="row">
     {/* Department first: it decides which job profiles the next field offers. */}
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
-      <DropDownInput isRequired={true} formikField="departmentId" inputLabel="Department" options={departmentOptions} onChange={handleDepartmentChange} />
+      <WtFieldFormik
+        required
+        name="departmentId"
+        label="Department"
+        options={departmentOptions}
+        onValueChange={handleDepartmentChange}
+        searchable
+      />
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
-      {/* The same drill-down the Add-New-Task picker uses — a parent profile is
-          selectable in its own right, exactly as a parent preset task is, so no level
-          of the tree is unreachable.
-
-          The label is wrapped rather than passed as a bare string: the shared
-          component labels with Bootstrap's `fs-6` (~17px), while every other field in
-          this grid is a DropDownInput at 13.5px. A span with its own size wins over
-          the inherited class, so "Job Profile" matches "Department" and "Team" beside
-          it without the component itself changing for the task picker. */}
+      {/* HierarchicalTaskSelect — tree drill-down; not a plain WtField yet. */}
       <HierarchicalTaskSelect
         isRequired
         formikField="designationId"
@@ -276,22 +276,22 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
       />
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
-      <DropDownInput isRequired={true} formikField="teamId" inputLabel="Team" options={teamOptions} />
+      <WtFieldFormik required name="teamId" label="Team" options={teamOptions} searchable />
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
-      <DropDownInput isRequired={false} formikField="shift" inputLabel="Shift" options={shiftOptions} />
+      <WtFieldFormik name="shift" label="Shift" options={shiftOptions} />
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
-      <DropDownInput isRequired={false} formikField="employeeTypeConfigId" inputLabel="Employee Type" options={employeeTypeOptions} />
+      <WtFieldFormik name="employeeTypeConfigId" label="Employee Type" options={employeeTypeOptions} searchable />
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
-      <DropDownInput isRequired={false} formikField="workingMethodId" inputLabel="Working Location Type" options={workingMethodOptions} />
+      <WtFieldFormik name="workingMethodId" label="Working Location Type" options={workingMethodOptions} searchable />
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
-      <DropDownInput isRequired={false} formikField="experienceLevel" inputLabel="Experience Level" options={experienceLevelOptions} />
+      <WtFieldFormik name="experienceLevel" label="Experience Level" options={experienceLevelOptions} />
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
-      <DropDownInput isRequired={false} formikField="employeeLevelId" inputLabel="Employee's Level (For website)" options={employeeLevelOptions} />
+      <WtFieldFormik name="employeeLevelId" label="Employee's Level (For website)" options={employeeLevelOptions} searchable />
     </div>
   </div>
 </>

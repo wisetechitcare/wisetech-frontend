@@ -1414,6 +1414,8 @@ function CustomCalendar() {
                             <FullCalendar
                                 dayCellClassNames={(e) => handleDayCellClassNames(e)}
                                 locale={enGbLocale}
+                                // App standard: weeks start Monday (also set globally via configureWeekStart).
+                                firstDay={1}
                                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, bootstrapPlugin, multiMonthPlugin]}
                                 headerToolbar={false}
                                 // "July 2026" vs "Jul 2026" — a few px that matter when the title

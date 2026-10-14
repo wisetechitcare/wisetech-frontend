@@ -7,21 +7,22 @@ import { useSidebarCollapse } from '../../core/SidebarCollapseContext'
 import { HeaderToolbar } from './HeaderToolbar'
 import { useIsMobile } from '@components/navigation/BottomNavigation/useIsMobile'
 import { useNavTransform } from '@/contexts/NavTransformContext'
+import { useHomeRootOrg } from '@hooks/useRootOrgNames'
 
-// Compact WiseTech mark (favicon) shown when the sidebar is collapsed.
-const WtSquareLogo = () => (
-  <img
-    src={`${import.meta.env.BASE_URL}WT-logo.ico`}
-    className='wt-logo-square'
-    alt='WiseTech'
-  />
-)
+/** Platform splash mark — used only when the tenant has no uploaded logo. */
+const SPLASH_LOGO =
+  'https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2'
+const WT_SQUARE = `${import.meta.env.BASE_URL}WT-logo.ico`
 
 // Metronics logo and the entire top bar
 export function HeaderWrapper() {
-  // Exact asset the splash screen uses (see index.html) so the expanded sidebar
-  // brand matches the loading screen instead of the org's uploaded logo.
-  const splashLogo = 'https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2'
+  // Logged-in user's tenant root logo (same home-root resolution as "<Org> Team").
+  // Hardcoding the WiseTech splash made every tenant look like WISETECH in the rail.
+  const homeRoot = useHomeRootOrg()
+  const brandLogo = homeRoot.logo || SPLASH_LOGO
+  const squareLogo = homeRoot.logo || WT_SQUARE
+  const brandName = homeRoot.name || 'WiseTech'
+
   const { classes, attributes } = useLayout()
   const { collapsed, toggle } = useSidebarCollapse()
   const { enabled: navTransformed } = useNavTransform()
@@ -36,7 +37,7 @@ export function HeaderWrapper() {
   const brandTo = inWorkspace ? WORKSPACE_ROOT : '/'
   const brandTitle = inWorkspace
     ? 'All applications'
-    : (navTransformed ? 'Back to navigation' : 'WiseTech')
+    : (navTransformed ? 'Back to navigation' : brandName)
 
   return (
     <div
@@ -79,12 +80,16 @@ export function HeaderWrapper() {
           title={brandTitle}
         >
           <img
-            alt='WiseTech'
-            src={splashLogo}
+            alt={brandName}
+            src={brandLogo}
             className='wt-logo-full'
             title={brandTitle}
           />
-          <WtSquareLogo />
+          <img
+            src={squareLogo}
+            className='wt-logo-square'
+            alt={brandName}
+          />
         </Link>
 
         {/* Premium collapse / expand toggle (desktop only) */}

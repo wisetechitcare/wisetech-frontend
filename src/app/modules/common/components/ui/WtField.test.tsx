@@ -17,6 +17,19 @@ afterEach(cleanup);
 const frameOf = (input: HTMLElement) => input.closest('.MuiTextField-root, .MuiAutocomplete-root')!.parentElement as HTMLElement;
 
 describe('WtField', () => {
+    test('default size is small (mid-density / 40px row)', () => {
+        render(<WtField label="Rule Name" value="" onChange={() => {}} />);
+        const root = screen.getByLabelText('Rule Name').closest('.MuiInputBase-root')!;
+        expect(root.classList.contains('MuiInputBase-sizeSmall')).toBe(true);
+    });
+
+    test('size="md" stays available for spacious dialog forms', () => {
+        render(<WtField label="Filter" value="" onChange={() => {}} size="md" />);
+        const root = screen.getByLabelText('Filter').closest('.MuiInputBase-root')!;
+        // MUI only tags the small variant; medium is the unmarked default.
+        expect(root.classList.contains('MuiInputBase-sizeSmall')).toBe(false);
+    });
+
     test('layout sx lands on the field\'s outer frame, so flex works in a row', () => {
         render(
             <Stack direction="row">
@@ -54,7 +67,7 @@ describe('WtField', () => {
             const [v, setV] = useState('');
             return (
                 <>
-                    <WtField label="Designation" value={v} onChange={setV} options={options} searchable />
+                    <WtField label="Designation" value={v} onChange={(next) => setV(typeof next === 'string' ? next : '')} options={options} searchable />
                     <output data-testid="value">{v}</output>
                 </>
             );

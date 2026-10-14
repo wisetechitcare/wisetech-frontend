@@ -1,4 +1,5 @@
 import { KTIcon } from '@metronic/helpers';
+import { SecurityPinPolicySection } from '@app/modules/common/components/SecurityPin';
 import { createRole, fetchRoles, updateRoleById, deleteRoleById, addEmployeeToRole, removeEmployeeFromRole } from '@services/roles';
 import { fetchAllEmployees } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
@@ -26,6 +27,7 @@ function EditRole({ roleDetails, setRefetch }: { roleDetails: any, setRefetch: (
       <RoleAccessEditor roleId={roleDetails?.id} roleName={roleDetails?.name} setRefetch={setRefetch} />
       <Stack spacing={2}>
         <RoleMembers roleDetails={roleDetails} setRefetch={setRefetch} />
+        <SecurityPinPolicySection subject={{ kind: 'role', roleId: roleDetails?.id, roleName: roleDetails?.name }} />
         {/* Built-in roles (Super Admin, Admin, Employee) keep their names. */}
         {!roleDetails?.isSystem && <EditRoleName setRefetch={setRefetch} roleDetails={roleDetails} />}
       </Stack>
@@ -77,7 +79,7 @@ function RoleMembers({ setRefetch, roleDetails }: { setRefetch: (show: boolean) 
         const emp = allEmployees.find((e) => e.id === id);
         if (emp) added.push(emp);
       }
-      toast({ icon: 'success', title: `Added ${added.length} ${added.length === 1 ? 'person' : 'people'} to ${roleDetails?.name}.` });
+      toast({ icon: 'success', title: `Set ${roleDetails?.name} for ${added.length} ${added.length === 1 ? 'person' : 'people'}.` });
     } catch (error) {
       errorConfirmation(serverMessage(error, 'Could not add everyone to this role.'));
     } finally {
@@ -162,7 +164,9 @@ function RoleMembers({ setRefetch, roleDetails }: { setRefetch: (show: boolean) 
         open={pickerOpen}
         onClose={() => { setPickerOpen(false); setPicked([]); }}
         title={`Add people to ${roleDetails?.name}`}
-        subtitle={isSuperAdminRole ? 'They will see and edit every section, in every organization.' : 'They get this role on top of the ones they already hold.'}
+        subtitle={isSuperAdminRole
+          ? 'They will see and edit every section, in every organization. This replaces any role they already hold.'
+          : 'Each person holds one role. Adding them here replaces whatever role they hold now.'}
         icon="people"
         tone="purple"
         employees={candidates}

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Box, Link, Stack, Typography } from "@mui/material";
+import { SecurityPinGate } from "@app/modules/common/components/SecurityPin";
 import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 import { RootState } from "@redux/store";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
@@ -12,6 +13,7 @@ import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
 import { canSection } from "@utils/can";
+import { isPackEnabled } from "@utils/tenantPacks";
 import { getEmployeeStatusString } from "@utils/employeeStatus";
 import { formatPhoneWithCode } from "@utils/employeeFormat";
 import EmployeeAccessTab from "./EmployeeAccessTab";
@@ -24,15 +26,14 @@ import AssignToProjectsDialog from "@app/modules/common/components/AssignToProje
 import NoAccessPage from "@app/modules/common/components/NoAccessPage";
 
 /** Tab keys in render order — they ARE the path segment. "access" is permission-gated,
- *  and opening its URL without the permission resolves to the first tab. */
+ *  and opening its URL without the permission resolves to the first tab.
+ *  Projects / Meetings need the PSA pack (HR-only pilots hide them). */
 const EMPLOYEE_TABS = [
   { key: "details", label: "Details", icon: "bi bi-person-vcard" },
-  { key: "projects", label: "Projects", icon: "bi bi-kanban" },
-  { key: "meetings", label: "Meetings", icon: "bi bi-camera-video" },
+  { key: "projects", label: "Projects", icon: "bi bi-kanban", pack: "psa" as const },
+  { key: "meetings", label: "Meetings", icon: "bi bi-camera-video", pack: "psa" as const },
   { key: "access", label: "Access", icon: "bi bi-shield-lock" },
 ];
-const EMPLOYEE_TAB_KEYS = EMPLOYEE_TABS.map((t) => t.key);
-
 const ShowEmployeeDetailsToggle = () => {
   const canWrite = canSection("users", "write");
   const canEdit = hasPermission(resourceNameMapWithCamelCase.employee, permissionConstToUseWithHasPermission.editOthers);
@@ -41,9 +42,6 @@ const ShowEmployeeDetailsToggle = () => {
   const [loadFailed, setLoadFailed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  // The tab is a path segment (/employees/<id>/projects) — shareable, survives a refresh,
-  // and survives the remount the header does at the mobile breakpoint.
-  const { activeKey: activeTab, setActiveKey: setActiveTab } = useTabKeyRoute(undefined, EMPLOYEE_TAB_KEYS);
   const [assignOpen, setAssignOpen] = useState(false);
   const [projectsReloadKey, setProjectsReloadKey] = useState(0);
   // ?openSettings=true (linked from elsewhere) opens App Settings once, then leaves the URL.
@@ -53,6 +51,17 @@ const ShowEmployeeDetailsToggle = () => {
   // Roles and per-section access are Admin / Super Admin only — the server refuses everyone else.
   const canManageAccess = useSelector((state: RootState) => (state as any).authz?.tier != null);
   const dispatch = useDispatch<AppDispatch>();
+  const psaOn = isPackEnabled("psa");
+  const visibleTabs = EMPLOYEE_TABS.filter((t) => {
+    if (t.key === "access" && !canManageAccess) return false;
+    if ("pack" in t && t.pack && !psaOn) return false;
+    return true;
+  });
+  const visibleTabKeys = visibleTabs.map((t) => t.key);
+  // The tab is a path segment (/employees/<id>/projects) — shareable, survives a refresh,
+  // and survives the remount the header does at the mobile breakpoint.
+  // Keys exclude PSA tabs when the pack is off so /projects deep-links fall back cleanly.
+  const { activeKey: activeTab, setActiveKey: setActiveTab } = useTabKeyRoute(undefined, visibleTabKeys);
 
   useEffect(() => {
     dispatch(loadAllEmployeesIfNeeded());
@@ -97,7 +106,7 @@ const ShowEmployeeDetailsToggle = () => {
   const phone = companyPhoneNumber
     ? formatPhoneWithCode(companyPhoneNumber, companyPhoneExtension, "")
     : formatPhoneWithCode(users?.personalPhoneNumber, users?.personalPhoneNumberExtension, "");
-  const tabs = EMPLOYEE_TABS.filter((t) => t.key !== "access" || canManageAccess);
+  const tabs = visibleTabs;
 
   const handleWhatsAppShare = () => {
     const message = `CONTACT CARD
@@ -246,9 +255,11 @@ Location: ${branches?.address || "N/A"}`;
 
       <div className="tab-content">
         {activeTab === "details" && <ShowEmployeeDetailsById employee={employee} />}
-        {activeTab === "projects" && <EmployeeProject employeeId={employeeId!} reloadKey={projectsReloadKey} />}
-        {activeTab === "meetings" && <MeetingsList mode="employee" targetId={employeeId!} />}
-        {activeTab === "access" && canManageAccess && <EmployeeAccessTab employeeId={employeeId!} />}
+        {activeTab === "projects" && psaOn && <EmployeeProject employeeId={employeeId!} reloadKey={projectsReloadKey} />}
+        {activeTab === "meetings" && psaOn && <MeetingsList mode="employee" targetId={employeeId!} />}
+        {activeTab === "access" && canManageAccess && (
+          <SecurityPinGate area="app.roles-permissions"><EmployeeAccessTab employeeId={employeeId!} /></SecurityPinGate>
+        )}
       </div>
 
       <AppSettingsModal

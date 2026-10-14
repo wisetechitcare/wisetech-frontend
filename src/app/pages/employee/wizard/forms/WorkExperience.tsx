@@ -1,103 +1,87 @@
-import { X } from "lucide-react";
-import DateInput from "@app/modules/common/inputs/DateInput";
-import TextInput from "@app/modules/common/inputs/TextInput";
+import { Stack, Box, Typography } from "@mui/material";
+import { ActionIconButton, WtFieldFormik, WtDateField, WtCheckboxField } from "@app/modules/common/components/ui";
 
-function WorkExperience({ formikProps, index, canRemove, onRemove }: any) {
-    const element = `workExpInfo[${index}]`;
-    const isCurrentEmployer = Boolean(formikProps.values?.workExpInfo?.[index]?.isCurrentEmployer);
+function WorkExperience({
+  formikProps,
+  index,
+  canRemove,
+  onRemove,
+}: {
+  formikProps: any;
+  index: number;
+  canRemove?: boolean;
+  onRemove?: () => void;
+}) {
+  const element = `workExpInfo[${index}]`;
+  const isCurrentEmployer = Boolean(formikProps.values?.workExpInfo?.[index]?.isCurrentEmployer);
+  const fromDate = formikProps.values?.workExpInfo?.[index]?.fromDate || null;
+  const toDate = formikProps.values?.workExpInfo?.[index]?.toDate || null;
 
-    const toggleCurrentEmployer = () => {
-        formikProps.setFieldValue(`${element}.isCurrentEmployer`, !isCurrentEmployer);
-        if (!isCurrentEmployer) formikProps.setFieldValue(`${element}.toDate`, "");
-    };
+  const toggleCurrentEmployer = () => {
+    formikProps.setFieldValue(`${element}.isCurrentEmployer`, !isCurrentEmployer);
+    if (!isCurrentEmployer) formikProps.setFieldValue(`${element}.toDate`, "");
+  };
 
-    return (
-        <>
-            <div className={` ${index !== 0 ? 'pt-10' : ''}`}>
-            <div className="d-flex justify-content-between align-items-center mb-3">
-                <p
-                    style={{
-                        fontFamily: "Inter",
-                        fontWeight: 500,
-                        fontSize: "14px",
-                        color: "#798DB3",
-                        textTransform: "uppercase",
-                        margin: 0,
-                    }}
-                >
-                    Experience {index + 1}
-                </p>
-                {canRemove ? (
-                    <button
-                        type="button"
-                        className="btn btn-sm btn-icon btn-light-danger"
-                        aria-label={`Remove experience ${index + 1}`}
-                        onClick={onRemove}
-                    >
-                        <X size={16} />
-                    </button>
-                ) : (
-                    <div style={{ width: "20px", height: "20px" }} />
-                )}
-            </div>
-            <div className="row">
-                <div className="col-lg-6">
-                    <TextInput
-                        isRequired={false}
-                        label="Company Name"
-                        margin="mb-4"
-                        maxLength={100}
-                        formikField={`${element}.companyName`} />
-                </div>
+  return (
+    <Stack spacing={2} sx={{ pt: index !== 0 ? 2 : 0 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Typography
+          sx={{
+            fontSize: 12.5,
+            fontWeight: 600,
+            color: "text.secondary",
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+          }}
+        >
+          Experience {index + 1}
+        </Typography>
+        {canRemove ? (
+          <ActionIconButton
+            title={`Remove experience ${index + 1}`}
+            iconName="trash"
+            tone="danger"
+            size="sm"
+            onClick={() => onRemove?.()}
+          />
+        ) : null}
+      </Box>
 
-                <div className="col-lg-6">
-                    <TextInput
-                        isRequired={false}
-                        label="Job Title"
-                        margin="mb-4"
-                        maxLength={100}
-                        formikField={`${element}.jobTitle`} />
-                </div>
-</div>
-            <div className="row">
-                <div className="col-lg-6 mb-4">
-                    <DateInput
-                        formikField={`${element}.fromDate`}
-                        isRequired={false}
-                        formikProps={formikProps}
-                        inputLabel="From Date"
-                        placeHolder="From Date"
-                        maxDate={true}/>
-                </div>
+      <Box
+        sx={{
+          display: "grid",
+          gap: 2,
+          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+        }}
+      >
+        <WtFieldFormik name={`${element}.companyName`} label="Company Name" fullWidth />
+        <WtFieldFormik name={`${element}.jobTitle`} label="Job Title" fullWidth />
+        <WtDateField
+          label="From Date"
+          value={fromDate}
+          onChange={(v) => formikProps.setFieldValue(`${element}.fromDate`, v ?? "")}
+        />
+        {!isCurrentEmployer ? (
+          <WtDateField
+            label="To Date"
+            value={toDate}
+            onChange={(v) => formikProps.setFieldValue(`${element}.toDate`, v ?? "")}
+          />
+        ) : (
+          <Box />
+        )}
+      </Box>
 
-            {/* <div className="row"> */}
-                <div className="col-lg-6 mb-4">
-                    {!isCurrentEmployer && (
-                        <DateInput
-                            formikField={`${element}.toDate`}
-                            isRequired={false}
-                            formikProps={formikProps}
-                            inputLabel="To Date"
-                            placeHolder="To Date"
-                            maxDate={true}/>
-                    )}
-                    <div className={`form-check form-check-custom form-check-solid ${!isCurrentEmployer ? "mt-2" : ""}`}>
-                        <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id={`${element}-currentEmployer`}
-                            checked={isCurrentEmployer}
-                            onChange={toggleCurrentEmployer}
-                        />
-                        <label className="form-check-label" htmlFor={`${element}-currentEmployer`}>
-                            Currently work here
-                        </label>
-                    </div>
-                </div>
-                </div>
-            </div>
-        </>
-    );
+      <WtCheckboxField
+        size="sm"
+        checked={isCurrentEmployer}
+        onChange={toggleCurrentEmployer}
+        id={`${element}-currentEmployer`}
+        label="Currently work here"
+        sx={{ alignSelf: "flex-start" }}
+      />
+    </Stack>
+  );
 }
 
 export default WorkExperience;

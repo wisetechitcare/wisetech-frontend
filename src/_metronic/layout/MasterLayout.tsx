@@ -14,10 +14,13 @@ import {ActivityDrawer, DrawerMessenger, InviteUsers, UpgradePlan} from '../part
 import {MenuComponent} from '../assets/ts/components'
 import {BottomNav} from '@components/navigation/BottomNavigation'
 import {NotificationCenter} from '@components/notifications'
+import {useHomeBrand} from '@hooks/useHomeBrand'
 import './premium-layout.css'
 
 const MasterLayout = () => {
   const location = useLocation()
+  // Tab title + favicon follow the logged-in home org (not hardcoded WiseTech).
+  useHomeBrand()
 
   useEffect(() => {
     setTimeout(() => {

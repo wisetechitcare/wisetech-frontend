@@ -241,7 +241,7 @@ export const TaskDetailPage = () => {
         try {
             await moveStage.mutateAsync({ taskId: task.id, statusId });
         } catch (error) {
-            void toast({ icon: 'error', title: 'Move rejected', text: apiErrorMessage(error), timer: 3200 });
+            void toast({ icon: 'error', title: 'Move rejected', text: apiErrorMessage(error, 'Could not move this task.'), timer: 3200 });
         }
     };
 
@@ -284,7 +284,7 @@ export const TaskDetailPage = () => {
         } catch (error) {
             // Only live subtasks block a delete now, and the server's message names how many —
             // far more useful than a generic failure.
-            void toast({ icon: 'error', title: 'Cannot delete task', text: apiErrorMessage(error), timer: 4200 });
+            void toast({ icon: 'error', title: 'Cannot delete task', text: apiErrorMessage(error, 'Could not delete this task.'), timer: 4200 });
         }
     };
 

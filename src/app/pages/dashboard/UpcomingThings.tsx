@@ -1,17 +1,30 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useSelector } from "react-redux";
+import {
+  Box,
+  CircularProgress,
+  IconButton,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { RootState } from "@redux/store";
-import { fetchAllEmployees, getMeetings } from "@services/employee";
+import { getMeetings } from "@services/employee";
 import { fetchPublicHolidays } from "@services/company";
 import { fetchCalendarEvents } from "@services/calendar";
-import { Card, ListGroup, Spinner, Alert, Container } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import dayjs from "dayjs";
 import { eventsTypeProfileIcons } from "@metronic/assets/sidepanelicons";
 import { fetchAllUsers } from "@services/users";
-import Loader from "@app/modules/common/utils/Loader";
 import MeetingViewModal from "@pages/employee/MeetingViewModal";
 import { getTimeTokens } from '@utils/timeFormat';
+import { isPackEnabled } from '@utils/tenantPacks';
+import { useColorMode } from '@app/theme/ColorMode';
+import {
+  GlassCard,
+  SegmentedControl,
+  WtEmptyState,
+  label,
+} from '@app/modules/common/components/ui';
 
 interface Meetings {
   title: string;
@@ -50,54 +63,55 @@ const formatDateRange = (startDate: string, endDate: string) => {
   return `${dayjs(startDate).format(`dddd, DD MMMM YYYY, ${TIME}`)} - ${dayjs(endDate).format(TIME)}`;
 };
 
-// Create a memoized Event Item component
-const EventItem = React.memo(({ item, onClick }: { item: any; onClick?: () => void }) => {
-    const [isHovered, setIsHovered] = useState(false);
+const CARD_HEIGHT = 555;
 
-    return (
-      <ListGroup.Item
-        className="d-flex flex-column ms-3 border-0"
-        onClick={onClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={{
-          cursor: onClick ? "pointer" : "default"
-        }}
-      >
-        <div className="d-flex align-items-center">
-          <img
-            src={item.icon}
-            alt={`${item.type} Icon`}
-            style={{ width: "30px", height: "30px" }}
-            className="align-item-center pt-1"
-          />
-          <div
-            className="mb-1 ms-4"
-            style={{
-              fontSize: "14px",
-              fontWeight: "500",
-              color: onClick && isHovered ? "#172554" : "#000"
-            }}
-          >
-            {item.type === "Birthdays"
-              ? `${item.firstName} ${item.lastName}'s Birthday`
-              : item.title}
-          </div>
-        </div>
-        <div className="text-muted ms-13 d-flex flex-column" style={{ fontSize: "12px" }}>
-          {item.type === "Birthdays" ? (
-            <>
-              <span>{item.date}</span>
-              <span className="text-success">Birthday</span>
-            </>
-          ) : (
-            item.date
-          )}
-        </div>
-      </ListGroup.Item>
-    );
-  }
-);
+const EventItem = React.memo(({ item, onClick }: { item: any; onClick?: () => void }) => {
+  const { mode } = useColorMode();
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <Stack
+      direction="row"
+      spacing={1.5}
+      alignItems="flex-start"
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      sx={{
+        py: 1.25,
+        cursor: onClick ? 'pointer' : 'default',
+        borderRadius: 1.5,
+        px: 0.5,
+        transition: 'background-color 0.15s ease',
+        bgcolor: isHovered && onClick ? 'action.hover' : 'transparent',
+      }}
+    >
+      <Box
+        component="img"
+        src={item.icon}
+        alt=""
+        sx={{ width: 30, height: 30, mt: 0.25, flexShrink: 0 }}
+      />
+      <Box sx={{ minWidth: 0 }}>
+        <Typography
+          sx={{
+            fontSize: 14,
+            fontWeight: 500,
+            color: onClick && isHovered ? 'primary.main' : label(mode, 'primary'),
+          }}
+        >
+          {item.type === 'Birthdays'
+            ? `${item.firstName} ${item.lastName}'s Birthday`
+            : item.title}
+        </Typography>
+        <Typography sx={{ fontSize: 12, color: label(mode, 'secondary'), mt: 0.25 }}>
+          {item.date}
+          {item.type === 'Birthdays' ? ' · Birthday' : ''}
+        </Typography>
+      </Box>
+    </Stack>
+  );
+});
 
 
 
@@ -126,9 +140,14 @@ const UpcomingEventsCard: React.FC = () => {
   const country = "India";
 
 
-  // Memoized fetch functions
+  // Memoized fetch functions — CRM meetings only when PSA is entitled
   const fetchMeetings = useCallback(async () => {
     if (!employeeId) return;
+    if (!isPackEnabled('psa')) {
+      setMeetings([]);
+      setLoadingMeetings(false);
+      return;
+    }
 
     setLoadingMeetings(true);
     try {
@@ -377,141 +396,145 @@ const UpcomingEventsCard: React.FC = () => {
     return false;
   }, [selectedTab, loadingMeetings, loadingHolidays, loadingEvents]);
 
-  // Handler for tab changes
   const handleTabChange = useCallback(
     (tab: "All" | "Meetings" | "Holidays" | "Events") => {
       setSelectedTab(tab);
       setCurrentPage(0);
     },
-    []
+    [],
   );
 
-  // Handler for pagination
   const handlePageChange = useCallback((newPage: number) => {
     setCurrentPage(newPage);
   }, []);
-  
+
+  const { mode } = useColorMode();
+
+  const tabOptions = useMemo(
+    () =>
+      (['All', 'Meetings', 'Holidays', 'Events'] as const)
+        .filter((tab) => tab !== 'Meetings' || isPackEnabled('psa'))
+        .map((tab) => ({ value: tab, label: tab })),
+    [],
+  );
+
+  const emptyTitle =
+    selectedTab === 'Holidays'
+      ? 'No upcoming holidays'
+      : selectedTab === 'Meetings'
+        ? 'No upcoming meetings'
+        : selectedTab === 'Events'
+          ? 'No upcoming events'
+          : selectedTab === 'Birthdays'
+            ? 'No birthdays this month'
+            : 'Nothing upcoming';
+
+  // SegmentedControl value must be one of the visible options (Meetings may be pack-gated).
+  const segmentValue = (
+    tabOptions.some((o) => o.value === selectedTab) ? selectedTab : 'All'
+  ) as 'All' | 'Meetings' | 'Holidays' | 'Events';
+
   return (
     <>
-    <Card
-      className="shadow-sm border-0"
-      style={{
-        borderRadius: "12px",
-        height: "555px",
-        width: "100%",
-        overflow: "hidden",
-      }}
-    >
-      <Card.Body>
-        <Card.Title className="d-flex justify-content-between align-items-center fs-3 mt-3">
-          {selectedTab === "All"
-            ? "Upcoming Activities"
-            : `Upcoming ${selectedTab}`}
-        </Card.Title>
+      <GlassCard
+        preset="section"
+        sx={{
+          height: CARD_HEIGHT,
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <Stack spacing={2} sx={{ height: '100%', minHeight: 0 }}>
+          <Typography
+            sx={{
+              fontWeight: 700,
+              fontSize: { xs: 17, sm: 19 },
+              color: label(mode, 'primary'),
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {selectedTab === 'All' ? 'Upcoming Activities' : `Upcoming ${selectedTab}`}
+          </Typography>
 
-        {/* Tabs */}
-        <div className="d-flex flex-wrap gap-2 mb-3 mt-lg-12 mt-6">
-          {["All", "Meetings", "Holidays", "Events"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => handleTabChange(tab as any)}
-              style={{
-                backgroundColor:
-                  selectedTab === tab ? "#a94442" : "transparent",
-                color: selectedTab === tab ? "white" : "black",
-                border: "1px solid #a94442",
-                borderRadius: "20px",
-                // padding: "5px 15px",
-              }}
-              className="px-3 py-1 px-lg-6 py-lg-2"
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+          <SegmentedControl
+            ariaLabel="Upcoming activity type"
+            options={tabOptions}
+            value={segmentValue}
+            onChange={handleTabChange}
+            fullWidth
+          />
 
-        {/* Loading and error states */}
-        {isLoading && <Loader />}
-        {error && <Alert variant="danger">{error}</Alert>}
-
-        {/* No Data Message */}
-        {!isLoading && !error && selectedData.length === 0 && (
-          <p className="text-center text-muted">
-            {selectedTab === "Holidays"
-              ? "No upcoming holidays"
-              : selectedTab === "Meetings"
-              ? "No upcoming meetings"
-              : selectedTab === "Events"
-              ? "No upcoming events"
-              : selectedTab === "Birthdays"
-              ? "No birthdays in this month"
-              : "Nothing to show"}
-          </p>
-        )}
-
-        {/* List of Meetings, Holidays, or Events */}
-        {!isLoading && !error && selectedData.length > 0 && (
-          <ListGroup variant="flush" className="mb-3 mt-4 d-flex">
-            {paginatedData.map((item: FormattedItem, index: number) => (
-              <EventItem
-                key={`${item.type}-${index}`}
-                item={item}
-                onClick={
-                  item.type === "Meetings"
-                    ? () => {
-                        setSelectedMeetingItemId(item.id);
-                        setShowMeetingViewModal(true);
-                      }
-                    : undefined
-                }
-              />
-            ))}
-
-
-
-            {/* Pagination */}
-            {selectedData.length > itemsPerPage && (
-              <div className="d-flex justify-content-end mt-3 gap-3">
-                <div
-                  className={`fs-2 cursor-pointer ${
-                    currentPage === 0 ? "text-muted" : ""
-                  }`}
-                  onClick={() =>
-                    currentPage > 0 && handlePageChange(currentPage - 1)
-                  }
-                  style={{
-                    color: currentPage === 0 ? "gray" : "#000",
-                    cursor: currentPage === 0 ? "not-allowed" : "pointer",
-                  }}
-                >
-                  <KTIcon iconName="arrow-left" className="fs-2" />
-                </div>
-                <span className="fs-5">
-                  {currentPage + 1} / {totalPages}
-                </span>
-                <div
-                  className={`fs-2 cursor-pointer ${
-                    currentPage >= totalPages - 1 ? "text-muted" : ""
-                  }`}
-                  onClick={() =>
-                    currentPage < totalPages - 1 &&
-                    handlePageChange(currentPage + 1)
-                  }
-                  style={{
-                    color: currentPage >= totalPages - 1 ? "gray" : "#000",
-                    cursor:
-                      currentPage >= totalPages - 1 ? "not-allowed" : "pointer",
-                  }}
-                >
-                  <KTIcon iconName="arrow-right" className="fs-2" />
-                </div>
-              </div>
+          <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+            {isLoading && (
+              <Stack alignItems="center" justifyContent="center" sx={{ minHeight: 280 }}>
+                <CircularProgress size={32} />
+              </Stack>
             )}
-          </ListGroup>
-        )}
-      </Card.Body>
-    </Card>
-    <MeetingViewModal show={showMeetingViewModal} onClose={() => setShowMeetingViewModal(false)} meetingId={selectedMeetingItemId}/>
+
+            {!isLoading && error && (
+              <WtEmptyState dense variant="error" title="Could not load activities" hint={error} />
+            )}
+
+            {!isLoading && !error && selectedData.length === 0 && (
+              <Stack alignItems="center" justifyContent="center" sx={{ minHeight: 240 }}>
+                <WtEmptyState dense title={emptyTitle} hint="Check back later for new items." />
+              </Stack>
+            )}
+
+            {!isLoading && !error && selectedData.length > 0 && (
+              <Stack spacing={0} divider={<Box sx={{ borderBottom: 1, borderColor: 'divider' }} />}>
+                {paginatedData.map((item: FormattedItem, index: number) => (
+                  <EventItem
+                    key={`${item.type}-${index}`}
+                    item={item}
+                    onClick={
+                      item.type === 'Meetings'
+                        ? () => {
+                            setSelectedMeetingItemId(item.id);
+                            setShowMeetingViewModal(true);
+                          }
+                        : undefined
+                    }
+                  />
+                ))}
+              </Stack>
+            )}
+          </Box>
+
+          {selectedData.length > itemsPerPage && (
+            <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={1.5}>
+              <IconButton
+                size="small"
+                disabled={currentPage === 0}
+                aria-label="Previous page"
+                onClick={() => currentPage > 0 && handlePageChange(currentPage - 1)}
+              >
+                <KTIcon iconName="arrow-left" className="fs-3" />
+              </IconButton>
+              <Typography sx={{ fontSize: 13, color: label(mode, 'secondary') }}>
+                {currentPage + 1} / {totalPages}
+              </Typography>
+              <IconButton
+                size="small"
+                disabled={currentPage >= totalPages - 1}
+                aria-label="Next page"
+                onClick={() =>
+                  currentPage < totalPages - 1 && handlePageChange(currentPage + 1)
+                }
+              >
+                <KTIcon iconName="arrow-right" className="fs-3" />
+              </IconButton>
+            </Stack>
+          )}
+        </Stack>
+      </GlassCard>
+      <MeetingViewModal
+        show={showMeetingViewModal}
+        onClose={() => setShowMeetingViewModal(false)}
+        meetingId={selectedMeetingItemId}
+      />
     </>
   );
 };

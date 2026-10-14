@@ -36,7 +36,8 @@ const RESOURCE_SECTION: Record<string, string> = {
   designation: "settings",
   branch: "settings",
   holiday: "calendar",
-  onboardingdocument: "settings.onboarding",
+  // Managed under People → Employees → Configure (not Organization).
+  onboardingdocument: "users",
   announcement: "settings.announcements",
   organisationprofile: "settings.profile",
   meeting: "calendar",
@@ -54,7 +55,7 @@ const RESOURCE_SECTION: Record<string, string> = {
   "company->departments": "settings",
   "company->designation": "settings",
   "company->media": "settings.media",
-  "company->onboardingdocument": "settings.onboarding",
+  "company->onboardingdocument": "users",
   "reports->holidays": "reports",
   "finance->reimbursements": "finance.reimbursements",
   "finance->salary": "finance.salary",

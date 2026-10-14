@@ -70,6 +70,11 @@ export function AttendanceCorrectionDialog({
       onClose={close}
       maxWidth="sm"
       plain
+      /* The reason-picker is a react-select, whose menu renders in a portal OUTSIDE this dialog.
+         MUI's focus trap — now the kit default — would pull focus back the moment the menu opened
+         and the picker could not be used. Opted out here rather than app-wide, so every dialog
+         without a portaled menu still keeps its focus. */
+      disableEnforceFocus
       header={
         <PlainDialogHeader
           icon={<KTIcon iconName={correction.mode === 'edit' ? 'notepad-edit' : 'calendar-add'} className="fs-2" />}
