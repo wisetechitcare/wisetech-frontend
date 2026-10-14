@@ -127,7 +127,7 @@ export const TimeLogDetailDialog = ({
             onChanged?.();
             onClose();
         } catch (err) {
-            void toast({ icon: 'error', title: 'Could not delete', text: apiErrorMessage(err), timer: 4200 });
+            void toast({ icon: 'error', title: 'Could not delete', text: apiErrorMessage(err, 'Could not delete this time log.'), timer: 4200 });
         } finally {
             setDeleting(false);
         }

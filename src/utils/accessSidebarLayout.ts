@@ -127,7 +127,6 @@ export const ACCESS_SIDEBAR_LAYOUT: AccessLayoutGroup[] = [
       { module: "settings.media", label: "Media", icon: "bi-images" },
       { module: "settings.teams", label: "Teams", icon: "bi-people" },
       { module: "settings.employeeLevel", label: "Employee-Level", icon: "bi-diagram-3" },
-      { module: "settings.onboarding", label: "Onboarding Docs", icon: "bi-file-earmark-text" },
     ],
   },
   {

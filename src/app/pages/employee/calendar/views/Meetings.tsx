@@ -164,12 +164,13 @@ const Meetings = () => {
         // Set by a meeting clicked on the Calendar tab, so the grid opens on ITS month
         // rather than the current one. Absent for anyone who just opened the tab.
         focusDate={params.get('date') || undefined}
+        viewerEmployeeId={currentEmployeeId}
         onCreate={canCreate ? (startIso) => { setEditing(null); setCreateOn(startIso ?? null); setShowMeetingForm(true); } : undefined}
-        onEdit={canCreate ? (m) => { setEditing(toEditableMeeting(m)); setCreateOn(null); setShowMeetingForm(true); } : undefined}
-        onReschedule={canCreate ? handleReschedule : undefined}
+        onEdit={(m) => { setEditing(toEditableMeeting(m)); setCreateOn(null); setShowMeetingForm(true); }}
+        onReschedule={handleReschedule}
         onLogTime={(m) => setLogging(m)}
         onRemind={(m) => setReminding(m)}
-        onCancel={canCreate ? handleCancel : undefined}
+        onCancel={handleCancel}
         onDelete={canDelete ? handleDelete : undefined}
       />
 
