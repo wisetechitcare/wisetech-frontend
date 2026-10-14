@@ -1,12 +1,20 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import {
+  Box,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+  alpha,
+  useTheme,
+} from "@mui/material";
 import { MRT_ColumnDef } from "material-react-table";
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
-import StatusBadge from "@app/modules/common/components/StatusBadge";
+import { SolidChip } from "@app/pages/billing/operations/TrackerCells";
 import { actionsColumn } from "@app/modules/common/components/table/columns";
 import { ActionIconButton, AppIcon } from "@app/modules/common/components/ui";
 import { T } from "@app/modules/common/components/ui/tokens";
@@ -21,10 +29,10 @@ import {
   unarchiveGroupToApi,
 } from "../store/courtesyDeskStore";
 import type { PeopleGroup } from "../types";
-
-const GROUP_STATUS_COLOR = { ACTIVE: "#16a34a", ARCHIVED: "#94a3b8" } as const;
+import { groupStatusColor, parseGroupStatus } from "../types";
 
 export default function PeopleGroupsList() {
+  const theme = useTheme();
   useCourtesyDesk();
   const navigate = useNavigate();
   const employeeId = useSelector(
@@ -32,6 +40,11 @@ export default function PeopleGroupsList() {
   );
   const [showArchived, setShowArchived] = useState(false);
   const groups = listGroups(showArchived);
+
+  const rowStatusTint = (status: unknown) => {
+    const c = groupStatusColor(parseGroupStatus(status));
+    return alpha(c, theme.palette.mode === "dark" ? 0.22 : 0.12);
+  };
 
   const columns = useMemo<MRT_ColumnDef<PeopleGroup>[]>(
     () => [
@@ -69,11 +82,11 @@ export default function PeopleGroupsList() {
         header: "Status",
         size: 120,
         Cell: ({ row }) => {
-          const active = row.original.status === "ACTIVE";
+          const status = parseGroupStatus(row.original.status);
           return (
-            <StatusBadge
-              label={active ? "Active" : "Archived"}
-              color={GROUP_STATUS_COLOR[row.original.status]}
+            <SolidChip
+              label={status === "ACTIVE" ? "Active" : "Archived"}
+              color={groupStatusColor(status)}
             />
           );
         },
@@ -130,14 +143,21 @@ export default function PeopleGroupsList() {
                       void archiveGroupToApi(g.id)
                         .then(() => toast.success("Group archived."))
                         .catch((err: unknown) =>
-                          toast.error(apiErrorMessage(err, "Something went wrong")),
+                          toast.error(
+                            apiErrorMessage(err, "Something went wrong"),
+                          ),
                         );
                     }
                   }}
                 />
               ) : (
                 <ActionIconButton
-                  icon={<AppIcon name="bi-arrow-counterclockwise" className="fs-6" />}
+                  icon={
+                    <AppIcon
+                      name="bi-arrow-counterclockwise"
+                      className="fs-6"
+                    />
+                  }
                   title="Restore group"
                   size="sm"
                   tone="success"
@@ -145,7 +165,9 @@ export default function PeopleGroupsList() {
                     void unarchiveGroupToApi(g.id)
                       .then(() => toast.success("Group restored."))
                       .catch((err: unknown) =>
-                        toast.error(apiErrorMessage(err, "Something went wrong")),
+                        toast.error(
+                          apiErrorMessage(err, "Something went wrong"),
+                        ),
                       )
                   }
                 />
@@ -213,17 +235,34 @@ export default function PeopleGroupsList() {
         employeeId={employeeId}
         enableFilters={false}
         enableGrouping={false}
+        enableStatusColorCoding={false}
         muiTablePaperStyle={{
           borderRadius: `${T.radius.lg}px`,
           border: `1px solid ${T.color.line}`,
           boxShadow: T.shadow.card,
         }}
         muiTableProps={{
-          muiTableBodyRowProps: ({ row }) => ({
-            onClick: () =>
-              navigate(`${GIFT_MANAGEMENT_BASE}/groups/${row.original.id}`),
-            sx: { cursor: "pointer" },
-          }),
+          muiTableBodyRowProps: ({ row }) => {
+            const status = parseGroupStatus(row.original.status);
+            const base = groupStatusColor(status);
+            return {
+              onClick: () =>
+                navigate(`${GIFT_MANAGEMENT_BASE}/groups/${row.original.id}`),
+              sx: {
+                cursor: "pointer",
+                backgroundColor: `${rowStatusTint(status)} !important`,
+                "& td:first-of-type": {
+                  borderLeft: `4px solid ${base} !important`,
+                },
+                "&:hover": {
+                  backgroundColor: `${alpha(
+                    base,
+                    theme.palette.mode === "dark" ? 0.3 : 0.18,
+                  )} !important`,
+                },
+              },
+            };
+          },
         }}
       />
     </Box>

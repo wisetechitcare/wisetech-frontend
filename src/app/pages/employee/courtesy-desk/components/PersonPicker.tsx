@@ -23,7 +23,11 @@ import type { AppDispatch, RootState } from "@redux/store";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { getAllClientContacts } from "@services/companies";
 import { initialsOf } from "@app/modules/common/components/EmployeeIdentityCell";
-import { TRIO, type Trio } from "@app/modules/common/components/ui/patterns";
+import {
+  IconBox,
+  TRIO,
+  type Trio,
+} from "@app/modules/common/components/ui/patterns";
 import type { MemberType, PersonRef } from "../types";
 
 type SourceTab = "CONTACTS" | "EMPLOYEES";
@@ -53,14 +57,38 @@ function contactToPersonRef(c: any): PersonRef {
 interface PersonPickerProps {
   selected: PersonRef[];
   onChange: (next: PersonRef[]) => void;
+  /**
+   * When editing an existing group, pass the members loaded from the server.
+   * Selected people are split into "Already in group" vs "Newly selected".
+   */
+  baselineSelected?: PersonRef[];
 }
 
 function matchesQuery(haystack: string, q: string) {
   return haystack.toLowerCase().includes(q.toLowerCase());
 }
 
-function personKey(p: Pick<PersonRef, "memberType" | "personId">) {
+export function personKey(p: Pick<PersonRef, "memberType" | "personId">) {
   return `${p.memberType}:${p.personId}`;
+}
+
+/** Active employees from `fetchAllEmployeesSelectedData` / `allEmployees` — same roster as the Employees tab here. */
+export function courtesyDeskAssigneeOptions(
+  employees: Array<{
+    employeeId: string;
+    employeeName: string;
+    avatar: string;
+    isActive?: boolean;
+  }>,
+) {
+  return employees
+    .filter((e) => e.isActive !== false)
+    .map((e) => ({
+      id: String(e.employeeId),
+      name: e.employeeName || "Unnamed",
+      avatarUrl: e.avatar || "",
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function memberTrio(memberType: MemberType): Trio {
@@ -119,9 +147,190 @@ export function PersonAvatar({
   );
 }
 
+function PersonChipRow({
+  person,
+  tone,
+  onRemove,
+}: {
+  person: PersonRef;
+  tone: Trio;
+  onRemove: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Stack
+      direction="row"
+      alignItems="center"
+      spacing={1}
+      sx={{
+        px: 1,
+        py: 0.5,
+        borderRadius: 1.25,
+        bgcolor: alpha(tone.c, theme.palette.mode === "dark" ? 0.2 : 0.1),
+        border: `1px solid ${alpha(tone.c, 0.28)}`,
+      }}
+    >
+      <PersonAvatar person={person} size={28} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Stack
+          direction="row"
+          spacing={0.75}
+          alignItems="center"
+          flexWrap="nowrap"
+        >
+          <Typography
+            variant="body2"
+            fontWeight={600}
+            noWrap
+            sx={{ minWidth: 0 }}
+          >
+            {person.fullName}
+          </Typography>
+          <MemberTypeChip memberType={person.memberType} />
+        </Stack>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          noWrap
+          display="block"
+        >
+          {[person.companyName, person.area].filter(Boolean).join(" · ") || "—"}
+        </Typography>
+      </Box>
+      <IconButton
+        size="small"
+        onClick={onRemove}
+        aria-label="Remove"
+        sx={{ color: "text.secondary" }}
+      >
+        <CloseRoundedIcon sx={{ fontSize: 16 }} />
+      </IconButton>
+    </Stack>
+  );
+}
+
+/** Reusable member chip list — used by PersonPicker and the Existing members section. */
+export function MemberListPanel({
+  title,
+  people,
+  tone,
+  icon,
+  emptyText,
+  clearLabel,
+  onClear,
+  onRemove,
+  hideWhenEmpty = false,
+  sx,
+}: {
+  title: string;
+  people: PersonRef[];
+  tone: Trio;
+  /** KTIcon name for a proper section-style header. */
+  icon?: string;
+  emptyText?: string;
+  clearLabel?: string;
+  onClear?: () => void;
+  onRemove: (person: PersonRef) => void;
+  /** When true, render nothing if the list is empty. */
+  hideWhenEmpty?: boolean;
+  sx?: object;
+}) {
+  const theme = useTheme();
+  if (hideWhenEmpty && people.length === 0) return null;
+
+  const border = alpha(tone.c, 0.45);
+  const bg = alpha(tone.c, theme.palette.mode === "dark" ? 0.12 : 0.06);
+
+  return (
+    <Box
+      sx={{
+        mb: 2,
+        p: 1.5,
+        borderRadius: 2,
+        border: `1px solid ${border}`,
+        bgcolor: bg,
+        ...sx,
+      }}
+    >
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{ mb: people.length === 0 ? 0 : 1, px: 0.25 }}
+        spacing={1}
+      >
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+          {icon && <IconBox icon={icon} trio={tone} size={30} fs="fs-5" />}
+          <Typography variant="body2" fontWeight={700} sx={{ color: tone.c }}>
+            {title} ({people.length})
+          </Typography>
+        </Stack>
+        {clearLabel && onClear && people.length > 0 && (
+          <Chip
+            size="small"
+            label={clearLabel}
+            onClick={onClear}
+            clickable
+            variant="outlined"
+            sx={{
+              borderColor: alpha(tone.c, 0.5),
+              color: tone.c,
+              height: 24,
+              flexShrink: 0,
+            }}
+          />
+        )}
+      </Stack>
+      {people.length === 0 ? (
+        emptyText ? (
+          <Typography variant="body2" color="text.secondary" sx={{ px: 0.25, mt: 0.75 }}>
+            {emptyText}
+          </Typography>
+        ) : null
+      ) : (
+        <>
+          {people.length > 12 && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mb: 0.5, px: 0.25 }}
+            >
+              Scroll to see all {people.length}
+            </Typography>
+          )}
+          <Box
+            sx={{
+              maxHeight: SELECTED_LIST_MAX_HEIGHT,
+              overflowY: "auto",
+              pr: 0.5,
+              "&::-webkit-scrollbar": { width: 6 },
+              "&::-webkit-scrollbar-thumb": {
+                borderRadius: 3,
+                bgcolor: alpha(theme.palette.text.primary, 0.2),
+              },
+            }}
+          >
+            <Stack spacing={0.5}>
+              {people.map((p) => (
+                <PersonChipRow
+                  key={personKey(p)}
+                  person={p}
+                  tone={tone}
+                  onRemove={() => onRemove(p)}
+                />
+              ))}
+            </Stack>
+          </Box>
+        </>
+      )}
+    </Box>
+  );
+}
+
 export default function PersonPicker({
   selected,
   onChange,
+  baselineSelected,
 }: PersonPickerProps) {
   const theme = useTheme();
   const dispatch = useDispatch<AppDispatch>();
@@ -134,6 +343,7 @@ export default function PersonPicker({
   const [contacts, setContacts] = useState<PersonRef[]>([]);
   const [contactPage, setContactPage] = useState(1);
   const [contactTotal, setContactTotal] = useState(0);
+  const splitExisting = baselineSelected !== undefined;
 
   useEffect(() => {
     dispatch(loadAllEmployeesIfNeeded());
@@ -214,17 +424,15 @@ export default function PersonPicker({
 
   const employeePeople: PersonRef[] = useMemo(
     () =>
-      employees
-        .filter((e) => e.isActive !== false)
-        .map((e) => ({
-          memberType: "EMPLOYEE" as MemberType,
-          personId: String(e.employeeId),
-          fullName: e.employeeName || "Unnamed",
-          companyName: "Wisetech",
-          area: "Office",
-          address: "",
-          avatarUrl: e.avatar || "",
-        })),
+      courtesyDeskAssigneeOptions(employees).map((e) => ({
+        memberType: "EMPLOYEE" as MemberType,
+        personId: e.id,
+        fullName: e.name,
+        companyName: "Wisetech",
+        area: "Office",
+        address: "",
+        avatarUrl: e.avatarUrl,
+      })),
     [employees],
   );
 
@@ -232,6 +440,24 @@ export default function PersonPicker({
     () => new Set(selected.map(personKey)),
     [selected],
   );
+
+  const baselineKeys = useMemo(
+    () => new Set((baselineSelected ?? []).map(personKey)),
+    [baselineSelected],
+  );
+
+  const { existingMembers, newlySelected } = useMemo(() => {
+    if (!splitExisting) {
+      return { existingMembers: [] as PersonRef[], newlySelected: selected };
+    }
+    const existing: PersonRef[] = [];
+    const added: PersonRef[] = [];
+    for (const p of selected) {
+      if (baselineKeys.has(personKey(p))) existing.push(p);
+      else added.push(p);
+    }
+    return { existingMembers: existing, newlySelected: added };
+  }, [selected, baselineKeys, splitExisting]);
 
   const filtered = useMemo(() => {
     if (source === "CONTACTS") {
@@ -289,139 +515,31 @@ export default function PersonPicker({
     onChange(Array.from(map.values()));
   };
 
-  const selectedBorder = alpha(SELECTED_TRIO.c, 0.45);
-  const selectedBg = alpha(
-    SELECTED_TRIO.c,
-    theme.palette.mode === "dark" ? 0.12 : 0.06,
-  );
-
   return (
     <Box>
-      <Box
-        sx={{
-          mb: 2,
-          p: 1.5,
-          borderRadius: 2,
-          border: `1px solid ${selectedBorder}`,
-          bgcolor: selectedBg,
-        }}
-      >
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          sx={{ mb: 0.75, px: 0.25 }}
-        >
-          <Typography
-            variant="body2"
-            fontWeight={700}
-            sx={{ color: SELECTED_TRIO.c }}
-          >
-            Selected ({selected.length})
-          </Typography>
-          {selected.length > 0 && (
-            <Chip
-              size="small"
-              label="Clear all"
-              onClick={() => onChange([])}
-              clickable
-              variant="outlined"
-              sx={{
-                borderColor: alpha(SELECTED_TRIO.c, 0.5),
-                color: SELECTED_TRIO.c,
-                height: 24,
-              }}
-            />
-          )}
-        </Stack>
-        {selected.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ px: 0.25 }}>
-            No one selected yet — search and tick people below.
-          </Typography>
-        ) : (
-          <>
-            {selected.length > 12 && (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: "block", mb: 0.5, px: 0.25 }}
-              >
-                Scroll to see all {selected.length} selected
-              </Typography>
-            )}
-            <Box
-              sx={{
-                maxHeight: SELECTED_LIST_MAX_HEIGHT,
-                overflowY: "auto",
-                pr: 0.5,
-                "&::-webkit-scrollbar": { width: 6 },
-                "&::-webkit-scrollbar-thumb": {
-                  borderRadius: 3,
-                  bgcolor: alpha(theme.palette.text.primary, 0.2),
-                },
-              }}
-            >
-              <Stack spacing={0.5}>
-                {selected.map((p) => (
-                  <Stack
-                    key={personKey(p)}
-                    direction="row"
-                    alignItems="center"
-                    spacing={1}
-                    sx={{
-                      px: 1,
-                      py: 0.5,
-                      borderRadius: 1.25,
-                      bgcolor: alpha(
-                        SELECTED_TRIO.c,
-                        theme.palette.mode === "dark" ? 0.2 : 0.1,
-                      ),
-                      border: `1px solid ${alpha(SELECTED_TRIO.c, 0.28)}`,
-                    }}
-                  >
-                    <PersonAvatar person={p} size={28} />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Stack
-                        direction="row"
-                        spacing={0.75}
-                        alignItems="center"
-                        flexWrap="nowrap"
-                      >
-                        <Typography
-                          variant="body2"
-                          fontWeight={600}
-                          noWrap
-                          sx={{ minWidth: 0 }}
-                        >
-                          {p.fullName}
-                        </Typography>
-                        <MemberTypeChip memberType={p.memberType} />
-                      </Stack>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        noWrap
-                        display="block"
-                      >
-                        {[p.companyName, p.area].filter(Boolean).join(" · ") ||
-                          "—"}
-                      </Typography>
-                    </Box>
-                    <IconButton
-                      size="small"
-                      onClick={() => toggle(p)}
-                      aria-label="Remove"
-                      sx={{ color: "text.secondary" }}
-                    >
-                      <CloseRoundedIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  </Stack>
-                ))}
-              </Stack>
-            </Box>
-          </>
-        )}
-      </Box>
+      {splitExisting ? (
+        <MemberListPanel
+          title="Newly selected"
+          people={newlySelected}
+          tone={SELECTED_TRIO}
+          icon="people"
+          hideWhenEmpty
+          clearLabel="Clear new"
+          onClear={() => onChange(existingMembers)}
+          onRemove={toggle}
+        />
+      ) : (
+        <MemberListPanel
+          title="Selected"
+          people={selected}
+          tone={SELECTED_TRIO}
+          icon="people"
+          hideWhenEmpty
+          clearLabel="Clear all"
+          onClear={() => onChange([])}
+          onRemove={toggle}
+        />
+      )}
 
       <Tabs
         value={source}

@@ -34,11 +34,13 @@ export function isCourtesyDeskApiMode() {
 /** Writes must hit the API — never fake success in memory when hydrate failed. */
 function requireApi(): void {
   if (!apiEnabled) {
-    throw lastHydrateError ?? {
-      hasError: true,
-      statusCode: 503,
-      detail: "Gift Management API is not available.",
-    };
+    throw (
+      lastHydrateError ?? {
+        hasError: true,
+        statusCode: 503,
+        detail: "Gift Management API is not available.",
+      }
+    );
   }
 }
 
@@ -315,7 +317,7 @@ export async function saveGroupToApi(input: {
   return saved;
 }
 
-/** Gift Run roster mirrors its People Group — add/remove recipients to match. */
+/** Gift Run roster mirrors its People Group; DRIVE_ONLY rows stay until removed on the run. */
 function syncDrivesFromGroup(groupId: string) {
   const group = state.groups.find((g) => g.id === groupId);
   if (!group) return;
@@ -323,15 +325,27 @@ function syncDrivesFromGroup(groupId: string) {
   const ts = nowIso();
   const drives = state.drives.map((d) => {
     if (d.sourceGroupId !== groupId || d.status === "ARCHIVED") return d;
-    const kept = d.recipients.filter((r) => memberKeys.has(personKey(r)));
-    const keptKeys = new Set(kept.map(personKey));
-    const additions = group.members.filter((m) => !keptKeys.has(personKey(m)));
+    const driveOnly = d.recipients.filter(
+      (r) => (r.rosterSource ?? "GROUP") === "DRIVE_ONLY",
+    );
+    const groupLinked = d.recipients.filter(
+      (r) =>
+        (r.rosterSource ?? "GROUP") === "GROUP" && memberKeys.has(personKey(r)),
+    );
+    const linkedKeys = new Set([
+      ...groupLinked.map(personKey),
+      ...driveOnly.map(personKey),
+    ]);
+    const additions = group.members.filter(
+      (m) => !linkedKeys.has(personKey(m)),
+    );
     const recipients = [
-      ...kept.map((r) => {
+      ...groupLinked.map((r) => {
         const m = group.members.find((x) => personKey(x) === personKey(r));
-        if (!m) return r;
+        if (!m) return { ...r, rosterSource: "GROUP" as const };
         return {
           ...r,
+          rosterSource: "GROUP" as const,
           fullName: m.fullName,
           companyName: m.companyName,
           area: m.area,
@@ -341,7 +355,22 @@ function syncDrivesFromGroup(groupId: string) {
           avatarUrl: m.avatarUrl,
         };
       }),
-      ...snapshotRecipients(additions),
+      ...driveOnly.map((r) => {
+        const m = group.members.find((x) => personKey(x) === personKey(r));
+        if (!m) return r;
+        return {
+          ...r,
+          rosterSource: "GROUP" as const,
+          fullName: m.fullName,
+          companyName: m.companyName,
+          area: m.area,
+          address: m.address,
+          phone: m.phone,
+          email: m.email,
+          avatarUrl: m.avatarUrl,
+        };
+      }),
+      ...snapshotRecipients(additions, 1, "GROUP"),
     ];
     return {
       ...d,
@@ -471,6 +500,7 @@ export async function refreshDriveFromApi(id: string) {
 function snapshotRecipients(
   members: PersonRef[],
   fallbackQty = 1,
+  rosterSource: CourtesyRecipient["rosterSource"] = "GROUP",
 ): CourtesyRecipient[] {
   const ts = nowIso();
   return members.map((m) => ({
@@ -492,6 +522,7 @@ function snapshotRecipients(
         : fallbackQty,
     remark: "",
     skippedReason: "" as const,
+    rosterSource,
     updatedAt: ts,
   }));
 }
@@ -648,7 +679,25 @@ export function applyDriveAssigneeMode(
   return getDrive(driveId);
 }
 
-/** Add people to gift run AND to the source group. */
+/** Add people to this Gift Run only (does not change the People Group). */
+export async function addPeopleToDriveToApi(
+  driveId: string,
+  people: PersonRef[],
+  defaultQuantity?: number,
+) {
+  requireApi();
+  const drive = await giftsApi.addRunRecipientsApi(
+    driveId,
+    people,
+    defaultQuantity,
+  );
+  setState({
+    ...state,
+    drives: state.drives.map((d) => (d.id === drive.id ? drive : d)),
+  });
+  return drive;
+}
+
 export function addPeopleToDrive(driveId: string, people: PersonRef[]) {
   const drive = getDrive(driveId);
   if (!drive) throw new Error("Gift Run not found");
@@ -656,53 +705,48 @@ export function addPeopleToDrive(driveId: string, people: PersonRef[]) {
   const additions = people.filter((p) => !existing.has(personKey(p)));
   if (!additions.length) return { added: 0, drive };
 
-  const group = getGroup(drive.sourceGroupId);
-  const groups = group
-    ? state.groups.map((g) =>
-        g.id === group.id
-          ? {
-              ...g,
-              members: dedupeMembers([...g.members, ...additions]),
-              updatedAt: nowIso(),
-            }
-          : g,
-      )
-    : state.groups;
-
   const updated: CourtesyDrive = {
     ...drive,
-    recipients: [...drive.recipients, ...snapshotRecipients(additions)],
+    recipients: [
+      ...drive.recipients,
+      ...snapshotRecipients(additions, 1, "DRIVE_ONLY"),
+    ],
     updatedAt: nowIso(),
   };
 
   setState({
     ...state,
-    groups,
     drives: state.drives.map((d) => (d.id === driveId ? updated : d)),
   });
   return { added: additions.length, drive: updated };
 }
 
-/** Remove people from gift run AND from the source group. */
+/** Remove gift-run-only recipients (group members must be changed in the People Group). */
+export async function removePeopleFromDriveToApi(
+  driveId: string,
+  recipientIds: string[],
+) {
+  requireApi();
+  const drive = await giftsApi.removeRunRecipientsApi(driveId, recipientIds);
+  setState({
+    ...state,
+    drives: state.drives.map((d) => (d.id === drive.id ? drive : d)),
+  });
+  return drive;
+}
+
 export function removePeopleFromDrive(driveId: string, recipientIds: string[]) {
   const drive = getDrive(driveId);
   if (!drive) throw new Error("Gift Run not found");
   const idSet = new Set(recipientIds);
-  const removed = drive.recipients.filter((r) => idSet.has(r.id));
-  const removeKeys = new Set(removed.map((r) => personKey(r)));
-
-  const group = getGroup(drive.sourceGroupId);
-  const groups = group
-    ? state.groups.map((g) =>
-        g.id === group.id
-          ? {
-              ...g,
-              members: g.members.filter((m) => !removeKeys.has(personKey(m))),
-              updatedAt: nowIso(),
-            }
-          : g,
-      )
-    : state.groups;
+  const blocked = drive.recipients.filter(
+    (r) => idSet.has(r.id) && (r.rosterSource ?? "GROUP") !== "DRIVE_ONLY",
+  );
+  if (blocked.length) {
+    throw new Error(
+      "Only people added on this Gift Run can be removed here. Update the People Group to change group members.",
+    );
+  }
 
   const updated: CourtesyDrive = {
     ...drive,
@@ -712,7 +756,6 @@ export function removePeopleFromDrive(driveId: string, recipientIds: string[]) {
 
   setState({
     ...state,
-    groups,
     drives: state.drives.map((d) => (d.id === driveId ? updated : d)),
   });
   return updated;
@@ -808,8 +851,10 @@ export async function bulkUpdateRecipientsToApi(
       CourtesyRecipient,
       | "status"
       | "mode"
+      | "quantity"
       | "assigneeEmployeeId"
       | "assigneeName"
+      | "remark"
       | "skippedReason"
     >
   >,

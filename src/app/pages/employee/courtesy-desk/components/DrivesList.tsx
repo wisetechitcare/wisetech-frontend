@@ -39,6 +39,10 @@ export default function DrivesList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [presetGroupId, setPresetGroupId] = useState<string | undefined>();
   const [showArchived, setShowArchived] = useState(false);
+  const [occasionFilter, setOccasionFilter] = useState<"ALL" | string>("ALL");
+  const [giftRunStatusFilter, setGiftRunStatusFilter] = useState<
+    "ALL" | string
+  >("ALL");
   const employeeId = useSelector(
     (s: RootState) => s.employee.currentEmployee?.id,
   );
@@ -64,6 +68,17 @@ export default function DrivesList() {
   };
   const drives = listDrives(showArchived);
   const giftRunStatuses = desk.config.giftRunStatuses;
+  const occasions = desk.config.occasions;
+
+  const filteredDrives = useMemo(() => {
+    return drives.filter((d) => {
+      if (occasionFilter !== "ALL" && d.occasionType !== occasionFilter)
+        return false;
+      if (giftRunStatusFilter !== "ALL" && d.status !== giftRunStatusFilter)
+        return false;
+      return true;
+    });
+  }, [drives, occasionFilter, giftRunStatusFilter]);
 
   const columns = useMemo<MRT_ColumnDef<CourtesyDrive>[]>(
     () => [
@@ -128,6 +143,47 @@ export default function DrivesList() {
     return alpha(c, theme.palette.mode === "dark" ? 0.22 : 0.12);
   };
 
+  const toolbarFilters = (
+    <Stack
+      direction="row"
+      spacing={1}
+      alignItems="center"
+      flexWrap="wrap"
+      useFlexGap
+    >
+      <TextField
+        select
+        size="small"
+        label="Occasion"
+        value={occasionFilter}
+        onChange={(e) => setOccasionFilter(e.target.value)}
+        sx={{ minWidth: 150 }}
+      >
+        <MenuItem value="ALL">All</MenuItem>
+        {occasions.map((o) => (
+          <MenuItem key={o.id} value={o.id}>
+            {o.name}
+          </MenuItem>
+        ))}
+      </TextField>
+      <TextField
+        select
+        size="small"
+        label="Gift Run status"
+        value={giftRunStatusFilter}
+        onChange={(e) => setGiftRunStatusFilter(e.target.value)}
+        sx={{ minWidth: 160 }}
+      >
+        <MenuItem value="ALL">All</MenuItem>
+        {giftRunStatuses.map((s) => (
+          <MenuItem key={s.id} value={s.id}>
+            {s.name}
+          </MenuItem>
+        ))}
+      </TextField>
+    </Stack>
+  );
+
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       <Stack
@@ -146,16 +202,6 @@ export default function DrivesList() {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">
-          <TextField
-            select
-            size="small"
-            value={showArchived ? "all" : "active"}
-            onChange={(e) => setShowArchived(e.target.value === "all")}
-            sx={{ minWidth: 150 }}
-          >
-            <MenuItem value="active">Active only</MenuItem>
-            <MenuItem value="all">Include archived</MenuItem>
-          </TextField>
           <PremiumButton icon="bi-plus-lg" onClick={() => openCreate()}>
             New {GIFT_RUN_LABEL}
           </PremiumButton>
@@ -165,30 +211,39 @@ export default function DrivesList() {
       <MaterialTable
         tableName="Courtesy-Gift-Runs"
         columns={columns}
-        data={drives}
+        data={filteredDrives}
         employeeId={employeeId}
         enableFilters={false}
         enableGrouping={false}
+        enableStatusColorCoding={false}
+        renderTopToolbarRightActions={() => toolbarFilters}
         muiTablePaperStyle={{
           borderRadius: `${T.radius.lg}px`,
           border: `1px solid ${T.color.line}`,
           boxShadow: T.shadow.card,
         }}
         muiTableProps={{
-          muiTableBodyRowProps: ({ row }) => ({
-            onClick: () =>
-              navigate(`${GIFT_MANAGEMENT_BASE}/drives/${row.original.id}`),
-            sx: {
-              cursor: "pointer",
-              backgroundColor: `${rowStatusTint(row.original.status)} !important`,
-              "&:hover": {
-                backgroundColor: `${alpha(
-                  giftRunStatusColor(desk.config, row.original.status),
-                  theme.palette.mode === "dark" ? 0.3 : 0.18,
-                )} !important`,
+          muiTableBodyRowProps: ({ row }) => {
+            const statusId = String(row.original.status || "");
+            const base = giftRunStatusColor(desk.config, statusId);
+            return {
+              onClick: () =>
+                navigate(`${GIFT_MANAGEMENT_BASE}/drives/${row.original.id}`),
+              sx: {
+                cursor: "pointer",
+                backgroundColor: `${rowStatusTint(statusId)} !important`,
+                "& td:first-of-type": {
+                  borderLeft: `4px solid ${base} !important`,
+                },
+                "&:hover": {
+                  backgroundColor: `${alpha(
+                    base,
+                    theme.palette.mode === "dark" ? 0.3 : 0.18,
+                  )} !important`,
+                },
               },
-            },
-          }),
+            };
+          },
         }}
       />
 

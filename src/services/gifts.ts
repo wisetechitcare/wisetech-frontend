@@ -175,6 +175,26 @@ export async function bulkPatchRecipientsApi(
   return res.drive;
 }
 
+export async function addRunRecipientsApi(
+  driveId: string,
+  members: PersonRef[],
+  defaultQuantity?: number,
+) {
+  const res = await post<{ drive: CourtesyDrive }>(path(GIFTS.ADD_RECIPIENTS, { id: driveId }), {
+    members,
+    defaultQuantity,
+  });
+  return res.drive;
+}
+
+export async function removeRunRecipientsApi(driveId: string, recipientIds: string[]) {
+  const res = await post<{ drive: CourtesyDrive }>(
+    path(GIFTS.REMOVE_RECIPIENTS, { id: driveId }),
+    { recipientIds },
+  );
+  return res.drive;
+}
+
 type ConfigKindPath = "occasions" | "delivery-statuses" | "gift-run-statuses" | "delivery-modes";
 
 export async function createConfigOptionApi(kind: ConfigKindPath, option: ConfigOption) {

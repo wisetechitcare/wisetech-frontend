@@ -8,6 +8,9 @@ export type DeliveryStatus = 'PENDING' | 'OUT' | 'DELIVERED' | 'SKIPPED';
 
 export type DeliveryMode = 'IN_PERSON' | 'COURIER';
 
+/** GROUP = from linked People Group; DRIVE_ONLY = added on this Gift Run after creation. */
+export type RecipientRosterSource = 'GROUP' | 'DRIVE_ONLY';
+
 export type SkippedReason = 'REFUSED' | 'NOT_AVAILABLE' | 'DO_NOT_GIFT' | '';
 
 /** User-facing name for a Drive (= one gift distribution run). */
@@ -58,6 +61,7 @@ export interface CourtesyRecipient {
   assigneeName?: string;
   remark?: string;
   skippedReason?: SkippedReason;
+  rosterSource?: RecipientRosterSource;
   updatedAt: string;
 }
 
@@ -183,6 +187,19 @@ export function giftRunStatusLabel(config: CourtesyConfig, statusId: string) {
 
 export function giftRunStatusColor(config: CourtesyConfig, statusId: string) {
   return config.giftRunStatuses.find((s) => s.id === statusId)?.color || '#64748b';
+}
+
+const GROUP_STATUS_COLORS: Record<GroupStatus, string> = {
+  ACTIVE: '#16a34a',
+  ARCHIVED: '#94a3b8',
+};
+
+export function groupStatusColor(status: GroupStatus): string {
+  return GROUP_STATUS_COLORS[status];
+}
+
+export function parseGroupStatus(status: unknown): GroupStatus {
+  return status === 'ARCHIVED' ? 'ARCHIVED' : 'ACTIVE';
 }
 
 export function deliveryModeLabel(config: CourtesyConfig, modeId: string) {

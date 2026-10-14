@@ -5,6 +5,8 @@ import {
   Box,
   Button,
   Chip,
+  DialogActions,
+  DialogContent,
   Paper,
   Stack,
   TextField,
@@ -12,18 +14,31 @@ import {
   alpha,
   useTheme,
 } from "@mui/material";
+import { KTIcon } from "@metronic/helpers";
 import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
+import {
+  GlassDialog,
+  GlassHeader,
+  InlineHint,
+  WtButton,
+} from "@app/modules/common/components/ui";
 import { TRIO } from "@app/modules/common/components/ui/patterns";
 import { FormSectionHead } from "@app/pages/employee/tasks/components/primitives";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
-import PersonPicker from "./PersonPicker";
+import PersonPicker, { MemberListPanel, personKey } from "./PersonPicker";
 import { DriveCreateModal } from "./DriveCreate";
 import { getGroup, saveGroupToApi } from "../store/courtesyDeskStore";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import type { PersonRef } from "../types";
+
+function membersEqual(a: PersonRef[], b: PersonRef[]) {
+  if (a.length !== b.length) return false;
+  const keys = new Set(a.map(personKey));
+  return b.every((p) => keys.has(personKey(p)));
+}
 
 export default function PeopleGroupEditor() {
   useCourtesyDesk();
@@ -36,15 +51,27 @@ export default function PeopleGroupEditor() {
   const [name, setName] = useState(existing?.name || "");
   const [notes, setNotes] = useState(existing?.notes || "");
   const [members, setMembers] = useState<PersonRef[]>(existing?.members || []);
+  const [baselineName, setBaselineName] = useState(existing?.name || "");
+  const [baselineNotes, setBaselineNotes] = useState(existing?.notes || "");
+  const [baselineMembers, setBaselineMembers] = useState<PersonRef[]>(
+    existing?.members || [],
+  );
   const [error, setError] = useState("");
   const [giftRunModalOpen, setGiftRunModalOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const g = !isNew && groupId ? getGroup(groupId) : undefined;
-    setName(g?.name || "");
-    setNotes(g?.notes || "");
-    setMembers(g?.members || []);
+    const nextName = g?.name || "";
+    const nextNotes = g?.notes || "";
+    const nextMembers = g?.members || [];
+    setName(nextName);
+    setNotes(nextNotes);
+    setMembers(nextMembers);
+    setBaselineName(nextName);
+    setBaselineNotes(nextNotes);
+    setBaselineMembers(nextMembers);
     setError("");
   }, [groupId, isNew]);
 
@@ -53,6 +80,75 @@ export default function PeopleGroupEditor() {
     const employees = members.filter((m) => m.memberType === "EMPLOYEE").length;
     return { contacts, employees };
   }, [members]);
+
+  const baselineKeys = useMemo(
+    () => new Set(baselineMembers.map(personKey)),
+    [baselineMembers],
+  );
+
+  const existingStillInGroup = useMemo(
+    () => members.filter((m) => baselineKeys.has(personKey(m))),
+    [members, baselineKeys],
+  );
+
+  const newlySelected = useMemo(
+    () => members.filter((m) => !baselineKeys.has(personKey(m))),
+    [members, baselineKeys],
+  );
+
+  const memberDiff = useMemo(() => {
+    const currentKeys = new Set(members.map(personKey));
+    const added = newlySelected.length;
+    const removed = baselineMembers.filter(
+      (m) => !currentKeys.has(personKey(m)),
+    ).length;
+    return { added, removed };
+  }, [members, baselineMembers, newlySelected.length]);
+
+  const hasChanges = useMemo(() => {
+    if (isNew) return true;
+    return (
+      name.trim() !== baselineName.trim() ||
+      notes !== baselineNotes ||
+      !membersEqual(members, baselineMembers)
+    );
+  }, [
+    isNew,
+    name,
+    notes,
+    members,
+    baselineName,
+    baselineNotes,
+    baselineMembers,
+  ]);
+
+  const changeLines = useMemo(() => {
+    const lines: string[] = [];
+    if (name.trim() !== baselineName.trim()) {
+      lines.push(`Name changed to “${name.trim()}”`);
+    }
+    if (notes !== baselineNotes) {
+      lines.push(notes.trim() ? "Notes updated" : "Notes cleared");
+    }
+    if (memberDiff.added > 0) {
+      lines.push(
+        `${memberDiff.added} ${memberDiff.added === 1 ? "person" : "people"} added`,
+      );
+    }
+    if (memberDiff.removed > 0) {
+      lines.push(
+        `${memberDiff.removed} ${memberDiff.removed === 1 ? "person" : "people"} removed`,
+      );
+    }
+    return lines;
+  }, [
+    name,
+    notes,
+    baselineName,
+    baselineNotes,
+    memberDiff.added,
+    memberDiff.removed,
+  ]);
 
   if (!isNew && !existing) {
     return (
@@ -70,6 +166,29 @@ export default function PeopleGroupEditor() {
     );
   }
 
+  const persist = () => {
+    setSaving(true);
+    void saveGroupToApi({
+      id: isNew ? undefined : existing!.id,
+      name,
+      notes,
+      members,
+    })
+      .then(() => {
+        setConfirmOpen(false);
+        toast.success(
+          isNew ? "Group created." : "Group updated — linked Gift Runs synced.",
+        );
+        navigate(`${GIFT_MANAGEMENT_BASE}/people-groups`);
+      })
+      .catch((err: unknown) => {
+        const msg = apiErrorMessage(err, "Something went wrong");
+        setError(msg);
+        toast.error(msg);
+      })
+      .finally(() => setSaving(false));
+  };
+
   const onSave = () => {
     setError("");
     if (!name.trim()) {
@@ -82,23 +201,13 @@ export default function PeopleGroupEditor() {
       toast.error("Select at least one person.");
       return;
     }
-    setSaving(true);
-    void saveGroupToApi({
-      id: isNew ? undefined : existing!.id,
-      name,
-      notes,
-      members,
-    })
-      .then(() => {
-        toast.success(isNew ? "Group created." : "Group updated — linked Gift Runs synced.");
-        navigate(`${GIFT_MANAGEMENT_BASE}/people-groups`);
-      })
-      .catch((err: unknown) => {
-        const msg = apiErrorMessage(err, "Something went wrong");
-        setError(msg);
-        toast.error(msg);
-      })
-      .finally(() => setSaving(false));
+
+    if (!isNew) {
+      setConfirmOpen(true);
+      return;
+    }
+
+    persist();
   };
 
   const summaryChip = (
@@ -133,7 +242,9 @@ export default function PeopleGroupEditor() {
             {isNew ? "New People Group" : "Update People Group"}
           </Typography>
           <Typography color="text.secondary">
-            Mix Contacts and Employees. Selected people stay pinned on top.
+            {isNew
+              ? "Mix Contacts and Employees. Selected people appear once you tick them."
+              : "Existing members are listed above. Newly selected people appear under Add people."}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
@@ -143,9 +254,11 @@ export default function PeopleGroupEditor() {
           >
             Back
           </Button>
-          <PremiumButton icon="bi-check-lg" onClick={onSave} disabled={saving}>
-            {isNew ? "Save Group" : "Update Group"}
-          </PremiumButton>
+          {(isNew || hasChanges) && (
+            <PremiumButton icon="bi-check-lg" onClick={onSave} disabled={saving}>
+              {isNew ? "Save Group" : "Update Group"}
+            </PremiumButton>
+          )}
         </Stack>
       </Stack>
 
@@ -184,18 +297,64 @@ export default function PeopleGroupEditor() {
             {summaryChip("selected", members.length, TRIO.green)}
             {summaryChip("contacts", counts.contacts, TRIO.blue)}
             {summaryChip("employees", counts.employees, TRIO.cyan)}
+            {!isNew && memberDiff.added > 0 && (
+              summaryChip("new", memberDiff.added, TRIO.green)
+            )}
+            {!isNew && memberDiff.removed > 0 && (
+              summaryChip("removed", memberDiff.removed, TRIO.amber)
+            )}
           </Stack>
         </Stack>
       </Paper>
+
+      {!isNew && (
+        <Paper variant="outlined" sx={{ p: 2.5, mb: 2.5, borderRadius: 2 }}>
+          <FormSectionHead
+            icon="profile-user"
+            title="Existing members"
+            hint="People already saved in this group. Remove anyone who should no longer belong."
+            tone="blue"
+          />
+          {existingStillInGroup.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No existing members left — all previous members were removed, or
+              add people below.
+            </Typography>
+          ) : (
+            <MemberListPanel
+              title="In this group"
+              people={existingStillInGroup}
+              tone={TRIO.blue}
+              icon="profile-user"
+              clearLabel="Remove all existing"
+              onClear={() => setMembers(newlySelected)}
+              onRemove={(person) =>
+                setMembers((prev) =>
+                  prev.filter((m) => personKey(m) !== personKey(person)),
+                )
+              }
+              sx={{ mb: 0 }}
+            />
+          )}
+        </Paper>
+      )}
 
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
         <FormSectionHead
           icon="people"
           title="Add people"
-          hint="Search contacts or employees — selected list scrolls; green = added."
+          hint={
+            isNew
+              ? "Search contacts or employees — the selected list appears once you tick someone."
+              : "Search and tick to add. Newly selected people appear here in green."
+          }
           tone="green"
         />
-        <PersonPicker selected={members} onChange={setMembers} />
+        <PersonPicker
+          selected={members}
+          onChange={setMembers}
+          baselineSelected={isNew ? undefined : baselineMembers}
+        />
       </Paper>
 
       {!isNew && existing && (
@@ -205,6 +364,69 @@ export default function PeopleGroupEditor() {
           presetGroupId={existing.id}
         />
       )}
+
+      <GlassDialog
+        open={confirmOpen}
+        onClose={() => !saving && setConfirmOpen(false)}
+        maxWidth="xs"
+        header={
+          <GlassHeader
+            icon={<KTIcon iconName="information-5" className="fs-2" />}
+            title="Confirm update"
+            onClose={() => !saving && setConfirmOpen(false)}
+          />
+        }
+      >
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 0.5 }}>
+            <Typography sx={{ fontSize: 14, lineHeight: 1.5 }}>
+              Update{" "}
+              <Box component="span" sx={{ fontWeight: 700 }}>
+                {name.trim() || baselineName}
+              </Box>
+              ?
+            </Typography>
+
+            {changeLines.length > 0 && (
+              <Box
+                component="ul"
+                sx={{
+                  m: 0,
+                  pl: 2.25,
+                  py: 0,
+                  "& li": {
+                    fontSize: 13.5,
+                    lineHeight: 1.55,
+                    color: "text.secondary",
+                    mb: 0.5,
+                    "&:last-child": { mb: 0 },
+                  },
+                }}
+              >
+                {changeLines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </Box>
+            )}
+
+            <InlineHint>
+              Linked Gift Runs will sync with this group after you confirm.
+            </InlineHint>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <WtButton
+            ghost
+            onClick={() => setConfirmOpen(false)}
+            disabled={saving}
+          >
+            Cancel
+          </WtButton>
+          <WtButton tone="primary" onClick={persist} disabled={saving}>
+            {saving ? "Updating…" : "Update Group"}
+          </WtButton>
+        </DialogActions>
+      </GlassDialog>
     </Box>
   );
 }

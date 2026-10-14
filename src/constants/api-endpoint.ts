@@ -26,6 +26,8 @@ export const GIFTS = {
     APPLY_DEFAULTS: "api/gifts/drives/:id/apply-defaults",
     RECIPIENT_BY_ID: "api/gifts/drives/:id/recipients/:recipientId",
     BULK_RECIPIENTS: "api/gifts/drives/:id/recipients/bulk",
+    ADD_RECIPIENTS: "api/gifts/drives/:id/recipients",
+    REMOVE_RECIPIENTS: "api/gifts/drives/:id/recipients/remove",
 };
 
 export const RECRUITMENT = {

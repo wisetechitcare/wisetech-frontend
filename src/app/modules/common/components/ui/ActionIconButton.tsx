@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { Button, IconButton, Tooltip } from '@mui/material';
+import { Button, IconButton } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { T } from './tokens';
+import WtTooltip from './WtTooltip';
 
 export type ActionTone = 'brand' | 'indigo' | 'danger' | 'success' | 'onBrand';
 
@@ -127,19 +128,15 @@ export default function ActionIconButton({
   }
 
   return (
-    <Tooltip title={title}>
-      {/* span keeps the tooltip working while the button is disabled — a disabled
-          MUI button emits no pointer events for the tooltip to listen to. */}
-      <span>
-        <IconButton
-          onClick={onClick}
-          disabled={disabled}
-          aria-label={title}
-          sx={{ ...toneSx, width: px, height: px, borderRadius: size === 'sm' ? '8px' : '10px' }}
-        >
-          {glyph}
-        </IconButton>
-      </span>
-    </Tooltip>
+    <WtTooltip title={title} wrap>
+      <IconButton
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={title}
+        sx={{ ...toneSx, width: px, height: px, borderRadius: size === 'sm' ? '8px' : '10px' }}
+      >
+        {glyph}
+      </IconButton>
+    </WtTooltip>
   );
 }

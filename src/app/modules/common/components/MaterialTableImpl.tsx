@@ -46,6 +46,7 @@ import {
 } from "@app/utils/search";
 import React from "react";
 import { DRILLDOWN_Z_INDEX } from "@app/modules/common/components/DrillDownDialog";
+import { makeWisetechTheme } from "@app/theme/wisetechTheme";
 
 /**
  * Column show/hide toggle — a straight copy of MRT_ShowHideColumnsButton, kept only
@@ -1030,7 +1031,7 @@ function MaterialTable({
 
   const tableTheme = useMemo(
     () =>
-      createTheme({
+      createTheme(makeWisetechTheme(globalTheme.palette.mode), {
         palette: {
           mode: globalTheme.palette.mode,
           info: {
