@@ -24,11 +24,55 @@ import { getProjectPhase, isDelayedProject, projectNumberOf } from "../../entity
  */
 
 type Named = { id: string; name: string };
+
+/**
+ * Every category id a lead carries (it can have several, one row each in lead_categories).
+ * The legacy scalar projectCategoryId only stands in when there are no rows - the same rule the
+ * Top Categories chart uses, so the table lists what the chart counts.
+ */
+export const categoryIdsOf = (lead: any): string[] => {
+  const joined = (lead?.leadCategories ?? [])
+    .map((r: any) => r?.category?.id ?? r?.categoryId)
+    .filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
+  if (joined.length) return [...new Set<string>(joined)];
+  const scalar = lead?.projectCategoryId;
+  return scalar && scalar !== "N/A" ? [scalar] : [];
+};
+
+/** Same rule as categoryIdsOf — every service on the lead (join first, then scalar). */
+export const serviceIdsOf = (lead: any): string[] => {
+  const joined = (lead?.services ?? [])
+    .map((r: any) => r?.serviceId ?? r?.service?.id)
+    .filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
+  if (joined.length) return [...new Set<string>(joined)];
+  const scalar = lead?.projectServiceId;
+  return scalar && scalar !== "N/A" ? [scalar] : [];
+};
+
+/** Same rule as categoryIdsOf — every sub-category on the lead (join first, then scalar). */
+export const subCategoryIdsOf = (lead: any): string[] => {
+  const joined = (lead?.leadSubCategories ?? [])
+    .map((r: any) => r?.subcategory?.id ?? r?.subcategoryId)
+    .filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
+  if (joined.length) return [...new Set<string>(joined)];
+  const scalar = lead?.projectSubCategoryId;
+  return scalar && scalar !== "N/A" ? [scalar] : [];
+};
 export type ProjectColumnLookups = {
   categories: Named[];
   subcategories: Named[];
   services: Named[];
   pmNames: (row: any) => string;
+};
+
+/** Resolve id list → "Name1, Name2" for table search (MaterialTable searches accessor values, not Cell text). */
+const namesOf = (ids: string[] | undefined, list: Named[], fallbackId?: string): string => {
+  const resolved =
+    ids?.length ? ids : fallbackId && fallbackId !== "N/A" ? [fallbackId] : [];
+  return resolved
+    .map((id) => list.find((x) => x.id === id)?.name)
+    .filter((n): n is string => Boolean(n))
+    .join(", ");
 };
 
 export const buildProjectColumns = ({ categories, subcategories, services, pmNames }: ProjectColumnLookups): any[] => [
@@ -101,21 +145,24 @@ export const buildProjectColumns = ({ categories, subcategories, services, pmNam
     header: "Category",
     meta: { defaultVisible: false },
     size: 150,
-    Cell: ({ cell }: { cell: any }) =>
-      categories?.find((c) => c.id === cell.getValue())?.name || "N/A",
+    // Search must see "MOEF", not the category UUID stored on the row.
+    accessorFn: (row: any) => namesOf(row.categoryIds, categories, row.category),
+    Cell: ({ row }: { row: any }) => namesOf(row.original?.categoryIds, categories, row.original?.category) || "N/A",
   },
   {
     accessorKey: "subCategory",
     header: "Subcategory",
     meta: { defaultVisible: false },
     size: 150,
-    Cell: ({ cell }: { cell: any }) =>
-      subcategories?.find((s) => s.id === cell.getValue())?.name || "N/A",
+    accessorFn: (row: any) => namesOf(row.subCategoryIds, subcategories, row.subCategory),
+    Cell: ({ row }: { row: any }) =>
+      namesOf(row.original?.subCategoryIds, subcategories, row.original?.subCategory) || "N/A",
   },
   {
     accessorKey: "projectStatus",
     header: "Project Status",
     size: 150,
+    accessorFn: (row: any) => row?.projectStatus?.name || "",
     Cell: ({ row }: any) => {
       const st = row?.original?.projectStatus;
       return st?.name ? (
@@ -232,8 +279,8 @@ export const buildProjectColumns = ({ categories, subcategories, services, pmNam
     header: "Service",
     meta: { defaultVisible: false },
     size: 150,
-    Cell: ({ cell }: { cell: any }) =>
-      services?.find((s) => s.id === cell.getValue())?.name || "N/A",
+    accessorFn: (row: any) => namesOf(row.serviceIds, services, row.service),
+    Cell: ({ row }: { row: any }) => namesOf(row.original?.serviceIds, services, row.original?.service) || "N/A",
   },
   {
     accessorKey: "createdAt",
@@ -383,8 +430,11 @@ export const ProjectListTable = ({ projects, tableName }: { projects: any[]; tab
         client: mappings.map((m) => nameOf(companies, m.companyId, "companyName")).filter(Boolean).join(", ") || "N/A",
         contact: mappings.map((m) => nameOf(contacts, m.contactPersonId, "fullName")).filter(Boolean).join(", ") || "N/A",
         category: p.projectCategoryId || "N/A",
+        categoryIds: categoryIdsOf(p),
         subCategory: p.projectSubCategoryId || "N/A",
+        subCategoryIds: subCategoryIdsOf(p),
         service: p.projectServiceId || "N/A",
+        serviceIds: serviceIdsOf(p),
         projectStatus: p.status || null,
         poStatus: p.poStatus || null,
         projectCost: Number(p.cost) || p.projectValue || 0,

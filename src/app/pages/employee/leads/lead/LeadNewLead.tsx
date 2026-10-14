@@ -734,7 +734,7 @@ const LeadNewLead: React.FC = () => {
   );
 
   const handleAlignmentChange = async (
-    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<{}> | null,
+    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<HTMLElement> | null,
     newVal: string,
   ) => {
     if (!newVal) return;

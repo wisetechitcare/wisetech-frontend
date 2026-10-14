@@ -99,7 +99,12 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
     return out;
   }, [open, q, nodeMatches]);
 
-  const toggle = (key: string) => setOpen((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const toggle = (key: string) => setOpen((prev) => {
+    const n = new Set(prev);
+    if (n.has(key)) n.delete(key);
+    else n.add(key);
+    return n;
+  });
   const allExpanded = Array.from(allKeys).every((k) => open.has(k));
   const allCollapsed = open.size === 0;
   const isOpenLevel = (m: string) => (levels[m] || "none") !== "none";

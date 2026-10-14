@@ -48,7 +48,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { formatCompactCurrency, getProjectPhase, isDelayedProject, projectNumberOf } from "../../entity/entityUtils";
-import { buildProjectColumns, projectTableProps } from "./ProjectListTable";
+import { buildProjectColumns, categoryIdsOf, serviceIdsOf, subCategoryIdsOf, projectTableProps } from "./ProjectListTable";
 import PeriodNavigationButtons from "@pages/employee/leads/table/PeriodNavigationButtons";
 import "./ProjectTablePage.css";
 
@@ -218,7 +218,7 @@ const ProjectTablePage = () => {
   );
 
   const handleAlignmentChange = async (
-    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<{}> | null,
+    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<HTMLElement> | null,
     newVal: string,
   ) => {
     if (!newVal) return;
@@ -364,9 +364,12 @@ const ProjectTablePage = () => {
               lead?.leadTeams?.[0]?.company?.companyName ||
               "N/A",
             service: lead?.projectServiceId || lead?.services?.[0]?.serviceId || "N/A",
+            serviceIds: serviceIdsOf(lead),
             category: lead?.projectCategoryId || lead?.leadCategories?.[0]?.category?.id || "N/A",
+            categoryIds: categoryIdsOf(lead),
             subCategory:
               lead?.projectSubCategoryId || lead?.leadSubCategories?.[0]?.subcategory?.id || "N/A",
+            subCategoryIds: subCategoryIdsOf(lead),
             status: lead?.status || null,
             poStatus: lead?.poStatus || null,
             contact: lead?.contact?.fullName || lead?.leadTeams?.[0]?.contact?.fullName || "N/A",
