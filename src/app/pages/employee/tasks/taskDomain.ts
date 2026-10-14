@@ -476,15 +476,7 @@ export const orderCards = (tasks: TaskRow[], order: CardOrder): TaskRow[] => {
  * are the useful ones — "Assignee must belong to this project's internal team" tells the user
  * exactly what to change. A generic "Request failed" would throw that away.
  */
-export const apiErrorMessage = (error: unknown, fallback = 'Something went wrong'): string => {
-    const e = error as { response?: { data?: { detail?: string; message?: string }; status?: number }; message?: string };
-    const data = e?.response?.data;
-    if (data?.detail) return data.detail;
-    if (data?.message && data.message !== 'Bad request') return data.message;
-    if (e?.response?.status === 403) return 'You are not permitted to do that';
-    if (e?.response?.status === 404) return 'Not found';
-    return e?.message || fallback;
-};
+export { apiErrorMessage } from '@utils/apiError';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Display helpers
