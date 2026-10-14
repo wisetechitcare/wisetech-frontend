@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { SecurityPinPolicySection } from "@app/modules/common/components/SecurityPin";
+import Box from "@mui/material/Box";
 import { Modal } from "react-bootstrap";
 import { toast } from "react-toastify";
 import {
@@ -282,6 +284,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
                   onResetToRole={onResetToRole}
                   recordCells={recordCells}
                   tabs={tabs}
+                  pinSubject={{ kind: "employee", employeeId }}
                 />
                 </>
               )}
@@ -289,8 +292,11 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
           </div>
         </div>
 
-        {/* RIGHT: Recent access changes — a slim, dense column */}
+        {/* RIGHT: this person's security PIN setting, then recent access changes — a slim, dense column */}
         <div className="col-12 col-xl-3">
+          <Box sx={{ mb: 2.5 }}>
+            <SecurityPinPolicySection subject={{ kind: "employee", employeeId }} />
+          </Box>
           <div>
             <AccessActivity logs={auditLogs} />
           </div>

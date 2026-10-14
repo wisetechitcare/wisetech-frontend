@@ -143,7 +143,7 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
               Only a Super Admin can change the {roleName || "Admin"} role's access.
             </InlineNotice>
           )}
-          <AccessControlTree variant="role" levels={levels} dirtyModules={dirtyModules} onSetLevel={onSetLevel} readOnly={!editable} tabs={tabs} />
+          <AccessControlTree variant="role" levels={levels} dirtyModules={dirtyModules} onSetLevel={onSetLevel} readOnly={!editable} tabs={tabs} pinSubject={{ kind: "role", roleId, roleName }} />
         </>
       )}
     </SettingsSection>

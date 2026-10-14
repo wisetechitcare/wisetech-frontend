@@ -154,6 +154,9 @@ export { FiscalYearRangeField } from './FiscalYearRangeField';
 export type { FiscalYearRangeFieldProps } from './FiscalYearRangeField';
 // Canonical wizard/multi-step indicator — responsive (compact summary on phones) + theme-aware.
 export { WtStepper } from './stepper';
+// Single-digit boxes for a PIN or one-time code — NOT a password field, so browsers never save/autofill it.
+export { PinInput } from './PinInput';
+export type { PinInputProps } from './PinInput';
 export type { WtStepperProps, WtStep } from './stepper';
 // Long forms: a dialog shell with section nav + sticky footer, titled field groups, and an image uploader.
 export { WtFormDialog, WtFormSection, WtFormSpan } from './WtFormDialog';

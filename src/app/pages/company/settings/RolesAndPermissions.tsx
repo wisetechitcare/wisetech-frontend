@@ -1,4 +1,5 @@
 import { KTIcon } from '@metronic/helpers';
+import { SecurityPinPolicySection } from '@app/modules/common/components/SecurityPin';
 import { createRole, fetchRoles, updateRoleById, deleteRoleById, addEmployeeToRole, removeEmployeeFromRole } from '@services/roles';
 import { fetchAllEmployees } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
@@ -26,6 +27,7 @@ function EditRole({ roleDetails, setRefetch }: { roleDetails: any, setRefetch: (
       <RoleAccessEditor roleId={roleDetails?.id} roleName={roleDetails?.name} setRefetch={setRefetch} />
       <Stack spacing={2}>
         <RoleMembers roleDetails={roleDetails} setRefetch={setRefetch} />
+        <SecurityPinPolicySection subject={{ kind: 'role', roleId: roleDetails?.id, roleName: roleDetails?.name }} />
         {/* Built-in roles (Super Admin, Admin, Employee) keep their names. */}
         {!roleDetails?.isSystem && <EditRoleName setRefetch={setRefetch} roleDetails={roleDetails} />}
       </Stack>

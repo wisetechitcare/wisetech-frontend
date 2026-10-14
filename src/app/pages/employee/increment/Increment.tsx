@@ -6,6 +6,7 @@ import { useTabRoute } from "@app/hooks/useTabRoute";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import IncrementView from "./IncrementView";
+import { SecurityPinGate, SecurityPinLockButton } from "@app/modules/common/components/SecurityPin";
 
 const breadcrumbs: Array<PageLink> = [
   { title: "Finance", path: "/finance/increment", isSeparator: false, isActive: false },
@@ -17,17 +18,17 @@ function Increment() {
     ...(hasPermission(resourceNameMapWithCamelCase.increment, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Increment",
       icon: 'bi-graph-up-arrow',
-      component: <IncrementView />,
+      component: <SecurityPinGate area="finance.increment/my-increment"><IncrementView /></SecurityPinGate>,
     }] : []),
     ...(hasPermission(resourceNameMapWithCamelCase.increment, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Employee Increment",
       icon: 'bi-people',
       component: (
-        <>
+        <SecurityPinGate area="finance.increment/employee-increment">
           <AllEmployeesSearchDropdown />
           <div className="mt-8" />
           <IncrementView fromAdmin={true} />
-        </>
+        </SecurityPinGate>
       ),
     }] : []),
   ];
@@ -40,7 +41,7 @@ function Increment() {
   return (
     <>
       <PageTitle breadcrumbs={breadcrumbs}>Increment</PageTitle>
-      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} accessSection="finance.increment" />
+      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} accessSection="finance.increment" headerAction={<SecurityPinLockButton />} />
     </>
   );
 }

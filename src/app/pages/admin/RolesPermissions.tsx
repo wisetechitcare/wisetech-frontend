@@ -3,6 +3,7 @@ import { Box, Stack } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { ListHeader, WtButton } from '@app/modules/common/components/ui';
 import RolesAndPermissions from '@pages/company/settings/RolesAndPermissions';
+import { SecurityPinGate, SecurityPinLockButton } from '@app/modules/common/components/SecurityPin';
 
 /**
  * App Settings → Roles & Permissions: the roles list, and a role's editor as its second level
@@ -20,14 +21,20 @@ export function RolesPermissions() {
           title={editingRole ? `Edit role “${editingRole?.name}”` : 'Roles & Permissions'}
           subtitle={editingRole ? 'Access, and the people who hold it' : 'Who can see and change what'}
           actions={
-            editingRole ? (
-              <WtButton ghost onClick={() => setEditingRole(null)} startIcon={<KTIcon iconName="arrow-left" className="fs-4" />}>
-                all roles
-              </WtButton>
-            ) : undefined
+            <Stack direction="row" spacing={1} alignItems="center">
+              {editingRole && (
+                <WtButton ghost onClick={() => setEditingRole(null)} startIcon={<KTIcon iconName="arrow-left" className="fs-4" />}>
+                  all roles
+                </WtButton>
+              )}
+              <SecurityPinLockButton variant="light" />
+            </Stack>
           }
         />
-        <RolesAndPermissions editingRole={editingRole} onEditRole={setEditingRole} />
+        {/* Who can see what is itself sensitive: the security PIN guards this page and its API. */}
+        <SecurityPinGate area="app.roles-permissions">
+          <RolesAndPermissions editingRole={editingRole} onEditRole={setEditingRole} />
+        </SecurityPinGate>
       </Stack>
     </Box>
   );

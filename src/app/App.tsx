@@ -9,6 +9,7 @@ import { RootState, AppDispatch } from '@redux/store'
 import { setUserId, loadTimerStateThunk } from '@redux/slices/timer'
 import GlobalTimerModal from '../components/GlobalTimerModal';
 import { IdleLogoutGuard } from './components/IdleLogoutGuard';
+import { SecurityPinHost } from '@app/modules/common/components/SecurityPin';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { fetchColorAndStoreInSlice } from '@utils/file';
 import { usePushSubscription } from '../hooks/usePushSubscription';
@@ -216,6 +217,10 @@ const App = () => {
 
                   {/* Idle logout guard - monitors inactivity and exit dates */}
                   {isAuthenticated && <IdleLogoutGuard />}
+
+                  {/* Security PIN: fallback unlock dialog for protected calls made outside a
+                      protected page, and idle re-lock. */}
+                  {isAuthenticated && <SecurityPinHost />}
                 </GlassToastProvider>
               </ColorModeProvider>
             </ThemeModeProvider>
