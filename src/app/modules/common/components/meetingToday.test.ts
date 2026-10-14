@@ -1,5 +1,8 @@
 import { describe, test, expect } from 'vitest';
-import { contrastRatio, MIN_CONTRAST, lightOf, todayCellStyle, todayInk, MEETING_TODAY_DEFAULT } from './MeetingsList';
+import {
+  contrastRatio, MIN_CONTRAST, lightOf, todayCellStyle, todayInk, MEETING_TODAY_DEFAULT,
+  dayTimesheetMarker,
+} from './MeetingsList';
 
 /**
  * Today is marked with a WASH, not a ring.
@@ -23,5 +26,23 @@ describe('today', () => {
   test('the date numeral stays legible on the today wash', () => {
     const wash = lightOf(MEETING_TODAY_DEFAULT, 0.82);
     expect(contrastRatio(todayInk, wash)).toBeGreaterThanOrEqual(MIN_CONTRAST);
+  });
+});
+
+describe('dayTimesheetMarker', () => {
+  test('pending beats filled when a day has both', () => {
+    expect(dayTimesheetMarker([
+      { lifecycle: 'COMPLETED', pendingTimesheetNames: [] },
+      { lifecycle: 'COMPLETED', pendingTimesheetNames: ['Alex'] },
+    ])).toBe('pending');
+  });
+
+  test('returns filled only when every held meeting is fully logged', () => {
+    expect(dayTimesheetMarker([
+      { lifecycle: 'COMPLETED', pendingTimesheetNames: [] },
+    ])).toBe('filled');
+    expect(dayTimesheetMarker([
+      { lifecycle: 'SCHEDULED', pendingTimesheetNames: undefined },
+    ])).toBe(null);
   });
 });

@@ -289,6 +289,22 @@ export const timesheetStateOf = (m: Pick<MeetingRow, 'lifecycle' | 'pendingTimes
         ? null
         : m.pendingTimesheetNames.length ? 'pending' : 'filled');
 
+/**
+ * Day-cell wash for past meetings' timesheet state.
+ * Pending wins when both exist — unpaid time is the thing that needs attention.
+ */
+export const dayTimesheetMarker = (
+    list: Array<Pick<MeetingRow, 'lifecycle' | 'pendingTimesheetNames'>>,
+): 'pending' | 'filled' | null => {
+    let filled = false;
+    for (const m of list) {
+        const ts = timesheetStateOf(m);
+        if (ts === 'pending') return 'pending';
+        if (ts === 'filled') filled = true;
+    }
+    return filled ? 'filled' : null;
+};
+
 /** The tooltip line naming who still owes time, or '' when there is nothing to say. */
 const timesheetNote = (m: MeetingRow) => {
     const ts = timesheetStateOf(m);
@@ -2913,6 +2929,18 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                             const outside = d.month() !== cursor.month();
                             const isToday = k === todayKey;
                             const isPicked = k === picked;
+                            const tsMarker = dayTimesheetMarker(list);
+                            // Today wins over timesheet wash; pending wins over filled.
+                            const washColor = isToday
+                                ? todayColor
+                                : tsMarker === 'pending'
+                                    ? stateColors.pending
+                                    : tsMarker === 'filled'
+                                        ? stateColors.filled
+                                        : null;
+                            const dateInk = washColor
+                                ? todayInkFor(washColor)
+                                : (clear ? '#94A3B8' : '#1E293B');
                             const halfWord = (n: number, label: string) =>
                                 n ? `${label}: ${n} meeting${n > 1 ? 's' : ''}` : `${label}: free`;
                             const maxChips = isPhone ? phoneChipCap(list.length) : maxChipsDesktop;
@@ -2964,15 +2992,10 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                                         // makes the chips' own ellipsis actually reachable.
                                         minWidth: 0, overflow: isPhone ? 'hidden' : 'visible',
                                         borderRadius: 9,
-                                        // A wholly clear day still reads grey at a glance; once either
-                                        // half is taken the cell goes white and the two bars carry the
-                                        // detail, so the background never contradicts them.
-                                        //
-                                        // Today lays its wash OVER that base rather than replacing it —
-                                        // see `todayCellStyle`. A drag still wins: while one is in
-                                        // flight the only question is which cell the card lands on.
-                                        ...(isToday && dragOverDay !== k
-                                            ? todayCellStyle(clear ? '#F1F5F9' : '#FFFFFF', todayColor)
+                                        // Today / timesheet washes share todayCellStyle. Drag still
+                                        // wins: while one is in flight the only question is landing.
+                                        ...(washColor && dragOverDay !== k
+                                            ? todayCellStyle(clear ? '#F1F5F9' : '#FFFFFF', washColor)
                                             : {
                                                 background: dragOverDay === k ? '#EFF4FF' : (clear ? '#F1F5F9' : '#FFFFFF'),
                                                 boxShadow: 'none',
@@ -2999,10 +3022,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                                         <span style={{
                                             fontSize: isPhone ? 10 : 12, fontWeight: 800, minWidth: isPhone ? 12 : 15,
                                             lineHeight: 1.1, flexShrink: 0,
-                                            // Today's number carries the colour as well, because the
-                                            // wash it replaced a ring with is deliberately quiet —
-                                            // see `todayInk` for why it is darkened first.
-                                            color: isToday ? todayInk : (clear ? '#94A3B8' : '#1E293B'),
+                                            color: dateInk,
                                         }}>
                                             {d.format('D')}
                                         </span>
@@ -3141,23 +3161,15 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                         ))}
                         {/* Past meetings trade their half colour for these two. */}
                         {([
-                            { key: 'filled', label: 'Timesheets filled' },
-                            { key: 'pending', label: 'Timesheets pending' },
-                        ] as const).map((sample) => (
-                            <span key={sample.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: '#64748B' }}>
-                                <span style={{
-                                    width: 22, height: 12, borderRadius: 3,
-                                    background: calendarChipTone(stateColors[sample.key]).bg,
-                                }} />
+                            { key: 'filled' as const, label: 'Timesheets filled', color: stateColors.filled },
+                            { key: 'pending' as const, label: 'Timesheets pending', color: stateColors.pending },
+                            { key: 'today' as const, label: 'Today', color: todayColor },
+                        ]).map((sample) => (
+                            <span key={sample.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#64748B' }}>
+                                <span style={{ width: 14, height: 14, borderRadius: 4, ...todayCellStyle('#FFFFFF', sample.color) }} />
                                 {sample.label}
                             </span>
                         ))}
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#64748B' }}>
-                            {/* The same paint the cell wears, so the key cannot describe a
-                                marker the grid no longer draws. */}
-                            <span style={{ width: 14, height: 14, borderRadius: 4, ...todayCellStyle('#FFFFFF', todayColor) }} />
-                            Today
-                        </span>
                     </div>
 
                 </div>

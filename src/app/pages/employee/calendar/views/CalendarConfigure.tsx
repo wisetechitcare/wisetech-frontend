@@ -197,10 +197,10 @@ const MEETING_SECTIONS: EventSection[] = [
   {
     id: 'timesheets', tone: TRIO.cyan, icon: 'calendar-tick', showCount: false,
     title: 'Timesheet colours',
-    desc: 'How past meetings are coloured on the meetings calendar, by whether every attendee has logged their time. Upcoming meetings keep their half-day colour.',
+    desc: 'How past meeting days are washed on the month grid (same style as today), and how those meetings’ chips are coloured. Upcoming meetings keep their half-day colour.',
     items: [
-      { key: MEETING_TIMESHEET_FILLED, chip: true, label: 'Timesheets filled', desc: 'The meeting is over and everyone in it has logged their time.', sample: '10:00 AM Design review', defaultColor: LIFECYCLE_DEFAULT_COLORS.filled, defaultEnabled: true },
-      { key: MEETING_TIMESHEET_PENDING, chip: true, label: 'Timesheets pending', desc: 'The meeting is over, but at least one attendee has not logged their time yet.', sample: '4:30 PM Client call', defaultColor: LIFECYCLE_DEFAULT_COLORS.pending, defaultEnabled: true },
+      { key: MEETING_TIMESHEET_FILLED, today: true, label: 'Timesheets filled', desc: 'Past meeting day wash when every attendee has logged time. Meeting chips use the same colour.', sample: '14', defaultColor: LIFECYCLE_DEFAULT_COLORS.filled, defaultEnabled: true },
+      { key: MEETING_TIMESHEET_PENDING, today: true, label: 'Timesheets pending', desc: 'Past meeting day wash when at least one attendee still owes time. Meeting chips use the same colour.', sample: '14', defaultColor: LIFECYCLE_DEFAULT_COLORS.pending, defaultEnabled: true },
     ],
   },
   {
