@@ -778,7 +778,7 @@ export const TasksWorkspace = () => {
                                         now={now}
                                         isLoading={listQuery.isLoading}
                                         isError={listQuery.isError}
-                                        errorMessage={apiErrorMessage(listQuery.error)}
+                                        errorMessage={apiErrorMessage(listQuery.error, 'Could not load tasks.')}
                                         canViewCost={canViewCost}
                                         onOpenTask={(id) => navigate(`/tasks/${id}`)}
                                         onPageChange={setPage}
