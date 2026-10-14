@@ -32,7 +32,7 @@ export function RolesPermissions() {
           }
         />
         {/* Who can see what is itself sensitive: the security PIN guards this page and its API. */}
-        <SecurityPinGate>
+        <SecurityPinGate area="app.roles-permissions">
           <RolesAndPermissions editingRole={editingRole} onEditRole={setEditingRole} />
         </SecurityPinGate>
       </Stack>

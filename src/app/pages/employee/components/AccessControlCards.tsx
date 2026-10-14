@@ -14,6 +14,7 @@ import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
 import type { EffLevel } from "./accessControlTypes";
 import { SECTION_TABS } from "@utils/sectionTabs";
+import { SecurityPinRowChip, SECURITY_PIN_ROW_AREAS } from "@app/modules/common/components/SecurityPin";
 import { coloredActionBtn } from "@app/modules/configuration";
 
 // The configure screens' own icon buttons (Project Points): tinted in the permission's colour when on,
@@ -63,7 +64,7 @@ interface Block {
  * page a card with its sidebar icon and name, and its permissions as toggles — Read, Read all,
  * Write, Commercials — grey while off, in their own gradient once on.
  */
-const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModules, dirtyModules, onSetLevel, onResetToRole, variant = "employee", readOnly = false, recordCells, tabs }) => {
+const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModules, dirtyModules, onSetLevel, onResetToRole, variant = "employee", readOnly = false, recordCells, tabs, pinSubject }) => {
   const allKeys = useMemo(() => {
     const keys = new Set<string>();
     ACCESS_SIDEBAR_LAYOUT.forEach((g) => {
@@ -191,10 +192,12 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
                 </button>
               </WtTooltip>
             )}
+            {pinSubject && SECURITY_PIN_ROW_AREAS[node.module] && <SecurityPinRowChip subject={pinSubject} area={SECURITY_PIN_ROW_AREAS[node.module]} compact />}
             {((tabs && SECTION_TABS[node.module]) || kids) && (
               <AdvancedTabsButton
                 compact section={node.module} label={node.label} icon={icon} level={level} readOnly={readOnly}
                 tabs={tabs} composite={kids ? { children: kids, levels, onSetLevel } : undefined}
+                pinSubject={pinSubject}
               />
             )}
           </Box>

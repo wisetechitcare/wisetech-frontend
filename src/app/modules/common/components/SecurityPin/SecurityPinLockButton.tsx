@@ -15,8 +15,9 @@ import { useSecurityPin } from './useSecurityPin';
  * The `!` utilities: Metronic's unlayered button rules outrank Tailwind's layer (kit README).
  */
 export function SecurityPinLockButton({ variant = 'bar' }: { variant?: 'bar' | 'light' }) {
-    const { unlocked } = useSecurityPin();
-    if (!unlocked) return null;
+    const { unlocked, required } = useSecurityPin();
+    // Nothing to lock when this person's policy is Off.
+    if (!unlocked || !required) return null;
 
     const lock = () => {
         securityPinBus.markLocked();

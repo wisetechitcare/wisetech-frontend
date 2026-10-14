@@ -18,17 +18,17 @@ function Salary() {
   const tabItems: TabItem[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Salary",
-      component: <SecurityPinGate><MySalary /></SecurityPinGate>,
+      component: <SecurityPinGate area="finance.salary/my-salary"><MySalary /></SecurityPinGate>,
       icon: 'bi-wallet2',
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Employee Payrolls",
-      component: <SecurityPinGate><SalaryEmployeeData/></SecurityPinGate>,
+      component: <SecurityPinGate area="finance.salary/employee-payrolls"><SalaryEmployeeData/></SecurityPinGate>,
       icon: 'bi-cash-stack',
     }]:[]),
     ...((hasPermission(resourceNameMapWithCamelCase.salaryConfig, permissionConstToUseWithHasPermission.readOthers)) ? [{
       title: "Configure",
-      component: <SecurityPinGate><SalaryConfiguration /></SecurityPinGate>,
+      component: <SecurityPinGate area="finance.salary/configure"><SalaryConfiguration /></SecurityPinGate>,
       icon: 'bi-gear',
     }]:[]),
   ];

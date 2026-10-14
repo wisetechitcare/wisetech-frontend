@@ -9,7 +9,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import { RootState } from '@redux/store';
 import { WtButton, InlineNotice, TRIO, PinInput } from '@app/modules/common/components/ui';
 import { T } from '@app/modules/common/components/ui/tokens';
-import { securityPinApi, lockError, type SecurityPinStatus } from '@services/securityPin';
+import { securityPinApi, lockError, formatLockTime, SECURITY_AREAS, type SecurityArea, type SecurityPinStatus } from '@services/securityPin';
 import { securityPinBus } from '@utils/securityPinBus';
 
 /**
@@ -32,6 +32,8 @@ export interface SecurityPinPanelProps {
     onUnlocked?: () => void;
     /** Shown in the dialog variant: close without unlocking. */
     onCancel?: () => void;
+    /** The protected tab asking — its own setting decides, and its name is in the title. */
+    area?: SecurityArea | null;
 }
 
 const mmss = (ms: number) => {
@@ -39,7 +41,7 @@ const mmss = (ms: number) => {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
-export function SecurityPinPanel({ onUnlocked, onCancel }: SecurityPinPanelProps) {
+export function SecurityPinPanel({ onUnlocked, onCancel, area }: SecurityPinPanelProps) {
     const theme = useTheme();
     const firstName = useSelector((s: RootState) => s.auth.currentUser.firstName);
 
@@ -79,11 +81,15 @@ export function SecurityPinPanel({ onUnlocked, onCancel }: SecurityPinPanelProps
 
     const routeFromStatus = useCallback((s: SecurityPinStatus) => {
         setStatus(s);
-        securityPinBus.setTtl(s.ttlMinutes ?? 15);
-        if (s.unlockedUntil) { securityPinBus.markUnlocked(s.unlockedUntil, s.ttlMinutes); onUnlocked?.(); return; }
+        securityPinBus.setPolicy(s.required !== false, s.ttlMinutes ?? 15, s.areas);
+        // Judged by the asking tab's own setting when there is one (Roles & Permissions → Advanced).
+        const tab = area ? s.areas?.[area] : undefined;
+        if (tab && !tab.required) { onUnlocked?.(); return; } // No PIN for this tab: the gate opens itself
+        const fresh = tab ? tab.unlocked : s.required === false || !!s.unlockedUntil;
+        if (fresh) { securityPinBus.markUnlocked(s.unlockedUntil, s.ttlMinutes); onUnlocked?.(); return; }
         if (s.lockedUntil) { setView({ kind: 'lockedOut', until: new Date(s.lockedUntil).getTime() }); return; }
         setView(s.hasPin ? { kind: 'unlock' } : { kind: 'setup', reset: false, step: 'intro' });
-    }, [onUnlocked]);
+    }, [onUnlocked, area]);
 
     useEffect(() => {
         let alive = true;
@@ -155,8 +161,9 @@ export function SecurityPinPanel({ onUnlocked, onCancel }: SecurityPinPanelProps
     // ── Presentation ────────────────────────────────────────────────────────────
     const email = status?.email;
     const ttl = status?.ttlMinutes ?? 15;
+    const areaStatus = area ? status?.areas?.[area] : undefined;
 
-    let title = 'This area is locked';
+    let title = area ? `${SECURITY_AREAS[area]} is locked` : 'This area is locked';
     let body: React.ReactNode = null;
 
     if (view.kind === 'loading') {
@@ -259,7 +266,7 @@ export function SecurityPinPanel({ onUnlocked, onCancel }: SecurityPinPanelProps
             </Typography>
             {body}
             <Typography sx={{ fontSize: 11.5, color: 'text.secondary', pt: 0.5 }}>
-                Locks again after {ttl} minutes without activity.
+                Locks again after {formatLockTime(areaStatus?.lockMinutes ?? ttl)} without activity{areaStatus?.source.kind === 'role' ? ` (set for the ${areaStatus.source.roleName} role)` : areaStatus?.source.kind === 'employee' ? ' (set for you)' : ''}.
             </Typography>
             {onCancel && <TextLink onClick={onCancel}>Not now</TextLink>}
         </Stack>

@@ -18,13 +18,13 @@ function Increment() {
     ...(hasPermission(resourceNameMapWithCamelCase.increment, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Increment",
       icon: 'bi-graph-up-arrow',
-      component: <SecurityPinGate><IncrementView /></SecurityPinGate>,
+      component: <SecurityPinGate area="finance.increment/my-increment"><IncrementView /></SecurityPinGate>,
     }] : []),
     ...(hasPermission(resourceNameMapWithCamelCase.increment, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Employee Increment",
       icon: 'bi-people',
       component: (
-        <SecurityPinGate>
+        <SecurityPinGate area="finance.increment/employee-increment">
           <AllEmployeesSearchDropdown />
           <div className="mt-8" />
           <IncrementView fromAdmin={true} />

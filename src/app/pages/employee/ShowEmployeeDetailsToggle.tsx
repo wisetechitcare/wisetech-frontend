@@ -289,7 +289,7 @@ const ShowEmployeeDetailsToggle = () => {
         )}
         {activeTab === "access" && canManageAccess && (
           <div className="tab-pane fade show active">
-            <SecurityPinGate><EmployeeAccessTab employeeId={employeeId!} /></SecurityPinGate>
+            <SecurityPinGate area="app.roles-permissions"><EmployeeAccessTab employeeId={employeeId!} /></SecurityPinGate>
           </div>
         )}
         {activeTab === "configure" && (

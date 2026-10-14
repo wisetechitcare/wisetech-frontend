@@ -1,5 +1,5 @@
 import {AuthModel} from './_models'
-import {securityPinBus, isSecurityLockedResponse} from '@utils/securityPinBus'
+import {securityPinBus, isSecurityLockedResponse, SECURITY_AREA_HEADER} from '@utils/securityPinBus'
 
 const AUTH_LOCAL_STORAGE_KEY = 'wise_tech_login'
 
@@ -124,6 +124,10 @@ export function setupAxios(axios: any) {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
         }
+        // Which protected tab is on screen, so the server judges this request by that tab's own
+        // security PIN setting (it verifies the claim — see requireSecurityPin on the backend).
+        const area = securityPinBus.getSnapshot().activeArea
+        if (area) config.headers[SECURITY_AREA_HEADER] = area
       } else {
         // Third-party host: never send our JWT, and drop credentials so APIs
         // answering with a wildcard CORS origin don't reject the request.
@@ -167,7 +171,7 @@ export function setupAxios(axios: any) {
       // never ends the session). Hold the request, let the lock screen collect the PIN, then
       // replay it once. `_securityRetried` stops a loop if the unlock somehow did not take.
       if (isSecurityLockedResponse(error) && isOwnApiUrl(error.config?.url || '') && !error.config?._securityRetried) {
-        return securityPinBus.waitForUnlock().then(() => axios({ ...error.config, _securityRetried: true }));
+        return securityPinBus.waitForUnlock(error.response?.data?.meta?.area).then(() => axios({ ...error.config, _securityRetried: true }));
       }
 
       // Determine if the error is a true network failure (no response from server).

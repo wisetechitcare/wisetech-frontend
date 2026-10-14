@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getAuth, isSessionDeathResponse, endSessionAndRedirect } from '@/app/modules/auth/core/AuthHelpers';
-import { securityPinBus, isSecurityLockedResponse } from '@utils/securityPinBus';
+import { securityPinBus, isSecurityLockedResponse, SECURITY_AREA_HEADER } from '@utils/securityPinBus';
 
 const BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 
@@ -31,6 +31,9 @@ apiClient.interceptors.request.use(
                 // malformed storage entry — skip
             }
         }
+        // Same protected-tab hint as the global axios (see AuthHelpers.setupAxios).
+        const area = securityPinBus.getSnapshot().activeArea;
+        if (area) config.headers[SECURITY_AREA_HEADER] = area;
         return config;
     },
     (error) => Promise.reject(error),
@@ -50,7 +53,7 @@ apiClient.interceptors.response.use(
         // Same security-PIN hold-and-replay as the global axios (see AuthHelpers.setupAxios).
         const cfg = error.config as (InternalAxiosRequestConfig & { _securityRetried?: boolean }) | undefined;
         if (cfg && !cfg._securityRetried && isSecurityLockedResponse(error)) {
-            return securityPinBus.waitForUnlock().then(() => apiClient({ ...cfg, _securityRetried: true } as InternalAxiosRequestConfig));
+            return securityPinBus.waitForUnlock((error.response?.data as any)?.meta?.area).then(() => apiClient({ ...cfg, _securityRetried: true } as InternalAxiosRequestConfig));
         }
         // Unwrap the server error body so callers get a consistent shape — but keep `response`
         // on it. Callers overwhelmingly read `e.response.data.message` (110 sites do), and a
