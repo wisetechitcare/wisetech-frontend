@@ -1,9 +1,13 @@
 import { DOCUMENT_ACCEPT, DOCUMENT_HINT, validateDocumentFile } from "@utils/fileValidation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
-import DateInput from "@app/modules/common/inputs/DateInput";
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import TextInput from "@app/modules/common/inputs/TextInput";
+import { Box, Stack, Typography } from "@mui/material";
+import {
+  ActionIconButton,
+  WtButton,
+  WtDateField,
+  WtField,
+  WtFieldFormik,
+} from "@app/modules/common/components/ui";
 import { createQualificationMaster } from "@services/employee";
 import { uploadUserAsset } from "@services/uploader";
 import ObFileUpload from "../components/ObFileUpload";
@@ -102,8 +106,8 @@ function EducationalInfo({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [showNewQualification, showNewStream]);
 
-  const handleQualificationChange = (option: any) => {
-    if (option?.value === ADD_NEW_QUALIFICATION) {
+  const applyQualificationOption = (option: any) => {
+    if (!option || option.value === ADD_NEW_QUALIFICATION) {
       setShowNewQualification(true);
       setQualificationError("");
       formikProps.setFieldValue(`${element}.qualificationMasterId`, "");
@@ -126,17 +130,37 @@ function EducationalInfo({
     formikProps.setFieldValue(`${element}.passingYear`, resetRow.passingYear);
   };
 
-  const handleStreamChange = (option: any) => {
-    if (option?.value === ADD_NEW_STREAM) {
+  const handleQualificationValue = (value: string) => {
+    const option = qualificationOptions.find((o: any) => o.value === value);
+    applyQualificationOption(option ?? { value, label: value, name: value });
+  };
+
+  const handleStreamValue = (value: string) => {
+    if (value === ADD_NEW_STREAM) {
       setShowNewStream(true);
       setStreamError("");
       return;
     }
-
     setShowNewStream(false);
-    formikProps.setFieldValue(`${element}.stream`, option?.value || "");
+    formikProps.setFieldValue(`${element}.stream`, value || "");
     formikProps.setFieldValue(`${element}.customStream`, "");
   };
+
+  const qualificationSelectOptions = useMemo(
+    () =>
+      qualificationOptions
+        .filter((o: any) => o.value !== ADD_NEW_QUALIFICATION)
+        .map((o: any) => ({ value: String(o.value), label: o.label || o.name || String(o.value) })),
+    [qualificationOptions],
+  );
+
+  const streamSelectOptions = useMemo(
+    () =>
+      hscStreamOptions
+        .filter((o) => o.value !== ADD_NEW_STREAM)
+        .map((o) => ({ value: o.value, label: o.label })),
+    [hscStreamOptions],
+  );
 
   const saveNewQualification = async () => {
     const normalizedName = newQualificationName.trim().replace(/\s+/g, " ");
@@ -264,211 +288,209 @@ function EducationalInfo({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <p
-          style={{
-            fontFamily: "Inter",
+    <Stack spacing={2}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Typography
+          sx={{
+            fontSize: 12.5,
             fontWeight: 600,
-            fontSize: "14px",
-            color: "#798DB3",
+            color: "text.secondary",
             textTransform: "uppercase",
-            margin: 0,
+            letterSpacing: "0.04em",
           }}
         >
           {title}
-        </p>
+        </Typography>
         {canRemove ? (
-          <button
-            type="button"
-            className="btn btn-sm btn-icon btn-light-danger"
-            aria-label={`Remove education ${index + 1}`}
-            onClick={onRemove}
-          >
-            <X size={16} />
-          </button>
-        ) : (
-          <div style={{ width: "20px", height: "20px" }} />
-        )}
-      </div>
+          <ActionIconButton
+            title={`Remove education ${index + 1}`}
+            iconName="trash"
+            tone="danger"
+            size="sm"
+            onClick={() => onRemove?.()}
+          />
+        ) : null}
+      </Box>
 
-      <div className="d-flex flex-column gap-4">
-        <div className="row g-3">
-          <div className="col-lg-4 col-md-6 col-sm-12">
-            <TextInput isRequired={false} label="Institute Name" margin="mb-0" formikField={`${element}.instituteName`} />
-          </div>
-          <div className="col-lg-4 col-md-6 col-sm-12 education-popover-anchor">
-            <DropDownInput
-              isRequired={false}
-              inputLabel="Qualification"
-              formikField={`${element}.qualificationMasterId`}
-              options={qualificationOptions}
-              value={selectedQualification}
-              onChange={handleQualificationChange}
-              placeholder="Select Qualification"
+      <Box
+        sx={{
+          display: "grid",
+          gap: 2,
+          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
+        }}
+      >
+        <WtFieldFormik name={`${element}.instituteName`} label="Institute Name" fullWidth />
+        <Box className="education-popover-anchor" sx={{ position: "relative", minWidth: 0 }}>
+          <WtField
+            label="Qualification"
+            fullWidth
+            clearable
+            searchable={qualificationSelectOptions.length >= 8}
+            placeholder="Select Qualification"
+            options={qualificationSelectOptions}
+            value={String(education.qualificationMasterId || selectedQualification?.value || "")}
+            onChange={handleQualificationValue}
+            addOption={{ onAdd: () => { setShowNewQualification(true); setQualificationError(""); }, label: "Add New" }}
+          />
+          {showNewQualification && (
+            <Box
+              ref={qualificationPopoverRef}
+              className="education-inline-popover"
+              sx={{
+                position: "absolute",
+                zIndex: 20,
+                top: "100%",
+                left: 0,
+                right: 0,
+                mt: 0.5,
+                p: 1.5,
+                bgcolor: "background.paper",
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 2,
+                boxShadow: 3,
+              }}
+            >
+              <WtField
+                label="New Qualification Name"
+                value={newQualificationName}
+                onChange={setNewQualificationName}
+                error={qualificationError || undefined}
+                fullWidth
+                autoFocus
+              />
+              <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 1.5 }}>
+                <WtButton type="button" ghost size="small" onClick={() => setShowNewQualification(false)}>
+                  Cancel
+                </WtButton>
+                <WtButton type="button" size="small" disabled={isSavingQualification} onClick={saveNewQualification}>
+                  {isSavingQualification ? "Saving…" : "Save"}
+                </WtButton>
+              </Stack>
+            </Box>
+          )}
+        </Box>
+
+        {qualificationConfig.usesStream ? (
+          <Box className="education-popover-anchor" sx={{ position: "relative", minWidth: 0 }}>
+            <WtField
+              label="Stream"
+              fullWidth
+              clearable
+              placeholder="Select Stream"
+              options={streamSelectOptions}
+              value={String(education.stream || education.customStream || "")}
+              onChange={handleStreamValue}
+              addOption={{ onAdd: () => { setShowNewStream(true); setStreamError(""); }, label: "Add New" }}
             />
-            {showNewQualification && (
-              <div className="education-inline-popover" ref={qualificationPopoverRef}>
-                <label className="form-label mb-2">New Qualification Name</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={newQualificationName}
-                  onChange={(event: any) => setNewQualificationName(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      saveNewQualification();
-                    }
-                  }}
+            {showNewStream && (
+              <Box
+                ref={streamPopoverRef}
+                className="education-inline-popover"
+                sx={{
+                  position: "absolute",
+                  zIndex: 20,
+                  top: "100%",
+                  left: 0,
+                  right: 0,
+                  mt: 0.5,
+                  p: 1.5,
+                  bgcolor: "background.paper",
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 2,
+                  boxShadow: 3,
+                }}
+              >
+                <WtField
+                  label="New Stream Name"
+                  value={newStreamName}
+                  onChange={setNewStreamName}
+                  error={streamError || undefined}
+                  fullWidth
                   autoFocus
                 />
-                {qualificationError && <div className="text-danger fs-7 mb-2">{qualificationError}</div>}
-                <div className="d-flex justify-content-end gap-2 mt-3">
-                  <button type="button" className="btn btn-sm btn-light" onClick={() => setShowNewQualification(false)}>
+                <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 1.5 }}>
+                  <WtButton type="button" ghost size="small" onClick={() => setShowNewStream(false)}>
                     Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-primary"
-                    disabled={isSavingQualification}
-                    onClick={saveNewQualification}
-                  >
-                    {isSavingQualification ? "Saving..." : "Save"}
-                  </button>
-                </div>
-              </div>
+                  </WtButton>
+                  <WtButton type="button" size="small" onClick={saveNewStream}>
+                    Save
+                  </WtButton>
+                </Stack>
+              </Box>
             )}
-          </div>
+          </Box>
+        ) : qualificationConfig.usesSpecialization ? (
+          <WtFieldFormik name={`${element}.specialization`} label="Degree/Course" fullWidth />
+        ) : null}
+      </Box>
 
-          {qualificationConfig.usesStream ? (
-            <div className="col-lg-4 col-md-6 col-sm-12 education-popover-anchor">
-              <DropDownInput
-                isRequired={false}
-                inputLabel="Stream"
-                formikField={`${element}.stream`}
-                options={hscStreamOptions}
-                value={selectedStream}
-                onChange={handleStreamChange}
-                placeholder="Select Stream"
-              />
-              {showNewStream && (
-                <div className="education-inline-popover" ref={streamPopoverRef}>
-                  <label className="form-label mb-2">New Stream Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={newStreamName}
-                    onChange={(event: any) => setNewStreamName(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        saveNewStream();
-                      }
-                    }}
-                    autoFocus
-                  />
-                  {streamError && <div className="text-danger fs-7 mb-2">{streamError}</div>}
-                  <div className="d-flex justify-content-end gap-2 mt-3">
-                    <button type="button" className="btn btn-sm btn-light" onClick={() => setShowNewStream(false)}>
-                      Cancel
-                    </button>
-                    <button type="button" className="btn btn-sm btn-primary" onClick={saveNewStream}>
-                      Save
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : qualificationConfig.usesSpecialization ? (
-            <div className="col-lg-4 col-md-6 col-sm-12">
-              <TextInput isRequired={false} label="Degree/Course" margin="mb-0" formikField={`${element}.specialization`} />
-            </div>
-          ) : null}
-        </div>
-
-        <div className="row g-3">
-          {usesPassingYear ? (
-            <div className="col-lg-4 col-md-6 col-sm-12">
-              <TextInput
-                isRequired={false}
-                label="Passing Year"
-                margin="mb-0"
-                formikField={`${element}.passingYear`}
-                inputValidation="numbers"
-                type="text"
-              />
-            </div>
-          ) : (
-            <>
-              <div className="col-lg-4 col-md-6 col-sm-12">
-                <DateInput formikField={`${element}.fromDate`} isRequired={false} formikProps={formikProps} inputLabel="Date Started" placeHolder="Date Started" />
-              </div>
-              <div className="col-lg-4 col-md-6 col-sm-12">
-                <DateInput formikField={`${element}.toDate`} isRequired={false} formikProps={formikProps} inputLabel="Date Completed" placeHolder="Date Completed" maxDate />
-              </div>
-            </>
-          )}
-
-          <div className="col-lg-4 col-md-6 col-sm-12">
-            <TextInput
-              isRequired={false}
-              label="Percentage"
-              margin="mb-0"
-              formikField={`${element}.percentage`}
-              inputValidation="decimal"
-              onChange={(event: any) => setCgpaFromPercentage(event.target.value)}
+      <Box
+        sx={{
+          display: "grid",
+          gap: 2,
+          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
+        }}
+      >
+        {usesPassingYear ? (
+          <WtFieldFormik name={`${element}.passingYear`} label="Passing Year" inputMode="numeric" fullWidth />
+        ) : (
+          <>
+            <WtDateField
+              label="Date Started"
+              value={education.fromDate || null}
+              onChange={(v) => formikProps.setFieldValue(`${element}.fromDate`, v ?? "")}
             />
-          </div>
-          <div className="col-lg-4 col-md-6 col-sm-12">
-            <TextInput
-              isRequired={false}
-              label="CGPA"
-              margin="mb-0"
-              formikField={`${element}.cgpa`}
-              inputValidation="decimal"
-              onChange={(event: any) => setPercentageFromCgpa(event.target.value)}
+            <WtDateField
+              label="Date Completed"
+              value={education.toDate || null}
+              onChange={(v) => formikProps.setFieldValue(`${element}.toDate`, v ?? "")}
             />
-          </div>
-        </div>
+          </>
+        )}
+        <WtField
+          label="Percentage"
+          value={education.percentage ?? ""}
+          onChange={(v) => setCgpaFromPercentage(String(v))}
+          inputMode="decimal"
+          fullWidth
+        />
+        <WtField
+          label="CGPA"
+          value={education.cgpa ?? ""}
+          onChange={(v) => setPercentageFromCgpa(String(v))}
+          inputMode="decimal"
+          fullWidth
+        />
+      </Box>
 
-        <div className="row g-3">
-          <div className="col-lg-6 col-md-12 col-sm-12">
-            <label className="mb-2 fw-bold">Upload Academic Document</label>
-
-            {/* ONE representation of the attachment.
-                There used to be two: a "Selected document" panel above the control,
-                and the control itself — which already shows the file name with View,
-                Change and Remove. The same document rendered twice, with a loose
-                "Uploading…" line under both. The panel is gone; the only thing it
-                said that the control cannot is whether the file is stored yet, and
-                that is the status line below. */}
-            <ObFileUpload
-              accept={DOCUMENT_ACCEPT}
-              hint={DOCUMENT_HINT}
-              disabled={isUploading}
-              existingFileName={education.fileName || getFileNameFromUrl(education.filePath)}
-              // So View opens the SAVED document, not just a freshly picked blob.
-              existingFileUrl={education.filePath || undefined}
-              onChange={handleAcademicFile}
-            />
-
-            <ObUploadStatus
-              state={
-                isUploading
-                  ? "uploading"
-                  : education.filePath
-                    ? "saved"
-                    : education.fileName
-                      ? "pending"
-                      : "idle"
-              }
-              error={uploadError || undefined}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
+      <Box sx={{ maxWidth: { md: "50%" }, minWidth: 0 }}>
+        <Typography sx={{ fontSize: 12.5, fontWeight: 700, mb: 1, color: "text.secondary" }}>
+          Upload Academic Document
+        </Typography>
+        <ObFileUpload
+          accept={DOCUMENT_ACCEPT}
+          hint={DOCUMENT_HINT}
+          disabled={isUploading}
+          existingFileName={education.fileName || getFileNameFromUrl(education.filePath)}
+          existingFileUrl={education.filePath || undefined}
+          onChange={handleAcademicFile}
+        />
+        <ObUploadStatus
+          state={
+            isUploading
+              ? "uploading"
+              : education.filePath
+                ? "saved"
+                : education.fileName
+                  ? "pending"
+                  : "idle"
+          }
+          error={uploadError || undefined}
+        />
+      </Box>
+    </Stack>
   );
 }
 

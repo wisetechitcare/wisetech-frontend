@@ -2,7 +2,8 @@
 // This barrel is the one import surface for the shared UI kit:
 //   - tokens: single source of truth for brand colors + glass tokens (also feeds the MUI theme)
 //   - buttons: WtButton / WtIconButton + sx helpers (calendar-derived CTA physics)
-//     plus WT_CONTROL_HEIGHT / controlHeightSx — the one height a control row shares
+//     plus WT_CONTROL_HEIGHT (40) / WT_CONTROL_HEIGHT_MD (44) / controlHeightSx —
+//     the one height a control row shares (fields + buttons)
 //   - glass: reusable glassmorphism primitives (GlassSurface / GlassDialog / GlassHeader / GlassCard)
 //   - feedback: branded Swal helpers (toast / alertDialog / confirmDialog)
 //   - safeHtml: tagged template that escapes interpolations for any html: string
@@ -13,9 +14,21 @@ export * from './buttons';
 // tintedSwitch sx, raw <Switch>, and Bootstrap form-switch).
 export { WtSwitch, WtSwitchField, wtSwitchSx } from './switch';
 export type { WtSwitchProps, WtSwitchFieldProps, WtSwitchSize } from './switch';
+// Canonical checkbox — same brand tint / size contract as WtSwitch.
+// Theme `MuiCheckbox` defaultProps also apply this look app-wide (see wisetechTheme).
+export {
+  WtCheckbox,
+  WtCheckboxField,
+  WtControlLabel,
+  wtCheckboxSx,
+  wtCheckboxIcons,
+  wtCheckboxThemeDefaultProps,
+  wtCheckboxThemeRootSx,
+} from './checkbox';
+export type { WtCheckboxProps, WtCheckboxFieldProps, WtCheckboxSize } from './checkbox';
 export { ToneChip, toneAlpha } from './chips';
 
-export { default as ActionIconButton } from './ActionIconButton';
+export { default as ActionIconButton, trioToActionTone } from './ActionIconButton';
 export type { ActionIconButtonProps, ActionTone } from './ActionIconButton';
 // Brand marks as inline SVG. The duotone icon font paints its first layer at 40%
 // opacity, which erases a logo's recognisable shape — these are solid single paths.
@@ -76,8 +89,12 @@ export {
   glassSx, GlassSurface, GlassDialog, GlassHeader, PlainDialogHeader, GlassCard, GlassTransition,
 } from './glass';
 export type {
-  GlassSurfaceProps, GlassDialogProps, GlassHeaderProps, GlassCardProps,
+  GlassSurfaceProps, GlassDialogProps, GlassHeaderProps, GlassCardProps, GlassDialogPreset,
 } from './glass';
+// Shared Cancel/Save footer for GlassDialog — prefer over hand-rolled DialogActions sx.
+export { GlassDialogActions, type GlassDialogActionsProps } from './GlassDialogActions';
+// Dialog form cards (Sandwich Add Rule shape) + spacing rhythm SSOT.
+export { FormSection, FORM_SPACE, type FormSectionProps } from './FormSection';
 // Shared UI pattern atoms — app-wide primitives (single source of truth; use across every feature).
 // AutoGrid + ListHeader are the standard responsive list-page layout — prefer them over per-feature
 // grid/toolbar breakpoints so every collection view fills wide screens and stacks cleanly on mobile.

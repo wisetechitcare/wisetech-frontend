@@ -14,7 +14,7 @@ import {
     getPostings, createPosting, updatePosting, deletePosting, getRequisitions,
     type JobPosting, type PostingPayload, type JobRequisition, type OrgScoped,
 } from "@services/recruitment";
-import { isRoleOpenForCandidates } from "@utils/requisitions";
+import { isRoleOpenForCandidates, SEARCHABLE_FROM } from "@utils/requisitions";
 
 /**
  * Job adverts — the public face of an approved role.
@@ -29,9 +29,6 @@ const emptyForm = (): PostingPayload => ({
     requisitionId: "", title: "", location: "", isRemote: false, employmentType: "Full-time",
     descriptionHtml: "", isPublished: false, showSalary: false, expiresAt: null,
 });
-
-/** Past this many options a plain menu becomes a scroll hunt. */
-const SEARCHABLE_FROM = 8;
 
 /** Compact, muted meta chip — packs identity/metrics into the card without stretched gaps. */
 const MetaPill = ({ text }: { text: string }) => (

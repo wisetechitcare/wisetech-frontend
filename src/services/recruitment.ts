@@ -582,8 +582,6 @@ export interface RecruitmentSettings {
      * customer. Null when unset, and the field is then simply left empty.
      */
     defaultRecruiterId?: string | null;
-    /** Kill switch: false keeps legacy Add/Edit dialogs. */
-    candidateWizardEnabled?: boolean;
 }
 
 export const getRecruitmentSettings = async (): Promise<RecruitmentSettings> => {

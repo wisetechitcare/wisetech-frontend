@@ -18,7 +18,10 @@ import type { OnboardingGroup } from "../forms/onboarding/OnboardingWizard";
 import * as S from "../forms/onboarding/OnboardingSections";
 import type { OnboardingSectionsProps } from "../forms/onboarding/OnboardingSections";
 import { CandidateApplicationStrip } from "./CandidateApplicationStrip";
+import { CandidateContactSection } from "./CandidateContactSection";
+import { CandidateDocumentsSection } from "./CandidateDocumentsSection";
 import { CandidateHiringSection } from "./CandidateHiringSection";
+import { candidateHasContact } from "./candidateProfile";
 
 interface BuildArgs {
   roleRequired: boolean;
@@ -27,17 +30,26 @@ interface BuildArgs {
   onResumeFile: (file: File | null) => void;
   existingResumeName?: string | null;
   disabled?: boolean;
+  /** Edit mode — shows blacklist toggle on Hiring Information. */
+  isEdit?: boolean;
 }
 
 /**
  * Candidate-mode group tree — same shell as employee onboarding, filtered to
- * pre-hire sections only. Application strip is first (hiring facts).
+ * pre-hire sections only. Rail order: Personal → Background → Application → Documents.
  */
 export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
   const stripRender = () => (
     <CandidateApplicationStrip
       roleRequired={args.roleRequired}
       companyId={args.companyId}
+      disabled={args.disabled}
+    />
+  );
+
+  const documentsRender = (p: OnboardingSectionsProps) => (
+    <CandidateDocumentsSection
+      {...p}
       resumeFile={args.resumeFile}
       onResumeFile={args.onResumeFile}
       existingResumeName={args.existingResumeName}
@@ -46,23 +58,6 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
   );
 
   return [
-    {
-      id: "application",
-      label: "Application",
-      icon: <BadgeOutlined />,
-      children: [
-        {
-          id: "application-strip",
-          label: "Role & screening",
-          title: "Role & screening",
-          subtitle: "Role, salary, notice, source and resume",
-          icon: <BadgeOutlined />,
-          fields: ["requisitionId", "firstName", "personalEmailId", "personalPhoneNumber"],
-          requiredFields: ["firstName"],
-          render: stripRender as unknown as (p: OnboardingSectionsProps) => React.ReactNode,
-        },
-      ],
-    },
     {
       id: "personal",
       label: "Personal Details",
@@ -82,7 +77,7 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
           id: "contact-info",
           label: "Contact Information",
           title: "Contact Information",
-          subtitle: "Personal email, phone and social profiles",
+          subtitle: "At least one of email or phone",
           icon: <ContactPhoneOutlined />,
           fields: [
             "personalEmailId",
@@ -93,7 +88,8 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
             "instagramProfileUrl",
             "facebookProfileUrl",
           ],
-          render: (p) => <S.ContactInfoSection {...p} />,
+          isComplete: (v) => candidateHasContact(v),
+          render: (p) => <CandidateContactSection {...p} />,
         },
         {
           id: "education",
@@ -162,8 +158,38 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
           title: "Hiring Information",
           subtitle: "Proposed joining and referral",
           icon: <BusinessCenterOutlined />,
-          fields: ["proposedJoiningDate", "referredById"],
-          render: () => <CandidateHiringSection disabled={args.disabled} />,
+          fields: ["proposedJoiningDate", "referredById", ...(args.isEdit ? ["isBlacklisted"] : [])],
+          render: () => (
+            <CandidateHiringSection disabled={args.disabled} showBlacklist={Boolean(args.isEdit)} />
+          ),
+        },
+      ],
+    },
+    {
+      id: "application",
+      label: "Application",
+      icon: <BadgeOutlined />,
+      children: [
+        {
+          id: "application-strip",
+          label: "Role & screening",
+          title: "Role & screening",
+          subtitle: "Role, salary, notice and source",
+          icon: <BadgeOutlined />,
+          // Hiring facts only — identity lives on Personal Information / Contact.
+          fields: [
+            "requisitionId",
+            "currentCtc",
+            "expectedCtc",
+            "totalExperienceMonths",
+            "noticePeriodDays",
+            "employeeLevelId",
+            "sourceId",
+            "currentTitle",
+            "currentEmployer",
+          ],
+          requiredFields: args.roleRequired ? ["requisitionId"] : undefined,
+          render: stripRender as unknown as (p: OnboardingSectionsProps) => React.ReactNode,
         },
       ],
     },
@@ -174,12 +200,12 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
       children: [
         {
           id: "upload_docs",
-          label: "Upload Documents",
-          title: "Upload Documents",
-          subtitle: "Identity docs from company Onboarding Docs (Aadhaar, PAN, …) — optional until offer",
+          label: "Documents",
+          title: "Documents",
+          subtitle: "Resume and identity documents",
           icon: <UploadFileOutlined />,
           fields: ["documentInfo"],
-          render: (p) => <S.DocumentsSection {...p} />,
+          render: documentsRender,
         },
       ],
     },

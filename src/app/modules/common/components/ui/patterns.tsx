@@ -224,7 +224,7 @@ export function StatTile({ label, value, trio, icon }: { label: string; value: R
 /** Small uppercase eyebrow label (stat/section/tile headers). */
 export function Eyebrow({ children, sx }: { children: React.ReactNode; sx?: SxProps<Theme> }) {
   return (
-    <Typography sx={[{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'text.secondary' }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}>
+    <Typography sx={[{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'text.secondary' }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}>
       {children}
     </Typography>
   );
@@ -233,11 +233,20 @@ export function Eyebrow({ children, sx }: { children: React.ReactNode; sx?: SxPr
 /** Section header: tinted IconBox + title + optional description — the standard card/section lead-in. */
 export function SectionHead({ tone, icon, title, desc }: { tone: Trio; icon: string; title: string; desc?: string }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
-      <IconBox icon={icon} trio={tone} size={40} fs="fs-2" />
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.25, ...HEADING_CASE_SX }}>{toTitleCase(title)}</Typography>
-        {desc && <Typography sx={{ fontSize: 13, color: 'text.secondary', lineHeight: 1.5, mt: 0.25 }}>{desc}</Typography>}
+    // `center` keeps a single-line title optically mid-aligned with the IconBox.
+    // With a desc, the whole text block centers on the glyph (not top-stuck to it).
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+      <IconBox icon={icon} trio={tone} size={36} fs="fs-3" />
+      <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        {/* Mid-scale title (15) over quieter desc (13) — readable, not shouty. */}
+        <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.25, letterSpacing: '-0.01em' }}>
+          {toTitleCase(title)}
+        </Typography>
+        {desc && (
+          <Typography sx={{ fontSize: 13, color: 'text.secondary', lineHeight: 1.4, mt: 0.15 }}>
+            {desc}
+          </Typography>
+        )}
       </Box>
     </Box>
   );

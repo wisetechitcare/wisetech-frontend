@@ -1,6 +1,10 @@
 import type {} from '@mui/x-date-pickers/themeAugmentation';
 import { createTheme, Theme } from '@mui/material/styles';
 import { T } from '@app/modules/common/components/ui/tokens';
+import {
+  wtCheckboxThemeDefaultProps,
+  wtCheckboxThemeRootSx,
+} from '@app/modules/common/components/ui/checkbox';
 import { GH_DARK } from './githubDark';
 import { DEFAULT_BRAND, readableOn, shade, type BrandPalette } from './appearance';
 import { muiXPickerComponents } from './muiXPickers';
@@ -149,6 +153,38 @@ export function makeWisetechTheme(mode: 'light' | 'dark' = 'light', brand: Brand
       MuiMenuItem: {
         styleOverrides: {
           root: { fontFamily: T.font.family, fontSize: 13.5, borderRadius: 8, margin: '2px 6px' },
+        },
+      },
+      // Switch / checkbox row labels — same readable body as form fields (not 12–13px chrome).
+      // Dense call sites can still override via `sx` on FormControlLabel.
+      MuiFormControlLabel: {
+        styleOverrides: {
+          label: { fontFamily: T.font.family, fontSize: 13.5, fontWeight: 600, lineHeight: 1.4 },
+        },
+      },
+      // Global checkbox look (rounded tile + brand fill) — same recipe as WtCheckbox.
+      // Leftover raw `<Checkbox>` inherits this; new code still uses WtCheckbox / WtCheckboxField
+      // for size/tone helpers. Tone follows Appearance brand, not a hardcoded navy.
+      MuiCheckbox: {
+        defaultProps: wtCheckboxThemeDefaultProps(brand.primary),
+        styleOverrides: {
+          root: {
+            fontFamily: T.font.family,
+            ...(wtCheckboxThemeRootSx(brand.primary) as object),
+          },
+        },
+      },
+      // Do NOT set OutlinedInput / InputLabel fontSize here. Field type size is owned by
+      // WtField / WtDateField `size` (default `'md'` → MUI medium). Hand-styled labels
+      // desync the notched legend — see WtField header comment.
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: { fontFamily: T.font.family },
+        },
+      },
+      MuiFormHelperText: {
+        styleOverrides: {
+          root: { fontFamily: T.font.family, fontSize: 12.5, lineHeight: 1.4 },
         },
       },
       MuiChip: {

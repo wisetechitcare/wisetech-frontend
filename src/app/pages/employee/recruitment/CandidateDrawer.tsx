@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Box, Stack, Typography, CircularProgress, LinearProgress, DialogContent, Link as MuiLink } from "@mui/material";
@@ -80,11 +81,11 @@ const Fact = ({ label, value, href }: { label: string; value?: string | number |
  */
 const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onConvert }: Props) => {
     const canWrite = canSection("recruitment", "write");
+    const navigate = useNavigate();
     const qc = useQueryClient();
     const [draft, setDraft] = useState("");
     const [addingToRole, setAddingToRole] = useState(false);
     const viewerId = useSelector((st: RootState) => st.employee?.currentEmployee?.id as string | undefined);
-
     // The board row paints the modal instantly as a placeholder — never as cached data, because
     // it has no stage history, no currency and an unsigned resume key. Until the record arrives
     // those parts show that they are loading instead of an empty history and a dead Resume link.
@@ -162,6 +163,20 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                         </Stack>
                         {/* The same person can be considered for more than one role. */}
                         {canWrite && <ActionIconButton iconName="briefcase" tone="brand" title="Add to Another Role" onClick={() => setAddingToRole(true)} />}
+                        {canWrite && a.applicantId && (
+                            <WtButton
+                                size="small"
+                                ghost
+                                startIcon={<KTIcon iconName="pencil" className="fs-6" />}
+                                onClick={() => {
+                                    onClose();
+                                    navigate(`/recruitment/candidates/${a.applicantId}/edit`);
+                                }}
+                                sx={{ flexShrink: 0, whiteSpace: "nowrap" }}
+                            >
+                                Edit profile
+                            </WtButton>
+                        )}
                         {canWrite && onConvert && currentStatus?.isHiredOutcome && !a.convertedEmployeeId && (
                             <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => onConvert(a)}
                                 sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>

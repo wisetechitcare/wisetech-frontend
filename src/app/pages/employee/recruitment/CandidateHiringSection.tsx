@@ -1,32 +1,27 @@
-import { useMemo } from "react";
-import { useFormikContext } from "formik";
-import { useQuery } from "@tanstack/react-query";
 import { Stack } from "@mui/material";
-import { WtField, WtDateField } from "@app/modules/common/components/ui";
-import { fetchAllEmployees } from "@services/employee";
+import { useFormikContext } from "formik";
+import { WtDateField, WtSwitchField } from "@app/modules/common/components/ui";
+import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
 import type { CandidateFormValues } from "./candidateProfile";
 
 /**
- * Candidate-only hiring subset: proposed joining + referred-by.
+ * Candidate-only hiring subset: proposed joining + referred-by (+ blacklist on edit).
  * Source lives on the Application strip (ApplicantSource master, not employee Source of Hire).
- * No exit / rejoin / employee status — those are post-hire.
+ * Referred-by uses the shared EmployeePickerField (avatar + designation rows) —
+ * same control as Gift Management / Requisitions / Interviews.
  */
-export function CandidateHiringSection({ disabled }: { disabled?: boolean }) {
+export function CandidateHiringSection({
+  disabled,
+  showBlacklist = false,
+}: {
+  disabled?: boolean;
+  /** Edit mode only — create never blacklists a brand-new row. */
+  showBlacklist?: boolean;
+}) {
   const { values, setFieldValue } = useFormikContext<CandidateFormValues>();
-  const { data: empRes } = useQuery({
-    queryKey: ["recruitment", "referrer-employees"],
-    queryFn: () => fetchAllEmployees(),
-  });
-  const referrerOptions = useMemo(() => {
-    const employees = empRes?.data?.employees ?? [];
-    return employees.map((emp: { id: string; users?: { firstName?: string; lastName?: string } }) => ({
-      value: emp.id,
-      label: `${emp.users?.firstName ?? ""} ${emp.users?.lastName ?? ""}`.trim() || emp.id,
-    }));
-  }, [empRes]);
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={2} sx={{ maxWidth: { md: 520 } }}>
       <WtDateField
         label="Proposed joining date"
         value={values.proposedJoiningDate || null}
@@ -34,17 +29,24 @@ export function CandidateHiringSection({ disabled }: { disabled?: boolean }) {
         disabled={disabled}
         helperText="Optional until an offer is made."
       />
-      <WtField
+      <EmployeePickerField
         label="Referred by"
-        clearable
-        searchable={referrerOptions.length >= 8}
-        value={values.referredById}
-        onChange={(v) => setFieldValue("referredById", v)}
-        options={referrerOptions}
-        placeholder="Not recorded"
+        value={values.referredById || null}
+        onChange={(ids) => setFieldValue("referredById", ids[0] ?? "")}
         disabled={disabled}
-        hint="Optional. A colleague who referred this candidate."
+        placeholder="Not recorded"
+        helperText="Optional. A colleague who referred this candidate."
+        dialogTitle="Choose referrer"
       />
+      {showBlacklist && (
+        <WtSwitchField
+          title="Blacklisted"
+          description="Keeps the record (and its audit trail) but blocks new pool/role adds — the server refuses them."
+          checked={values.isBlacklisted}
+          onChange={(e) => setFieldValue("isBlacklisted", e.target.checked)}
+          disabled={disabled}
+        />
+      )}
     </Stack>
   );
 }

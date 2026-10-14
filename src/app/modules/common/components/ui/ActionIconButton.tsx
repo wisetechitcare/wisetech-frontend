@@ -2,8 +2,20 @@ import type { ReactNode } from 'react';
 import { Button, IconButton, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { T } from './tokens';
+import { TRIO, type Trio } from './patterns';
 
 export type ActionTone = 'brand' | 'indigo' | 'danger' | 'success' | 'onBrand';
+
+/**
+ * Map a kit `Trio` accent onto an `ActionIconButton` tone.
+ * Keeps row actions (edit / delete / audit) on the same palette as section cards.
+ */
+export function trioToActionTone(trio: Trio): ActionTone {
+  if (trio === TRIO.rose) return 'danger';
+  if (trio === TRIO.green) return 'success';
+  if (trio === TRIO.blue) return 'indigo';
+  return 'brand';
+}
 
 const TONE_COLOR: Record<ActionTone, string> = {
   brand: T.color.brand,

@@ -13,13 +13,12 @@ import { queryKeys } from "@/lib/queryKeys";
 import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import {
     getApplications, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
-    stashConversion, getRecruitmentSettings,
+    stashConversion,
     type Application, type ApplicationStatus, type OrgScoped,
 } from "@services/recruitment";
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
 import CandidateDrawer from "./CandidateDrawer";
-import { AddCandidateDialog } from "./AddCandidateDialog";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { InlineNotice } from "@app/modules/common/components/ui";
 import { applicationColumns, applicantName, ScoreChip, WaitingChip } from "./applicationColumns";
@@ -33,11 +32,6 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const navigate = useNavigate();
-    const { data: settings } = useQuery({
-        queryKey: queryKeys.recruitment.settings(),
-        queryFn: getRecruitmentSettings,
-    });
-    const useWizard = settings?.candidateWizardEnabled === true;
     /**
      * Board or list, REMEMBERED. It reset to Board on every navigation, so a recruiter who works
      * in the list re-chose it all day. Audit M20.
@@ -45,11 +39,9 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const [mode, setMode] = useRememberedChoice<"board" | "list">(
         "recruitment:pipeline-view", ["board", "list"], "board",
     );
-    const [adding, setAdding] = useState(false);
 
     const startAdd = () => {
-        if (useWizard) navigate("/recruitment/candidates/new?roleRequired=1");
-        else setAdding(true);
+        navigate("/recruitment/candidates/new?roleRequired=1");
     };
     const [pending, setPending] = useState<PendingMove | null>(null);
     const [rejectReasonId, setRejectReasonId] = useState("");
@@ -316,8 +308,6 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 </>
             )}
 
-            {/* The shared Add candidate window. From the pipeline a role is required: a card with no role has no column. */}
-            <AddCandidateDialog open={adding} onClose={() => setAdding(false)} roleRequired companyId={companyId} />
             {/* Rejection reason capture on move to a terminal/requires-reason stage */}
             <GlassDialog
                 open={!!pending}

@@ -75,6 +75,11 @@ export interface OnboardingSectionsProps {
    * in local state would die the moment the user navigates away.
    */
   profilePhotoPreview?: string;
+  /**
+   * Candidate / pre-hire mode — omit hard-required asterisks on fields that are
+   * optional until offer (family, address line 1, …).
+   */
+  softRequired?: boolean;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -86,6 +91,7 @@ export const PersonalInfoSection: React.FC<OnboardingSectionsProps> = ({
   setFile,
   removeFile,
   profilePhotoPreview,
+  softRequired,
 }) => {
   const { values, setFieldValue } = useFormikContext<any>();
 
@@ -106,14 +112,14 @@ export const PersonalInfoSection: React.FC<OnboardingSectionsProps> = ({
         }}
       />
       <div className="ob-personal-info-fields">
-        <BasicInfo formikProps={formikProps} />
+        <BasicInfo formikProps={formikProps} softRequired={softRequired} />
       </div>
     </div>
   );
 };
 
-export const ContactInfoSection: React.FC<OnboardingSectionsProps> = ({ formikProps }) => (
-  <PersonalContactInfo formikProps={formikProps} />
+export const ContactInfoSection: React.FC<OnboardingSectionsProps> = ({ formikProps, softRequired }) => (
+  <PersonalContactInfo formikProps={formikProps} softRequired={softRequired} />
 );
 
 export const EducationSection: React.FC<OnboardingSectionsProps> = ({
@@ -183,7 +189,7 @@ export const EducationSection: React.FC<OnboardingSectionsProps> = ({
   );
 };
 
-export const FamilySection: React.FC<OnboardingSectionsProps> = ({ formikProps }) => {
+export const FamilySection: React.FC<OnboardingSectionsProps> = ({ formikProps, softRequired }) => {
   const { values, setFieldValue } = useFormikContext<any>();
   const rows: any[] = Array.isArray(values.familyInfo) ? values.familyInfo : [];
 
@@ -202,6 +208,7 @@ export const FamilySection: React.FC<OnboardingSectionsProps> = ({ formikProps }
             index={index}
             canRemove={index > 0}
             onRemove={() => remove(index)}
+            softRequired={softRequired}
           />
         </div>
       ))}
@@ -219,9 +226,9 @@ export const BankSection: React.FC<OnboardingSectionsProps> = ({ formikProps, se
   return <BankInfo formikProps={formikProps} userId={values?.userId} setBankFile={setBankFile} />;
 };
 
-export const AddressSection: React.FC<OnboardingSectionsProps> = ({ formikProps }) => (
+export const AddressSection: React.FC<OnboardingSectionsProps> = ({ formikProps, softRequired }) => (
   <div className="ob-repeating-section">
-    <AddressInfo formikProps={formikProps} />
+    <AddressInfo formikProps={formikProps} softRequired={softRequired} />
   </div>
 );
 

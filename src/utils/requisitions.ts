@@ -33,3 +33,6 @@ export const hasSeatsLeft = (r: RoleSeats): boolean => {
 /** Approved, not archived, and still hiring — what every role picker should offer. */
 export const isRoleOpenForCandidates = (r: RoleSeats): boolean =>
     r.status === 1 && r.isActive !== false && hasSeatsLeft(r);
+
+/** Past this many options a plain menu becomes a scroll hunt — enable WtField `searchable`. */
+export const SEARCHABLE_FROM = 8;

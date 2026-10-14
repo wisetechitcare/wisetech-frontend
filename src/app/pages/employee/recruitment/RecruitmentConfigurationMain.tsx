@@ -465,15 +465,6 @@ const SettingsSection = () => {
                         onChange={(e) => setRule("aiScreeningEnabled", e.target.checked)}
                         disabled
                     />
-                    <Typography sx={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: "text.secondary", pt: 0.5 }}>
-                        Candidate intake
-                    </Typography>
-                    <WtSwitchField
-                        title="Add / Edit Candidate wizard"
-                        description="When on, Add and Edit open the full onboarding-style wizard. When off, the classic short form stays (kill switch)."
-                        checked={settings.candidateWizardEnabled === true}
-                        onChange={(e) => setDraft({ ...settings, candidateWizardEnabled: e.target.checked })}
-                    />
                 </Stack>
             )}
         </GlassCard>

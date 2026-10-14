@@ -10,6 +10,7 @@ import {
     WtAddOptionButton,
     type WtAddOption,
 } from './WtAddOption';
+import { controlHeightSxFor } from './buttons';
 
 export type { WtAddOption, WtAddOptionPlacement } from './WtAddOption';
 
@@ -108,7 +109,10 @@ export interface WtFieldProps {
     disabled?: boolean;
     placeholder?: string;
 
-    /** 'sm' (default, MUI small) is the app's density. 'md' for a spacious form. */
+    /**
+     * `'sm'` (default) = mid-density (40px) — toolbars, lists, most forms.
+     * `'md'` = spacious (44px) — opt-in for dense-content dialog forms.
+     */
     size?: WtFieldSize;
     fullWidth?: boolean;
     minWidth?: number;
@@ -195,29 +199,38 @@ const FieldIcon = ({ name, color }: { name: string; color: string }) =>
  * Everything the theme is allowed to touch: the outline, the radius, the focus ring.
  * Deliberately nothing that targets `.MuiInputLabel-root` — see the header note.
  */
-const controlSx = (tone: string | undefined, invalid: boolean): SxProps<Theme> => ({
-    '& .MuiOutlinedInput-root': {
-        borderRadius: '10px',
-        // A long option must ellipsize rather than widen the control past its container.
-        '& .MuiSelect-select': {
-            minWidth: 0,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+const controlSx = (
+    tone: string | undefined,
+    invalid: boolean,
+    density: WtFieldSize,
+): SxProps<Theme> => {
+    const height = controlHeightSxFor(density);
+    return {
+        ...height,
+        '& .MuiOutlinedInput-root': {
+            ...height['& .MuiOutlinedInput-root'],
+            borderRadius: '10px',
+            // A long option must ellipsize rather than widen the control past its container.
+            '& .MuiSelect-select': {
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+            },
+            ...(tone && !invalid && {
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha(tone, 0.5) },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: tone },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: tone, borderWidth: 2 },
+            }),
         },
-        ...(tone && !invalid && {
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha(tone, 0.5) },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: tone },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: tone, borderWidth: 2 },
-        }),
-    },
-    // Chrome/Safari draw their own number spinners at a size nothing else in the app uses.
-    '& input[type=number]': { MozAppearance: 'textfield' },
-    '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-        WebkitAppearance: 'none',
-        margin: 0,
-    },
-});
+        // Chrome/Safari draw their own number spinners at a size nothing else in the app uses.
+        '& input[type=number]': { MozAppearance: 'textfield' },
+        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+            WebkitAppearance: 'none',
+            margin: 0,
+        },
+    };
+};
 
 const ADD_OPTION_VALUE = '__wt_add__';
 
@@ -233,6 +246,11 @@ export const WtField: React.FC<WtFieldProps> = ({
     const invalid = Boolean(error);
     const message = error || hint;
     const isSelect = Boolean(options);
+    // MUI size drives BOTH input and floating-label metrics (and the notch). Never restyle
+    // `.MuiInputLabel-root` by hand — that is how labels land on the border line.
+    const muiSize = size === 'sm' ? 'small' : 'medium';
+    const aboveLabelFs = size === 'sm' ? 12 : 13.5;
+    const messageFs = size === 'sm' ? 11.5 : 12.5;
     const hasValue = Array.isArray(value)
         ? value.length > 0
         : String(value ?? '').length > 0;
@@ -356,7 +374,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                     disabled={disabled}
                     disableClearable={!clearable}
                     autoHighlight
-                    size={size === 'md' ? 'medium' : 'small'}
+                    size={muiSize}
                     fullWidth
                     // Multi tags follow Appearance brand (same primary as menuOptionSx / focus ring),
                     // not MUI's neutral grey default — so selected chips match the bluish product chrome.
@@ -414,7 +432,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                                 notched: true,
                                 startAdornment: <>{startAdornment}{params.InputProps.startAdornment}</>,
                             }}
-                            sx={controlSx(activeTone, invalid)}
+                            sx={controlSx(activeTone, invalid, size)}
                         />
                     )}
                 />
@@ -436,7 +454,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                                 htmlFor={fieldId}
                                 // Styling IS allowed here: on this path there is no legend to disagree with.
                                 sx={{
-                                    fontSize: 12,
+                                    fontSize: aboveLabelFs,
                                     fontWeight: 600,
                                     lineHeight: 1.3,
                                     color: invalid ? 'error.main' : 'text.secondary',
@@ -470,12 +488,12 @@ export const WtField: React.FC<WtFieldProps> = ({
                         type={type}
                         multiline={multiline}
                         minRows={multiline ? minRows : undefined}
-                        size={size === 'md' ? 'medium' : 'small'}
+                        size={muiSize}
                         fullWidth
                         error={invalid}
                         InputProps={{ startAdornment, endAdornment: clearButton }}
                         inputProps={{ inputMode, min, max, step, 'aria-label': label ? undefined : ariaLabel, 'aria-describedby': message ? messageId : undefined }}
-                        sx={controlSx(activeTone, invalid)}
+                        sx={controlSx(activeTone, invalid, size)}
                     />
                 )}
 
@@ -483,7 +501,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                     <Typography
                         id={messageId}
                         role={invalid ? 'alert' : undefined}
-                        sx={{ fontSize: 11.5, lineHeight: 1.4, color: invalid ? 'error.main' : 'text.secondary' }}
+                        sx={{ fontSize: messageFs, lineHeight: 1.4, color: invalid ? 'error.main' : 'text.secondary' }}
                     >
                         {message}
                     </Typography>
@@ -517,19 +535,18 @@ export const WtField: React.FC<WtFieldProps> = ({
                 type={isSelect ? undefined : type}
                 multiline={!isSelect && multiline}
                 minRows={!isSelect && multiline ? minRows : undefined}
-                size={size === 'md' ? 'medium' : 'small'}
+                size={muiSize}
                 fullWidth
                 error={invalid}
                 helperText={message}
-                // A select renders `displayEmpty`, so MUI cannot tell an empty value from an
-                // unset one and would leave the label lying across the visible option text.
-                // Pinning BOTH is required: `shrink` lifts the label, `notched` opens the gap
-                // it lifts into, and they are separate props on separate elements.
-                InputLabelProps={isSelect ? { shrink: true } : undefined}
+                // Sandwich Leave look: label always notched into the border (even when empty).
+                // Selects need it for `displayEmpty`; text fields need it so Allergies /
+                // Name do not look like bare placeholders sitting inside the box.
+                InputLabelProps={{ shrink: true }}
                 InputProps={{
                     startAdornment,
                     endAdornment: isSelect ? undefined : clearButton,
-                    ...(isSelect ? { notched: true } : {}),
+                    notched: true,
                 }}
                 inputProps={isSelect ? { 'aria-label': label ? undefined : ariaLabel } : { inputMode, min, max, step, 'aria-label': label ? undefined : ariaLabel }}
                 // No `id` here, and no hand-written `aria-describedby` above. TextField
@@ -548,20 +565,25 @@ export const WtField: React.FC<WtFieldProps> = ({
                     },
                     MenuProps: {
                         PaperProps: {
-                            sx: {
-                                borderRadius: '10px',
-                                mt: 0.5,
-                                // A long list must scroll inside the menu, not run off screen.
-                                maxHeight: 320,
-                                boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
-                            },
+                            // Same accent selected/hover pills as searchable Autocomplete
+                            // (`menuOptionSx`) — without this, MUI's default action.selected
+                            // wash looks gray next to the navy focus ring (Sandwich Category).
+                            sx: [
+                                {
+                                    borderRadius: '10px',
+                                    mt: 0.5,
+                                    maxHeight: 320,
+                                    boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
+                                },
+                                menuOptionSx,
+                            ],
                         },
                     },
                 } : undefined}
-                sx={controlSx(activeTone, invalid)}
+                sx={controlSx(activeTone, invalid, size)}
             >
                 {isSelect && options?.map((o) => (
-                    <MenuItem key={o.value} value={o.value} disabled={o.disabled} sx={{ fontSize: 13 }}>
+                    <MenuItem key={o.value} value={o.value} disabled={o.disabled}>
                         {o.label}
                     </MenuItem>
                 ))}

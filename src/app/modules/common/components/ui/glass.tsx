@@ -6,6 +6,7 @@ import {
 import type { TransitionProps } from '@mui/material/transitions';
 import { alpha } from '@mui/material/styles';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { KTIcon } from '@metronic/helpers';
 import { T, GlassVariant, VividTone, ThemeMode, label } from './tokens';
 import { isMaterial, useSurfaceStyle } from '@app/theme/appearance';
 import { toTitleCase, HEADING_CASE_SX } from './text';
@@ -13,6 +14,13 @@ import { GH_DARK } from '@app/theme/githubDark';
 import { MRD_EASE } from './buttons';
 import { WtCloseButton } from './tw/WtCloseButton';
 import { useIsDark } from './tw/useIsDark';
+
+/** Resolve a keenicon name string or a ready-made node into the header glyph. */
+function resolveHeaderIcon(icon: React.ReactNode | string | undefined): React.ReactNode {
+  if (icon == null || icon === false) return null;
+  if (typeof icon === 'string') return <KTIcon iconName={icon} className="fs-1" />;
+  return icon;
+}
 
 /** Mode from the html class ColorModeProvider stamps — avoids MUI ThemeContext during HMR. */
 function useMode(): ThemeMode {
@@ -139,8 +147,11 @@ export const GlassSurface = forwardRef<HTMLDivElement, GlassSurfaceProps>(functi
 export interface GlassHeaderProps {
   title: string;
   subtitle?: string;
-  /** Pass the glyph node, e.g. `<KTIcon iconName="calendar-8" className="fs-1" />`. */
-  icon?: React.ReactNode;
+  /**
+   * Header glyph. Prefer a keenicon **name string** (`"pencil"`, `"calendar-8"`) —
+   * the kit renders the KTIcon. A ready-made node still works for rare custom marks.
+   */
+  icon?: React.ReactNode | string;
   onClose?: () => void;
   action?: React.ReactNode;
   /**
@@ -169,6 +180,7 @@ export function GlassHeader({
   const plain = variant === 'plain';
   const mode = useMode();
   const frostSx = gradient || plain ? {} : glassSx('regular', { mode });
+  const iconNode = resolveHeaderIcon(icon);
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5,
@@ -196,7 +208,7 @@ export function GlassHeader({
           }}>
             {backIcon ?? <Box component="span" sx={{ fontSize: 26, lineHeight: 1, fontWeight: 400, mt: '-2px' }}>&lsaquo;</Box>}
           </IconButton>
-        ) : icon && !plain && (
+        ) : iconNode && !plain && (
           <Box sx={{
             width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5,
             display: 'grid', placeItems: 'center', flexShrink: 0,
@@ -204,20 +216,20 @@ export function GlassHeader({
               ? { bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)' }
               : { bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.08)' : T.color.brandSoft, color: T.color.brand, border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.12)' : T.color.line}` }),
           }}>
-            {icon}
+            {iconNode}
           </Box>
         )}
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{
             fontWeight: plain ? 600 : 700,
-            fontSize: plain ? 18 : { xs: 15.5, sm: 17 },
+            fontSize: plain ? 17 : { xs: 15.5, sm: 16.5 },
             lineHeight: 1.25, color: gradient ? '#fff' : label(mode, 'primary'),
             ...HEADING_CASE_SX,
           }}>
             {toTitleCase(title)}
           </Typography>
           {subtitle && (
-            <Typography sx={{ fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: gradient ? 'rgba(255,255,255,0.72)' : label(mode, 'secondary') }}>
+            <Typography sx={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: gradient ? 'rgba(255,255,255,0.72)' : label(mode, 'secondary'), mt: 0.15, lineHeight: 1.35 }}>
               {subtitle}
             </Typography>
           )}
@@ -302,6 +314,20 @@ export function PlainDialogHeader({
 }
 
 // ─── GlassDialog: MUI Dialog with a frosted Paper + dimmed/blurred backdrop ───────────────────
+/**
+ * Height behaviour for GlassDialog Paper.
+ * - `default` — viewport margin (`100dvh - 96px`); general dialogs.
+ * - `form` — nested / multi-section editors (`min(72vh, 680px)`); stays shorter than a workspace.
+ * - `workspace` — primary list/workspace sheets; same margin as default, roomier intent.
+ */
+export type GlassDialogPreset = 'default' | 'form' | 'workspace';
+
+const PRESET_MAX_HEIGHT: Record<GlassDialogPreset, SxProps<Theme>> = {
+  default: { maxHeight: 'calc(100dvh - 96px)' },
+  form: { maxHeight: { xs: '100%', sm: 'min(72vh, 680px)' } },
+  workspace: { maxHeight: 'calc(100dvh - 96px)' },
+};
+
 export interface GlassDialogProps extends Omit<DialogProps, 'title'> {
   /** Rendered flush at the top of the Paper (typically a <GlassHeader/>). */
   header?: React.ReactNode;
@@ -320,10 +346,15 @@ export interface GlassDialogProps extends Omit<DialogProps, 'title'> {
    * transition are all still wanted.
    */
   plain?: boolean;
+  /**
+   * Shared height recipe so every form/workspace dialog agrees — do not restate
+   * `maxHeight` in PaperProps per screen unless you have a one-off reason.
+   */
+  preset?: GlassDialogPreset;
 }
 
 export function GlassDialog({
-  header, mobileFullScreen = true, disableBlur, plain = false, children,
+  header, mobileFullScreen = true, disableBlur, plain = false, preset = 'default', children,
   /**
    * `disableEnforceFocus` defaults to FALSE — the dialog keeps focus.
    *
@@ -370,7 +401,15 @@ export function GlassDialog({
   // traded that away and never replaced it, so tall content was unreachable —
   // no scrollbar, no keyboard scroll, just cut off.
   const managesOwnScrolling = Children.toArray(children).some(
-    (child) => isValidElement(child) && (child.type === DialogContent || child.type === DialogActions),
+    (child) => {
+      if (!isValidElement(child)) return false;
+      const t = child.type as { wtDialogChrome?: boolean } | typeof DialogContent | typeof DialogActions;
+      return (
+        t === DialogContent
+        || t === DialogActions
+        || (typeof t === 'function' && (t as { wtDialogChrome?: boolean }).wtDialogChrome === true)
+      );
+    },
   );
 
   return (
@@ -401,7 +440,17 @@ export function GlassDialog({
                 boxShadow: '0 24px 64px -12px rgba(15,23,42,0.28)',
               }
             : glassSx('regular', { mode, disableBlur }),
-          { fontFamily: T.font.family, overflow: 'hidden', ...(fullScreen ? { borderRadius: 0 } : null) },
+          {
+            fontFamily: T.font.family,
+            overflow: 'hidden',
+            // Flex column so DialogContent can scroll inside a height-capped Paper
+            // (header + footer stay pinned). Breathing room comes from `preset`.
+            display: 'flex',
+            flexDirection: 'column',
+            ...(fullScreen
+              ? { borderRadius: 0, maxHeight: '100%' }
+              : PRESET_MAX_HEIGHT[preset]),
+          },
           ...(PaperProps?.sx ? (Array.isArray(PaperProps.sx) ? PaperProps.sx : [PaperProps.sx]) : []),
         ] as SxProps<Theme>,
       }}

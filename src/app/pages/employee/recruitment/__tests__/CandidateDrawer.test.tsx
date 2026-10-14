@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
+import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
 // The candidate modal, rendered the way the pipeline board renders it, against a mocked API.
@@ -92,7 +93,11 @@ const renderDrawer = (props: Partial<React.ComponentProps<typeof CandidateDrawer
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const store = configureStore({ reducer: { employee: () => ({ currentEmployee: { id: 'emp-me' } }) } });
     const wrap = ({ children }: { children: ReactNode }) => (
-        <Provider store={store}><QueryClientProvider client={client}>{children}</QueryClientProvider></Provider>
+        <Provider store={store}>
+            <QueryClientProvider client={client}>
+                <MemoryRouter>{children}</MemoryRouter>
+            </QueryClientProvider>
+        </Provider>
     );
     return render(<CandidateDrawer application={row} statuses={statuses} onClose={() => {}} {...props} />, { wrapper: wrap });
 };

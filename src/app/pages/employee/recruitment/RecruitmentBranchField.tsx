@@ -1,6 +1,7 @@
 import type { SxProps, Theme } from "@mui/material";
 import { WtField } from "@app/modules/common/components/ui";
 import { useRecruitmentBranches } from "@/hooks/useRecruitmentBranches";
+import { SEARCHABLE_FROM } from "@utils/requisitions";
 
 /**
  * The Branch field on a requisition or an offer.
@@ -32,9 +33,6 @@ interface Props {
     companyId?: string;
     sx?: SxProps<Theme>;
 }
-
-/** Past this many branches a plain menu becomes a scroll hunt, so the field turns searchable. */
-const SEARCHABLE_FROM = 8;
 
 export const RecruitmentBranchField = ({ value, onChange, required, disabled, error, companyId, sx }: Props) => {
     const { branches, byId, isLoading, isError, spansOrgs } = useRecruitmentBranches({ companyId, keepId: value });

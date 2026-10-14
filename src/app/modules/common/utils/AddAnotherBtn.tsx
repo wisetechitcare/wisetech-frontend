@@ -1,34 +1,35 @@
-import { KTIcon } from "@metronic/helpers";
+import { WtButton } from "@app/modules/common/components/ui";
 
 interface AddAnotherBtnProps {
-    onClick: () => void;
+  onClick: () => void;
 }
 
+/** Dashed full-width “Add Another” — kit button, not a Bootstrap/hand-styled control. */
 function AddAnotherBtn({ onClick }: AddAnotherBtnProps) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            style={{
-                width: '100%',
-                height: '39px',
-                border: '1px dashed #9399A6',
-                borderRadius: '8px',
-                backgroundColor: 'transparent',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontFamily: 'Inter',
-                fontWeight: 500,
-                fontSize: '14px',
-                color: '#1E3A8A',
-                padding: '7px 0',
-            }}
-        >
-            Add Another
-        </button>
-    );
+  return (
+    <WtButton
+      type="button"
+      ghost
+      fullWidth
+      onClick={onClick}
+      sx={{
+        mt: 0.5,
+        borderStyle: "dashed",
+        borderWidth: 1,
+        borderColor: "divider",
+        color: "primary.main",
+        fontWeight: 600,
+        minHeight: 40,
+        "&:hover": {
+          borderStyle: "dashed",
+          borderColor: "primary.main",
+          bgcolor: "action.hover",
+        },
+      }}
+    >
+      Add Another
+    </WtButton>
+  );
 }
 
 export default AddAnotherBtn;

@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DialogActions, DialogContent, Stack, Typography } from "@mui/material";
-import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, WtButton, WtField, toast } from "@app/modules/common/components/ui";
+import { DialogContent, Stack, Typography } from "@mui/material";
+import {
+  FORM_SPACE, GlassDialog, GlassDialogActions, GlassHeader, InlineNotice, WtField, toast,
+} from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { apiErrorMessage } from "@utils/apiError";
 import { createApplication, getApplications, getRequisitions, type JobRequisition } from "@services/recruitment";
-import { isRoleOpenForCandidates } from "@utils/requisitions";
+import { isRoleOpenForCandidates, SEARCHABLE_FROM } from "@utils/requisitions";
 
 /**
  * Put someone already on file into a role.
  *
- * Before this there was no way to: a candidate added to the pool could reach a pipeline only by
- * retyping their email or phone into "New application". Roles they are already in are left out of
- * the list, and the server refuses a duplicate either way.
+ * Roles they are already in are left out of the list; the server refuses a duplicate either way.
+ * Blacklisted candidates are refused by the API (CANDIDATE_BLACKLISTED).
  */
 interface Props {
     open: boolean;
@@ -23,8 +23,6 @@ interface Props {
     companyId?: string;
     onAdded?: () => void;
 }
-
-const SEARCHABLE_FROM = 8;
 
 export function AddToRoleDialog({ open, onClose, applicantId, applicantName, companyId, onAdded }: Props) {
     const qc = useQueryClient();
@@ -41,9 +39,6 @@ export function AddToRoleDialog({ open, onClose, applicantId, applicantName, com
         queryFn: () => getApplications({ applicantId }),
         enabled: open,
     });
-    // Which roles they are already in. 200 is far past anyone's real application count, so this
-    // list is never truncated in practice — read through `items` because the service now returns
-    // the page, not because this screen needs to page.
     const theirApplications = theirApplicationPage?.items ?? [];
 
     const alreadyIn = useMemo(() => new Set(theirApplications.map((a) => a.requisitionId).filter(Boolean) as string[]), [theirApplications]);
@@ -70,17 +65,23 @@ export function AddToRoleDialog({ open, onClose, applicantId, applicantName, com
             open={open}
             onClose={addMut.isPending ? undefined : onClose}
             maxWidth="xs"
+            preset="form"
             header={
                 <GlassHeader
                     title="Add to a Role"
                     subtitle={applicantName}
-                    icon={<KTIcon iconName="briefcase" className="fs-2" />}
+                    icon="briefcase"
                     onClose={addMut.isPending ? undefined : onClose}
                 />
             }
         >
-            <DialogContent>
-                <Stack spacing={1.5} sx={{ mt: 1 }}>
+            <DialogContent sx={{ p: FORM_SPACE.bodyPad }}>
+                <Stack spacing={FORM_SPACE.fieldGap}>
+                    {!loading && available.length === 0 && (
+                        <InlineNotice icon="information-5">
+                            No approved roles with open seats left to add them to.
+                        </InlineNotice>
+                    )}
                     <WtField
                         label="Role" required fullWidth
                         value={requisitionId} onChange={setRequisitionId}
@@ -97,12 +98,14 @@ export function AddToRoleDialog({ open, onClose, applicantId, applicantName, com
                     )}
                 </Stack>
             </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 2 }}>
-                <WtButton ghost onClick={onClose} disabled={addMut.isPending}>Cancel</WtButton>
-                <WtButton tone="primary" onClick={() => addMut.mutate()} disabled={!requisitionId || addMut.isPending}>
-                    {addMut.isPending ? "Adding…" : "Add to Role"}
-                </WtButton>
-            </DialogActions>
+            <GlassDialogActions
+                onCancel={onClose}
+                cancelDisabled={addMut.isPending}
+                onSubmit={() => addMut.mutate()}
+                submitDisabled={!requisitionId || addMut.isPending}
+                submitting={addMut.isPending}
+                submitLabel="Add to Role"
+            />
         </GlassDialog>
     );
 }

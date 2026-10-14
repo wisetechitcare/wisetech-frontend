@@ -3,7 +3,28 @@
  * Keep schemaVersion in sync with wisetech-backend/src/utils/preHireProfile.ts.
  */
 
+import { createEducationRow, getActiveEducationRows } from "@utils/educationUtils";
+
 export const PRE_HIRE_PROFILE_SCHEMA_VERSION = 1 as const;
+
+const emptyFamilyRow = () => ({ name: "", relationship: "", mobileNumber: "" });
+const emptyWorkExpRow = () => ({
+  companyName: "",
+  jobTitle: "",
+  fromDate: "",
+  toDate: "",
+  isCurrentEmployer: false,
+});
+
+const hasStartedFamily = (row: any = {}) =>
+  Boolean(row?.name || row?.relationship || row?.mobileNumber);
+
+const hasStartedWorkExp = (row: any = {}) =>
+  Boolean(row?.companyName || row?.jobTitle || row?.fromDate || row?.toDate || row?.isCurrentEmployer);
+
+/** UI always shows one blank row; persist only rows the user actually started. */
+const withDefaultRepeater = <T,>(rows: unknown, create: () => T): T[] =>
+  Array.isArray(rows) && rows.length > 0 ? (rows as T[]) : [create()];
 
 export interface CandidateFormValues {
   firstName: string;
@@ -34,6 +55,8 @@ export interface CandidateFormValues {
   referredById: string;
   proposedJoiningDate: string;
   requisitionId: string;
+  /** Edit-only: flag for future applications (BE enforces on create). */
+  isBlacklisted: boolean;
   meal: string;
   educationalInfo: unknown[];
   familyInfo: unknown[];
@@ -79,12 +102,20 @@ export const emptyCandidateFormValues = (): CandidateFormValues => ({
   referredById: "",
   proposedJoiningDate: "",
   requisitionId: "",
+  isBlacklisted: false,
   meal: "",
-  educationalInfo: [],
-  familyInfo: [],
-  emergencyDetails: {},
+  // Same seeded blank rows as NewEmployeeWizard — otherwise Education / Family /
+  // Work Experience only render the dashed "Add Another" empty state.
+  educationalInfo: [createEducationRow()],
+  familyInfo: [emptyFamilyRow()],
+  emergencyDetails: {
+    bloodGroup: "",
+    allergies: "",
+    emergencyContactName: "",
+    emergencyContactNumber: "",
+  },
   addressInfo: {},
-  workExpInfo: [],
+  workExpInfo: [emptyWorkExpRow()],
   documentFields: [],
   documentInfo: [],
 });
@@ -119,12 +150,12 @@ export function formikToApplicantPayload(values: CandidateFormValues) {
       instagramProfileUrl: trimOrNull(values.instagramProfileUrl),
       facebookProfileUrl: trimOrNull(values.facebookProfileUrl),
     },
-    educationalInfo: values.educationalInfo ?? [],
-    familyInfo: values.familyInfo ?? [],
+    educationalInfo: getActiveEducationRows(values.educationalInfo ?? []),
+    familyInfo: (Array.isArray(values.familyInfo) ? values.familyInfo : []).filter(hasStartedFamily),
     emergencyDetails: values.emergencyDetails ?? {},
     addressInfo: values.addressInfo ?? {},
     meal: trimOrNull(values.meal),
-    workExpInfo: values.workExpInfo ?? [],
+    workExpInfo: (Array.isArray(values.workExpInfo) ? values.workExpInfo : []).filter(hasStartedWorkExp),
     hiring: {
       proposedJoiningDate: trimOrNull(values.proposedJoiningDate),
       referredById: trimOrNull(values.referredById),
@@ -157,6 +188,7 @@ export function formikToApplicantPayload(values: CandidateFormValues) {
     sourceId: trimOrNull(values.sourceId),
     referredById: trimOrNull(values.referredById),
     linkedInUrl: trimOrNull(values.linkedInProfileUrl),
+    isBlacklisted: values.isBlacklisted,
     preHireProfile,
   };
 }
@@ -181,6 +213,7 @@ export function applicantToFormikValues(
     referredById?: string | null;
     linkedInUrl?: string | null;
     photoS3Url?: string | null;
+    isBlacklisted?: boolean;
     preHireProfile?: Record<string, unknown> | null;
     preHireProfileJson?: Record<string, unknown> | null;
   },
@@ -222,12 +255,13 @@ export function applicantToFormikValues(
     referredById: applicant.referredById ?? hiring.referredById ?? "",
     proposedJoiningDate: hiring.proposedJoiningDate ?? "",
     requisitionId: extras?.requisitionId ?? "",
+    isBlacklisted: Boolean(applicant.isBlacklisted),
     meal: profile.meal ?? "",
-    educationalInfo: Array.isArray(profile.educationalInfo) ? profile.educationalInfo : [],
-    familyInfo: Array.isArray(profile.familyInfo) ? profile.familyInfo : [],
+    educationalInfo: withDefaultRepeater(profile.educationalInfo, createEducationRow),
+    familyInfo: withDefaultRepeater(profile.familyInfo, emptyFamilyRow),
     emergencyDetails: profile.emergencyDetails ?? {},
     addressInfo: profile.addressInfo ?? {},
-    workExpInfo: Array.isArray(profile.workExpInfo) ? profile.workExpInfo : [],
+    workExpInfo: withDefaultRepeater(profile.workExpInfo, emptyWorkExpRow),
     documentFields: extras?.documentFields ?? [],
     documentInfo: docs.map((d: any) => ({
       documentId: String(d.documentId ?? ""),
@@ -239,10 +273,15 @@ export function applicantToFormikValues(
   };
 }
 
-/** Minimal identity gate — first name + email or phone. */
+/**
+ * Minimal identity gate for wizard navigation / draft save (first name).
+ * Contact (email OR phone) is enforced by Yup + candidateHasContact on submit.
+ */
 export function candidateIdentityOk(values: CandidateFormValues): boolean {
-  const name = values.firstName.trim();
-  const email = values.personalEmailId.trim();
-  const phone = values.personalPhoneNumber.trim();
-  return Boolean(name && (email || phone));
+  return Boolean(values.firstName.trim());
+}
+
+/** Whether the payload can survive the BE createApplicant email-or-phone rule. */
+export function candidateHasContact(values: CandidateFormValues): boolean {
+  return Boolean(values.personalEmailId.trim() || values.personalPhoneNumber.trim());
 }

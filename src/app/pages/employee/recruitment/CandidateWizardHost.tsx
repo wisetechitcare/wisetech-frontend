@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Formik, Form, type FormikProps } from "formik";
 import * as Yup from "yup";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, CircularProgress } from "@mui/material";
-import { toast, WtButton } from "@app/modules/common/components/ui";
+import { AppIcon, toast, confirmDialog } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
+import { useOrgScope, toCompanyIdParam } from "@/hooks/useOrgScope";
 import { apiErrorMessage } from "@utils/apiError";
 import { fetchDocumentsField } from "@services/employee";
 import { fetchCompanyOverview } from "@services/company";
@@ -14,7 +15,6 @@ import {
   createApplicant,
   createApplication,
   getApplicantById,
-  getRecruitmentSettings,
   updateApplicant,
   uploadApplicantDocument,
   uploadApplicantPhoto,
@@ -22,26 +22,40 @@ import {
 } from "@services/recruitment";
 import OnboardingWizard from "../forms/onboarding/OnboardingWizard";
 import type { OnboardingSectionsProps } from "../forms/onboarding/OnboardingSections";
+import { FullscreenWizardModal } from "../forms/shared/FullscreenWizardModal";
 import { buildCandidateWizardGroups } from "./buildCandidateWizardGroups";
 import {
   applicantToFormikValues,
+  candidateHasContact,
   candidateIdentityOk,
   emptyCandidateFormValues,
   formikToApplicantPayload,
   type CandidateFormValues,
 } from "./candidateProfile";
 
-const candidateMinimalSchema = Yup.object({
-  firstName: Yup.string().trim().required("First name is required"),
-  personalEmailId: Yup.string().trim().email("Enter a valid email").nullable(),
-  personalPhoneNumber: Yup.string().trim().nullable(),
-}).test("email-or-phone", "Enter an email or a phone number", (v) =>
-  Boolean(v?.personalEmailId?.trim() || v?.personalPhoneNumber?.trim()),
-);
+const CONTACT_REQUIRED_MSG = "Enter an email or a phone number";
+
+/** Wizard validation — first name + contact (email OR phone); role when Pipeline entry. */
+const buildCandidateSchema = (roleRequired: boolean) =>
+  Yup.object({
+    firstName: Yup.string().trim().required("First name is required"),
+    personalEmailId: Yup.string().trim().email("Enter a valid email").nullable(),
+    personalPhoneNumber: Yup.string().trim().nullable(),
+    requisitionId: roleRequired
+      ? Yup.string().trim().required("Choose the role they are applying for")
+      : Yup.string().trim().nullable(),
+  }).test("contact", CONTACT_REQUIRED_MSG, function (values) {
+    const hasContact = Boolean(
+      String(values?.personalEmailId ?? "").trim() || String(values?.personalPhoneNumber ?? "").trim(),
+    );
+    if (hasContact) return true;
+    // Attach to field paths so Formik / rail show inline errors (object-level alone is silent).
+    return this.createError({ path: "personalEmailId", message: CONTACT_REQUIRED_MSG });
+  });
 
 /**
- * Full-page Add/Edit Candidate wizard — reuses onboarding section renderers and
- * OnboardingWizard chrome in candidate mode. Never creates an employee.
+ * Full-page Add/Edit Candidate wizard — same fullscreen shell as Employee
+ * Onboarding (`FullscreenWizardModal` + `OnboardingWizard`). Never creates an employee.
  */
 export default function CandidateWizardHost() {
   const navigate = useNavigate();
@@ -50,12 +64,20 @@ export default function CandidateWizardHost() {
   const [searchParams] = useSearchParams();
   const roleRequired = searchParams.get("roleRequired") === "1";
   const queryRequisitionId = searchParams.get("requisitionId") ?? "";
+
+  // Same org filter RecruitmentMain uses — ALL_ORGS omits companyId so roles
+  // across the family appear (resolveActiveOrgId alone scoped to root and returned []).
+  const { scopeId } = useOrgScope({ includeAll: true });
+  const companyId = toCompanyIdParam(scopeId);
+
   const { data: companyOverviewRes } = useQuery({
     queryKey: ["company-overview-for-candidate-wizard"],
     queryFn: () => fetchCompanyOverview(),
     staleTime: 5 * 60 * 1000,
   });
-  const companyId = resolveActiveOrgId(companyOverviewRes?.data?.companyOverview) || undefined;
+  // Onboarding Docs master is per-org; when scope is All, fall back to the root.
+  const docsCompanyId =
+    companyId || resolveActiveOrgId(companyOverviewRes?.data?.companyOverview) || undefined;
 
   const isEdit = Boolean(routeApplicantId);
   const [applicantId, setApplicantId] = useState<string | undefined>(routeApplicantId);
@@ -64,20 +86,8 @@ export default function CandidateWizardHost() {
   const [pendingDocFiles, setPendingDocFiles] = useState<Record<string, File>>({});
   const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [show, setShow] = useState(true);
   const formikRef = useRef<FormikProps<CandidateFormValues> | null>(null);
-
-  const { data: settings } = useQuery({
-    queryKey: queryKeys.recruitment.settings(),
-    queryFn: getRecruitmentSettings,
-  });
-
-  // Kill switch: deep link must not strand users when wizard is off.
-  useEffect(() => {
-    if (settings && settings.candidateWizardEnabled === false) {
-      toast({ icon: "info", title: "Candidate wizard is turned off — using the classic form" });
-      navigate(roleRequired ? "/recruitment/pipeline" : "/recruitment/candidates", { replace: true });
-    }
-  }, [settings, navigate, roleRequired]);
 
   const { data: applicant, isLoading: loadingApplicant } = useQuery({
     queryKey: [...queryKeys.recruitment.applicants(), "one", routeApplicantId],
@@ -86,8 +96,9 @@ export default function CandidateWizardHost() {
   });
 
   const { data: docConfigRes } = useQuery({
-    queryKey: ["onboarding-docs", companyId],
-    queryFn: () => fetchDocumentsField(companyId),
+    queryKey: ["onboarding-docs", docsCompanyId],
+    queryFn: () => fetchDocumentsField(docsCompanyId),
+    enabled: Boolean(docsCompanyId),
   });
 
   const documentFields = useMemo(() => {
@@ -116,7 +127,6 @@ export default function CandidateWizardHost() {
     return blank;
   }, [applicant, queryRequisitionId, documentFields]);
 
-  // Keep documentFields mirrored when config loads after mount.
   useEffect(() => {
     const f = formikRef.current;
     if (!f || documentFields.length === 0) return;
@@ -164,8 +174,29 @@ export default function CandidateWizardHost() {
     }
   }, [setFile]);
 
+  const leaveTarget = () =>
+    (roleRequired || queryRequisitionId ? "/recruitment/pipeline" : "/recruitment/candidates");
+
   const goBack = () => {
-    navigate(roleRequired || queryRequisitionId ? "/recruitment/pipeline" : "/recruitment/candidates");
+    setShow(false);
+    navigate(leaveTarget());
+  };
+
+  const handleCancel = async () => {
+    const f = formikRef.current;
+    const pendingUploads =
+      Boolean(resumeFile) || Boolean(photoFile) || Object.keys(pendingDocFiles).length > 0;
+    if (f?.dirty || pendingUploads) {
+      const ok = await confirmDialog({
+        title: "Discard unsaved changes?",
+        text: "Changes on this candidate will be lost.",
+        confirmText: "Discard",
+        cancelText: "Keep editing",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    goBack();
   };
 
   const uploadPending = async (id: string, values: CandidateFormValues) => {
@@ -200,7 +231,10 @@ export default function CandidateWizardHost() {
   const saveMut = useMutation({
     mutationFn: async ({ values, stay }: { values: CandidateFormValues; stay: boolean }) => {
       if (!candidateIdentityOk(values)) {
-        throw new Error("First name and an email or phone are required");
+        throw new Error("First name is required");
+      }
+      if (!candidateHasContact(values)) {
+        throw new Error("Add an email or a phone number so we can save this candidate");
       }
       if (roleRequired && !values.requisitionId) {
         throw new Error("Choose the role they are applying for");
@@ -271,7 +305,18 @@ export default function CandidateWizardHost() {
     const f = formikRef.current;
     if (!f) return;
     if (!candidateIdentityOk(f.values)) {
-      toast({ icon: "warning", title: "Enter a first name and an email or phone first" });
+      toast({ icon: "warning", title: "Enter a first name first" });
+      return;
+    }
+    if (!candidateHasContact(f.values)) {
+      f.setFieldTouched("personalEmailId", true, false);
+      f.setFieldTouched("personalPhoneNumber", true, false);
+      void f.validateForm();
+      toast({
+        icon: "warning",
+        title: "Add an email or phone to save",
+        text: "First name is enough to continue the form — saving needs a way to reach them.",
+      });
       return;
     }
     setIsSubmitting(true);
@@ -282,6 +327,8 @@ export default function CandidateWizardHost() {
     }
   };
 
+  const validationSchema = useMemo(() => buildCandidateSchema(roleRequired), [roleRequired]);
+
   const groups = useMemo(
     () =>
       buildCandidateWizardGroups({
@@ -291,8 +338,9 @@ export default function CandidateWizardHost() {
         onResumeFile: setResumeFile,
         existingResumeName: applicant?.resumeFileName,
         disabled: isSubmitting,
+        isEdit: Boolean(applicantId || routeApplicantId),
       }),
-    [roleRequired, companyId, resumeFile, applicant?.resumeFileName, isSubmitting],
+    [roleRequired, companyId, resumeFile, applicant?.resumeFileName, isSubmitting, applicantId, routeApplicantId],
   );
 
   const sectionProps: OnboardingSectionsProps = {
@@ -301,6 +349,20 @@ export default function CandidateWizardHost() {
     setFile: setFile as never,
     removeFile,
     profilePhotoPreview: profilePhotoPreview || applicant?.photoS3Url || undefined,
+    // Pre-hire: identity is the only hard gate; family/address asterisks are noise.
+    softRequired: true,
+  };
+
+  const summaryRows = (v: CandidateFormValues) => {
+    const rows: Array<{ label: string; value: ReactNode; isStrong?: boolean }> = [];
+    const name = `${v.firstName || ""} ${v.lastName || ""}`.trim();
+    if (name) rows.push({ label: "Name", value: name, isStrong: true });
+    if (v.personalEmailId) rows.push({ label: "Email", value: v.personalEmailId });
+    if (v.personalPhoneNumber) rows.push({ label: "Phone", value: v.personalPhoneNumber });
+    if (v.requisitionId) rows.push({ label: "Role", value: "Selected" });
+    if (v.currentCtc != null) rows.push({ label: "Current CTC", value: String(v.currentCtc) });
+    if (v.expectedCtc != null) rows.push({ label: "Expected CTC", value: String(v.expectedCtc) });
+    return rows;
   };
 
   if (routeApplicantId && loadingApplicant) {
@@ -312,10 +374,15 @@ export default function CandidateWizardHost() {
   }
 
   return (
-    <Box sx={{ height: "100vh", display: "flex", flexDirection: "column", bgcolor: "background.default" }}>
+    <FullscreenWizardModal
+      show={show}
+      onClose={handleCancel}
+      closeLabel="Close candidate wizard"
+      className="onboarding-wizard-modal"
+    >
       <Formik
         initialValues={initialValues}
-        validationSchema={candidateMinimalSchema}
+        validationSchema={validationSchema}
         onSubmit={() => handleFinalSave()}
         enableReinitialize
       >
@@ -328,21 +395,39 @@ export default function CandidateWizardHost() {
                 sectionProps={{ ...sectionProps, formikProps }}
                 headerTitle={isEdit || applicantId ? "Edit Candidate" : "Add Candidate"}
                 headerSub={
-                  <WtButton ghost type="button" onClick={handleEarlySave} disabled={isSubmitting}>
-                    {isSubmitting ? "Saving…" : "Save draft"}
-                  </WtButton>
+                  isEdit || applicantId ? (
+                    <>
+                      {formikProps.values.personalEmailId && (
+                        <span className="wizard-meta-chip">
+                          <AppIcon name="bi-envelope" /> {formikProps.values.personalEmailId}
+                        </span>
+                      )}
+                      {formikProps.values.personalPhoneNumber && (
+                        <span className="wizard-meta-chip">
+                          <AppIcon name="bi-telephone" /> {formikProps.values.personalPhoneNumber}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    "Capture identity, hiring facts and documents — optional until offer"
+                  )
                 }
                 defaultValues={emptyCandidateFormValues()}
                 isSubmitting={isSubmitting}
                 isEditMode={Boolean(applicantId)}
-                onCancel={goBack}
+                onCancel={handleCancel}
                 onFinalSave={handleFinalSave}
+                onDirectSave={handleEarlySave}
+                directSaveLabel="Save draft"
                 submitText={isEdit || applicantId ? "Done" : "Add Candidate"}
+                summaryTitle="Candidate Summary"
+                summaryRows={(v) => summaryRows(v as CandidateFormValues)}
+                initialLeafId={roleRequired ? "application-strip" : undefined}
               />
             </Form>
           );
         }}
       </Formik>
-    </Box>
+    </FullscreenWizardModal>
   );
 }
