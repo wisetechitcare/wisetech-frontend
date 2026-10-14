@@ -14,6 +14,7 @@ import {
     getScorecardTemplates, createScorecardTemplate, updateScorecardTemplate, deleteScorecardTemplate,
     type ScorecardTemplate, type ScorecardTemplatePayload,
 } from "@services/recruitment";
+import { SEARCHABLE_FROM } from "@utils/requisitions";
 
 /**
  * One editable criterion. `key` is local only — the API assigns real ids on save.
@@ -34,9 +35,6 @@ const toDrafts = (t: ScorecardTemplate | null): FactorDraft[] =>
     t?.factors?.length
         ? t.factors.map((f) => ({ key: f.id, label: f.label, weight: String(f.weight ?? 1) }))
         : [newFactor()];
-
-/** Past this many options a plain menu becomes a scroll hunt. */
-const SEARCHABLE_FROM = 8;
 
 /**
  * Scorecard templates — the interview rubric.

@@ -99,8 +99,9 @@ const dayWord = (n: number): string => {
  * Written for a reader who does not think in averages — "usually takes 3 days" rather than
  * "3d avg", and the small-sample caveat spelled out instead of a sample count.
  */
-const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays }: {
+const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays, oldestOpenBand }: {
     name: string; color?: string | null; avgDays: number | null; samples: number; openCount: number; oldestOpenDays: number | null;
+    oldestOpenBand: 'fresh' | 'ageing' | 'stalled' | null;
 }) => (
     <Stack direction="row" alignItems="center" spacing={1.25} flexWrap="wrap" useFlexGap sx={{ py: 0.5 }}>
         <Box sx={{ width: 8, height: 8, borderRadius: 999, bgcolor: color || FALLBACK_BAR, flexShrink: 0 }} />
@@ -121,10 +122,15 @@ const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays }: 
             >
                 {/* The longest wait is the number worth acting on: a step that usually takes
                     2 days with someone sitting 40 days is one person being forgotten, and no
-                    average will ever show that. */}
+                    average will ever show that.
+
+                    The TONE is the server's band, computed from this tenant's own ageing
+                    thresholds. It used to be `days >= 14` here — the default `redDays` — so a
+                    customer who moved the threshold was shown somebody else's policy, and the
+                    same wait could be amber on a candidate card and red here. */}
                 <ToneChip
                     dense
-                    tone={(oldestOpenDays ?? 0) >= 14 ? "danger" : "neutral"}
+                    tone={oldestOpenBand === "stalled" ? "danger" : oldestOpenBand === "ageing" ? "warning" : "neutral"}
                     label={`${openCount} waiting · longest ${dayWord(oldestOpenDays ?? 0)}`}
                 />
             </WtTooltip>
@@ -303,6 +309,7 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                                 avgDays={d.avgDays}
                                 samples={d.samples}
                                 openCount={d.openCount}
+                                oldestOpenBand={d.oldestOpenBand}
                                 oldestOpenDays={d.oldestOpenDays}
                             />
                         ))}
@@ -315,11 +322,11 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                     <CardTitle
                         tone={TRIO.purple}
                         icon="entity"
-                        title="Where Candidates Come From"
-                        hint="The bar shows how many applied. The line underneath shows how many were actually hired — that is the number worth spending on."
+                        title="Where Applications Come From"
+                        hint="The bar counts applications from each source; the line underneath is how many of them were hired — that is the number worth spending on. Applications, not people, so the bar and the list behind it agree."
                     />
                     {candidatesBySource.length === 0 ? (
-                        <EmptyHint text="No applicants yet." />
+                        <EmptyHint text="No applications yet." />
                     ) : (
                         <Stack spacing={1}>
                             {candidatesBySource.map((s) => (
@@ -380,6 +387,10 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                     title={drillDown.title}
                     statusId={drillDown.statusId}
                     sourceId={drillDown.sourceId}
+                    // The period these figures were counted in, so the list behind a bar contains
+                    // the people that bar counted. Audit H8.
+                    from={period.from}
+                    to={period.to}
                     companyId={companyId}
                 />
             )}

@@ -14,6 +14,7 @@ import {
     getPostings, createPosting, updatePosting, deletePosting, getRequisitions,
     type JobPosting, type PostingPayload, type JobRequisition, type OrgScoped,
 } from "@services/recruitment";
+import { isRoleOpenForCandidates, SEARCHABLE_FROM } from "@utils/requisitions";
 
 /**
  * Job adverts — the public face of an approved role.
@@ -28,9 +29,6 @@ const emptyForm = (): PostingPayload => ({
     requisitionId: "", title: "", location: "", isRemote: false, employmentType: "Full-time",
     descriptionHtml: "", isPublished: false, showSalary: false, expiresAt: null,
 });
-
-/** Past this many options a plain menu becomes a scroll hunt. */
-const SEARCHABLE_FROM = 8;
 
 /** Compact, muted meta chip — packs identity/metrics into the card without stretched gaps. */
 const MetaPill = ({ text }: { text: string }) => (
@@ -62,7 +60,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
     // Approved AND still open: an archived role is not hiring, and the server takes its adverts
     // down — offering it here would only produce a posting nobody can see.
     const approved = useMemo(
-        () => requisitions.filter((r: JobRequisition) => r.status === 1 && r.isActive !== false),
+        () => requisitions.filter(isRoleOpenForCandidates),
         [requisitions],
     );
 
@@ -89,7 +87,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                 const { requisitionId: _role, ...rest } = form;
                 return updatePosting(editing.id, rest);
             }
-            return createPosting(form);
+            return createPosting(form, companyId);
         },
         onSuccess: () => {
             toast({ icon: "success", title: editing ? `"${form.title || editing.title}" updated` : "Advert created" });

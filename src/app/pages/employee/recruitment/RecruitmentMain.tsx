@@ -8,6 +8,9 @@ import { useState } from "react";
 import { Box, Menu, MenuItem, useMediaQuery, useTheme } from "@mui/material";
 import { WtField } from "@app/modules/common/components/ui";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
+import { useApprovalRealtime } from "@/hooks/useApprovalRealtime";
 import { useOrgScope, ALL_ORGS, toCompanyIdParam } from "@/hooks/useOrgScope";
 import RecruitmentOverview from "./RecruitmentOverview";
 import RequisitionsView from "./RequisitionsView";
@@ -44,6 +47,22 @@ const RecruitmentMain = () => {
   });
   // Undefined when "All" is selected, which the API reads as the whole family.
   const companyId = toCompanyIdParam(scopeId);
+
+  /**
+   * A requisition approved elsewhere shows up here without a refresh.
+   *
+   * Requisitions go through the approval engine, and the person who APPROVES one is almost
+   * never the person looking at this board — so every recruitment screen showed a role as
+   * still pending until somebody reloaded, and "Open Roles" on the Overview disagreed with
+   * the Requisitions tab in front of two people at once.
+   *
+   * Mounted at the SHELL rather than per tab: the key invalidated is the module root, so one
+   * subscription refreshes whichever tab happens to be open and every cached one behind it.
+   * React Query refetches only what is actually being observed, so the cost of the wide key
+   * is the tab you are looking at, not all seven.
+   */
+  const qc = useQueryClient();
+  useApprovalRealtime(() => qc.invalidateQueries({ queryKey: queryKeys.recruitment.all }));
 
   /**
    * The organization filter, in the tab bar itself.

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import dayjs from "dayjs";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { KTIcon, PAGE_SIZE_OPTIONS } from "@metronic/helpers";
@@ -33,7 +34,8 @@ import EmployeeCard from "./components/EmployeeCard";
 import { useStoredState } from "@app/hooks/useStoredState";
 
 type StatusType = "all" | "active" | "inactive";
-type ViewMode = "table" | "cards";
+const VIEW_MODES = ["table", "cards"] as const;
+type ViewMode = (typeof VIEW_MODES)[number];
 
 /** Remembered across visits: a view preference that resets on every navigation is
  *  one the user has to keep re-picking. Guarded because storage THROWS, not just
@@ -41,13 +43,10 @@ type ViewMode = "table" | "cards";
  *  vault's. */
 const VIEW_MODE_KEY = "employeeListView";
 
-const readStoredViewMode = (): ViewMode => {
-  try {
-    return localStorage.getItem(VIEW_MODE_KEY) === "cards" ? "cards" : "table";
-  } catch {
-    return "table";
-  }
-};
+// The reader and writer that used to live here are `useRememberedChoice` — the same pair existed
+// in the document vault and was about to be written a third time for the recruitment pipeline. The
+// hook also validates the stored value, which this did not: a key left by an older build put the
+// view into a mode that no longer rendered, with no way back through the UI.
 
 /** Cycles Active → Inactive → All, carrying that tab's count. Same control and the
  *  same three hues as the documents directory. */
@@ -142,7 +141,7 @@ const EmployeeListContent = () => {
   // Which employee's ID card is on screen. Held as {id, name} rather than a boolean
   // so the dialog can title itself before its own fetch resolves.
   const [idCardTarget, setIdCardTarget] = useState<{ id: string; name: string } | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>(readStoredViewMode);
+  const [viewMode, setViewMode] = useRememberedChoice<ViewMode>(VIEW_MODE_KEY, VIEW_MODES, "table");
   // Card mode has no table, so it carries its own search box. Debounced before it
   // reaches `search`, exactly as MaterialTable debounces its own — otherwise every
   // keystroke would be a request.
@@ -566,13 +565,6 @@ const EmployeeListContent = () => {
     sessionStorage.setItem("employeeListPage", String(pagination.pageIndex));
   }, [pagination.pageIndex]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(VIEW_MODE_KEY, viewMode);
-    } catch {
-      // Storage blocked — the choice just does not survive the visit.
-    }
-  }, [viewMode]);
 
   /**
    * Remount key for the card grid, so the slide-up entrance REPLAYS on every fresh

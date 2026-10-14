@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-    Box, Checkbox, FormControlLabel, MenuItem, Stack, TextField, Typography,
+    Box, MenuItem, Stack, TextField, Typography,
 } from "@mui/material";
-import { GlassDialog, GlassHeader, WtButton, WtDateField } from "@app/modules/common/components/ui";
+import { GlassDialog, GlassHeader, WtButton, WtCheckboxField, WtDateField } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { getBillingTaxRates } from "@services/billingConfig";
 import { sectionLabel } from "@pages/billing/configure/TaxRateSections";
@@ -169,13 +169,11 @@ export const RaiseBillDialog: React.FC<{
                         </Box>
                     </Box>
 
-                    <FormControlLabel
-                        control={<Checkbox checked={asDraft} onChange={(e) => setAsDraft(e.target.checked)} />}
-                        label={
-                            <Typography sx={{ fontSize: 13 }}>
-                                Save as draft — do not send the proforma yet
-                            </Typography>
-                        }
+                    <WtCheckboxField
+                        size="sm"
+                        checked={asDraft}
+                        onChange={(e) => setAsDraft(e.target.checked)}
+                        label="Save as draft — do not send the proforma yet"
                     />
                 </Stack>
 

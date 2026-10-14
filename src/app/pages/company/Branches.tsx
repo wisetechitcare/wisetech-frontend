@@ -899,6 +899,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
             (Country/State/Town/Org) receive focus & clicks inside the dialog. */}
         <GlassDialog
           open={show} onClose={handleClose} maxWidth="md" fullWidth
+          preset="form"
           disableEnforceFocus disableRestoreFocus
           // Fifth and last copy of that gradient header in this feature. Same
           // gradient, same accent rule, its own icon tile and close button.
@@ -911,7 +912,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
             />
           }
         >
-          <Box sx={{ bgcolor: 'background.default', p: 2, maxHeight: '74vh', overflowY: 'auto' }}>
+          <Box sx={{ bgcolor: 'background.default', p: 2 }}>
           <Formik
             initialValues={initialState}
             onSubmit={handleSubmit}

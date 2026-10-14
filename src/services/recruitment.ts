@@ -118,8 +118,17 @@ export const getRequisitionById = async (id: string): Promise<JobRequisition | n
     return data?.requisition ?? null;
 };
 
-export const createRequisition = async (payload: RequisitionPayload) => {
-    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_REQUISITION}`, payload);
+/**
+ * Creates take the SELECTED organization, the same `?companyId=` the reads narrow by.
+ *
+ * Reads have always honoured the shell's organization filter; creates stamped the caller's own
+ * company regardless, so raising a role while filtered to a sub-org put it somewhere else and the
+ * list you were looking at did not contain the thing you had just made. The server validates the
+ * value against the caller's family and refuses anything outside it, and falls back to the
+ * caller's own company when none is sent — so omitting it is exactly today's behaviour. Audit M15.
+ */
+export const createRequisition = async (payload: RequisitionPayload, companyId?: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_REQUISITION}${listQuery({ companyId })}`, payload);
     return data;
 };
 
@@ -181,7 +190,13 @@ export interface Applicant {
     /** Full annual amounts. */
     currentCtc?: number | string | null;
     expectedCtc?: number | string | null; noticePeriodDays?: number | null; resumeS3Url?: string | null;
-    resumeFileName?: string | null; linkedInUrl?: string | null; sourceId?: string | null; source?: ApplicantSource | null;
+    resumeFileName?: string | null;
+    photoS3Url?: string | null; photoFileName?: string | null;
+    linkedInUrl?: string | null; sourceId?: string | null; referredById?: string | null;
+    source?: ApplicantSource | null;
+    /** Candidate wizard nested profile (API alias for preHireProfileJson). */
+    preHireProfile?: Record<string, unknown> | null;
+    preHireProfileJson?: Record<string, unknown> | null;
     isBlacklisted: boolean; isActive: boolean; createdAt: string;
     /** Optimistic-concurrency counter: sent back as expectedRevisionCount so a stale edit is refused, not silently applied. */
     revisionCount?: number;
@@ -263,6 +278,10 @@ export interface ApplicantPayload {
     expectedCtc?: number | null;
     noticePeriodDays?: number | null;
     sourceId?: string | null;
+    referredById?: string | null;
+    linkedInUrl?: string | null;
+    /** Nested candidate-wizard profile — schemaVersion 1. */
+    preHireProfile?: Record<string, unknown> | null;
 }
 export interface ApplicationCreatePayload {
     applicantId?: string | null;
@@ -276,14 +295,39 @@ export interface StageMovePayload {
     statusId: string; note?: string | null; rejectionReasonId?: string | null; rejectionNote?: string | null; expectedRevisionCount?: number;
 }
 
-// ─── Applications ────────────────────────────────────────────────────────────
-export const getApplications = async (filters: { requisitionId?: string; statusId?: string; sourceId?: string; search?: string; applicantId?: string } = {}, companyId?: string): Promise<Application[]> => {
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${listQuery({ ...filters, companyId })}`);
-    return data?.applications ?? [];
+/**
+ * A list the server pages, with the two facts it already sends about the page.
+ *
+ * `hasMore` is the server's OWN answer — it over-fetches a single row to know, so this costs no
+ * extra query — and `nextCursor` is where a following page would start.
+ *
+ * Returned instead of a bare array because every list service here threw both away. The page is
+ * 200 rows, so a tenant past that saw a list that simply STOPPED, with an Overview KPI counting the
+ * true total sitting on the same screen disagreeing with it and nothing to say which was wrong.
+ * Audit H3.
+ */
+export interface PagedList<T> {
+    items: T[];
+    hasMore: boolean;
+    nextCursor: string | null;
+}
+
+/** Read the envelope the recruitment list endpoints send. One reader, so no caller re-derives it. */
+const pagedList = <T,>(rows: T[] | undefined | null, body: unknown): PagedList<T> => {
+    const data = body as { hasMore?: boolean; nextCursor?: string | null } | undefined;
+    return { items: rows ?? [], hasMore: Boolean(data?.hasMore), nextCursor: data?.nextCursor ?? null };
 };
 
-export const createApplication = async (payload: ApplicationCreatePayload) => {
-    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_APPLICATION}`, payload);
+// ─── Applications ────────────────────────────────────────────────────────────
+// `from`/`to` window the list on the date the person applied — the same window the overview
+// counts by, so a drill-down lists the people its bar counted. Audit H8.
+export const getApplications = async (filters: { requisitionId?: string; statusId?: string; sourceId?: string; search?: string; applicantId?: string; from?: string; to?: string } = {}, companyId?: string): Promise<PagedList<Application>> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${listQuery({ ...filters, companyId })}`);
+    return pagedList<Application>(data?.applications, data);
+};
+
+export const createApplication = async (payload: ApplicationCreatePayload, companyId?: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_APPLICATION}${listQuery({ companyId })}`, payload);
     return data;
 };
 
@@ -408,13 +452,13 @@ export const uploadApplicantResume = async (applicantId: string, file: File): Pr
     return data?.applicant;
 };
 
-export const getApplicants = async (search?: string, companyId?: string): Promise<Applicant[]> => {
+export const getApplicants = async (search?: string, companyId?: string): Promise<PagedList<Applicant>> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICANTS}${listQuery({ search, companyId })}`);
-    return data?.applicants ?? [];
+    return pagedList<Applicant>(data?.applicants, data);
 };
 
-export const createApplicant = async (payload: ApplicantPayload) => {
-    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_APPLICANT}`, payload);
+export const createApplicant = async (payload: ApplicantPayload, companyId?: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_APPLICANT}${listQuery({ companyId })}`, payload);
     return data;
 };
 
@@ -428,6 +472,35 @@ export const getApplicantById = async (id: string): Promise<Applicant | null> =>
 export const updateApplicant = async (id: string, payload: Partial<ApplicantPayload> & { isBlacklisted?: boolean; isActive?: boolean; expectedRevisionCount?: number }) => {
     const { data } = await axios.put(`${API_BASE_URL}/${RECRUITMENT.UPDATE_APPLICANT.replace(":id", id)}`, payload);
     return data;
+};
+
+/** Candidate wizard photo — authenticated recruiters only. */
+export const uploadApplicantPhoto = async (id: string, file: File) => {
+    const form = new FormData();
+    form.append("photo", file);
+    const { data } = await axios.post(
+        `${API_BASE_URL}/${RECRUITMENT.UPLOAD_APPLICANT_PHOTO.replace(":id", id)}`,
+        form,
+    );
+    return data?.applicant;
+};
+
+/** Identity/statutory doc (Aadhaar, PAN, …) — authenticated recruiters only. */
+export const uploadApplicantDocument = async (
+    id: string,
+    file: File,
+    documentId: string,
+    identityNumber?: string | null,
+) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("documentId", documentId);
+    if (identityNumber) form.append("identityNumber", identityNumber);
+    const { data } = await axios.post(
+        `${API_BASE_URL}/${RECRUITMENT.UPLOAD_APPLICANT_DOCUMENT.replace(":id", id)}`,
+        form,
+    );
+    return data?.applicant;
 };
 
 // ─── Pipeline config masters ─────────────────────────────────────────────────
@@ -836,8 +909,8 @@ export const getPostings = async (companyId?: string): Promise<JobPosting[]> => 
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_POSTINGS}${listQuery({ companyId })}`);
     return data?.postings ?? [];
 };
-export const createPosting = async (payload: PostingPayload) => {
-    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_POSTING}`, payload);
+export const createPosting = async (payload: PostingPayload, companyId?: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_POSTING}${listQuery({ companyId })}`, payload);
     return data;
 };
 export const updatePosting = async (id: string, payload: PostingPayload) => {
@@ -868,6 +941,13 @@ export interface RecruitmentOverview {
     stageDurations: Array<{
         statusId: string; name: string; color?: string | null; sortOrder: number;
         avgDays: number | null; samples: number; openCount: number; oldestOpenDays: number | null;
+        /**
+         * The server's verdict on that longest wait, using the TENANT's configured thresholds.
+         * Render this rather than comparing days to a number here: the screen used to redden past
+         * a hardcoded 14, which is the default `redDays`, so a customer who moved the threshold
+         * saw somebody else's policy. The candidate cards already read the same rule.
+         */
+        oldestOpenBand: 'fresh' | 'ageing' | 'stalled' | null;
     }>;
     timeToHire: { count: number; avgDays: number | null; medianDays: number | null; p90Days: number | null };
     requisitionsByStatus: { pending: number; approved: number; rejected: number };

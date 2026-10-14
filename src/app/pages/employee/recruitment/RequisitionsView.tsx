@@ -116,7 +116,9 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
         staleTime: 5 * 60_000,
     });
     // The branch decides the currency of the salary band, so the band's fields follow it.
-    const { byId: branchById, defaultBranchId, isLoading: branchesLoading } = useRecruitmentBranches();
+    // Scoped to the selected organization, so the default and the offered list agree with the
+    // list the user is looking at. Audit M15.
+    const { byId: branchById, defaultBranchId, isLoading: branchesLoading } = useRecruitmentBranches({ companyId, keepId: editing?.branchId ?? null });
     const { isPairAllowed } = useDepartmentDesignations();
 
     const [form, setForm] = useState<RequisitionPayload>(emptyForm());
@@ -148,7 +150,9 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
     const close = () => { setOpen(false); setEditing(null); setForm(emptyForm()); setHeadcountText("1"); };
 
     const createMut = useMutation({
-        mutationFn: (payload: RequisitionPayload) => createRequisition(payload),
+        // The selected organization, so a role raised while filtered to a sub-org lands there
+        // rather than on the raiser's own company. Audit M15.
+        mutationFn: (payload: RequisitionPayload) => createRequisition(payload, companyId),
         onSuccess: () => { toast({ icon: "success", title: "Requisition created" }); close(); invalidate(); },
         onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not create the requisition") }),
     });
@@ -401,6 +405,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             {/* Branch first: it decides the currency the band beside it is typed in. */}
                             <RecruitmentBranchField
+                                companyId={companyId}
                                 required sx={{ flex: 1 }}
                                 value={form.branchId}
                                 onChange={(v) => setForm({ ...form, branchId: v })}

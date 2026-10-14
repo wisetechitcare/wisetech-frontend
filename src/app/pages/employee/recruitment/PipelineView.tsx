@@ -2,14 +2,15 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Box, Stack, Typography, ToggleButton, ToggleButtonGroup, CircularProgress, DialogContent, DialogActions,
+    Box, Stack, Typography, CircularProgress, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, AppIcon, WtEmptyState } from "@app/modules/common/components/ui";
+import { ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, WtEmptyState, ViewModeSwitch } from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
 import { COPY } from "./terms";
 import { queryKeys } from "@/lib/queryKeys";
+import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import {
     getApplications, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
     stashConversion,
@@ -18,8 +19,8 @@ import {
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
 import CandidateDrawer from "./CandidateDrawer";
-import { AddCandidateDialog } from "./AddCandidateDialog";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { InlineNotice } from "@app/modules/common/components/ui";
 import { applicationColumns, applicantName, ScoreChip, WaitingChip } from "./applicationColumns";
 
 interface PendingMove {
@@ -31,8 +32,17 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const navigate = useNavigate();
-    const [mode, setMode] = useState<"board" | "list">("board");
-    const [adding, setAdding] = useState(false);
+    /**
+     * Board or list, REMEMBERED. It reset to Board on every navigation, so a recruiter who works
+     * in the list re-chose it all day. Audit M20.
+     */
+    const [mode, setMode] = useRememberedChoice<"board" | "list">(
+        "recruitment:pipeline-view", ["board", "list"], "board",
+    );
+
+    const startAdd = () => {
+        navigate("/recruitment/candidates/new?roleRequired=1");
+    };
     const [pending, setPending] = useState<PendingMove | null>(null);
     const [rejectReasonId, setRejectReasonId] = useState("");
     const [rejectNote, setRejectNote] = useState("");
@@ -43,7 +53,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const [interviewsFor, setInterviewsFor] = useState<Application | null>(null);
     const [offerFor, setOfferFor] = useState<Application | null>(null);
 
-    const { data: applications = [], isLoading, isError, error, refetch } = useQuery({ queryKey: queryKeys.recruitment.applications({ companyId }), queryFn: () => getApplications({}, companyId) });
+    const { data: applicationPage, isLoading, isError, error, refetch } = useQuery({ queryKey: queryKeys.recruitment.applications({ companyId }), queryFn: () => getApplications({}, companyId) });
+    // `items` and the server's own `hasMore`: the page is 200 rows, and a board silently missing
+    // the 201st card is a card nobody works. Surfaced below rather than dropped. Audit H3.
+    const applications = applicationPage?.items ?? [];
+    const applicationsTruncated = applicationPage?.hasMore ?? false;
     const { data: statuses = [], isLoading: statusesLoading, isError: statusesError } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
     const { data: reasons = [] } = useQuery({ queryKey: queryKeys.recruitment.rejectionReasons(), queryFn: getRejectionReasons });
 
@@ -171,15 +185,20 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 subtitle="Track candidates across stages. Drag cards between columns, or open a candidate to change their stage."
                 actions={
                     <>
-                        <ToggleButtonGroup
-                            size="small" exclusive value={mode} onChange={(_e, v) => v && setMode(v)}
-                            sx={{ "& .MuiToggleButton-root": { textTransform: "none", px: 1.25 } }}
-                        >
-                            <ToggleButton value="board"><AppIcon name="bi-kanban" />&nbsp;Board</ToggleButton>
-                            <ToggleButton value="list"><AppIcon name="bi-list-ul" />&nbsp;List</ToggleButton>
-                        </ToggleButtonGroup>
+                        {/* The kit's view toggle, which the document vault, the employee list and
+                            the task stage board all use — this screen had a raw ToggleButtonGroup
+                            with its own text-transform override. Audit M20. */}
+                        <ViewModeSwitch
+                            ariaLabel="Pipeline view"
+                            value={mode}
+                            onChange={setMode}
+                            options={[
+                                { value: "board", label: "Board", icon: "bi-kanban" },
+                                { value: "list", label: "List", icon: "bi-list-ul" },
+                            ]}
+                        />
                         {canWrite && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
+                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
                                 Add Candidate
                             </WtButton>
                         )}
@@ -202,7 +221,18 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     actionLabel="Retry"
                     onAction={() => refetch()}
                 />
-            ) : mode === "board" ? (
+            ) : (
+                <>
+                {applicationsTruncated && (
+                    <Box sx={{ mb: 1.5 }}>
+                        <InlineNotice icon="information-5">
+                            Showing the first {applications.length}. There are more candidates in the
+                            pipeline than fit one page, so the columns below are not the whole board —
+                            filter by role to see a complete picture.
+                        </InlineNotice>
+                    </Box>
+                )}
+                {mode === "board" ? (
                 <Box sx={{ display: "flex", gap: 1.5, overflowX: "auto", pb: 1 }}>
                     {/* Candidates whose stage is missing or was removed are listed first rather than
                         silently left off the board — otherwise the column counts never add up to the list. */}
@@ -274,10 +304,10 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                         }),
                     }}
                 />
+                )}
+                </>
             )}
 
-            {/* The shared Add candidate window. From the pipeline a role is required: a card with no role has no column. */}
-            <AddCandidateDialog open={adding} onClose={() => setAdding(false)} roleRequired companyId={companyId} />
             {/* Rejection reason capture on move to a terminal/requires-reason stage */}
             <GlassDialog
                 open={!!pending}

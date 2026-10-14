@@ -57,7 +57,12 @@ export function BottomNavProvider({ children, enabled = true }: Props) {
       try {
         const res: any = await fetchPendingApprovals()
         const records = res?.data ?? res ?? []
-        const count = Array.isArray(records) ? records.length : 0
+        // When the server capped its scan, the list length is the CAP, not the queue. Reading
+        // meta keeps the badge honest instead of quietly plateauing at the ceiling.
+        const meta = res?.meta as { truncated?: boolean; pendingSteps?: number | null } | undefined
+        const count = meta?.truncated && meta.pendingSteps
+            ? meta.pendingSteps
+            : Array.isArray(records) ? records.length : 0
         if (mounted.current) {
           setBadges((prev) => ({ ...prev, [BADGE_KEYS.approvals]: count }))
         }
