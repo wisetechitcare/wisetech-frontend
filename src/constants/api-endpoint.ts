@@ -11,6 +11,25 @@ export const AUTH = {
 
 // Recruitment / ATS module. Keep in sync with the backend copy
 // (wisetech-backend/src/constants/api-endpoint.ts RECRUITMENT).
+export const GIFTS = {
+    GET_OVERVIEW: "api/gifts/overview",
+    GET_CONFIG: "api/gifts/config",
+    CONFIG_KIND: "api/gifts/config/:kind",
+    CONFIG_KIND_BY_SLUG: "api/gifts/config/:kind/:slug",
+    GROUPS: "api/gifts/groups",
+    GROUP_BY_ID: "api/gifts/groups/:id",
+    CLONE_GROUP: "api/gifts/groups/:id/clone",
+    ARCHIVE_GROUP: "api/gifts/groups/:id/archive",
+    UNARCHIVE_GROUP: "api/gifts/groups/:id/unarchive",
+    DRIVES: "api/gifts/drives",
+    DRIVE_BY_ID: "api/gifts/drives/:id",
+    APPLY_DEFAULTS: "api/gifts/drives/:id/apply-defaults",
+    RECIPIENT_BY_ID: "api/gifts/drives/:id/recipients/:recipientId",
+    BULK_RECIPIENTS: "api/gifts/drives/:id/recipients/bulk",
+    ADD_RECIPIENTS: "api/gifts/drives/:id/recipients",
+    REMOVE_RECIPIENTS: "api/gifts/drives/:id/recipients/remove",
+};
+
 export const RECRUITMENT = {
     // Requisitions (Phase 1)
     GET_OVERVIEW: "api/recruitment/overview",

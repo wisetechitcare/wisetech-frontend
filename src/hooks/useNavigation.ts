@@ -351,6 +351,15 @@ export function useNavigation() {
         fontIcon: 'bi-person-lines-fill',
         visible: isPackEnabled('psa') && !isSectionBlocked('crm.contacts'),
       },
+      {
+        type: 'item',
+        id: 'crm-gift-management',
+        to: '/gift-management',
+        title: 'Gift Managements',
+        fontIcon: 'bi-gift',
+        // Prototype: visible with Contacts until a dedicated crm.courtesyDesk permission exists.
+        visible: !isSectionBlocked('crm.contacts'),
+      },
 
       // ── Project Department ────────────────────────────────────────────────
       // Organization USED to sit under this header (it preceded the next section
