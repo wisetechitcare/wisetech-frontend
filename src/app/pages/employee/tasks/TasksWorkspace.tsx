@@ -408,7 +408,9 @@ export const TasksWorkspace = () => {
      */
     const selectScope = (id: string) => {
         if (id === scopeSel && projects.some((p) => p.id === id)) {
-            navigate(`/leads/${id}?tab=projects`, { state: { leadData: id, isProject: true } });
+            // The PROJECT view (/project/:id), not the lead view: the path is what decides which
+            // one the detail page shows, and /leads/… hides every project tab.
+            navigate(`/project/${id}/projects`);
             return;
         }
         setScopeSel(id); setPage(0);

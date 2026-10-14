@@ -4,6 +4,10 @@ if (typeof globalThis.Buffer === 'undefined') {
   globalThis.Buffer = Buffer
 }
 
+// Calendars / dayjs weeks start Monday everywhere (before any picker mounts).
+import { configureWeekStart } from '@utils/configureWeekStart'
+configureWeekStart()
+
 import { createRoot } from 'react-dom/client'
 // Axios
 import axios from 'axios'

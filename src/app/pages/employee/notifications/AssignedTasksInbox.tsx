@@ -163,7 +163,7 @@ const AssignedTasksInbox = () => {
                                             {task.taskName}
                                         </Typography>
                                         <Typography variant="caption" sx={{ color: 'text.disabled', flexShrink: 0 }}>
-                                            {shortTaskId(task.id)}
+                                            {shortTaskId(task)}
                                         </Typography>
                                     </Stack>
 

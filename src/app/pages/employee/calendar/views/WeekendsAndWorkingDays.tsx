@@ -11,7 +11,6 @@ import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { useFormik } from 'formik';
 import { MRT_ColumnDef } from 'material-react-table';
 import React, { useEffect, useMemo, useState } from 'react'
-import { Modal } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import * as Yup from 'yup';
 import {
@@ -23,6 +22,21 @@ import {
   KEYFRAMES,
 } from '@app/modules/configuration';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Typography } from '@mui/material';
+import {
+  ConfigureFormDialog,
+  WtSwitchField,
+} from '@app/modules/common/components/ui';
+
+const WEEKEND_DAYS = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+] as const;
 
 interface weekends {
     id: string,
@@ -84,9 +98,6 @@ function WeekendsAndWorkingDays() {
         })
 
         setCurrWeekendId(row?.id)
-    }
-    const onClose = () => {
-        setShowWeekendDaysModal(false)
     }
     const getWeekendSentenceBasedOnWorkingDaysJson = (workingAndOffDays: any) => {
         if(!workingAndOffDays) return;
@@ -199,7 +210,7 @@ function WeekendsAndWorkingDays() {
                     console.error("error: ", error);
                 }
                 setLoading(false);
-                onClose();
+                closeWeekendModal();
             }
             catch {
                 errorConfirmation('Failed to create public holiday');
@@ -210,6 +221,21 @@ function WeekendsAndWorkingDays() {
         enableReinitialize: true,
         validateOnMount: true,
     });
+
+    const closeWeekendModal = () => {
+        setShowWeekendDaysModal(false);
+        setCurrWeekendId('');
+        setCurrWeekendValues({
+            monday: false,
+            tuesday: false,
+            wednesday: false,
+            thursday: false,
+            friday: false,
+            saturday: false,
+            sunday: false,
+        });
+        formik.resetForm();
+    };
 
     // Hard-reset the form to the OPENED branch's saved values every time a different branch is
     // edited. Without this, an unsaved checkbox change in one branch carried over into the next
@@ -258,137 +284,29 @@ function WeekendsAndWorkingDays() {
                 </div>
             </ConfigSectionCard>
 
-            <Modal show={showWeekendDaysModal} onHide={() => {
-                setShowWeekendDaysModal(false);
-                setCurrWeekendId('');
-                setCurrWeekendValues({
-                    monday: false,
-                    tuesday: false,
-                    wednesday: false,
-                    thursday: false,
-                    friday: false,
-                    saturday: false,
-                    sunday: false,
-                })
-                formik.resetForm();
-            }} centered backdropClassName="modal-backdrop-blur">
-                <Modal.Header closeButton style={{ borderBottom: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}>
-                    <Modal.Title style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '16px', color: C.textPrimary }}>
-                        Customize Weekend Days
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body style={{ padding: SP.lg }}>
-                        <form onSubmit={formik.handleSubmit} noValidate>
-                            <div style={{ marginBottom: SP.lg }}>
-                                <p style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '14px', color: C.textPrimary, marginBottom: SP.md }}>
-                                    Select Days Off (Weekend Days)
-                                </p>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: SP.md }}>
-                                    {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
-                                        <label key={day} style={{ display: 'flex', alignItems: 'center', gap: SP.sm, cursor: 'pointer' }}>
-                                            <input
-                                                type='checkbox'
-                                                id={day}
-                                                checked={(formik.values as any)[day]}
-                                                {...formik.getFieldProps(day)}
-                                                style={{
-                                                    width: '18px',
-                                                    height: '18px',
-                                                    cursor: 'pointer',
-                                                    accentColor: '#1E3A8A',
-                                                    borderRadius: '4px',
-                                                }}
-                                            />
-                                            <span style={{ fontFamily: FONT.body, fontSize: '13px', color: C.textPrimary, fontWeight: 500 }}>
-                                                {day.charAt(0).toUpperCase() + day.slice(1)}
-                                            </span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SP.md, paddingTop: SP.lg, borderTop: `1px solid ${C.border}` }}>
-                                <button
-                                    type='button'
-                                    onClick={() => {
-                                        setShowWeekendDaysModal(false);
-                                        setCurrWeekendId('');
-                                        formik.resetForm();
-                                    }}
-                                    style={{
-                                        backgroundColor: C.bgCard,
-                                        color: C.textSecondary,
-                                        border: `1px solid ${C.border}`,
-                                        borderRadius: RADIUS.md,
-                                        padding: '8px 16px',
-                                        fontFamily: FONT.body,
-                                        fontWeight: 500,
-                                        fontSize: '13px',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s ease',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = C.bgSection;
-                                        e.currentTarget.style.borderColor = C.borderDark;
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = C.bgCard;
-                                        e.currentTarget.style.borderColor = C.border;
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type='submit'
-                                    disabled={loading || !formik.isValid}
-                                    style={{
-                                        backgroundColor: loading || !formik.isValid ? '#1E3A8A80' : '#1E3A8A',
-                                        color: '#fff',
-                                        border: 'none',
-                                        borderRadius: RADIUS.md,
-                                        padding: '8px 16px',
-                                        fontFamily: FONT.body,
-                                        fontWeight: 600,
-                                        fontSize: '13px',
-                                        cursor: loading || !formik.isValid ? 'not-allowed' : 'pointer',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        transition: 'all 0.2s ease',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        if (!loading && formik.isValid) {
-                                            e.currentTarget.style.transform = 'translateY(-2px)';
-                                            e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-                                        }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.boxShadow = 'none';
-                                    }}
-                                >
-                                    {!loading && 'Save Changes'}
-                                    {loading && (
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                            <span style={{ width: '12px', height: '12px', borderRadius: '50%', border: `2px solid rgba(255,255,255,0.3)`, borderTopColor: '#fff', animation: 'spin 0.6s linear infinite' }} />
-                                            Saving...
-                                        </span>
-                                    )}
-                                </button>
-                            </div>
-                        </form>
-                    </Modal.Body>
-                </Modal>
-
-            <style>{`
-              @keyframes spin {
-                to { transform: rotate(360deg); }
-              }
-              .modal-backdrop-blur {
-                background-color: rgba(0, 0, 0, 0.2);
-                backdrop-filter: blur(2px);
-              }
-            `}</style>
+            <ConfigureFormDialog
+                open={showWeekendDaysModal}
+                onClose={closeWeekendModal}
+                title="Customize Weekend Days"
+                subtitle="Select days off (weekend days)"
+                saving={loading}
+                onSubmit={formik.handleSubmit}
+                submitLabel="Save Changes"
+            >
+                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary' }}>
+                    Days marked on are treated as weekends for this branch.
+                </Typography>
+                {WEEKEND_DAYS.map((day) => (
+                    <WtSwitchField
+                        key={day}
+                        title={day.charAt(0).toUpperCase() + day.slice(1)}
+                        size="sm"
+                        checked={Boolean(formik.values[day])}
+                        onChange={(e) => void formik.setFieldValue(day, e.target.checked)}
+                        disabled={loading}
+                    />
+                ))}
+            </ConfigureFormDialog>
         </>
     )
 }

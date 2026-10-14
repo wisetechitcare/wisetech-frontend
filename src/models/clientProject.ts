@@ -66,6 +66,10 @@ export interface ConfigItem {
   // Stages only — the project type the stage belongs to. `subCategoryId` null = the whole
   // category. (`categoryId` above is the legacy subcategory-form field; a stage reuses it.)
   subCategoryId?: string | null;
+  /** Task statuses only — a TERMINAL stage: a task moved into it is complete (100%). */
+  isFinal?: boolean;
+  /** Task statuses only — the animated glyph its tasks show; null = the default glyph. */
+  icon?: string | null;
   createdAt?: string;
   updatedAt?: string;
   sortOrder?: number;

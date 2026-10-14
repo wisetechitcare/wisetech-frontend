@@ -31,6 +31,15 @@ export { AppIcon, type AppIconProps } from './AppIcon';
 // the border line. That is the bug this control was rebuilt to end.
 // Reach for this before building an InputLabel + control pairing by hand.
 export { WtField } from './WtField';
+// Formik-bound WtField — default labelled select/text in Formik forms (Sandwich look).
+export { WtFieldFormik, type WtFieldFormikProps } from './WtFieldFormik';
+// Canonical “+ Add …” for labelled selects — pass as `addOption` on WtField / WtFieldFormik.
+export {
+    WtAddOptionButton,
+    resolveWtAddOption,
+    DEFAULT_ADD_OPTION_LABEL,
+} from './WtAddOption';
+export type { WtAddOption, WtAddOptionPlacement } from './WtAddOption';
 // An amount of money: WtField with the currency inside the frame and the number read back as
 // money in the hint as you type. Pass `currency` for a record's own currency (a requisition,
 // an offer); omit it for the viewer's. Salary rules go in `validate`, not in the field.
@@ -45,10 +54,14 @@ export { CurrencySymbol } from './CurrencySymbol';
 // new record, so it deliberately drops the create action.
 export { WtEmptyState } from './WtEmptyState';
 export type { WtEmptyStateProps, WtEmptyStateVariant } from './WtEmptyState';
-export type { WtFieldProps, WtFieldOption, WtFieldSize } from './WtField';
-// The rich select: react-select underneath, so it is the one to reach for when a control
-// needs search, multi-select, creatable or async options. DropdownInput / SelectInput
-// delegate to it.
+// Full-block page/section loading — MUI CircularProgress. Legacy path: utils/Loader.
+export { PageLoader, type PageLoaderProps } from './PageLoader';
+// Short master create/edit dialog shell for *ConfigureForm screens.
+export { ConfigureFormDialog, type ConfigureFormDialogProps } from './ConfigureFormDialog';
+export type { WtFieldProps, WtFieldOption, WtFieldSize, WtFieldChangeHandler } from './WtField';
+// The rich select ENGINE: react-select underneath. Features must not import react-select —
+// use WtField / WtFieldFormik / MultiSelectWithInlineCreate / ToolbarFilterSelect instead.
+// DropdownInput / SelectInput are legacy adapters that delegate here.
 //
 // ToolbarFilterSelect is a thin adapter over WtField (not over this) — a compact
 // labelled filter, where WtSelect is the engine for choosing from many. Two engines
@@ -98,6 +111,9 @@ export { toTitleCase, HEADING_CASE_SX } from './text';
 // accent rule, icon tile, header, spacing — so those screens stop drifting apart.
 export { SettingsSection } from './SettingsSection';
 export type { SettingsSectionProps } from './SettingsSection';
+// Billing-style entity title block (icon + title + description + action).
+export { EntityPageHeader } from './EntityPageHeader';
+export type { EntityPageHeaderProps } from './EntityPageHeader';
 // The app-wide toolbar filter (SUB ORGANIZATION / BRANCH / STATUS). Previously
 // defined inside a payroll page that three other features imported across.
 export { NavCard } from './NavCard';
@@ -133,9 +149,17 @@ export type { OptionPickerDialogProps, PickerOption } from './pickers';
 // and unthemeable (so it stays light in dark mode). These render the company standard YYYY.MM.DD.
 export { WtDateField, WtDateTimeField } from './dates';
 export type { WtDateFieldBaseProps, WtDateTimeFieldProps } from './dates';
+// Org / prefix fiscal year range — two WtDateFields, ISO `"start to end"` wire.
+export { FiscalYearRangeField } from './FiscalYearRangeField';
+export type { FiscalYearRangeFieldProps } from './FiscalYearRangeField';
 // Canonical wizard/multi-step indicator — responsive (compact summary on phones) + theme-aware.
 export { WtStepper } from './stepper';
 // Single-digit boxes for a PIN or one-time code — NOT a password field, so browsers never save/autofill it.
 export { PinInput } from './PinInput';
 export type { PinInputProps } from './PinInput';
 export type { WtStepperProps, WtStep } from './stepper';
+// Long forms: a dialog shell with section nav + sticky footer, titled field groups, and an image uploader.
+export { WtFormDialog, WtFormSection, WtFormSpan } from './WtFormDialog';
+export type { WtFormDialogProps, WtFormSectionProps, WtFormNavItem } from './WtFormDialog';
+export { WtImageField } from './WtImageField';
+export type { WtImageFieldProps } from './WtImageField';

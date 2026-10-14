@@ -14,6 +14,7 @@ import { fetchAuthzCapabilities } from '@redux/slices/authz'
 import { useSelector } from 'react-redux'
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags'
 import { SectionGuard } from '@app/modules/common/components/SectionGuard'
+import { PackGuard } from '@app/modules/common/components/PackGuard'
 import NoAccessPage from '@app/modules/common/components/NoAccessPage'
 import { RequirePermission } from '@app/modules/common/components/RequirePermission'
 import { can } from '@utils/can'
@@ -62,9 +63,9 @@ const OrganisationProfileMain = lazy(() => import('@pages/company/organisation/O
 const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/OrganizationProfilePage'))
 const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
 const TasksMain = lazy(() => import('@pages/employee/tasks/TasksMain'))
+const TasksSectionBar = lazy(() => import('@pages/employee/tasks/TasksSectionBar'))
 // Phase 4 — the rebuilt Task UI (Kanban-first workspace + task detail workspace)
 // Task configuration — statuses, priorities and the preset task tree.
-const TasksConfigure = lazy(() => import('@pages/employee/tasks/configure/TasksConfigure'))
 const TaskDetailPage = lazy(() => import('@pages/employee/tasks/TaskDetailPage'))
 const MyTimeSheetMain = lazy(() => import('@pages/employee/timesheet/mytimesheet/MyTimeSheetMain'))
 const EmployeeTimeSheetMain = lazy(() => import('@pages/employee/timesheet/employeetimesheet/EmployeeTimeSheetMain'))
@@ -240,37 +241,53 @@ const PrivateRoutes = () => {
         <Route
           path='/billing/*'
           element={
-            <SuspensedView>
-              <BillingRoutes />
-            </SuspensedView>
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <BillingRoutes />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         {/* The Accounts queue used to live under Finance; keep the old link working. */}
         <Route path='/finance/billing-queue' element={<Navigate to='/billing/accounts' replace />} />
         <Route
           path='/finance/reimbursements/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <AdminAndEmployeeReimbursementViewer />
-            </SuspensedView>) : <NoAccessPage />}
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (
+            <PackGuard pack="pay">
+              <SuspensedView>
+                <AdminAndEmployeeReimbursementViewer />
+              </SuspensedView>
+            </PackGuard>
+          ) : <NoAccessPage />}
         />
         <Route
           path='/finance/salary/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Salary />
-            </SuspensedView>) : <NoAccessPage />}
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (
+            <PackGuard pack="pay">
+              <SuspensedView>
+                <Salary />
+              </SuspensedView>
+            </PackGuard>
+          ) : <NoAccessPage />}
         />
         <Route
           path='/finance/increment/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Increment />
-            </SuspensedView>) : <NoAccessPage />}
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (
+            <PackGuard pack="pay">
+              <SuspensedView>
+                <Increment />
+              </SuspensedView>
+            </PackGuard>
+          ) : <NoAccessPage />}
         />
         {tabRoutes(
           '/finance/loans',
           TAB_PATHS.loans,
-          <SuspensedView>
-            <PersonalLoanMain />
-          </SuspensedView>,
+          <PackGuard pack="pay">
+            <SuspensedView>
+              <PersonalLoanMain />
+            </SuspensedView>
+          </PackGuard>,
         )}
         <Route
           path='employee/profile/*'
@@ -355,9 +372,13 @@ const PrivateRoutes = () => {
         />
         <Route
           path='employee/attendance-and-leaves/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <PersonalAttendanceView />
-            </SuspensedView>) : <NoAccessPage />}
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)) ? (
+            <SectionGuard module='attendance.personal'>
+              <SuspensedView>
+                <PersonalAttendanceView />
+              </SuspensedView>
+            </SectionGuard>
+          ) : <NoAccessPage />}
         />
 
         <Route
@@ -493,9 +514,11 @@ const PrivateRoutes = () => {
         <Route
           path='/finance/loans/:loanId'
           element={
-            <SuspensedView>
-              <LoanDetails />
-            </SuspensedView>
+            <PackGuard pack="pay">
+              <SuspensedView>
+                <LoanDetails />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         <Route
@@ -510,9 +533,11 @@ const PrivateRoutes = () => {
         <Route
           path='/leads/configuration'
           element={
-            <SuspensedView>
-              <ProposalConfigurationPage />
-            </SuspensedView>}
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <ProposalConfigurationPage />
+              </SuspensedView>
+            </PackGuard>}
         />
         {tabRoutes(
           '/leads',
@@ -536,23 +561,29 @@ const PrivateRoutes = () => {
         <Route
           path='/leads/wizard-beta'
           element={
-            <SuspensedView>
-              <LeadWizardBetaPage />
-            </SuspensedView>}
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <LeadWizardBetaPage />
+              </SuspensedView>
+            </PackGuard>}
         />
         <Route
           path='/leads/wizard-beta/:id'
           element={
-            <SuspensedView>
-              <LeadWizardBetaPage />
-            </SuspensedView>}
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <LeadWizardBetaPage />
+              </SuspensedView>
+            </PackGuard>}
         />
         <Route
           path='/leads/:id/*'
           element={
-            <SuspensedView>
-              <EntityDetailPage />
-            </SuspensedView>
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <EntityDetailPage />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         {/* Same page, same id (the LEAD id — lead-as-master), different lens. The
@@ -565,9 +596,11 @@ const PrivateRoutes = () => {
         <Route
           path='/project/:id/*'
           element={
-            <SuspensedView>
-              <EntityDetailPage />
-            </SuspensedView>
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <EntityDetailPage />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         <Route
@@ -582,8 +615,8 @@ const PrivateRoutes = () => {
             </SectionGuard>
           }
         />
-        {/* Its tabs as URLs. `configure` is deliberately absent — /tasks/configure is
-            its own permission-gated destination, declared just below. */}
+        {/* Its tabs as URLs. `configure` is deliberately absent — /tasks/configure carries
+            its own permission gate, declared just below. */}
         {TAB_PATHS.tasks.map((slug) => (
           <Route
             key={`/tasks/${slug}`}
@@ -598,10 +631,11 @@ const PrivateRoutes = () => {
           />
         ))}
         <Route
-          // Task Statuses / Priorities / Preset Tasks. Its own destination rather than a tab,
-          // so it can be linked to and so it can carry a permission of its own: task config is
-          // shared by EVERY tenant, which makes deactivating a status a cross-tenant outage
-          // (Phase 0 audit §4.1) rather than a personal preference.
+          // Task Statuses / Priorities / Preset Tasks. The section page with its Configure tab
+          // open, so the section's tab bar is there to navigate back out. Declared on its own
+          // (not in TAB_PATHS) to carry a permission of its own: task config is shared by EVERY
+          // tenant, which makes deactivating a status a cross-tenant outage (Phase 0 audit §4.1)
+          // rather than a personal preference.
           //
           // ⚠️ This gate is UX. The backend `task-statuses` / `task-priorities` / `task-persest`
           // write routes still carry no `authorize()` at all — hiding the page does not protect
@@ -611,7 +645,7 @@ const PrivateRoutes = () => {
             <SectionGuard module='tasks'>
               <RequirePermission perm='tasks.manage.all' redirectTo='/tasks'>
                 <SuspensedView>
-                  <TasksConfigure />
+                  <TasksMain />
                 </SuspensedView>
               </RequirePermission>
             </SectionGuard>
@@ -620,9 +654,11 @@ const PrivateRoutes = () => {
         <Route
           path='/tasks/timesheet'
           element={
-            <SuspensedView>
-              <MyTimeSheetMain />
-            </SuspensedView>
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <MyTimeSheetMain />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         <Route
@@ -632,7 +668,10 @@ const PrivateRoutes = () => {
             // section blocked could deep-link straight to a task and read, edit and delete it.
             <SectionGuard module='tasks'>
               <SuspensedView>
-                <TaskDetailPage />
+                {/* Under the section's tab bar, so Overview / Tasks / Configure stay one click away. */}
+                <TasksSectionBar>
+                  <TaskDetailPage />
+                </TasksSectionBar>
               </SuspensedView>
             </SectionGuard>
           }
@@ -640,12 +679,15 @@ const PrivateRoutes = () => {
         <Route
           path='/tasks/employee-timesheet'
           element={
-            <SuspensedView>
-              <EmployeeTimeSheetMain />
-            </SuspensedView>
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <EmployeeTimeSheetMain />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         <Route
+          // Org "Teams" calendar (settings.teams) — not PSA pack-gated; lives under /tasks path historically.
           path='/tasks/calendar'
           element={
             <SuspensedView>
@@ -702,9 +744,11 @@ const PrivateRoutes = () => {
         <Route
           path='/projects/:projectId'
           element={
-            <SuspensedView>
-              <ProjectEntityRedirect />
-            </SuspensedView>
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <ProjectEntityRedirect />
+              </SuspensedView>
+            </PackGuard>
           }
         />
         <Route

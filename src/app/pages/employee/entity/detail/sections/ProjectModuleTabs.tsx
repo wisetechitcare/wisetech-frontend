@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import { DetailSummaryBar } from '@app/modules/detail-page/DetailPageComponents';
 import TasksMainTable from '@pages/employee/tasks/tasks/TasksMainTable';
-import TaskTimesheet from '@pages/employee/tasks/tasks/components/TaskTimesheet';
+import ProjectTimesheetSection from './ProjectTimesheetSection';
 import ProjectReimbursements from '@pages/employee/projects/project/components/ProjectReimbursements';
 import { projectManagerName, fmtDate, DASH } from '../entityViewModel';
 import { getTimelineProgress } from '../../entityUtils';
@@ -42,21 +42,10 @@ export const TasksTab: React.FC<{ lead: any; projectId: string }> = ({ lead, pro
   );
 };
 
-export const TimesheetTab: React.FC<{ lead: any; projectId: string }> = ({ lead, projectId }) => {
-  const p = lead?.project || {};
-  return (
-    <TabShell
-      items={[
-        { label: 'Time Entries', value: p?._count?.timesheets ?? 0, icon: 'bi bi-stopwatch', accentColor: 'primary' },
-        { label: 'Tasks', value: p?._count?.tasks ?? 0, icon: 'bi bi-check2-square', accentColor: 'blue' },
-        { label: 'Start', value: fmtDate(p?.startDate), icon: 'bi bi-calendar-event', accentColor: 'teal' },
-        { label: 'End', value: fmtDate(p?.endDate), icon: 'bi bi-calendar-check', accentColor: 'green' },
-      ]}
-    >
-      <TaskTimesheet fetchMode="project" projectId={lead?.id ?? projectId} />
-    </TabShell>
-  );
-};
+/** Timesheet — its own summary and card, laid out like Deliverables (see ProjectTimesheetSection). */
+export const TimesheetTab: React.FC<{ lead: any; projectId: string }> = ({ lead, projectId }) => (
+  <ProjectTimesheetSection projectId={lead?.id ?? projectId} />
+);
 
 export const ReimbursementTab: React.FC<{ lead: any; projectId: string }> = ({ lead, projectId }) => {
   const p = lead?.project || {};

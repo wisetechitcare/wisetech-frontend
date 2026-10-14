@@ -2,118 +2,113 @@ import { resolveActiveOrgId } from '@utils/activeOrg';
 import { fetchCompanyOverview } from '@services/company';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { Form, Formik } from 'formik';
-import React, { useEffect, useState } from 'react'
-import { Modal } from 'react-bootstrap';
-import * as Yup from "yup";
+import React, { useEffect, useState } from 'react';
+import * as Yup from 'yup';
+import { Box, Stack } from '@mui/material';
+import {
+  GlassDialog,
+  PlainDialogHeader,
+  WtButton,
+} from '@app/modules/common/components/ui';
 import TextInput from '../inputs/TextInput';
 
 const commonInputSchema = Yup.object({
-    name: Yup.string().required().label("Name"),
+  name: Yup.string().required().label('Name'),
 });
 
-function CommonModal({ show, setShow, functionToCallOnModalSubmit, fieldName, functionToSetFieldOptions }: {
-    show: boolean,
-    setShow: any,
-    functionToCallOnModalSubmit: any,
-    fieldName?: string,
-    functionToSetFieldOptions?: any,
+function CommonModal({
+  show,
+  setShow,
+  functionToCallOnModalSubmit,
+  fieldName,
+  functionToSetFieldOptions,
+}: {
+  show: boolean;
+  setShow: (open: boolean) => void;
+  functionToCallOnModalSubmit: (data: Record<string, unknown>) => Promise<unknown>;
+  fieldName?: string;
+  functionToSetFieldOptions?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
-    const [loading, setLoading] = useState(false);
-    const [companyId, setCompanyId] = useState('');
-    const handleClose = () => setShow(false);
-    const initialState = {
-        name: "",
-    };
-    const handleSubmit = (values: any) => {
-        try {
-            setLoading(true);
-            if (!functionToCallOnModalSubmit || !fieldName) {
-                return;
-            }
-            const finalData: any = { companyId: companyId };
-            finalData[fieldName] = [values?.name];
-            functionToCallOnModalSubmit(finalData).then((res: any) => {
-                successConfirmation("Successfully created the option!");
-                functionToSetFieldOptions((prev:boolean)=>!prev);
-            })
-            setLoading(false);
-            setShow(false);
-        } catch (error) {
-            errorConfirmation("Something went wrong, please try again later!");
-            console.log("error: ", error);
-        }
-    };
+  const [loading, setLoading] = useState(false);
+  const [companyId, setCompanyId] = useState('');
+  const handleClose = () => setShow(false);
+  const initialState = { name: '' };
 
-    useEffect(() => {
-        async function fetchData() {
-            if (show && !companyId) {
-                const { data: { companyOverview } } = await fetchCompanyOverview();
-                setCompanyId((resolveActiveOrgId(companyOverview) ?? ''));
-            }
-        }
-        fetchData();
-    }, [show, companyId])
+  const handleSubmit = async (values: { name: string }) => {
+    if (!functionToCallOnModalSubmit || !fieldName) {
+      return;
+    }
+    try {
+      setLoading(true);
+      const finalData: Record<string, unknown> = { companyId };
+      finalData[fieldName] = [values.name];
+      await functionToCallOnModalSubmit(finalData);
+      successConfirmation('Successfully created the option!');
+      functionToSetFieldOptions?.((prev) => !prev);
+      setShow(false);
+    } catch (error) {
+      errorConfirmation('Something went wrong, please try again later!');
+      console.log('error: ', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return (
-        <Modal show={show} onHide={handleClose} centered>
-            <Modal.Header closeButton>
-                <Modal.Title>
-                    Add New Item
-                </Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-                <Formik
-                    initialValues={
-                        initialState
-                    }
-                    onSubmit={(values) => {
-                        handleSubmit(values);
-                    }}
-                    validationSchema={commonInputSchema}
-                    enableReinitialize={true}
-                >
-                    {(formikProps) => (
-                        <Form
-                            className="d-flex flex-column"
-                            noValidate
-                            id="common_input_form"
-                           
-                        >
-                            <div className="row">
-                                <div className="col-lg-12">
-                                    <TextInput
-                                        isRequired={true}
-                                        label="Enter Name"
-                                        margin="mb-7"
-                                        formikField="name"
-                                    />
-                                </div>
-                            </div>
+  useEffect(() => {
+    async function fetchData() {
+      if (show && !companyId) {
+        const {
+          data: { companyOverview },
+        } = await fetchCompanyOverview();
+        setCompanyId(resolveActiveOrgId(companyOverview) ?? '');
+      }
+    }
+    fetchData();
+  }, [show, companyId]);
 
-                            <div className="d-flex justify-content-start">
-                                <button
-                                    type="submit"
-                                    className="btn btn-primary"
-                                    disabled={loading || !formikProps.isValid}
-                                >
-                                    {!loading && "Submit"}
-                                    {loading && (
-                                        <span
-                                            className="indicator-progress"
-                                            style={{ display: "block" }}
-                                        >
-                                            Please wait...{" "}
-                                            <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                                        </span>
-                                    )}
-                                </button>
-                            </div>
-                        </Form>
-                    )}
-                </Formik>
-            </Modal.Body>
-        </Modal>
-    )
+  return (
+    <GlassDialog
+      open={show}
+      onClose={handleClose}
+      maxWidth="sm"
+      plain
+      header={
+        <PlainDialogHeader title="Add New Item" onClose={handleClose} />
+      }
+    >
+      <Box sx={{ px: { xs: 2, sm: 3 }, py: 2 }}>
+        <Formik
+          initialValues={initialState}
+          onSubmit={(values) => {
+            void handleSubmit(values);
+          }}
+          validationSchema={commonInputSchema}
+          enableReinitialize
+        >
+          {(formikProps) => (
+            <Form noValidate id="common_input_form">
+              <Stack spacing={2.5}>
+                <TextInput
+                  isRequired
+                  label="Enter Name"
+                  margin="mb-0"
+                  formikField="name"
+                />
+                <Stack direction="row" justifyContent="flex-start">
+                  <WtButton
+                    type="submit"
+                    disabled={loading || !formikProps.isValid}
+                  >
+                    {loading ? 'Please wait…' : 'Submit'}
+                  </WtButton>
+                </Stack>
+              </Stack>
+            </Form>
+          )}
+        </Formik>
+      </Box>
+    </GlassDialog>
+  );
 }
 
-export default CommonModal
+export default CommonModal;

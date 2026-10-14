@@ -28,6 +28,7 @@ import DocumentsTab from './detail/sections/DocumentsTab';
 import AuditSection from './detail/sections/AuditSection';
 import TeamsSection from './detail/sections/TeamsSection';
 import BillingSection from './detail/sections/BillingSection';
+import DeliverablesSection from './detail/sections/DeliverablesSection';
 import ProjectMeetings from './detail/sections/ProjectMeetings';
 import ProjectStatusControl from './detail/ProjectStatusControl';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -217,6 +218,8 @@ const EntityDetailPage: React.FC = () => {
         );
       case 'tasks':
         return <TasksTab lead={lead} projectId={projectId} />;
+      case 'deliverables':
+        return <DeliverablesSection lead={lead} />;
       case 'timesheet':
         return <TimesheetTab lead={lead} projectId={projectId} />;
       case 'reimbursement':

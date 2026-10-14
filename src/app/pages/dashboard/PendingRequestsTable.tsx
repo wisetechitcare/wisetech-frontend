@@ -1,11 +1,10 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { Button } from "@mui/material";
+import { Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
 import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
-import Loader from "@app/modules/common/utils/Loader";
 import { IAttendanceRequests } from "@models/employee";
 import { RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
@@ -36,7 +35,12 @@ import { fetchConfiguration } from "@services/company";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
 import { can } from "@utils/can";
-import { Modal } from "react-bootstrap";
+import {
+  GlassDialog,
+  PlainDialogHeader,
+  WtButton,
+  WtField,
+} from "@app/modules/common/components/ui";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import {
   BatchRow,
@@ -57,6 +61,17 @@ const PendingRequestsTable = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<RequestTab>("attendance");
   const [isLoading, setIsLoading] = useState(false);
+  // Parallel fetches used to flip a single boolean — last-finisher won, and an early
+  // `if (isLoading) return <Loader/>` unmounted the GlassDialogs mid approve/reject/track.
+  const loadDepthRef = useRef(0);
+  const beginLoad = useCallback(() => {
+    loadDepthRef.current += 1;
+    setIsLoading(true);
+  }, []);
+  const endLoad = useCallback(() => {
+    loadDepthRef.current = Math.max(0, loadDepthRef.current - 1);
+    if (loadDepthRef.current === 0) setIsLoading(false);
+  }, []);
   const [attendanceRequests, setAttendanceRequests] = useState<IAttendanceRequests[]>([]);
   const [leaveConfiguration, setLeaveConfiguration] = useState<any>();
 
@@ -129,8 +144,8 @@ const PendingRequestsTable = () => {
 
   // Fetch pending attendance requests
   const fetchAttendanceRequests = useCallback(async () => {
+    beginLoad();
     try {
-      setIsLoading(true);
       const { data: { companyOverview } } = await fetchCompanyOverview();
       const companyId = (resolveActiveOrgId(companyOverview) ?? '');
       const { data: { attendanceRequests } } = await getPendingAttendanceRequests(companyId);
@@ -140,22 +155,22 @@ const PendingRequestsTable = () => {
       console.error('Error fetching attendance requests:', error);
       setAttendanceRequests([]);
     } finally {
-      setIsLoading(false);
+      endLoad();
     }
-  }, []);
+  }, [beginLoad, endLoad]);
 
   // Fetch pending leave requests
   const fetchLeaveRequests = useCallback(async () => {
+    beginLoad();
     try {
-      setIsLoading(true);
       const { data: { leaveRequest } } = await fetchLeaveRequest();
       dispatch(saveLeaveRequests(transformLeaveRequests(leaveRequest)));
     } catch (error) {
       console.error('Error fetching leave requests:', error);
     } finally {
-      setIsLoading(false);
+      endLoad();
     }
-  }, [dispatch]);
+  }, [dispatch, beginLoad, endLoad]);
 
   // Fetch leave configuration
   useEffect(() => {
@@ -173,10 +188,10 @@ const PendingRequestsTable = () => {
 
   // Fetch pending reimbursement batches
   const fetchPendingReimbursementBatches = useCallback(async () => {
+    beginLoad();
     try {
-      setIsLoading(true);
       const [batchRes, approvalRes] = await Promise.all([
-        fetchReimbursementBatches(),
+        fetchReimbursementBatches({ for: 'inbox' }),
         fetchPendingApprovals(),
       ]);
       const allBatches: any[] = batchRes?.data?.batches || batchRes?.batches || [];
@@ -198,9 +213,9 @@ const PendingRequestsTable = () => {
     } catch {
       setReimbursementBatches([]);
     } finally {
-      setIsLoading(false);
+      endLoad();
     }
-  }, []);
+  }, [beginLoad, endLoad]);
 
   // Load all data on mount
   useEffect(() => {
@@ -444,10 +459,14 @@ const PendingRequestsTable = () => {
               {canAct && (
                 <>
                   <button
+                    type="button"
                     className="btn btn-icon btn-sm"
                     title="Approve"
                     disabled={isProcessing}
-                    onClick={() => approveWorkflowRequest(row.original.id, fetchAttendanceRequests)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      approveWorkflowRequest(row.original.id, fetchAttendanceRequests);
+                    }}
                   >
                     {isProcessing ? (
                       <span className="spinner-border spinner-border-sm text-success" />
@@ -456,10 +475,12 @@ const PendingRequestsTable = () => {
                     )}
                   </button>
                   <button
+                    type="button"
                     className="btn btn-icon btn-sm"
                     title="Reject"
                     disabled={isProcessing}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setApprovalRejectTarget({ requestId: row.original.id, instanceId: actionableApprovals.get(row.original.id)! });
                       setApprovalRejectReason('');
                     }}
@@ -470,9 +491,13 @@ const PendingRequestsTable = () => {
               )}
               {row.original.hasApprovalInstance && (
                 <button
+                  type="button"
                   className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
                   title="Track Approval"
-                  onClick={() => openTracker(row.original.id, 'AttendanceRequests')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openTracker(row.original.id, 'AttendanceRequests');
+                  }}
                 >
                   <KTIcon iconName="map" className="fs-3" />
                 </button>
@@ -556,10 +581,14 @@ const PendingRequestsTable = () => {
               {canAct && (
                 <>
                   <button
+                    type="button"
                     className="btn btn-icon btn-sm"
                     title="Approve"
                     disabled={isProcessing}
-                    onClick={() => approveWorkflowRequest(row.original.id, fetchLeaveRequests)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      approveWorkflowRequest(row.original.id, fetchLeaveRequests);
+                    }}
                   >
                     {isProcessing ? (
                       <span className="spinner-border spinner-border-sm text-success" />
@@ -568,10 +597,12 @@ const PendingRequestsTable = () => {
                     )}
                   </button>
                   <button
+                    type="button"
                     className="btn btn-icon btn-sm"
                     title="Reject"
                     disabled={isProcessing}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setApprovalRejectTarget({ requestId: row.original.id, instanceId: actionableApprovals.get(row.original.id)! });
                       setApprovalRejectReason('');
                     }}
@@ -582,9 +613,13 @@ const PendingRequestsTable = () => {
               )}
               {row.original.hasApprovalInstance && (
                 <button
+                  type="button"
                   className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
                   title="Track Approval"
-                  onClick={() => openTracker(row.original.id, 'LeaveTracker')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openTracker(row.original.id, 'LeaveTracker');
+                  }}
                 >
                   <KTIcon iconName="map" className="fs-3" />
                 </button>
@@ -709,25 +744,6 @@ const PendingRequestsTable = () => {
     ],
     [openBatchDetail, openTracker, reimbursementTotal, actionableApprovals, batchProcessingId, handleBatchApprove, setBatchRejectTarget]
   );
-
-  if (isLoading) {
-    return (
-      <div
-        style={{
-          backgroundColor: "white",
-          borderRadius: "16px",
-          padding: "16px 20px",
-          boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-          minHeight: "400px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Loader />
-      </div>
-    );
-  }
 
   return (
     <>
@@ -957,10 +973,10 @@ const PendingRequestsTable = () => {
             hideExportCenter={false}
             hidePagination={true}
             showColumnFooter={true}
-            // No maxHeight needed here: showColumnFooter already bounds the container at
-            // 70vh in the engine (MaterialTableImpl, muiTableContainerProps), which is
-            // exactly the scroller the virtualizer needs.
-            enableRowVirtualization={true}
+            // Inbox is small. Row virtualization + sticky column footer was painting an
+            // empty body while Footer still showed TOTAL (data loaded, rows not).
+            muiTableContainerProps={{ sx: { maxHeight: 440 } }}
+            enableRowVirtualization={false}
             enableSorting={false}
             enableColumnActions={false}
             enableFilters={false}
@@ -1006,75 +1022,79 @@ const PendingRequestsTable = () => {
     />
 
     {/* Approval tracker for attendance / leaves / reimbursements */}
-    <Modal
-      show={!!trackingId}
-      onHide={() => { setTrackingId(null); setTrackInstanceId(null); setTrackingBatchRow(null); }}
-      centered
-      size='lg'
+    <GlassDialog
+      open={!!trackingId}
+      onClose={() => { setTrackingId(null); setTrackInstanceId(null); setTrackingBatchRow(null); }}
+      maxWidth="md"
+      plain
+      header={
+        <PlainDialogHeader
+          title="Approval Status"
+          onClose={() => { setTrackingId(null); setTrackInstanceId(null); setTrackingBatchRow(null); }}
+        />
+      }
     >
-      <Modal.Header closeButton>
-        <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>Approval Status</Modal.Title>
-      </Modal.Header>
-      <Modal.Body style={{ padding: '20px 24px' }}>
+      <Box sx={{ px: { xs: 2, sm: 3 }, py: 2.5 }}>
         {trackInstanceLoading ? (
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <span className='spinner-border spinner-border-sm text-primary me-2' />
-            <span style={{ fontSize: 13, color: '#a1a5b7' }}>Loading approval status...</span>
-          </div>
+          <Stack direction="row" alignItems="center" justifyContent="center" spacing={1.5} sx={{ py: 2.5 }}>
+            <CircularProgress size={20} />
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>Loading approval status…</Typography>
+          </Stack>
         ) : trackInstanceId ? (
           <ApprovalStatusTracker instanceId={trackInstanceId} showAuditLog />
         ) : (
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <KTIcon iconName='information' className='fs-3x text-muted mb-3' />
-            <div style={{ fontSize: 13, color: '#a1a5b7' }}>No approval workflow found for this request.</div>
-          </div>
+          <Stack alignItems="center" sx={{ py: 2.5 }}>
+            <KTIcon iconName="information" className="fs-3x text-muted mb-3" />
+            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+              No approval workflow found for this request.
+            </Typography>
+          </Stack>
         )}
-      </Modal.Body>
-    </Modal>
+      </Box>
+    </GlassDialog>
 
     {/* Workflow reject modal for attendance / leaves */}
-    <Modal
-      show={!!approvalRejectTarget}
-      onHide={() => { setApprovalRejectTarget(null); setApprovalRejectReason(''); }}
-      centered
-      size='lg'
+    <GlassDialog
+      open={!!approvalRejectTarget}
+      onClose={() => { setApprovalRejectTarget(null); setApprovalRejectReason(''); }}
+      maxWidth="sm"
+      plain
+      header={
+        <PlainDialogHeader
+          title="Reject Request"
+          onClose={() => { setApprovalRejectTarget(null); setApprovalRejectReason(''); }}
+        />
+      }
     >
-      <Modal.Header closeButton>
-        <Modal.Title style={{ fontSize: 16, fontWeight: 700, color: '#181c32' }}>Reject Request</Modal.Title>
-      </Modal.Header>
-      <Modal.Body style={{ padding: '20px 24px' }}>
-        <label style={{ fontWeight: 600, fontSize: 13, color: '#181c32', display: 'block', marginBottom: 6 }}>
-          Reason for Rejection <span style={{ color: '#f1416c' }}>*</span>
-        </label>
-        <textarea
-          rows={3}
-          className='form-control'
-          placeholder='Describe why this request is being rejected…'
+      <Box sx={{ px: { xs: 2, sm: 3 }, py: 2.5 }}>
+        <WtField
+          label="Reason for Rejection"
+          required
+          multiline
+          minRows={3}
+          placeholder="Describe why this request is being rejected…"
           value={approvalRejectReason}
-          onChange={(e) => setApprovalRejectReason(e.target.value)}
-          style={{ resize: 'vertical', fontSize: 13 }}
+          onChange={(v) => setApprovalRejectReason(v)}
           disabled={approvalRejectSubmitting}
         />
-
-      </Modal.Body>
-      <Modal.Footer style={{ gap: 8 }}>
-        <button
-          className='btn btn-sm btn-light'
-          onClick={() => { setApprovalRejectTarget(null); setApprovalRejectReason(''); }}
-          disabled={approvalRejectSubmitting}
-        >
-          Cancel
-        </button>
-        <button
-          className='btn btn-sm btn-danger d-flex align-items-center gap-2'
-          onClick={confirmWorkflowReject}
-          disabled={approvalRejectReason.trim().length === 0 || approvalRejectSubmitting}
-        >
-          {approvalRejectSubmitting && <span className='spinner-border spinner-border-sm' />}
-          Confirm Rejection
-        </button>
-      </Modal.Footer>
-    </Modal>
+        <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 2.5 }}>
+          <WtButton
+            ghost
+            onClick={() => { setApprovalRejectTarget(null); setApprovalRejectReason(''); }}
+            disabled={approvalRejectSubmitting}
+          >
+            Cancel
+          </WtButton>
+          <WtButton
+            tone="danger"
+            onClick={confirmWorkflowReject}
+            disabled={approvalRejectReason.trim().length === 0 || approvalRejectSubmitting}
+          >
+            {approvalRejectSubmitting ? 'Rejecting…' : 'Confirm Rejection'}
+          </WtButton>
+        </Stack>
+      </Box>
+    </GlassDialog>
     </>
   );
 };

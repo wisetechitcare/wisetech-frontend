@@ -9,6 +9,7 @@ import { TimeClock } from '@mui/x-date-pickers/TimeClock';
 import { clockClasses, clockNumberClasses, clockPointerClasses } from '@mui/x-date-pickers/TimeClock';
 import dayjs, { type Dayjs } from 'dayjs';
 import { TRIO, type Trio } from '@app/modules/common/components/ui/tw';
+import { scrimSx, sheetSx } from '@app/theme/surfaces';
 
 /**
  * TimePickerField — the app's canonical time picker.
@@ -59,9 +60,14 @@ type View = 'hours' | 'minutes';
 export const to24 = (label: number, hour12: boolean, meridiem: 'AM' | 'PM'): number =>
     hour12 ? (label % 12) + (meridiem === 'PM' ? 12 : 0) : label;
 
-/** "HH:MM" → a dayjs on today. Anything unparseable falls back to 12:00, as the wheels did. */
+/**
+ * "HH:MM" (or "HH:MM:SS" — a timer-recorded time carries its seconds) → a dayjs on today.
+ * Anything unparseable falls back to 12:00, as the wheels did. Seconds were once refused, which
+ * showed every timer entry's start and end as an empty 12:00.
+ */
+const TIME_RE = /^(\d{1,2}):(\d{2})(?::\d{2})?$/;
 export const parse = (v: string): Dayjs => {
-    const m = /^(\d{1,2}):(\d{2})$/.exec(v || '');
+    const m = TIME_RE.exec(v || '');
     const base = dayjs().second(0).millisecond(0);
     if (!m) return base.hour(12).minute(0);
     return base.hour(Math.min(23, Number(m[1]))).minute(Math.min(59, Number(m[2])));
@@ -131,7 +137,7 @@ export function TimePickerField({
     // ── closed-field display ────────────────────────────────────────────────
     // Reads exactly like the same value in a table, which renders through
     // formatTimeString's `h:mm A` — no leading zero on the hour.
-    const isEmpty = !/^\d{1,2}:\d{2}$/.test(value || '');
+    const isEmpty = !TIME_RE.test(value || '');
     const shown = parse(value);
     const shownH24 = shown.hour();
     const shownMeridiem = shownH24 >= 12 ? 'PM' : 'AM';
@@ -269,21 +275,16 @@ export function TimePickerField({
                 slotProps={{
                     backdrop: {
                         sx: {
-                            bgcolor: alpha('#000', isDark ? 0.6 : 0.32),
+                            ...scrimSx(theme),
                             transition: `opacity ${DUR_IN}ms ${EASE_IN} !important`,
                         },
                     },
                 }}
                 PaperProps={{
                     sx: {
-                        // M3 time-picker container: 28px radius, tonal surface, 24px padding.
+                        // M3 time-picker container — solid elevated sheet from the theme kit.
+                        ...sheetSx(theme),
                         borderRadius: '28px',
-                        backgroundImage: 'none',
-                        bgcolor: isDark
-                            ? alpha(theme.palette.common.white, 0.06)
-                            : theme.palette.background.paper,
-                        border: `1px solid ${theme.palette.divider}`,
-                        boxShadow: '0 24px 64px -12px rgba(0,0,0,0.38)',
                         p: 3,
                         m: 2,
                         width: 'auto',

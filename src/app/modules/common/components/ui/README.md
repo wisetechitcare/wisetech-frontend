@@ -8,18 +8,32 @@ found nothing, and wrote their own. The result was four close buttons, three
 dropdowns, nine hand-rolled icon buttons and a filter control living inside a
 payroll page that three other features imported across.
 
+## North star (enterprise SaaS)
+
+**One Design System → one public API.** Product UI is **MUI-powered** (forms,
+dialogs, selects, tables, a11y, density). **Tailwind** is for layout and
+utilities on the **same tokens** — not a second Field/Select/Button library.
+
+| Do | Don't |
+|----|--------|
+| Import labelled controls from this barrel (`WtField`, `WtFieldFormik`, …) | Invent a TW form kit or hand-roll `TextField`+`MenuItem` |
+| Use `ui/tw` only on screens already on that twin (e.g. calendar chrome) | Expand `ui/tw` with parallel form controls |
+| Align new work to shared tokens / theme | Hardcode surface hex; grow dual APIs forever |
+
+Direction: finish DRY on this kit; shrink `ui/tw` duplicates over time.
+
 ## Where things are
 
 | Path | What it is |
 |---|---|
-| `@app/modules/common/components/ui` | **The barrel. Import from here.** MUI-based kit. |
-| `…/ui/tw/` | The Tailwind twin (zero MUI). Same names, *different props*. |
-| `@app/modules/common/inputs/` | Form fields (Formik-bound and standalone). |
+| `@app/modules/common/components/ui` | **The barrel. Import from here.** MUI-based **product** kit. |
+| `…/ui/tw/` | Tailwind twin (zero MUI) — **narrow**; layout/calendar primitives. Same names, *different props* — do not grow. |
+| `@app/modules/common/inputs/` | Legacy Formik adapters (`DropdownInput`, …) — prefer `WtFieldFormik`. |
 | `@app/theme/wisetechTheme.ts` | MUI theme. `githubDark.ts` is the dark palette SSOT. |
 
 ⚠️ **The two kits are not interchangeable.** `WtIconButton` takes a numeric
 `size` in `tw/` and MUI's `sx` in the MUI kit. Pick the kit your screen is
-already on and stay in it. **New settings/config engines use the MUI kit** —
+already on and stay in it. **New settings/config/forms use this MUI kit** —
 that is what `LeavePolicyModal` and `SandwhichLeave`, the visual benchmarks,
 are built from.
 
@@ -33,14 +47,19 @@ are built from.
 | Brand logo glyph (WhatsApp…) | `WhatsAppIcon` from `brandIcons` | `KTIcon iconName="whatsapp"` — the duotone font paints its first layer at 40% opacity, so the mark washes out |
 | Close (×) | `WtCloseButton` (`ui/tw/WtCloseButton`) | a `&times;` in an `IconButton` |
 | **Any labelled input** (text, number, textarea, select) | **`WtField`** | `InputLabel` + `Select`/`TextField` assembled by hand |
+| **Labelled select in a Formik form** | **`WtFieldFormik`** | inventing Formik + select glue, or new wrappers |
 | **An amount of money** (salary, fee, expense) | **`WtMoneyField`** (a `WtField` with the currency inside the frame and a live money read-back) | a number box with the unit in its label — "CTC (LPA)", "Lakhs per year" |
 | Toolbar filter | `ToolbarFilterSelect` + `FILTER_TONES` (a `WtField` adapter) | a bespoke `<select>` or `FormControl` |
+| Multi-select + “+ Add” | `MultiSelectWithInlineCreate` (`externalCreate` when parent owns the modal; uses `addOption` under the hood) | raw `react-select` multi |
+| “+ Add …” on any labelled select | `addOption={{ onAdd, label? }}` (`WtAddOption`) | a hand-rolled button beside the field |
 | Currency glyph / code / formatter | `CurrencySymbol` + `useCurrency()` (`hooks/useCurrency`) | `KTIcon iconName="dollar"`, a typed-in `₹`, or `{ style: 'currency', currency: 'INR' }` inline |
 | Tooltip / hint on hover | `WtTooltip` (`wrap` for a DISABLED child; an empty title renders nothing) | MUI `Tooltip` imported per screen — 17 files set their own `arrow`/`placement`/delays — or a native `title=`, which never shows on touch |
 | Hover on a tinted tile / card | `hoverTileSx(trio, dark)` | another `'&:hover': { transform: 'translateY(-2px)' }` — 61 files have their own |
-| Dropdown ENGINE | `WtSelect` | react-select directly, or a new wrapper |
-| Dropdown (in a form) | `DropdownInput` (Formik) | react-select directly |
-| Dropdown (standalone) | `SelectInput` | a new select component |
+| Dropdown ENGINE (multi / creatable / avatar) | `WtSelect` — **inside adapters only** | `react-select` from a feature file |
+| Legacy Formik select (avatar / colour / +Add) | `DropdownInput` — **do not expand**; prefer `WtFieldFormik` | a third labelled API |
+| Header company/branch switcher | `SelectInput` (thin `WtSelect` adapter) | a new select component |
+
+**Migrating a legacy select?** Use-case → reference file table: [`docs/bootstrap-to-kit-migration.md` §3](../../../../../../docs/bootstrap-to-kit-migration.md) (Dropdown benchmarks).
 | Toggle | `WtSwitch` / `WtSwitchField` | raw `<Switch>`, `.form-switch` |
 | Dialog | `GlassDialog` + `GlassHeader` | react-bootstrap `<Modal>` |
 | Surface / card | `GlassSurface` / `GlassCard` | `<div className="card">` |
@@ -56,6 +75,10 @@ are built from.
 | Single-select modal | `OptionPickerDialog` | a bespoke option list |
 | Date / time | `WtDateField` / `WtDateTimeField` / `TimeWheelField` | `<input type="date">` |
 | Wizard | `WtStepper` | hand-rolled circles |
+| Short master create/edit dialog | **`ConfigureFormDialog`** + `WtFieldFormik` | Bootstrap `Modal` + hand-rolled C/FONT/SP fields |
+| Long multi-section form dialog | **`WtFormDialog`** | a private modal layout per feature |
+| Page / section loading block | **`PageLoader`** (also `@app/modules/common/utils/Loader`) | Bootstrap `spinner-border` / `react-bootstrap` Spinner |
+| Inline / button busy indicator | MUI `CircularProgress` size 14–18 | a second spinner component |
 | PIN / one-time code | `PinInput` (masked by default; `masked={false}` for an emailed code; `shakeKey` to shake on a wrong entry) | `<input type="password">` — the browser saves and autofills it, which defeats a PIN meant to prove who is at the keyboard |
 | Toast / confirm | `toast` / `confirmDialog` / `alertDialog` | react-toastify, sweetalert2 directly |
 | User data inside an `html:` string | ``safeHtml`…${name}…` `` (or `escapeHtml(v)` for a generated list) | a plain template literal — see below |
@@ -75,7 +98,19 @@ row cannot disagree about height, radius, focus ring or error colour.
 
 <WtField label="Organization" icon="bank" value={org} onChange={setOrg}
          options={orgs} tone={FILTER_TONES.blue.icon} />
+
+{/* One prop for “+ Add …” — never invent a second button beside the field */}
+<WtField
+  label="Category"
+  options={categories}
+  value={categoryId}
+  onChange={setCategoryId}
+  addOption={{ onAdd: openCreateCategory, label: 'Add New' }}
+/>
 ```
+
+**`addOption`** is the reusable create affordance (`WtAddOption`): `{ onAdd, label?, placement? }`.
+Default `placement: 'menu'` puts `+ Add New` as the first list row; `'label'` puts a text button on the label row (legacy adapters). Formik forms use the same prop on `WtFieldFormik`.
 
 **It renders MUI's outlined field with its floating label** — the same control the
 "Add Rule" dialog in `pages/company/settings/SandwhichLeave.tsx` uses, which is the
@@ -223,6 +258,40 @@ Rules:
 - **Mark every required field with `required`.** MUI renders the `*` on the
   label itself, so it sits with the field and is announced by screen readers —
   never hand-write an asterisk in the label string.
+
+### Long forms in a dialog — `WtFormDialog`
+
+For a record with several groups of fields (a profile, a master with sections), don't
+hand-build the modal. `WtFormDialog` gives you the header, a section navigator that
+tracks the scroll and flags sections with errors, and a sticky footer with
+unsaved-changes status and Cancel / Save. It is a real `<form>`.
+
+```tsx
+<Formik initialValues={…} validationSchema={…} onSubmit={save}>
+  {(f) => (
+    <WtFormDialog
+      open={open} onClose={close} title="Edit vendor" subtitle={f.values.name}
+      sections={[{ id: 'v-basic', title: 'Basic', icon: 'bi bi-briefcase' },
+                 { id: 'v-bank',  title: 'Bank',  icon: 'bi bi-bank', invalid: !!f.errors.ifsc }]}
+      onSubmit={(e) => { e.preventDefault(); f.handleSubmit(); }}
+      dirty={f.dirty} saving={saving}
+    >
+      <WtFormSection id="v-basic" title="Basic" icon="bi bi-briefcase" tone="#1E3A8A">
+        <WtField label="Name" required value={f.values.name} onChange={(v) => f.setFieldValue('name', v)} />
+        <WtField label="Phone" value={…} onChange={…} />
+        <WtFormSpan><WtField label="Address" multiline minRows={2} … /></WtFormSpan>
+      </WtFormSection>
+      <WtFormSection id="v-bank" title="Bank" icon="bi bi-bank" tone="#16A34A">…</WtFormSection>
+    </WtFormDialog>
+  )}
+</Formik>
+```
+
+- Section `id`s must match the nav items' `id`s. Fewer than 3 sections → no nav.
+- `WtFormSection` lays children out two-up (`columns` to change); `WtFormSpan` takes a full row.
+- Images (logo, stamp, signature): `WtImageField` — preview, drag-and-drop, Change / Remove,
+  type and size checks. Pass `upload={(file) => Promise<url>}`; it doesn't know your endpoint.
+- Reference: `pages/company/organisation/OrganisationProfileForm.tsx`.
 
 ## Capitalisation
 

@@ -35,6 +35,7 @@ import {
     type TimeFormat,
     type TimeFormatPreference,
 } from '@utils/timeFormat';
+import { SettingsNowTile } from './SettingsNowTile';
 
 /** The org-level choice is binary — it has no "inherit" above it to defer to. */
 const ORG_OPTIONS: ReadonlyArray<{ value: TimeFormat; label: string }> = [
@@ -144,80 +145,121 @@ export function DateTimePanel() {
         }
     }, [companyId, currentCompany, dispatch, orgFormat]);
 
+    const youLabel =
+        preference === 'inherit'
+            ? `Org → ${resolved === '12h' ? '12-hour' : '24-hour'}`
+            : resolved === '12h'
+              ? '12-hour'
+              : '24-hour';
+
     return (
         <Stack spacing={2}>
-            <SettingsSection
-                tone={TRIO.blue}
-                icon="time"
-                title="your time format"
-                description="How times are shown to you, everywhere in the app."
+            <Box
+                sx={{
+                    display: 'grid',
+                    gap: 2,
+                    gridTemplateColumns: {
+                        xs: '1fr',
+                        sm: canManageOrg ? 'repeat(2, minmax(0, 1fr))' : '1fr',
+                    },
+                }}
             >
-                <Stack spacing={1.75}>
-                    <SegmentedControl<TimeFormatPreference>
-                        options={TIME_FORMAT_OPTIONS}
-                        value={preference}
-                        onChange={setPreference}
-                        ariaLabel="Your time format"
-                        fullWidth
-                        sx={{ maxWidth: { sm: 420 } }}
+                <SettingsNowTile
+                    icon="time"
+                    trio={TRIO.blue}
+                    label="You see"
+                    value={youLabel}
+                    hint={SAMPLE.format(TIME_TOKENS[resolved].TIME)}
+                />
+                {canManageOrg && (
+                    <SettingsNowTile
+                        icon="office-bag"
+                        trio={TRIO.purple}
+                        label="Organisation"
+                        value={loadingOrg ? 'Loading…' : orgFormat === '12h' ? '12-hour' : '24-hour'}
+                        hint={loadingOrg ? undefined : SAMPLE.format(TIME_TOKENS[orgFormat].TIME)}
                     />
-                    <Preview format={resolved} />
-                    {preference === 'inherit' && (
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            Following your organisation. If it changes, yours changes with it.
-                        </Typography>
-                    )}
-                    {preference !== 'inherit' && (
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            Your own choice, saved in this browser — it overrides the organisation
-                            default and stays put if that changes.
-                        </Typography>
-                    )}
-                </Stack>
-            </SettingsSection>
+                )}
+            </Box>
 
-            {canManageOrg && (
+            <Box
+                sx={{
+                    display: 'grid',
+                    gap: 2,
+                    gridTemplateColumns: { xs: '1fr', md: canManageOrg ? 'repeat(2, minmax(0, 1fr))' : '1fr' },
+                    alignItems: 'start',
+                }}
+            >
                 <SettingsSection
-                    tone={TRIO.purple}
-                    icon="office-bag"
-                    title="organisation default"
-                    description="What everyone who hasn't picked their own format sees."
+                    tone={TRIO.blue}
+                    icon="time"
+                    title="your time format"
+                    description="How times are shown to you, everywhere in the app."
+                    action={
+                        <SegmentedControl<TimeFormatPreference>
+                            options={TIME_FORMAT_OPTIONS}
+                            value={preference}
+                            onChange={setPreference}
+                            ariaLabel="Your time format"
+                        />
+                    }
                 >
-                    <Stack spacing={1.75}>
-                        {/* Inert until the org has actually loaded. Before that `orgFlag` is
-                            null and `storedOrgFormat` falls back to 12-hour, so an enabled
-                            control would be showing a guess — and an admin who agreed with the
-                            guess would write it to an org that had never chosen it. */}
-                        <Box sx={{ opacity: loadingOrg || saving ? 0.5 : 1, pointerEvents: loadingOrg ? 'none' : 'auto' }}>
-                            <SegmentedControl<TimeFormat>
-                                options={ORG_OPTIONS}
-                                value={orgFormat}
-                                onChange={saveOrgFormat}
-                                ariaLabel="Organisation time format"
-                                fullWidth
-                                sx={{ maxWidth: { sm: 320 } }}
-                            />
-                        </Box>
-                        {loadingOrg
-                            ? <Typography variant="body2" sx={{ color: 'text.secondary' }}>Loading your organisation…</Typography>
-                            : <Preview format={orgFormat} />}
-                        {preference !== 'inherit' && (
-                            <Stack direction="row" spacing={1} alignItems="flex-start">
-                                <KTIcon iconName="information-2" className="fs-5 text-warning mt-1" />
-                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                    You have your own format set above, so this change won't alter
-                                    what <strong>you</strong> see — only everyone still following the
-                                    organisation.
-                                </Typography>
-                            </Stack>
+                    <Stack spacing={1.25}>
+                        <Preview format={resolved} />
+                        {preference === 'inherit' && (
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                Following your organisation. If it changes, yours changes with it.
+                            </Typography>
                         )}
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            Payslip PDFs and payroll emails follow this setting too. A branch with
-                            its own format set in Branches keeps it.
-                        </Typography>
+                        {preference !== 'inherit' && (
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                Your own choice, saved in this browser — it overrides the organisation
+                                default and stays put if that changes.
+                            </Typography>
+                        )}
                     </Stack>
                 </SettingsSection>
-            )}
+
+                {canManageOrg && (
+                    <SettingsSection
+                        tone={TRIO.purple}
+                        icon="office-bag"
+                        title="organisation default"
+                        description="What everyone who hasn't picked their own format sees."
+                        action={
+                            <Box sx={{ opacity: loadingOrg || saving ? 0.5 : 1, pointerEvents: loadingOrg ? 'none' : 'auto' }}>
+                                <SegmentedControl<TimeFormat>
+                                    options={ORG_OPTIONS}
+                                    value={orgFormat}
+                                    onChange={saveOrgFormat}
+                                    ariaLabel="Organisation time format"
+                                />
+                            </Box>
+                        }
+                    >
+                        <Stack spacing={1.25}>
+                            {/* Inert until the org has actually loaded — see action opacity above. */}
+                            {loadingOrg
+                                ? <Typography variant="body2" sx={{ color: 'text.secondary' }}>Loading your organisation…</Typography>
+                                : <Preview format={orgFormat} />}
+                            {preference !== 'inherit' && (
+                                <Stack direction="row" spacing={1} alignItems="flex-start">
+                                    <KTIcon iconName="information-2" className="fs-5 text-warning mt-1" />
+                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                        You have your own format set above, so this change won't alter
+                                        what <strong>you</strong> see — only everyone still following the
+                                        organisation.
+                                    </Typography>
+                                </Stack>
+                            )}
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                Payslip PDFs and payroll emails follow this setting too. A branch with
+                                its own format set in Branches keeps it.
+                            </Typography>
+                        </Stack>
+                    </SettingsSection>
+                )}
+            </Box>
         </Stack>
     );
 }

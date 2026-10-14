@@ -2,20 +2,16 @@ import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { parseWorkingDays } from '@utils/workingDays';
 import { Bar, Donut, Dumbell, HeatMap, MultipleRadialBar, Polar, ReportsTable, StatisticsTable, StokedCircle, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
-import { usePagination } from '@pages/employee/attendance/personal/views/my-attendance/hooks/usePagination';
-import { CHECK_OUT_MISSING, EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, ON_LEAVE, TOTAL_WORKING_DAYS, monthDays, resourceNameMapWithCamelCase } from '@constants/statistics';
+import { CHECK_OUT_MISSING, EARLY_CHECKIN, EARLY_CHECKOUT, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, ON_LEAVE, TOTAL_WORKING_DAYS, WEEKEND, monthDays, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { saveFilteredPublicHolidays, saveLeaves, savePublicHolidays } from '@redux/slices/attendanceStats';
-import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions';
-import { RootState, store } from '@redux/store';
+import { RootState } from '@redux/store';
 import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration } from '@services/company';
 import { fetchAttendanceClassification, fetchEmployeeLeaves } from '@services/employee';
-import { fetchDayWiseShifts } from '@services/dayWiseShift';
-import { barMonthlyData, dumbellSeriesMonthlyData, fetchEmpMonthlyStatistics, pieAreaData, pieAreaLabels, donutaDataLabel, totalWorkingTime, getWorkingDaysInMonth, monthHeatMap, totalProgressPercent, allStreaksIndicator, customLeaves, getWorkingDaysInRange, formatDisplay, getWorkingDaysInRangeForTotalTime, filterLeavesPublicHolidays } from '@utils/statistics';
-import { hasPermission } from '@utils/authAbac';
+import { barMonthlyData, dumbellSeriesMonthlyData, fetchEmpMonthlyStatistics, pieAreaData, pieAreaLabels, monthHeatMap, totalProgressPercent, allStreaksIndicator, customLeaves, formatDisplay, filterLeavesPublicHolidays } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -25,11 +21,10 @@ import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { shouldShowBranchSetupGuide } from '@utils/shouldShowBranchSetupGuide';
 import BranchSetupGuide from './components/BranchSetupGuide';
 import { LeaveStatus } from '@constants/attendance';
-import { countTotalWeekends } from '@utils/countTotalWeekend';
 import Loader from '@app/modules/common/utils/Loader';
 import { calculateTotalDuration } from '@utils/calculateTotalDuration';
-import { fetchAppSettings } from '@redux/slices/appSettings';
 import LazySection from '@app/modules/common/components/LazySection';
+import { useMonthlyCalendarChartStats } from './useCalendarChartStats';
 
 const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSettingsEnabled = false, checkOwnWithOthers=false }: { 
     month: Dayjs, 
@@ -66,15 +61,8 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
     const dateOfJoining = useSelector((state: RootState) => fromAdmin? state.employee.selectedEmployee?.dateOfJoining : state.employee.currentEmployee?.dateOfJoining);
-    // FIX: fall back to currentEmployee branch when selectedEmployee branch not loaded
-    const weekends = fromAdmin
-        ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
-            || store.getState().employee.currentEmployee.branches?.workingAndOffDays)
-        : store.getState().employee.currentEmployee.branches?.workingAndOffDays;
-    const allWeekends = parseWorkingDays(weekends);
     const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
     const [dataLoaded, setDataLoaded] = useState(false);
-    const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
     const [classificationData, setClassificationData] = useState<Map<string, number>>(
         new Map([[TOTAL_WORKING_DAYS, 0], [EARLY_CHECKIN, 0], [LATE_CHECKIN, 0], [EARLY_CHECKOUT, 0], [LATE_CHECKOUT, 0], [MISSING_CHECKOUT, 0]])
     );
@@ -99,11 +87,9 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
 
     const attendance = useSelector((state: RootState) => {
         const { attendanceStats } = state;
-        // debugger;
         return attendanceStats.monthlyTable;
     });
-    // console.log("debugger:: ",attendance);
-    
+
     const monthyRequestTable = useSelector((state: RootState) => state.attendanceStats.monthyRequestTable);
 
     const attendanceRequests = useMemo(() => {
@@ -219,20 +205,6 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
         };
         
         fetchWorkingHours();
-    }, []);
-
-    // Fetch day-wise shifts
-    useEffect(() => {
-        async function loadDayWiseShifts() {
-            try {
-                const response = await fetchDayWiseShifts(shiftScope);
-                setDayWiseShifts(response.data || []);
-            } catch (error) {
-                console.error("Error fetching day-wise shifts:", error);
-                setDayWiseShifts([]); // Use empty array as fallback
-            }
-        }
-        loadDayWiseShifts();
     }, [shiftScope.companyId, shiftScope.branchId]);
 
     // Fetch backend attendance classification (scoped config — matches salary deductions).
@@ -256,33 +228,20 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
 
     useEffect(() => {
         const startDate = dayjs(month).startOf('month').format('YYYY-MM-DD');
-        //  const endDate = dayjs().endOf('year').format('YYYY-MM-DD');
         const filteredLeavesHolidays = filterLeavesPublicHolidays(dayjs(startDate).format('YYYY-MM-DD'), dayjs(endDate).format('YYYY-MM-DD'), true, false, true);
         dispatch(saveFilteredPublicHolidays(filteredLeavesHolidays?.publicHolidays));
-      }, [dispatch])
+      }, [dispatch, month, endDate]);
 
-    // Memoize totalWeekend count (computed value)
-    const totalWeekendCount = useMemo(() => {
-        return countTotalWeekends(
-            month.format('YYYY-MM-DD'),
-            endDate.format('YYYY-MM-DD'),
-            filteredPublicHolidays,
-            allWeekends
-        );
-    }, [month, endDate, filteredPublicHolidays, allWeekends]);
-  
-    // Memoize donutData based on weekend count
-    const donutData = useMemo(() => 
-        donutaDataLabel(
-            filteredAttendance,
-            filteredLeaves,
-            filteredPublicHolidays,
-            fromAdmin,
-            totalWeekendCount
-        ),
-    [filteredAttendance, filteredLeaves, filteredPublicHolidays, fromAdmin, totalWeekendCount]);
-    // debugger;
-    
+    // Server work-calendar SSOT (same endpoint as the personal Overview grid).
+    // Replaces client getWorkingDaysInRange / countTotalWeekends / donutaDataLabel.
+    const {
+        workingDays: actualTotalWorkingDay,
+        donut: donutData,
+        isLoading: calendarLoading,
+    } = useMonthlyCalendarChartStats(selectedEmployeeId, month, endDate, dateSettingsEnabled);
+
+    const totalWeekendCount = donutData.get(WEEKEND) || 0;
+
     const donutLabels = useMemo(() => Array.from(donutData.keys()), [donutData]);
     const donutSeries = useMemo(() => Array.from(donutData.values()), [donutData]);
     const multipleRadialBarLabels = useMemo(() => Array.from(classificationData.keys()), [classificationData]);
@@ -312,25 +271,6 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     const today = dayjs();
     const isCurrentMonth = today.isSame(month, 'month');
 
-
-    const workingStartDate = month.startOf('month');
-    const workingEndDate = (dateSettingsEnabled && isCurrentMonth)
-        ? today
-        : month.endOf('month');
-        
-    const totalWorkingDay = useMemo(() => 
-        getWorkingDaysInRange(workingStartDate, workingEndDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays),
-        [workingStartDate, workingEndDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays]
-    );
-
-
-    // setTotalAllowedMinutesForOutOffValue(totalMinutesForOutOffValue || 0);
-    
-    const findIsWeekendTrueAndCount = filteredPublicHolidays.filter((holiday: any) => holiday.isWeekend === true).length;
-    const workedOnHolidaOrWeekend = donutData.get(EXTRA_DAYS) || 0;
-    const actualTotalWorkingDay = (totalWorkingDay - findIsWeekendTrueAndCount) + workedOnHolidaOrWeekend;
-
-    const holidays = donutData.get(HOLIDAYS) || 0;
     const leaves = donutData.get(ON_LEAVE) || 0;
     const checkoutMissing = donutData.get(CHECK_OUT_MISSING) || 0;
     
@@ -352,17 +292,11 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     // convert everything to minutes
     const totalMinutes = hours * 60 + minutes;
     const totalAllowedTimeForOutOffValue = useMemo(() => {
-
-        const days  =  getWorkingDaysInRangeForTotalTime(workingStartDate, workingEndDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays) || 0;
-        const totalMinutesFinal = days*totalMinutes || 0;
-        // convert back to h m format
+        const totalMinutesFinal = (actualTotalWorkingDay * totalMinutes) || 0;
         const finalHours = Math.floor(totalMinutesFinal / 60);
         const finalMinutes = totalMinutesFinal % 60;
-        const totalAllowedTime = `${finalHours}h ${finalMinutes}m`;   
-        return totalAllowedTime;
-    },
-        [workingStartDate, workingEndDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays, totalMinutes]
-    );
+        return `${finalHours}h ${finalMinutes}m`;
+    }, [actualTotalWorkingDay, totalMinutes]);
 
     const totalAllowedMinutes = (actualTotalWorkingDay - leaves) * totalMinutes;
     
@@ -390,7 +324,7 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
         return <BranchSetupGuide />;
     }
 
-    if (!dataLoaded) {
+    if (!dataLoaded || calendarLoading) {
         return <Loader />;
     }
 

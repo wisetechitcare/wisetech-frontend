@@ -2,6 +2,7 @@ import { ChangeEvent, useState } from "react";
 import { useFormikContext } from "formik";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
+import { checkEmailDomain } from "@utils/emailDomain";
 
 /**
  * Work email and mobile — both OPTIONAL.
@@ -70,7 +71,10 @@ function WorkContactInfo({ formikProps }: { formikProps: any }) {
       )}
 
       <div className="row">
-        <div className="col-lg-6 col-md-6 col-sm-12 mb-3 mb-lg-0">
+        <div
+          className="col-lg-6 col-md-6 col-sm-12 mb-3 mb-lg-0"
+          onBlur={() => checkEmailDomain(values?.companyEmailId).then(() => formikProps?.validateField?.("companyEmailId"))}
+        >
           <TextInput
             isRequired={false}
             label="Work Email Address"

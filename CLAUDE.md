@@ -118,6 +118,11 @@ Single source of truth: `src/utils/currency.ts` + `src/hooks/useCurrency.ts`. Re
 - Responsive is mandatory: every surface must work from 360px to ultrawide. Use MUI breakpoint objects (`{ xs, sm, md }`) / Tailwind prefixes, `minmax(0, 1fr)` in grids, and `minWidth: 0` on flex children so text can truncate.
 - **Density — fill the width, no dead whitespace** (a repeated review finding — treat as a default, not a per-task ask): a list of a few fields spread across a full-width row leaves a big empty gutter and reads poorly. Instead: cap the page at `maxWidth ~1600, mx: "auto"`, lay collections out with **`AutoGrid`** (auto-fit tiles that fill wide screens and collapse to one column on mobile), and pack each card — title + muted meta pills + a 2-line clamped description + a bottom-pinned action row (`flex:1` spacer for equal-height tiles). Wrap any wide `Table` in an `overflowX: "auto"` container with a `minWidth` so mobile scrolls instead of the page. Every list view starts with `<ListHeader …/>`. Reference implementation: `pages/employee/recruitment/RequisitionsView.tsx`.
 
+## Multi-tenancy (org family)
+- Employer tenancy is the **organization family**, not CRM client companies. Canonical checklist: **[docs/multi-tenancy.md](docs/multi-tenancy.md)** (pairs with backend `docs/multi-tenancy.md`).
+- For org-scoped screens reuse **`useOrgScope` + `toCompanyIdParam`** (`src/hooks/useOrgScope.ts`) — do not invent a parallel org list.
+- UI hiding is not security; never send a `companyId` / `employeeId` the session did not obtain from family-scoped data.
+
 ## Conventions
 - TypeScript strict. No `any`; type API responses (`src/models/`, `src/types/`). Zod/Yup available for runtime validation — validate external data.
 - Forms: Formik or react-hook-form (both present) — match whatever the surrounding page already uses; don't mix within one form.

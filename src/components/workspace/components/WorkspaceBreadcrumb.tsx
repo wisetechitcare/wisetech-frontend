@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useWorkspaceShell } from '../WorkspaceShellContext';
+import { usePageData } from '@metronic/layout/core';
 
 /**
  * Anything that owns Escape for itself. A modal, a drawer, a confirm dialog and a menu all
@@ -48,6 +49,9 @@ export function WorkspaceBreadcrumb() {
   const appTitle = activeApp?.title;
   const appPath = activeApp?.path;
   const moduleTitle = activeModule?.title;
+  const modulePath = activeModule?.to;
+  // A page inside the module (a task) extends the trail; the module crumb then links back.
+  const trail = usePageData().pageTrail ?? [];
 
   // The crumb one step up: the app landing from inside a module, the launcher from an app
   // landing, and nothing at all from home — the same target the previous crumb links to.
@@ -97,9 +101,23 @@ export function WorkspaceBreadcrumb() {
       {moduleTitle && (
         <>
           <li className="wt-crumb__sep" aria-hidden>›</li>
-          <li className="wt-crumb__item wt-crumb__item--active" aria-current="page">{moduleTitle}</li>
+          {trail.length && modulePath
+            ? <li className="wt-crumb__item"><Link to={modulePath}>{moduleTitle}</Link></li>
+            : <li className="wt-crumb__item wt-crumb__item--active" aria-current="page">{moduleTitle}</li>}
         </>
       )}
+
+      {moduleTitle && trail.map((item, i) => {
+        const current = i === trail.length - 1;
+        return (
+          <Fragment key={`${item.title}-${i}`}>
+            <li className="wt-crumb__sep" aria-hidden>›</li>
+            {current || !item.path
+              ? <li className="wt-crumb__item wt-crumb__item--active" aria-current={current ? 'page' : undefined}>{item.title}</li>
+              : <li className="wt-crumb__item"><Link to={item.path}>{item.title}</Link></li>}
+          </Fragment>
+        );
+      })}
     </ul>
   );
 }

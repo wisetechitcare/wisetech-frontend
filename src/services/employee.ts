@@ -1515,6 +1515,25 @@ export const fetchAllEmployeesAttendanceRange = async (from: string, to: string)
     }
 }
 
+/**
+ * Non-working days per employee over a week/month, each from their OWN branch work
+ * calendar (weekly off + holidays + alternate off-Saturdays). The admin Overview's Absent
+ * walk consumes this so a no-punch day is judged by the right branch — the browser cannot,
+ * because it only has the viewing admin's single branch calendar.
+ *
+ * Returns `{ scopes: { "companyId|branchId": string[] }, employeeScopes: { empId: scopeKey } }`.
+ */
+export const fetchAttendanceRangeCalendar = async (from: string, to: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ATTENDANCE_RANGE_CALENDAR}?from=${from}&to=${to}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const fetchEmpAttendanceStatistics = async (employeeId: string, startDate: string, endDate: string, page?: number, limit?: number) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_STATISTICS}?employeeId=${employeeId}&startDate=${startDate}&endDate=${endDate}`;
@@ -1776,8 +1795,30 @@ export const submitReimbursementBatch = async (employeeId: string) => {
     return data;
 };
 
-export const fetchReimbursementBatches = async () => {
-    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_BATCHES}`);
+export const fetchReimbursementBatches = async (opts?: {
+    for?: 'payment' | 'inbox';
+    owing?: boolean;
+    startDate?: string;
+    endDate?: string;
+    dateBasis?: 'expense' | 'submission';
+}) => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_BATCHES}`, {
+        params: {
+            ...(opts?.for ? { for: opts.for } : {}),
+            ...(opts?.owing ? { owing: '1' } : {}),
+            ...(opts?.startDate ? { startDate: opts.startDate } : {}),
+            ...(opts?.endDate ? { endDate: opts.endDate } : {}),
+            ...(opts?.dateBasis ? { dateBasis: opts.dateBasis } : {}),
+        },
+    });
+    return data;
+};
+
+/** O(1) badge count for the Payment tab — not a full batch dump. */
+export const fetchReimbursementPaymentQueueCount = async () => {
+    const { data } = await axios.get(
+        `${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_PAYMENT_QUEUE_COUNT}`,
+    );
     return data;
 };
 
@@ -2628,6 +2669,16 @@ export const createReimbursementPayment = async (payload: {
         throw err;
     }
 }
+
+export const fetchReimbursementOrgPayments = async (startDate?: string, endDate?: string) => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_PAYMENTS}`, {
+        params: {
+            ...(startDate ? { startDate } : {}),
+            ...(endDate ? { endDate } : {}),
+        },
+    });
+    return data?.data?.payments ?? data?.payments ?? [];
+};
 
 export const fetchReimbursementPayments = async (employeeId: string, startDate?: string, endDate?: string) => {
     try {

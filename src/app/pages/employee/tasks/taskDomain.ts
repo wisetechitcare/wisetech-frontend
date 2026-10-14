@@ -19,6 +19,10 @@ export interface TaskStatusRef {
     color?: string | null;
     sortOrder?: number;
     isFinal?: boolean;
+    /** The stage's glyph (StatusGlyph): in_progress | completed | on_hold | cancelled; null = default. */
+    icon?: string | null;
+    /** Where the stage sits in the default progress flow; null for somebody's own phase. */
+    progressRole?: 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | null;
     /**
      * The project this stage belongs to, or null/absent for a company-wide one. Set only for a
      * lane added from a project's own board, and the reason a board can tell which of its lanes
@@ -61,6 +65,8 @@ export interface TaskRow {
     createdAt?: string;
     /** The configuration node this task was created from. Null for CUSTOM names. */
     presetTaskId?: string | null;
+    /** The task's number within its project — see `shortTaskId`. */
+    taskNo?: number | null;
     /**
      * The task's place in the CONFIGURATION tree, derived server-side from `presetTaskId` and
      * never stored: `taskPath` is the full chain including the task's own name, `taskParentPath`
@@ -97,6 +103,21 @@ export interface TaskRow {
  * (RSK-072). A task with no stage is not final; it has not started moving.
  */
 export const isTaskFinal = (task: Pick<TaskRow, 'status'>): boolean => task.status?.isFinal === true;
+
+/**
+ * What picking this stage makes the progress — the client mirror of the server's
+ * `progressForStage`, so the slider moves the moment the stage is chosen instead of after a
+ * save: a FINAL stage is 100%, a not-started one 0%, and anything else (in progress, or
+ * somebody's own phase) leaves the reported progress alone (null).
+ */
+export const progressForStage = (
+    stage: Pick<TaskStatusRef, 'isFinal' | 'progressRole'> | null | undefined,
+): number | null => {
+    if (!stage) return null;
+    if (stage.isFinal || stage.progressRole === 'DONE') return 100;
+    if (stage.progressRole === 'NOT_STARTED') return 0;
+    return null;
+};
 
 /**
  * Is this task past its due date and still open?
@@ -482,7 +503,13 @@ export const initialsOf = (name: string): string =>
     name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '?';
 
 /** Short display id — the full UUID is unusable on a card. */
-export const shortTaskId = (id: string): string => `#${String(id).slice(0, 8)}`;
+/**
+ * How a task is referred to: its number within its project ("#12"), assigned once on create
+ * and never reused. A row that predates numbering (or a payload without it) falls back to a
+ * fragment of its id.
+ */
+export const shortTaskId = (task: { id: string; taskNo?: number | null }): string =>
+    task.taskNo ? `#${task.taskNo}` : `#${String(task.id).slice(0, 8)}`;
 
 
 // ─────────────────────────────────────────────────────────────────────────────

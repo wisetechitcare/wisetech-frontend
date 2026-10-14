@@ -26,6 +26,22 @@ done
 echo "pre-push: typecheck (tsc --noEmit, ~75s)..."
 pnpm exec tsc --noEmit
 
+echo "pre-push: dependency audit (high/critical)..."
+# Same gate as .github/workflows/ci.yml "Audit dependencies". A new advisory can
+# land without anyone touching package.json; catching it here (and pinning the
+# floor in pnpm-workspace.yaml) is cheaper than a red merge into dev.
+if ! audit_out=$(pnpm audit --audit-level high 2>&1); then
+  echo "$audit_out"
+  if printf '%s\n' "$audit_out" | grep -qE 'TimeoutError|aborted due to timeout|ERR_PNPM_(AUDIT|FETCH)|ENOTFOUND|ECONNRESET|socket hang up'; then
+    echo "pre-push: advisory registry unreachable — dependency audit skipped."
+  else
+    echo "pre-push: pnpm audit --audit-level high failed. Pin the patched floor in pnpm-workspace.yaml overrides." >&2
+    exit 1
+  fi
+else
+  echo "$audit_out"
+fi
+
 # Lint only what this branch changed — same rule as CI, because the repo carries a
 # legacy warning backlog that a whole-repo gate would turn into a permanent red.
 if git rev-parse --verify -q origin/main >/dev/null; then

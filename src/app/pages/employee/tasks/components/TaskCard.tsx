@@ -340,7 +340,7 @@ const TaskCardBase = ({
                                 variant="caption"
                                 sx={{ color: 'text.disabled', fontFamily: 'monospace', fontSize: 10, letterSpacing: '-.02em' }}
                             >
-                                {shortTaskId(task.id)}
+                                {shortTaskId(task)}
                             </Typography>
                         )}
                     {onRequestMove && (

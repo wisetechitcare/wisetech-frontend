@@ -1,12 +1,15 @@
 import React, { useState } from "react";
-import { Modal } from "react-bootstrap";
-import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
+import { Box } from "@mui/material";
+import { Formik } from "formik";
 import * as Yup from "yup";
 import { createDesignation, updateDesignationById } from "@services/options";
-import { successConfirmation } from "@utils/modal";
-// `detail` carries the server's reason; `.message` is only the HTTP status name.
 import { apiErrorMessage } from "@utils/apiError";
-import { C, FONT, SP, RADIUS } from "@app/modules/configuration";
+import {
+  ConfigureFormDialog,
+  InlineHint,
+  WtFieldFormik,
+  toast,
+} from "@app/modules/common/components/ui";
 import HierarchicalTaskSelect, { buildTaskOptions } from "@app/pages/employee/tasks/components/HierarchicalTaskSelect";
 import { PATH_SEPARATOR, getPresetPath, getPresetSubtreeIds } from "@utils/presetTaskHierarchy";
 
@@ -108,7 +111,7 @@ const JobProfileConfigureForm: React.FC<JobProfileFormProps> = ({
           isActive: initialData.isActive ?? true,
           parentId: values.parentId || null,
         });
-        successConfirmation("Job profile updated successfully");
+        toast({ icon: "success", title: "Job profile updated" });
       } else {
         if (!companyId) {
           setError("Could not determine the company to add this job profile to.");
@@ -116,200 +119,91 @@ const JobProfileConfigureForm: React.FC<JobProfileFormProps> = ({
         }
         // The create endpoint takes a LIST — it was built for bulk seeding.
         await createDesignation([{ role, companyId, isActive: true, parentId: values.parentId || null }]);
-        successConfirmation("Job profile created successfully");
+        toast({ icon: "success", title: "Job profile created" });
       }
       onSuccess?.();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(apiErrorMessage(err, `Failed to ${isEditing ? "update" : "create"} job profile`));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!show) return null;
+  const subtitle =
+    !isEditing && parentName ? `Under “${parentName}”` : undefined;
 
   return (
-    <Modal show={show} onHide={onClose} centered backdropClassName="modal-backdrop-blur">
-      <Modal.Header
-        closeButton
-        style={{ borderBottom: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}
-      >
-        <Modal.Title
-          style={{ fontWeight: 600, fontSize: "18px", color: C.textPrimary, fontFamily: FONT.body }}
+    <Formik
+      initialValues={initialValues}
+      validationSchema={validationSchema}
+      onSubmit={handleSubmit}
+      enableReinitialize
+    >
+      {(fk) => (
+        <ConfigureFormDialog
+          open={show}
+          onClose={onClose}
+          title={`${isEditing ? "Edit" : "New"} Job Profile`}
+          subtitle={subtitle}
+          saving={isSubmitting}
+          error={error}
+          onSubmit={fk.handleSubmit}
+          submitLabel={isEditing ? "Update" : "Create"}
         >
-          {isEditing ? "Edit" : "New"} Job Profile
-          {!isEditing && parentName && (
-            <span style={{ display: "block", fontWeight: 500, fontSize: "13px", color: C.textMuted, marginTop: "2px" }}>
-              Under “{parentName}”
-            </span>
-          )}
-        </Modal.Title>
-      </Modal.Header>
-      <Formik
-        initialValues={initialValues}
-        validationSchema={validationSchema}
-        onSubmit={handleSubmit}
-        enableReinitialize
-      >
-        {({ values }) => (
-        <FormikForm>
-          <Modal.Body style={{ padding: SP.lg }}>
-            {error && (
-              <div
-                style={{
-                  backgroundColor: "#fee2e2",
-                  border: "1px solid #fecaca",
-                  borderRadius: RADIUS.md,
-                  padding: SP.md,
-                  marginBottom: SP.lg,
-                  color: "#7f1d1d",
-                  fontFamily: FONT.body,
-                  fontSize: "14px",
-                }}
-              >
-                {error}
-              </div>
-            )}
+          <WtFieldFormik
+            name="name"
+            label="Job Profile Name"
+            required
+            autoFocus
+            placeholder="e.g. Junior Engineers, Senior Draughtsman"
+            disabled={isSubmitting}
+          />
 
-            <label
-              style={{
-                fontWeight: 500,
-                color: C.textPrimary,
-                fontSize: "14px",
-                marginBottom: SP.sm,
-                display: "block",
-                fontFamily: FONT.body,
-              }}
-            >
-              Job Profile Name
-              <span style={{ color: "#dc3545", marginLeft: "4px" }}>*</span>
-            </label>
-            <Field
-              name="name"
-              type="text"
-              placeholder="e.g. Junior Engineers, Senior Draughtsman"
-              style={{
-                width: "100%",
-                backgroundColor: C.bgCard,
-                border: `1px solid ${C.border}`,
-                borderRadius: RADIUS.md,
-                padding: SP.md,
-                fontSize: "14px",
-                color: C.textPrimary,
-                fontFamily: FONT.body,
-                outline: "none",
-              }}
-              disabled={isSubmitting}
+          {/* Parent — HierarchicalTaskSelect stays until the tree picker is kit-migrated. */}
+          <Box>
+            <HierarchicalTaskSelect
+              formikField="parentId"
+              inputLabel={
+                <>
+                  Parent Job Profile{" "}
+                  <Box component="span" sx={{ color: "text.secondary", fontWeight: 400, ml: 0.5 }}>
+                    (optional)
+                  </Box>
+                </>
+              }
+              options={parentOptions}
+              placeholder="None — top-level job profile"
+              helpText={
+                <Box sx={{ mt: 1, fontSize: 12, color: "text.secondary" }}>
+                  {fk.values.parentId ? (
+                    <>
+                      <Box component="span" sx={{ fontWeight: 500 }}>Parent:</Box>{" "}
+                      {pathFor(fk.values.parentId).join(PATH_SEPARATOR)}
+                      {fk.values.name ? (
+                        <>
+                          <br />
+                          <Box component="span" sx={{ fontWeight: 500 }}>
+                            {isEditing ? "Full hierarchy:" : "Will be created as:"}
+                          </Box>{" "}
+                          {[...pathFor(fk.values.parentId), fk.values.name].join(PATH_SEPARATOR)}
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    "Leave empty for a top-level profile. Pick any profile to file this one under it."
+                  )}
+                </Box>
+              }
             />
-            <ErrorMessage name="name">
-              {(msg: string) => (
-                <div
-                  style={{
-                    color: "#dc3545",
-                    marginTop: "4px",
-                    fontSize: "12px",
-                    fontFamily: FONT.body,
-                  }}
-                >
-                  {msg}
-                </div>
-              )}
-            </ErrorMessage>
+          </Box>
 
-            {/* Parent — one searchable picker over the whole tree. Choosing a parent is
-                what places this profile in the hierarchy; leaving it empty makes it a
-                top-level one. A profile can be moved to any branch except its own. */}
-            <div style={{ marginTop: SP.lg }}>
-              <HierarchicalTaskSelect
-                formikField="parentId"
-                inputLabel={
-                  <>
-                    Parent Job Profile{" "}
-                    <span style={{ color: "#6c757d", fontWeight: 400, marginLeft: 4 }}>(optional)</span>
-                  </>
-                }
-                options={parentOptions}
-                placeholder="None — top-level job profile"
-                helpText={
-                  <div className="text-muted mt-1" style={{ fontSize: "12px" }}>
-                    {values.parentId ? (
-                      <>
-                        <span style={{ fontWeight: 500 }}>Parent:</span>{" "}
-                        {pathFor(values.parentId).join(PATH_SEPARATOR)}
-                        {values.name ? (
-                          <>
-                            <br />
-                            <span style={{ fontWeight: 500 }}>
-                              {isEditing ? "Full hierarchy:" : "Will be created as:"}
-                            </span>{" "}
-                            {[...pathFor(values.parentId), values.name].join(PATH_SEPARATOR)}
-                          </>
-                        ) : null}
-                      </>
-                    ) : (
-                      "Leave empty for a top-level profile. Pick any profile to file this one under it."
-                    )}
-                  </div>
-                }
-              />
-            </div>
-
-            <p
-              style={{
-                marginTop: SP.md,
-                marginBottom: 0,
-                fontFamily: FONT.body,
-                fontSize: "12px",
-                color: C.textMuted,
-              }}
-            >
-              Also listed as “Designations” under Organization Profile → Configure.
-            </p>
-          </Modal.Body>
-
-          <Modal.Footer style={{ borderTop: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              style={{
-                fontFamily: FONT.body,
-                fontSize: "13px",
-                fontWeight: 600,
-                padding: `${SP.sm} ${SP.lg}`,
-                borderRadius: RADIUS.md,
-                border: `1px solid ${C.border}`,
-                background: C.bgCard,
-                color: C.textPrimary,
-                cursor: isSubmitting ? "not-allowed" : "pointer",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              style={{
-                fontFamily: FONT.body,
-                fontSize: "13px",
-                fontWeight: 600,
-                padding: `${SP.sm} ${SP.lg}`,
-                borderRadius: RADIUS.md,
-                border: "none",
-                background: C.info,
-                color: "#fff",
-                cursor: isSubmitting ? "not-allowed" : "pointer",
-                opacity: isSubmitting ? 0.7 : 1,
-              }}
-            >
-              {isSubmitting ? "Saving..." : isEditing ? "Update" : "Create"}
-            </button>
-          </Modal.Footer>
-        </FormikForm>
-        )}
-      </Formik>
-    </Modal>
+          <InlineHint>
+            Also listed as “Designations” under Organization Profile → Configure.
+          </InlineHint>
+        </ConfigureFormDialog>
+      )}
+    </Formik>
   );
 };
 

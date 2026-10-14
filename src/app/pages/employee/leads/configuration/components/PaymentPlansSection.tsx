@@ -41,12 +41,6 @@ const PaymentPlanChip: React.FC<{
 }> = ({ plan, onEdit, onDelete }) => {
     const [hov, setHov] = useState(false);
     const stageCount = plan.stages?.length || 0;
-    const total = (plan.stages || []).reduce(
-        (sum, s) => sum + (parseFloat(String(s.percentage)) || 0),
-        0,
-    );
-    const roundedTotal = Math.round(total * 1000) / 1000;
-    const balanced = roundedTotal === 100;
     // `plan.name` is the server-derived project-type label — a plan has no name of its own.
     const scopeLabel = plan.name || '';
 
@@ -86,10 +80,6 @@ const PaymentPlanChip: React.FC<{
                     </div>
                     <div style={{ marginTop: 4, fontFamily: FONT.body, fontSize: '11.5px', color: C.textMuted }}>
                         {stageCount} stage{stageCount === 1 ? '' : 's'}
-                        {' · '}
-                        <span style={{ color: balanced ? '#0A5C2A' : C.danger, fontWeight: 600 }}>
-                            {roundedTotal}%
-                        </span>
                     </div>
                     {/* Plans written before they carried a project type fall back to a placeholder
                         title, so say what to do about it rather than leaving it unexplained. */}
@@ -186,7 +176,7 @@ const PaymentPlansSection: React.FC = () => {
         <>
             <ConfigSectionCard
                 title="Payment Plans"
-                description="Define stage-wise fee break-up plans. On a project, selecting a plan auto-splits the total commercial cost across its stages by percentage."
+                description="Define stage-wise fee break-up plans. On a project, selecting a plan splits the total commercial cost across its stages."
                 icon="bi-cash-stack"
                 iconColor="green"
                 primaryAction={{

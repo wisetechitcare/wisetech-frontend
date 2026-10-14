@@ -13,7 +13,8 @@ import {
 import { fetchConfiguration } from "@services/company";
 import { DATE_SETTINGS_KEY } from "@constants/configurations-key";
 import { useEffect, useState, memo } from "react";
-import { Container } from "react-bootstrap";
+import { Box, CircularProgress, Typography } from "@mui/material";
+import { GlassCard } from "@app/modules/common/components/ui";
 
 const DashboardKpi = memo(({ fromAdmin = false }: { fromAdmin?: boolean }) => {
   const [dateSettingsEnabled, setDateSettingsEnabled] = useState(false);
@@ -74,15 +75,18 @@ const DashboardKpi = memo(({ fromAdmin = false }: { fromAdmin?: boolean }) => {
 
   if (isLoading) {
     return (
-      <Container
-        fluid
-        className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
-        style={{ minHeight: "300px" }}
+      <Box
+        className="my-4 w-100"
+        sx={{
+          minHeight: 300,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          px: 0,
+        }}
       >
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
-      </Container>
+        <CircularProgress size={36} />
+      </Box>
     );
   }
 
@@ -95,26 +99,24 @@ const DashboardKpi = memo(({ fromAdmin = false }: { fromAdmin?: boolean }) => {
   ];
 
   return (
-    <div
-      className="card border-0 rounded-3 dashboard-kpi-container"
-      style={{ boxShadow: '8px 8px 16px 0px rgba(0,0,0,0.04)' }}
-    >
+    <GlassCard preset="section" sx={{ overflow: "hidden" }}>
       <style>{`
         .dashboard-kpi-container .d-flex.flex-column.mb-10 {
           display: none !important;
         }
       `}</style>
-      <div className="card-body p-3 p-md-4">
-        <h5
-          className="fw-semibold mb-4"
-          style={{
-            fontFamily: 'Barlow',
-            fontSize: '20px',
-            letterSpacing: '0.2px'
+      <Box className="dashboard-kpi-container">
+        <Typography
+          component="h5"
+          sx={{
+            fontWeight: 700,
+            fontSize: 20,
+            letterSpacing: "-0.02em",
+            mb: 2,
           }}
         >
           My KPI
-        </h5>
+        </Typography>
         <KpiGraphicalToggle
           toggleItemsActions={toggleItemsActions}
           fromAdmin={fromAdmin}
@@ -122,8 +124,8 @@ const DashboardKpi = memo(({ fromAdmin = false }: { fromAdmin?: boolean }) => {
           dateSettingsEnabled={dateSettingsEnabled}
           dashboardView={false}
         />
-      </div>
-    </div>
+      </Box>
+    </GlassCard>
   );
 });
 

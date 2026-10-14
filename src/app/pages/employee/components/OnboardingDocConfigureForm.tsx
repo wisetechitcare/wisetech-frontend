@@ -1,12 +1,14 @@
 import React, { useState } from "react";
-import { Modal } from "react-bootstrap";
-import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
+import { Formik } from "formik";
 import * as Yup from "yup";
 import { createOnboardingDocs, updateOnboardingDocs } from "@services/options";
-import { successConfirmation } from "@utils/modal";
-// `detail` carries the server's reason; `.message` is only the HTTP status name.
 import { apiErrorMessage } from "@utils/apiError";
-import { C, FONT, SP, RADIUS } from "@app/modules/configuration";
+import {
+  ConfigureFormDialog,
+  WtFieldFormik,
+  WtSwitchField,
+  toast,
+} from "@app/modules/common/components/ui";
 
 export interface OnboardingDocItem {
   id: string;
@@ -30,17 +32,6 @@ interface OnboardingDocFormProps {
 const validationSchema = Yup.object().shape({
   fieldName: Yup.string().trim().required("Document name is required"),
 });
-
-const checkboxRowSx: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: SP.sm,
-  marginTop: SP.md,
-  fontFamily: FONT.body,
-  fontSize: "14px",
-  color: C.textPrimary,
-  cursor: "pointer",
-};
 
 /**
  * Create / edit an onboarding document requirement.
@@ -78,14 +69,13 @@ const OnboardingDocConfigureForm: React.FC<OnboardingDocFormProps> = ({
           isEnabled: values.isEnabled,
           hasIdentityNumber: values.hasIdentityNumber,
         });
-        successConfirmation("Onboarding document updated successfully");
+        toast({ icon: "success", title: "Onboarding document updated" });
       } else {
         const owner = companyId || initialData?.companyId;
         if (!owner) {
           setError("Could not determine the company to add this document to.");
           return;
         }
-        // The create endpoint takes a LIST — it was built to seed a company's set.
         await createOnboardingDocs({
           companyId: owner,
           documents: [
@@ -96,153 +86,59 @@ const OnboardingDocConfigureForm: React.FC<OnboardingDocFormProps> = ({
             },
           ],
         });
-        successConfirmation("Onboarding document created successfully");
+        toast({ icon: "success", title: "Onboarding document created" });
       }
       onSuccess?.();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(apiErrorMessage(err, `Failed to ${isEditing ? "update" : "create"} onboarding document`));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!show) return null;
-
   return (
-    <Modal show={show} onHide={onClose} centered backdropClassName="modal-backdrop-blur">
-      <Modal.Header
-        closeButton
-        style={{ borderBottom: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}
-      >
-        <Modal.Title
-          style={{ fontWeight: 600, fontSize: "18px", color: C.textPrimary, fontFamily: FONT.body }}
+    <Formik
+      initialValues={initialValues}
+      validationSchema={validationSchema}
+      onSubmit={handleSubmit}
+      enableReinitialize
+    >
+      {(fk) => (
+        <ConfigureFormDialog
+          open={show}
+          onClose={onClose}
+          title={`${isEditing ? "Edit" : "New"} Onboarding Document`}
+          saving={isSubmitting}
+          error={error}
+          onSubmit={fk.handleSubmit}
+          submitLabel={isEditing ? "Update" : "Create"}
         >
-          {isEditing ? "Edit" : "New"} Onboarding Document
-        </Modal.Title>
-      </Modal.Header>
-      <Formik
-        initialValues={initialValues}
-        validationSchema={validationSchema}
-        onSubmit={handleSubmit}
-        enableReinitialize
-      >
-        <FormikForm>
-          <Modal.Body style={{ padding: SP.lg }}>
-            {error && (
-              <div
-                style={{
-                  backgroundColor: "#fee2e2",
-                  border: "1px solid #fecaca",
-                  borderRadius: RADIUS.md,
-                  padding: SP.md,
-                  marginBottom: SP.lg,
-                  color: "#7f1d1d",
-                  fontFamily: FONT.body,
-                  fontSize: "14px",
-                }}
-              >
-                {error}
-              </div>
-            )}
-
-            <label
-              style={{
-                fontWeight: 500,
-                color: C.textPrimary,
-                fontSize: "14px",
-                marginBottom: SP.sm,
-                display: "block",
-                fontFamily: FONT.body,
-              }}
-            >
-              Document Name
-              <span style={{ color: "#dc3545", marginLeft: "4px" }}>*</span>
-            </label>
-            <Field
-              name="fieldName"
-              type="text"
-              placeholder="e.g. Aadhar, PAN Card, Passport"
-              style={{
-                width: "100%",
-                backgroundColor: C.bgCard,
-                border: `1px solid ${C.border}`,
-                borderRadius: RADIUS.md,
-                padding: SP.md,
-                fontSize: "14px",
-                color: C.textPrimary,
-                fontFamily: FONT.body,
-                outline: "none",
-              }}
-              disabled={isSubmitting}
-            />
-            <ErrorMessage name="fieldName">
-              {(msg: string) => (
-                <div
-                  style={{
-                    color: "#dc3545",
-                    marginTop: "4px",
-                    fontSize: "12px",
-                    fontFamily: FONT.body,
-                  }}
-                >
-                  {msg}
-                </div>
-              )}
-            </ErrorMessage>
-
-            <label style={checkboxRowSx}>
-              <Field type="checkbox" name="isEnabled" disabled={isSubmitting} />
-              Ask for this document during onboarding
-            </label>
-
-            <label style={checkboxRowSx}>
-              <Field type="checkbox" name="hasIdentityNumber" disabled={isSubmitting} />
-              Also collect an identity number for it
-            </label>
-          </Modal.Body>
-
-          <Modal.Footer style={{ borderTop: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              style={{
-                fontFamily: FONT.body,
-                fontSize: "13px",
-                fontWeight: 600,
-                padding: `${SP.sm} ${SP.lg}`,
-                borderRadius: RADIUS.md,
-                border: `1px solid ${C.border}`,
-                background: C.bgCard,
-                color: C.textPrimary,
-                cursor: isSubmitting ? "not-allowed" : "pointer",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              style={{
-                fontFamily: FONT.body,
-                fontSize: "13px",
-                fontWeight: 600,
-                padding: `${SP.sm} ${SP.lg}`,
-                borderRadius: RADIUS.md,
-                border: "none",
-                background: C.primary,
-                color: "#fff",
-                cursor: isSubmitting ? "not-allowed" : "pointer",
-                opacity: isSubmitting ? 0.7 : 1,
-              }}
-            >
-              {isSubmitting ? "Saving..." : isEditing ? "Update" : "Create"}
-            </button>
-          </Modal.Footer>
-        </FormikForm>
-      </Formik>
-    </Modal>
+          <WtFieldFormik
+            name="fieldName"
+            label="Document Name"
+            required
+            autoFocus
+            placeholder="e.g. Aadhar, PAN Card, Passport"
+            disabled={isSubmitting}
+          />
+          <WtSwitchField
+            title="Ask for this document during onboarding"
+            size="sm"
+            checked={fk.values.isEnabled}
+            onChange={(e) => void fk.setFieldValue("isEnabled", e.target.checked)}
+            disabled={isSubmitting}
+          />
+          <WtSwitchField
+            title="Also collect an identity number for it"
+            size="sm"
+            checked={fk.values.hasIdentityNumber}
+            onChange={(e) => void fk.setFieldValue("hasIdentityNumber", e.target.checked)}
+            disabled={isSubmitting}
+          />
+        </ConfigureFormDialog>
+      )}
+    </Formik>
   );
 };
 

@@ -1,387 +1,125 @@
-import { KTIcon } from "@metronic/helpers";
-import { companiesIcons, projectOverviewIcons } from "@metronic/assets/sidepanelicons";
 import { Company } from "@models/companies";
 import { useEffect, useState } from "react";
+import { Link, Typography } from "@mui/material";
 import NoteModal from "./NoteModal";
 import { getClientBranchesByCompanyId } from "@services/lead";
 import { getAllCompanyTypes } from "@services/companies";
 import dayjs from "dayjs";
 import { getTimeTokens } from '@utils/timeFormat';
 import { canSection } from '@utils/can';
+import { DetailCard, DetailRow, DetailMapLink } from "@app/modules/detail-page/DetailPageComponents";
+import { CardGrid } from "@app/pages/employee/entity/detail/sections/SummarySection";
+import { DASH } from "@app/pages/employee/entity/detail/entityViewModel";
+import { AppIcon, ToneChip, WtButton } from "@app/modules/common/components/ui";
 
 // Resolve an audit relation (createdBy/updatedBy) — loaded via getById — into a display name.
-const auditName = (rel: any): string => {
-  if (!rel) return "N/A";
-  const full = [rel?.users?.firstName, rel?.users?.lastName].filter(Boolean).join(" ").trim();
-  return full || "N/A";
+const auditName = (rel: any): string =>
+  [rel?.users?.firstName, rel?.users?.lastName].filter(Boolean).join(" ").trim() || DASH;
+
+const stamp = (v?: string | null) => (v ? dayjs(v).format(`DD MMM YYYY, ${getTimeTokens().TIME}`) : DASH);
+
+/** Valid, non-zero coordinates — a 0,0 pin is "never set", not the Gulf of Guinea. */
+export const coordsOf = (lat: any, lng: any) => {
+  const la = parseFloat(String(lat));
+  const ln = parseFloat(String(lng));
+  return !isNaN(la) && !isNaN(ln) && la !== 0 && ln !== 0 ? { lat: la, lng: ln } : null;
 };
+
+export const telLink = (v?: string | null) =>
+  v ? <Link href={`tel:${v.replace(/[^\d+]/g, "")}`} underline="hover" color="inherit" sx={{ fontSize: "inherit" }}>{v}</Link> : DASH;
+
+export const mailLink = (v?: string | null) =>
+  v ? <Link href={`mailto:${v}`} underline="hover" sx={{ fontSize: "inherit" }}>{v}</Link> : DASH;
+
+export const webLink = (v?: string | null) =>
+  v ? <Link href={/^https?:\/\//i.test(v) ? v : `https://${v}`} target="_blank" rel="noopener noreferrer" underline="hover" sx={{ fontSize: "inherit" }}>{v}</Link> : DASH;
+
+/** ACTIVE / CLOSED as the kit's status chip. */
+export const companyStatusChip = (status?: string | null) =>
+  status ? (
+    <ToneChip
+      dense
+      tone={status === "ACTIVE" ? "success" : "danger"}
+      label={status === "ACTIVE" ? "Active" : status === "CLOSED" ? "Inactive" : status}
+    />
+  ) : DASH;
+
 interface OverviewProps {
   company: Company;
 }
 
+/** Company → Overview tab, on the same DetailCard kit as the lead / employee detail pages. */
 const Overview = ({ company }: OverviewProps) => {
   const canWrite = canSection('crm.companies', 'write');
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [branches, setBranches] = useState<any[]>([]);
   const [companyTypes, setCompanyTypes] = useState<any[]>([]);
-
-  const fetchClientBranches = async () => {
-    try {
-      const response = await getClientBranchesByCompanyId(company.id);
-      const companyTypesResponse = await getAllCompanyTypes();
-      setCompanyTypes(companyTypesResponse.companyTypes || []);
-      setBranches(response.leadBranches || []);
-    } catch (error) {
-      console.error("Failed to fetch branches", error);
-    }
-  };
+  const c = company as any;
 
   useEffect(() => {
-    fetchClientBranches();
+    Promise.all([getClientBranchesByCompanyId(company.id), getAllCompanyTypes()])
+      .then(([b, t]: any[]) => {
+        setBranches(b?.leadBranches || []);
+        setCompanyTypes(t?.companyTypes || []);
+      })
+      .catch((error) => console.error("Failed to fetch branches", error));
   }, [company.id]);
 
-  const handleNoteClick = () => {
-    setShowNoteModal(true);
-  };
-
-  const handleCloseNoteModal = () => {
-    setShowNoteModal(false);
-  };
-
-  
-  
+  const coords = coordsOf(company.latitude, company.longitude);
 
   return (
-    <div className="row g-4">
-      {/* Company Info Card */}
-      <div className="col-lg-6">
-        <div className="card card-flush h-100">
-          <div className="card-header d-flex justify-content-between align-items-center">
-            <div className="card-title d-flex align-items-center gap-2">
-              {/* <KTIcon iconName="abstract-26" className="fs-1 text-primary me-2" /> */}
-              <img src={companiesIcons.companiesActiveIcon.default} alt="" style={{width: "36px", height: "36px"}}/>
-              <h3 className="fw-bold mb-0">Company Info</h3>
-            </div>
-          </div>
-          <div className="card-body">
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Status</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <span className="badge align-items-center justify-content-center" style={{backgroundColor:company.status === 'ACTIVE' ? '#50cd89' : '#f1416c', color: "white", padding: "7px 12px 7px 12px", borderRadius: "20px", height: "32px", opacity: "0.7", width: "97px", fontFamily:'Inter', fontSize:'14px', fontWeight:'400' }}>
-                  {company.status === 'ACTIVE' ? 'Active' : company.status === 'CLOSED' ? 'Inactive' : company.status}
-                </span>
-              </div>
-            </div>
+    <>
+      <CardGrid>
+        <DetailCard title="Company Info" subtitle="Status and classification" icon="bi bi-building" accentColor="primary">
+          <DetailRow label="Status" value={companyStatusChip(company.status)} />
+          <DetailRow label="Blacklisted" value={company.blacklisted ? <ToneChip dense tone="danger" label="Yes" /> : "No"} />
+          <DetailRow label="Company" value={company.companyName || DASH} />
+          <DetailRow label="Company Type" value={companyTypes.find((t) => t.id === company.companyTypeId)?.name || DASH} />
+          <DetailRow label="Branches" value={branches.length} />
+          <DetailRow label="Visibility" value={company.visibility || DASH} />
+          <DetailRow label="Created By" value={auditName(c.createdBy)} />
+          <DetailRow label="Created" value={stamp(c.createdAt)} />
+          <DetailRow label="Last Edited By" value={auditName(c.updatedBy)} />
+          <DetailRow label="Last Edited" value={stamp(c.updatedAt)} isLast />
+        </DetailCard>
 
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Blacklisted</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>
-                  {company.blacklisted ? 'Yes' : 'No'}
-                </div>
-              </div>
-            </div>
+        <DetailCard title="Contact Information" subtitle="How to reach the company" icon="bi bi-telephone" accentColor="blue">
+          <DetailRow label="Phone" value={telLink(company.phone)} />
+          <DetailRow label="Phone 2" value={telLink(company.phone2)} />
+          <DetailRow label="Email" value={mailLink(company.email)} />
+          <DetailRow label="Fax" value={company.fax || DASH} />
+          <DetailRow label="Website" value={webLink(company.website)} isLast />
+        </DetailCard>
 
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Company</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.companyName}</div>
-              </div>
-            </div>
+        <DetailCard title="Address" subtitle="Registered location" icon="bi bi-geo-alt" accentColor="teal">
+          <DetailRow label="Address" value={company.address || DASH} />
+          <DetailRow label="Area" value={company.area || DASH} />
+          <DetailRow label="City" value={company.city || DASH} />
+          <DetailRow label="State" value={company.state || DASH} />
+          <DetailRow label="Country" value={company.country || DASH} />
+          <DetailRow label="ZIP Code" value={company.zipCode || DASH} isLast={!coords} />
+          {coords && <DetailRow label="Location" value={<DetailMapLink lat={coords.lat} lng={coords.lng} />} isLast />}
+        </DetailCard>
 
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Company Type</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{companyTypes.find((type) => type.id === company.companyTypeId)?.name || 'N/A'}</div>
-              </div>
-            </div>
+        <DetailCard
+          title="Notes"
+          subtitle="Internal remarks"
+          icon="bi bi-journal-text"
+          accentColor="amber"
+          actions={canWrite ? (
+            <WtButton inverted size="small" onClick={() => setShowNoteModal(true)} startIcon={<AppIcon name="pencil" className="fs-6" />}>
+              Edit notes
+            </WtButton>
+          ) : undefined}
+        >
+          <Typography sx={{ fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-wrap", py: 1.5, color: company.note ? "text.primary" : "text.disabled" }}>
+            {company.note || "No notes yet."}
+          </Typography>
+        </DetailCard>
+      </CardGrid>
 
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Branches</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{branches.length}</div>
-              </div>
-            </div>
-
-            {/* <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold">Active</div>
-              </div>
-              <div className="col-sm-8">
-                <span className={`badge badge-light-${company.isActive ? 'success' : 'danger'}`}>
-                  {company.isActive ? 'Yes' : 'No'}
-                </span>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold">Blacklisted</div>
-              </div>
-              <div className="col-sm-8">
-                <span className={`badge badge-light-${company.blacklisted ? 'danger' : 'success'}`}>
-                  {company.blacklisted ? 'Yes' : 'No'}
-                </span>
-              </div>
-            </div> */}
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Visibility</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.visibility || 'N/A'}</div>
-              </div>
-            </div>
-
-            {/* Audit trail — who created/last-edited this company and when */}
-            <div className="separator my-3" />
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Created By</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{auditName((company as any).createdBy)}</div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Created Date</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{(company as any).createdAt ? dayjs((company as any).createdAt).format(`DD/MM/YYYY, ${getTimeTokens().TIME}`) : 'N/A'}</div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Last Edited By</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{auditName((company as any).updatedBy)}</div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Last Edited Date</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{(company as any).updatedAt ? dayjs((company as any).updatedAt).format(`DD/MM/YYYY, ${getTimeTokens().TIME}`) : 'N/A'}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Contact Information Card */}
-      <div className="col-lg-6">
-        <div className="card card-flush h-100">
-          <div className="card-header d-flex justify-content-between align-items-center">
-            <div className="card-title d-flex align-items-center gap-2">
-              <img src={companiesIcons.portalIcon.default} alt="" style={{width: "36px", height: "36px"}}/>
-              <h3 className="fw-bold mb-0">Contact Information</h3>
-            </div>
-          </div>
-          <div className="card-body">
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Phone</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.phone || 'N/A'}</div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Phone 2</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div  style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.phone2 || 'N/A'}</div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Email</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.email || 'N/A'}</div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>FAX</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.fax || 'N/A'}</div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Website</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.website || 'N/A'}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Address Information Card */}
-      <div className="col-lg-6">
-        <div className="card card-flush h-100">
-          <div className="card-header">
-            <div className="card-title d-flex align-items-center gap-2">
-              <KTIcon iconName="geolocation" className="fs-1 text-primary me-2" />
-              <h3 className="fw-bold mb-0">Address Information</h3>
-            </div>
-          </div>
-          <div className="card-body">
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Address</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.address || 'N/A'}</div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Area</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.area || 'N/A'}</div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>City</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.city || 'N/A'}</div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>State</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.state || 'N/A'}</div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Country</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.country || 'N/A'}</div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-sm-4">
-                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}} >ZIP Code</div>
-              </div>
-              <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.zipCode || 'N/A'}</div>
-              </div>
-            </div>
-
-            {/* View on map link - ONLY if coordinates are valid and non-zero */}
-            {(() => {
-              const lat = parseFloat(String(company.latitude));
-              const lng = parseFloat(String(company.longitude));
-              if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-                return (
-                  <div className="row mb-4">
-                    <div className="col-sm-4">
-                      <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Location</div>
-                    </div>
-                    <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                      <div className="d-flex align-items-center" style={{ gap: "4px" }}>
-                        <img
-                          src={projectOverviewIcons.mapIcon?.default}
-                          alt=""
-                          style={{ width: "20px", height: "20px" }}
-                        />
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            color: "#1E3A8A",
-                            textDecoration: "none",
-                            fontWeight: "400",
-                            fontFamily: "Inter",
-                            fontSize: "14px"
-                          }}
-                        >
-                          View on map
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-          </div>
-        </div>
-      </div>
-
-      <div className="col-lg-6">
-        <div className="card card-flush h-100">
-          <div className="card-header d-flex justify-content-between align-items-center">
-            <div className="card-title d-flex align-items-center gap-2">
-              <img
-                src={companiesIcons.notesIcon.default}
-                alt=""
-                style={{ width: "36px", height: "36px" }}
-              />
-              <h3 style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Notes</h3>
-            </div>
-            {canWrite && (
-            <button
-              className="btn btn-sm btn-primary"
-              onClick={handleNoteClick}
-              style={{ fontFamily: "Barlow", fontWeight: 600, fontSize: "14px" }}
-            >
-              Edit Notes
-            </button>
-            )}
-          </div>
-          <div className="card-body">
-            <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>
-              {company.note || "No notes available"}
-            </div>
-          </div>
-        </div>
-      </div>
-
-    <NoteModal show={showNoteModal} onClose={handleCloseNoteModal} companyId={company.id} />
-
-    </div>
+      <NoteModal show={showNoteModal} onClose={() => setShowNoteModal(false)} companyId={company.id} />
+    </>
   );
 };
 

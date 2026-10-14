@@ -1,13 +1,19 @@
+import type {} from '@mui/x-date-pickers/themeAugmentation';
 import { createTheme, Theme } from '@mui/material/styles';
 import { T } from '@app/modules/common/components/ui/tokens';
 import { GH_DARK } from './githubDark';
 import { DEFAULT_BRAND, readableOn, shade, type BrandPalette } from './appearance';
+import { muiXPickerComponents } from './muiXPickers';
+import { sheetSx } from './surfaces';
 
 /**
  * Branded Material UI theme — single source of truth for the app's MUI look.
  * `makeWisetechTheme(mode)` returns a light or dark variant so the glass kit and MUI components
  * can respond to the reusable ColorModeProvider (see ui/ColorMode.tsx). The dark variant powers
  * the frosted-glass dark material.
+ *
+ * Surfaces / pickers: {@link sheetSx} + {@link muiXPickerComponents} — same light/dark sheet
+ * language as the M3 fiscal + time dialogs, applied to every MUI X calendar popper.
  *
  * NOTE: applied through <ThemeProvider> only (no <CssBaseline/>) so it does not disturb the
  * Metronic/Bootstrap global styles used by the rest of the app.
@@ -16,6 +22,16 @@ import { DEFAULT_BRAND, readableOn, shade, type BrandPalette } from './appearanc
  *  The palette itself now lives in ./githubDark — one definition shared by MUI, the glass kit,
  *  the tw kit, and (via `--gh-*` custom properties) every plain stylesheet. */
 export { GH_DARK };
+export {
+  sheetSx,
+  scrimSx,
+  accentWash,
+  neutralWash,
+  onAccent,
+  nativeFieldColors,
+  M3_MOTION,
+  isDarkMode,
+} from './surfaces';
 
 export function makeWisetechTheme(mode: 'light' | 'dark' = 'light', brand: BrandPalette = DEFAULT_BRAND): Theme {
   const dark = mode === 'dark';
@@ -24,7 +40,9 @@ export function makeWisetechTheme(mode: 'light' | 'dark' = 'light', brand: Brand
   // The light shadows are blue-grey (rgba(16,24,40,…)); on a near-black canvas they read as haze
   // rather than depth, so dark gets near-black elevation instead.
   const popShadow = dark ? GH_DARK.shadowMd : T.shadow.pop;
-  return createTheme({
+
+  // Build once so picker overrides can read the finished palette (contrastText, etc.).
+  const base = createTheme({
     palette: {
       mode,
       // The configured brand drives BOTH modes. Dark still brightens it — a
@@ -70,6 +88,9 @@ export function makeWisetechTheme(mode: 'light' | 'dark' = 'light', brand: Brand
       fontFamily: T.font.family,
       button: { textTransform: 'none', fontWeight: 600 },
     },
+  });
+
+  return createTheme(base, {
     components: {
       // The headline unification — every MUI tooltip becomes the dark premium bubble.
       // In dark mode the light-theme ink (#1B2230) is nearly the canvas colour, so the bubble
@@ -113,6 +134,18 @@ export function makeWisetechTheme(mode: 'light' | 'dark' = 'light', brand: Brand
           paper: { borderRadius: 12, backgroundColor: menuPaper, border: `1px solid ${line}`, boxShadow: popShadow },
         },
       },
+      MuiPopover: {
+        styleOverrides: {
+          paper: {
+            borderRadius: 12,
+            backgroundColor: menuPaper,
+            backgroundImage: 'none',
+            border: `1px solid ${line}`,
+            boxShadow: popShadow,
+            color: dark ? GH_DARK.fg : T.color.ink,
+          },
+        },
+      },
       MuiMenuItem: {
         styleOverrides: {
           root: { fontFamily: T.font.family, fontSize: 13.5, borderRadius: 8, margin: '2px 6px' },
@@ -130,8 +163,32 @@ export function makeWisetechTheme(mode: 'light' | 'dark' = 'light', brand: Brand
         // broken. Turned off app-wide rather than per dialog: every dialog in the app can fire
         // a Swal, and the trap buys nothing here since Swal runs its own.
         defaultProps: { disableEnforceFocus: true },
-        styleOverrides: { paper: { borderRadius: 16 } },
+        styleOverrides: {
+          // Stock MUI dialogs (not GlassDialog) get the solid elevated sheet in dark —
+          // same family as picker poppers. GlassDialog owns its own paper styles.
+          paper: {
+            borderRadius: 16,
+            backgroundImage: 'none',
+            ...(dark
+              ? {
+                  backgroundColor: GH_DARK.elevated,
+                  border: `1px solid ${GH_DARK.border}`,
+                  color: GH_DARK.fg,
+                  boxShadow: GH_DARK.shadowLg,
+                }
+              : {}),
+          },
+        },
       },
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundImage: 'none',
+          },
+        },
+      },
+      // Date / time calendars + desktop poppers — light & dark.
+      ...muiXPickerComponents(base),
     },
   });
 }

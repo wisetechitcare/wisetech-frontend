@@ -24,7 +24,6 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import HubRoundedIcon from '@mui/icons-material/HubRounded';
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
-import Flatpickr from 'react-flatpickr';
 import {
   fetchAllPrefixSettings,
   createPrefixSetting,
@@ -37,13 +36,9 @@ import {
 import { fetchCompanyOverview } from '@services/company';
 import { useOrgScope } from '@hooks/useOrgScope';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
-import { ToneChip } from '@app/modules/common/components/ui/chips';
-import {
-  convertFiscalYearToDates,
-  toISODateString,
-  getDefaultFiscalYear,
-  type PrefixSetting,
-} from './PrefixSettingsForm';
+import { ToneChip, FiscalYearRangeField } from '@app/modules/common/components/ui';
+import { getDefaultFiscalYear, type PrefixSetting } from './PrefixSettingsForm';
+import { toCanonicalFiscalYearRange } from '@utils/fiscalYearRange';
 import {
   FISCAL_YEAR_FORMAT_OPTIONS,
   SEQUENCE_PAD_OPTIONS,
@@ -176,12 +171,13 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
         setRows(newRows);
 
         const existingYear = settings.find((s) => s.year)?.year;
-        const resolvedYear =
+        const resolvedYear = toCanonicalFiscalYearRange(
           existingYear ||
-          companyResponse?.data?.companyOverview?.fiscalYear ||
-          getDefaultFiscalYear();
+            companyResponse?.data?.companyOverview?.fiscalYear ||
+            getDefaultFiscalYear(),
+        ) || getDefaultFiscalYear();
         setFiscalYear(resolvedYear);
-        setSavedFiscalYear(existingYear || '');
+        setSavedFiscalYear(toCanonicalFiscalYearRange(existingYear || '') || '');
       } catch {
         if (!cancelled) errorConfirmation(`Could not load ${typeLabel.toLowerCase()} prefix settings.`);
       } finally {
@@ -516,37 +512,21 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
             </Box>
             <Box
               sx={{
-                // Its own full line on mobile: "01/04/2026 to 31/03/2027" needs
-                // roughly 190px and there is no shorter honest way to write it.
                 flexBasis: { xs: '100%', sm: 'auto' },
-                width: { sm: 195 },
-                '& input': {
-                  width: '100%',
-                  height: 32,
-                  padding: '0 10px',
-                  borderRadius: '8px',
-                  border: '1px solid',
-                  borderColor: yearDirty ? 'warning.main' : 'var(--mui-palette-divider, #cbd5e1)',
-                  backgroundColor: 'background.paper',
-                  color: 'text.primary',
-                  fontSize: 12.5,
-                  fontWeight: 600,
-                  fontFamily: 'inherit',
-                  outline: 'none',
-                  transition: 'all 0.15s ease',
-                  '&:focus': { borderColor: 'primary.main' },
-                },
+                minWidth: { sm: 320 },
+                flex: { sm: '1 1 320px' },
+                maxWidth: { sm: 420 },
+                '& .MuiOutlinedInput-notchedOutline': yearDirty
+                  ? { borderColor: 'warning.main !important' }
+                  : undefined,
               }}
             >
-              <Flatpickr
-                value={fiscalYear ? convertFiscalYearToDates(fiscalYear) : []}
-                placeholder="Select Fiscal Year"
-                onChange={(dates: Date[]) => {
-                  if (dates.length === 2) {
-                    setFiscalYear(`${toISODateString(dates[0])} to ${toISODateString(dates[1])}`);
-                  }
-                }}
-                options={{ dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', mode: 'range' }}
+              <FiscalYearRangeField
+                value={fiscalYear}
+                onChange={setFiscalYear}
+                startLabel="Start"
+                endLabel="End"
+                density="compact"
               />
             </Box>
           </Box>

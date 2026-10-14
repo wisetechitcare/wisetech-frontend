@@ -104,6 +104,10 @@ export interface WtSelectProps {
     virtualizeThreshold?: number;
     filterOption?: any;
     menuPortalTarget?: HTMLElement | null;
+    /** Controlled menu open state — e.g. close before opening a create dialog above the portal. */
+    menuIsOpen?: boolean;
+    onMenuOpen?: () => void;
+    onMenuClose?: () => void;
     className?: string;
     classNamePrefix?: string;
 }
@@ -212,6 +216,9 @@ export function WtSelect({
     virtualizeThreshold = DEFAULT_VIRTUALIZE_THRESHOLD,
     filterOption,
     menuPortalTarget,
+    menuIsOpen,
+    onMenuOpen,
+    onMenuClose,
     className = 'react-select-styled',
     classNamePrefix = 'react-select',
 }: WtSelectProps) {
@@ -311,6 +318,9 @@ export function WtSelect({
             isLoading={isLoading}
             filterOption={filterOption}
             formatOptionLabel={formatOptionLabel}
+            {...(menuIsOpen !== undefined ? { menuIsOpen } : {})}
+            onMenuOpen={onMenuOpen}
+            onMenuClose={onMenuClose}
             className={className}
             classNamePrefix={classNamePrefix}
             styles={styles}
