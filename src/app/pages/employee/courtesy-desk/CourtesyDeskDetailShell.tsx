@@ -1,5 +1,6 @@
 import { PageTitle } from '@metronic/layout/core';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
+import { bootstrapCourtesyDeskFromApi } from './store/courtesyDeskStore';
 import GiftManagementTabBar from './GiftManagementTabBar';
 import { GIFT_MANAGEMENT_BASE } from './giftPaths';
 
@@ -10,6 +11,10 @@ export default function CourtesyDeskDetailShell({
   title: string;
   children: ReactNode;
 }) {
+  useEffect(() => {
+    void bootstrapCourtesyDeskFromApi();
+  }, []);
+
   const breadcrumbs = [
     { title: 'Home', path: '/dashboard', isSeparator: false, isActive: false },
     { title: '', path: '', isSeparator: true, isActive: false },
@@ -17,12 +22,11 @@ export default function CourtesyDeskDetailShell({
     { title: '', path: '', isSeparator: true, isActive: false },
     { title: 'Gift Managements', path: GIFT_MANAGEMENT_BASE, isSeparator: false, isActive: false },
     { title: '', path: '', isSeparator: true, isActive: false },
-    { title, path: '', isSeparator: false, isActive: true },
   ];
 
   return (
     <>
-      <PageTitle breadcrumbs={breadcrumbs}>Gift Managements</PageTitle>
+      <PageTitle breadcrumbs={breadcrumbs}>{title}</PageTitle>
       <GiftManagementTabBar />
       {children}
     </>

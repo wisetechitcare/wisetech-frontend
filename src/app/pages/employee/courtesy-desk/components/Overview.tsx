@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
-  Button,
   LinearProgress,
   Stack,
   Typography,
@@ -23,9 +22,10 @@ import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import {
   getOverviewStats,
+  getOverviewStatsFromApi,
   listGroups,
-  resetCourtesyDeskDemo,
 } from "../store/courtesyDeskStore";
+import type { GiftsOverview } from "@services/gifts";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import {
   GIFT_RUN_LABEL,
@@ -116,10 +116,11 @@ export default function Overview() {
     return [s || undefined, e || undefined];
   }, [fiscalYear]);
 
-  const stats = useMemo(
-    () => getOverviewStats(fyStart, fyEnd),
-    [desk, fyStart, fyEnd],
-  );
+  const [stats, setStats] = useState<GiftsOverview>(() => getOverviewStats(fyStart, fyEnd));
+
+  useEffect(() => {
+    void getOverviewStatsFromApi(fyStart, fyEnd).then(setStats);
+  }, [desk, fyStart, fyEnd]);
 
   const groups = listGroups();
   const fyLabel = fiscalYear ? `FY ${formatFiscalYearLabel(fiscalYear)}` : "…";
@@ -379,11 +380,6 @@ export default function Overview() {
         </Stack>
       )}
 
-      <Box sx={{ mt: 3 }}>
-        <Button size="small" variant="text" onClick={() => resetCourtesyDeskDemo()}>
-          Reset demo data
-        </Button>
-      </Box>
     </Box>
   );
 }

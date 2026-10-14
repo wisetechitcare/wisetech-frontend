@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Box, Stack, Typography, alpha, useTheme } from "@mui/material";
+import {
+  Box,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+  alpha,
+  useTheme,
+} from "@mui/material";
 import { toast } from "react-toastify";
+import { apiErrorMessage } from "@utils/apiError";
 import { MRT_ColumnDef } from "material-react-table";
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
@@ -10,8 +19,8 @@ import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { SolidChip } from "@app/pages/billing/operations/TrackerCells";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
-import { listDrives, updateDriveMeta } from "../store/courtesyDeskStore";
-import type { ConfigOption, CourtesyDrive } from "../types";
+import { listDrives, updateDriveMetaToApi } from "../store/courtesyDeskStore";
+import type { CourtesyDrive } from "../types";
 import {
   GIFT_RUN_LABEL,
   GIFT_RUN_LABEL_PLURAL,
@@ -20,6 +29,7 @@ import {
 } from "../types";
 import SolidChipPickMenu from "./SolidChipPickMenu";
 import { DriveCreateModal } from "./DriveCreate";
+import { T } from "@app/modules/common/components/ui/tokens";
 
 export default function DrivesList() {
   const theme = useTheme();
@@ -28,6 +38,7 @@ export default function DrivesList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
   const [presetGroupId, setPresetGroupId] = useState<string | undefined>();
+  const [showArchived, setShowArchived] = useState(false);
   const employeeId = useSelector(
     (s: RootState) => s.employee.currentEmployee?.id,
   );
@@ -51,7 +62,7 @@ export default function DrivesList() {
     setCreateOpen(false);
     setPresetGroupId(undefined);
   };
-  const drives = listDrives();
+  const drives = listDrives(showArchived);
   const giftRunStatuses = desk.config.giftRunStatuses;
 
   const columns = useMemo<MRT_ColumnDef<CourtesyDrive>[]>(
@@ -99,8 +110,11 @@ export default function DrivesList() {
             heading="SET GIFT RUN STATUS"
             options={giftRunStatuses}
             onPick={(status) => {
-              updateDriveMeta(row.original.id, { status });
-              toast.success("Gift run status updated");
+              void updateDriveMetaToApi(row.original.id, { status })
+                .then(() => toast.success("Gift run status updated"))
+                .catch((err: unknown) =>
+                  toast.error(apiErrorMessage(err, "Something went wrong")),
+                );
             }}
           />
         ),
@@ -131,9 +145,21 @@ export default function DrivesList() {
             One gift distribution per occasion — track every person, then export
           </Typography>
         </Box>
-        <PremiumButton icon="bi-plus-lg" onClick={() => openCreate()}>
-          New {GIFT_RUN_LABEL}
-        </PremiumButton>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <TextField
+            select
+            size="small"
+            value={showArchived ? "all" : "active"}
+            onChange={(e) => setShowArchived(e.target.value === "all")}
+            sx={{ minWidth: 150 }}
+          >
+            <MenuItem value="active">Active only</MenuItem>
+            <MenuItem value="all">Include archived</MenuItem>
+          </TextField>
+          <PremiumButton icon="bi-plus-lg" onClick={() => openCreate()}>
+            New {GIFT_RUN_LABEL}
+          </PremiumButton>
+        </Stack>
       </Stack>
 
       <MaterialTable
@@ -143,6 +169,11 @@ export default function DrivesList() {
         employeeId={employeeId}
         enableFilters={false}
         enableGrouping={false}
+        muiTablePaperStyle={{
+          borderRadius: `${T.radius.lg}px`,
+          border: `1px solid ${T.color.line}`,
+          boxShadow: T.shadow.card,
+        }}
         muiTableProps={{
           muiTableBodyRowProps: ({ row }) => ({
             onClick: () =>

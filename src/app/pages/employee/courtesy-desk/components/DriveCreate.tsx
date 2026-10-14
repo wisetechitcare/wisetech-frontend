@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import { toast } from "react-toastify";
+import { apiErrorMessage } from "@utils/apiError";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
 import {
   GlassDialog,
@@ -21,7 +22,7 @@ import {
 import { menuOptionSx } from "@app/modules/common/components/ui/patterns";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
-import { createDrive, listGroups } from "../store/courtesyDeskStore";
+import { createDriveToApi, listGroups } from "../store/courtesyDeskStore";
 import type { ConfigOption } from "../types";
 import { GIFT_RUN_LABEL } from "../types";
 
@@ -82,23 +83,24 @@ export function DriveCreateModal({
       if (!giftItem.trim()) throw new Error("Gift item is required.");
       if (!occasionType)
         throw new Error("Choose an occasion (add new ones under Configure).");
-      const drive = createDrive({
+      void createDriveToApi({
         title,
         occasionType,
         giftItem,
         driveDate,
         sourceGroupId: groupId,
         defaultQuantity: Math.max(1, defaultQuantity || 1),
-      });
-      toast.success(`${GIFT_RUN_LABEL} created`);
-      onClose();
-      navigate(`${GIFT_MANAGEMENT_BASE}/drives/${drive.id}`);
+      })
+        .then((drive) => {
+          toast.success(`${GIFT_RUN_LABEL} created`);
+          onClose();
+          navigate(`${GIFT_MANAGEMENT_BASE}/drives/${drive.id}`);
+        })
+        .catch((err: unknown) => {
+          toast.error(apiErrorMessage(err, "Something went wrong"));
+        });
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : `Could not create ${GIFT_RUN_LABEL.toLowerCase()}.`;
-      toast.error(msg);
+      toast.error(apiErrorMessage(err, "Something went wrong"));
     }
   };
 

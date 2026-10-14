@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import { bootstrapCourtesyDeskFromApi } from './store/courtesyDeskStore';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { PageTitle } from '@metronic/layout/core';
@@ -12,6 +13,10 @@ import { GIFT_MANAGEMENT_BASE } from './giftPaths';
 const TAB_TITLES = ['Overview', 'People Groups', 'Gift Runs', 'Configure'] as const;
 
 export default function CourtesyDeskMain() {
+  useEffect(() => {
+    void bootstrapCourtesyDeskFromApi();
+  }, []);
+
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = giftTabIndexFromPath(location.pathname);
@@ -39,12 +44,12 @@ export default function CourtesyDeskMain() {
     { title: '', path: '', isSeparator: true, isActive: false },
     { title: 'CRM', path: '/workspace/crm', isSeparator: false, isActive: false },
     { title: '', path: '', isSeparator: true, isActive: false },
-    { title: 'Gift Managements', path: GIFT_MANAGEMENT_BASE, isSeparator: false, isActive: true },
+    { title: 'Gift Managements', path: GIFT_MANAGEMENT_BASE, isSeparator: false, isActive: false },
   ];
 
   return (
     <>
-      <PageTitle breadcrumbs={breadcrumbs}>Gift Managements</PageTitle>
+      <PageTitle breadcrumbs={breadcrumbs}>{TAB_TITLES[activeTab]}</PageTitle>
       <MaterialHeaderTab
         tabItems={tabItems}
         activeTab={activeTab}

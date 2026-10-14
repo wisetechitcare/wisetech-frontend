@@ -14,6 +14,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { toast } from "react-toastify";
+import { apiErrorMessage } from "@utils/apiError";
 import { MRT_ColumnDef } from "material-react-table";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@redux/store";
@@ -23,11 +24,12 @@ import { StatTile, TRIO } from "@app/modules/common/components/ui";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import {
-  applyDriveAssigneeMode,
-  bulkUpdateRecipients,
+  applyDriveAssigneeModeToApi,
+  bulkUpdateRecipientsToApi,
   getDrive,
-  updateDriveMeta,
-  updateRecipient,
+  refreshDriveFromApi,
+  updateDriveMetaToApi,
+  updateRecipientToApi,
 } from "../store/courtesyDeskStore";
 import type {
   ConfigOption,
@@ -154,6 +156,10 @@ export default function DriveDetail() {
     dispatch(loadAllEmployeesIfNeeded());
   }, [dispatch]);
 
+  useEffect(() => {
+    if (driveId) void refreshDriveFromApi(driveId);
+  }, [driveId]);
+
   // New row selection = fresh assignee pick (don't carry over the last batch's employee).
   useEffect(() => {
     setSelectionAssigneeId("");
@@ -214,18 +220,24 @@ export default function DriveDetail() {
   }, [employees]);
 
   const assigneeOptions = useMemo<AssigneeOpt[]>(
-    () => [
-      { id: "demo_e_assignee", name: "Mobeen" },
-      { id: "demo_e_assignee_2", name: "Sharif" },
-      { id: "demo_e_assignee_3", name: "Haseen" },
-      ...employees.slice(0, 40).map((e) => ({
+    () =>
+      employees.slice(0, 40).map((e) => ({
         id: String(e.employeeId),
         name: e.employeeName || "Unnamed",
         avatarUrl: e.avatar || employeeAvatarById.get(String(e.employeeId)),
       })),
-    ],
     [employees, employeeAvatarById],
   );
+
+  const patchRecipient = (
+    recipientId: string,
+    patch: Parameters<typeof updateRecipientToApi>[2],
+  ) => {
+    if (!driveId) return;
+    void updateRecipientToApi(driveId, recipientId, patch).catch((err: unknown) =>
+      toast.error(apiErrorMessage(err, "Something went wrong")),
+    );
+  };
 
   const columns = useMemo<MRT_ColumnDef<CourtesyRecipient>[]>(
     () => [
@@ -318,7 +330,7 @@ export default function DriveDetail() {
             onClick={(e) => e.stopPropagation()}
             onChange={(e) => {
               const n = Math.max(1, Number(e.target.value) || 1);
-              updateRecipient(drive!.id, row.original.id, { quantity: n });
+              patchRecipient(row.original.id, { quantity: n });
             }}
             sx={{ width: 80 }}
           />
@@ -334,7 +346,7 @@ export default function DriveDetail() {
             heading="SET STATUS"
             options={deliveryStatuses}
             onPick={(status) =>
-              updateRecipient(drive!.id, row.original.id, {
+              patchRecipient(row.original.id, {
                 status,
                 skippedReason:
                   status === "SKIPPED"
@@ -357,16 +369,20 @@ export default function DriveDetail() {
             onPick={(mode) => {
               if (mode === "IN_PERSON" && !row.original.assigneeName) {
                 const id =
-                  drive?.defaultAssigneeEmployeeId || "demo_e_assignee";
-                updateRecipient(drive!.id, row.original.id, {
+                  drive?.defaultAssigneeEmployeeId ||
+                  assigneeOptions[0]?.id ||
+                  "";
+                patchRecipient(row.original.id, {
                   mode: mode as DeliveryMode,
-                  assigneeEmployeeId: id,
+                  assigneeEmployeeId: id || undefined,
                   assigneeName:
-                    assigneeOptions.find((a) => a.id === id)?.name || "Mobeen",
+                    assigneeOptions.find((a) => a.id === id)?.name ||
+                    drive?.defaultAssigneeName ||
+                    undefined,
                 });
                 return;
               }
-              updateRecipient(drive!.id, row.original.id, {
+              patchRecipient(row.original.id, {
                 mode: mode as DeliveryMode,
               });
             }}
@@ -384,7 +400,7 @@ export default function DriveDetail() {
             disabled={row.original.mode !== "IN_PERSON"}
             onChange={(id) => {
               const found = assigneeOptions.find((a) => a.id === id);
-              updateRecipient(drive!.id, row.original.id, {
+              patchRecipient(row.original.id, {
                 assigneeEmployeeId: id,
                 assigneeName: found?.name || "",
               });
@@ -402,7 +418,7 @@ export default function DriveDetail() {
             value={row.original.remark || ""}
             onClick={(e) => e.stopPropagation()}
             onChange={(e) =>
-              updateRecipient(drive!.id, row.original.id, {
+              patchRecipient(row.original.id, {
                 remark: e.target.value,
               })
             }
@@ -421,7 +437,7 @@ export default function DriveDetail() {
               heading="SET REASON"
               options={SKIP_REASON_OPTIONS}
               onPick={(id) =>
-                updateRecipient(drive!.id, row.original.id, {
+                patchRecipient(row.original.id, {
                   skippedReason: id as SkippedReason,
                 })
               }
@@ -437,6 +453,7 @@ export default function DriveDetail() {
       deliveryStatuses,
       desk.config,
       drive,
+      driveId,
       employeeAvatarById,
     ],
   );
@@ -460,51 +477,62 @@ export default function DriveDetail() {
     drive.defaultMode === "MIXED" ? "MIXED" : drive.defaultMode || "IN_PERSON";
   const wholeAssignee = drive.defaultAssigneeEmployeeId || "";
 
+  const toastApiErr = (err: unknown) =>
+    toast.error(apiErrorMessage(err, "Something went wrong"));
+
   const applyWholeAssignee = (assigneeId: string) => {
     if (!assigneeId) {
-      updateDriveMeta(drive.id, {
+      void updateDriveMetaToApi(drive.id, {
         defaultAssigneeEmployeeId: "",
         defaultAssigneeName: "",
-      });
+      }).catch((err: unknown) => toastApiErr(err));
       return;
     }
     const found = assigneeOptions.find((a) => a.id === assigneeId);
-    applyDriveAssigneeMode(drive.id, {
+    void applyDriveAssigneeModeToApi(drive.id, {
       assigneeEmployeeId: assigneeId,
       assigneeName: found?.name || "",
       mode: "IN_PERSON",
-    });
-    toast.success(`Assigned ${found?.name || "person"} to all (In Person).`);
+    })
+      .then(() =>
+        toast.success(`Assigned ${found?.name || "person"} to all (In Person).`),
+      )
+      .catch((err: unknown) => toastApiErr(err));
   };
 
   const applyWholeMode = (mode: DeliveryMode | "MIXED") => {
     if (mode === "MIXED") return;
     if (mode === "COURIER") {
-      applyDriveAssigneeMode(drive.id, { mode: "COURIER" });
-      toast.success("Mode set to Courier for all.");
+      void applyDriveAssigneeModeToApi(drive.id, { mode: "COURIER" })
+        .then(() => toast.success("Mode set to Courier for all."))
+        .catch((err: unknown) => toastApiErr(err));
       return;
     }
     const id = drive.defaultAssigneeEmployeeId || assigneeOptions[0]?.id;
     const found = assigneeOptions.find((a) => a.id === id);
-    applyDriveAssigneeMode(drive.id, {
+    void applyDriveAssigneeModeToApi(drive.id, {
       mode: "IN_PERSON",
       assigneeEmployeeId: id,
       assigneeName: found?.name || "",
-    });
-    toast.success("Mode set to In Person for all.");
+    })
+      .then(() => toast.success("Mode set to In Person for all."))
+      .catch((err: unknown) => toastApiErr(err));
   };
 
   const assignRecipients = (recipientIds: string[], assigneeId: string) => {
     if (!assigneeId) return;
     const found = assigneeOptions.find((a) => a.id === assigneeId);
-    bulkUpdateRecipients(drive.id, recipientIds, {
+    void bulkUpdateRecipientsToApi(drive.id, recipientIds, {
       mode: "IN_PERSON",
       assigneeEmployeeId: assigneeId,
       assigneeName: found?.name || "",
-    });
-    toast.success(
-      `Assigned ${recipientIds.length} to ${found?.name || "employee"}.`,
-    );
+    })
+      .then(() =>
+        toast.success(
+          `Assigned ${recipientIds.length} to ${found?.name || "employee"}.`,
+        ),
+      )
+      .catch((err: unknown) => toastApiErr(err));
   };
 
   const assignToSelected = () => {
@@ -558,8 +586,11 @@ export default function DriveDetail() {
                 heading="SET GIFT RUN STATUS"
                 options={giftRunStatuses}
                 onPick={(status) => {
-                  updateDriveMeta(drive.id, { status });
-                  toast.success("Gift run status updated");
+                  void updateDriveMetaToApi(drive.id, { status })
+                    .then(() => toast.success("Gift run status updated"))
+                    .catch((err: unknown) =>
+                      toastApiErr(err),
+                    );
                 }}
               />
             </Stack>

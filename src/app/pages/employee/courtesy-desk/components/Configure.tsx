@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
 import {
   ConfigChipGrid,
   ConfigColorChip,
@@ -6,19 +7,25 @@ import {
   ConfigSectionCard,
   EmptyState,
 } from "@app/modules/configuration";
+import { apiErrorMessage } from "@utils/apiError";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import {
-  deleteDeliveryMode,
-  deleteDeliveryStatus,
-  deleteGiftRunStatus,
-  deleteOccasion,
-  saveDeliveryMode,
-  saveDeliveryStatus,
-  saveGiftRunStatus,
-  saveOccasion,
+  deleteDeliveryModeToApi,
+  deleteDeliveryStatusToApi,
+  deleteGiftRunStatusToApi,
+  deleteOccasionToApi,
+  saveDeliveryModeToApi,
+  saveDeliveryStatusToApi,
+  saveGiftRunStatusToApi,
+  saveOccasionToApi,
 } from "../store/courtesyDeskStore";
 import type { ConfigOption } from "../types";
 import GiftConfigOptionModal from "./GiftConfigOptionModal";
+
+const runConfig = (p: Promise<unknown>, ok: string) =>
+  void p
+    .then(() => toast.success(ok))
+    .catch((err: unknown) => toast.error(apiErrorMessage(err, "Something went wrong")));
 
 type ModalKind = "occasion" | "status" | "giftRunStatus" | "mode" | null;
 
@@ -81,7 +88,7 @@ export default function Configure() {
                       danger: true,
                       onClick: () => {
                         if (window.confirm(`Delete status “${s.name}”?`))
-                          deleteGiftRunStatus(s.id);
+                          runConfig(deleteGiftRunStatusToApi(s.id), "Deleted.");
                       },
                     }}
                   />
@@ -118,7 +125,7 @@ export default function Configure() {
                       danger: true,
                       onClick: () => {
                         if (window.confirm(`Delete status “${s.name}”?`))
-                          deleteDeliveryStatus(s.id);
+                          runConfig(deleteDeliveryStatusToApi(s.id), "Deleted.");
                       },
                     }}
                   />
@@ -155,7 +162,7 @@ export default function Configure() {
                       danger: true,
                       onClick: () => {
                         if (window.confirm(`Delete mode “${m.name}”?`))
-                          deleteDeliveryMode(m.id);
+                          runConfig(deleteDeliveryModeToApi(m.id), "Deleted.");
                       },
                     }}
                   />
@@ -192,7 +199,7 @@ export default function Configure() {
                       danger: true,
                       onClick: () => {
                         if (window.confirm(`Delete occasion “${o.name}”?`))
-                          deleteOccasion(o.id);
+                          runConfig(deleteOccasionToApi(o.id), "Deleted.");
                       },
                     }}
                   />
@@ -209,7 +216,7 @@ export default function Configure() {
         title="Occasion"
         nameLabel="Occasion name"
         initial={editing}
-        onSave={saveOccasion}
+        onSave={(o) => runConfig(saveOccasionToApi(o), "Saved.")}
       />
       <GiftConfigOptionModal
         show={modal === "status"}
@@ -217,7 +224,7 @@ export default function Configure() {
         title="Delivery status"
         nameLabel="Status name"
         initial={editing}
-        onSave={saveDeliveryStatus}
+        onSave={(o) => runConfig(saveDeliveryStatusToApi(o), "Saved.")}
       />
       <GiftConfigOptionModal
         show={modal === "giftRunStatus"}
@@ -225,7 +232,7 @@ export default function Configure() {
         title="Gift Run status"
         nameLabel="Status name"
         initial={editing}
-        onSave={saveGiftRunStatus}
+        onSave={(o) => runConfig(saveGiftRunStatusToApi(o), "Saved.")}
       />
       <GiftConfigOptionModal
         show={modal === "mode"}
@@ -233,7 +240,7 @@ export default function Configure() {
         title="Mode"
         nameLabel="Mode name"
         initial={editing}
-        onSave={saveDeliveryMode}
+        onSave={(o) => runConfig(saveDeliveryModeToApi(o), "Saved.")}
       />
     </>
   );

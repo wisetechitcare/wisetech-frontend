@@ -16,9 +16,31 @@ import {
   DEFAULT_GIFT_RUN_STATUSES,
   DEFAULT_OCCASIONS,
 } from "../types";
-import { seedCourtesyDeskState } from "../seed/demoData";
+import * as giftsApi from "@services/gifts";
 
-const STORAGE_KEY = "wisetech.courtesyDesk.v2";
+const LEGACY_STORAGE_KEYS = [
+  "wisetech.courtesyDesk.v2",
+  "wisetech.courtesyDesk.v1",
+];
+
+let apiEnabled = false;
+/** Last hydrate failure — rethrown by requireApi so toasts show the API `detail`. */
+let lastHydrateError: unknown = null;
+
+export function isCourtesyDeskApiMode() {
+  return apiEnabled;
+}
+
+/** Writes must hit the API — never fake success in memory when hydrate failed. */
+function requireApi(): void {
+  if (!apiEnabled) {
+    throw lastHydrateError ?? {
+      hasError: true,
+      statusCode: 503,
+      detail: "Gift Management API is not available.",
+    };
+  }
+}
 
 type Listener = () => void;
 
@@ -39,77 +61,56 @@ function defaultConfig(): CourtesyConfig {
   };
 }
 
-function migrateDeliveryStatuses(raw: any): ConfigOption[] {
-  if (raw?.config?.deliveryStatuses?.length) {
-    return raw.config.deliveryStatuses;
-  }
-  const legacy = raw?.config?.statusColors || {};
-  return DEFAULT_DELIVERY_STATUSES.map((s) => ({
-    ...s,
-    color: legacy[s.id] || s.color,
-  }));
-}
-
-function normalizeState(raw: any): CourtesyDeskState {
-  const drives = (Array.isArray(raw?.drives) ? raw.drives : []).map(
-    (d: any) => ({
-      ...d,
-      recipients: (d.recipients || []).map((r: any) => ({
-        ...r,
-        quantity:
-          typeof r.quantity === "number" && r.quantity > 0 ? r.quantity : 1,
-      })),
-    }),
-  );
+function emptyState(): CourtesyDeskState {
   return {
     version: 2,
-    groups: Array.isArray(raw?.groups) ? raw.groups : [],
-    drives,
-    config: {
-      occasions: raw?.config?.occasions?.length
-        ? raw.config.occasions
-        : defaultConfig().occasions,
-      deliveryStatuses: migrateDeliveryStatuses(raw),
-      giftRunStatuses: raw?.config?.giftRunStatuses?.length
-        ? raw.config.giftRunStatuses
-        : defaultConfig().giftRunStatuses,
-      deliveryModes: raw?.config?.deliveryModes?.length
-        ? raw.config.deliveryModes
-        : defaultConfig().deliveryModes,
-    },
+    groups: [],
+    drives: [],
+    config: defaultConfig(),
   };
 }
 
-function loadState(): CourtesyDeskState {
+function clearLegacyLocalStorage() {
   try {
-    const v2 = localStorage.getItem(STORAGE_KEY);
-    if (v2) return normalizeState(JSON.parse(v2));
-    // migrate v1 if present
-    const v1 = localStorage.getItem("wisetech.courtesyDesk.v1");
-    if (v1) {
-      const migrated = normalizeState(JSON.parse(v1));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-      return migrated;
-    }
+    LEGACY_STORAGE_KEYS.forEach((k) => localStorage.removeItem(k));
   } catch {
-    // seed
+    // ignore
   }
-  const seeded = seedCourtesyDeskState();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-  return seeded;
 }
 
-let state: CourtesyDeskState = loadState();
+let state: CourtesyDeskState = emptyState();
 const listeners = new Set<Listener>();
 
-function persist() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+export async function bootstrapCourtesyDeskFromApi() {
+  clearLegacyLocalStorage();
+  try {
+    const data = await giftsApi.hydrateGiftsState();
+    apiEnabled = true;
+    lastHydrateError = null;
+    state = { ...data, version: 2 };
+    for (const g of state.groups) syncDrivesFromGroup(g.id);
+    listeners.forEach((l) => l());
+  } catch (err) {
+    lastHydrateError = err;
+    apiEnabled = false;
+    state = emptyState();
+    listeners.forEach((l) => l());
+  }
+}
+
+function notify() {
   listeners.forEach((l) => l());
+}
+
+async function refreshDrivesFromApi() {
+  if (!apiEnabled) return;
+  const drives = await giftsApi.fetchDrives(true);
+  setState({ ...state, drives });
 }
 
 function setState(next: CourtesyDeskState) {
   state = next;
-  persist();
+  notify();
 }
 
 export function getCourtesyDeskState(): CourtesyDeskState {
@@ -121,14 +122,17 @@ export function subscribeCourtesyDesk(listener: Listener) {
   return () => listeners.delete(listener);
 }
 
-export function resetCourtesyDeskDemo() {
-  const seeded = seedCourtesyDeskState();
-  setState(seeded);
-  return seeded;
-}
-
 export function getConfig() {
   return state.config;
+}
+
+export async function saveOccasionToApi(option: ConfigOption) {
+  requireApi();
+  const exists = state.config.occasions.some((o) => o.id === option.id);
+  const saved = exists
+    ? await giftsApi.updateConfigOptionApi("occasions", option)
+    : await giftsApi.createConfigOptionApi("occasions", option);
+  saveOccasion(saved);
 }
 
 export function saveOccasion(option: ConfigOption) {
@@ -137,6 +141,12 @@ export function saveOccasion(option: ConfigOption) {
     ? state.config.occasions.map((o) => (o.id === option.id ? option : o))
     : [...state.config.occasions, option];
   setState({ ...state, config: { ...state.config, occasions } });
+}
+
+export async function deleteOccasionToApi(id: string) {
+  requireApi();
+  await giftsApi.deleteConfigOptionApi("occasions", id);
+  deleteOccasion(id);
 }
 
 export function deleteOccasion(id: string) {
@@ -149,6 +159,15 @@ export function deleteOccasion(id: string) {
   });
 }
 
+export async function saveDeliveryStatusToApi(option: ConfigOption) {
+  requireApi();
+  const exists = state.config.deliveryStatuses.some((s) => s.id === option.id);
+  const saved = exists
+    ? await giftsApi.updateConfigOptionApi("delivery-statuses", option)
+    : await giftsApi.createConfigOptionApi("delivery-statuses", option);
+  saveDeliveryStatus(saved);
+}
+
 export function saveDeliveryStatus(option: ConfigOption) {
   const exists = state.config.deliveryStatuses.some((s) => s.id === option.id);
   const deliveryStatuses = exists
@@ -157,6 +176,12 @@ export function saveDeliveryStatus(option: ConfigOption) {
       )
     : [...state.config.deliveryStatuses, option];
   setState({ ...state, config: { ...state.config, deliveryStatuses } });
+}
+
+export async function deleteDeliveryStatusToApi(id: string) {
+  requireApi();
+  await giftsApi.deleteConfigOptionApi("delivery-statuses", id);
+  deleteDeliveryStatus(id);
 }
 
 export function deleteDeliveryStatus(id: string) {
@@ -171,12 +196,27 @@ export function deleteDeliveryStatus(id: string) {
   });
 }
 
+export async function saveGiftRunStatusToApi(option: ConfigOption) {
+  requireApi();
+  const exists = state.config.giftRunStatuses.some((s) => s.id === option.id);
+  const saved = exists
+    ? await giftsApi.updateConfigOptionApi("gift-run-statuses", option)
+    : await giftsApi.createConfigOptionApi("gift-run-statuses", option);
+  saveGiftRunStatus(saved);
+}
+
 export function saveGiftRunStatus(option: ConfigOption) {
   const exists = state.config.giftRunStatuses.some((s) => s.id === option.id);
   const giftRunStatuses = exists
     ? state.config.giftRunStatuses.map((s) => (s.id === option.id ? option : s))
     : [...state.config.giftRunStatuses, option];
   setState({ ...state, config: { ...state.config, giftRunStatuses } });
+}
+
+export async function deleteGiftRunStatusToApi(id: string) {
+  requireApi();
+  await giftsApi.deleteConfigOptionApi("gift-run-statuses", id);
+  deleteGiftRunStatus(id);
 }
 
 export function deleteGiftRunStatus(id: string) {
@@ -189,12 +229,27 @@ export function deleteGiftRunStatus(id: string) {
   });
 }
 
+export async function saveDeliveryModeToApi(option: ConfigOption) {
+  requireApi();
+  const exists = state.config.deliveryModes.some((m) => m.id === option.id);
+  const saved = exists
+    ? await giftsApi.updateConfigOptionApi("delivery-modes", option)
+    : await giftsApi.createConfigOptionApi("delivery-modes", option);
+  saveDeliveryMode(saved);
+}
+
 export function saveDeliveryMode(option: ConfigOption) {
   const exists = state.config.deliveryModes.some((m) => m.id === option.id);
   const deliveryModes = exists
     ? state.config.deliveryModes.map((m) => (m.id === option.id ? option : m))
     : [...state.config.deliveryModes, option];
   setState({ ...state, config: { ...state.config, deliveryModes } });
+}
+
+export async function deleteDeliveryModeToApi(id: string) {
+  requireApi();
+  await giftsApi.deleteConfigOptionApi("delivery-modes", id);
+  deleteDeliveryMode(id);
 }
 
 export function deleteDeliveryMode(id: string) {
@@ -229,6 +284,75 @@ function dedupeMembers(members: PersonRef[]): PersonRef[] {
   return out;
 }
 
+export async function saveGroupToApi(input: {
+  id?: string;
+  name: string;
+  notes?: string;
+  members: PersonRef[];
+  status?: PeopleGroup["status"];
+}) {
+  requireApi();
+  const saved = input.id
+    ? await giftsApi.updateGroupApi(input.id, {
+        name: input.name,
+        notes: input.notes,
+        members: input.members,
+        status: input.status,
+      })
+    : await giftsApi.createGroupApi({
+        name: input.name,
+        notes: input.notes,
+        members: input.members,
+        status: input.status,
+      });
+  const groups = input.id
+    ? state.groups.map((g) => (g.id === saved.id ? saved : g))
+    : [saved, ...state.groups];
+  setState({ ...state, groups });
+  await refreshDrivesFromApi();
+  // Always re-mirror from the group we just saved (API list can lag; offline has no sync endpoint).
+  syncDrivesFromGroup(saved.id);
+  return saved;
+}
+
+/** Gift Run roster mirrors its People Group — add/remove recipients to match. */
+function syncDrivesFromGroup(groupId: string) {
+  const group = state.groups.find((g) => g.id === groupId);
+  if (!group) return;
+  const memberKeys = new Set(group.members.map(personKey));
+  const ts = nowIso();
+  const drives = state.drives.map((d) => {
+    if (d.sourceGroupId !== groupId || d.status === "ARCHIVED") return d;
+    const kept = d.recipients.filter((r) => memberKeys.has(personKey(r)));
+    const keptKeys = new Set(kept.map(personKey));
+    const additions = group.members.filter((m) => !keptKeys.has(personKey(m)));
+    const recipients = [
+      ...kept.map((r) => {
+        const m = group.members.find((x) => personKey(x) === personKey(r));
+        if (!m) return r;
+        return {
+          ...r,
+          fullName: m.fullName,
+          companyName: m.companyName,
+          area: m.area,
+          address: m.address,
+          phone: m.phone,
+          email: m.email,
+          avatarUrl: m.avatarUrl,
+        };
+      }),
+      ...snapshotRecipients(additions),
+    ];
+    return {
+      ...d,
+      sourceGroupName: group.name,
+      recipients,
+      updatedAt: ts,
+    };
+  });
+  setState({ ...state, drives });
+}
+
 export function saveGroup(input: {
   id?: string;
   name: string;
@@ -251,6 +375,7 @@ export function saveGroup(input: {
         : g,
     );
     setState({ ...state, groups });
+    syncDrivesFromGroup(input.id);
     return groups.find((g) => g.id === input.id)!;
   }
 
@@ -267,6 +392,16 @@ export function saveGroup(input: {
   return group;
 }
 
+export async function cloneGroupToApi(groupId: string, newName: string) {
+  requireApi();
+  const saved = await giftsApi.cloneGroupApi(
+    groupId,
+    newName.trim() || `${getGroup(groupId)?.name ?? "Group"} (copy)`,
+  );
+  setState({ ...state, groups: [saved, ...state.groups] });
+  return saved;
+}
+
 export function cloneGroup(groupId: string, newName: string) {
   const source = getGroup(groupId);
   if (!source) throw new Error("Group not found");
@@ -277,6 +412,15 @@ export function cloneGroup(groupId: string, newName: string) {
   });
 }
 
+export async function archiveGroupToApi(groupId: string) {
+  requireApi();
+  const saved = await giftsApi.archiveGroupApi(groupId);
+  setState({
+    ...state,
+    groups: state.groups.map((g) => (g.id === saved.id ? saved : g)),
+  });
+}
+
 export function archiveGroup(groupId: string) {
   const groups = state.groups.map((g) =>
     g.id === groupId
@@ -284,6 +428,15 @@ export function archiveGroup(groupId: string) {
       : g,
   );
   setState({ ...state, groups });
+}
+
+export async function unarchiveGroupToApi(groupId: string) {
+  requireApi();
+  const saved = await giftsApi.unarchiveGroupApi(groupId);
+  setState({
+    ...state,
+    groups: state.groups.map((g) => (g.id === saved.id ? saved : g)),
+  });
 }
 
 export function unarchiveGroup(groupId: string) {
@@ -303,6 +456,16 @@ export function listDrives(includeArchived = false) {
 
 export function getDrive(id: string) {
   return state.drives.find((d) => d.id === id);
+}
+
+export async function refreshDriveFromApi(id: string) {
+  if (!apiEnabled) return getDrive(id);
+  const drive = await giftsApi.fetchDrive(id);
+  const drives = state.drives.some((d) => d.id === id)
+    ? state.drives.map((d) => (d.id === id ? drive : d))
+    : [drive, ...state.drives];
+  setState({ ...state, drives });
+  return drive;
 }
 
 function snapshotRecipients(
@@ -335,6 +498,20 @@ function snapshotRecipients(
 
 function personKey(m: Pick<PersonRef, "memberType" | "personId">) {
   return `${m.memberType}:${m.personId}`;
+}
+
+export async function createDriveToApi(input: {
+  title: string;
+  occasionType: string;
+  giftItem: string;
+  driveDate?: string;
+  sourceGroupId: string;
+  defaultQuantity?: number;
+}) {
+  requireApi();
+  const drive = await giftsApi.createDriveApi(input);
+  setState({ ...state, drives: [drive, ...state.drives] });
+  return drive;
 }
 
 export function createDrive(input: {
@@ -371,6 +548,31 @@ export function createDrive(input: {
   return drive;
 }
 
+export async function updateDriveMetaToApi(
+  driveId: string,
+  patch: Partial<
+    Pick<
+      CourtesyDrive,
+      | "title"
+      | "giftItem"
+      | "driveDate"
+      | "status"
+      | "occasionType"
+      | "defaultAssigneeEmployeeId"
+      | "defaultAssigneeName"
+      | "defaultMode"
+    >
+  >,
+) {
+  requireApi();
+  const drive = await giftsApi.updateDriveApi(driveId, patch);
+  setState({
+    ...state,
+    drives: state.drives.map((d) => (d.id === drive.id ? drive : d)),
+  });
+  return drive;
+}
+
 export function updateDriveMeta(
   driveId: string,
   patch: Partial<
@@ -395,6 +597,23 @@ export function updateDriveMeta(
 }
 
 /** Apply one assignee + mode to every recipient (whole Gift Run). */
+export async function applyDriveAssigneeModeToApi(
+  driveId: string,
+  input: {
+    assigneeEmployeeId?: string;
+    assigneeName?: string;
+    mode: DeliveryMode;
+  },
+) {
+  requireApi();
+  const drive = await giftsApi.applyDriveDefaultsApi(driveId, input);
+  setState({
+    ...state,
+    drives: state.drives.map((d) => (d.id === drive.id ? drive : d)),
+  });
+  return drive;
+}
+
 export function applyDriveAssigneeMode(
   driveId: string,
   input: {
@@ -499,6 +718,31 @@ export function removePeopleFromDrive(driveId: string, recipientIds: string[]) {
   return updated;
 }
 
+export async function updateRecipientToApi(
+  driveId: string,
+  recipientId: string,
+  patch: Partial<
+    Pick<
+      CourtesyRecipient,
+      | "status"
+      | "mode"
+      | "quantity"
+      | "assigneeEmployeeId"
+      | "assigneeName"
+      | "remark"
+      | "skippedReason"
+    >
+  >,
+) {
+  requireApi();
+  const drive = await giftsApi.patchRecipientApi(driveId, recipientId, patch);
+  setState({
+    ...state,
+    drives: state.drives.map((d) => (d.id === drive.id ? drive : d)),
+  });
+  return drive;
+}
+
 export function updateRecipient(
   driveId: string,
   recipientId: string,
@@ -556,6 +800,33 @@ export function updateRecipient(
   return getDrive(driveId);
 }
 
+export async function bulkUpdateRecipientsToApi(
+  driveId: string,
+  recipientIds: string[],
+  patch: Partial<
+    Pick<
+      CourtesyRecipient,
+      | "status"
+      | "mode"
+      | "assigneeEmployeeId"
+      | "assigneeName"
+      | "skippedReason"
+    >
+  >,
+) {
+  requireApi();
+  const drive = await giftsApi.bulkPatchRecipientsApi(
+    driveId,
+    recipientIds,
+    patch,
+  );
+  setState({
+    ...state,
+    drives: state.drives.map((d) => (d.id === drive.id ? drive : d)),
+  });
+  return drive;
+}
+
 export function bulkUpdateRecipients(
   driveId: string,
   recipientIds: string[],
@@ -574,6 +845,14 @@ export function bulkUpdateRecipients(
     updateRecipient(driveId, id, patch);
   }
   return getDrive(driveId);
+}
+
+export async function getOverviewStatsFromApi(
+  fyStart?: string,
+  fyEnd?: string,
+) {
+  if (!apiEnabled) return getOverviewStats(fyStart, fyEnd);
+  return giftsApi.fetchGiftsOverview(fyStart, fyEnd);
 }
 
 export function getOverviewStats(fyStart?: string, fyEnd?: string) {
