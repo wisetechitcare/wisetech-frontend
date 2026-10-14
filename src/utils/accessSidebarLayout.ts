@@ -96,6 +96,7 @@ export const ACCESS_SIDEBAR_LAYOUT: AccessLayoutGroup[] = [
       { module: "crm.leads", label: "Leads", icon: "bi-megaphone" },
       { module: "crm.companies", label: "Companies", icon: "bi-building" },
       { module: "crm.contacts", label: "Contacts", icon: "bi-person-lines-fill" },
+      { module: "gift-management", label: "Gift Management", icon: "bi-gift" },
     ],
   },
   {

@@ -113,6 +113,8 @@ const KEENICON: Record<string, AppIconComponent> = {
     'bank': Landmark, 'basket': ShoppingBasket, 'black-left': ChevronLeft,
     'black-right': ChevronRight, 'briefcase': Briefcase, 'bucket': PaintBucket,
     'calendar': Calendar, 'calendar-8': CalendarDays, 'calendar-add': CalendarPlus,
+    // Bootstrap-shaped name used as a bare token (no bi- prefix) in CalendarConfigure.
+    'calendar2-day': CalendarDays,
     'calendar-slash': CalendarOff, 'calendar-tick': CalendarCheck, 'chart': ChartColumn,
     'chart-pie-4': ChartPie, 'chart-simple': ChartColumn, 'chart-simple-3': ChartNoAxesColumn,
     'check': Check, 'check-circle': CircleCheck, 'cheque': Banknote, 'close': X,
