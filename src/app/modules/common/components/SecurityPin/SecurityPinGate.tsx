@@ -23,7 +23,7 @@ export function SecurityPinGate({ area, children }: { area: SecurityArea; childr
     const [, setTick] = useState(0);
 
     useEffect(() => {
-        const unregister = securityPinBus.registerGate();
+        const unregister = securityPinBus.registerGate(area);
         securityPinBus.setActiveArea(area);
         return () => {
             unregister();

@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { KTIcon } from '@metronic/helpers';
 import { WtButton, WtTooltip } from '@app/modules/common/components/ui';
 import { securityPinApi } from '@services/securityPin';
@@ -19,19 +20,31 @@ import { useSecurityPin } from './useSecurityPin';
  */
 export function SecurityPinLockButton({ variant = 'bar' }: { variant?: 'bar' | 'light' }) {
     const { required, activeArea } = useSecurityPin();
+    const locking = useRef(false);
     const openHere = securityPinBus.isAreaUnlocked(activeArea);
     if (!openHere || !required) return null;
 
     const inSupport = !!securityPinBus.getSupportGrant();
-    const lock = () => {
-        const grant = securityPinBus.getSupportGrant();
-        if (grant) {
-            securityPinApi.supportRevoke(grant.id).catch(() => undefined);
-            securityPinBus.clearSupportGrant();
-        }
+    /**
+     * Wait for the server before locking here. Locking locally first mounts the lock screen, which
+     * asks the server for its status; if the server has not finished locking yet it still answers
+     * "unlocked" and the page reopens — which is why a second tap was needed.
+     */
+    const lock = async () => {
+        if (locking.current) return;
+        locking.current = true;
         const area = securityPinBus.getSnapshot().activeArea;
-        securityPinBus.markAreaLocked(area);
-        securityPinApi.lock(area).catch(() => undefined);
+        const grant = securityPinBus.getSupportGrant();
+        try {
+            await Promise.all([
+                grant ? securityPinApi.supportRevoke(grant.id).catch(() => undefined) : undefined,
+                securityPinApi.lock(area).catch(() => undefined),
+            ]);
+        } finally {
+            if (grant) securityPinBus.clearSupportGrant();
+            securityPinBus.markAreaLocked(area);
+            locking.current = false;
+        }
     };
 
     const title = inSupport ? 'End support session and lock' : 'Lock this page now';
