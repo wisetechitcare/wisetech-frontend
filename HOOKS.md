@@ -8,7 +8,7 @@ Simple local checks so everyday commits stay fast. Full tests run on GitHub CI.
 
 | You run | What happens | Typical time |
 |---------|----------------|--------------|
-| `git commit` | Status board → checks **only staged files** (secrets + ESLint) + Conventional Commit message | ~5–15s |
+| `git commit` | Status board → checks **only staged files** (secrets + ESLint) + Conventional Commit message → **post-commit** summary card (hash, message, files) | ~5–15s |
 | `git push` | Status board → block push to `main`/`develop` → **TypeScript** (incremental) | First time ~50–90s; later often ~15–30s |
 | `pnpm verify` | Same idea as CI: guard self-test + lint changed files + vitest + task tests + TypeScript | Several minutes |
 | GitHub CI on PR | Lint changed files, tests, typecheck, build, audit | Minutes on the server |

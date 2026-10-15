@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Terminal status board for git hooks.
+ * Terminal status board for git hooks — one fixed-width card.
  *
- * - Fixed-width box (every row same length, closed borders)
- * - ASCII progress bar only (█/░ are double-width in many Windows fonts)
- * - Windows / CI: one final frame (no duplicate boards)
- * - Optional live spinner: set HOOKS_LIVE=1
+ * Success/fail paint a complete green/red card with the result footer
+ * inside the box (no orphan "✓ …" line under a clipped fragment).
+ *
+ * Windows default: final frame only. Live spinner: HOOKS_LIVE=1
  */
 import readline from 'node:readline'
 
@@ -15,7 +15,6 @@ const canColor =
   process.env.TERM !== 'dumb' &&
   !process.env.CI
 
-/** Live in-place updates — opt-in on Windows (Husky/Cursor erase is flaky). */
 const live =
   canColor &&
   (process.env.HOOKS_LIVE === '1' ||
@@ -32,9 +31,7 @@ const c = {
 }
 
 const SPIN = ['|', '/', '-', '\\']
-/** Inner width between the vertical borders (exclusive of │). */
 const INNER = 56
-/** Block chars are single-column in Cursor/Windows Terminal; keep bar short so the row always fits. */
 const BAR_W = 32
 const BAR_FILL = '█'
 const BAR_EMPTY = '░'
@@ -43,48 +40,54 @@ function stripAnsi(s) {
   return String(s).replace(/\x1b\[[0-9;]*m/g, '')
 }
 
-/** Pad / truncate to exactly `width` visible characters. */
 function fit(text, width) {
-  let s = String(text ?? '').replace(/[\r\n\t]/g, ' ')
-  const vis = stripAnsi(s)
-  if (vis.length > width) {
-    return `${vis.slice(0, Math.max(0, width - 1))}…`
-  }
+  const vis = stripAnsi(String(text ?? '').replace(/[\r\n\t]/g, ' '))
+  if (vis.length > width) return `${vis.slice(0, Math.max(0, width - 1))}…`
   return `${vis}${' '.repeat(width - vis.length)}`
 }
 
-function top() {
-  return `${c.cyan}┌${'─'.repeat(INNER)}┐${c.reset}`
-}
-function mid() {
-  return `${c.cyan}├${'─'.repeat(INNER)}┤${c.reset}`
-}
-function bot() {
-  return `${c.cyan}└${'─'.repeat(INNER)}┘${c.reset}`
+function frameColor(tone) {
+  if (tone === 'ok') return c.green
+  if (tone === 'fail') return c.red
+  return c.cyan
 }
 
-/** One content row: │ + INNER chars + │ */
-function row(plainText) {
-  return `${c.cyan}│${c.reset}${fit(plainText, INNER)}${c.cyan}│${c.reset}`
+function top(tone) {
+  const col = frameColor(tone)
+  return `${col}┌${'─'.repeat(INNER)}┐${c.reset}`
+}
+function mid(tone) {
+  const col = frameColor(tone)
+  return `${col}├${'─'.repeat(INNER)}┤${c.reset}`
+}
+function bot(tone) {
+  const col = frameColor(tone)
+  return `${col}└${'─'.repeat(INNER)}┘${c.reset}`
 }
 
-/** Content row with a colored prefix (prefix visible length must be known). */
-function rowMarked(prefixPlain, prefixColored, restPlain) {
+function row(plainText, tone = 'run') {
+  const col = frameColor(tone)
+  return `${col}│${c.reset}${fit(plainText, INNER)}${col}│${c.reset}`
+}
+
+function rowMarked(prefixPlain, prefixColored, restPlain, tone = 'run') {
+  const col = frameColor(tone)
   const restW = INNER - prefixPlain.length
-  return `${c.cyan}│${c.reset}${prefixColored}${fit(restPlain, restW)}${c.cyan}│${c.reset}`
+  return `${col}│${c.reset}${prefixColored}${fit(restPlain, restW)}${col}│${c.reset}`
 }
 
-function progressRow(pct, failed) {
+function progressRow(pct, tone) {
   const p = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)))
   const filled = Math.round((p / 100) * BAR_W)
   const empty = BAR_W - filled
-  const color = failed ? c.red : p >= 100 ? c.green : c.cyan
+  const barColor = tone === 'fail' ? c.red : tone === 'ok' || p >= 100 ? c.green : c.cyan
   const pctText = `${String(p).padStart(3, ' ')}%`
   const barPlain = ` [${BAR_FILL.repeat(filled)}${BAR_EMPTY.repeat(empty)}] ${pctText}`
-  const barColored = ` ${color}[${BAR_FILL.repeat(filled)}${c.dim}${BAR_EMPTY.repeat(empty)}${c.reset}${color}]${c.reset} ${c.bold}${pctText}${c.reset}`
+  const barColored = ` ${barColor}[${BAR_FILL.repeat(filled)}${c.dim}${BAR_EMPTY.repeat(empty)}${c.reset}${barColor}]${c.reset} ${c.bold}${pctText}${c.reset}`
   const pad = INNER - barPlain.length
-  if (pad < 0) return row(barPlain)
-  return `${c.cyan}│${c.reset}${barColored}${' '.repeat(pad)}${c.cyan}│${c.reset}`
+  const col = frameColor(tone)
+  if (pad < 0) return row(barPlain, tone)
+  return `${col}│${c.reset}${barColored}${' '.repeat(pad)}${col}│${c.reset}`
 }
 
 function writeSafe(text) {
@@ -97,14 +100,107 @@ function writeSafe(text) {
 
 function printWhatToDo(titleText, tips) {
   const tipsList = (Array.isArray(tips) ? tips : [tips]).filter(Boolean)
-  const head = ' What to do '
+  const head = ' Next steps '
   const fill = Math.max(0, INNER - head.length)
   writeSafe(`\n${c.red}┌${head}${'─'.repeat(fill)}┐${c.reset}\n`)
   writeSafe(`${c.red}│${c.reset}${fit(` ${titleText}`, INNER)}${c.red}│${c.reset}\n`)
   for (const tip of tipsList) {
-    writeSafe(`${c.red}│${c.reset}${fit(`  ${tip}`, INNER)}${c.red}│${c.reset}\n`)
+    writeSafe(`${c.red}│${c.reset}${fit(`  → ${tip}`, INNER)}${c.red}│${c.reset}\n`)
   }
   writeSafe(`${c.red}└${'─'.repeat(INNER)}┘${c.reset}\n\n`)
+}
+
+/**
+ * Word-wrap plain text to fixed visible width (breaks on spaces).
+ * @returns {string[]}
+ */
+export function wrapText(text, width) {
+  const words = String(text ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+  if (!words.length) return ['']
+  const lines = []
+  let cur = ''
+  for (const word of words) {
+    if (!cur) {
+      if (word.length <= width) {
+        cur = word
+      } else {
+        let rest = word
+        while (rest.length > width) {
+          lines.push(rest.slice(0, width))
+          rest = rest.slice(width)
+        }
+        cur = rest
+      }
+      continue
+    }
+    if (`${cur} ${word}`.length <= width) {
+      cur = `${cur} ${word}`
+    } else {
+      lines.push(cur)
+      cur = word.length <= width ? word : word.slice(0, width)
+    }
+  }
+  if (cur) lines.push(cur)
+  return lines
+}
+
+/**
+ * Polished summary card (post-commit / post-push).
+ * @param {{ title: string, tone?: 'ok'|'fail'|'run', rows: { label?: string, text: string }[], footer?: string }} info
+ */
+export function printSummaryCard(info) {
+  const tone = info.tone || 'ok'
+  const col = frameColor(tone)
+  const lines = [top(tone), row(` ${info.title || 'Summary'}`, tone), mid(tone)]
+
+  for (const item of info.rows || []) {
+    const label = item.label ? `${String(item.label).padEnd(8)} ` : ''
+    const prefix = `  ${label}`
+    const width = INNER - prefix.length
+    const wrapped = wrapText(item.text, Math.max(8, width))
+    for (let i = 0; i < wrapped.length; i++) {
+      if (i === 0) {
+        lines.push(`${col}│${c.reset}${fit(prefix + wrapped[i], INNER)}${col}│${c.reset}`)
+      } else {
+        lines.push(`${col}│${c.reset}${fit(' '.repeat(prefix.length) + wrapped[i], INNER)}${col}│${c.reset}`)
+      }
+    }
+  }
+
+  if (info.footer) {
+    lines.push(mid(tone))
+    const footerColor = tone === 'fail' ? c.red : c.green
+    lines.push(
+      `${col}│${c.reset}${footerColor}${c.bold}${fit(` ✓  ${info.footer}`, INNER)}${c.reset}${col}│${c.reset}`,
+    )
+  }
+
+  lines.push(bot(tone))
+  writeSafe(`${lines.join('\n')}\n`)
+}
+
+/** Erase the last N terminal rows. */
+export function clearLinesAbove(count) {
+  const n = Math.max(0, Math.floor(Number(count) || 0))
+  if (!n) return
+  try {
+    if (process.stdout.isTTY) {
+      readline.moveCursor(process.stdout, 0, -n)
+      readline.clearScreenDown(process.stdout)
+    } else {
+      process.stdout.write(`\x1b[${n}A\x1b[0J`)
+    }
+  } catch {
+    try {
+      process.stdout.write(`\x1b[${n}A\x1b[0J`)
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export function createBoard(title, stepNames) {
@@ -152,13 +248,12 @@ export function createBoard(title, stepNames) {
     lastLines = 0
   }
 
-  function stepLines() {
+  function stepLines(tone) {
     const out = []
     for (let i = 0; i < steps.length; i++) {
       const s = steps[i]
       let markPlain
       let markColored
-      // All marks are exactly 6 visible chars so columns stay aligned.
       if (s.status === 'ok') {
         markPlain = ' [OK] '
         markColored = ` ${c.green}[OK]${c.reset} `
@@ -175,41 +270,49 @@ export function createBoard(title, stepNames) {
       }
       const label =
         s.status === 'run' ? `${i + 1}. ${s.name} …` : `${i + 1}. ${s.name}`
-      out.push(rowMarked(markPlain, markColored, label))
+      out.push(rowMarked(markPlain, markColored, label, tone))
     }
     return out
   }
 
   /**
-   * @param {string} [finalMessage]
-   * @param {{ force?: boolean }} [opts]
+   * @param {{ force?: boolean, tone?: 'run'|'ok'|'fail', footer?: string }} [opts]
    */
-  function paint(finalMessage, opts = {}) {
-    if (disposed && !finalMessage) return
+  function paint(opts = {}) {
     const force = Boolean(opts.force)
+    const tone = opts.tone || (hasFail() ? 'fail' : 'run')
+    const footer = opts.footer
+    if (disposed && !force) return
     if (!live && !force) return
 
     erase()
 
+    const col = frameColor(tone)
     const titlePlain = fit(` ${title || 'Checks'}`, INNER)
     const lines = [
-      top(),
-      `${c.cyan}│${c.reset}${c.bold}${titlePlain}${c.reset}${c.cyan}│${c.reset}`,
-      mid(),
-      progressRow(percent(), hasFail()),
-      mid(),
-      ...stepLines(),
-      bot(),
+      top(tone),
+      `${col}│${c.reset}${c.bold}${titlePlain}${c.reset}${col}│${c.reset}`,
+      mid(tone),
+      progressRow(percent(), tone),
+      mid(tone),
+      ...stepLines(tone),
     ]
 
-    if (finalMessage) {
-      lines.push('')
-      lines.push(finalMessage)
+    if (footer) {
+      lines.push(mid(tone))
+      const footerColor = tone === 'fail' ? c.red : c.green
+      const footerPlain = fit(` ✓  ${footer}`, INNER)
+      lines.push(
+        `${col}│${c.reset}${footerColor}${c.bold}${footerPlain}${c.reset}${col}│${c.reset}`,
+      )
     }
+
+    lines.push(bot(tone))
+    lines.push('')
 
     writeSafe(`${lines.join('\n')}\n`)
     drawn = true
-    lastLines = finalMessage ? 0 : lines.length
+    lastLines = footer || force ? 0 : lines.length
   }
 
   function stopSpin() {
@@ -267,7 +370,7 @@ export function createBoard(title, stepNames) {
       assertIndex(index, 'fail')
       stopSpin()
       steps[index].status = 'fail'
-      paint(undefined, { force: true })
+      paint({ force: true, tone: 'fail' })
       printWhatToDo(titleText || 'Check failed.', tips)
       lastLines = 0
       drawn = false
@@ -277,7 +380,7 @@ export function createBoard(title, stepNames) {
       const running = steps.findIndex((s) => s.status === 'run')
       const target = running >= 0 ? running : Math.max(0, steps.length - 1)
       steps[target].status = 'fail'
-      paint(undefined, { force: true })
+      paint({ force: true, tone: 'fail' })
       printWhatToDo(titleText || 'Something went wrong.', tips)
       lastLines = 0
       drawn = false
@@ -286,9 +389,17 @@ export function createBoard(title, stepNames) {
       if (disposed) return
       stopSpin()
       tick = 0
-      paint(`${c.green}${c.bold}✓ ${message}${c.reset}`, { force: true })
+      paint({ force: true, tone: 'ok', footer: message })
       lastLines = 0
       drawn = false
+    },
+    /** Erase any live board; print nothing (post-commit shows the summary). */
+    dismiss() {
+      if (disposed) return
+      stopSpin()
+      erase()
+      drawn = false
+      lastLines = 0
     },
     dispose() {
       disposed = true
