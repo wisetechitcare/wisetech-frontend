@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import Box from '@mui/material/Box';
 import { GlassDialog } from '@app/modules/common/components/ui';
 import { securityPinApi, isSecurityArea, type SecurityArea } from '@services/securityPin';
