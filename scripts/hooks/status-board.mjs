@@ -1,19 +1,29 @@
 #!/usr/bin/env node
 /**
- * Terminal status board for git hooks — one fixed-width result card.
+ * Terminal status board for git hooks — ONE fixed-width card.
  *
- * While checks run: one progress line on stderr (flushed, no blink).
- * When done: that line is cleared and a single green/red card is printed.
- * Opt-in in-place card spinner: HOOKS_LIVE=1
+ * - Card appears immediately (0%) so the terminal never looks stuck.
+ * - It is updated IN PLACE (cursor up + overwrite, one write per frame,
+ *   no clear-screen between frames), so it does not blink or stack.
+ * - When finished, the card is replaced once by the final green/red card.
+ *
+ * Fallbacks: CI / NO_COLOR / narrow terminal / HOOKS_LIVE=0 → final card only.
  */
 import { writeSync } from 'node:fs'
 
+const INNER = 48
+const FRAME_MS = 250
+
+const cols = process.stdout.columns || process.stderr.columns || 0
 const canColor =
   !process.env.NO_COLOR &&
   process.env.TERM !== 'dumb' &&
   !process.env.CI
 
-const live = canColor && process.env.HOOKS_LIVE === '1'
+const live =
+  canColor &&
+  process.env.HOOKS_LIVE !== '0' &&
+  (cols === 0 || cols >= INNER + 4)
 
 const c = {
   reset: canColor ? '\x1b[0m' : '',
@@ -26,11 +36,11 @@ const c = {
 }
 
 const SPIN = ['|', '/', '-', '\\']
-const INNER = 48
 const BAR_W = 28
 const BAR_FILL = '█'
 const BAR_EMPTY = '░'
-const PROGRESS_PAD = 72
+const HIDE_CURSOR = '\x1b[?25l'
+const SHOW_CURSOR = '\x1b[?25h'
 
 function stripAnsi(s) {
   return String(s).replace(/\x1b\[[0-9;]*m/g, '')
@@ -49,19 +59,16 @@ function frameColor(tone) {
 }
 
 function top(tone) {
-  const col = frameColor(tone)
-  return `${col}┌${'─'.repeat(INNER)}┐${c.reset}`
+  return `${frameColor(tone)}┌${'─'.repeat(INNER)}┐${c.reset}`
 }
 function mid(tone) {
-  const col = frameColor(tone)
-  return `${col}├${'─'.repeat(INNER)}┤${c.reset}`
+  return `${frameColor(tone)}├${'─'.repeat(INNER)}┤${c.reset}`
 }
 function bot(tone) {
-  const col = frameColor(tone)
-  return `${col}└${'─'.repeat(INNER)}┘${c.reset}`
+  return `${frameColor(tone)}└${'─'.repeat(INNER)}┘${c.reset}`
 }
 
-function rowMarked(prefixPlain, prefixColored, restPlain, tone = 'run') {
+function rowMarked(prefixPlain, prefixColored, restPlain, tone) {
   const col = frameColor(tone)
   const restW = INNER - prefixPlain.length
   return `${col}│${c.reset}${prefixColored}${fit(restPlain, restW)}${col}│${c.reset}`
@@ -75,13 +82,12 @@ function progressRow(pct, tone) {
   const pctText = `${String(p).padStart(3, ' ')}%`
   const barPlain = ` [${BAR_FILL.repeat(filled)}${BAR_EMPTY.repeat(empty)}] ${pctText}`
   const barColored = ` ${barColor}[${BAR_FILL.repeat(filled)}${c.dim}${BAR_EMPTY.repeat(empty)}${c.reset}${barColor}]${c.reset} ${c.bold}${pctText}${c.reset}`
-  const pad = INNER - barPlain.length
+  const pad = Math.max(0, INNER - barPlain.length)
   const col = frameColor(tone)
-  if (pad < 0) return rowMarked('', '', barPlain, tone)
   return `${col}│${c.reset}${barColored}${' '.repeat(pad)}${col}│${c.reset}`
 }
 
-function writeOut(text) {
+function writeSafe(text) {
   try {
     if (typeof process.stdout.fd === 'number') writeSync(process.stdout.fd, text)
     else process.stdout.write(text)
@@ -94,36 +100,19 @@ function writeOut(text) {
   }
 }
 
-function writeErr(text) {
-  try {
-    if (typeof process.stderr.fd === 'number') writeSync(process.stderr.fd, text)
-    else process.stderr.write(text)
-  } catch {
-    try {
-      process.stderr.write(text)
-    } catch {
-      /* broken pipe */
-    }
-  }
-}
-
-function miniBar(pct) {
-  const p = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)))
-  const w = 20
-  const filled = Math.round((p / 100) * w)
-  return `[${BAR_FILL.repeat(filled)}${BAR_EMPTY.repeat(w - filled)}] ${String(p).padStart(3, ' ')}%`
-}
-
 function printWhatToDo(titleText, tips) {
   const tipsList = (Array.isArray(tips) ? tips : [tips]).filter(Boolean)
-  const head = ' Next steps '
+  const head = ' What to do '
   const fill = Math.max(0, INNER - head.length)
-  writeOut(`\n${c.red}┌${head}${'─'.repeat(fill)}┐${c.reset}\n`)
-  writeOut(`${c.red}│${c.reset}${fit(` ${titleText}`, INNER)}${c.red}│${c.reset}\n`)
-  for (const tip of tipsList) {
-    writeOut(`${c.red}│${c.reset}${fit(`  → ${tip}`, INNER)}${c.red}│${c.reset}\n`)
-  }
-  writeOut(`${c.red}└${'─'.repeat(INNER)}┘${c.reset}\n\n`)
+  const lines = [
+    '',
+    `${c.red}┌${head}${'─'.repeat(fill)}┐${c.reset}`,
+    `${c.red}│${c.reset}${fit(` ${titleText}`, INNER)}${c.red}│${c.reset}`,
+    ...tipsList.map((tip) => `${c.red}│${c.reset}${fit(`  ${tip}`, INNER)}${c.red}│${c.reset}`),
+    `${c.red}└${'─'.repeat(INNER)}┘${c.reset}`,
+    '',
+  ]
+  writeSafe(`${lines.join('\n')}\n`)
 }
 
 export function createBoard(title, stepNames) {
@@ -137,13 +126,10 @@ export function createBoard(title, stepNames) {
   }))
   let spinIdx = 0
   let timer = null
-  let beatTimer = null
   let lastLines = 0
-  let tick = 0
   let disposed = false
-  let drawn = false
-  let progressShown = false
-  let stepStartedAt = 0
+  let cursorHidden = false
+  let stepStartedAt = Date.now()
 
   function doneCount() {
     return steps.filter((s) => s.status === 'ok').length
@@ -153,6 +139,7 @@ export function createBoard(title, stepNames) {
     return steps.some((s) => s.status === 'fail')
   }
 
+  /** Finished steps + smooth creep inside the running step (never loops back). */
   function percent() {
     const n = steps.length || 1
     const base = (doneCount() / n) * 100
@@ -160,33 +147,8 @@ export function createBoard(title, stepNames) {
     if (!steps.some((s) => s.status === 'run')) return base
     const slice = 100 / n
     const elapsedSec = Math.max(0, (Date.now() - stepStartedAt) / 1000)
-    const crept = Math.min(slice * 0.85, elapsedSec * 2.5)
-    return Math.min(99, base + crept)
-  }
-
-  function clearProgressLine() {
-    if (!progressShown) return
-    writeErr(`\r${' '.repeat(PROGRESS_PAD)}\r`)
-    progressShown = false
-  }
-
-  function showProgress() {
-    if (live || disposed) return
-    const running = steps.findIndex((s) => s.status === 'run')
-    const idx = running >= 0 ? running : Math.max(0, doneCount() - 1)
-    const name = steps[idx]?.name || 'Checks'
-    const n = steps.length
-    const elapsed = Math.max(0, Math.round((Date.now() - stepStartedAt) / 1000))
-    const suffix = running >= 0 ? (elapsed >= 1 ? `running… ${elapsed}s` : 'running…') : 'OK'
-    const line = `${miniBar(percent())}  ${idx + 1}/${n}  ${name} ${suffix}`
-    writeErr(`\r${fit(line, PROGRESS_PAD - 1)}`)
-    progressShown = true
-  }
-
-  function erase() {
-    if (!live || !drawn || lastLines <= 0) return
-    writeOut(`\x1b[${lastLines}A\x1b[0J`)
-    lastLines = 0
+    const creep = slice * 0.92 * (1 - Math.exp(-elapsedSec / 25))
+    return Math.min(99, base + creep)
   }
 
   function stepLines(tone) {
@@ -195,43 +157,29 @@ export function createBoard(title, stepNames) {
       const s = steps[i]
       let markPlain
       let markColored
+      let label = `${i + 1}. ${s.name}`
       if (s.status === 'ok') {
         markPlain = ' [OK] '
         markColored = ` ${c.green}[OK]${c.reset} `
       } else if (s.status === 'fail') {
         markPlain = '[FAIL]'
         markColored = `${c.red}[FAIL]${c.reset}`
+        label = ` ${label}`
       } else if (s.status === 'run') {
         const sp = SPIN[spinIdx % SPIN.length]
         markPlain = `  [${sp}] `
         markColored = `  ${c.yellow}[${sp}]${c.reset} `
+        label = `${label} …`
       } else {
         markPlain = '  [ ] '
         markColored = `  ${c.dim}[ ]${c.reset} `
       }
-      const label =
-        s.status === 'run'
-          ? `${i + 1}. ${s.name} …`
-          : s.status === 'fail'
-            ? ` ${i + 1}. ${s.name}`
-            : `${i + 1}. ${s.name}`
       out.push(rowMarked(markPlain, markColored, label, tone))
     }
     return out
   }
 
-  /**
-   * @param {{ force?: boolean, tone?: 'run'|'ok'|'fail', footer?: string }} [opts]
-   */
-  function paint(opts = {}) {
-    const force = Boolean(opts.force)
-    const tone = opts.tone || (hasFail() ? 'fail' : 'run')
-    const footer = opts.footer
-    if (disposed && !force) return
-    if (!live && !force) return
-
-    erase()
-
+  function buildLines(tone, footer) {
     const col = frameColor(tone)
     const titlePlain = fit(` ${title || 'Checks'}`, INNER)
     const lines = [
@@ -242,35 +190,55 @@ export function createBoard(title, stepNames) {
       mid(tone),
       ...stepLines(tone),
     ]
-
     if (footer) {
-      lines.push(mid(tone))
       const footerColor = tone === 'fail' ? c.red : c.green
-      const footerPlain = fit(` ✓  ${footer}`, INNER)
+      lines.push(mid(tone))
       lines.push(
-        `${col}│${c.reset}${footerColor}${c.bold}${footerPlain}${c.reset}${col}│${c.reset}`,
+        `${col}│${c.reset}${footerColor}${c.bold}${fit(` ✓  ${footer}`, INNER)}${c.reset}${col}│${c.reset}`,
       )
     }
-
     lines.push(bot(tone))
-    lines.push('')
+    return lines
+  }
 
-    writeOut(`${lines.join('\n')}\n`)
-    drawn = true
-    lastLines = live && !footer && !force ? lines.length : 0
+  function showCursor() {
+    if (!cursorHidden) return
+    cursorHidden = false
+    writeSafe(SHOW_CURSOR)
+  }
+
+  /** In-place frame: move up, overwrite each line, clear only to end of line. */
+  function paintLive() {
+    if (!live || disposed) return
+    const lines = buildLines(hasFail() ? 'fail' : 'run')
+    let out = ''
+    if (!cursorHidden) {
+      out += HIDE_CURSOR
+      cursorHidden = true
+    }
+    if (lastLines > 0) out += `\x1b[${lastLines}A`
+    for (const line of lines) out += `\r${line}\x1b[K\n`
+    writeSafe(out)
+    lastLines = lines.length
+  }
+
+  /** Final card: replace the live card once (or just print it when not live). */
+  function paintFinal(tone, footer) {
+    let out = ''
+    if (live && lastLines > 0) out += `\x1b[${lastLines}A\x1b[0J`
+    lastLines = 0
+    out += `${buildLines(tone, footer).join('\n')}\n`
+    if (cursorHidden) {
+      out += SHOW_CURSOR
+      cursorHidden = false
+    }
+    writeSafe(out)
   }
 
   function stopSpin() {
     if (timer) {
       clearInterval(timer)
       timer = null
-    }
-  }
-
-  function stopBeat() {
-    if (beatTimer) {
-      clearInterval(beatTimer)
-      beatTimer = null
     }
   }
 
@@ -283,24 +251,9 @@ export function createBoard(title, stepNames) {
         return
       }
       spinIdx += 1
-      tick += 1
-      paint()
-    }, 120)
+      paintLive()
+    }, FRAME_MS)
     if (typeof timer.unref === 'function') timer.unref()
-  }
-
-  function startBeat() {
-    stopBeat()
-    if (live || disposed) return
-    showProgress()
-    beatTimer = setInterval(() => {
-      if (disposed) {
-        stopBeat()
-        return
-      }
-      showProgress()
-    }, 1000)
-    if (typeof beatTimer.unref === 'function') beatTimer.unref()
   }
 
   function assertIndex(index, method) {
@@ -309,82 +262,55 @@ export function createBoard(title, stepNames) {
     }
   }
 
+  process.once('exit', showCursor)
+
   return {
     start() {
       if (disposed) return
-      tick = 0
-      drawn = false
-      lastLines = 0
-      if (!live) {
-        writeErr(`${title || 'Checks'}\n`)
-        return
-      }
-      paint()
+      stepStartedAt = Date.now()
+      paintLive()
+      startSpin()
     },
     running(index) {
       if (disposed) return
       assertIndex(index, 'running')
       steps[index].status = 'run'
-      spinIdx = 0
       stepStartedAt = Date.now()
-      if (!live) {
-        startBeat()
-        return
-      }
-      paint()
+      paintLive()
       startSpin()
     },
     pass(index) {
       if (disposed) return
       assertIndex(index, 'pass')
-      stopSpin()
-      stopBeat()
       steps[index].status = 'ok'
-      tick = 0
-      if (!live) {
-        showProgress()
-        return
-      }
-      paint()
+      paintLive()
     },
     fail(index, titleText, tips) {
       assertIndex(index, 'fail')
       stopSpin()
-      stopBeat()
-      clearProgressLine()
       steps[index].status = 'fail'
-      paint({ force: true, tone: 'fail' })
+      paintFinal('fail')
       printWhatToDo(titleText || 'Check failed.', tips)
-      lastLines = 0
-      drawn = false
     },
+    /** Unexpected crash / tool missing — mark running step (or last) as failed. */
     crash(titleText, tips) {
       stopSpin()
-      stopBeat()
-      clearProgressLine()
       const running = steps.findIndex((s) => s.status === 'run')
       const target = running >= 0 ? running : Math.max(0, steps.length - 1)
       steps[target].status = 'fail'
-      paint({ force: true, tone: 'fail' })
+      paintFinal('fail')
       printWhatToDo(titleText || 'Something went wrong.', tips)
-      lastLines = 0
-      drawn = false
     },
     success(message = 'All checks passed.') {
       if (disposed) return
       stopSpin()
-      stopBeat()
-      clearProgressLine()
-      tick = 0
-      paint({ force: true, tone: 'ok', footer: message })
-      lastLines = 0
-      drawn = false
+      paintFinal('ok', message)
     },
+    /** Always call on exit paths so the spinner and cursor cannot leak. */
     dispose() {
       disposed = true
       stopSpin()
-      stopBeat()
-      clearProgressLine()
+      showCursor()
       lastLines = 0
     },
   }
