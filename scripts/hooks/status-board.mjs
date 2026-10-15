@@ -5,20 +5,18 @@
  * Success/fail paint a complete green/red card with the result footer
  * inside the box (no orphan "✓ …" line under a clipped fragment).
  *
- * Windows default: final frame only. Live spinner: HOOKS_LIVE=1
+ * Git hooks on Windows are not a TTY, so the green/red card used to be
+ * stripped and only the final 100% frame showed. Colors stay on, and each
+ * paint is flushed. Set HOOKS_LIVE=0 to print the final card only.
  */
-import readline from 'node:readline'
+import { writeSync } from 'node:fs'
 
 const canColor =
-  Boolean(process.stdout.isTTY) &&
   !process.env.NO_COLOR &&
   process.env.TERM !== 'dumb' &&
   !process.env.CI
 
-const live =
-  canColor &&
-  (process.env.HOOKS_LIVE === '1' ||
-    (process.platform !== 'win32' && process.env.HOOKS_LIVE !== '0'))
+const live = canColor && process.env.HOOKS_LIVE !== '0'
 
 const c = {
   reset: canColor ? '\x1b[0m' : '',
@@ -92,9 +90,14 @@ function progressRow(pct, tone) {
 
 function writeSafe(text) {
   try {
-    process.stdout.write(text)
+    if (typeof process.stdout.fd === 'number') writeSync(process.stdout.fd, text)
+    else process.stdout.write(text)
   } catch {
-    /* broken pipe */
+    try {
+      process.stdout.write(text)
+    } catch {
+      /* broken pipe */
+    }
   }
 }
 
@@ -146,12 +149,7 @@ export function createBoard(title, stepNames) {
 
   function erase() {
     if (!live || !drawn || lastLines <= 0) return
-    try {
-      readline.moveCursor(process.stdout, 0, -lastLines)
-      readline.clearScreenDown(process.stdout)
-    } catch {
-      writeSafe(`\x1b[${lastLines}A\x1b[0J`)
-    }
+    writeSafe(`\x1b[${lastLines}A\x1b[0J`)
     lastLines = 0
   }
 
@@ -256,6 +254,7 @@ export function createBoard(title, stepNames) {
       tick = 0
       drawn = false
       lastLines = 0
+      paint()
     },
     running(index) {
       if (disposed) return
