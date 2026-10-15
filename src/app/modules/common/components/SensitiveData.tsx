@@ -105,16 +105,13 @@ export function SensitiveDataHeaderToggle() {
             onClick={sensitive.toggle}
             aria-pressed={sensitive.visible}
             aria-label={label}
-            // Phones: the eye alone, dressed like a tab cell of the phone bar — the bar stretches it to
-            // the tabs' height, it is clear when amounts are hidden (like an unselected tab) and takes
-            // the selected tab's frosted fill when they show. No outline ring: on a 40px cell it read
-            // as a stray dark square. The label stays for screen readers.
-            // `[&_svg]:block` + `place-items-center`: the eye is an inline <svg> inside PrivacyToggle's
-            // div, and inline sits on the text baseline — which nudged it off-centre.
-            className={`inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-lg! border-0! px-3.5 text-[13px] leading-none max-sm:w-11 max-sm:px-0 max-sm:rounded-[10px]! max-sm:[&_svg]:size-5 font-semibold outline-none! transition-colors motion-reduce:transition-none focus-visible:ring-2! focus-visible:ring-white/70! [&_.privacy-toggle]:pointer-events-none [&_.privacy-toggle]:grid [&_.privacy-toggle]:place-items-center [&_svg]:block [&_svg]:size-[17px] ${
+            // Phone: 36px frosted cell matching MaterialHeaderTab phone tabs + Lock beside it.
+            // ON = selected-tab fill; OFF = quiet cell (not transparent — bare glyphs looked lost).
+            // `[&_svg]:block` + `place-items-center`: the eye is an inline <svg> inside PrivacyToggle.
+            className={`inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-lg! border-0! px-3.5 text-[13px] leading-none max-sm:h-9 max-sm:w-9 max-sm:px-0 max-sm:rounded-[10px]! max-sm:[&_svg]:size-5 font-semibold outline-none! transition-colors motion-reduce:transition-none focus-visible:ring-2! focus-visible:ring-white/70! [&_.privacy-toggle]:pointer-events-none [&_.privacy-toggle]:grid [&_.privacy-toggle]:place-items-center [&_svg]:block [&_svg]:size-[17px] ${
                 sensitive.visible
                     ? 'bg-white/16! text-white! shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.75)]! hover:bg-white/20! max-sm:bg-white/18! max-sm:shadow-none!'
-                    : 'bg-white/8! text-white/90! shadow-none! hover:bg-white/14! max-sm:bg-transparent! max-sm:text-white/80! active:bg-white/20!'
+                    : 'bg-white/8! text-white/90! shadow-none! hover:bg-white/14! max-sm:bg-white/10! max-sm:text-white! max-sm:hover:bg-white/16! active:bg-white/20!'
             }`}
         >
             <PrivacyToggle isVisible={sensitive.visible} onToggle={sensitive.toggle} color="#ffffff" />

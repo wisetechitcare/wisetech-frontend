@@ -106,6 +106,7 @@ export const ACCESS_AREAS: AccessArea[] = [
       { module: "settings.media", label: "Media" },
       { module: "settings.teams", label: "Teams" },
       { module: "settings.employeeLevel", label: "Employee Level" },
+      { module: "settings.developerMfa", label: "System PIN MFA" },
     ],
   },
 ];

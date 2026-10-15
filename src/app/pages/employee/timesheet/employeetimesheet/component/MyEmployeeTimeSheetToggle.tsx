@@ -250,6 +250,42 @@ const MyEmployeeTimeSheetToggle = ({
                             else if (alignment === "monthly") navigateMonthly("next");
                             else if (alignment === "yearly") navigateYearly("next");
                         }}
+                        pickGranularity={
+                            alignment === "yearly" ? "year"
+                                : alignment === "monthly" ? "month"
+                                    : "day"
+                        }
+                        pickValue={
+                            alignment === "daily" ? currentDay.format("YYYY-MM-DD")
+                                : alignment === "weekly" ? currentWeekStart.format("YYYY-MM-DD")
+                                    : alignment === "monthly" ? currentMonthStart.format("YYYY-MM-DD")
+                                        : currentYearStart ? currentYearStart.format("YYYY-MM-DD")
+                                            : today.format("YYYY-MM-DD")
+                        }
+                        onPickDate={async (v) => {
+                            if (alignment === "daily") {
+                                setCurrentDay(dayjs(v));
+                            } else if (alignment === "weekly") {
+                                setCurrentWeekStart(dayjs(v).startOf("week").add(1, "day"));
+                            } else if (alignment === "monthly") {
+                                setCurrentMonthStart(dayjs(v).startOf("month"));
+                            } else if (alignment === "yearly") {
+                                try {
+                                    const base = dayjs(`${dayjs(v).year()}-04-01`);
+                                    const { startDate: fiscalStartDate, endDate: fiscalEndDate } =
+                                        await generateFiscalYearFromGivenYear(base);
+                                    const fiscalStart = dayjs(fiscalStartDate);
+                                    const fiscalEnd = dayjs(fiscalEndDate);
+                                    setCurrentYearStart(fiscalStart);
+                                    setCurrentYearEnd(fiscalEnd);
+                                    setFiscalYearDisplay(
+                                        `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`
+                                    );
+                                } catch (error) {
+                                    console.error("Error picking fiscal year:", error);
+                                }
+                            }
+                        }}
                     />
                 </div>
             </div>
