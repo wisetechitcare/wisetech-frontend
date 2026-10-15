@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import Box from '@mui/material/Box';
 import { GlassDialog } from '@app/modules/common/components/ui';
 import { securityPinApi, isSecurityArea, type SecurityArea } from '@services/securityPin';
@@ -18,8 +18,7 @@ const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'
  *    tab's auto-lock minutes — unlocking Salary does not keep Roles open.
  */
 export function SecurityPinHost() {
-    const { unlocked, pending, pendingArea, gates, required, unlockedAreas, areas } = useSecurityPin();
-    const lastActivity = useRef(Date.now());
+    const { unlocked, pending, pendingArea, gates, required } = useSecurityPin();
 
     // Keep support grant in sync so gates open after refresh without a PIN unlock.
     useEffect(() => {
@@ -30,17 +29,20 @@ export function SecurityPinHost() {
         return () => { alive = false; };
     }, []);
 
+    // Idle re-lock: one long-lived interval while anything is unlocked.
+    // Do NOT depend on unlockedAreas/areas — the callback already reads a live snapshot.
+    // Restarting on every unlock/policy change cleared the timer before it could fire.
     useEffect(() => {
         if (!unlocked || !required) return;
-        lastActivity.current = Date.now();
         let lastTouch = 0;
         const mark = () => {
             const now = Date.now();
-            lastActivity.current = now;
-            if (now - lastTouch > 5_000) { lastTouch = now; securityPinBus.touch(); }
+            if (now - lastTouch > 5_000) {
+                lastTouch = now;
+                securityPinBus.touch();
+            }
         };
-        ACTIVITY_EVENTS.forEach((e) => window.addEventListener(e, mark, { passive: true }));
-        const timer = window.setInterval(() => {
+        const checkIdle = () => {
             const snap = securityPinBus.getSnapshot();
             const now = Date.now();
             for (const key of Object.keys(snap.unlockedAreas)) {
@@ -56,12 +58,14 @@ export function SecurityPinHost() {
                     securityPinApi.lock(area).catch(() => undefined);
                 }
             }
-        }, 15_000);
+        };
+        ACTIVITY_EVENTS.forEach((e) => window.addEventListener(e, mark, { passive: true }));
+        const timer = window.setInterval(checkIdle, 15_000);
         return () => {
             ACTIVITY_EVENTS.forEach((e) => window.removeEventListener(e, mark));
             window.clearInterval(timer);
         };
-    }, [unlocked, required, unlockedAreas, areas]);
+    }, [unlocked, required]);
 
     const open = pending && gates === 0;
     return (
