@@ -41,6 +41,9 @@ export function SecurityPinGate({ area, children }: { area: SecurityArea; childr
         return () => window.clearInterval(t);
     }, [policy?.required, areaOpen, snap.supportGrant?.expiresAt]);
 
+    // Kill-switch / all tabs No PIN — never show unlock or "Set Up Security PIN".
+    if (!snap.required) return <>{children}</>;
+
     const activityAt = snap.lastActivityByArea[area] ?? snap.unlockedAreas[area]?.unlockedAt ?? 0;
     const idleMs = Date.now() - activityAt;
     const pinStillFresh = pinOpen && idleMs <= (policy?.lockMinutes ?? 15) * 60_000;

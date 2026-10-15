@@ -86,13 +86,18 @@ export function SecurityPinPanel({ onUnlocked, onCancel, area }: SecurityPinPane
 
     const routeFromStatus = useCallback((s: SecurityPinStatus) => {
         setStatus(s);
-        securityPinBus.setPolicy(s.required !== false, s.ttlMinutes ?? 15, s.areas);
+        const pinOff = s.disabled === true || s.required === false;
+        // Only treat the feature as on when the server explicitly says so — never default to on
+        // when `required` is missing (that used to force "Set Up Security PIN" under the kill-switch).
+        securityPinBus.setPolicy(pinOff ? false : s.required === true, s.ttlMinutes ?? 15, s.areas);
+        if (pinOff) {
+            onUnlocked?.();
+            return;
+        }
         const tab = area ? s.areas?.[area] : undefined;
         if (tab && !tab.required) { onUnlocked?.(); return; }
         // Only treat THIS tab as open — another tab's unlock must not skip the PIN here.
-        const fresh = tab
-            ? tab.unlocked
-            : s.required === false;
+        const fresh = tab ? tab.unlocked : false;
         if (fresh) {
             if (area && tab?.unlocked) {
                 securityPinBus.markAreaUnlocked(area, tab.unlockedUntil ?? s.unlockedUntil, tab.lockMinutes);
