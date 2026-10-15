@@ -23,7 +23,7 @@ export function SecurityPinGate({ area, children }: { area: SecurityArea; childr
     const [, setTick] = useState(0);
 
     useEffect(() => {
-        const unregister = securityPinBus.registerGate();
+        const unregister = securityPinBus.registerGate(area);
         securityPinBus.setActiveArea(area);
         return () => {
             unregister();
@@ -40,6 +40,9 @@ export function SecurityPinGate({ area, children }: { area: SecurityArea; childr
         const t = window.setInterval(() => setTick((n) => n + 1), 10_000);
         return () => window.clearInterval(t);
     }, [policy?.required, areaOpen, snap.supportGrant?.expiresAt]);
+
+    // Kill-switch / all tabs No PIN — never show unlock or "Set Up Security PIN".
+    if (!snap.required) return <>{children}</>;
 
     const activityAt = snap.lastActivityByArea[area] ?? snap.unlockedAreas[area]?.unlockedAt ?? 0;
     const idleMs = Date.now() - activityAt;

@@ -89,6 +89,8 @@ export interface SecurityPinStatus {
     ttlMinutes?: number;
     /** False when EVERY protected tab is No PIN for this person. */
     required?: boolean;
+    /** True when the server kill-switch `SECURITY_PIN_DISABLED` is on — no unlock/setup UI. */
+    disabled?: boolean;
     /** Per protected tab. */
     areas?: Partial<Record<SecurityArea, AreaStatus>>;
 }
