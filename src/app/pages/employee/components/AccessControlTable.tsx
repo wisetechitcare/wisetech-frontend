@@ -8,6 +8,7 @@ import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
 import type { EffLevel } from "./accessControlTypes";
 import { SECTION_TABS } from "@utils/sectionTabs";
+import { SecurityPinRowChip, SECURITY_PIN_ROW_AREAS, SupportAccessPolicyChip } from "@app/modules/common/components/SecurityPin";
 
 const ACCENT = "#1E3A8A";
 
@@ -44,7 +45,7 @@ type Row =
  * its pages under it with their sidebar icons and names, modules with tabs (Billing, Recruitment,
  * KPI) opening like their sidebar menus. Read / Read all / Write / Commercials line up in columns.
  */
-const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModules, dirtyModules, onSetLevel, onResetToRole, variant = "employee", readOnly = false, recordCells, tabs }) => {
+const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModules, dirtyModules, onSetLevel, onResetToRole, variant = "employee", readOnly = false, recordCells, tabs, pinSubject }) => {
   // Departments start open, like the sidebar; modules with tabs start closed.
   const [open, setOpen] = useState<Set<string>>(() => new Set(ACCESS_SIDEBAR_LAYOUT.map((g) => g.id)));
   const [query, setQuery] = useState("");
@@ -84,7 +85,12 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
     return out;
   }, [open, q, nodeMatches]);
 
-  const toggle = (key: string) => setOpen((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const toggle = (key: string) => setOpen((prev) => {
+    const n = new Set(prev);
+    if (n.has(key)) n.delete(key);
+    else n.add(key);
+    return n;
+  });
   const allExpanded = Array.from(allKeys).every((k) => open.has(k));
   const allCollapsed = open.size === 0;
   const isOpenLevel = (m: string) => (levels[m] || "none") !== "none";
@@ -241,6 +247,12 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
                         tabs={tabs} composite={kids ? { children: kids, levels, onSetLevel } : undefined}
                       />
                     </span>
+                  )}
+                  {pinSubject && SECURITY_PIN_ROW_AREAS[node.module] && (
+                    <span onClick={(e) => e.stopPropagation()}><SecurityPinRowChip subject={pinSubject} label={node.label} areas={SECURITY_PIN_ROW_AREAS[node.module]} /></span>
+                  )}
+                  {pinSubject && node.module === "settings.developerMfa" && (
+                    <span onClick={(e) => e.stopPropagation()}><SupportAccessPolicyChip subject={pinSubject} /></span>
                   )}
                   {isCustom && (
                     <span style={{ fontSize: 9.5, fontWeight: 600, color: ACCENT, background: "rgba(37,99,235,0.1)", borderRadius: 999, padding: "2px 8px", textTransform: "uppercase", letterSpacing: ".4px", flexShrink: 0 }}>Custom</span>

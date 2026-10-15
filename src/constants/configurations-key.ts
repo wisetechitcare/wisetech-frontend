@@ -86,6 +86,8 @@ export const MEETING_STATUS_HELD='meetingStatusHeld';
 // time against it. Same {enabled, color} shape; the chip tint is derived from the colour.
 export const MEETING_TIMESHEET_FILLED='meetingTimesheetFilled';
 export const MEETING_TIMESHEET_PENDING='meetingTimesheetPending';
+/** Wash and ink for the meetings calendar cell that is today. */
+export const MEETING_TODAY_COLOR='meetingTodayColor';
 // Public-holiday appearance on the workspace calendar ({enabled, color, icon}).
 // enabled defaults to TRUE when unset — holidays always showed historically.
 export const SHOW_HOLIDAYS_ON_CALENDAR='showHolidaysOnCalendar';

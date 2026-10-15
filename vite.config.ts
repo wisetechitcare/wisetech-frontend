@@ -41,6 +41,9 @@ export default defineConfig({
     global: 'globalThis',
   },
   resolve: {
+    // Prevent duplicate Emotion copies (Vite + MUI) which surface as
+    // "styled_default is not a function" after a bad HMR / dep re-optimize.
+    dedupe: ['react', 'react-dom', '@emotion/react', '@emotion/styled', '@mui/material'],
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@redux': path.resolve(__dirname, './src/redux'),
@@ -65,6 +68,11 @@ export default defineConfig({
       '@emotion/styled',
       '@emotion/cache',
       '@mui/material',
+      // Force styles/Tooltip/Popper into the same prebundle crawl so init_styled()
+      // runs before Popper evaluates styled_default (Vite+MUI known failure mode).
+      '@mui/material/styles',
+      '@mui/material/Tooltip',
+      '@mui/material/Popper',
       '@mui/icons-material',
       '@mui/x-date-pickers',
       // Lazily `await import()`ed packages MUST be pre-bundled: if Vite only

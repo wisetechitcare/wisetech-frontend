@@ -160,8 +160,6 @@ export function WtDateField(props: WtDateFieldBaseProps) {
           minDate={parse(minDate) ?? undefined}
           maxDate={parse(maxDate) ?? undefined}
           format={DATE_FORMATS.DISPLAY}
-          // Keep MUI X / M3 month-slide animations (reduceAnimations:true killed them).
-          // See https://mui.com/x/react-date-pickers/date-picker/
           {...(open !== undefined ? { open, onOpen, onClose } : {})}
           slotProps={textFieldSlot(props, boundarySlots.popper)}
         />

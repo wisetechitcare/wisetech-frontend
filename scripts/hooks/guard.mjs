@@ -82,7 +82,10 @@ function scanFiles(files) {
     if (basename(file) === 'guard.mjs') continue // this file is all patterns
 
     if (SECRET_FILES.test(file)) {
-      problems.push(`${file}: secret file must never be committed (add it to .gitignore)`)
+      problems.push(
+        `${file}: This file looks like a secret and cannot be committed.\n` +
+        `      Add it to .gitignore (or remove it from the commit).`,
+      )
       continue
     }
 
@@ -102,7 +105,14 @@ function scanFiles(files) {
     const buf = readFileSync(file)
     if (buf.subarray(0, 8000).includes(0)) continue // binary
     for (const h of scanText(buf.toString('utf8'))) {
-      problems.push(`${file}:${h.line}: ${h.rule}\n      ${h.text}`)
+      const tip =
+        h.rule === 'leftover debugger' ? 'Remove debugger before committing.'
+          : h.rule.startsWith('focused test') ? 'Remove .only so the full test suite runs.'
+            : h.rule === 'merge conflict marker' ? 'Finish the merge conflict, then stage again.'
+              : h.rule.includes('secret') || h.rule.includes('key') || h.rule.includes('token') || h.rule.includes('password') || h.rule.includes('JWT') || h.rule.includes('PRIVATE KEY')
+                ? 'This looks like a secret — remove it before committing.'
+                : h.rule
+      problems.push(`${file}:${h.line}: ${tip}\n      ${h.text}`)
     }
   }
   return problems
@@ -144,15 +154,15 @@ if (flag === '--self-test') {
 } else if (flag === '--commit-msg') {
   const error = validateCommitMsg(readFileSync(rest[0], 'utf8'))
   if (error) {
-    console.error(`\n  commit-msg: ${error}\n`)
+    console.error(`\n  Commit message needs a fix:\n  ${error}\n`)
     process.exit(1)
   }
 } else {
   const problems = scanFiles(process.argv.slice(2))
   if (problems.length) {
-    console.error('\n  pre-commit guard blocked this commit:\n')
+    console.error('\n  Commit blocked — fix these items first:\n')
     for (const p of problems) console.error(`    ${p}`)
-    console.error(`\n  Fix them, or mark an intentional line with a \`${ALLOW}\` comment.\n`)
+    console.error(`\n  Then stage again and commit. For a rare intentional exception, add a \`${ALLOW}\` comment on that line.\n`)
     process.exit(1)
   }
 }

@@ -7,6 +7,8 @@
   "scripts": {
     "prepare": "husky",
     "hooks:test": "node scripts/hooks/guard.mjs --self-test",
+    "type-check": "tsc --noEmit",
+    "verify": "node scripts/hooks/run.mjs verify",
     "dev": "vite",
     "dev:host": "vite --host",
     "build": "tsc && cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build",

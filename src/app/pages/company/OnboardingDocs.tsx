@@ -45,7 +45,7 @@ function OnBoardingDocs() {
     const [documentId, setDocumentId] = useState('');
     const [loading, setLoading] = useState(false);
     const [initialValues, setInitialValues] = useState(defaultInitialValues);
-    const canWrite = canSection("settings.onboarding", "write");
+    const canWrite = canSection("users", "write");
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const [companyId, setCompanyId] = useState<string>('');
 

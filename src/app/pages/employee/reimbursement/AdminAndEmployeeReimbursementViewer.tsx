@@ -73,7 +73,8 @@ function AdminAndEmployeeReimbursementViewer() {
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Reimbursement Details",
       component: <AllEmployee />,
-      icon: 'bi-receipt-cutoff',
+      // Not bi-receipt-cutoff — that maps to the same glyph as bi-receipt (My Reimbursements).
+      icon: 'bi-clipboard-data',
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Search Employee",

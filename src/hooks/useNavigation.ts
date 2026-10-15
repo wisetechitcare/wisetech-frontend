@@ -351,6 +351,15 @@ export function useNavigation() {
         fontIcon: 'bi-person-lines-fill',
         visible: isPackEnabled('psa') && !isSectionBlocked('crm.contacts'),
       },
+      {
+        type: 'item',
+        id: 'crm-gift-management',
+        to: '/gift-management',
+        title: 'Gift Managements',
+        fontIcon: 'bi-gift',
+        // Prototype: visible with Contacts until a dedicated crm.courtesyDesk permission exists.
+        visible: !isSectionBlocked('crm.contacts'),
+      },
 
       // ── Project Department ────────────────────────────────────────────────
       // Organization USED to sit under this header (it preceded the next section
@@ -509,7 +518,7 @@ export function useNavigation() {
         type: 'section',
         id: 'organization-section',
         title: 'Organization',
-        visible: !isSectionBlocked('settings') && (anyChildGranted('settings') || hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
+        visible: !isSectionBlocked('settings') && (anyChildGranted('settings') || hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
       },
       // As `sub` children these rows carried no icon and inherited the group's
       // glyph (ModuleGrid does that fallback for cluster children only). Top-level
@@ -577,6 +586,14 @@ export function useNavigation() {
         fontIcon: 'bi-boxes',
         // Commercial packs — platform Super Admin only (not tenant Admin self-serve).
         visible: tier === 'SUPER_ADMIN',
+      },
+      {
+        type: 'item',
+        id: 'admin-developer-mfa',
+        to: '/admin/app-settings?area=developer-mfa',
+        title: 'System PIN MFA',
+        fontIcon: 'bi-shield-check',
+        visible: isSubsectionVisible('settings.developerMfa'),
       },
       {
         type: 'item',

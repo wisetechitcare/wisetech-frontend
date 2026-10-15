@@ -215,6 +215,9 @@ export interface EmployeeDetailsSectionProps {
   rejectedAmount: number;
   paidAmount?: number;
   remainingAmount?: number;
+  /** Unsubmitted drafts in the current period. Defaults to 0 (admin Search Employee has no inbox). */
+  inboxAmount?: number;
+  inboxCount?: number;
   overviewLoading: boolean;
   /** Optional employee override. When provided, used instead of currentEmployee from redux. */
   employee?: any;
@@ -231,6 +234,8 @@ export function EmployeeDetailsSection({
   rejectedAmount,
   paidAmount = 0,
   remainingAmount = 0,
+  inboxAmount = 0,
+  inboxCount = 0,
   overviewLoading,
   employee: employeeProp,
 }: EmployeeDetailsSectionProps) {
@@ -238,17 +243,12 @@ export function EmployeeDetailsSection({
   const employee = employeeProp !== undefined ? employeeProp : currentEmployee;
   const sensitive = useSensitiveData();
 
-  // Ten tiles became four cards.
-  //
-  // The ten were five count/amount pairs split into separate boxes — "24 approved" in one tile
-  // and "₹98,000 approved" in another, with the reader left to pair them. `YearlyKpiCard` renders
-  // a value with a footer strip beneath it, so each pair is one card, and the row reads in the
-  // order an expense actually moves: submitted, approved, awaiting, paid.
-  //
-  // Rejected loses its dedicated tiles. It is a terminal state you look up when it happens, not a
-  // number worth a quarter of the page every day — the records table below carries it as a status
-  // chip with a live count, which is also where the reason lives.
+  // Four stage cards: Drafts → Pending approval → Approved → Paid out.
+  // Submitted rollup is labeled on the pending-approval card when it adds context.
+  // Rejected stays in the records table as a status chip, not a KPI tile.
   const kpis = {
+    inboxAmount,
+    inboxCount,
     totalAmount: totalRequestedAmount,
     totalRequests,
     approvedAmount,
@@ -712,7 +712,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
   return (
     <>
-      {/* Employee Details + reimbursement KPI cards */}
+      {/* Employee Details + reimbursement KPI cards.
+          Inbox KPIs use the same period-filtered drafts as the inbox table below. */}
       <EmployeeDetailsSection
         totalRequests={totalRequests}
         totalRequestedAmount={totalRequestedAmount}
@@ -724,6 +725,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         rejectedAmount={rejectedAmount}
         paidAmount={paidAmount}
         remainingAmount={remainingAmount}
+        inboxAmount={totalAmount}
+        inboxCount={filteredDrafts.length}
         overviewLoading={overviewLoading}
       />
 

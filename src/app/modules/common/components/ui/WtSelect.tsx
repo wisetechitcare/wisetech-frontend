@@ -103,10 +103,17 @@ export interface WtSelectProps {
      * construction — use this for short, wordy lists, not for long ones.
      */
     allowOptionWrap?: boolean;
+    /**
+     * Show the full selected label in the control (wrap / grow) instead of
+     * react-select's default single-line ellipsis.
+     */
+    allowValueWrap?: boolean;
     /** Above this many options the menu switches to windowed rendering. */
     virtualizeThreshold?: number;
     filterOption?: any;
     menuPortalTarget?: HTMLElement | null;
+    /** Cap dropdown list height (scroll inside menu). Defaults to boundary geometry or FLOATING_MENU_BEHAVIOUR. */
+    maxMenuHeight?: number;
     /** Controlled menu open state — e.g. close before opening a create dialog above the portal. */
     menuIsOpen?: boolean;
     onMenuOpen?: () => void;
@@ -221,10 +228,12 @@ export function WtSelect({
     defaultInputValue,
     formatOptionLabel,
     allowOptionWrap = false,
+    allowValueWrap = false,
     components: componentOverrides,
     virtualizeThreshold = DEFAULT_VIRTUALIZE_THRESHOLD,
     filterOption,
     menuPortalTarget,
+    maxMenuHeight: maxMenuHeightProp,
     menuIsOpen,
     onMenuOpen,
     onMenuClose,
@@ -283,6 +292,7 @@ export function WtSelect({
             control: (base: any, state: any) => ({
                 ...base,
                 minHeight,
+                ...(allowValueWrap ? { height: 'auto', alignItems: 'flex-start' } : null),
                 backgroundColor: state.isDisabled
                     ? (dark ? '#0D1117' : T.color.panelAlt)
                     : accentColor && !error
@@ -321,7 +331,37 @@ export function WtSelect({
                 // Selected rows read as selected without relying on colour alone.
                 fontWeight: state.isSelected ? 600 : 400,
             }),
-            singleValue: (base: any) => ({ ...base, color: accentColor || ink }),
+            valueContainer: (base: any) => ({
+                ...base,
+                ...(allowValueWrap
+                    ? {
+                        height: 'auto',
+                        flexWrap: 'wrap' as const,
+                        alignItems: 'center',
+                        paddingTop: 4,
+                        paddingBottom: 4,
+                    }
+                    : null),
+            }),
+            singleValue: (base: any) => ({
+                ...base,
+                color: accentColor || ink,
+                ...(allowValueWrap
+                    ? {
+                        position: 'relative' as const,
+                        transform: 'none',
+                        top: undefined,
+                        maxWidth: '100%',
+                        whiteSpace: 'normal' as const,
+                        overflow: 'visible',
+                        textOverflow: 'clip',
+                    }
+                    : null),
+            }),
+            indicatorsContainer: (base: any) => ({
+                ...base,
+                ...(allowValueWrap ? { alignSelf: 'center' as const } : null),
+            }),
             dropdownIndicator: (base: any) => ({ ...base, color: accentColor || base.color }),
             input: (base: any) => ({ ...base, color: ink }),
             placeholder: (base: any) => ({ ...base, color: T.color.inkFaint }),
@@ -333,7 +373,7 @@ export function WtSelect({
                 textTransform: 'uppercase', color: T.color.inkFaint,
             }),
         };
-    }, [dark, error, size, accentColor, allowOptionWrap]);
+    }, [dark, error, size, accentColor, allowOptionWrap, allowValueWrap]);
 
     const Cmp: any = isCreatable ? CreatableSelect : Select;
 
@@ -342,8 +382,9 @@ export function WtSelect({
             <Cmp
                 {...FLOATING_MENU_BEHAVIOUR}
                 menuPlacement={menuGeom.menuPlacement}
-                maxMenuHeight={menuGeom.maxMenuHeight}
+                maxMenuHeight={maxMenuHeightProp ?? menuGeom.maxMenuHeight}
                 {...(menuPortalTarget !== undefined ? { menuPortalTarget } : {})}
+                allowValueWrap={allowValueWrap}
                 name={name}
                 aria-label={ariaLabel}
                 aria-invalid={error || undefined}

@@ -734,7 +734,7 @@ const LeadNewLead: React.FC = () => {
   );
 
   const handleAlignmentChange = async (
-    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<{}> | null,
+    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<HTMLElement> | null,
     newVal: string,
   ) => {
     if (!newVal) return;
@@ -962,7 +962,9 @@ const LeadNewLead: React.FC = () => {
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
         return (
-          <span style={{ whiteSpace: "nowrap" }}>
+          // Wraps inside the column: a nowrap span in a fixed-width cell spilled past the
+          // row's coloured background and over the next column.
+          <span>
             {typeof v === "object" ? JSON.stringify(v) : v || "N/A"}
           </span>
         );
@@ -1182,7 +1184,7 @@ const LeadNewLead: React.FC = () => {
         const type = row?.original?.fileLocationCompanyTypeName || row?.original?.fileLocationCompanyType || "";
         if (company) {
           return (
-            <span style={{ whiteSpace: "nowrap" }}>
+            <span>
               {company}
               {type ? (
                 <span style={{ color: "#9CA3AF" }}> ({type})</span>
@@ -1203,7 +1205,7 @@ const LeadNewLead: React.FC = () => {
               Open file
             </a>
           ) : (
-            <span style={{ whiteSpace: "nowrap" }}>{String(path)}</span>
+            <span>{String(path)}</span>
           );
         }
         return "N/A";

@@ -206,20 +206,14 @@ with the code. Edit that file, not the console.
 
 ## Git hooks
 
-Installed by `pnpm install`. Same checks CI runs, just earlier.
+Installed by `pnpm install`. Full details: [HOOKS.md](HOOKS.md).
 
-- **pre-commit** (<5s) — secret/hygiene scan on staged files, plus
-  `eslint --quiet` on staged `.ts`/`.tsx`.
-- **commit-msg** — Conventional Commits (`feat(scope): subject`). Merge and
-  revert commits are exempt.
-- **pre-push** (~90s) — blocks direct pushes to `main`, then `tsc --noEmit` and
-  eslint on files changed against `origin/main` (a whole-repo lint gate would
-  trip the legacy warning backlog).
-- **post-merge / post-checkout** — prints a hint when `pnpm-lock.yaml` moved. It
-  never installs for you; that's your cue to run `pnpm install`.
+- **pre-commit** (~5–15s) — status board; checks **staged files only** (secrets/hygiene + `eslint --quiet` on staged `.ts`/`.tsx`).
+- **commit-msg** — Conventional Commits (`feat(scope): subject`). Merge and revert commits are exempt.
+- **pre-push** (cold ~50–90s, warm often ~15–30s) — status board; blocks direct pushes to `main`/`develop`, incremental TypeScript. Full tests are CI / `pnpm verify`.
+- **post-merge / post-checkout** — prints a hint when `pnpm-lock.yaml` moved. It never installs for you; that's your cue to run `pnpm install`.
 
-`--no-verify` turns off *every* check at once. For one intentional line, put
-`guard:allow` in a comment on it instead.
+`--no-verify` turns off *every* check at once. Prefer fixing the **What to do** tips. For one intentional line, put `guard:allow` in a comment on it instead.
 
 ---
 

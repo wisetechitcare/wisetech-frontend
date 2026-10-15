@@ -241,6 +241,18 @@ const TaskOverviewToggle = ({
               onPrevious={() => navigateWeek("prev")}
               onNext={() => navigateWeek("next")}
               label={`${weekStart.format("DD MMM")} - ${weekEnd.format("DD MMM")}`}
+              pickGranularity="day"
+              pickValue={weekStart.format("YYYY-MM-DD")}
+              onPickDate={(v) => {
+                const newWeekStart = dayjs(v).startOf("week").add(1, "day");
+                const newWeekEnd =
+                  dateSettingsEnabled && newWeekStart.isSame(today, "week")
+                    ? today
+                    : newWeekStart.endOf("week").add(1, "day");
+                setWeekStart(newWeekStart);
+                setWeekEnd(newWeekEnd);
+                toggleItemsActions?.weekly(newWeekStart, newWeekEnd);
+              }}
             />
           )}
 
@@ -249,6 +261,18 @@ const TaskOverviewToggle = ({
               onPrevious={() => navigateMonth("prev")}
               onNext={() => navigateMonth("next")}
               label={`${monthStart.format("DD MMM")} - ${monthEnd.format("DD MMM")}`}
+              pickGranularity="month"
+              pickValue={monthStart.format("YYYY-MM-DD")}
+              onPickDate={(v) => {
+                const newMonthStart = dayjs(v).startOf("month");
+                const newMonthEnd =
+                  dateSettingsEnabled && newMonthStart.isSame(today, "month")
+                    ? today
+                    : newMonthStart.endOf("month");
+                setMonthStart(newMonthStart);
+                setMonthEnd(newMonthEnd);
+                toggleItemsActions?.monthly(newMonthStart, newMonthEnd);
+              }}
             />
           )}
 
@@ -257,6 +281,23 @@ const TaskOverviewToggle = ({
               onPrevious={() => navigateYear("prev")}
               onNext={() => navigateYear("next")}
               label={fiscalYearDisplay}
+              pickGranularity="year"
+              pickValue={yearStart.format("YYYY-MM-DD")}
+              onPickDate={async (v) => {
+                const base = dayjs(`${dayjs(v).year()}-04-01`);
+                const { startDate, endDate } = await generateFiscalYearFromGivenYear(base);
+                const fiscalStart = dayjs(startDate);
+                const fiscalEnd =
+                  isCurrentFiscalYear(fiscalStart, dayjs(endDate)) && dateSettingsEnabled
+                    ? today
+                    : dayjs(endDate);
+                setYearStart(fiscalStart);
+                setYearEnd(fiscalEnd);
+                setFiscalYearDisplay(
+                  `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`
+                );
+                toggleItemsActions?.yearly(fiscalStart, fiscalEnd);
+              }}
             />
           )}
 

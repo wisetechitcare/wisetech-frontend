@@ -40,6 +40,7 @@ export function useEmployeeDirectory() {
                 .map((e) => ({
                     id: String(e.id),
                     name: e.users ? `${e.users.firstName ?? ""} ${e.users.lastName ?? ""}`.trim() || "Unknown" : "Unknown",
+                    employeeCode: e.employeeCode ? String(e.employeeCode) : undefined,
                     designation: e.designations?.role || undefined,
                     avatar: getAvatar(e.avatar || "", e.gender ?? 0),
                 }));
@@ -91,7 +92,7 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
     if (!multiple) {
         const options = employees.map((e) => ({
             value: e.id,
-            label: e.name,
+            label: e.employeeCode ? `${e.employeeCode} · ${e.name}` : e.name,
             avatar: e.avatar,
             description: e.designation,
             title: e.designation ? `${e.name} · ${e.designation}` : e.name,
@@ -142,7 +143,9 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
                         {selected.slice(0, 4).map((e) => (
                             <Stack key={e.id} direction="row" alignItems="center" spacing={0.5} sx={{ bgcolor: "action.hover", borderRadius: 999, pl: 0.25, pr: 1, py: 0.25, maxWidth: "100%" }}>
                                 <Box component="img" src={e.avatar} alt="" sx={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                                <Typography noWrap sx={{ fontSize: 12, fontWeight: 600, minWidth: 0 }}>{e.name}</Typography>
+                                <Typography noWrap sx={{ fontSize: 12, fontWeight: 600, minWidth: 0 }}>
+                                    {e.employeeCode ? `${e.employeeCode} · ${e.name}` : e.name}
+                                </Typography>
                             </Stack>
                         ))}
                         {selected.length > 4 && <Typography sx={{ fontSize: 12, color: "text.secondary", alignSelf: "center" }}>+{selected.length - 4}</Typography>}

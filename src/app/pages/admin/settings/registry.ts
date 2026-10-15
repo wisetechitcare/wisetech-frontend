@@ -4,6 +4,7 @@ import { TRIO } from '@app/modules/common/components/ui/patterns';
 import { AppearanceHeaderActions, AppearancePanel } from './AppearancePanel';
 import { DateTimePanel } from './DateTimePanel';
 import { TenantModulesPanel } from './TenantModulesPanel';
+import { DeveloperMfaHeaderActions, DeveloperMfaPanel } from './DeveloperMfaPanel';
 
 /**
  * The Settings areas, declared once.
@@ -39,6 +40,11 @@ export interface SettingsArea {
   adminTierOnly?: boolean;
   /** Hidden unless Super Admin — commercial / platform ops (subscription packs). */
   superAdminOnly?: boolean;
+  /**
+   * Section access key (e.g. settings.developerMfa). When set, the hub tile and
+   * detail view require Read on that section (Super Admin always passes).
+   */
+  sectionKey?: string;
 }
 
 export const SETTINGS_AREAS: readonly SettingsArea[] = [
@@ -58,6 +64,16 @@ export const SETTINGS_AREAS: readonly SettingsArea[] = [
     icon: 'time',
     tone: TRIO.blue,
     Panel: DateTimePanel,
+  },
+  {
+    id: 'developer-mfa',
+    title: 'System PIN MFA',
+    description: 'Authenticator app for System PIN support access. Enroll here; use a code on any System PIN unlock screen.',
+    icon: 'shield-tick',
+    tone: TRIO.rose,
+    Panel: DeveloperMfaPanel,
+    HeaderActions: DeveloperMfaHeaderActions,
+    sectionKey: 'settings.developerMfa',
   },
   {
     id: 'tenant-modules',

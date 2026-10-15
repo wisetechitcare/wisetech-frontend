@@ -258,6 +258,13 @@ const CalenderToggle = () => {
                         onPrevious={() => navigateMonth("prev")}
                         onNext={() => navigateMonth("next")}
                         label={monthStart.format("MMM YYYY")}
+                        pickGranularity="month"
+                        pickValue={monthStart.format("YYYY-MM-DD")}
+                        onPickDate={(v) => {
+                            const newMonthStart = dayjs(v).startOf("month");
+                            setMonthStart(newMonthStart);
+                            setMonthEnd(newMonthStart.endOf("month"));
+                        }}
                     />
                 </div>
             </div>

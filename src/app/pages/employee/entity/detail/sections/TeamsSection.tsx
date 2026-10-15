@@ -10,7 +10,7 @@ import {
   EditableDetailCard, SelectEditor, SearchableSelectEditor, DateEditor, ToggleEditor, toDateInputValue,
 } from '@app/modules/detail-page/EditableDetailCard';
 import { updateLeadSection } from '@services/leadService';
-import { getAllCompanyTypes, getAllClientCompanies, getAllClientContacts, getAllSubCompanies, getAllSubServices } from '@services/companies';
+import { getAllCompanyTypes, getAllClientCompanies, getAllClientContacts, getAllSubCompanies, getAllCompanyServices } from '@services/companies';
 import { getAllTeams, getAllTeamsMember } from '@services/projects';
 import { EmptyState } from '../widgets';
 import { employeeNameById, fmtDate, DASH } from '../entityViewModel';
@@ -503,9 +503,10 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   );
 
   // Flattened so the table can sort and search on real values rather than on JSX.
+  // Default order is employee name A→Z; MaterialTable defaultSorting matches, and the
+  // user can re-sort from the column headers.
   const internalRows = useMemo(
-    // Active first — the flat table has no sort headers, so the order is set here.
-    () => sortByActive(displayMembers).map((m: any) => {
+    () => displayMembers.map((m: any) => {
       const isManager = !!m.employeeId && managerIds.includes(String(m.employeeId));
       return {
         ...m,
@@ -515,7 +516,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
           ? (String(m.employeeId) === primaryManagerId ? 'Primary Manager' : 'Manager')
           : m.wasProjectManager ? 'Past Manager' : DASH,
       };
-    }),
+    }).sort((a, b) => a.employeeName.localeCompare(b.employeeName, undefined, { sensitivity: 'base' })),
     [displayMembers, managerIds, primaryManagerId, allEmployees],
   );
 
@@ -574,7 +575,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       ),
     },
     { accessorKey: 'type', header: 'Type', Cell: ({ cell }: any) => cell.getValue() || DASH },
-    { accessorKey: 'subCompany', header: 'Sub Company', Cell: ({ cell }: any) => cell.getValue() || DASH },
+    { accessorKey: 'services', header: 'Service', Cell: ({ cell }: any) => cell.getValue() || DASH },
     { accessorKey: 'subServices', header: 'Sub Service', Cell: ({ cell }: any) => cell.getValue() || DASH },
     {
       accessorKey: 'contact',
@@ -585,19 +586,25 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             <RowAvatar name={row.original.contact} url={row.original.contactAvatar} />
           )}
           {row.original.contactId && row.original.contact ? (
-            <DetailLink href={`/contacts/${row.original.contactId}`}>{row.original.contact}</DetailLink>
+            <DetailLink href={`/contacts/${row.original.contactId}`} style={{ color: '#1E293B' }}>{row.original.contact}</DetailLink>
           ) : row.original.contact || DASH}
         </div>
       ),
     },
     { accessorKey: 'designation', header: 'Designation', Cell: ({ cell }: any) => cell.getValue() || DASH },
     {
+      accessorKey: 'email',
+      header: 'Email',
+      Cell: ({ row }: any) => (row.original.email
+        ? <a href={`mailto:${row.original.email}`} style={{ color: '#1E293B', textDecoration: 'none', fontWeight: 500, fontSize: 13, fontFamily: 'Inter, sans-serif' }}>{row.original.email}</a>
+        : DASH),
+    },
+    {
       accessorKey: 'phone',
       header: 'Phone',
-      // Links to the contact's page, not tel: — same destination as the name.
-      Cell: ({ row }: any) => (row.original.contactId && row.original.phone
-        ? <DetailLink href={`/contacts/${row.original.contactId}`}>{row.original.phone}</DetailLink>
-        : row.original.phone || DASH),
+      Cell: ({ row }: any) => (row.original.phone
+        ? <a href={`tel:${String(row.original.phone).replace(/\s+/g, '')}`} style={{ color: '#1E293B', textDecoration: 'none', fontWeight: 500, fontSize: 13, fontFamily: 'Inter, sans-serif' }}>{row.original.phone}</a>
+        : DASH),
     },
     { accessorKey: 'startDate', header: 'Start Date', Cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
     { accessorKey: 'endDate', header: 'End Date', Cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
@@ -626,10 +633,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const [companies, setCompanies] = useState<any[]>([]);
   const [allSubCompanies, setAllSubCompanies] = useState<any[]>([]);
   const [allContacts, setAllContacts] = useState<any[]>([]);
+  // The company form's "Sub-services" field — rows of the `services` table.
   const [subServices, setSubServices] = useState<any[]>([]);
 
   useEffect(() => {
-    getAllSubServices().then((r: any) => setSubServices(r?.subServices || [])).catch(() => {});
+    getAllCompanyServices().then((r: any) => setSubServices(r?.data?.services || r?.services || [])).catch(() => {});
     getAllCompanyTypes().then((r: any) => setCompanyTypes(r?.companyTypes || [])).catch(() => {});
     getAllClientCompanies(true).then((r: any) => setCompanies(r?.data?.companies || [])).catch(() => {});
     getAllSubCompanies().then((r: any) => setAllSubCompanies(r?.data?.subCompanies || r?.subCompanies || [])).catch(() => {});
@@ -665,9 +673,17 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             contactId: t?.contactId ? String(t.contactId) : '',
             type: companyType?.name || '',
             subCompany: subCompany?.subCompanyName || subCompany?.name || '',
-            // Read off the company record, so it follows the company — nothing to enter here.
-            subServices: (company?.subServiceMappings || [])
-              .map((m: any) => subServiceNameById.get(String(m.subServiceId)))
+            // Service + Sub Service are read off the company record, so they follow the
+            // company — nothing to enter here. Same hierarchy as the company form:
+            // Company Type → Services (its sub-types) → Sub-services.
+            // Services: the company's sub-types, narrowed to the row's Company Type when set.
+            services: (company?.companyTypeMappings || [])
+              .map((m: any) => companyTypeById.get(String(m.companyTypeId)))
+              .filter((ct: any) => ct?.parentTypeId && (!t.companyTypeId || String(ct.parentTypeId) === String(t.companyTypeId)))
+              .map((ct: any) => ct.name)
+              .join(', '),
+            subServices: (company?.companyServicesMapping || [])
+              .map((m: any) => subServiceNameById.get(String(m.serviceId)))
               .filter(Boolean)
               .join(', '),
             contact: contact?.fullName || contact?.name || '',
@@ -676,6 +692,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             // structured `contactRole` relation, depending on how it was entered —
             // check both or contacts using the dropdown show a blank designation.
             designation: contactDesignation(contact),
+            email: contact?.email || company?.email || '',
             phone: contact?.phone || company?.phone || '',
             startDate: t?.startDate || '',
             endDate: t?.endDate || '',
@@ -683,13 +700,8 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             syncedFromLead: t?.syncedFromLead === true,
           };
         })
-        // Active before Inactive, then company/client name A→Z within each group.
-        .sort((a, b) => {
-          const aActive = a.isActive ? 0 : 1;
-          const bActive = b.isActive ? 0 : 1;
-          if (aActive !== bActive) return aActive - bActive;
-          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-        }),
+        // Company / client name A→Z — same default as Internal Team (Employee).
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
     [projectExternalTeams, companyById, subCompanyById, contactById, companyTypeById, subServiceNameById],
   );
 
@@ -939,7 +951,8 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                       </div>
                     )}
                     <MaterialTable
-                      tableName="ProjectInternalTeam"
+                      // V2: default Employee A→Z; clears any old unsorted prefs.
+                      tableName="ProjectInternalTeamV2"
                       hideFilters
                       enableBottomToolbar={false}
                       muiTablePaperStyle={FLUSH_TABLE_PAPER}
@@ -949,6 +962,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                       employeeId={currentUserId}
                       data={internalRows}
                       columns={internalColumns}
+                      defaultSorting={[{ id: 'employeeName', desc: false }]}
                       hidePagination
                       hideExportCenter
                       enableColumnActions={false}
@@ -1235,7 +1249,8 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                   <EmptyState icon="bi bi-buildings" title="No external stakeholders" message="Click Edit to link the client — Company Type, Company, Sub Company and Contact Person — just like the lead form." />
                 ) : (
                   <MaterialTable
-                    tableName="ProjectExternalTeam"
+                    // V2: default Company / Client A→Z; clears any old unsorted prefs.
+                    tableName="ProjectExternalTeamV2"
                     hideFilters
                     enableBottomToolbar={false}
                     muiTablePaperStyle={FLUSH_TABLE_PAPER}
@@ -1245,6 +1260,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                     employeeId={currentUserId}
                     data={stakeholders}
                     columns={externalColumns}
+                    defaultSorting={[{ id: 'name', desc: false }]}
                     hidePagination
                     hideExportCenter
                     enableColumnActions={false}
