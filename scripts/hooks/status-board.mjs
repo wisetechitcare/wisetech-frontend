@@ -5,9 +5,9 @@
  * Success/fail paint a complete green/red card with the result footer
  * inside the box (no orphan "✓ …" line under a clipped fragment).
  *
- * Git hooks on Windows are not a TTY, so the green/red card used to be
- * stripped and only the final 100% frame showed. Colors stay on, and each
- * paint is flushed. Set HOOKS_LIVE=0 to print the final card only.
+ * Default: print a single final green (pass) or red (fail) card.
+ * No mid-run redraw / erase (that blinks and overflows on Windows git hooks).
+ * Opt-in live spinner: HOOKS_LIVE=1
  */
 import { writeSync } from 'node:fs'
 
@@ -16,7 +16,8 @@ const canColor =
   process.env.TERM !== 'dumb' &&
   !process.env.CI
 
-const live = canColor && process.env.HOOKS_LIVE !== '0'
+/** Live erase/redraw only when explicitly requested. */
+const live = canColor && process.env.HOOKS_LIVE === '1'
 
 const c = {
   reset: canColor ? '\x1b[0m' : '',
@@ -29,8 +30,8 @@ const c = {
 }
 
 const SPIN = ['|', '/', '-', '\\']
-const INNER = 56
-const BAR_W = 32
+const INNER = 48
+const BAR_W = 28
 const BAR_FILL = '█'
 const BAR_EMPTY = '░'
 
@@ -63,11 +64,6 @@ function bot(tone) {
   return `${col}└${'─'.repeat(INNER)}┘${c.reset}`
 }
 
-function row(plainText, tone = 'run') {
-  const col = frameColor(tone)
-  return `${col}│${c.reset}${fit(plainText, INNER)}${col}│${c.reset}`
-}
-
 function rowMarked(prefixPlain, prefixColored, restPlain, tone = 'run') {
   const col = frameColor(tone)
   const restW = INNER - prefixPlain.length
@@ -84,7 +80,7 @@ function progressRow(pct, tone) {
   const barColored = ` ${barColor}[${BAR_FILL.repeat(filled)}${c.dim}${BAR_EMPTY.repeat(empty)}${c.reset}${barColor}]${c.reset} ${c.bold}${pctText}${c.reset}`
   const pad = INNER - barPlain.length
   const col = frameColor(tone)
-  if (pad < 0) return row(barPlain, tone)
+  if (pad < 0) return rowMarked('', '', barPlain, tone)
   return `${col}│${c.reset}${barColored}${' '.repeat(pad)}${col}│${c.reset}`
 }
 
@@ -174,7 +170,11 @@ export function createBoard(title, stepNames) {
         markColored = `  ${c.dim}[ ]${c.reset} `
       }
       const label =
-        s.status === 'run' ? `${i + 1}. ${s.name} …` : `${i + 1}. ${s.name}`
+        s.status === 'run'
+          ? `${i + 1}. ${s.name} …`
+          : s.status === 'fail'
+            ? ` ${i + 1}. ${s.name}`
+            : `${i + 1}. ${s.name}`
       out.push(rowMarked(markPlain, markColored, label, tone))
     }
     return out
@@ -188,6 +188,7 @@ export function createBoard(title, stepNames) {
     const tone = opts.tone || (hasFail() ? 'fail' : 'run')
     const footer = opts.footer
     if (disposed && !force) return
+    // Default: one final card only (no blink / no stacked frames).
     if (!live && !force) return
 
     erase()
@@ -217,7 +218,7 @@ export function createBoard(title, stepNames) {
 
     writeSafe(`${lines.join('\n')}\n`)
     drawn = true
-    lastLines = footer || force ? 0 : lines.length
+    lastLines = live && !footer && !force ? lines.length : 0
   }
 
   function stopSpin() {
