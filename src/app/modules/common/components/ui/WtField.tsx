@@ -1,5 +1,5 @@
 import React, { useCallback, useId, useMemo, useRef, useState } from 'react';
-import { Autocomplete, Box, MenuItem, TextField, Typography, alpha } from '@mui/material';
+import { Autocomplete, Avatar, Box, Chip, MenuItem, TextField, Typography, alpha } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { AppIcon } from './AppIcon';
@@ -172,6 +172,11 @@ export interface WtFieldProps {
      * Grouped / creatable / avatar lists still use `WtSelect` via an adapter.
      */
     multiple?: boolean;
+    /**
+     * Multi-select only: max chips shown before a “+N” overflow chip.
+     * Keeps dense forms (dialogs, policy panels) from growing into a chip wall.
+     */
+    limitTags?: number;
 
     /**
      * Canonical “+ Add …” action — one prop for every labelled select.
@@ -266,7 +271,7 @@ export const WtField: React.FC<WtFieldProps> = ({
     label, ariaLabel, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, placeholder,
     size = 'sm', fullWidth = true, fitContent, minWidth, icon, prefix, tone,
     type = 'text', multiline, minRows = 3, inputMode, min, max, step,
-    searchable, multiple, addOption, onAddOption, addOptionLabel, clearable, id, name, autoFocus, sx, children,
+    searchable, multiple, limitTags, addOption, onAddOption, addOptionLabel, clearable, id, name, autoFocus, sx, children,
 }) => {
     const reactId = useId();
     const fieldId = id ?? `wtf-${reactId}`;
@@ -414,6 +419,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                 <Autocomplete
                     id={fieldId}
                     multiple={multiple}
+                    limitTags={multiple ? (limitTags ?? -1) : undefined}
                     options={listOptions}
                     value={multiple ? selectedMulti : (selected ?? null)}
                     onChange={(_e, opt) => {
@@ -442,17 +448,40 @@ export const WtField: React.FC<WtFieldProps> = ({
                     autoHighlight
                     size={muiSize}
                     fullWidth
-                    // Multi tags follow Appearance brand (same primary as menuOptionSx / focus ring),
-                    // not MUI's neutral grey default — so selected chips match the bluish product chrome.
-                    ChipProps={multiple ? {
-                        size: 'small' as const,
-                        sx: {
+                    renderTags={multiple ? (tagValue, getTagProps) => {
+                        // Custom renderTags skips MUI's limitTags — apply it ourselves so
+                        // dense forms stay one line instead of growing into a chip wall.
+                        const cap = typeof limitTags === 'number' && limitTags >= 0 ? limitTags : tagValue.length;
+                        const visible = tagValue.slice(0, cap);
+                        const hidden = tagValue.length - visible.length;
+                        const chipSx = {
                             fontWeight: 600,
                             borderRadius: '6px',
+                            maxWidth: 140,
                             bgcolor: (t: Theme) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.28 : 0.12),
                             color: (t: Theme) => (t.palette.mode === 'dark' ? t.palette.primary.light : t.palette.primary.dark),
                             '& .MuiChip-deleteIcon': { color: 'inherit', opacity: 0.72 },
-                        },
+                            '& .MuiChip-avatar': { width: 18, height: 18, ml: '4px' },
+                            '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' },
+                        };
+                        return [
+                            ...visible.map((option, index) => {
+                                const { key, ...tagProps } = getTagProps({ index });
+                                return (
+                                    <Chip
+                                        key={key}
+                                        {...tagProps}
+                                        size="small"
+                                        label={option.label}
+                                        avatar={option.avatar ? <Avatar src={option.avatar} alt="" /> : undefined}
+                                        sx={chipSx}
+                                    />
+                                );
+                            }),
+                            ...(hidden > 0
+                                ? [<Chip key="__more" size="small" label={`+${hidden}`} sx={chipSx} />]
+                                : []),
+                        ];
                     } : undefined}
                     renderOption={(props, option) => {
                         const { key, ...rest } = props as React.HTMLAttributes<HTMLLIElement> & { key?: string };
