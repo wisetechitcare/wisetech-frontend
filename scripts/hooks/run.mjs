@@ -289,7 +289,7 @@ async function preCommit() {
       '3. git add <files>, then: git commit',
     ])
     board.pass(0)
-    board.success('Ready to commit.')
+    board.success('Pre-commit checks passed.')
   })
 }
 
@@ -326,7 +326,7 @@ async function prePush() {
       '3. Try: git push',
     ])
     board.pass(1)
-    board.success('Ready to push.')
+    board.success('Pre-push checks passed.')
   })
 }
 
