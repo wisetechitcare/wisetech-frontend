@@ -43,6 +43,7 @@ export const ACCESS_AREAS: AccessArea[] = [
   },
   { module: "crm.companies", label: "Companies" },
   { module: "crm.contacts", label: "Contacts" },
+  { module: "gift-management", label: "Gift Management" },
   {
     module: "recruitment",
     label: "Recruitment",
