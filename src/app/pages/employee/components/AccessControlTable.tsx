@@ -8,7 +8,7 @@ import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
 import type { EffLevel } from "./accessControlTypes";
 import { SECTION_TABS } from "@utils/sectionTabs";
-import { SecurityPinRowChip, SECURITY_PIN_ROW_AREAS } from "@app/modules/common/components/SecurityPin";
+import { SecurityPinRowChip, SECURITY_PIN_ROW_AREAS, SupportAccessPolicyChip } from "@app/modules/common/components/SecurityPin";
 
 const ACCENT = "#1E3A8A";
 
@@ -245,12 +245,14 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
                         section={node.module} label={node.label} icon={node.icon} readOnly={readOnly}
                         level={kids ? compositeLevel(kids, levels) : levels[node.module] || "none"}
                         tabs={tabs} composite={kids ? { children: kids, levels, onSetLevel } : undefined}
-                        pinSubject={pinSubject}
                       />
                     </span>
                   )}
                   {pinSubject && SECURITY_PIN_ROW_AREAS[node.module] && (
-                    <span onClick={(e) => e.stopPropagation()}><SecurityPinRowChip subject={pinSubject} area={SECURITY_PIN_ROW_AREAS[node.module]} /></span>
+                    <span onClick={(e) => e.stopPropagation()}><SecurityPinRowChip subject={pinSubject} label={node.label} areas={SECURITY_PIN_ROW_AREAS[node.module]} /></span>
+                  )}
+                  {pinSubject && node.module === "settings.developerMfa" && (
+                    <span onClick={(e) => e.stopPropagation()}><SupportAccessPolicyChip subject={pinSubject} /></span>
                   )}
                   {isCustom && (
                     <span style={{ fontSize: 9.5, fontWeight: 600, color: ACCENT, background: "rgba(37,99,235,0.1)", borderRadius: 999, padding: "2px 8px", textTransform: "uppercase", letterSpacing: ".4px", flexShrink: 0 }}>Custom</span>

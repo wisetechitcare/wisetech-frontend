@@ -5,8 +5,11 @@ import { securityPinBus } from '@utils/securityPinBus';
 import { useSecurityPin } from './useSecurityPin';
 
 /**
- * "Lock" — for stepping away from the desk. Locks every protected page (salary, increment, roles
- * & permissions) at once, in every tab. Shown only while unlocked.
+ * "Lock" — for stepping away from the desk. Locks the tab you are on (and only that tab).
+ * Other unlocked tabs stay open until their own timer or a lock there.
+ *
+ * During an active support session, Lock ends the support grant (PIN lock alone would leave
+ * the gate open via the grant and look broken).
  *
  *   variant="bar"   white on the navy tab bar (MaterialHeaderTab `headerAction`), same grammar as
  *                   `SensitiveDataHeaderToggle` beside it; label hidden on phones.
@@ -15,35 +18,45 @@ import { useSecurityPin } from './useSecurityPin';
  * The `!` utilities: Metronic's unlayered button rules outrank Tailwind's layer (kit README).
  */
 export function SecurityPinLockButton({ variant = 'bar' }: { variant?: 'bar' | 'light' }) {
-    const { unlocked, required } = useSecurityPin();
-    // Nothing to lock when this person's policy is Off.
-    if (!unlocked || !required) return null;
+    const { required, activeArea } = useSecurityPin();
+    const openHere = securityPinBus.isAreaUnlocked(activeArea);
+    if (!openHere || !required) return null;
 
+    const inSupport = !!securityPinBus.getSupportGrant();
     const lock = () => {
-        securityPinBus.markLocked();
-        securityPinApi.lock().catch(() => undefined);
+        const grant = securityPinBus.getSupportGrant();
+        if (grant) {
+            securityPinApi.supportRevoke(grant.id).catch(() => undefined);
+            securityPinBus.clearSupportGrant();
+        }
+        const area = securityPinBus.getSnapshot().activeArea;
+        securityPinBus.markAreaLocked(area);
+        securityPinApi.lock(area).catch(() => undefined);
     };
+
+    const title = inSupport ? 'End support session and lock' : 'Lock this page now';
+    const label = inSupport ? 'End support' : 'Lock';
 
     if (variant === 'light') {
         return (
-            <WtTooltip title="Lock sensitive pages now">
+            <WtTooltip title={title}>
                 <WtButton size="small" inverted onClick={lock} startIcon={<KTIcon iconName="lock-2" className="fs-4" />}>
-                    Lock
+                    {label}
                 </WtButton>
             </WtTooltip>
         );
     }
 
     return (
-        <WtTooltip title="Lock sensitive pages now">
+        <WtTooltip title={title}>
             <button
                 type="button"
                 onClick={lock}
-                aria-label="Lock sensitive pages"
-                className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-lg! border-0! px-3.5 text-[13px] leading-none font-semibold outline-none! transition-colors motion-reduce:transition-none bg-white/8! text-white/90! hover:bg-white/14! active:bg-white/20! focus-visible:ring-2! focus-visible:ring-white/70! max-sm:w-11 max-sm:px-0 max-sm:rounded-[10px]! max-sm:bg-transparent!"
+                aria-label={title}
+                className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-lg! border-0! px-3.5 text-[13px] leading-none font-semibold outline-none! transition-colors motion-reduce:transition-none bg-white/8! text-white/90! hover:bg-white/14! active:bg-white/20! focus-visible:ring-2! focus-visible:ring-white/70! max-sm:h-9 max-sm:w-9 max-sm:px-0 max-sm:rounded-[10px]! max-sm:bg-white/10! max-sm:hover:bg-white/16! max-sm:active:bg-white/22!"
             >
-                <KTIcon iconName="lock-2" className="fs-3 text-white" />
-                <span className="max-sm:sr-only">Lock</span>
+                <KTIcon iconName="lock-2" className="fs-2 text-white" />
+                <span className="max-sm:sr-only">{label}</span>
             </button>
         </WtTooltip>
     );

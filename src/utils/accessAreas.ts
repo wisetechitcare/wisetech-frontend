@@ -107,6 +107,7 @@ export const ACCESS_AREAS: AccessArea[] = [
       { module: "settings.onboarding", label: "Onboarding Docs" },
       { module: "settings.teams", label: "Teams" },
       { module: "settings.employeeLevel", label: "Employee Level" },
+      { module: "settings.developerMfa", label: "System PIN MFA" },
     ],
   },
 ];

@@ -14,7 +14,7 @@ import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
 import type { EffLevel } from "./accessControlTypes";
 import { SECTION_TABS } from "@utils/sectionTabs";
-import { SecurityPinRowChip, SECURITY_PIN_ROW_AREAS } from "@app/modules/common/components/SecurityPin";
+import { SecurityPinRowChip, SECURITY_PIN_ROW_AREAS, SupportAccessPolicyChip } from "@app/modules/common/components/SecurityPin";
 import { coloredActionBtn } from "@app/modules/configuration";
 
 // The configure screens' own icon buttons (Project Points): tinted in the permission's colour when on,
@@ -124,15 +124,25 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
   const card = (group: AccessLayoutGroup, node: AccessLayoutNode, icon: string, tabOf?: string) => {
     const accent = sectionAccent(group.id);
     const Icon: SvgIconComponent = navIcon(icon);
-    // Not a section: who has it is fixed (Roles & Permissions — Admin and above). Shown, never ticked.
+    // Not a section: who has it is fixed (Roles & Permissions — Admin and above). Shown, never
+    // ticked — but it still carries the PIN chip, same as Salary / Increment.
     if (node.fixed) {
+      const pinAreas = pinSubject ? SECURITY_PIN_ROW_AREAS[node.module] : undefined;
       return (
         <Box key={node.module} sx={{ display: "flex", flexDirection: "column", gap: 1.25, p: 1.25, borderRadius: "14px", border: "1px dashed", borderColor: "divider", bgcolor: "background.paper" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
             <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${accent.iconWrap}`}>
               <Icon sx={{ fontSize: 18 }} />
             </span>
-            <Box sx={{ fontSize: 13, fontWeight: 600, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{node.label}</Box>
+            <Box sx={{ fontSize: 13, fontWeight: 600, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{node.label}</Box>
+            {pinAreas && (
+              <Box sx={{ display: "flex", gap: 0.5, alignSelf: "flex-start", flexShrink: 0 }}>
+                <SecurityPinRowChip subject={pinSubject!} label={node.label} areas={pinAreas} />
+                {node.module === "settings.developerMfa" && (
+                  <SupportAccessPolicyChip subject={pinSubject!} />
+                )}
+              </Box>
+            )}
           </Box>
           <WtTooltip title="Set by role tier, not by checkboxes: every Admin and Super Admin has it, nobody else does.">
             <Box component="span" sx={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 0.5, height: 32, px: 1.25, borderRadius: "9px", fontSize: 12, fontWeight: 600, color: "text.secondary", bgcolor: "action.hover", border: "1px solid", borderColor: "divider" }}>
@@ -197,12 +207,12 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
                 </button>
               </WtTooltip>
             )}
-            {pinSubject && SECURITY_PIN_ROW_AREAS[node.module] && <SecurityPinRowChip subject={pinSubject} area={SECURITY_PIN_ROW_AREAS[node.module]} compact />}
+            {pinSubject && SECURITY_PIN_ROW_AREAS[node.module] && <SecurityPinRowChip subject={pinSubject} label={node.label} areas={SECURITY_PIN_ROW_AREAS[node.module]} />}
+            {pinSubject && node.module === "settings.developerMfa" && <SupportAccessPolicyChip subject={pinSubject} />}
             {((tabs && SECTION_TABS[node.module]) || kids) && (
               <AdvancedTabsButton
                 compact section={node.module} label={node.label} icon={icon} level={level} readOnly={readOnly}
                 tabs={tabs} composite={kids ? { children: kids, levels, onSetLevel } : undefined}
-                pinSubject={pinSubject}
               />
             )}
           </Box>

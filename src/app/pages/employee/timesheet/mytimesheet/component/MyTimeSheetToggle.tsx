@@ -255,6 +255,9 @@ const MyTimeSheetToggle = ({
                                 onPrevious={() => navigateDaily("prev")}
                                 onNext={() => navigateDaily("next")}
                                 label={displayText}
+                                pickGranularity="day"
+                                pickValue={currentDay.format("YYYY-MM-DD")}
+                                onPickDate={(v) => setCurrentDay(dayjs(v))}
                             />
                         )}
 
@@ -263,6 +266,9 @@ const MyTimeSheetToggle = ({
                                 onPrevious={() => navigateWeekly("prev")}
                                 onNext={() => navigateWeekly("next")}
                                 label={displayText}
+                                pickGranularity="day"
+                                pickValue={currentWeekStart.format("YYYY-MM-DD")}
+                                onPickDate={(v) => setCurrentWeekStart(dayjs(v).startOf("week").add(1, "day"))}
                             />
                         )}
 
@@ -271,6 +277,9 @@ const MyTimeSheetToggle = ({
                                 onPrevious={() => navigateMonthly("prev")}
                                 onNext={() => navigateMonthly("next")}
                                 label={displayText}
+                                pickGranularity="month"
+                                pickValue={currentMonthStart.format("YYYY-MM-DD")}
+                                onPickDate={(v) => setCurrentMonthStart(dayjs(v).startOf("month"))}
                             />
                         )}
 
@@ -279,6 +288,24 @@ const MyTimeSheetToggle = ({
                                 onPrevious={() => navigateYearly("prev")}
                                 onNext={() => navigateYearly("next")}
                                 label={displayText}
+                                pickGranularity="year"
+                                pickValue={currentYearStart ? currentYearStart.format("YYYY-MM-DD") : today.format("YYYY-MM-DD")}
+                                onPickDate={async (v) => {
+                                    try {
+                                        const base = dayjs(`${dayjs(v).year()}-04-01`);
+                                        const { startDate: fiscalStartDate, endDate: fiscalEndDate } =
+                                            await generateFiscalYearFromGivenYear(base);
+                                        const fiscalStart = dayjs(fiscalStartDate);
+                                        const fiscalEnd = dayjs(fiscalEndDate);
+                                        setCurrentYearStart(fiscalStart);
+                                        setCurrentYearEnd(fiscalEnd);
+                                        setFiscalYearDisplay(
+                                            `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`
+                                        );
+                                    } catch (error) {
+                                        console.error("Error picking fiscal year:", error);
+                                    }
+                                }}
                             />
                         )}
                     </div>

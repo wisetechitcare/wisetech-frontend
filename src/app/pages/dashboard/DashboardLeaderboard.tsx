@@ -213,6 +213,17 @@ const DashboardLeaderboard = () => {
               onPrevious={() => navigateWeek("prev")}
               onNext={() => navigateWeek("next")}
               label={`${weekStart.format("DD MMM, YYYY")} - ${weekEnd.format("DD MMM, YYYY")}`}
+              pickGranularity="day"
+              pickValue={weekStart.format("YYYY-MM-DD")}
+              onPickDate={(v) => {
+                const newWeekStart = dayjs(v).startOf("week");
+                const newWeekEnd =
+                  dateSettingsEnabled && newWeekStart.isSame(today, "week")
+                    ? today
+                    : newWeekStart.endOf("week");
+                setWeekStart(newWeekStart);
+                setWeekEnd(newWeekEnd);
+              }}
             />
           )}
 
@@ -221,6 +232,17 @@ const DashboardLeaderboard = () => {
               onPrevious={() => navigateMonth("prev")}
               onNext={() => navigateMonth("next")}
               label={`${monthStart.format("DD MMM, YYYY")} - ${monthEnd.format("DD MMM, YYYY")}`}
+              pickGranularity="month"
+              pickValue={monthStart.format("YYYY-MM-DD")}
+              onPickDate={(v) => {
+                const newMonthStart = dayjs(v).startOf("month");
+                const newMonthEnd =
+                  dateSettingsEnabled && newMonthStart.isSame(today, "month")
+                    ? today
+                    : newMonthStart.endOf("month");
+                setMonthStart(newMonthStart);
+                setMonthEnd(newMonthEnd);
+              }}
             />
           )}
 
@@ -229,6 +251,22 @@ const DashboardLeaderboard = () => {
               onPrevious={() => navigateYear("prev")}
               onNext={() => navigateYear("next")}
               label={fiscalYearDisplay}
+              pickGranularity="year"
+              pickValue={yearStart ? yearStart.format("YYYY-MM-DD") : today.format("YYYY-MM-DD")}
+              onPickDate={async (v) => {
+                const base = dayjs(`${dayjs(v).year()}-04-01`);
+                const { startDate, endDate } = await generateFiscalYearFromGivenYear(base);
+                const fiscalStart = dayjs(startDate);
+                const fiscalEnd =
+                  isCurrentFiscalYear(fiscalStart, dayjs(endDate)) && dateSettingsEnabled
+                    ? today
+                    : dayjs(endDate);
+                setYearStart(fiscalStart);
+                setYearEnd(fiscalEnd);
+                setFiscalYearDisplay(
+                  `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`
+                );
+              }}
             />
           )}
 

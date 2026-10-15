@@ -7,23 +7,46 @@
  * show, lets a request that hit the lock wait for the unlock and retry instead of failing, and
  * tells the server which protected tab is on screen (X-Security-Area) so each tab is judged by its
  * own PIN setting.
+ *
+ * Unlocks are PER TAB: unlocking Salary does not open Roles, and each tab has its own timer.
  */
 
-import { isSecurityArea, type AreaStatus, type SecurityArea } from '@services/securityPin';
+import {
+    isSecurityArea,
+    SUPPORT_REQUESTABLE_AREAS,
+    SUPPORT_SELF_TO_EMPLOYEE,
+    supportLandingArea,
+    type AreaStatus,
+    type SecurityArea,
+    type SupportSessionGrant,
+} from '@services/securityPin';
 
 type Listener = () => void;
 
-export interface SecurityPinSnapshot {
-    /** Known unlocked (a successful unlock or status in this session). */
-    unlocked: boolean;
+export interface AreaUnlockState {
+    /** ISO end of this tab's unlock window. */
     unlockedUntil: string | null;
+    /** When this tab was unlocked / last renewed (ms). */
+    unlockedAt: number;
+}
+
+export interface SecurityPinSnapshot {
+    /**
+     * True when at least one required tab is unlocked in this browser.
+     * Prefer `isAreaUnlocked(area)` — global unlock no longer opens every tab.
+     */
+    unlocked: boolean;
+    /** @deprecated Prefer per-area `unlockedAreas[area].unlockedUntil`. */
+    unlockedUntil: string | null;
+    /** Per-tab unlock sessions in this browser. */
+    unlockedAreas: Partial<Record<SecurityArea, AreaUnlockState>>;
     /** A request hit the lock and is waiting for the PIN. */
     pending: boolean;
     /** The tab the waiting request was judged by (from the server's 403), for the prompt. */
     pendingArea: SecurityArea | null;
     /** Number of mounted page gates — when > 0 the page shows the prompt, not the dialog. */
     gates: number;
-    /** The longest auto-lock among this person's protected tabs (for the global idle re-lock). */
+    /** Fallback idle ceiling (longest tab); each tab still uses its own lockMinutes. */
     ttlMinutes: number;
     /** False when every protected tab is No PIN for this person: nothing to lock. */
     required: boolean;
@@ -31,16 +54,76 @@ export interface SecurityPinSnapshot {
     areas: Partial<Record<SecurityArea, AreaStatus>>;
     /** The protected tab on screen — sent to the server as X-Security-Area. */
     activeArea: SecurityArea | null;
-    /** Last mouse / key / touch activity or unlock (ms). A tab locks when idle past its own time. */
-    lastActivityAt: number;
+    /** Last mouse / key / touch activity per unlocked tab (ms). */
+    lastActivityByArea: Partial<Record<SecurityArea, number>>;
+    /**
+     * Active System PIN Support Access grant (developer MFA path).
+     * Opens employee-scoped tabs without a PIN unlock; never My Salary / My Increment.
+     */
+    supportGrant: SupportSessionGrant | null;
+    /** When set, Employee Payrolls / Increment should open this target's detail. */
+    supportFocusEmployeeId: string | null;
 }
 
 let state: SecurityPinSnapshot = {
-    unlocked: false, unlockedUntil: null, pending: false, pendingArea: null, gates: 0, ttlMinutes: 15, required: true,
-    areas: {}, activeArea: null, lastActivityAt: Date.now(),
+    unlocked: false,
+    unlockedUntil: null,
+    unlockedAreas: {},
+    pending: false,
+    pendingArea: null,
+    gates: 0,
+    ttlMinutes: 15,
+    required: true,
+    areas: {},
+    activeArea: null,
+    lastActivityByArea: {},
+    supportGrant: null,
+    supportFocusEmployeeId: null,
 };
+
+/** True when the active support grant includes this tab (or legacy grants with no area list). */
+export function supportCoversArea(area: SecurityArea | null | undefined): boolean {
+    if (!area || area === 'settings.developerMfa') return false;
+    // My Salary / My Increment are always the developer's own record — support never opens them.
+    if (area in SUPPORT_SELF_TO_EMPLOYEE) return false;
+    const grant = state.supportGrant;
+    if (!supportGrantFresh(grant)) return false;
+    const listed = (grant.areas ?? [])
+        .filter((a): a is SecurityArea => isSecurityArea(a) && SUPPORT_REQUESTABLE_AREAS.includes(a))
+        .map(supportLandingArea);
+    const needed = supportLandingArea(area);
+    if (!listed.length) return SUPPORT_REQUESTABLE_AREAS.includes(needed) && !(needed in SUPPORT_SELF_TO_EMPLOYEE);
+    return listed.includes(needed);
+}
+
+function supportGrantFresh(grant: SupportSessionGrant | null | undefined): grant is SupportSessionGrant {
+    if (!grant?.expiresAt || !grant.id) return false;
+    return new Date(grant.expiresAt).getTime() > Date.now();
+}
+
+/** Activate used to return `grantId`; status returns `id`. Accept either. */
+function normalizeSupportGrant(
+    grant: SupportSessionGrant | null | undefined | (Partial<SupportSessionGrant> & { grantId?: string }),
+): SupportSessionGrant | null {
+    if (!grant || typeof grant !== 'object') return null;
+    const id = (grant as SupportSessionGrant).id || (grant as { grantId?: string }).grantId;
+    if (!id || !grant.expiresAt || !grant.targetEmployeeId) return null;
+    const areas = Array.isArray(grant.areas)
+        ? grant.areas.filter(isSecurityArea)
+        : undefined;
+    return {
+        id: String(id),
+        requestId: grant.requestId,
+        targetEmployeeId: String(grant.targetEmployeeId),
+        targetName: grant.targetName ?? null,
+        expiresAt: String(grant.expiresAt),
+        operations: String(grant.operations ?? 'read'),
+        ...(areas?.length ? { areas } : {}),
+        readOnly: true,
+    };
+}
 const listeners = new Set<Listener>();
-let waiters: Array<{ resolve: () => void; reject: (e: unknown) => void }> = [];
+let waiters: Array<{ area: SecurityArea | null; resolve: () => void; reject: (e: unknown) => void }> = [];
 
 const CHANNEL = 'wt-security-pin';
 const channel: BroadcastChannel | null = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CHANNEL) : null;
@@ -50,6 +133,30 @@ function set(patch: Partial<SecurityPinSnapshot>) {
     listeners.forEach((l) => l());
 }
 
+function deriveUnlocked(unlockedAreas: SecurityPinSnapshot['unlockedAreas']): {
+    unlocked: boolean;
+    unlockedUntil: string | null;
+} {
+    const entries = Object.values(unlockedAreas).filter(Boolean) as AreaUnlockState[];
+    if (entries.length === 0) return { unlocked: false, unlockedUntil: null };
+    let latest: string | null = null;
+    for (const e of entries) {
+        if (e.unlockedUntil && (!latest || e.unlockedUntil > latest)) latest = e.unlockedUntil;
+    }
+    return { unlocked: true, unlockedUntil: latest };
+}
+
+function releaseWaiters(area: SecurityArea | null) {
+    const keep: typeof waiters = [];
+    const done: typeof waiters = [];
+    for (const w of waiters) {
+        if (!w.area || !area || w.area === area) done.push(w);
+        else keep.push(w);
+    }
+    waiters = keep;
+    done.forEach((x) => x.resolve());
+}
+
 export const securityPinBus = {
     getSnapshot: (): SecurityPinSnapshot => state,
     subscribe(l: Listener) {
@@ -57,18 +164,126 @@ export const securityPinBus = {
         return () => { listeners.delete(l); };
     },
 
-    /** The PIN was accepted (here or in another tab): release every waiting request. */
-    markUnlocked(unlockedUntil: string | null, ttlMinutes?: number, broadcast = true) {
-        set({ unlocked: true, unlockedUntil, pending: false, pendingArea: null, lastActivityAt: Date.now(), ...(ttlMinutes ? { ttlMinutes } : {}) });
-        const w = waiters; waiters = [];
-        w.forEach((x) => x.resolve());
-        if (broadcast) channel?.postMessage({ type: 'unlocked', unlockedUntil, ttlMinutes });
+    /** True when this tab needs no PIN, has a live PIN unlock, or an active support grant covers it. */
+    isAreaUnlocked(area: SecurityArea | null | undefined): boolean {
+        if (!area) return state.unlocked || supportGrantFresh(state.supportGrant);
+        const policy = state.areas[area];
+        if (policy && !policy.required) return true;
+        if (supportGrantFresh(state.supportGrant) && supportCoversArea(area)) return true;
+        return !!state.unlockedAreas[area];
     },
 
-    /** Locked (button, idle, logout, expiry, or another tab). */
+    /** Active support grant, or null when expired / cleared. */
+    getSupportGrant(): SupportSessionGrant | null {
+        return supportGrantFresh(state.supportGrant) ? state.supportGrant : null;
+    },
+
+    /** After activate (or hydrate from /support/status). Does not PIN-unlock tabs. */
+    setSupportGrant(grant: SupportSessionGrant | null | (Partial<SupportSessionGrant> & { grantId?: string }), broadcast = true) {
+        const normalized = normalizeSupportGrant(grant);
+        const next = supportGrantFresh(normalized) ? normalized : null;
+        const isNewGrant = !!next && next.id !== state.supportGrant?.id;
+        set({
+            supportGrant: next,
+            // Only queue focus when a *new* session starts — not on every status poll.
+            supportFocusEmployeeId: next
+                ? (isNewGrant ? next.targetEmployeeId : state.supportFocusEmployeeId)
+                : null,
+            pending: next ? false : state.pending,
+            pendingArea: next ? null : state.pendingArea,
+        });
+        if (next) releaseWaiters(null);
+        if (broadcast) channel?.postMessage({ type: 'support-grant', grant: next });
+    },
+
+    clearSupportGrant(broadcast = true) {
+        set({ supportGrant: null, supportFocusEmployeeId: null });
+        if (broadcast) channel?.postMessage({ type: 'support-grant', grant: null });
+    },
+
+    /** Queue Employee Payrolls to open this employee once (e.g. after redirect off My Salary). */
+    queueSupportFocus(employeeId: string | null | undefined) {
+        if (!employeeId) return;
+        set({ supportFocusEmployeeId: employeeId });
+    },
+
+    /** Consume one-shot focus so Employee Payrolls opens the target once. */
+    takeSupportFocusEmployeeId(): string | null {
+        const id = state.supportFocusEmployeeId;
+        if (id) set({ supportFocusEmployeeId: null });
+        return id;
+    },
+
+    peekSupportFocusEmployeeId(): string | null {
+        return state.supportFocusEmployeeId;
+    },
+
+    /**
+     * The PIN was accepted for ONE tab (here or in another browser tab).
+     * Other tabs stay locked until unlocked separately.
+     */
+    markAreaUnlocked(
+        area: SecurityArea,
+        unlockedUntil: string | null,
+        lockMinutes?: number,
+        broadcast = true,
+    ) {
+        const unlockedAt = Date.now();
+        const unlockedAreas = {
+            ...state.unlockedAreas,
+            [area]: { unlockedUntil, unlockedAt },
+        };
+        const derived = deriveUnlocked(unlockedAreas);
+        const lastActivityByArea = { ...state.lastActivityByArea, [area]: unlockedAt };
+        const pendingDone = state.pendingArea === area || state.pendingArea == null;
+        set({
+            ...derived,
+            unlockedAreas,
+            lastActivityByArea,
+            pending: pendingDone ? false : state.pending,
+            pendingArea: pendingDone ? null : state.pendingArea,
+            ...(lockMinutes ? { ttlMinutes: Math.max(state.ttlMinutes, lockMinutes) } : {}),
+        });
+        releaseWaiters(area);
+        if (broadcast) {
+            channel?.postMessage({ type: 'area-unlocked', area, unlockedUntil, lockMinutes });
+        }
+    },
+
+    /** @deprecated Prefer markAreaUnlocked / setSupportGrant. Clears pending waiters only. */
+    markUnlocked(_unlockedUntil: string | null, ttlMinutes?: number, broadcast = true) {
+        set({
+            pending: false,
+            pendingArea: null,
+            ...(ttlMinutes ? { ttlMinutes } : {}),
+        });
+        releaseWaiters(null);
+        if (broadcast) channel?.postMessage({ type: 'support-unlocked', ttlMinutes });
+    },
+
+    /** Lock one tab, or every tab when `area` is omitted. */
+    markAreaLocked(area?: SecurityArea | null, broadcast = true) {
+        if (!area) {
+            set({
+                unlocked: false,
+                unlockedUntil: null,
+                unlockedAreas: {},
+                lastActivityByArea: {},
+            });
+            if (broadcast) channel?.postMessage({ type: 'locked' });
+            return;
+        }
+        const unlockedAreas = { ...state.unlockedAreas };
+        delete unlockedAreas[area];
+        const lastActivityByArea = { ...state.lastActivityByArea };
+        delete lastActivityByArea[area];
+        set({ ...deriveUnlocked(unlockedAreas), unlockedAreas, lastActivityByArea });
+        if (broadcast) channel?.postMessage({ type: 'area-locked', area });
+    },
+
+    /** @deprecated Use markAreaLocked. */
     markLocked(broadcast = true) {
-        set({ unlocked: false, unlockedUntil: null });
-        if (broadcast) channel?.postMessage({ type: 'locked' });
+        securityPinBus.markAreaLocked(undefined, broadcast);
     },
 
     /** The person closed the prompt without unlocking: fail the waiting requests. */
@@ -78,10 +293,14 @@ export const securityPinBus = {
         w.forEach((x) => x.reject(new Error('Unlock cancelled')));
     },
 
-    /** Called by the interceptor on a 403 SECURITY_LOCKED: resolves once unlocked. */
+    /** Called by the interceptor on a 403 SECURITY_LOCKED: resolves once THAT tab is unlocked. */
     waitForUnlock(area?: unknown): Promise<void> {
-        set({ unlocked: false, unlockedUntil: null, pending: true, pendingArea: isSecurityArea(area) ? area : state.pendingArea });
-        return new Promise((resolve, reject) => waiters.push({ resolve, reject }));
+        const a = isSecurityArea(area) ? area : state.pendingArea;
+        set({ unlocked: state.unlocked, pending: true, pendingArea: a });
+        if (a && securityPinBus.isAreaUnlocked(a)) {
+            return Promise.resolve();
+        }
+        return new Promise((resolve, reject) => waiters.push({ area: a, resolve, reject }));
     },
 
     registerGate(): () => void {
@@ -89,9 +308,33 @@ export const securityPinBus = {
         return () => set({ gates: Math.max(0, state.gates - 1) });
     },
 
-    /** From the status call: this person's per-tab settings. */
-    setPolicy(required: boolean, ttlMinutes: number | undefined, areas: Partial<Record<SecurityArea, AreaStatus>> | undefined) {
-        set({ required, ...(ttlMinutes ? { ttlMinutes } : {}), ...(areas ? { areas } : {}) });
+    /** From the status call: this person's per-tab settings (+ which tabs are already unlocked). */
+    setPolicy(
+        required: boolean,
+        ttlMinutes: number | undefined,
+        areas: Partial<Record<SecurityArea, AreaStatus>> | undefined,
+    ) {
+        const unlockedAreas: SecurityPinSnapshot['unlockedAreas'] = { ...state.unlockedAreas };
+        if (areas) {
+            for (const [k, v] of Object.entries(areas)) {
+                if (!isSecurityArea(k) || !v) continue;
+                if (v.required && v.unlocked) {
+                    unlockedAreas[k] = {
+                        unlockedUntil: (v as AreaStatus & { unlockedUntil?: string | null }).unlockedUntil ?? null,
+                        unlockedAt: unlockedAreas[k]?.unlockedAt ?? Date.now(),
+                    };
+                } else if (v.required && !v.unlocked) {
+                    delete unlockedAreas[k];
+                }
+            }
+        }
+        set({
+            required,
+            ...(ttlMinutes ? { ttlMinutes } : {}),
+            ...(areas ? { areas } : {}),
+            unlockedAreas,
+            ...deriveUnlocked(unlockedAreas),
+        });
     },
 
     /** A gate for `area` is on screen (null when it leaves). */
@@ -99,15 +342,31 @@ export const securityPinBus = {
         if (area !== state.activeArea) set({ activeArea: area });
     },
 
-    /** Throttled by the caller; does not notify (gates re-check on their own clock). */
-    touch() {
-        state = { ...state, lastActivityAt: Date.now() };
+    /** Throttled by the caller; bumps activity for the active (or given) unlocked tab. */
+    touch(area?: SecurityArea | null) {
+        const a = area ?? state.activeArea;
+        if (!a || !state.unlockedAreas[a]) return;
+        state = {
+            ...state,
+            lastActivityByArea: { ...state.lastActivityByArea, [a]: Date.now() },
+        };
     },
 };
 
 channel?.addEventListener('message', (e: MessageEvent) => {
-    if (e.data?.type === 'unlocked') securityPinBus.markUnlocked(e.data.unlockedUntil ?? null, e.data.ttlMinutes, false);
-    if (e.data?.type === 'locked') securityPinBus.markLocked(false);
+    if (e.data?.type === 'area-unlocked' && isSecurityArea(e.data.area)) {
+        securityPinBus.markAreaUnlocked(e.data.area, e.data.unlockedUntil ?? null, e.data.lockMinutes, false);
+    }
+    if (e.data?.type === 'area-locked' && isSecurityArea(e.data.area)) {
+        securityPinBus.markAreaLocked(e.data.area, false);
+    }
+    if (e.data?.type === 'locked') securityPinBus.markAreaLocked(undefined, false);
+    if (e.data?.type === 'support-unlocked') {
+        securityPinBus.markUnlocked(null, e.data.ttlMinutes, false);
+    }
+    if (e.data?.type === 'support-grant') {
+        securityPinBus.setSupportGrant(e.data.grant ?? null, false);
+    }
 });
 
 export const SECURITY_LOCKED_CODE = 'SECURITY_LOCKED';

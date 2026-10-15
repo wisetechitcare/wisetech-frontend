@@ -8,9 +8,6 @@ import { navIcon } from "@components/navigation/NavContainers/navIcons";
 import { SECTION_TABS, tabKey } from "@utils/sectionTabs";
 import type { AccessLayoutNode } from "@utils/accessSidebarLayout";
 import type { EffLevel, TabControls } from "./accessControlTypes";
-import { SecurityPinAreaControl, type SecurityPinSubject } from "@app/modules/common/components/SecurityPin";
-import { isSecurityArea } from "@services/securityPin";
-
 /**
  * A card whose tabs are sections of their own (KPI): each tab's switch sets that section — on at the
  * card's level (Configure needs Write), off = no access.
@@ -35,8 +32,6 @@ interface Props {
   /** … tabs that are sections themselves (KPI). */
   composite?: CompositeTabs;
   readOnly?: boolean;
-  /** Whose security PIN the protected tabs (Salary, Increment) show and set, per tab. */
-  pinSubject?: SecurityPinSubject;
 }
 
 interface Row {
@@ -84,10 +79,9 @@ const rowsFor = ({ section, level, tabs, composite }: Pick<Props, "section" | "l
  * Configure, where its statuses and settings live, stays closed. Changes are staged with the rest
  * of the page and applied on Save.
  */
-const AccessTabsDialog: React.FC<Props> = ({ open, onClose, label, icon, readOnly, pinSubject, ...rest }) => {
+const AccessTabsDialog: React.FC<Props> = ({ open, onClose, label, icon, readOnly, ...rest }) => {
   const SectionIcon = navIcon(icon);
   const rows = rowsFor(rest);
-  const hasPin = !!pinSubject && rows.some((r) => isSecurityArea(r.key));
   return (
     <GlassDialog
       open={open}
@@ -107,7 +101,6 @@ const AccessTabsDialog: React.FC<Props> = ({ open, onClose, label, icon, readOnl
       <Box sx={{ px: { xs: 2, sm: 3 }, py: 2, display: "flex", flexDirection: "column", gap: 1 }}>
         {rows.map((r) => {
           const TabIcon = navIcon(r.icon);
-          const pinArea = pinSubject && isSecurityArea(r.key) ? r.key : null;
           return (
             <Box key={r.key} sx={{ borderRadius: "14px", border: "1px solid", borderColor: r.on ? "rgba(63,91,217,0.28)" : "divider", bgcolor: r.on ? "rgba(63,91,217,0.04)" : "transparent", transition: "border-color .15s ease, background .15s ease" }}>
             <Box
@@ -148,19 +141,13 @@ const AccessTabsDialog: React.FC<Props> = ({ open, onClose, label, icon, readOnl
                 tone="#2A3F9E"
               />
             </Box>
-            {/* This tab's security PIN — saved straight away, per role / per person. */}
-            {pinArea && r.on && (
-              <Box sx={{ px: 1.5, pb: 1.5, pl: { xs: 1.5, sm: 7.25 } }}>
-                <SecurityPinAreaControl subject={pinSubject!} area={pinArea} label="Security PIN for this tab" disabled={readOnly} />
-              </Box>
-            )}
             </Box>
           );
         })}
       </Box>
       <Box sx={{ px: { xs: 2, sm: 3 }, pb: 2.5, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
         <Box sx={{ fontSize: 12, color: "text.secondary" }}>
-          {hasPin ? "Tab switches apply when you save the page. PIN settings save straight away." : "Applied when you save the page."}
+          Applied when you save the page.
         </Box>
         <WtButton onClick={onClose}>Done</WtButton>
       </Box>

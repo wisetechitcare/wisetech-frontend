@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
-import dayjs, { Dayjs } from "dayjs";
+import dayjs from "dayjs";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
@@ -8,8 +8,17 @@ import { fetchSalaryRecordsBasedOnDateRange } from "@services/employee";
 import MonthlySalary from "./MonthlySalary";
 import YearlySalary from "./YearlySalary";
 import SalaryPeriodToolbar from "../components/SalaryPeriodToolbar";
+import SupportRemoteSalary from "./SupportRemoteSalary";
+import { useSecurityPin } from "@app/modules/common/components/SecurityPin";
+import { supportCoversArea } from "@utils/securityPinBus";
 
 const SalaryEmployeeData = () => {
+  const { supportGrant } = useSecurityPin();
+  const supportRemote =
+    !!supportGrant
+    && supportCoversArea("finance.salary/employee-payrolls")
+    && !!supportGrant.targetEmployeeId;
+
   const [alignment, setAlignment] = useState<"monthly" | "yearly" | "allTime">("monthly");
   const [month, setMonth] = useState(dayjs());
   const [year, setYear] = useState(dayjs());
@@ -24,29 +33,24 @@ const SalaryEmployeeData = () => {
     setEmployeeStatus(status === 'Active' ? 'active' : status === 'Deactive' ? 'inactive' : 'all');
   }, []);
 
-  // Handle previous month
   const handlePrevMonth = useCallback(() => {
     setMonth(prevMonth => prevMonth.subtract(1, 'month'));
   }, []);
 
-  // Handle next month
   const handleNextMonth = useCallback(() => {
     setMonth(prevMonth => prevMonth.add(1, 'month'));
   }, []);
 
-  // Handle previous year
   const handlePrevYear = useCallback(() => {
     setYear(prevYear => prevYear.subtract(1, 'year'));
   }, []);
 
-  // Handle next year
   const handleNextYear = useCallback(() => {
     setYear(prevYear => prevYear.add(1, 'year'));
   }, []);
 
-  // Fetch Fiscal Year
   useEffect(() => {
-    if (!year) return;
+    if (!year || supportRemote) return;
 
     async function fetchFiscalYear() {
       try {
@@ -57,9 +61,8 @@ const SalaryEmployeeData = () => {
       }
     }
     fetchFiscalYear();
-  }, [year]);
+  }, [year, supportRemote]);
 
-  // Memoized date ranges
   const dateRanges = useMemo(() => {
     if (alignment === 'monthly') {
       return {
@@ -78,8 +81,8 @@ const SalaryEmployeeData = () => {
     return { startDate: '', endDate: '' };
   }, [alignment, month, fiscalYear]);
 
-  // Fetch employee salary data
   useEffect(() => {
+    if (supportRemote) return;
     if (!dateRanges.startDate || !dateRanges.endDate) return;
 
     async function fetchData() {
@@ -90,8 +93,6 @@ const SalaryEmployeeData = () => {
           dateRanges.endDate,
           employeeStatus
         );
-
-        // console.log("Fetched salary records:==================>", response);
         setEmployeesData(response || []);
       } catch (error) {
         console.error("Error fetching salary records:", error);
@@ -102,11 +103,19 @@ const SalaryEmployeeData = () => {
     }
 
     fetchData();
-  }, [dateRanges, toggleChange, employeeStatus]);
+  }, [dateRanges, toggleChange, employeeStatus, supportRemote]);
+
+  if (supportRemote) {
+    return (
+      <SupportRemoteSalary
+        targetEmployeeId={supportGrant!.targetEmployeeId}
+        targetName={supportGrant!.targetName}
+      />
+    );
+  }
 
   return (
     <>
-      {/* Toggle and Date Selection */}
       <SalaryPeriodToolbar
         alignment={alignment}
         options={[
@@ -120,9 +129,19 @@ const SalaryEmployeeData = () => {
         onNext={alignment === 'monthly' ? handleNextMonth : alignment === 'yearly' ? handleNextYear : undefined}
         disablePrevious={isLoading}
         disableNext={isLoading}
+        pickGranularity={alignment === 'monthly' ? 'month' : alignment === 'yearly' ? 'year' : undefined}
+        pickValue={
+          alignment === 'monthly' ? month.startOf('month').format('YYYY-MM-DD')
+            : alignment === 'yearly' ? year.startOf('year').format('YYYY-MM-DD')
+              : undefined
+        }
+        onPickDate={
+          alignment === 'monthly' ? (v) => setMonth(dayjs(v).startOf('month'))
+            : alignment === 'yearly' ? (v) => setYear(dayjs(v).startOf('year'))
+              : undefined
+        }
       />
 
-      {/* Conditional Rendering */}
       {alignment === 'monthly' && (
         <MonthlySalary
           month={month}
