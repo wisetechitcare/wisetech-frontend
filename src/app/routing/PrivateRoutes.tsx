@@ -42,6 +42,8 @@ const Increment = lazy(() => import('@pages/employee/increment/Increment'))
 const Media = lazy(() => import('@pages/company/Media'))
 const EmployeeDocumentTable = lazy(() => import('@app/modules/accounts/components/documents/EmployeeDocumentTable'))
 const Calendar = lazy(() => import('@pages/employee/calendar/Calendar'))
+const MeetingsMain = lazy(() => import('@pages/employee/meetings/MeetingsMain'))
+const MeetingDetailPage = lazy(() => import('@pages/employee/meetings/MeetingDetailPage'))
 const Announcements = lazy(() => import('@pages/company/announcement/Announcements'))
 const Notifications = lazy(() => import('@pages/employee/notifications/Notifications'))
 const PersonalLoanMain = lazy(() => import('@pages/employee/loans/personal/PersonalLoanMain'))
@@ -359,6 +361,26 @@ const PrivateRoutes = () => {
           element={(hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers)) ? (<SectionGuard module='calendar'>
               <SuspensedView>
                 <Calendar />
+              </SuspensedView>
+            </SectionGuard>) : <NoAccessPage />}
+        />
+        {/* Meetings module tabs (static slugs) — must register before :meetingId detail. */}
+        {tabRoutes(
+          'employees/meetings',
+          TAB_PATHS.meetings,
+          (hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers)) ? (
+            <SectionGuard module='calendar'>
+              <SuspensedView>
+                <MeetingsMain />
+              </SuspensedView>
+            </SectionGuard>
+          ) : <NoAccessPage />,
+        )}
+        <Route
+          path='employees/meetings/:meetingId'
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers)) ? (<SectionGuard module='calendar'>
+              <SuspensedView>
+                <MeetingDetailPage />
               </SuspensedView>
             </SectionGuard>) : <NoAccessPage />}
         />

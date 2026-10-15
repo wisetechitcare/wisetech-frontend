@@ -1588,6 +1588,7 @@ const DayDetail: React.FC<{
     onLogTime, onRemind, onCreate, colors = DEFAULT_HALF_COLORS, labels = DEFAULT_HALF_LABELS,
     stateColors,
 }) => {
+    const navigate = useNavigate();
     const openProject = useOpenProject();
     const isPhone = useMediaQuery(PHONE);
     /** This day at the half's opening hour — what "new meeting here" means. */
@@ -1818,7 +1819,8 @@ const DayDetail: React.FC<{
                                 happened to be in — and the day modal is the view people are in
                                 when they want them. Rendered only when there is one to show. */}
                             {((onRemind && !isHeld(m) && !isCancelled(m)) || (onLogTime && isHeld(m) && !isCancelled(m))
-                                || (onEdit && !isCancelled(m) && m.canManage) || (onCancel && m.canManage) || onDelete) && (
+                                || (onEdit && !isCancelled(m) && m.canManage) || (onCancel && m.canManage) || onDelete
+                                || !isCancelled(m)) && (
                                 <div
                                     style={{
                                         display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 12px',
@@ -1840,6 +1842,14 @@ const DayDetail: React.FC<{
                                     )}
                                     {onEdit && !isCancelled(m) && m.canManage && (
                                         <CardAction icon="bi-pencil" label="Edit" color="#1E3A8A" onClick={() => onEdit(m)} />
+                                    )}
+                                    {!isCancelled(m) && (
+                                        <CardAction
+                                            icon="bi-journal-text"
+                                            label="Detail"
+                                            color="#0F766E"
+                                            onClick={() => navigate(`/employees/meetings/${m.id}`)}
+                                        />
                                     )}
                                     {onCancel && m.canManage && (
                                         <CardAction
@@ -2072,6 +2082,7 @@ const MobileDayAgenda = ({
     onLogTime?: (m: MeetingRow) => void;
     onRemind?: (m: MeetingRow) => void;
 }) => {
+    const navigate = useNavigate();
     const openProject = useOpenProject();
     const sorted = useMemo(
         () => [...meetings].sort((a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()),
@@ -2169,7 +2180,8 @@ const MobileDayAgenda = ({
                                 {((onRemind && !isHeld(m) && !isCancelled(m))
                                     || (onLogTime && isHeld(m) && !isCancelled(m))
                                     || (onEdit && !isCancelled(m) && m.canManage)
-                                    || (onCancel && m.canManage) || onDelete) && (
+                                    || (onCancel && m.canManage) || onDelete
+                                    || !isCancelled(m)) && (
                                     <div style={{
                                         display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 12px 10px',
                                         borderTop: '1px dashed rgba(100,116,139,0.28)', background: '#F8FAFC',
@@ -2187,6 +2199,14 @@ const MobileDayAgenda = ({
                                         )}
                                         {onEdit && !isCancelled(m) && m.canManage && (
                                             <CardAction icon="bi-pencil" label="Edit" color="#1E3A8A" onClick={() => onEdit(m)} />
+                                        )}
+                                        {!isCancelled(m) && (
+                                            <CardAction
+                                                icon="bi-journal-text"
+                                                label="Detail"
+                                                color="#0F766E"
+                                                onClick={() => navigate(`/employees/meetings/${m.id}`)}
+                                            />
                                         )}
                                         {onCancel && m.canManage && (
                                             <CardAction
@@ -2276,6 +2296,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
     mode, targetId, onCreate, onDelete, onCancel, onEdit, onReschedule, onLogTime, onRemind,
     reloadToken, focusDate, viewerEmployeeId,
 }) => {
+    const navigate = useNavigate();
     const [meetings, setMeetings] = useState<MeetingRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [layout, setLayout] = useState<'month' | 'table'>('month');
@@ -2664,7 +2685,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
             header: 'External Participants',
             Cell: ({ row }: any) => namesCell((row.original as MeetingRow).externalParticipantNames),
         },
-        ...(onDelete || onCancel || onEdit || onLogTime || onRemind ? [{
+        ...[{
             id: 'actions',
             header: 'Actions',
             enableSorting: false,
@@ -2700,6 +2721,16 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                                 style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#1E3A8A' }}
                             >
                                 <AppIcon name="bi-pencil" className="fs-5" />
+                            </button>
+                        )}
+                        {!isCancelled(m) && (
+                            <button
+                                type="button"
+                                onClick={() => navigate(`/employees/meetings/${m.id}`)}
+                                title="Open meeting detail (agenda and minutes)"
+                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#0F766E' }}
+                            >
+                                <AppIcon name="bi-journal-text" className="fs-5" />
                             </button>
                         )}
                         {onCancel && viewerCanManage(m) && (() => {
@@ -2739,9 +2770,9 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                     </div>
                 );
             },
-        } as MRT_ColumnDef<MeetingRow>] : []),
+        } as MRT_ColumnDef<MeetingRow>],
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [onDelete, onCancel, onEdit, onLogTime, onRemind, mode, openProject, requestEdit, viewerCanManage]);
+    ], [onDelete, onCancel, onEdit, onLogTime, onRemind, mode, openProject, requestEdit, viewerCanManage, navigate]);
 
     /**
      * A row that states its own outcome.

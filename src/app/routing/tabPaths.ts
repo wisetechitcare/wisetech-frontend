@@ -29,6 +29,14 @@ export const TAB_PATHS = {
     ],
     organisationProfile: ['organizations', 'configure'],
     employees: ['employees', 'configure'],
+    // Detail stays at /employees/meetings/:meetingId — static tab slugs must be registered first.
+    meetings: [
+        'overview',
+        'all-meetings',
+        'agenda',
+        'minutes-of-meeting',
+        'configure',
+    ],
 } as const satisfies Record<string, readonly string[]>;
 
 /**
