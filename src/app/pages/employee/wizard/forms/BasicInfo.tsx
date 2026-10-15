@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useField, useFormikContext } from 'formik';
+import { useEffect } from 'react';
+import { useFormikContext } from 'formik';
+import dayjs from 'dayjs';
 import { HelpCircle, CheckCircle, AlertCircle } from 'lucide-react';
-import DateInput from '@app/modules/common/inputs/DateInput';
-import TextInput from '@app/modules/common/inputs/TextInput';
+import { WtDateField, WtFieldFormik } from '@app/modules/common/components/ui';
 
 interface TooltipProps { text: string }
 function Tooltip({ text }: TooltipProps) {
@@ -95,9 +95,18 @@ const MARITAL_OPTIONS = [
 ];
 
 /* ── Main component ── */
-function BasicInfo({ formikProps }: { formikProps: any }) {
-  const { values, touched, errors, setFieldValue } = formikProps;
+function BasicInfo({
+  formikProps,
+  softRequired = false,
+}: {
+  formikProps: any;
+  /** Candidate / pre-hire — only First Name is hard-required. */
+  softRequired?: boolean;
+}) {
+  const { values, setFieldValue } = formikProps;
   const isMarried = String(values?.maritalStatus) === '0';
+  // Employee onboarding keeps last name / DOB / gender required; candidate does not.
+  const hard = !softRequired;
 
   useEffect(() => {
     if (!isMarried && values?.anniversary) {
@@ -111,19 +120,18 @@ function BasicInfo({ formikProps }: { formikProps: any }) {
       {/* Row 1 – First Name / Last Name / DOB */}
       <div className="row g-3">
         <div className="col-lg-4 col-md-6 col-sm-12">
-          <TextInput isRequired label="First Name" formikField="firstName" margin="mb-0" />
+          <WtFieldFormik name="firstName" label="First Name" required fullWidth />
         </div>
         <div className="col-lg-4 col-md-6 col-sm-12">
-          <TextInput isRequired label="Last Name" formikField="lastName" margin="mb-0" />
+          <WtFieldFormik name="lastName" label="Last Name" required={hard} fullWidth />
         </div>
         <div className="col-lg-4 col-md-6 col-sm-12">
-          <DateInput
-            formikField="dateOfBirth"
-            isRequired
-            formikProps={formikProps}
-            inputLabel="Date of Birth"
-            placeHolder="DD / MM / YYYY"
-            maxDate
+          <WtDateField
+            label="Date of Birth"
+            required={hard}
+            value={values?.dateOfBirth || null}
+            onChange={(v) => setFieldValue('dateOfBirth', v)}
+            maxDate={dayjs().format('YYYY-MM-DD')}
           />
         </div>
       </div>
@@ -144,7 +152,7 @@ function BasicInfo({ formikProps }: { formikProps: any }) {
           <TogglePillGroup
             field="gender"
             label="Gender"
-            required
+            required={hard}
             options={GENDER_OPTIONS}
           />
         </div>
@@ -158,12 +166,10 @@ function BasicInfo({ formikProps }: { formikProps: any }) {
         </div>
         {isMarried && (
           <div className="col-lg-4 col-md-6 col-sm-12">
-            <DateInput
-              formikField="anniversary"
-              isRequired={false}
-              formikProps={formikProps}
-              inputLabel="Anniversary Date"
-              placeHolder="DD / MM / YYYY"
+            <WtDateField
+              label="Anniversary Date"
+              value={values?.anniversary || null}
+              onChange={(v) => setFieldValue('anniversary', v)}
             />
           </div>
         )}

@@ -270,6 +270,8 @@ function CustomCalendar() {
     // Title shown in the shared PeriodNavigator (e.g. "July 2026"). Kept in sync
     // with FullCalendar via datesSet.
     const [periodTitle, setPeriodTitle] = useState('');
+    // Anchor for PeriodNavigator click-to-jump (calendar's current date as YYYY-MM-DD).
+    const [periodPickValue, setPeriodPickValue] = useState(dayjs().format('YYYY-MM-DD'));
     const [selectedStartDate, setSelectedStartDate] = useState('');
     const [selectedEndDate, setSelectedEndDate] = useState('');
     const [maxColumns, setMaxColumns] = useState(2);
@@ -402,6 +404,7 @@ function CustomCalendar() {
         setCurrentYear(currentYear + "");
         setPeriodTitle(e?.view?.title || calendarApi.view?.title || "");
         setSelectedViewForCalendar(e?.view?.type || calendarApi.view?.type || selectedViewForCalendar);
+        setPeriodPickValue(dayjs(calendarApi.getDate()).format('YYYY-MM-DD'));
     };
 
     // const handleEventClick = async (clickInfo: any) => {
@@ -1382,6 +1385,13 @@ function CustomCalendar() {
                                     // and keeps everything on one line.
                                     minWidth={isMobile ? 108 : 170}
                                     labelColor="var(--mrd-primary)"
+                                    pickGranularity={
+                                        selectedViewForCalendar === 'multiMonthYear' ? 'year'
+                                            : selectedViewForCalendar === 'dayGridMonth' ? 'month'
+                                                : 'day'
+                                    }
+                                    pickValue={periodPickValue}
+                                    onPickDate={(v) => calendarRef?.current?.getApi()?.gotoDate(v)}
                                 />
                                 {/* Mobile-only. On tablet+ the same legend is always visible in the
                                     side rail, so a button for it would just be a second way in. */}

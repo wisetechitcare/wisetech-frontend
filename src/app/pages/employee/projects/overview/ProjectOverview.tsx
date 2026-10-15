@@ -391,6 +391,13 @@ const ProjectOverview = () => {
                 )}`}
                 onPrevious={() => navigateMonth("prev")}
                 onNext={() => navigateMonth("next")}
+                pickGranularity="month"
+                pickValue={monthStart.format("YYYY-MM-DD")}
+                onPickDate={(v) => {
+                  const newMonthStart = dayjs(v).startOf("month");
+                  setMonthStart(newMonthStart);
+                  setMonthEnd(newMonthStart.endOf("month"));
+                }}
               />
             )}
 
@@ -399,6 +406,20 @@ const ProjectOverview = () => {
                 label={fiscalYearDisplay}
                 onPrevious={() => navigateYear("prev")}
                 onNext={() => navigateYear("next")}
+                pickGranularity="year"
+                pickValue={yearStart.format("YYYY-MM-DD")}
+                onPickDate={async (v) => {
+                  const base = dayjs(`${dayjs(v).year()}-04-01`);
+                  const { startDate: fyStart, endDate: fyEnd } =
+                    await generateFiscalYearFromGivenYear(base);
+                  const fiscalStart = dayjs(fyStart);
+                  const fiscalEnd = dayjs(fyEnd);
+                  setYearStart(fiscalStart);
+                  setYearEnd(fiscalEnd);
+                  setFiscalYearDisplay(
+                    `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`
+                  );
+                }}
               />
             )}
 

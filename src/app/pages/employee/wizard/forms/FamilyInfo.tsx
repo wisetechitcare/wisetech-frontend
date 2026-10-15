@@ -1,73 +1,67 @@
-import { X } from "lucide-react";
+import { Stack, Box, Typography } from "@mui/material";
+import { ActionIconButton, WtFieldFormik } from "@app/modules/common/components/ui";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
-import TextInput from "@app/modules/common/inputs/TextInput";
 
-function FamilyInfo({ index, formikProps, canRemove, onRemove }: any) {
+function FamilyInfo({
+  index,
+  formikProps,
+  canRemove,
+  onRemove,
+  softRequired = false,
+}: {
+  index: number;
+  formikProps: any;
+  canRemove?: boolean;
+  onRemove?: () => void;
+  /** Candidate / optional sections — no hard asterisks. */
+  softRequired?: boolean;
+}) {
   const element = `familyInfo[${index}]`;
+  const required = !softRequired;
 
   return (
-    <div className="d-flex flex-column gap-2">
-      {/* Relative header with delete icon */}
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <p
-          style={{
-            fontFamily: "Inter",
-            fontWeight: 500,
-            fontSize: "14px",
-            color: "#798DB3",
+    <Stack spacing={2}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Typography
+          sx={{
+            fontSize: 12.5,
+            fontWeight: 600,
+            color: "text.secondary",
             textTransform: "uppercase",
-            margin: 0,
+            letterSpacing: "0.04em",
           }}
         >
           Relative {index + 1}
-        </p>
+        </Typography>
         {canRemove ? (
-          <button
-            type="button"
-            className="btn btn-sm btn-icon btn-light-danger"
-            aria-label={`Remove relative ${index + 1}`}
-            onClick={onRemove}
-          >
-            <X size={16} />
-          </button>
-        ) : (
-          <div style={{ width: "20px", height: "20px" }} />
-        )}
-      </div>
+          <ActionIconButton
+            title={`Remove relative ${index + 1}`}
+            iconName="trash"
+            tone="danger"
+            size="sm"
+            onClick={() => onRemove?.()}
+          />
+        ) : null}
+      </Box>
 
-      <div className="d-flex flex-column gap-4">
-        {/* Name, Relation, Phone — the three details actually captured for a relative. */}
-        <div className="row g-3">
-          <div className="col-lg-4 col-md-6 col-sm-12">
-            <TextInput
-              isRequired={true}
-              label="Name"
-              margin="mb-0"
-              formikField={`${element}.name`}
-            />
-          </div>
-
-          <div className="col-lg-4 col-md-6 col-sm-12">
-            <TextInput
-              isRequired={true}
-              label="Relation"
-              margin="mb-0"
-              formikField={`${element}.relationship`}
-            />
-          </div>
-
-          <div className="col-lg-4 col-md-6 col-sm-12">
-            <PhoneNumberInput
-              label="Phone"
-              isRequired={true}
-              formikField={`${element}.mobileNumber`}
-              formikProps={formikProps}
-              placeholder="Phone number"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
+      <Box
+        sx={{
+          display: "grid",
+          gap: 2,
+          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
+        }}
+      >
+        <WtFieldFormik name={`${element}.name`} label="Name" required={required} fullWidth />
+        <WtFieldFormik name={`${element}.relationship`} label="Relation" required={required} fullWidth />
+        <PhoneNumberInput
+          label="Phone"
+          isRequired={required}
+          formikField={`${element}.mobileNumber`}
+          formikProps={formikProps}
+          placeholder="Phone number"
+        />
+      </Box>
+    </Stack>
   );
 }
 

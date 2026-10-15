@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Box, Link, Stack, Typography } from "@mui/material";
+import { SecurityPinGate } from "@app/modules/common/components/SecurityPin";
 import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 import { RootState } from "@redux/store";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
@@ -256,7 +257,9 @@ Location: ${branches?.address || "N/A"}`;
         {activeTab === "details" && <ShowEmployeeDetailsById employee={employee} />}
         {activeTab === "projects" && psaOn && <EmployeeProject employeeId={employeeId!} reloadKey={projectsReloadKey} />}
         {activeTab === "meetings" && psaOn && <MeetingsList mode="employee" targetId={employeeId!} />}
-        {activeTab === "access" && canManageAccess && <EmployeeAccessTab employeeId={employeeId!} />}
+        {activeTab === "access" && canManageAccess && (
+          <SecurityPinGate area="app.roles-permissions"><EmployeeAccessTab employeeId={employeeId!} /></SecurityPinGate>
+        )}
       </div>
 
       <AppSettingsModal

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { Box, Stack, Typography, CircularProgress, DialogContent, DialogActions, LinearProgress } from "@mui/material";
+import { Box, Stack, Typography, CircularProgress, LinearProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
-    AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, ActionIconButton, ToneChip,
-    WtSwitchField, toast, confirmDialog, WtEmptyState, WtField,
+    AutoGrid, ListHeader, GlassCard, WtButton, ActionIconButton, ToneChip,
+    toast, confirmDialog, WtEmptyState, WtField, InlineNotice,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { COPY } from "./terms";
@@ -14,11 +15,8 @@ import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
 import {
     getApplicants, getApplicantById, updateApplicant, getApplicantSources, uploadApplicantResume,
-    type Applicant, type ApplicantPayload, type ApplicantSource, type OrgScoped,
+    type Applicant, type ApplicantSource, type OrgScoped,
 } from "@services/recruitment";
-import { CandidateFormFields, emptyCandidate, isCandidateFormValid } from "./CandidateFormFields";
-import { cleanCandidatePayload } from "./candidatePayload";
-import { AddCandidateDialog } from "./AddCandidateDialog";
 import { AddToRoleDialog } from "./AddToRoleDialog";
 
 /** Compact, muted meta chip — packs identity/metrics into the card without stretched gaps. */
@@ -47,13 +45,15 @@ const SEARCH_DEBOUNCE_MS = 300;
 /**
  * Candidates — the applicant directory (Recruitment › Candidates).
  *
- * Adding uses the shared Add candidate window (also the Pipeline's); editing uses the same form body.
- * Candidates are never hard-deleted: data retention and the audit trail both require the row to
- * survive, so the destructive action is "blacklist" (an update), not a delete.
+ * Add / Edit always open the fullscreen Candidate wizard. Candidates are never hard-deleted:
+ * data retention and the audit trail both require the row to survive, so the destructive
+ * action is "blacklist" (an update), not a delete.
  */
 const CandidatesView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
+    const navigate = useNavigate();
     const qc = useQueryClient();
+
     const [searchInput, setSearchInput] = useState("");
     const [search, setSearch] = useState("");
     useEffect(() => {
@@ -61,21 +61,20 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
         return () => clearTimeout(t);
     }, [searchInput]);
 
-    const [adding, setAdding] = useState(false);
     const [addToRole, setAddToRole] = useState<Applicant | null>(null);
-    const [editing, setEditing] = useState<Applicant | null>(null);
-    const [form, setForm] = useState<ApplicantPayload>(emptyCandidate());
-    const [formFile, setFormFile] = useState<File | null>(null);
-    const [blacklisted, setBlacklisted] = useState(false);
-    const [attempted, setAttempted] = useState(false);
 
     // The server does the searching, so the key includes the term. The previous results stay on screen
     // while the next load — the grid used to blank to a spinner on every keystroke.
-    const { data: applicants = [], isLoading, isFetching, isError, error, refetch } = useQuery({
+    const { data: page, isLoading, isFetching, isError, error, refetch } = useQuery({
         queryKey: queryKeys.recruitment.applicants(search, companyId),
         queryFn: () => getApplicants(search || undefined, companyId),
         placeholderData: keepPreviousData,
     });
+    // `items` plus the server's own `hasMore`. The page is 200 rows; a directory that simply stops
+    // at 200 reads as "that is everyone", and the Overview's candidate count on the next tab says
+    // otherwise. Surfaced under the header instead of dropped. Audit H3.
+    const applicants = page?.items ?? [];
+    const applicantsTruncated = page?.hasMore ?? false;
     const { data: sources = [] } = useQuery({
         queryKey: queryKeys.recruitment.applicantSources(),
         queryFn: getApplicantSources,
@@ -136,24 +135,6 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
         }
     };
 
-    const updateMut = useMutation({
-        mutationFn: async () => {
-            // expectedRevisionCount: two people editing the same candidate no longer overwrite each other silently.
-            await updateApplicant(editing!.id, { ...cleanCandidatePayload(form), isBlacklisted: blacklisted, expectedRevisionCount: editing!.revisionCount });
-            // The resume goes up after the save; its failure joins the SAME toast rather than a second one
-            // that a success toast would immediately replace.
-            if (!formFile) return null;
-            try { await uploadApplicantResume(editing!.id, formFile); return null; } catch (err) { return apiErrorMessage(err, "the file was refused"); }
-        },
-        onSuccess: (resumeError) => {
-            toast(resumeError
-                ? { icon: "warning", title: `Candidate updated, but the resume did not upload: ${resumeError}` }
-                : { icon: "success", title: "Candidate updated" });
-            closeEdit();
-            invalidate();
-        },
-        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not update the candidate") }),
-    });
     const blacklistMut = useMutation({
         mutationFn: (vars: { id: string; isBlacklisted: boolean }) => updateApplicant(vars.id, { isBlacklisted: vars.isBlacklisted }),
         onSuccess: (_d, vars) => { toast({ icon: "success", title: vars.isBlacklisted ? "Candidate blacklisted" : "Candidate restored" }); invalidate(); },
@@ -161,25 +142,12 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
     });
 
     const openEdit = (a: Applicant) => {
-        setEditing(a);
-        setForm({
-            firstName: a.firstName ?? "", lastName: a.lastName ?? "", email: a.email ?? "", phone: a.phone ?? "",
-            currentEmployer: a.currentEmployer ?? "", currentTitle: a.currentTitle ?? "",
-            // Every field the form edits must be repopulated here. A field left out renders blank on
-            // edit even though the record holds a value, which reads as data loss.
-            currentLocation: a.currentLocation ?? "", qualification: a.qualification ?? "",
-            employeeLevelId: a.employeeLevelId ?? null,
-            totalExperienceMonths: a.totalExperienceMonths ?? null,
-            currentCtc: a.currentCtc == null ? null : Number(a.currentCtc),
-            expectedCtc: a.expectedCtc == null ? null : Number(a.expectedCtc),
-            noticePeriodDays: a.noticePeriodDays ?? null,
-            sourceId: a.sourceId ?? null,
-        });
-        setBlacklisted(a.isBlacklisted);
-        setFormFile(null);
-        setAttempted(false);
+        navigate(`/recruitment/candidates/${a.id}/edit`);
     };
-    const closeEdit = () => { setEditing(null); setFormFile(null); setAttempted(false); };
+
+    const startAdd = () => {
+        navigate("/recruitment/candidates/new");
+    };
 
     const toggleBlacklist = async (a: Applicant) => {
         if (a.isBlacklisted) { blacklistMut.mutate({ id: a.id, isBlacklisted: false }); return; }
@@ -190,11 +158,6 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
             confirmText: "Blacklist",
         });
         if (ok) blacklistMut.mutate({ id: a.id, isBlacklisted: true });
-    };
-
-    const saveEdit = () => {
-        setAttempted(true);
-        if (isCandidateFormValid(form) && !updateMut.isPending) updateMut.mutate();
     };
 
     const sourceName = useMemo(
@@ -220,7 +183,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                             sx={{ width: { xs: "100%", sm: 280 } }}
                         />
                         {canWrite && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
+                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
                                 Add Candidate
                             </WtButton>
                         )}
@@ -240,9 +203,18 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 search ? (
                     <WtEmptyState variant="no-match" {...COPY.noSearchMatch(search)} />
                 ) : (
-                    <WtEmptyState icon="people" title={COPY.noCandidates.title} hint={COPY.noCandidates.hint} actionLabel={canWrite ? "Add Candidate" : undefined} onAction={() => setAdding(true)} />
+                    <WtEmptyState icon="people" title={COPY.noCandidates.title} hint={COPY.noCandidates.hint} actionLabel={canWrite ? "Add Candidate" : undefined} onAction={startAdd} />
                 )
             ) : (
+                <>
+                {applicantsTruncated && (
+                    <Box sx={{ mb: 1.5 }}>
+                        <InlineNotice icon="information-5">
+                            Showing the first {applicants.length}. There are more candidates than fit one
+                            page — search by name, email, job title or employer to narrow it.
+                        </InlineNotice>
+                    </Box>
+                )}
                 <AutoGrid min={320}>
                     {applicants.map((a: Applicant) => {
                         const exp = experienceLabel(a.totalExperienceMonths);
@@ -313,9 +285,9 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                         );
                     })}
                 </AutoGrid>
+                </>
             )}
 
-            <AddCandidateDialog open={adding} onClose={() => setAdding(false)} companyId={companyId} />
             {addToRole && (
                 <AddToRoleDialog
                     open
@@ -325,45 +297,6 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                     companyId={companyId}
                 />
             )}
-
-            <GlassDialog
-                open={!!editing}
-                onClose={updateMut.isPending ? undefined : closeEdit}
-                maxWidth="sm"
-                header={
-                    <GlassHeader
-                        title={editing ? `Edit ${fullName(editing)}` : "Edit candidate"}
-                        icon={<KTIcon iconName="user-tick" className="fs-2" />}
-                        onClose={updateMut.isPending ? undefined : closeEdit}
-                    />
-                }
-            >
-                <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <CandidateFormFields
-                            form={form}
-                            onChange={setForm}
-                            showErrors={attempted}
-                            resumeFile={formFile}
-                            onResumeFile={setFormFile}
-                            existingResumeName={editing?.resumeFileName ?? (editing?.resumeS3Url ? "Resume on file" : null)}
-                            disabled={updateMut.isPending}
-                        />
-                        <WtSwitchField
-                            title="Blacklisted"
-                            description="Keeps the record (and its audit trail) but flags them on future applications."
-                            checked={blacklisted}
-                            onChange={(e) => setBlacklisted(e.target.checked)}
-                        />
-                    </Stack>
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <WtButton ghost onClick={closeEdit} disabled={updateMut.isPending}>Cancel</WtButton>
-                    <WtButton tone="primary" disabled={updateMut.isPending || (attempted && !isCandidateFormValid(form))} onClick={saveEdit}>
-                        {updateMut.isPending ? "Saving…" : "Save Changes"}
-                    </WtButton>
-                </DialogActions>
-            </GlassDialog>
         </Box>
     );
 };

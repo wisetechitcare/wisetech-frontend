@@ -4,6 +4,7 @@ import { Box, Stack, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import DrillDownDialog from "@app/modules/common/components/DrillDownDialog";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { InlineNotice } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { getApplications } from "@services/recruitment";
 import { applicationColumns } from "./applicationColumns";
@@ -31,18 +32,34 @@ export interface ApplicationsDrillDownProps {
     statusId?: string;
     sourceId?: string;
     companyId?: string;
+    /**
+     * The period the bar was counted in. Without it this listed everyone who had ever reached that
+     * stage while the bar behind the dialog counted only the selected period — so the heading said
+     * 12 and the table showed 40, and a recruiter had no way to tell which was lying. Audit H8.
+     */
+    from?: string;
+    to?: string;
 }
 
-const ApplicationsDrillDown = ({ open, onClose, title, statusId, sourceId, companyId }: ApplicationsDrillDownProps) => {
-    const filters = { ...(statusId ? { statusId } : {}), ...(sourceId ? { sourceId } : {}) };
+const ApplicationsDrillDown = ({ open, onClose, title, statusId, sourceId, companyId, from, to }: ApplicationsDrillDownProps) => {
+    const filters = {
+        ...(statusId ? { statusId } : {}),
+        ...(sourceId ? { sourceId } : {}),
+        ...(from ? { from } : {}),
+        ...(to ? { to } : {}),
+    };
 
-    const { data: rows = [], isLoading } = useQuery({
+    const { data: rowPage, isLoading } = useQuery({
         queryKey: queryKeys.recruitment.applications({ companyId, ...filters }),
         queryFn: () => getApplications(filters, companyId),
         // Nothing to fetch until the dialog is open — a closed drill-down must not cost a
         // request on every overview render.
         enabled: open,
     });
+    // A drill-down opened from a chart bar is the one place a silent cap does the most damage: the
+    // bar says 240 and the list would show 200 with no hint, which reads as the chart being wrong.
+    const rows = rowPage?.items ?? [];
+    const rowsTruncated = rowPage?.hasMore ?? false;
 
     // A stage drill-down already says the stage in its heading; repeating it in a column
     // spends width on something the user just clicked.
@@ -64,6 +81,15 @@ const ApplicationsDrillDown = ({ open, onClose, title, statusId, sourceId, compa
                     </Box>
                 </Stack>
             </Box>
+
+            {rowsTruncated && (
+                <Box sx={{ mb: 1.5 }}>
+                    <InlineNotice icon="information-5">
+                        Showing the first {rows.length}. The bar you clicked counts more than fit one
+                        page, so this list is not the whole of it.
+                    </InlineNotice>
+                </Box>
+            )}
 
             <MaterialTable
                 columns={columns}

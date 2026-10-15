@@ -61,9 +61,13 @@ are built from.
 
 **Migrating a legacy select?** Use-case → reference file table: [`docs/bootstrap-to-kit-migration.md` §3](../../../../../../docs/bootstrap-to-kit-migration.md) (Dropdown benchmarks).
 | Toggle | `WtSwitch` / `WtSwitchField` | raw `<Switch>`, `.form-switch` |
-| Dialog | `GlassDialog` + `GlassHeader` | react-bootstrap `<Modal>` |
+| Checkbox | `WtCheckbox` / `WtCheckboxField` (`WtControlLabel` for switch+label rows). Look is also themed on `MuiCheckbox` app-wide. | inventing a second checkbox style per screen |
+| Dialog | `GlassDialog` + `GlassHeader` (`preset="form"` / `"workspace"` for height) | react-bootstrap `<Modal>`; hand-rolled `maxHeight` vh |
+| Dialog footer | `GlassDialogActions` (or `ConfigureFormDialog` for short masters) | hand-rolled `DialogActions sx={{ px, py, borderTop }}` |
+| Dialog form card | `FormSection` + `FORM_SPACE` | local `GlassSurface` + `SectionHead` stacks with magic gaps |
 | Surface / card | `GlassSurface` / `GlassCard` | `<div className="card">` |
-| Config section | `SettingsSection` | a `GlassSurface` with your own accent + header |
+| Config section | `SettingsSection` (optional `count` chip) | a `GlassSurface` with your own accent + header |
+| Row action tone from Trio | `trioToActionTone(TRIO.rose)` → `ActionIconButton` | mapping accents per screen |
 | Summary stat | `StatTile` | a bespoke number-in-a-box |
 | Chip / badge | `ToneChip` / `StatusBadge` | `<span className="badge">` |
 | Exclusive 2–5 way choice | `SegmentedControl` (status filter, view switch) | a row of outlined pills / `ToggleButtonGroup` |
@@ -79,6 +83,7 @@ are built from.
 | Long multi-section form dialog | **`WtFormDialog`** | a private modal layout per feature |
 | Page / section loading block | **`PageLoader`** (also `@app/modules/common/utils/Loader`) | Bootstrap `spinner-border` / `react-bootstrap` Spinner |
 | Inline / button busy indicator | MUI `CircularProgress` size 14–18 | a second spinner component |
+| PIN / one-time code | `PinInput` (masked by default; `masked={false}` for an emailed code; `shakeKey` to shake on a wrong entry) | `<input type="password">` — the browser saves and autofills it, which defeats a PIN meant to prove who is at the keyboard |
 | Toast / confirm | `toast` / `confirmDialog` / `alertDialog` | react-toastify, sweetalert2 directly |
 | User data inside an `html:` string | ``safeHtml`…${name}…` `` (or `escapeHtml(v)` for a generated list) | a plain template literal — see below |
 | Explanation inside a form or panel (why it is closed, what to fix first, what will happen) | `InlineNotice` (toned, `TRIO`) / `InlineHint` (quiet info line) | a Bootstrap `.alert` div with hard-coded hex, or a private `Notice` per screen |
@@ -114,6 +119,18 @@ Default `placement: 'menu'` puts `+ Add New` as the first list row; `'label'` pu
 **It renders MUI's outlined field with its floating label** — the same control the
 "Add Rule" dialog in `pages/company/settings/SandwhichLeave.tsx` uses, which is the
 app's reference for a labelled input. There is no second look to choose between.
+
+**Density (SSOT):** `WT_CONTROL_HEIGHT` = **40** (default / shared rows),
+`WT_CONTROL_HEIGHT_MD` = **44** (spacious). `WtField` / `WtDateField` default
+`size="sm"` (40px via `controlHeightSx`). Pass `size="md"` only for spacious
+dialog forms. `WtButton size="small"` drops to 40px and a flatter CTA glow so
+search + Add in a `ListHeader` stay aligned — do **not** invent per-page heights.
+`ToolbarFilterSelect` already pins `sm`. Do not invent per-page `fontSize`
+on labels or inputs — change the kit/theme instead.
+
+**Form chrome:** multi-block dialog forms use `FormSection` + `FORM_SPACE`
+(Sandwich Add Rule is the reference). Settings engines with an accent-top rule
+use `SettingsSection`. Long nav forms stay on `WtFormDialog` / `WtFormSection`.
 
 ⚠️ **Never style the label.** MUI cuts the gap with a `<legend><span>` inside the
 outline, and that legend renders in the DEFAULT label metrics — it does not see CSS

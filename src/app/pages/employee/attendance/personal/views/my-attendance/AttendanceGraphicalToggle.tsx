@@ -298,6 +298,13 @@ const [weekEnd, setWeekEnd] = useState(() => {
             onPrevious={() => navigateDay("prev")}
             onNext={() => navigateDay("next")}
             label={day.format("DD MMM, YYYY")}
+            pickGranularity="day"
+            pickValue={day.format("YYYY-MM-DD")}
+            onPickDate={(v) => {
+              const newDay = dayjs(v);
+              setDay(newDay);
+              toggleItemsActions?.daily(newDay);
+            }}
           />
         )}
 
@@ -306,6 +313,25 @@ const [weekEnd, setWeekEnd] = useState(() => {
             onPrevious={() => navigateWeek("prev")}
             onNext={() => navigateWeek("next")}
             label={`${weekStart.format("DD MMM ")} - ${weekEnd.format("DD MMM")}`}
+            pickGranularity="day"
+            pickValue={weekStart.format("YYYY-MM-DD")}
+            onPickDate={(v) => {
+              const picked = dayjs(v);
+              const dow = picked.day();
+              const newWeekStart = dow === 0 ? picked.subtract(6, "day") : picked.subtract(dow - 1, "day");
+              const todayDayOfWeek = today.day();
+              const todayWeekStart = todayDayOfWeek === 0
+                ? today.subtract(6, "day")
+                : today.subtract(todayDayOfWeek - 1, "day");
+              const isSameWeekAsToday = newWeekStart.isSame(todayWeekStart, "day");
+              const newWeekEnd =
+                dateSettingsEnabled && isSameWeekAsToday
+                  ? today.clone()
+                  : newWeekStart.add(6, "day");
+              setWeekStart(newWeekStart);
+              setWeekEnd(newWeekEnd);
+              toggleItemsActions?.weekly(newWeekStart, newWeekEnd);
+            }}
           />
         )}
 
@@ -314,6 +340,18 @@ const [weekEnd, setWeekEnd] = useState(() => {
             onPrevious={() => navigateMonth("prev")}
             onNext={() => navigateMonth("next")}
             label={`${monthStart.format("DD MMM")} - ${monthEnd.format("DD MMM")}`}
+            pickGranularity="month"
+            pickValue={monthStart.format("YYYY-MM-DD")}
+            onPickDate={(v) => {
+              const newMonthStart = dayjs(v).startOf("month");
+              const newMonthEnd =
+                dateSettingsEnabled && newMonthStart.isSame(today, "month")
+                  ? today
+                  : newMonthStart.endOf("month");
+              setMonthStart(newMonthStart);
+              setMonthEnd(newMonthEnd);
+              toggleItemsActions?.monthly(newMonthStart, newMonthEnd);
+            }}
           />
         )}
 
@@ -322,6 +360,23 @@ const [weekEnd, setWeekEnd] = useState(() => {
             onPrevious={() => navigateYear("prev")}
             onNext={() => navigateYear("next")}
             label={fiscalYearDisplay}
+            pickGranularity="year"
+            pickValue={yearStart.format("YYYY-MM-DD")}
+            onPickDate={async (v) => {
+              const base = dayjs(`${dayjs(v).year()}-04-01`);
+              const { startDate, endDate } = await generateFiscalYearFromGivenYear(base);
+              const fiscalStart = dayjs(startDate);
+              const fiscalEnd =
+                isCurrentFiscalYear(fiscalStart, dayjs(endDate)) && dateSettingsEnabled
+                  ? today
+                  : dayjs(endDate);
+              setYearStart(fiscalStart);
+              setYearEnd(fiscalEnd);
+              setFiscalYearDisplay(
+                `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`,
+              );
+              toggleItemsActions?.yearly(fiscalStart, fiscalEnd);
+            }}
           />
         )}
 

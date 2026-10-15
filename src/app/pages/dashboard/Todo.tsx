@@ -2,7 +2,6 @@ import { useState, useEffect, memo, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import {
   Box,
-  Checkbox,
   CircularProgress,
   IconButton,
   Stack,
@@ -24,6 +23,7 @@ import {
   PlainDialogHeader,
   SegmentedControl,
   WtButton,
+  WtCheckbox,
   WtEmptyState,
   WtField,
   label,
@@ -261,10 +261,10 @@ const TodoList = memo(() => {
                   >
                     <Stack direction="row" alignItems="flex-start" gap={1} sx={{ minWidth: 0, flex: 1 }}>
                       {selectedTab === 'PENDING' && (
-                        <Checkbox
+                        <WtCheckbox
                           checked={todo.status === 'COMPLETED'}
                           onChange={() => handleToggleStatus(todo.id)}
-                          size="small"
+                          size="sm"
                           sx={{ mt: -0.5 }}
                           inputProps={{ 'aria-label': 'Mark complete' }}
                         />

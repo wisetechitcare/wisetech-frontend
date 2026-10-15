@@ -12,6 +12,7 @@ import type { OnboardingSectionsProps } from "./OnboardingSections";
 import "@app/pages/employee/forms/shared/Workspace.css";
 import "./OnboardingModal.css";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { IconBox, TRIO } from '@app/modules/common/components/ui';
 
 /** A leaf = one editable section, the unit the canvas renders and Continue walks. */
 export interface OnboardingLeaf {
@@ -52,6 +53,13 @@ export interface OnboardingWizardProps {
   isEditMode: boolean;
   onCancel: () => void;
   onFinalSave: () => void;
+  /**
+   * Optional left-footer save (e.g. candidate draft). When omitted, the button
+   * runs the same full validation + `onFinalSave` path Employee Onboarding uses.
+   */
+  onDirectSave?: () => void;
+  /** Label for the left-footer save when `onDirectSave` is set. */
+  directSaveLabel?: string;
   submitText: string;
   /**
    * The pristine, blank form. Used to tell a value the ADMIN entered from a default
@@ -65,6 +73,11 @@ export interface OnboardingWizardProps {
     value: React.ReactNode;
     isStrong?: boolean;
   }>;
+  /**
+   * Open on this leaf when present in `groups` (e.g. Pipeline Add → Role & screening).
+   * Falls back to the first leaf when omitted or unknown.
+   */
+  initialLeafId?: string;
 }
 
 /**
@@ -213,10 +226,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   isEditMode,
   onCancel,
   onFinalSave,
+  onDirectSave,
+  directSaveLabel,
   submitText,
   defaultValues,
   summaryTitle = "Summary",
   summaryRows,
+  initialLeafId,
 }) => {
   const { values, errors, touched, validateForm, setFieldTouched } = useFormikContext<any>();
 
@@ -224,7 +240,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   // which groups happen to be expanded.
   const leaves = useMemo(() => groups.flatMap((g) => g.children), [groups]);
 
-  const [activeLeafId, setActiveLeafId] = useState(leaves[0]?.id ?? "");
+  const [activeLeafId, setActiveLeafId] = useState(() => {
+    if (initialLeafId && leaves.some((l) => l.id === initialLeafId)) return initialLeafId;
+    return leaves[0]?.id ?? "";
+  });
   const activeIndex = Math.max(
     0,
     leaves.findIndex((l) => l.id === activeLeafId)
@@ -646,9 +665,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               <span className="wt-step-badge-pill">
                 {activeGroup?.label} · {activeIndex + 1} of {leaves.length}
               </span>
-              <span className="wt-mandatory-note">
-                <span>*</span> Required fields
-              </span>
+              {(activeLeaf?.requiredFields?.length ?? 0) > 0 && (
+                <span className="wt-mandatory-note">
+                  <span>*</span> Required fields
+                </span>
+              )}
             </div>
             <h2 className="wt-step-page-title">{activeLeaf?.title}</h2>
             {activeLeaf?.subtitle && (
@@ -658,10 +679,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
           <div className="wt-step-body">
             <div className="wt-step-animate" key={activeLeafId}>
-              <div className="wt-section-card">
+              <div className="wt-section-card wt-section-card--sandwich">
                 <div className="wt-section-heading">
-                  <span className="wt-section-heading-icon">{activeLeaf?.icon}</span>
-                  {activeLeaf?.title}
+                  {/* Sandwich Rule benchmark: tinted IconBox tile, not a bare glyph. */}
+                  <IconBox icon={activeLeaf?.icon ?? "abstract-26"} trio={TRIO.blue} size={36} fs="fs-3" />
+                  <span className="wt-section-heading-text">{activeLeaf?.title}</span>
                 </div>
                 {activeLeaf?.render(sectionProps)}
               </div>
@@ -723,7 +745,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             type="button"
             className="wt-btn wt-btn-primary"
             style={{ minWidth: "120px" }}
-            onClick={handleDirectSave}
+            onClick={() => (onDirectSave ? onDirectSave() : handleDirectSave())}
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -732,7 +754,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 <span className="spinner-border spinner-border-sm align-middle ms-1" />
               </>
             ) : (
-              <>{isEditMode ? "Save Changes" : "Save Employee"}</>
+              <>
+                {onDirectSave
+                  ? (directSaveLabel ?? "Save draft")
+                  : isEditMode
+                    ? "Save Changes"
+                    : "Save Employee"}
+              </>
             )}
           </button>
         </div>

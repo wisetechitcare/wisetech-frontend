@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Box, CircularProgress, Stack } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { GlassDialog, PlainDialogHeader, WtButton } from '@app/modules/common/components/ui';
+import { GlassDialog, GlassDialogActions, PlainDialogHeader, WtButton } from '@app/modules/common/components/ui';
 import MeetingFormBody, { type MeetingFormBodyHandle, type MeetingFormBodyProps } from './MeetingFormBody';
 
 /**
@@ -45,6 +45,7 @@ export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: 
             onClose={saving ? undefined : onClose}
             maxWidth="lg"
             plain
+            preset="form"
             header={
                 <PlainDialogHeader
                     icon={<KTIcon iconName="calendar-add" className="fs-1" />}
@@ -61,17 +62,17 @@ export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: 
 
             <Box
                 className="min-h-0 flex-1"
-                sx={{ minWidth: 0, overflowY: 'auto', px: 2.5, py: 2, maxHeight: { xs: 'none', sm: '68vh' } }}
+                sx={{ minWidth: 0, overflowY: 'auto', px: 2.5, py: 2 }}
             >
                 <MeetingFormBody ref={bodyRef} onSaved={onSaved} {...bodyProps} />
             </Box>
 
-            <Stack
-                direction={{ xs: 'column-reverse', sm: 'row' }}
-                spacing={1}
-                justifyContent="flex-end"
-                className="shrink-0"
-                sx={{ px: 2.5, py: 1.75, borderTop: '1px solid', borderColor: 'divider' }}
+            <GlassDialogActions
+                sx={{
+                    flexDirection: { xs: 'column-reverse', sm: 'row' },
+                    '& > :not(style) ~ :not(style)': { ml: { xs: 0, sm: 1 } },
+                    gap: 1,
+                }}
             >
                 <WtButton ghost onClick={onClose} disabled={saving} sx={{ width: { xs: '100%', sm: 'auto' } }}>
                     cancel
@@ -84,7 +85,7 @@ export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: 
                 >
                     {saving ? 'saving…' : bodyProps.editing ? 'save changes' : 'create meeting'}
                 </WtButton>
-            </Stack>
+            </GlassDialogActions>
         </GlassDialog>
     );
 }

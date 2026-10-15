@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
-  DialogContent, DialogActions,
-  Tooltip, TextField,
-  Checkbox, FormControlLabel, CircularProgress, Box, Stack, Typography, Chip,
+  DialogContent,
+  Tooltip,
+  CircularProgress, Box, Stack, Typography,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
@@ -26,11 +26,14 @@ import { successConfirmation, errorConfirmation } from "@utils/modal";
 import { DATE_SETTINGS_KEY } from "@constants/configurations-key";
 import { getSocket } from "@utils/socketClient";
 import { safeJsonParse } from "@utils/safeJson";
-// Shared UI kit (single import surface): tokens, CTA/icon buttons, and the reusable
-// glassmorphism primitives (GlassSurface / GlassDialog / GlassHeader) — see ui/index.ts.
+// Shared UI kit — FormSection / GlassDialogActions / SettingsSection / WtEmptyState
+// are the public chrome; day-strip + RuleRow stay domain-local.
 import {
-  T, WtButton, WtIconButton, WtSwitch, WtField, GlassSurface, GlassDialog, GlassHeader,
-  TRIO, EASE_200, SHADOW_REST, SHADOW_HOVER, IconBox, StatusBadge, StatTile,
+  WtButton, WtSwitch, WtField, WtCheckboxField, WtControlLabel,
+  GlassSurface, GlassDialog, GlassHeader, GlassDialogActions,
+  FormSection, FORM_SPACE, SettingsSection, WtEmptyState,
+  ActionIconButton, trioToActionTone,
+  TRIO, EASE_200, SHADOW_HOVER, StatusBadge, StatTile, Eyebrow,
   type Trio,
 } from "@app/modules/common/components/ui";
 
@@ -45,8 +48,7 @@ interface SandwichLeaveProps {
 // kit (see the import above) — they used to be re-declared here, which is how this screen
 // ended up hardcoding light-mode hex and going unreadable in dark mode.
 
-// Button physics (gradient + glass edge + lift/press) come from the shared WtButton/WtIconButton
-// primitives in @app/modules/common/components/ui/buttons — do not re-declare them locally.
+// CTAs / row actions come from WtButton + ActionIconButton — do not re-declare them locally.
 
 const DEFAULT_PATTERN: SandwichRulePattern = {
   runLength: 1,
@@ -60,17 +62,6 @@ const DEFAULT_PATTERN: SandwichRulePattern = {
   excludeTrailingDayFromSalary: false,
 };
 
-
-// Rule-row action button — the shared tinted-ghost primitive with the trio hue. Slightly compact on
-// phones so the trio of controls leaves the rule title more room (and reads as buttons, not boxes).
-function GhostIconButton({ icon, trio, title, onClick }: { icon: string; trio: Trio; title: string; onClick: () => void }) {
-  return (
-    <WtIconButton title={title} color={trio.c} onClick={onClick}
-      sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 } }}>
-      <KTIcon iconName={icon} className="fs-3" />
-    </WtIconButton>
-  );
-}
 
 // ─── Visual pattern strip ───────────────────────────────────────────────────────────────────
 // A sandwich rule IS a left-to-right sequence of days, so it renders as one. Every tile reads
@@ -120,13 +111,13 @@ function DayTile({ role, icon, cond, status }: { role: string; icon: string; con
             theme-aware (white-in-dark) text would be illegible here. */}
         <Box sx={{ color: trio.c, lineHeight: 0, flexShrink: 0 }}><KTIcon iconName={icon} className="fs-2" /></Box>
         <Box sx={{ minWidth: 0 }}>
-          <Typography noWrap sx={{ fontSize: { xs: 10.5, md: 11 }, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#64748b', lineHeight: 1.3 }}>{role}</Typography>
+          <Typography noWrap sx={{ fontSize: { xs: 11, md: 11.5 }, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#64748b', lineHeight: 1.3 }}>{role}</Typography>
           {cond && (
-            <Typography noWrap sx={{ fontSize: { xs: 13.5, md: 14.5 }, fontWeight: 800, color: '#0f172a', lineHeight: 1.3 }}>{cond}</Typography>
+            <Typography noWrap sx={{ fontSize: { xs: 13.5, md: 14 }, fontWeight: 700, color: '#0f172a', lineHeight: 1.3 }}>{cond}</Typography>
           )}
           <Stack direction="row" alignItems="center" spacing={0.6} sx={{ mt: 0.35 }}>
             <Box sx={{ width: 6, height: 6, borderRadius: 999, bgcolor: trio.c, flexShrink: 0 }} />
-            <Typography noWrap sx={{ fontSize: { xs: 10.5, md: 11 }, fontWeight: 700, color: trio.c, textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2 }}>{label}</Typography>
+            <Typography noWrap sx={{ fontSize: { xs: 11, md: 11.5 }, fontWeight: 700, color: trio.c, textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2 }}>{label}</Typography>
           </Stack>
         </Box>
       </Stack>
@@ -197,28 +188,6 @@ function PatternLegend() {
   );
 }
 
-// ─── Section card ───────────────────────────────────────────────────────────────────────────
-
-function SectionCard({ title, description, icon, trio, count, children }: {
-  title: string; description: string; icon: string; trio: Trio; count: number; children: React.ReactNode;
-}) {
-  return (
-    <GlassSurface variant="thin" className="sw-fade-up" sx={{ borderRadius: '14px', borderColor: 'divider', overflow: 'hidden', boxShadow: SHADOW_REST }}>
-      <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ p: { xs: 1.5, sm: 2 }, pb: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-        <IconBox icon={icon} trio={trio} size={42} fs="fs-2" />
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ rowGap: 0.5 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: 15, color: 'text.primary', lineHeight: 1.25 }}>{title}</Typography>
-            <Chip size="small" label={count} sx={{ height: 20, fontSize: 11, fontWeight: 700, color: trio.c, bgcolor: trio.bg, border: `1px solid ${trio.bd}`, '& .MuiChip-label': { px: 1 } }} />
-          </Stack>
-          <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 0.25, lineHeight: 1.5 }}>{description}</Typography>
-        </Box>
-      </Stack>
-      <Box sx={{ p: { xs: 1.5, sm: 2 } }}>{children}</Box>
-    </GlassSurface>
-  );
-}
-
 // ─── Rule row ───────────────────────────────────────────────────────────────────────────────
 
 function RuleRow({ rule, trio, index, readOnly, busy, draggable, onToggle, onEdit, onDelete, onAudit }: {
@@ -262,9 +231,9 @@ function RuleRow({ rule, trio, index, readOnly, busy, draggable, onToggle, onEdi
           </Stack>
           {!readOnly && (
             <Stack direction="row" spacing={{ xs: 0.5, sm: 0.75 }} alignItems="center" sx={{ flexShrink: 0 }} {...stopDrag}>
-              <GhostIconButton icon="time" trio={TRIO.slate} title="View audit history" onClick={onAudit} />
-              <GhostIconButton icon="pencil" trio={TRIO.blue} title="Edit rule" onClick={onEdit} />
-              <GhostIconButton icon="trash" trio={TRIO.rose} title="Delete rule" onClick={onDelete} />
+              <ActionIconButton iconName="time" title="View audit history" tone={trioToActionTone(TRIO.slate)} size="sm" onClick={onAudit} />
+              <ActionIconButton iconName="pencil" title="Edit rule" tone={trioToActionTone(TRIO.blue)} size="sm" onClick={onEdit} />
+              <ActionIconButton iconName="trash" title="Delete rule" tone={trioToActionTone(TRIO.rose)} size="sm" onClick={onDelete} />
             </Stack>
           )}
         </Stack>
@@ -272,46 +241,6 @@ function RuleRow({ rule, trio, index, readOnly, busy, draggable, onToggle, onEdi
         <SandwichPatternStrip pattern={rule.pattern} />
       </Stack>
     </GlassSurface>
-  );
-}
-
-// ─── Empty state ────────────────────────────────────────────────────────────────────────────
-
-function EmptyState({ icon, trio, title, description, onAdd }: {
-  icon: string; trio: Trio; title: string; description: string; onAdd?: () => void;
-}) {
-  return (
-    <Stack alignItems="center" spacing={1} sx={{ textAlign: 'center', py: 3.5 }}>
-      <Box sx={{ width: 56, height: 56, borderRadius: '16px', display: 'grid', placeItems: 'center', bgcolor: trio.bg, color: trio.c, border: `1px solid ${trio.bd}` }}>
-        <KTIcon iconName={icon} className="fs-2x" />
-      </Box>
-      <Typography sx={{ fontWeight: 700, fontSize: 15, color: 'text.primary' }}>{title}</Typography>
-      <Typography sx={{ fontSize: 13, color: 'text.secondary', maxWidth: 400, lineHeight: 1.5 }}>{description}</Typography>
-      {onAdd && (
-        <WtButton inverted size="small" startIcon={<KTIcon iconName="plus" className="fs-5" />} onClick={onAdd}
-          sx={{ mt: 0.5, px: 2, fontSize: 13 }}>
-          Add Rule
-        </WtButton>
-      )}
-    </Stack>
-  );
-}
-
-// ─── Dialog header — now the shared GlassHeader (navy gradient + red accent stripe), with this
-// screen's KTIcon glyphs plugged in. Kept as a thin local wrapper so the four call sites (which
-// pass `icon` as a KTIcon name string) stay unchanged. ───────────────────────────────────────
-function DialogHeader({ title, subtitle, icon, onClose, action }: {
-  title: string; subtitle?: string; icon: string; onClose?: () => void; action?: React.ReactNode;
-}) {
-  return (
-    <GlassHeader
-      variant="gradient"
-      title={title}
-      subtitle={subtitle}
-      onClose={onClose}
-      action={action}
-      icon={<KTIcon iconName={icon} className="fs-1" />}
-    />
   );
 }
 
@@ -323,13 +252,6 @@ interface RuleFormModalProps {
   onSaved: () => void;
   editingRule: SandwichRule | null;
   defaultCategory?: 'holiday-bridge' | 'weekend-bridge' | 'custom';
-}
-
-// Devices LabeledField eyebrow — names each form group so the dialog scans at a glance.
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <Typography sx={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>{children}</Typography>
-  );
 }
 
 function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 'custom' }: RuleFormModalProps) {
@@ -381,43 +303,54 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
   };
 
   const set = (patch: Partial<SandwichRulePattern>) => setPattern((p) => ({ ...p, ...patch }));
-  // `ml: 0` is load-bearing, not cosmetic. MUI ships FormControlLabel with
-  // `margin-left: -11px` so a bare switch optically aligns with body text; inside a flex
-  // row or a grid cell that pulls the control 11px into whatever sits to its left, which
-  // is why the "Any" toggle was sitting on top of the run-length field. Zeroed once here
-  // so every control in this modal aligns to its container instead of each call site
-  // rediscovering the same bug.
-  const controlLabelSx = {
-    ml: 0,
-    '& .MuiFormControlLabel-label': { fontSize: 13, fontWeight: 600, color: 'text.primary' },
-  } as const;
 
   return (
-    // GlassDialog = frosted Paper + dimmed/blurred backdrop; disableEnforceFocus defaults true so
-    // the focus trap survives being portaled outside the react-bootstrap host modal.
-    <GlassDialog open={show} onClose={onClose} maxWidth="md" header={
-      <DialogHeader
-        title={editingRule ? 'Edit Rule' : 'Add Rule'}
-        subtitle={editingRule ? `Editing "${editingRule.name}"` : 'Define a new sandwich day-pattern'}
-        icon="pencil"
-        onClose={onClose}
-      />
-    }>
-      <DialogContent sx={{ p: { xs: 1.5, sm: 2 } }}>
-        <Stack spacing={1.5}>
-          {/* Live preview — updates as the form below changes */}
-          <GlassSurface variant="thin" sx={{ p: 1.5, borderRadius: '12px', borderColor: 'divider' }}>
+    <GlassDialog
+      open={show}
+      onClose={onClose}
+      maxWidth="md"
+      preset="form"
+      header={
+        <GlassHeader
+          title={editingRule ? 'Edit Rule' : 'Add Rule'}
+          subtitle={editingRule ? `Editing "${editingRule.name}"` : 'Define a new sandwich day-pattern'}
+          icon="pencil"
+          onClose={onClose}
+        />
+      }
+    >
+      <DialogContent
+        sx={{
+          p: FORM_SPACE.bodyPad,
+          flex: '1 1 auto',
+          minHeight: 0,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+        }}
+      >
+        <Stack spacing={FORM_SPACE.stackGap}>
+          <GlassSurface variant="thin" sx={{ p: FORM_SPACE.cardPad, borderRadius: '12px', borderColor: 'divider' }}>
             <Box sx={{ mb: 1 }}><Eyebrow>Live Preview</Eyebrow></Box>
             <SandwichPatternStrip pattern={pattern} />
-            <Box sx={{ mt: 1 }}><PatternLegend /></Box>
           </GlassSurface>
 
-          <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
-            <Stack spacing={2}>
-              <Eyebrow>Rule Details</Eyebrow>
-              <TextField label="Rule Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Diwali Bridge" fullWidth size="small" />
-              <TextField label="Description (Optional)" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this rule for?" fullWidth size="small" multiline minRows={2} />
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 2 }}>
+          <FormSection tone={TRIO.blue} icon="document" title="Rule Details">
+              <WtField
+                label="Rule Name"
+                required
+                value={name}
+                onChange={setName}
+                placeholder="e.g. Diwali Bridge"
+              />
+              <WtField
+                label="Description (Optional)"
+                value={description}
+                onChange={setDescription}
+                placeholder="What is this rule for?"
+                multiline
+                minRows={1}
+              />
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: FORM_SPACE.rowGap, alignItems: 'flex-start' }}>
                 <WtField
                   label="Category"
                   value={category}
@@ -428,24 +361,30 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
                     { value: 'weekend-bridge', label: 'Weekend-Bridge' },
                   ]}
                 />
-                {/* Exact run length, OR toggle "Any" to match a bridge of any length (catch-all).
-                    The label is short because this field is half-width at sm and the toggle sits
-                    beside it — "Interior off-day run length" could not fit and collided with the
-                    switch. The full meaning lives in the helper text below, which has the room. */}
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'flex-start' }}>
-                  <TextField type="number" label="Run Length" size="small"
+                <Box sx={{ minWidth: 0, display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
+                  <WtField
+                    type="number"
+                    label="Run Length (Interior off-days in the run)"
                     sx={{ flex: '1 1 140px', minWidth: 0 }}
-                    helperText="Interior off-days in the run"
-                    value={pattern.runLength === 'any' ? '' : pattern.runLength}
+                    value={pattern.runLength === 'any' ? '' : String(pattern.runLength)}
                     disabled={pattern.runLength === 'any'}
                     placeholder={pattern.runLength === 'any' ? 'Any length' : undefined}
-                    inputProps={{ min: 1 }}
-                    onChange={(e) => set({ runLength: Math.max(1, parseInt(e.target.value) || 1) })} />
+                    min={1}
+                    onChange={(v) => set({ runLength: Math.max(1, parseInt(String(v), 10) || 1) })}
+                  />
                   <Tooltip title="Match a bridge of ANY length (e.g. long weekends, festival breaks)">
-                    <FormControlLabel sx={{ ...controlLabelSx, mr: 0, flexShrink: 0, mt: 0.5 }}
-                      control={<WtSwitch size="sm" checked={pattern.runLength === 'any'}
-                        onChange={(e) => set({ runLength: e.target.checked ? 'any' : 2 })} />}
-                      label="Any" />
+                    <Box component="span" sx={{ flexShrink: 0, pt: 0.5 }}>
+                      <WtControlLabel
+                        control={
+                          <WtSwitch
+                            size="sm"
+                            checked={pattern.runLength === 'any'}
+                            onChange={(e) => set({ runLength: e.target.checked ? 'any' : 2 })}
+                          />
+                        }
+                        label="Any"
+                      />
+                    </Box>
                   </Tooltip>
                 </Box>
               </Box>
@@ -459,15 +398,15 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
                   { value: 'weekend', label: 'Weekend only (branch off-day)' },
                 ]}
               />
-            </Stack>
-          </GlassSurface>
+          </FormSection>
 
-          <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
-            <Stack spacing={1}>
-              <Eyebrow>Leading Day (Before the Off-Day Run)</Eyebrow>
-              <FormControlLabel sx={controlLabelSx} control={<WtSwitch size="sm" checked={pattern.leadingRequired} onChange={(e) => set({ leadingRequired: e.target.checked })} />} label="Leading Leave Day Required?" />
+          <FormSection tone={TRIO.green} icon="arrow-left" title="Leading Day" desc="Before the off-day run.">
+              <WtControlLabel
+                control={<WtSwitch size="sm" checked={pattern.leadingRequired} onChange={(e) => set({ leadingRequired: e.target.checked })} />}
+                label="Leading leave day required?"
+              />
               {pattern.leadingRequired && (
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 1.5, alignItems: 'center' }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: FORM_SPACE.rowGap, alignItems: 'center' }}>
                   <WtField
                     label="Leading Day Must Be"
                     value={pattern.leadingPaidCondition}
@@ -478,18 +417,23 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
                       { value: 'unpaid', label: 'Unpaid only' },
                     ]}
                   />
-                  <FormControlLabel sx={controlLabelSx} control={<Checkbox size="small" checked={pattern.excludeLeadingDayFromSalary} onChange={(e) => set({ excludeLeadingDayFromSalary: e.target.checked })} />} label="Exclude leading day from salary when paid" />
+                  <WtCheckboxField
+                    size="sm"
+                    checked={pattern.excludeLeadingDayFromSalary}
+                    onChange={(e) => set({ excludeLeadingDayFromSalary: e.target.checked })}
+                    label="Exclude leading day from salary when paid"
+                  />
                 </Box>
               )}
-            </Stack>
-          </GlassSurface>
+          </FormSection>
 
-          <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
-            <Stack spacing={1}>
-              <Eyebrow>Trailing Day (After the Off-Day Run)</Eyebrow>
-              <FormControlLabel sx={controlLabelSx} control={<WtSwitch size="sm" checked={pattern.trailingRequired} onChange={(e) => set({ trailingRequired: e.target.checked })} />} label="Trailing Leave Day Required?" />
+          <FormSection tone={TRIO.purple} icon="arrow-right" title="Trailing Day" desc="After the off-day run.">
+              <WtControlLabel
+                control={<WtSwitch size="sm" checked={pattern.trailingRequired} onChange={(e) => set({ trailingRequired: e.target.checked })} />}
+                label="Trailing leave day required?"
+              />
               {pattern.trailingRequired && (
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 1.5, alignItems: 'center' }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: FORM_SPACE.rowGap, alignItems: 'center' }}>
                   <WtField
                     label="Trailing Day Must Be"
                     value={pattern.trailingPaidCondition}
@@ -500,29 +444,39 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
                       { value: 'unpaid', label: 'Unpaid only' },
                     ]}
                   />
-                  <FormControlLabel sx={controlLabelSx} control={<Checkbox size="small" checked={pattern.excludeTrailingDayFromSalary} onChange={(e) => set({ excludeTrailingDayFromSalary: e.target.checked })} />} label="Exclude trailing day from salary when paid" />
+                  <WtCheckboxField
+                    size="sm"
+                    checked={pattern.excludeTrailingDayFromSalary}
+                    onChange={(e) => set({ excludeTrailingDayFromSalary: e.target.checked })}
+                    label="Exclude trailing day from salary when paid"
+                  />
                 </Box>
               )}
-            </Stack>
-          </GlassSurface>
+          </FormSection>
 
-          <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
-            <Stack spacing={0.5}>
-              <Eyebrow>Salary Counting & Activation</Eyebrow>
-              <FormControlLabel sx={controlLabelSx} control={<Checkbox size="small" checked={pattern.excludeInteriorDaysFromSalary} onChange={(e) => set({ excludeInteriorDaysFromSalary: e.target.checked })} />} label="Exclude the interior off-day(s) themselves from the salary count" />
-              <FormControlLabel sx={controlLabelSx} control={<WtSwitch checked={isEnabled} onChange={(e) => setIsEnabled(e.target.checked)} />} label="Enabled" />
-            </Stack>
-          </GlassSurface>
+          <FormSection tone={TRIO.amber} icon="dollar" title="Salary & Activation">
+              <WtCheckboxField
+                size="sm"
+                checked={pattern.excludeInteriorDaysFromSalary}
+                onChange={(e) => set({ excludeInteriorDaysFromSalary: e.target.checked })}
+                label="Exclude the interior off-day(s) themselves from the salary count"
+              />
+              <WtControlLabel
+                control={<WtSwitch size="sm" checked={isEnabled} onChange={(e) => setIsEnabled(e.target.checked)} />}
+                label="Enabled"
+              />
+          </FormSection>
         </Stack>
       </DialogContent>
-      <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: `1px solid ${T.color.line}` }}>
-        <WtButton ghost onClick={onClose} disabled={submitting}>Cancel</WtButton>
-        {/* Commit action = navy fill (user decision: Add = white pill, Save = navy, Delete = red) */}
-        <WtButton onClick={handleSave} disabled={submitting} sx={{ px: 2.5, py: 0.9 }}
-          startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <KTIcon iconName="check-circle" className="fs-5" />}>
-          {editingRule ? 'Save Changes' : 'Create Rule'}
-        </WtButton>
-      </DialogActions>
+      <GlassDialogActions
+        onCancel={onClose}
+        cancelDisabled={submitting}
+        onSubmit={handleSave}
+        submitDisabled={submitting}
+        submitLabel={editingRule ? 'Save Changes' : 'Create Rule'}
+        submitting={submitting}
+        submitStartIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <KTIcon iconName="check-circle" className="fs-5" />}
+      />
     </GlassDialog>
   );
 }
@@ -559,15 +513,20 @@ function AuditLogModal({ ruleId, ruleName, onClose }: { ruleId: string | null; r
   }, [ruleId]);
 
   return (
-    <GlassDialog open={!!ruleId} onClose={onClose} maxWidth="sm" header={
-      <DialogHeader title="Audit History" subtitle={ruleName} icon="time" onClose={onClose} />
+    <GlassDialog open={!!ruleId} onClose={onClose} maxWidth="sm" preset="form" header={
+      <GlassHeader title="Audit History" subtitle={ruleName} icon="time" onClose={onClose} />
     }>
-      <DialogContent sx={{ maxHeight: '62vh', p: { xs: 1.5, sm: 2 } }}>
+      <DialogContent sx={{ maxHeight: '62vh', p: FORM_SPACE.bodyPad }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>
         ) : logs.length === 0 ? (
-          <EmptyState icon="time" trio={TRIO.slate} title="No audit history yet"
-            description="Every create, edit, enable/disable, and delete on this rule will be recorded here — who did it and when." />
+          <WtEmptyState
+            dense
+            icon="time"
+            tone={TRIO.slate}
+            title="No audit history yet"
+            hint="Every create, edit, enable/disable, and delete on this rule will be recorded here — who did it and when."
+          />
         ) : (
           <Stack spacing={1.25}>
             {logs.map((log) => {
@@ -769,17 +728,18 @@ function SandwichLeave({ open, showSandWhichLeaveModal, readOnly = false }: Sand
       open={open}
       onClose={() => showSandWhichLeaveModal(false)}
       maxWidth="lg"
+      preset="workspace"
       header={
-        <DialogHeader
+        <GlassHeader
           title="Sandwich Leave Rules"
           subtitle={`Payroll salary-exclusion rules · ${totalEnabledCount}/${rules.length} enabled${readOnly ? ' · read-only' : ''}`}
           icon="calendar-8"
           onClose={() => showSandWhichLeaveModal(false)}
           action={!readOnly ? (
             // Header action hides on phones (a full-width Add lives in the body there).
-            <WtButton inverted startIcon={<KTIcon iconName="plus" className="fs-4" />}
+            <WtButton inverted size="small" startIcon={<KTIcon iconName="plus" className="fs-4" />}
               onClick={() => openAddRule('custom')}
-              sx={{ display: { xs: 'none', sm: 'inline-flex' }, height: 40, px: 2.25, fontSize: 13.5 }}>
+              sx={{ display: { xs: 'none', sm: 'inline-flex' } }}>
               Add Rule
             </WtButton>
           ) : undefined}
@@ -805,14 +765,14 @@ function SandwichLeave({ open, showSandWhichLeaveModal, readOnly = false }: Sand
         </Box>
       ) : (
       // DialogContent scrolls within the fixed glass Paper (same as the Add Rule dialog).
-      <DialogContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+      <DialogContent sx={{ p: FORM_SPACE.bodyPad }}>
         {/* Mobile: primary action lives in the body (header stays uncluttered) — Devices pattern. */}
         {!readOnly && (
           // Full-width phone CTA — navy fill like the Create Rule button (explicit user decision:
           // "Create Rule button is fine, so make Add Rule button also like that in mobile view").
-          <WtButton fullWidth onClick={() => openAddRule('custom')}
+          <WtButton fullWidth size="medium" onClick={() => openAddRule('custom')}
             startIcon={<KTIcon iconName="plus" className="fs-5" />}
-            sx={{ display: { xs: 'flex', sm: 'none' }, fontSize: 13.5, height: 44, mb: 2 }}>
+            sx={{ display: { xs: 'flex', sm: 'none' }, mb: 2 }}>
             Add Rule
           </WtButton>
         )}
@@ -840,37 +800,61 @@ function SandwichLeave({ open, showSandWhichLeaveModal, readOnly = false }: Sand
           <PatternLegend />
         </GlassSurface>
 
-        <Stack spacing={1.5}>
-          <SectionCard title="Holiday-Bridge Rules"
+        <Stack spacing={FORM_SPACE.stackGap} className="sw-fade-up">
+          <SettingsSection
+            tone={TRIO.blue}
+            icon="calendar-tick"
+            title="Holiday-Bridge Rules"
             description="Holiday-bridged leave — the public holiday(s) between the leave days must have an active status. Fully editable — add, edit, or delete freely."
-            icon="calendar-tick" trio={TRIO.blue} count={holidayBridgeRules.length}>
+            count={holidayBridgeRules.length}
+          >
             {holidayBridgeRules.length === 0 ? (
-              <EmptyState icon="calendar-tick" trio={TRIO.blue} title="No holiday-bridge rules yet"
-                description="These rules govern leave placed on both sides of a public holiday. Add one to define this pattern."
-                onAdd={readOnly ? undefined : () => openAddRule('holiday-bridge')} />
+              <WtEmptyState
+                dense
+                icon="calendar-tick"
+                tone={TRIO.blue}
+                title="No holiday-bridge rules yet"
+                hint="These rules govern leave placed on both sides of a public holiday. Add one to define this pattern."
+                actionLabel={readOnly ? undefined : 'Add Rule'}
+                onAction={readOnly ? undefined : () => openAddRule('holiday-bridge')}
+              />
             ) : (
               renderRuleList(holidayBridgeRules, TRIO.blue, 'holiday-bridge')
             )}
-          </SectionCard>
+          </SettingsSection>
 
-          <SectionCard title="Weekend-Bridge Rules"
+          <SettingsSection
+            tone={TRIO.purple}
+            icon="calendar-2"
+            title="Weekend-Bridge Rules"
             description="Leave placed against a Friday–Monday weekend, with or without a holiday landing on it. Fully editable — add, edit, or delete freely."
-            icon="calendar-2" trio={TRIO.purple} count={weekendBridgeRules.length}>
+            count={weekendBridgeRules.length}
+          >
             {weekendBridgeRules.length === 0 ? (
-              <EmptyState icon="calendar-2" trio={TRIO.purple} title="No weekend-bridge rules yet"
-                description="These rules govern leave placed against a weekend, with or without a holiday landing on it. Add one to define this pattern."
-                onAdd={readOnly ? undefined : () => openAddRule('weekend-bridge')} />
+              <WtEmptyState
+                dense
+                icon="calendar-2"
+                tone={TRIO.purple}
+                title="No weekend-bridge rules yet"
+                hint="These rules govern leave placed against a weekend, with or without a holiday landing on it. Add one to define this pattern."
+                actionLabel={readOnly ? undefined : 'Add Rule'}
+                onAction={readOnly ? undefined : () => openAddRule('weekend-bridge')}
+              />
             ) : (
               renderRuleList(weekendBridgeRules, TRIO.purple, 'weekend-bridge')
             )}
-          </SectionCard>
+          </SettingsSection>
 
           {showCustomSection && (
-            <SectionCard title="Custom Rules"
+            <SettingsSection
+              tone={TRIO.amber}
+              icon="medal-star"
+              title="Custom Rules"
               description="Admin-defined sandwich patterns beyond the built-in scenario families. Full add / edit / delete, with a complete audit trail per rule."
-              icon="medal-star" trio={TRIO.amber} count={customCategoryRules.length}>
+              count={customCategoryRules.length}
+            >
               {renderRuleList(customCategoryRules, TRIO.amber, 'custom')}
-            </SectionCard>
+            </SettingsSection>
           )}
         </Stack>
       </DialogContent>
@@ -886,22 +870,22 @@ function SandwichLeave({ open, showSandWhichLeaveModal, readOnly = false }: Sand
 
       <AuditLogModal ruleId={auditRuleId} ruleName={auditRuleName} onClose={() => setAuditRuleId(null)} />
 
-      <GlassDialog open={!!deletingRule} onClose={() => setDeletingRule(null)} maxWidth="xs" header={
-        <DialogHeader title="Delete Rule" subtitle={deletingRule?.name} icon="trash" onClose={() => setDeletingRule(null)} />
+      <GlassDialog open={!!deletingRule} onClose={() => setDeletingRule(null)} maxWidth="xs" preset="form" header={
+        <GlassHeader title="Delete Rule" subtitle={deletingRule?.name} icon="trash" onClose={() => setDeletingRule(null)} />
       }>
-        <DialogContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+        <DialogContent sx={{ p: FORM_SPACE.bodyPad }}>
           <Typography sx={{ fontSize: 13.5, color: 'text.secondary', lineHeight: 1.55 }}>
             Are you sure you want to delete <Box component="b" sx={{ color: 'text.primary' }}>{deletingRule?.name}</Box>?
             This rule will stop applying immediately. Its audit history will remain viewable.
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: `1px solid ${T.color.line}` }}>
+        <GlassDialogActions onCancel={() => setDeletingRule(null)}>
           <WtButton ghost onClick={() => setDeletingRule(null)}>Cancel</WtButton>
-          <WtButton tone="danger" onClick={handleDelete} sx={{ px: 2.5, py: 0.9 }}
+          <WtButton tone="danger" onClick={handleDelete}
             startIcon={<KTIcon iconName="trash" className="fs-5" />}>
             Delete
           </WtButton>
-        </DialogActions>
+        </GlassDialogActions>
       </GlassDialog>
     </GlassDialog>
   );

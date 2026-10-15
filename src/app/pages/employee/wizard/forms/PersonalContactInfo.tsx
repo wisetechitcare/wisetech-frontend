@@ -3,7 +3,15 @@ import TextInput from "@app/modules/common/inputs/TextInput";
 import { useState } from "react";
 import { checkEmailDomain } from "@utils/emailDomain";
 
-function PersonalContactInfo({ formikProps }: { formikProps: any }) {
+function PersonalContactInfo({
+  formikProps,
+  softRequired = false,
+}: {
+  formikProps: any;
+  /** Candidate / pre-hire — no hard asterisks on contact fields. */
+  softRequired?: boolean;
+}) {
+  const contactRequired = !softRequired;
   /**
    * Warn before the personal email is edited on an employee who already has one.
    *
@@ -40,7 +48,7 @@ function PersonalContactInfo({ formikProps }: { formikProps: any }) {
             }}
           >
             <TextInput
-              isRequired={true}
+              isRequired={contactRequired}
               label="Personal Email Address"
               formikField="personalEmailId"
               margin="mb-0"
@@ -61,7 +69,7 @@ function PersonalContactInfo({ formikProps }: { formikProps: any }) {
         <div className="col-lg-6 col-md-6 col-sm-12">
           <PhoneNumberInput
             label="Personal Phone Number"
-            isRequired={true}
+            isRequired={contactRequired}
             formikField="personalPhoneNumber"
             formikProps={formikProps}
             extensionField="personalPhoneNumberExtension"

@@ -33,6 +33,7 @@ import dayjs, { Dayjs } from 'dayjs';
 import { DATE_FORMATS } from '@utils/dateFormats';
 import { getTimeTokens } from '@utils/timeFormat';
 import { useDropdownBoundary } from './dropdownBoundary';
+import { controlHeightSxFor } from './buttons';
 
 export interface WtDateFieldBaseProps {
   label?: string;
@@ -50,6 +51,12 @@ export interface WtDateFieldBaseProps {
   minDate?: string;
   maxDate?: string;
   fullWidth?: boolean;
+  /**
+   * Same contract as `WtField`: `'sm'` (default, 40px) for most forms/toolbars;
+   * `'md'` (44px) for spacious dialog forms. Maps to MUI TextField size so the
+   * floating label and input stay in lockstep.
+   */
+  size?: 'sm' | 'md';
   /** Applied to the underlying TextField (sizing/flex from the parent layout). */
   sx?: SxProps<Theme>;
   /** Escape hatch for a form library that needs the blur event. */
@@ -97,13 +104,17 @@ const datePopperSlot = (boundaryPopper: BoundaryPopper) => ({
 /** Shared slotProps so both variants present identically. */
 const textFieldSlot = (p: WtDateFieldBaseProps, boundaryPopper: BoundaryPopper) => ({
   textField: {
-    size: 'small' as const,
+    // Match WtField: default sm (40px); pass size="md" for spacious dialogs.
+    size: (p.size === 'md' ? 'medium' : 'small') as 'small' | 'medium',
     fullWidth: p.fullWidth ?? true,
     required: p.required,
     error: p.error,
     helperText: p.helperText,
     onBlur: p.onBlur,
-    sx: p.sx,
+    sx: [
+      controlHeightSxFor(p.size === 'md' ? 'md' : 'sm'),
+      ...(Array.isArray(p.sx) ? p.sx : [p.sx]),
+    ].filter(Boolean),
   },
   // A visible Clear action — the native input had one and losing it is a regression.
   actionBar: { actions: ['clear', 'today', 'accept'] as ('clear' | 'today' | 'accept')[] },
@@ -141,7 +152,6 @@ export function WtDateField(props: WtDateFieldBaseProps) {
           minDate={parse(minDate) ?? undefined}
           maxDate={parse(maxDate) ?? undefined}
           format={DATE_FORMATS.DISPLAY}
-          reduceAnimations
           {...(open !== undefined ? { open, onOpen, onClose } : {})}
           slotProps={textFieldSlot(props, boundarySlots.popper)}
         />
@@ -177,7 +187,6 @@ export function WtDateTimeField(props: WtDateTimeFieldProps) {
           minDateTime={parse(minDateTime) ?? undefined}
           maxDateTime={parse(maxDateTime) ?? undefined}
           format={getTimeTokens().DATETIME}
-          reduceAnimations
           slotProps={textFieldSlot(props, boundarySlots.popper)}
         />
       </Box>

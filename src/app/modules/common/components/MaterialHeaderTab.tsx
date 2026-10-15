@@ -275,11 +275,15 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
         ctx.font = '700 12.5px Inter, sans-serif';
         return namesKey.split('|').reduce((sum, name) => sum + Math.ceil(ctx.measureText(name).width) + 46, 0);
     }, [namesKey]);
+    // Until the tablist has a real width, assume the denser 'nav' mode — never 'row'.
+    // 'row' used flex-shrink:0, so the first paint with width=0 claimed every tab fit,
+    // refused to shrink, and shoved headerAction (Lock / Sensitive eye) off the right edge.
     const phoneMode: 'row' | 'nav' | 'icons' | 'bare' =
-        tablistWidth === 0 || tablistWidth >= rowNeeded + gaps ? 'row'
-        : tablistWidth >= tabItems.length * NAV_CELL + gaps ? 'nav'
-            : tablistWidth >= tabItems.length * ICON_CELL + gaps + NAME_ROOM ? 'icons'
-                : 'bare';
+        tablistWidth === 0 ? 'nav'
+        : tablistWidth >= rowNeeded + gaps ? 'row'
+            : tablistWidth >= tabItems.length * NAV_CELL + gaps ? 'nav'
+                : tablistWidth >= tabItems.length * ICON_CELL + gaps + NAME_ROOM ? 'icons'
+                    : 'bare';
 
     // Seeded from the prop, not 0. Pages that keep the active tab in the URL
     // remount on every back-navigation, and starting at 0 painted — and mounted,
@@ -375,10 +379,21 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
 
     const phoneBar = (
         <Box
-            className="flex items-center gap-2 px-2"
+            className="flex items-center gap-1.5 px-1.5 sm:gap-2 sm:px-2"
             // Height in sx, not a utility: 52px bar around 36px tabs leaves 8px above and below the
             // selected pill, so it never runs into the top and bottom edges of the bar.
-            sx={{ ...stickySx, background: T.color.brandGradientLeftToRight, minHeight: 52, py: '8px' }}
+            sx={{
+                ...stickySx,
+                background: T.color.brandGradientLeftToRight,
+                minHeight: 52,
+                py: '8px',
+                width: '100%',
+                maxWidth: '100%',
+                minWidth: 0,
+                boxSizing: 'border-box',
+                // Clip runaway tabs — never the action rail (Lock / Sensitive), which is flexShrink:0.
+                overflow: 'hidden',
+            }}
         >
             <Box
                 ref={tablistRef}
@@ -395,7 +410,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                     // flex-start, so the first tab can never be pushed off-screen.
                     justifyContent: phoneMode === 'nav' || phoneMode === 'row' ? 'stretch' : 'space-between',
                     gap: `${ICON_GAP}px`,
-                    // Last resort only: more icons than even the icon-only row can hold.
+                    // Tabs may scroll; the Sensitive / Lock rail stays pinned beside them.
                     overflowX: 'auto',
                     scrollbarWidth: 'none',
                     '&::-webkit-scrollbar': { display: 'none' },
@@ -422,8 +437,9 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                                 // nav: equal share of the row, icon over name.
                                 // icons/bare: an icon square; in 'icons' the selected tab widens to
                                 // name itself and gives way (ellipsis) before overflowing.
-                                // row: icon + name on one line, cells share the spare width.
-                                flex: row ? '1 0 auto' : nav ? '1 1 0' : named ? '0 1 auto' : `0 0 ${ICON_CELL}px`,
+                                // row: icon + name on one line — MUST shrink (1 1 auto), or long
+                                // titles shove Lock / Sensitive off the phone bar.
+                                flex: row ? '1 1 auto' : nav ? '1 1 0' : named ? '0 1 auto' : `0 0 ${ICON_CELL}px`,
                                 minWidth: row || nav || named ? 0 : ICON_CELL,
                                 height: nav ? 'auto' : ICON_CELL,
                                 minHeight: ICON_CELL,
@@ -488,20 +504,36 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
             </Box>
 
             {headerAction && (
-                // The action is a peer of the tabs, not one of them: a hairline divider sets it
-                // apart, and it stretches to the tabs' height in whichever mode is active (36px
-                // one-line, ~47px icon-over-name) so it never sits as a small square beside tall
-                // cells.
+                // Peer rail: tabs may scroll; Lock / Sensitive stay pinned. Cells are the same
+                // ICON_CELL square as bare/icon phone tabs so they don't float as tiny glyphs
+                // beside the taller nav (icon-over-name) column.
                 <Box
                     className="mht-phone-action"
                     sx={{
                         display: 'flex',
                         alignSelf: 'stretch',
-                        alignItems: 'stretch',
+                        alignItems: 'center',
                         flexShrink: 0,
                         pl: '8px',
+                        pr: '4px',
+                        ml: '2px',
                         borderLeft: '1px solid rgba(255, 255, 255, 0.18)',
-                        '& > button': { height: 'auto', minHeight: ICON_CELL },
+                        // Salary (and others) wrap actions in a div — normalize the cluster.
+                        '& > *': {
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            height: ICON_CELL,
+                        },
+                        '& button': {
+                            boxSizing: 'border-box',
+                            width: ICON_CELL,
+                            minWidth: ICON_CELL,
+                            height: ICON_CELL,
+                            minHeight: ICON_CELL,
+                            padding: 0,
+                            borderRadius: '10px',
+                        },
                     }}
                 >
                     {headerAction}

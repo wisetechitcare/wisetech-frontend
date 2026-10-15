@@ -8,7 +8,6 @@ import { navIcon } from "@components/navigation/NavContainers/navIcons";
 import { SECTION_TABS, tabKey } from "@utils/sectionTabs";
 import type { AccessLayoutNode } from "@utils/accessSidebarLayout";
 import type { EffLevel, TabControls } from "./accessControlTypes";
-
 /**
  * A card whose tabs are sections of their own (KPI): each tab's switch sets that section — on at the
  * card's level (Configure needs Write), off = no access.
@@ -103,13 +102,10 @@ const AccessTabsDialog: React.FC<Props> = ({ open, onClose, label, icon, readOnl
         {rows.map((r) => {
           const TabIcon = navIcon(r.icon);
           return (
+            <Box key={r.key} sx={{ borderRadius: "14px", border: "1px solid", borderColor: r.on ? "rgba(63,91,217,0.28)" : "divider", bgcolor: r.on ? "rgba(63,91,217,0.04)" : "transparent", transition: "border-color .15s ease, background .15s ease" }}>
             <Box
-              key={r.key}
               sx={{
                 display: "flex", alignItems: "center", gap: 1.5, p: 1.5, borderRadius: "14px",
-                border: "1px solid", borderColor: r.on ? "rgba(63,91,217,0.28)" : "divider",
-                bgcolor: r.on ? "rgba(63,91,217,0.04)" : "transparent",
-                transition: "border-color .15s ease, background .15s ease",
               }}
             >
               <Box sx={{ width: 38, height: 38, borderRadius: "11px", display: "grid", placeItems: "center", flexShrink: 0, bgcolor: r.on ? "rgba(63,91,217,0.12)" : "action.hover", color: r.on ? "#2A3F9E" : "text.disabled" }}>
@@ -145,11 +141,14 @@ const AccessTabsDialog: React.FC<Props> = ({ open, onClose, label, icon, readOnl
                 tone="#2A3F9E"
               />
             </Box>
+            </Box>
           );
         })}
       </Box>
       <Box sx={{ px: { xs: 2, sm: 3 }, pb: 2.5, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
-        <Box sx={{ fontSize: 12, color: "text.secondary" }}>Applied when you save the page.</Box>
+        <Box sx={{ fontSize: 12, color: "text.secondary" }}>
+          Applied when you save the page.
+        </Box>
         <WtButton onClick={onClose}>Done</WtButton>
       </Box>
     </GlassDialog>

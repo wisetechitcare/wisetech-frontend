@@ -5,22 +5,15 @@ import { SkeletonKpiCard } from '@app/modules/common/components/Skeleton';
 import { formatMoney } from '../utils/reimbursementFormat';
 
 /**
- * The KPI row: four cards.
+ * The KPI row: four cards — Drafts → Pending approval → Approved → Paid out.
  *
- * There were ten values here, rendered as ten tiles — five count/amount pairs split apart, so
- * "24 approved" and "₹98,000 approved" sat in different boxes and the reader had to pair them up.
- * `YearlyKpiCard` already renders a value with a footer strip beneath it, so each pair collapses
- * into a single card and the row halves in width without losing a number.
- *
- * The card component, its tones and its shell come from the salary module unchanged — this file
- * chooses which four numbers matter and what they are called, and nothing else.
- *
- * Card order is deliberate: it follows an expense's life. Submitted → Approved → Awaiting →
- * Paid Out. "Awaiting You" carries the action badge because it is the only card the employee can
- * do anything about.
+ * Pending approval uses a ratio layout (awaiting / submitted) so amount and count stay aligned
+ * with the records table total.
  */
 
 export interface ReimbursementKpis {
+    inboxAmount: number;
+    inboxCount: number;
     totalAmount: number;
     totalRequests: number;
     approvedAmount: number;
@@ -42,6 +35,61 @@ const KPI_GRID = {
     gridTemplateColumns: { xs: 'repeat(2, minmax(0,1fr))', lg: 'repeat(4, minmax(0,1fr))' },
 } as const;
 
+/** Hero: awaiting ₹ / submitted ₹. Footer: awaiting count / submitted count. */
+function pendingApprovalDisplay(kpis: ReimbursementKpis): {
+    value: string;
+    footer: string;
+    footerValue?: string;
+} {
+    if (kpis.totalRequests === 0) {
+        return {
+            value: formatMoney(0),
+            footer: 'No submissions this period',
+        };
+    }
+
+    return {
+        value: `${formatMoney(kpis.pendingAmount)} / ${formatMoney(kpis.totalAmount)}`,
+        footer: `${kpis.pendingCount} / ${kpis.totalRequests} awaiting approval`,
+    };
+}
+
+function approvedDisplay(kpis: ReimbursementKpis): {
+    value: string;
+    footer: string;
+    footerValue?: string;
+} {
+    if (kpis.totalRequests === 0) {
+        return { value: formatMoney(0), footer: 'No submissions this period' };
+    }
+    if (kpis.approvedCount === 0) {
+        return { value: formatMoney(0), footer: 'None approved yet' };
+    }
+
+    return {
+        value: `${formatMoney(kpis.approvedAmount)} / ${formatMoney(kpis.totalAmount)}`,
+        footer: `${kpis.approvedCount} / ${kpis.totalRequests} approved`,
+    };
+}
+
+function paidDisplay(kpis: ReimbursementKpis): {
+    value: string;
+    footer: string;
+    footerValue?: string;
+} {
+    if (kpis.approvedAmount === 0) {
+        return { value: formatMoney(0), footer: 'No approved balance yet' };
+    }
+
+    const unpaid = Math.max(0, kpis.approvedAmount - kpis.paidAmount);
+    return {
+        value: `${formatMoney(kpis.paidAmount)} / ${formatMoney(kpis.approvedAmount)}`,
+        footer: kpis.paidAmount === 0
+            ? `Awaiting payout · ${formatMoney(unpaid)} unpaid`
+            : `${formatMoney(unpaid)} still unpaid`,
+    };
+}
+
 export default function ReimbursementKpiRow({
     kpis,
     loading = false,
@@ -55,50 +103,69 @@ export default function ReimbursementKpiRow({
         );
     }
 
-    // Percentages are only meaningful against a non-zero base, and "NaN%" on a fresh account is
-    // a worse answer than no percentage at all.
-    const approvedPct = kpis.totalAmount > 0
-        ? Math.round((kpis.approvedAmount / kpis.totalAmount) * 100)
-        : null;
+    const pending = pendingApprovalDisplay(kpis);
+    const approved = approvedDisplay(kpis);
+    const paid = paidDisplay(kpis);
+
+    const draftsFooter =
+        kpis.inboxCount === 0
+            ? 'Nothing to submit'
+            : `${kpis.inboxCount} to submit`;
 
     return (
         <Box sx={KPI_GRID}>
             <YearlyKpiCard
-                label="Submitted"
-                value={formatMoney(kpis.totalAmount)}
-                footer={`${kpis.totalRequests} request${kpis.totalRequests === 1 ? '' : 's'}`}
-                tone="blue"
-                icon={<KTIcon iconName="document" className="fs-4" />}
+                label="Unsubmitted drafts"
+                value={formatMoney(kpis.inboxAmount)}
+                footer={draftsFooter}
+                tone="info"
+                icon={<KTIcon iconName="inbox" className="fs-4" />}
                 showSensitiveData={showSensitiveData}
+                sx={{
+                    '& > div > span.sensitive-data-visible, & > div > span.sensitive-data-hidden': {
+                        fontSize: { xs: '1.25rem', md: '1.45rem' },
+                    },
+                }}
             />
             <YearlyKpiCard
-                label="Approved"
-                value={formatMoney(kpis.approvedAmount)}
-                footer={approvedPct === null
-                    ? `${kpis.approvedCount} approved`
-                    : `${kpis.approvedCount} approved · ${approvedPct}%`}
-                tone="green"
-                icon={<KTIcon iconName="check-circle" className="fs-4" />}
-                showSensitiveData={showSensitiveData}
-            />
-            <YearlyKpiCard
-                label="Awaiting approval"
-                value={formatMoney(kpis.pendingAmount)}
-                footer={`${kpis.pendingCount} pending`}
+                label="Pending approval"
+                value={pending.value}
+                footer={pending.footer}
                 tone="amber"
                 icon={<KTIcon iconName="time" className="fs-4" />}
                 showSensitiveData={showSensitiveData}
+                sx={{
+                    '& > div > span.sensitive-data-visible, & > div > span.sensitive-data-hidden': {
+                        fontSize: { xs: '1.1rem', md: '1.35rem' },
+                    },
+                }}
+            />
+            <YearlyKpiCard
+                label="Approved"
+                value={approved.value}
+                footer={approved.footer}
+                tone="green"
+                icon={<KTIcon iconName="check-circle" className="fs-4" />}
+                showSensitiveData={showSensitiveData}
+                sx={{
+                    '& > div > span.sensitive-data-visible, & > div > span.sensitive-data-hidden': {
+                        fontSize: { xs: '1.1rem', md: '1.35rem' },
+                    },
+                }}
             />
             <YearlyKpiCard
                 label="Paid out"
-                value={formatMoney(kpis.paidAmount)}
-                footer={`of ${formatMoney(kpis.approvedAmount)} approved`}
+                value={paid.value}
+                footer={paid.footer}
                 tone="purple"
                 icon={<KTIcon iconName="wallet" className="fs-4" />}
                 showSensitiveData={showSensitiveData}
+                sx={{
+                    '& > div > span.sensitive-data-visible, & > div > span.sensitive-data-hidden': {
+                        fontSize: { xs: '1.1rem', md: '1.35rem' },
+                    },
+                }}
             />
         </Box>
     );
 }
-
-

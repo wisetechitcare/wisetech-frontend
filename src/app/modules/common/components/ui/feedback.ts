@@ -36,13 +36,9 @@ function sanitizeHtml(html: string | undefined): string | undefined {
     return DOMPurify.sanitize(html);
 }
 
-let injected = false;
 function ensureStyles() {
-  if (injected || typeof document === 'undefined') return;
-  injected = true;
-  const style = document.createElement('style');
-  style.id = 'wt-swal-styles';
-  style.textContent = `
+  if (typeof document === 'undefined') return;
+  const css = `
     .wt-swal-container{z-index:2000 !important;}
     .wt-swal-popup{border-radius:16px;font-family:${T.font.family};box-shadow:${T.shadow.modal};padding:10px 10px 20px;}
     .wt-swal-title{font-size:18px;font-weight:750;color:${T.color.ink};letter-spacing:.1px;}
@@ -55,72 +51,92 @@ function ensureStyles() {
     .wt-swal-cancel{background:#fff;color:${T.color.inkSoft};border:1px solid ${T.color.line};border-radius:9px;font-weight:600;font-size:13.5px;padding:9px 20px;transition:background .15s;}
     .wt-swal-cancel:hover{background:${T.color.panel};color:${T.color.ink};}
 
-    /* Toast variant — a notice card, not a dialog. The shared .wt-swal-popup padding
-       and 18px title are sized for a modal and make a one-line notice look like an
-       announcement. Swal already lays a toast out as an "icon | text" grid, so only
-       the spacing, the skin and the timer bar are set here — redefining the grid
-       would move the check mark off its own strokes. */
-    .wt-swal-toast{align-items:center;column-gap:12px;padding:12px 14px;margin:0 0 20px 20px;
-      max-width:min(400px,calc(100vw - 40px));border:1px solid ${T.color.line};
-      border-radius:14px;box-shadow:${T.shadow.pop};overflow:hidden;}
-    /* A hairline border, because a white toast over a white form has no edge of its own. */
-    .wt-swal-toast .wt-swal-title{font-size:13.5px;font-weight:650;line-height:1.35;margin:0;
-      text-align:left;overflow-wrap:anywhere;}
-    .wt-swal-toast .wt-swal-html{font-size:12.5px;line-height:1.45;margin:2px 0 0;
-      text-align:left;overflow-wrap:anywhere;}
+    /* Compact notice chip — dense enough for one-liners, still readable with a subtitle. */
+    .wt-swal-toast{
+      align-items:center;column-gap:10px;
+      width:auto;min-width:0;max-width:min(340px,calc(100vw - 32px));
+      padding:8px 12px 10px;margin:0 0 16px 16px;
+      border:1px solid ${T.color.line};border-radius:12px;
+      background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 20px -6px rgba(15,23,42,.14);
+      overflow:hidden;isolation:isolate;
+    }
+    .wt-swal-toast .wt-swal-title{
+      font-size:13px;font-weight:600;letter-spacing:-.01em;line-height:1.3;margin:0;
+      color:${T.color.ink};text-align:left;overflow-wrap:anywhere;
+    }
+    .wt-swal-toast .wt-swal-html{
+      font-size:12px;line-height:1.4;margin:2px 0 0;color:${T.color.inkSoft};
+      text-align:left;overflow-wrap:anywhere;
+    }
 
-    /* Icon: Swal positions the check/cross strokes against its own toast geometry, so
-       only the palette changes here — no size, and no fill behind the success mark,
-       whose animation masks are painted in the popup's own colour. */
-    .wt-swal-toast .swal2-icon{margin:0;}
-    .wt-swal-toast .swal2-success,
-    .wt-swal-toast .swal2-success .swal2-success-ring{border-color:rgba(47,125,95,.30);}
+    /* Scale via transform so Swal's check/cross stroke math stays intact;
+       negative margin reclaims the layout space the unscaled box still occupies. */
+    .wt-swal-toast .swal2-icon{
+      margin:-5px -2px -5px -4px !important;width:2em;height:2em;min-width:2em;
+      transform:scale(.72);transform-origin:center center;
+    }
+    .wt-swal-toast .swal2-icon.swal2-success{border-color:transparent;background:rgba(47,125,95,.10);}
+    .wt-swal-toast .swal2-success .swal2-success-ring{border-color:rgba(47,125,95,.28);}
     .wt-swal-toast .swal2-success [class^='swal2-success-line']{background:${T.color.success};}
-    .wt-swal-toast .swal2-error{border-color:rgba(178,58,48,.30);}
+    .wt-swal-toast .swal2-icon.swal2-error{border-color:transparent;background:rgba(178,58,48,.10);}
     .wt-swal-toast .swal2-error [class^='swal2-x-mark-line']{background:${T.color.danger};}
-    .wt-swal-toast .swal2-warning{border-color:rgba(166,106,42,.30);color:${T.color.warning};}
-    .wt-swal-toast .swal2-info,
-    .wt-swal-toast .swal2-question{border-color:rgba(44,115,133,.30);color:${T.color.cyan};}
+    .wt-swal-toast .swal2-icon.swal2-warning{border-color:transparent;background:rgba(166,106,42,.12);color:${T.color.warning};}
+    .wt-swal-toast .swal2-icon.swal2-info,
+    .wt-swal-toast .swal2-icon.swal2-question{border-color:transparent;background:rgba(44,115,133,.10);color:${T.color.cyan};}
 
-    /* Timer bar: a hairline the eye can ignore, clipped by the card (Swal's own
-       container carries a fixed 5px radius that squares off a 14px corner). */
-    .wt-swal-toast .swal2-timer-progress-bar-container{height:3px;border-radius:0;
-      background:${T.color.lineSoft};}
-    .wt-swal-toast .swal2-timer-progress-bar{background:${T.color.brand};}
+    /* Hairline timer — no track fill (that left a blue corner nub on the rounded card). */
+    .wt-swal-toast .swal2-timer-progress-bar-container{
+      position:absolute;left:0;right:0;bottom:0;height:2px;overflow:hidden;
+      border-radius:0;background:transparent !important;
+    }
+    .wt-swal-toast .swal2-timer-progress-bar{
+      height:2px;border-radius:0 1px 1px 0;opacity:.9;background:${T.color.brand};
+    }
+    .wt-swal-toast:has(.swal2-success) .swal2-timer-progress-bar{background:${T.color.success};}
+    .wt-swal-toast:has(.swal2-error) .swal2-timer-progress-bar{background:${T.color.danger};}
+    .wt-swal-toast:has(.swal2-warning) .swal2-timer-progress-bar{background:${T.color.warning};}
 
-    /* Phones: the bottom navigation owns the bottom-left corner, and the toast
-       outranks it on z-index, so it would land on top of the tab bar. */
     @media (max-width:991.98px){
       .wt-swal-toast{margin:0 12px calc(var(--bn-content-offset, 82px) + 12px) 12px;
         max-width:calc(100vw - 24px);}
     }
 
-    /* Enters from the edge it is anchored to rather than zooming out of nothing. */
-    @keyframes wt-toast-in{from{opacity:0;transform:translate3d(-12px,8px,0) scale(.98)}
+    @keyframes wt-toast-in{from{opacity:0;transform:translate3d(-10px,6px,0) scale(.98)}
       to{opacity:1;transform:none}}
     @keyframes wt-toast-out{from{opacity:1;transform:none}
-      to{opacity:0;transform:translate3d(0,6px,0) scale(.98)}}
-    .wt-toast-in{animation:wt-toast-in .22s cubic-bezier(.22,.61,.36,1) both;}
-    .wt-toast-out{animation:wt-toast-out .16s ease-in both;}
+      to{opacity:0;transform:translate3d(0,4px,0) scale(.98)}}
+    .wt-toast-in{animation:wt-toast-in .2s cubic-bezier(.22,.61,.36,1) both;}
+    .wt-toast-out{animation:wt-toast-out .14s ease-in both;}
     @media (prefers-reduced-motion: reduce){
       .wt-toast-in,.wt-toast-out{animation-duration:.01ms;}
     }
 
-    html[data-theme="dark"] .wt-swal-toast{border-color:#30363d;}
-    html[data-theme="dark"] .wt-swal-toast .swal2-timer-progress-bar-container{background:rgba(255,255,255,.10);}
+    html[data-theme="dark"] .wt-swal-toast{
+      background:#1c2230;border-color:#30363d;
+      box-shadow:0 1px 2px rgba(0,0,0,.35),0 12px 28px -8px rgba(0,0,0,.55);
+    }
+    html[data-theme="dark"] .wt-swal-toast .wt-swal-title{color:rgba(255,255,255,.92);}
+    html[data-theme="dark"] .wt-swal-toast .wt-swal-html{color:rgba(255,255,255,.62);}
     html[data-theme="dark"] .wt-swal-toast .swal2-timer-progress-bar{background:#6E9BFF;}
-    html[data-theme="dark"] .wt-swal-toast .swal2-success,
+    html[data-theme="dark"] .wt-swal-toast:has(.swal2-success) .swal2-timer-progress-bar{background:#30D158;}
+    html[data-theme="dark"] .wt-swal-toast .swal2-icon.swal2-success{background:rgba(48,209,88,.14);}
     html[data-theme="dark"] .wt-swal-toast .swal2-success .swal2-success-ring{border-color:rgba(48,209,88,.35);}
     html[data-theme="dark"] .wt-swal-toast .swal2-success [class^='swal2-success-line']{background:#30D158;}
 
-    /* Dark mode — scoped to the app-wide [data-theme="dark"] signal set by ColorModeProvider.
-       Swal portals to <body>, so these descendant selectors match. */
     html[data-theme="dark"] .wt-swal-popup{background:#161b22;border:1px solid #30363d;box-shadow:0 24px 64px -12px rgba(1,4,9,.7);}
     html[data-theme="dark"] .wt-swal-title{color:rgba(255,255,255,.92);}
     html[data-theme="dark"] .wt-swal-html{color:rgba(255,255,255,.62);}
     html[data-theme="dark"] .wt-swal-cancel{background:rgba(255,255,255,.08);color:rgba(255,255,255,.78);border-color:rgba(255,255,255,.16);}
     html[data-theme="dark"] .wt-swal-cancel:hover{background:rgba(255,255,255,.14);color:#fff;}
   `;
+  const existing = document.getElementById('wt-swal-styles');
+  if (existing) {
+    existing.textContent = css;
+    return;
+  }
+  const style = document.createElement('style');
+  style.id = 'wt-swal-styles';
+  style.textContent = css;
   document.head.appendChild(style);
 }
 

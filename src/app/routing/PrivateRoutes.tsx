@@ -1,5 +1,5 @@
 import { FC, lazy, ReactElement, Suspense, useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { TAB_PATHS } from './tabPaths'
 import { MasterLayout } from '../../_metronic/layout/MasterLayout'
 import TopBarProgress from 'react-topbar-progress-indicator'
@@ -50,6 +50,7 @@ const EmployeesLoanMain = lazy(() => import('@pages/employee/loans/admin/Employe
 const PersonalKpiMain = lazy(() => import('@pages/employee/kpis/personal/PersonalKpiMain'))
 const LeadsMain = lazy(() => import('@pages/employee/leads/LeadsMain'))
 const RecruitmentMain = lazy(() => import('@pages/employee/recruitment/RecruitmentMain'))
+const CandidateWizardHost = lazy(() => import('@pages/employee/recruitment/CandidateWizardHost'))
 // Opt-in beta: migrated EnterpriseForm wizard (parallel to classic LeadFormModal)
 const LeadWizardBetaPage = lazy(() => import('@pages/employee/leads/lead/LeadWizardBetaPage'))
 const ProjectsMain = lazy(() => import('@pages/employee/projects/ProjectsMain'))
@@ -74,6 +75,17 @@ const TaskDetails = lazy(() => import('@pages/employee/tasks/tasks/components/Ta
 const TasksMainCalenderPage = lazy(() => import('@pages/employee/tasks/calender/TasksMainCalenderPage'))
 const EmployeeTeamLevelMain = lazy(() => import('@pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain'))
 const ContactsNavbar = lazy(() => import('@pages/employee/companies/contacts/contactsNavbar'))
+const CourtesyDeskMain = lazy(() => import('@pages/employee/courtesy-desk/CourtesyDeskMain'))
+const CourtesyGroupEditorPage = lazy(() => import('@pages/employee/courtesy-desk/pages/GroupEditorPage'))
+const CourtesyDriveCreatePage = lazy(() => import('@pages/employee/courtesy-desk/pages/DriveCreatePage'))
+const CourtesyDriveDetailPage = lazy(() => import('@pages/employee/courtesy-desk/pages/DriveDetailPage'))
+
+const CourtesyDeskLegacyRedirect: FC = () => {
+  const location = useLocation()
+  const next = `${location.pathname.replace('/courtesy-desk', '/gift-management')}${location.search}`
+  return <Navigate to={next} replace />
+}
+
 const OrganisationInfoProfileMain = lazy(() => import('@pages/company/organisationInfo/OrganisationInfoProfileMain'))
 const SearchResultsPage = lazy(() => import('@pages/employee/search/SearchResultsPage'))
 const ProposalConfigurationPage = lazy(() => import('@pages/employee/leads/lead/components/ProposalConfigurationPage'))
@@ -548,6 +560,25 @@ const PrivateRoutes = () => {
             </SuspensedView>
           </SectionGuard>,
         )}
+        {/* Candidate Add/Edit wizard — full page, outside the recruitment tab shell */}
+        <Route
+          path='/recruitment/candidates/new'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <CandidateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
+        <Route
+          path='/recruitment/candidates/:applicantId/edit'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <CandidateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
         <Route
           path='/recruitment/*'
           element={
@@ -722,6 +753,59 @@ const PrivateRoutes = () => {
             </SuspensedView>
           </SectionGuard>,
         )}
+        <Route
+          path='/courtesy-desk/*'
+          element={<CourtesyDeskLegacyRedirect />}
+        />
+        {tabRoutes(
+          '/gift-management',
+          TAB_PATHS.giftManagement,
+          <SectionGuard module='crm.contacts'>
+            <SuspensedView>
+              <CourtesyDeskMain />
+            </SuspensedView>
+          </SectionGuard>,
+        )}
+        <Route
+          path='/gift-management/groups/new'
+          element={
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <CourtesyGroupEditorPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          path='/gift-management/groups/:groupId'
+          element={
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <CourtesyGroupEditorPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          path='/gift-management/drives/new'
+          element={
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <CourtesyDriveCreatePage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          path='/gift-management/drives/:driveId'
+          element={
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <CourtesyDriveDetailPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
         {tabRoutes(
           '/companies',
           TAB_PATHS.companies,

@@ -68,6 +68,7 @@ export function ConfigureFormDialog({
             onClose={close}
             maxWidth={maxWidth}
             plain
+            preset="form"
             disableEscapeKeyDown={saving}
             header={
                 <PlainDialogHeader
