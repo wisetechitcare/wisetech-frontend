@@ -423,6 +423,8 @@ async function main() {
   if (mode === 'pre-commit') return preCommit()
   if (mode === 'pre-push') return prePush()
   if (mode === 'verify') return verify()
+  // post-commit is optional chrome; never fail the commit over it.
+  if (mode === 'post-commit') return
   console.error('Usage: node scripts/hooks/run.mjs <pre-commit|pre-push|verify>')
   process.exitCode = 2
 }
