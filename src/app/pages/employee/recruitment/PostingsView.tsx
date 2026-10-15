@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Box, Stack, Typography, CircularProgress, DialogContent, DialogActions, FormControlLabel } from "@mui/material";
+import { Box, Stack, Typography, CircularProgress, DialogContent, DialogActions } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtField, WtDateField, ToneChip,
@@ -199,18 +199,18 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                                 onClick={(e) => e.stopPropagation()}
                                 sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider", cursor: "default" }}
                             >
-                                {canWrite && <FormControlLabel
-                                    sx={{ mr: 0, ml: 0, gap: 0.75 }}
-                                    control={
+                                {canWrite && (
+                                    <Stack direction="row" alignItems="center" spacing={0.75}>
                                         <WtSwitch
                                             size="sm"
                                             checked={p.isPublished}
                                             disabled={busy(p.id)}
+                                            aria-label={p.isPublished ? "Unpublish advert" : "Publish advert"}
                                             onChange={(e) => publishMut.mutate({ id: p.id, isPublished: e.target.checked })}
                                         />
-                                    }
-                                    label={<Typography sx={{ fontSize: 12, fontWeight: 600 }}>Publish</Typography>}
-                                />}
+                                        <Typography sx={{ fontSize: 12, fontWeight: 600 }}>Publish</Typography>
+                                    </Stack>
+                                )}
                                 <Box sx={{ flex: 1 }} />
                                 {canWrite && <ActionIconButton iconName="pencil" title="Edit Advert" size="sm" onClick={() => openEdit(p)} />}
                                 <ActionIconButton

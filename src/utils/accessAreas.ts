@@ -43,15 +43,9 @@ export const ACCESS_AREAS: AccessArea[] = [
   },
   { module: "crm.companies", label: "Companies" },
   { module: "crm.contacts", label: "Contacts" },
-  {
-    module: "recruitment",
-    label: "Recruitment",
-    children: [
-      { module: "recruitment.requisitions", label: "Requisitions" },
-      { module: "recruitment.pipeline", label: "Pipeline" },
-      { module: "recruitment.candidates", label: "Candidates" },
-    ],
-  },
+  // Tabs (Roles / Pipeline / Candidates / …) are gated via SECTION_TABS + canTab — not fake
+  // child modules that never filtered the shell (360 Wave C / U5).
+  { module: "recruitment", label: "Recruitment" },
   { module: "tasks", label: "Tasks" },
   {
     module: "timesheets",

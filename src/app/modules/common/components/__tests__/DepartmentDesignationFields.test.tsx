@@ -77,7 +77,8 @@ describe('DepartmentDesignationFields', () => {
     test('an unconfigured department offers every designation and explains why', async () => {
         await renderPair({ departmentId: 'design', designationId: null });
         expect(await openAndList(/designation/i)).toHaveLength(4);
-        expect(screen.getByText(/Design has no designations linked yet, so all are shown/)).toBeTruthy();
+        expect(screen.getByText(/Design has no job profiles linked yet/)).toBeTruthy();
+        expect(screen.getByText(/Configure › Departments/)).toBeTruthy();
     });
 
     test('changing the department clears a designation the new department does not offer', async () => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -45,6 +45,8 @@ interface Props {
     moving?: boolean;
     /** Hand a hired candidate to onboarding. */
     onConvert?: (application: Application) => void;
+    /** Recruitment shell org filter — passed through to Offer Branch options. */
+    companyId?: string;
 }
 
 const fullName = (a: Application) =>
@@ -79,7 +81,7 @@ const Fact = ({ label, value, href }: { label: string; value?: string | number |
  * composes them. Every block is a kit `SettingsSection`, so each one has the same frame, heading
  * and action slot, and the panels no longer print a second heading under the modal's own.
  */
-const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onConvert }: Props) => {
+const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onConvert, companyId }: Props) => {
     const canWrite = canSection("recruitment", "write");
     const navigate = useNavigate();
     const qc = useQueryClient();
@@ -104,7 +106,6 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
     const loaded = !detailQuery.isPlaceholderData && !!detailQuery.data;
     const statusName = (id?: string | null) => statuses.find((s) => s.id === id)?.name;
     const currentStatus = statuses.find((s) => s.id === a.statusId) ?? a.status ?? null;
-
     const invalidateNotes = () => qc.invalidateQueries({ queryKey: queryKeys.recruitment.notes(application.id) });
 
     const noteTooLong = draft.length > NOTE_MAX;
@@ -191,10 +192,8 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                                 options={statuses.map((s) => ({ value: s.id, label: s.name }))}
                                 disabled={moving || !loaded}
                                 icon="abstract-26"
-                                // A fixed width beside the chips. Full width, it took the whole row and crushed
-                                // the chips to a sliver.
                                 fullWidth={false}
-                                sx={{ width: { xs: "100%", sm: 240 }, flexShrink: 0 }}
+                                sx={{ width: { xs: "100%" }, flexShrink: 0 }}
                             />
                         ) : (
                             currentStatus && <ToneChip tone="brand" color={currentStatus.color ?? undefined} label={currentStatus.name} dense />
@@ -224,6 +223,8 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                             <Fact label="Source" value={a.applicant?.source?.name} />
                             {/* A date, not a time: applied dates are stored at midnight, which a time-of-day turned into "5:30 AM". */}
                             <Fact label="Applied" value={formatDate(a.appliedDate ?? a.createdAt)} />
+                            <Fact label="Consent" value={a.consentAt ? formatDate(a.consentAt) : null} />
+                            <Fact label="Applied via posting" value={a.appliedPostingId ? "Yes" : null} />
                         </Box>
 
                         {(a.applicant?.resumeS3Url || a.applicant?.linkedInUrl) && (
@@ -371,7 +372,11 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                     </SettingsSection>
 
                     <InterviewsPanel applicationId={a.id} applicantName={fullName(a)} />
-                    <OfferPanel applicationId={a.id} applicantName={fullName(a)} />
+                    <OfferPanel
+                        applicationId={a.id}
+                        applicantName={fullName(a)}
+                        companyId={companyId ?? a.applicant?.companyId ?? undefined}
+                    />
                 </Stack>
                 {addingToRole && (
                     <AddToRoleDialog open onClose={() => setAddingToRole(false)} applicantId={a.applicantId} applicantName={fullName(a)} />

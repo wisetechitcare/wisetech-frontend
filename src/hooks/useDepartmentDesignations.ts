@@ -88,9 +88,12 @@ export function useDepartmentDesignations() {
                 if (designationId && !isPairAllowed(index, departmentId, designationId)) {
                     return { error: `Not a ${noun.one} of ${name}. Choose one of ${name}'s ${noun.many}.` };
                 }
+                // Job Profiles ARE designations (same table). Nesting under a parent profile named
+                // "IT Department" is NOT the same as linking those profiles to the Department master
+                // "IT" — that link lives on Departments → edit → designations multi-select.
                 return isDepartmentConfigured(index, departmentId)
                     ? { hint: `Showing ${name}'s ${noun.many}` }
-                    : { hint: `${name} has no ${noun.many} linked yet, so all are shown. Link them in Employees › Configure.` };
+                    : { hint: `${name} has no job profiles linked yet, so all are shown. Job Profiles under a parent in Configure are not auto-linked — open Employees › Configure › Departments → edit ${name} and select which profiles it offers.` };
             },
             [departmentName, index],
         ),

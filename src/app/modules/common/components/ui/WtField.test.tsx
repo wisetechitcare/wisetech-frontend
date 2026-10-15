@@ -47,6 +47,70 @@ describe('WtField', () => {
         expect(getComputedStyle(frameOf(screen.getByLabelText('Stage'))).width).toBe('240px');
     });
 
+    test('plain select with fullWidth={false} sizes to the widest option (no ellipsis on value)', () => {
+        const options = [
+            { value: 'applied', label: 'Applied' },
+            { value: 'shortlisted', label: 'Shortlisted' },
+            { value: 'interview', label: 'Interview' },
+        ];
+        render(
+            <WtField
+                label="Stage"
+                value="shortlisted"
+                onChange={() => {}}
+                options={options}
+                fullWidth={false}
+            />,
+        );
+        const frame = frameOf(screen.getByLabelText('Stage'));
+        const frameW = parseFloat(getComputedStyle(frame).width);
+        expect(frameW).toBeGreaterThan(120);
+        const value = screen.getByText('Shortlisted');
+        expect(getComputedStyle(value).textOverflow).not.toBe('ellipsis');
+    });
+
+    test('required select shows an asterisk and keeps the floating label', () => {
+        render(
+            <WtField
+                label="Branch"
+                value=""
+                onChange={() => {}}
+                options={[{ value: 'a', label: 'Alpha' }]}
+                required
+            />,
+        );
+        expect(screen.getByLabelText(/Branch/)).toBeTruthy();
+        expect(document.querySelector('label')?.textContent).toMatch(/\*/);
+    });
+
+    test('error replaces hint in the one message slot and marks the helper as alert', () => {
+        render(
+            <WtField
+                label="Stage"
+                value=""
+                onChange={() => {}}
+                options={[{ value: 'a', label: 'Applied' }]}
+                hint="Pick a stage"
+                error="Stage is required"
+            />,
+        );
+        expect(screen.queryByText('Pick a stage')).toBeNull();
+        expect(screen.getByText('Stage is required').getAttribute('role')).toBe('alert');
+    });
+
+    test('empty select shows the placeholder, not a blank closed value', () => {
+        render(
+            <WtField
+                label="Role"
+                value=""
+                onChange={() => {}}
+                options={[{ value: 'r1', label: 'Draftman' }]}
+                placeholder="All roles"
+            />,
+        );
+        expect(screen.getByText('All roles')).toBeTruthy();
+    });
+
     test('a searchable field keeps the floating label in the border, like every other field', () => {
         const options = Array.from({ length: 12 }, (_, i) => ({ value: `d${i}`, label: `Designation ${i}` }));
         render(<WtField label="Designation" value="" onChange={() => {}} options={options} searchable />);
@@ -73,10 +137,13 @@ describe('WtField', () => {
             );
         };
         render(<Harness />);
-        await userEvent.type(screen.getByRole('combobox', { name: 'Designation' }), 'elec');
-        const shown = await screen.findAllByRole('option');
+        const combo = screen.getByRole('combobox', { name: 'Designation' });
+        await userEvent.type(combo, 'elec');
+        // jsdom + Popper often sets `data-popper-reference-hidden` (zero layout boxes), and our
+        // boundary SSOT applies pointer-events:none — assert via list content + keyboard select.
+        const shown = await screen.findAllByRole('option', { hidden: true });
         expect(shown.map((o) => o.textContent)).toEqual(['Electrical Engineer']);
-        await userEvent.click(shown[0]);
+        await userEvent.keyboard('{Enter}');
         expect(screen.getByTestId('value').textContent).toBe('elec');
     });
 });

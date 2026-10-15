@@ -7,7 +7,6 @@ import { fetchAllEmployeesSelectedData } from "@services/employee";
 import { getAvatar } from "@utils/avatar";
 import { EmployeeSelectionDialog, type EmployeeOption } from "./EmployeeSelectionDialog";
 import { WtField } from "./ui/WtField";
-import { WtSelect } from "./ui/WtSelect";
 
 /**
  * EmployeePickerField — a labelled form control that opens the shared
@@ -22,6 +21,9 @@ import { WtSelect } from "./ui/WtSelect";
  *
  *   <EmployeePickerField label="Panelists" multiple value={form.panelistIds}
  *     onChange={(ids) => setForm({ ...form, panelistIds: ids })} />
+ *
+ * Single-select uses floating Sandwich `WtField` (searchable Autocomplete + avatar options)
+ * so height / label / required / hint match neighbouring form fields. Multi keeps the dialog.
  */
 
 const DIRECTORY_KEY = ["employees", "directory"] as const;
@@ -57,6 +59,8 @@ export interface EmployeePickerFieldProps {
     disabled?: boolean;
     placeholder?: string;
     helperText?: React.ReactNode;
+    /** Validation message — replaces helperText (same one-slot rule as WtField). */
+    error?: string;
     dialogTitle?: string;
     dialogSubtitle?: string;
     sx?: SxProps<Theme>;
@@ -64,7 +68,7 @@ export interface EmployeePickerFieldProps {
 
 export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
     label, value, onChange, multiple = false, required = false, disabled = false,
-    placeholder = "Select…", helperText, dialogTitle, dialogSubtitle, sx,
+    placeholder = "Select…", helperText, error, dialogTitle, dialogSubtitle, sx,
 }) => {
     const ids = useMemo(() => (Array.isArray(value) ? value : value ? [value] : []), [value]);
     const { data: employees = [], isLoading } = useEmployeeDirectory();
@@ -80,15 +84,9 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
     const save = () => { onChange(draft); setOpen(false); };
 
     /**
-     * ONE value is a dropdown, not a dialog.
-     *
-     * The dialog put a checkbox on every row and a "Choose (1)" button under a field that
-     * accepts a single employee. The affordance is the promise: checkboxes say "tick as many
-     * as you like", so someone does, and the control refuses without explaining. It also took
-     * four interactions — open, search, tick, confirm — for what a dropdown does in one.
-     *
-     * `WtSelect` already renders avatars and a second line via `optionVariant="avatar"`, so
-     * the richer row was never a reason to reach for a modal.
+     * ONE value is a Sandwich `WtField` searchable select (avatar + description), not a dialog
+     * and not `labelPlacement="above"` + bare WtSelect — so Hiring Manager / Recruiter match
+     * Branch / Department height, required `*`, hint, and dialog menu boundary.
      */
     if (!multiple) {
         const options = employees.map((e) => ({
@@ -96,24 +94,24 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
             label: e.name,
             avatar: e.avatar,
             description: e.designation,
+            title: e.designation ? `${e.name} · ${e.designation}` : e.name,
         }));
-        const current = options.find((o) => o.value === ids[0]) ?? null;
 
         return (
-            <WtField label={label} labelPlacement="above" required={required} hint={helperText} disabled={disabled} sx={sx}>
-                <WtSelect
-                    options={options}
-                    value={current}
-                    onChange={(opt: { value: string } | null) => onChange(opt?.value ? [opt.value] : [])}
-                    placeholder={placeholder}
-                    isDisabled={disabled}
-                    isLoading={isLoading}
-                    isSearchable
-                    isClearable
-                    optionVariant="avatar"
-                    ariaLabel={label}
-                />
-            </WtField>
+            <WtField
+                label={label}
+                required={required}
+                hint={helperText ?? (isLoading ? "Loading directory…" : undefined)}
+                error={error}
+                disabled={disabled || isLoading}
+                sx={sx}
+                value={ids[0] ?? ""}
+                onChange={(v) => onChange(typeof v === "string" && v ? [v] : [])}
+                options={options}
+                searchable
+                clearable
+                placeholder={placeholder}
+            />
         );
     }
 
@@ -122,7 +120,7 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
         // several panelists from a long directory is genuinely easier in a full-screen list
         // than in a dropdown. The label sits ABOVE because this control is a BUTTON, not an
         // input, so there is no notch it could carry.
-        <WtField label={label} labelPlacement="above" required={required} hint={helperText} disabled={disabled} sx={sx}>
+        <WtField label={label} labelPlacement="above" required={required} hint={helperText} error={error} disabled={disabled} sx={sx}>
             <Box
                 role="button"
                 tabIndex={disabled ? -1 : 0}
@@ -150,7 +148,7 @@ export const EmployeePickerField: React.FC<EmployeePickerFieldProps> = ({
                         {selected.length > 4 && <Typography sx={{ fontSize: 12, color: "text.secondary", alignSelf: "center" }}>+{selected.length - 4}</Typography>}
                     </Stack>
                 )}
-                                <KTIcon iconName="profile-circle" className="fs-5 text-muted" />
+                <KTIcon iconName="profile-circle" className="fs-5 text-muted" />
             </Box>
 
             <EmployeeSelectionDialog

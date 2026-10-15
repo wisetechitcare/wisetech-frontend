@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Box, Stack, Typography, CircularProgress, DialogContent, DialogActions,
 } from "@mui/material";
@@ -12,7 +12,7 @@ import { COPY } from "./terms";
 import { queryKeys } from "@/lib/queryKeys";
 import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import {
-    getApplications, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
+    getApplications, getRequisitions, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
     stashConversion,
     type Application, type ApplicationStatus, type OrgScoped,
 } from "@services/recruitment";
@@ -39,9 +39,13 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const [mode, setMode] = useRememberedChoice<"board" | "list">(
         "recruitment:pipeline-view", ["board", "list"], "board",
     );
+    /** Narrow the board to one role — the only honest way past the 200-row page (360 Wave B). */
+    const [requisitionId, setRequisitionId] = useState("");
 
     const startAdd = () => {
-        navigate("/recruitment/candidates/new?roleRequired=1");
+        const q = new URLSearchParams({ roleRequired: "1" });
+        if (companyId) q.set("companyId", companyId);
+        navigate(`/recruitment/candidates/new?${q.toString()}`);
     };
     const [pending, setPending] = useState<PendingMove | null>(null);
     const [rejectReasonId, setRejectReasonId] = useState("");
@@ -53,11 +57,35 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const [interviewsFor, setInterviewsFor] = useState<Application | null>(null);
     const [offerFor, setOfferFor] = useState<Application | null>(null);
 
-    const { data: applicationPage, isLoading, isError, error, refetch } = useQuery({ queryKey: queryKeys.recruitment.applications({ companyId }), queryFn: () => getApplications({}, companyId) });
-    // `items` and the server's own `hasMore`: the page is 200 rows, and a board silently missing
-    // the 201st card is a card nobody works. Surfaced below rather than dropped. Audit H3.
-    const applications = applicationPage?.items ?? [];
-    const applicationsTruncated = applicationPage?.hasMore ?? false;
+    const appFilters = { companyId, requisitionId: requisitionId || undefined };
+    const {
+        data: applicationPages,
+        isLoading,
+        isError,
+        error,
+        refetch,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteQuery({
+        queryKey: queryKeys.recruitment.applications(appFilters),
+        queryFn: ({ pageParam }) =>
+            getApplications(
+                { requisitionId: requisitionId || undefined, cursor: pageParam },
+                companyId,
+            ),
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (last) => last.nextCursor ?? undefined,
+    });
+    // Flatten cursor pages — Load more appends; role filter resets via query key.
+    const applications = useMemo(
+        () => applicationPages?.pages.flatMap((p) => p.items) ?? [],
+        [applicationPages],
+    );
+    const { data: roles = [] } = useQuery({
+        queryKey: queryKeys.recruitment.requisitions(companyId ?? ""),
+        queryFn: () => getRequisitions(companyId),
+    });
     const { data: statuses = [], isLoading: statusesLoading, isError: statusesError } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
     const { data: reasons = [] } = useQuery({ queryKey: queryKeys.recruitment.rejectionReasons(), queryFn: getRejectionReasons });
 
@@ -185,6 +213,17 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 subtitle="Track candidates across stages. Drag cards between columns, or open a candidate to change their stage."
                 actions={
                     <>
+                        <WtField
+                            label="Role"
+                            fullWidth={false}
+                            value={requisitionId}
+                            onChange={setRequisitionId}
+                            sx={{ width: { xs: "100%" }, flexShrink: 0 }}
+                            options={[
+                                { value: "", label: "All roles" },
+                                ...roles.map((r) => ({ value: r.id, label: r.title })),
+                            ]}
+                        />
                         {/* The kit's view toggle, which the document vault, the employee list and
                             the task stage board all use — this screen had a raw ToggleButtonGroup
                             with its own text-transform override. Audit M20. */}
@@ -223,13 +262,23 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 />
             ) : (
                 <>
-                {applicationsTruncated && (
+                {hasNextPage && (
                     <Box sx={{ mb: 1.5 }}>
                         <InlineNotice icon="information-5">
-                            Showing the first {applications.length}. There are more candidates in the
-                            pipeline than fit one page, so the columns below are not the whole board —
-                            filter by role to see a complete picture.
+                            Showing {applications.length} candidates
+                            {requisitionId ? " for this role" : ""}. More remain —
+                            load the next page, or narrow by role above.
                         </InlineNotice>
+                        <Box sx={{ mt: 1 }}>
+                            <WtButton
+                                ghost
+                                size="small"
+                                disabled={isFetchingNextPage}
+                                onClick={() => fetchNextPage()}
+                            >
+                                {isFetchingNextPage ? "Loading…" : "Load more"}
+                            </WtButton>
+                        </Box>
                     </Box>
                 )}
                 {mode === "board" ? (
@@ -263,7 +312,24 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                                             onClick={() => { if (!dragId) setOpenCandidate(a); }}
                                             role="button"
                                             tabIndex={0}
-                                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenCandidate(a); } }}
+                                            aria-keyshortcuts={canWrite ? "Enter Space ArrowLeft ArrowRight" : "Enter Space"}
+                                            title={canWrite ? "Enter opens · ←/→ moves stage" : undefined}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault();
+                                                    setOpenCandidate(a);
+                                                    return;
+                                                }
+                                                if (!canWrite || !statuses.length) return;
+                                                const idx = statuses.findIndex((st) => st.id === a.statusId);
+                                                if (e.key === "ArrowRight") {
+                                                    const next = statuses[Math.max(0, idx) + 1] ?? (idx < 0 ? statuses[0] : undefined);
+                                                    if (next) { e.preventDefault(); attemptMove(a, next); }
+                                                } else if (e.key === "ArrowLeft" && idx > 0) {
+                                                    e.preventDefault();
+                                                    attemptMove(a, statuses[idx - 1]);
+                                                }
+                                            }}
                                             sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "background.paper", boxShadow: 1, cursor: canWrite ? "grab" : "pointer", opacity: dragId === a.id ? 0.5 : 1, "&:hover": { boxShadow: 3 } }}
                                         >
                                             <Typography sx={{ fontWeight: 600, fontSize: 13.5, overflowWrap: "anywhere" }}>
@@ -357,7 +423,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
             >
                 <DialogContent>
                     {offerFor && (
-                        <OfferPanel applicationId={offerFor.id} applicantName={applicantName(offerFor)} />
+                        <OfferPanel
+                            applicationId={offerFor.id}
+                            applicantName={applicantName(offerFor)}
+                            companyId={companyId ?? offerFor.applicant?.companyId ?? undefined}
+                        />
                     )}
                 </DialogContent>
             </GlassDialog>
@@ -374,6 +444,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     onMove={attemptMove}
                     moving={moveMut.isPending}
                     onConvert={convertToEmployee}
+                    companyId={companyId}
                 />
             )}
         </Box>
