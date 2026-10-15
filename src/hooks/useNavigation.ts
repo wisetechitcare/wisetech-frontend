@@ -580,6 +580,14 @@ export function useNavigation() {
       },
       {
         type: 'item',
+        id: 'admin-developer-mfa',
+        to: '/admin/app-settings?area=developer-mfa',
+        title: 'System PIN MFA',
+        fontIcon: 'bi-shield-check',
+        visible: isSubsectionVisible('settings.developerMfa'),
+      },
+      {
+        type: 'item',
         id: 'admin-app-settings',
         to: '/admin/app-settings',
         title: 'Settings',

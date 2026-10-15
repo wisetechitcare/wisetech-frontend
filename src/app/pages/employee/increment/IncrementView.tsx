@@ -122,6 +122,13 @@ function IncrementView({ fromAdmin = false }: { fromAdmin?: boolean }) {
                                 setYear(year.add(1, 'year'))
                             }}
                             label={formatFiscalYearLabel(`${yearStr}-${year.add(1, 'year').format('YYYY')}`)}
+                            pickGranularity="year"
+                            pickValue={year.startOf('year').format('YYYY-MM-DD')}
+                            onPickDate={(v) => {
+                                const next = dayjs(v).startOf('year');
+                                if (next.isAfter(dayjs(), 'year')) return;
+                                setYear(next);
+                            }}
                         />
                     )}
 

@@ -639,6 +639,9 @@ const ProjectTablePage = () => {
                 onNext={() => navigateDay("next")}
                 displayText={day.format("DD MMM, YYYY")}
                 isMobile={isMobile}
+                pickGranularity="day"
+                pickValue={day.format("YYYY-MM-DD")}
+                onPickDate={(v) => setDay(dayjs(v))}
               />
             )}
             {alignment === "weekly" && (
@@ -647,6 +650,15 @@ const ProjectTablePage = () => {
                 onNext={() => navigateWeek("next")}
                 displayText={`${weekStart.format("DD MMM")} - ${weekEnd.format("DD MMM")}`}
                 isMobile={isMobile}
+                pickGranularity="day"
+                pickValue={weekStart.format("YYYY-MM-DD")}
+                onPickDate={(v) => {
+                  const picked = dayjs(v);
+                  const dow = picked.day();
+                  const ns = dow === 0 ? picked.subtract(6, "day") : picked.subtract(dow - 1, "day");
+                  setWeekStart(ns);
+                  setWeekEnd(ns.add(6, "day"));
+                }}
               />
             )}
             {alignment === "monthly" && (
@@ -655,6 +667,13 @@ const ProjectTablePage = () => {
                 onNext={() => navigateMonth("next")}
                 displayText={`${monthStart.format("MMMM YYYY")}`}
                 isMobile={isMobile}
+                pickGranularity="month"
+                pickValue={monthStart.format("YYYY-MM-DD")}
+                onPickDate={(v) => {
+                  const ns = dayjs(v).startOf("month");
+                  setMonthStart(ns);
+                  setMonthEnd(ns.endOf("month"));
+                }}
               />
             )}
             {alignment === "yearly" && yearStart && yearEnd && (
@@ -663,6 +682,26 @@ const ProjectTablePage = () => {
                 onNext={() => navigateYear("next")}
                 displayText={fiscalYearDisplay}
                 isMobile={isMobile}
+                pickGranularity="year"
+                pickValue={yearStart.format("YYYY-MM-DD")}
+                onPickDate={async (v) => {
+                  const base = dayjs(`${dayjs(v).year()}-04-01`);
+                  try {
+                    const { startDate: sd, endDate: ed } = await generateFiscalYearFromGivenYear(base);
+                    const fs = dayjs(sd);
+                    const fe = dayjs(ed);
+                    setYearStart(fs);
+                    setYearEnd(fe);
+                    setFiscalYearDisplay(`${fs.format("YYYY")} - ${fe.format("YYYY")}`);
+                  } catch {
+                    const year = base.year();
+                    const fs = dayjs(`${year}-04-01`);
+                    const fe = dayjs(`${year + 1}-03-31`);
+                    setYearStart(fs);
+                    setYearEnd(fe);
+                    setFiscalYearDisplay(`${fs.format("YYYY")} - ${fe.format("YYYY")}`);
+                  }
+                }}
               />
             )}
 

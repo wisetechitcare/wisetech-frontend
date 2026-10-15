@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
-import { GlassSurface } from '@app/modules/common/components/ui';
-import { securityPinBus } from '@utils/securityPinBus';
+import { securityPinBus, supportCoversArea } from '@utils/securityPinBus';
 import type { SecurityArea } from '@services/securityPin';
 import { useSecurityPin } from './useSecurityPin';
 import { SecurityPinPanel } from './SecurityPinPanel';
@@ -12,12 +11,12 @@ import { SecurityPinPanel } from './SecurityPinPanel';
  * bar stays and the person can see where they are.
  *
  * `area` is the tab (e.g. 'finance.salary/employee-payrolls'). Its own setting (Roles & Permissions
- * → Advanced → PIN, per role / employee) decides: No PIN → always open; otherwise open while
- * unlocked and not idle for longer than the tab's auto-lock time. So a 15-minute tab locks by
- * itself while a 1-day tab beside it stays open.
+ * → Advanced → PIN, per role / employee) decides: No PIN → always open; otherwise open only while
+ * THIS tab is unlocked and not idle past its own auto-lock time. Unlocking another tab does not
+ * open this one.
  *
- * While mounted it is the "active area" the interceptor names to the server (X-Security-Area), and
- * unmounting the children on lock is the point — figures on screen disappear the moment it locks.
+ * Active System PIN Support Access also opens employee-scoped tabs (not My Salary / My Increment)
+ * for the grant duration — without a PIN unlock cookie.
  */
 export function SecurityPinGate({ area, children }: { area: SecurityArea; children: React.ReactNode }) {
     const snap = useSecurityPin();
@@ -33,22 +32,44 @@ export function SecurityPinGate({ area, children }: { area: SecurityArea; childr
     }, [area]);
 
     const policy = snap.areas[area];
-    // Re-check the tab's idle clock while it is open on a timer.
+    const supportOpen = !!securityPinBus.getSupportGrant() && supportCoversArea(area);
+    const pinOpen = !!snap.unlockedAreas[area];
+    const areaOpen = securityPinBus.isAreaUnlocked(area);
     useEffect(() => {
-        if (!policy?.required || !snap.unlocked) return;
+        if (!policy?.required || !areaOpen) return;
         const t = window.setInterval(() => setTick((n) => n + 1), 10_000);
         return () => window.clearInterval(t);
-    }, [policy?.required, snap.unlocked]);
+    }, [policy?.required, areaOpen, snap.supportGrant?.expiresAt]);
 
-    const idleMs = Date.now() - securityPinBus.getSnapshot().lastActivityAt;
-    const open = !!policy && (!policy.required || (snap.unlocked && idleMs <= policy.lockMinutes * 60_000));
+    const activityAt = snap.lastActivityByArea[area] ?? snap.unlockedAreas[area]?.unlockedAt ?? 0;
+    const idleMs = Date.now() - activityAt;
+    const pinStillFresh = pinOpen && idleMs <= (policy?.lockMinutes ?? 15) * 60_000;
+    const open = !!policy && (
+        !policy.required
+        || supportOpen
+        || pinStillFresh
+    );
     if (open) return <>{children}</>;
 
     return (
-        <Box sx={{ display: 'grid', placeItems: 'center', minHeight: { xs: '62vh', md: '66vh' }, px: 2, py: { xs: 3, md: 5 } }}>
-            <GlassSurface variant="regular" sx={{ width: '100%', maxWidth: 460, px: { xs: 2.5, sm: 4 }, py: { xs: 3.5, sm: 4.5 } }}>
+        <Box
+            sx={{
+                display: 'grid',
+                placeItems: 'center',
+                alignContent: 'center',
+                width: '100%',
+                maxWidth: '100%',
+                minWidth: 0,
+                minHeight: { xs: '52vh', md: '64vh' },
+                px: { xs: 1.25, sm: 2 },
+                py: { xs: 2, md: 4.5 },
+                boxSizing: 'border-box',
+                overflowX: 'hidden',
+            }}
+        >
+            <Box sx={{ width: '100%', maxWidth: 420, minWidth: 0 }}>
                 <SecurityPinPanel area={area} />
-            </GlassSurface>
+            </Box>
         </Box>
     );
 }

@@ -12,8 +12,7 @@ import { useSecurityPinPolicy, type SecurityPinSubject } from './useSecurityPinP
  * 1 minute to 7 days). Saves on change (Custom saves on its button), independently of the page's
  * checkbox Save, and every other control for the same role / person refreshes with it.
  *
- * Used on each tab row of Roles & Permissions → Advanced, the Roles & Permissions row chip, and
- * the Security PIN side panel.
+ * Listed in the dialog the PIN chip opens on the Salary, Increment and Roles & Permissions rows.
  */
 
 const PRESETS = [5, 15, 30, 60, 120, 240, 480, 720, 1440, 2880, 4320, 10080];

@@ -374,6 +374,9 @@ function PaymentTab() {
                             label={filter === 'monthly' ? periodDate.format('MMM YYYY') : (fiscalLabel || periodDate.format('YYYY'))}
                             onPrevious={() => navigate(-1)}
                             onNext={() => navigate(1)}
+                            pickGranularity={filter === 'yearly' ? 'year' : 'month'}
+                            pickValue={periodDate.startOf(filter === 'yearly' ? 'year' : 'month').format('YYYY-MM-DD')}
+                            onPickDate={(v) => setPeriodDate(dayjs(v).startOf(filter === 'yearly' ? 'year' : 'month'))}
                         />
                     )}
                 </Box>

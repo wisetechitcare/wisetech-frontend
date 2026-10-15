@@ -1,4 +1,4 @@
-import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
+import PeriodNavigator, { PeriodPickGranularity } from '@app/modules/common/components/PeriodNavigator';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
 import { Box } from '@mui/material';
 import { ReactNode } from 'react';
@@ -20,6 +20,10 @@ interface SalaryPeriodToolbarProps {
     nextTitle?: string;
     previousTitle?: string;
     endAdornment?: ReactNode;
+    /** Click the label to jump — month/year pickers instead of arrow-only. */
+    onPickDate?: (value: string) => void;
+    pickValue?: string;
+    pickGranularity?: PeriodPickGranularity;
 }
 
 const SalaryPeriodToolbar = ({
@@ -34,6 +38,9 @@ const SalaryPeriodToolbar = ({
     nextTitle,
     previousTitle,
     endAdornment,
+    onPickDate,
+    pickValue,
+    pickGranularity,
 }: SalaryPeriodToolbarProps) => {
     return (
         <Box
@@ -63,6 +70,9 @@ const SalaryPeriodToolbar = ({
                         disableNext={disableNext}
                         previousTitle={previousTitle}
                         nextTitle={nextTitle}
+                        onPickDate={onPickDate}
+                        pickValue={pickValue}
+                        pickGranularity={pickGranularity}
                         sx={{ width: { xs: '100%', sm: 'fit-content' } }}
                     />
                 )

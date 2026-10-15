@@ -128,7 +128,7 @@ function trackTableNameCollision(tableName: string): () => void {
 
 // Session cache of resolved preference buckets, keyed by employee+table.
 //
-// WHY: `initialLoadRef` is reset on unmount, so EVERY mount re-fetches from the DB and
+// WHY: `loadedForRef` is reset on unmount, so EVERY mount re-fetches from the DB and
 // the table sits behind its skeleton until that round trip lands. Pages that swap the
 // table for a loader and remount — the exact pattern the reconcile comments below
 // describe — paid that cost repeatedly, re-showing the skeleton each time.
@@ -144,6 +144,43 @@ function trackTableNameCollision(tableName: string): () => void {
 const prefsCache = new Map<string, TablePreferences>();
 const prefsCacheKey = (employeeId: string, tableName: string) => `${employeeId}::${tableName}`;
 
+// A browser refresh / tab close does not run React's unmount cleanup, so a change made inside
+// the 500ms save debounce was lost: sort a column, hit refresh, and the sort was gone.
+// Every scheduled save is therefore mirrored SYNCHRONOUSLY into localStorage and removed only
+// once the server confirms the write. The next mount restores (and re-sends) anything still
+// pending, so the last thing the user did always wins.
+const pendingPrefsKey = (employeeId: string, tableName: string) => `wt:table-prefs-pending:${employeeId}:${tableName}`;
+const writePendingPrefs = (employeeId: string, tableName: string, prefs: TablePreferences) => {
+    try { localStorage.setItem(pendingPrefsKey(employeeId, tableName), JSON.stringify(prefs)); } catch { /* storage full / blocked: the server write still happens */ }
+};
+const clearPendingPrefs = (employeeId: string, tableName: string, prefs: TablePreferences) => {
+    try {
+        const key = pendingPrefsKey(employeeId, tableName);
+        // Only clear if nothing newer was written while this request was in flight.
+        if (localStorage.getItem(key) === JSON.stringify(prefs)) localStorage.removeItem(key);
+    } catch { /* ignore */ }
+};
+const readPendingPrefs = (employeeId: string, tableName: string): TablePreferences | null => {
+    try {
+        const raw = localStorage.getItem(pendingPrefsKey(employeeId, tableName));
+        return raw ? (JSON.parse(raw) as TablePreferences) : null;
+    } catch { return null; }
+};
+
+// The signed-in session marker (same key the auth layer and the roles thunk read). While it is
+// present but the employee record has not loaded yet, preferences must WAIT for the employee id
+// rather than initialise from defaults.
+const hasSession = () => {
+    try { return !!localStorage.getItem('wise_tech_login'); } catch { return false; }
+};
+
+// A saved EMPTY sort means "no sort chosen" — a table with a defaultSorting shows that default
+// (e.g. Leads: newest inquiry first), never an arbitrary server order.
+const withDefaultSorting = (prefs: TablePreferences, defaultSorting?: Array<{ id: string; desc: boolean }>): TablePreferences =>
+    (!prefs.sorting || prefs.sorting.length === 0) && defaultSorting?.length
+        ? { ...prefs, sorting: defaultSorting }
+        : prefs;
+
 function useTablePreferences(tableName: string, columns: any[], employeeId?: string, defaultSorting?: Array<{ id: string; desc: boolean }>, persist: boolean = true) {
     // Use refs to prevent recreating functions and causing loops
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -153,7 +190,11 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
     // navigating away never persisted the sort.
     const pendingSaveRef = useRef<(() => Promise<void>) | null>(null);
     const isMountedRef = useRef(true);
-    const initialLoadRef = useRef(false);
+    // The employee id the current preferences were loaded FOR ('' = loaded without one,
+    // null = nothing loaded yet). A boolean guard here meant that a table which mounted
+    // before the employee record arrived (every hard refresh) loaded DEFAULTS and could never
+    // load the saved bucket afterwards — the saved sort/columns were silently ignored.
+    const loadedForRef = useRef<string | null>(null);
     
     // Memoize default preferences to prevent recreation on every render
     const defaultPreferences = useMemo((): TablePreferences => {
@@ -208,11 +249,14 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
         // source of truth for this bucket, and a remount during the 500ms debounce must
         // not read a value older than what the user just did.
         prefsCache.set(prefsCacheKey(employeeId, tableName), newPreferences);
+        // Survives a refresh inside the debounce window (see writePendingPrefs).
+        writePendingPrefs(employeeId, tableName, newPreferences);
 
         pendingSaveRef.current = async () => {
             pendingSaveRef.current = null;
             try {
                 await upsertUserTablePreferences(employeeId, tableName, newPreferences);
+                clearPendingPrefs(employeeId, tableName, newPreferences);
             } catch (error) {
                 console.error('Error saving table preferences:', error);
             }
@@ -226,12 +270,26 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
 
     // Load preferences on mount - COMPLETELY ISOLATED
     useEffect(() => {
-        // Prevent multiple loads
-        if (initialLoadRef.current || !tableName || columns.length === 0) {
+        if (!tableName || columns.length === 0) {
             return;
         }
 
-        initialLoadRef.current = true;
+        // Signed in, but the employee record is still being fetched (every hard refresh):
+        // WAIT. Initialising now would load DEFAULTS (default sort, default columns) and the
+        // user's saved sort would never be applied. This effect re-runs the moment the id
+        // arrives, because `employeeId` is a dependency.
+        if (persist && !employeeId && hasSession()) {
+            return;
+        }
+
+        // Prevent multiple loads FOR THE SAME employee — but a different employee id (it
+        // arriving after an id-less load, or an account switch) must load its own bucket.
+        const loadKey = employeeId || '';
+        if (loadedForRef.current === loadKey) {
+            return;
+        }
+
+        loadedForRef.current = loadKey;
         let isCancelled = false;
         
         const loadPreferences = async () => {
@@ -251,11 +309,37 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
                 return;
             }
 
+            // A change that never reached the server (refresh / tab close inside the save
+            // debounce, or a failed request). It is the user's most recent action, so it beats
+            // both the cache and the DB; re-send it and let the normal flow take over.
+            if (employeeId) {
+                const pending = readPendingPrefs(employeeId, tableName);
+                if (pending) {
+                    const resolved = withDefaultSorting(
+                        { ...defaultPreferences, ...pending, columnVisibility: { ...defaultPreferences.columnVisibility, ...(pending.columnVisibility ?? {}) } },
+                        defaultSorting,
+                    );
+                    const next = reconcilePrefsWithColumns(columns, resolved, defaultSorting) ?? resolved;
+                    prefsCache.set(prefsCacheKey(employeeId, tableName), next);
+                    upsertUserTablePreferences(employeeId, tableName, next)
+                        .then(() => clearPendingPrefs(employeeId, tableName, pending))
+                        .catch((error) => console.error('Error re-sending pending table preferences:', error));
+                    if (!isCancelled && isMountedRef.current) {
+                        setPreferences(next);
+                        setIsLoading(false);
+                        setIsInitialized(true);
+                    }
+                    return;
+                }
+            }
+
             // Served from the session cache — no round trip, no second skeleton. The
             // reconcile below still runs, so a column set that changed since the bucket
             // was cached is still corrected before isInitialized flips.
             if (employeeId) {
-                const cached = prefsCache.get(prefsCacheKey(employeeId, tableName));
+                const cachedRaw = prefsCache.get(prefsCacheKey(employeeId, tableName));
+                // Same rule as the DB path below: an empty saved sort means "the default".
+                const cached = cachedRaw ? withDefaultSorting(cachedRaw, defaultSorting) : cachedRaw;
                 if (cached) {
                     const reconciled = reconcilePrefsWithColumns(columns, cached, defaultSorting);
                     const next = reconciled ?? cached;
@@ -503,7 +587,7 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
 
         return () => {
             isMountedRef.current = false;
-            initialLoadRef.current = false; // Reset for potential remounts
+            loadedForRef.current = null; // Reset for potential remounts
             if (saveTimeoutRef.current) {
                 clearTimeout(saveTimeoutRef.current);
             }

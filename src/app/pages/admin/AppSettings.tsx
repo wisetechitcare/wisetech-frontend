@@ -29,20 +29,25 @@ import {
 } from '@app/modules/common/components/ui';
 import { countEnabledOptionalPacks, normalizePackFlags } from '@constants/entitlements';
 import type { RootState } from '@redux/store';
+import { canSection } from '@utils/can';
 import { SETTINGS_AREAS, findArea } from './settings/registry';
 
 export function AppSettings() {
   const [params, setParams] = useSearchParams();
   const tier = useSelector((state: RootState) => state.authz.tier);
+  // Re-read when authz access map changes so section-gated tiles appear after grants.
+  const access = useSelector((state: RootState) => state.authz.access);
   const packs = useSelector((state: RootState) => state.authz.packs);
   const visibleAreas = useMemo(
     () =>
       SETTINGS_AREAS.filter((a) => {
         if (a.superAdminOnly) return tier === 'SUPER_ADMIN';
         if (a.adminTierOnly) return tier != null;
+        if (a.sectionKey) return canSection(a.sectionKey, 'read');
         return true;
       }),
-    [tier],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- canSection reads authz; access/tier are the deps
+    [tier, access],
   );
   const active = findArea(params.get('area'));
   const activeAllowed = active && visibleAreas.some((a) => a.id === active.id);

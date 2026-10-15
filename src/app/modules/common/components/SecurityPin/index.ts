@@ -7,9 +7,10 @@
  *   SecurityPinGate          wrap a tab body; shows the lock screen until unlocked
  *   SecurityPinHost          mount once in App: fallback dialog + idle re-lock
  *   SecurityPinLockButton  "Lock" button for a protected page's tab bar
- *   SecurityPinPolicySection  per role / per employee: every protected tab's PIN (No PIN or a lock time)
- *   SecurityPinAreaControl    one tab's PIN select (used on the Advanced dialog's tab rows)
- *   SecurityPinRowChip        the PIN chip for a protected row with no tabs (Roles & Permissions)
+ *   SecurityPinAreaControl    one tab's PIN select (listed in the row chip's dialog)
+ *   SecurityPinRowChip        the PIN chip on a protected access-tree row (Salary, Increment, Roles & Permissions);
+ *                             opens one dialog with every tab's PIN timing
+ *   SecurityPinResetButton    admin "Reset PIN" for one employee (PIN settings live in the access tree)
  *   useSecurityPin           read the live state
  */
 export { SecurityPinGate } from './SecurityPinGate';
@@ -17,7 +18,11 @@ export { SecurityPinHost } from './SecurityPinHost';
 export { SecurityPinLockButton } from './SecurityPinLockButton';
 export { SecurityPinPanel } from './SecurityPinPanel';
 export { useSecurityPin } from './useSecurityPin';
-export { SecurityPinPolicySection } from './SecurityPinPolicySection';
+export { SecurityPinResetButton } from './SecurityPinResetButton';
 export { SecurityPinAreaControl } from './SecurityPinAreaControl';
 export { SecurityPinRowChip, SECURITY_PIN_ROW_AREAS } from './SecurityPinRowChip';
+export { SupportAccessPolicyChip } from './SupportAccessPolicyChip';
 export { useSecurityPinPolicy, type SecurityPinSubject } from './useSecurityPinPolicy';
+export { SupportAccessPanel } from './SupportAccessPanel';
+export { SupportSessionBanner } from './SupportSessionBanner';
+export { DeveloperMfaEnrollForm } from './DeveloperMfaEnrollForm';

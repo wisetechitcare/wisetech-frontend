@@ -136,6 +136,8 @@ export const ACCESS_SIDEBAR_LAYOUT: AccessLayoutGroup[] = [
     items: [
       // Managing roles and access is a tier, never a checkbox — shown so the picture is complete.
       { module: "app.roles-permissions", label: "Roles & Permissions", icon: "bi-shield-lock", fixed: "Admin and above" },
+      // Grantable: enroll MFA + use System PIN Support Access (matches sidebar under App Settings).
+      { module: "settings.developerMfa", label: "System PIN MFA", icon: "bi-shield-check" },
     ],
   },
 ];
