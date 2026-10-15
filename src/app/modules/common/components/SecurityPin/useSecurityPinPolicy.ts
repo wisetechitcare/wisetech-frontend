@@ -33,15 +33,20 @@ const fetchData = (s: SecurityPinSubject): Promise<Data> => {
 export function useSecurityPinPolicy(subject: SecurityPinSubject | undefined) {
     const [data, setData] = useState<Data | null>(null);
     const [error, setError] = useState<unknown>(null);
-    const id = subject ? keyOf(subject) : '';
+    const id = subject ? keyOf(subject) : null;
 
     const load = useCallback(() => {
-        if (!subject) return;
+        if (!subject || !id) return;
         fetchData(subject).then(setData, setError);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     useEffect(() => {
+        if (!id) {
+            setData(null);
+            setError(null);
+            return;
+        }
         load();
         const onChanged = () => { inflight.delete(id); load(); };
         window.addEventListener(SECURITY_PIN_POLICY_CHANGED, onChanged);
@@ -57,5 +62,13 @@ export function useSecurityPinPolicy(subject: SecurityPinSubject | undefined) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
-    return { data, error, save, reload: () => { inflight.delete(id); load(); } };
+    return {
+        data,
+        error,
+        save,
+        reload: () => {
+            if (id) inflight.delete(id);
+            load();
+        },
+    };
 }

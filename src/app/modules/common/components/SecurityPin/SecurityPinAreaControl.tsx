@@ -34,10 +34,13 @@ export function SecurityPinAreaControl({ subject, area, label = 'Security PIN', 
     const isRole = subject.kind === 'role';
 
     const own: PinPolicy | null = !data ? null
-        : data.kind === 'role' ? data.role.areas[area] : data.employee.areas[area].override;
-    const inherited = !data ? null
-        : data.kind === 'role' ? { policy: data.role.default, source: { kind: 'default' } as PinPolicySource }
-        : data.employee.areas[area].fromRoles;
+        : data.kind === 'role' ? data.role.areas[area] : data.employee.areas[area]?.override ?? null;
+    // `fromRoles` is filled by the server, but a missing area row must not throw on `.policy`.
+    const inherited: { policy: PinPolicy; source: PinPolicySource } | null = !data ? null
+        : data.kind === 'role' ? { policy: data.role.default, source: { kind: 'default' } }
+        : data.employee.areas[area]?.fromRoles ?? null;
+    const inheritedPolicy: PinPolicy = inherited?.policy ?? { mode: 'required', lockMinutes: 15 };
+    const inheritedSource: PinPolicySource = inherited?.source ?? { kind: 'default' };
     const editable = !!data && (data.kind === 'role' ? data.role.editable : data.employee.editable !== false);
 
     const [choice, setChoice] = useState('inherit');
@@ -77,10 +80,10 @@ export function SecurityPinAreaControl({ subject, area, label = 'Security PIN', 
 
     const customMinutes = Math.round(Number(amount) * Number(unit));
     const customError = !Number.isFinite(customMinutes) || customMinutes < 1 || customMinutes > MAX_MINUTES ? 'Between 1 minute and 7 days' : undefined;
-    const effective: PinPolicy = own ?? inherited!.policy;
+    const effective: PinPolicy = own ?? inheritedPolicy;
 
     const options = [
-        { value: 'inherit', label: isRole ? `Default · ${describe(inherited!.policy)}` : `Follow roles · ${describe(inherited!.policy)}` },
+        { value: 'inherit', label: isRole ? `Default · ${describe(inheritedPolicy)}` : `Follow roles · ${describe(inheritedPolicy)}` },
         { value: 'off', label: 'No PIN' },
         ...PRESETS.map((m) => ({ value: String(m), label: `Lock after ${formatLockTime(m)}` })),
         { value: 'custom', label: 'Custom time…' },
@@ -95,7 +98,7 @@ export function SecurityPinAreaControl({ subject, area, label = 'Security PIN', 
                 onChange={onChoose}
                 options={options}
                 disabled={disabled || !editable || busy}
-                hint={choice === 'inherit' && !isRole ? `From the ${fromText(inherited!.source)}.` : undefined}
+                hint={choice === 'inherit' && !isRole ? `From the ${fromText(inheritedSource)}.` : undefined}
                 tone={effective.mode === 'off' ? TRIO.amber.c : undefined}
             />
             {choice === 'custom' && (
