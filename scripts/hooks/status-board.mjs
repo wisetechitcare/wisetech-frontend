@@ -110,99 +110,6 @@ function printWhatToDo(titleText, tips) {
   writeSafe(`${c.red}└${'─'.repeat(INNER)}┘${c.reset}\n\n`)
 }
 
-/**
- * Word-wrap plain text to fixed visible width (breaks on spaces).
- * @returns {string[]}
- */
-export function wrapText(text, width) {
-  const words = String(text ?? '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .split(' ')
-    .filter(Boolean)
-  if (!words.length) return ['']
-  const lines = []
-  let cur = ''
-  for (const word of words) {
-    if (!cur) {
-      if (word.length <= width) {
-        cur = word
-      } else {
-        let rest = word
-        while (rest.length > width) {
-          lines.push(rest.slice(0, width))
-          rest = rest.slice(width)
-        }
-        cur = rest
-      }
-      continue
-    }
-    if (`${cur} ${word}`.length <= width) {
-      cur = `${cur} ${word}`
-    } else {
-      lines.push(cur)
-      cur = word.length <= width ? word : word.slice(0, width)
-    }
-  }
-  if (cur) lines.push(cur)
-  return lines
-}
-
-/**
- * Polished summary card (post-commit / post-push).
- * @param {{ title: string, tone?: 'ok'|'fail'|'run', rows: { label?: string, text: string }[], footer?: string }} info
- */
-export function printSummaryCard(info) {
-  const tone = info.tone || 'ok'
-  const col = frameColor(tone)
-  const lines = [top(tone), row(` ${info.title || 'Summary'}`, tone), mid(tone)]
-
-  for (const item of info.rows || []) {
-    const label = item.label ? `${String(item.label).padEnd(8)} ` : ''
-    const prefix = `  ${label}`
-    const width = INNER - prefix.length
-    const wrapped = wrapText(item.text, Math.max(8, width))
-    for (let i = 0; i < wrapped.length; i++) {
-      if (i === 0) {
-        lines.push(`${col}│${c.reset}${fit(prefix + wrapped[i], INNER)}${col}│${c.reset}`)
-      } else {
-        lines.push(`${col}│${c.reset}${fit(' '.repeat(prefix.length) + wrapped[i], INNER)}${col}│${c.reset}`)
-      }
-    }
-  }
-
-  if (info.footer) {
-    lines.push(mid(tone))
-    const footerColor = tone === 'fail' ? c.red : c.green
-    lines.push(
-      `${col}│${c.reset}${footerColor}${c.bold}${fit(` ✓  ${info.footer}`, INNER)}${c.reset}${col}│${c.reset}`,
-    )
-  }
-
-  lines.push(bot(tone))
-  writeSafe(`${lines.join('\n')}\n`)
-}
-
-/** Erase the last N terminal rows. */
-export function clearLinesAbove(count) {
-  const n = Math.max(0, Math.floor(Number(count) || 0))
-  if (!n) return
-  try {
-    if (process.stdout.isTTY) {
-      readline.moveCursor(process.stdout, 0, -n)
-      readline.clearScreenDown(process.stdout)
-    } else {
-      process.stdout.write(`\x1b[${n}A\x1b[0J`)
-    }
-  } catch {
-    try {
-      process.stdout.write(`\x1b[${n}A\x1b[0J`)
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
 export function createBoard(title, stepNames) {
   if (!Array.isArray(stepNames) || stepNames.length === 0) {
     throw new Error('Status board needs at least one step name.')
@@ -392,14 +299,6 @@ export function createBoard(title, stepNames) {
       paint({ force: true, tone: 'ok', footer: message })
       lastLines = 0
       drawn = false
-    },
-    /** Erase any live board; print nothing (post-commit shows the summary). */
-    dismiss() {
-      if (disposed) return
-      stopSpin()
-      erase()
-      drawn = false
-      lastLines = 0
     },
     dispose() {
       disposed = true

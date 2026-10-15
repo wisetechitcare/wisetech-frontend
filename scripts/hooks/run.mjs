@@ -7,10 +7,7 @@
  *   node scripts/hooks/run.mjs verify     (full local mirror of CI tests + types)
  */
 import { spawn, spawnSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
-import { createBoard, printSummaryCard } from './status-board.mjs'
-
-const eraseGitSummaryPath = fileURLToPath(new URL('./erase-git-summary.mjs', import.meta.url))
+import { createBoard } from './status-board.mjs'
 
 const mode = process.argv[2]
 const ZERO = '0000000000000000000000000000000000000000'
@@ -292,8 +289,7 @@ async function preCommit() {
       '3. git add <files>, then: git commit',
     ])
     board.pass(0)
-    // One summary card comes from post-commit (avoids duplicate UIs).
-    board.dismiss()
+    board.success('Pre-commit checks passed.')
   })
 }
 
@@ -423,113 +419,11 @@ async function verify() {
   )
 }
 
-function gitText(args) {
-  const r = runGit(args)
-  if (!r.ok || r.status !== 0) return ''
-  return String(r.stdout || '').trim()
-}
-
-function formatShortstat(raw) {
-  const s = String(raw || '').replace(/\s+/g, ' ').trim()
-  if (!s) return 'No file stats'
-  const files = s.match(/(\d+)\s+files? changed/)
-  const ins = s.match(/(\d+)\s+insertions?\(\+\)/)
-  const del = s.match(/(\d+)\s+deletions?\(-\)/)
-  const parts = []
-  if (files) parts.push(`${files[1]} file${files[1] === '1' ? '' : 's'}`)
-  if (ins) parts.push(`+${ins[1]}`)
-  if (del) parts.push(`−${del[1]}`)
-  return parts.length ? parts.join('  ·  ') : s
-}
-
-function listChangedFiles(limit = 8) {
-  const raw = gitText(['diff-tree', '--no-commit-id', '--name-status', '-r', 'HEAD'])
-  if (!raw) return []
-  const rows = raw.split(/\r?\n/).filter(Boolean)
-  const shown = rows.slice(0, limit).map((line) => {
-    const [status, ...pathParts] = line.split(/\t/)
-    const path = pathParts.join('\t') || line
-    const mark = status === 'A' ? 'A' : status === 'D' ? 'D' : status === 'M' ? 'M' : status.slice(0, 1)
-    return { label: mark, text: path }
-  })
-  if (rows.length > limit) {
-    shown.push({ text: `… and ${rows.length - limit} more` })
-  }
-  return shown
-}
-
-/** Lines Git will print after this hook exits (`[branch hash] msg` + stats + mode lines). */
-function estimateGitCommitOutputLines() {
-  const cols = Math.max(40, process.stdout.columns || 80)
-  const branch = gitText(['rev-parse', '--abbrev-ref', 'HEAD']) || 'HEAD'
-  const hash = gitText(['log', '-1', '--pretty=%h']) || ''
-  const subject = gitText(['log', '-1', '--pretty=%s']) || ''
-  const header = `[${branch} ${hash}] ${subject}`
-  const headerLines = Math.max(1, Math.ceil(header.length / Math.max(20, cols)))
-
-  const nameStatus = gitText(['diff-tree', '--no-commit-id', '--name-status', '-r', 'HEAD'])
-  const rows = nameStatus ? nameStatus.split(/\r?\n/).filter(Boolean) : []
-  let modeLines = 0
-  for (const line of rows) {
-    const st = (line.split(/\t/)[0] || '').slice(0, 1)
-    if (st === 'A' || st === 'D' || st === 'R' || st === 'C') modeLines += 1
-  }
-  const shortstatLines = rows.length ? 1 : 0
-  return headerLines + shortstatLines + modeLines
-}
-
-/** After the hook exits, Git prints its default summary — erase it from the terminal. */
-function scheduleEraseGitSummary(lineCount) {
-  const n = Math.max(2, lineCount)
-  try {
-    const child = spawn(process.execPath, [eraseGitSummaryPath, String(n), '300'], {
-      detached: true,
-      stdio: ['ignore', 'inherit', 'ignore'],
-      windowsHide: true,
-    })
-    child.unref()
-  } catch {
-    /* best-effort — card still shows even if erase fails */
-  }
-}
-
-function postCommit() {
-  const branch = gitText(['rev-parse', '--abbrev-ref', 'HEAD']) || 'HEAD'
-  const hash = gitText(['log', '-1', '--pretty=%h']) || '—'
-  const subject = gitText(['log', '-1', '--pretty=%s']) || '(no message)'
-  const shortstat = formatShortstat(gitText(['show', '-1', '--format=', '--shortstat']))
-  const files = listChangedFiles(8)
-  const gitLines = estimateGitCommitOutputLines()
-
-  const rows = [
-    { label: 'Checks', text: 'Pre-commit passed' },
-    { label: 'Branch', text: branch },
-    { label: 'Commit', text: hash },
-    { label: 'Message', text: subject },
-    { label: 'Changes', text: shortstat },
-  ]
-  if (files.length) {
-    rows.push({ label: 'Files', text: '' })
-    for (const f of files) rows.push(f)
-  }
-
-  printSummaryCard({
-    title: 'WiseTech Frontend · Commit',
-    tone: 'ok',
-    rows,
-    footer: 'Commit created successfully.',
-  })
-
-  // Git 2.x prints `[branch hash] …` AFTER post-commit returns — wipe it.
-  scheduleEraseGitSummary(gitLines)
-}
-
 async function main() {
   if (mode === 'pre-commit') return preCommit()
   if (mode === 'pre-push') return prePush()
-  if (mode === 'post-commit') return postCommit()
   if (mode === 'verify') return verify()
-  console.error('Usage: node scripts/hooks/run.mjs <pre-commit|pre-push|post-commit|verify>')
+  console.error('Usage: node scripts/hooks/run.mjs <pre-commit|pre-push|verify>')
   process.exitCode = 2
 }
 
