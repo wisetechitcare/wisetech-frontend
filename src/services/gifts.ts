@@ -5,6 +5,7 @@ import type {
   CourtesyConfig,
   CourtesyDrive,
   CourtesyRecipient,
+  GroupActivityPage,
   PeopleGroup,
   PersonRef,
 } from "@app/pages/employee/courtesy-desk/types";
@@ -75,6 +76,36 @@ export async function fetchGroups(includeArchived = false) {
 export async function fetchGroup(id: string) {
   const res = await get<{ group: PeopleGroup }>(path(GIFTS.GROUP_BY_ID, { id }));
   return res.group;
+}
+
+export async function fetchGroupActivity(
+  id: string,
+  page = 1,
+  pageSize = 20,
+) {
+  const qs = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  const res = await get<GroupActivityPage>(
+    `${path(GIFTS.GROUP_ACTIVITY, { id })}?${qs}`,
+  );
+  return res;
+}
+
+export async function fetchDriveActivity(
+  id: string,
+  page = 1,
+  pageSize = 20,
+) {
+  const qs = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  const res = await get<GroupActivityPage>(
+    `${path(GIFTS.DRIVE_ACTIVITY, { id })}?${qs}`,
+  );
+  return res;
 }
 
 export async function createGroupApi(input: {

@@ -42,6 +42,34 @@ export interface PeopleGroup {
   updatedAt: string;
 }
 
+/** WhatsApp-style system line on a People Group. */
+export type GroupActivityType =
+  | 'GROUP_CREATED'
+  | 'GROUP_UPDATED'
+  | 'GROUP_ARCHIVED'
+  | 'GROUP_UNARCHIVED'
+  | 'DRIVE_STARTED'
+  | 'DRIVE_STATUS_CHANGED';
+
+export interface GroupActivity {
+  id: string;
+  type: GroupActivityType;
+  message: string;
+  actorId?: string | null;
+  actorName?: string | null;
+  actorAvatar?: string | null;
+  runId?: string | null;
+  createdAt: string;
+}
+
+export interface GroupActivityPage {
+  activity: GroupActivity[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
 export interface CourtesyRecipient {
   id: string;
   memberType: MemberType;

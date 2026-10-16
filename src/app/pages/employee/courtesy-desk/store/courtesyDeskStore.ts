@@ -317,14 +317,21 @@ export async function saveGroupToApi(input: {
   return saved;
 }
 
-/** Gift Run roster mirrors its People Group; DRIVE_ONLY rows stay until removed on the run. */
+/** Gift Run roster mirrors its People Group; DRIVE_ONLY rows stay until removed on the run.
+ *  COMPLETED / ARCHIVED runs are frozen — group edits must not change their roster. */
 function syncDrivesFromGroup(groupId: string) {
   const group = state.groups.find((g) => g.id === groupId);
   if (!group) return;
   const memberKeys = new Set(group.members.map(personKey));
   const ts = nowIso();
   const drives = state.drives.map((d) => {
-    if (d.sourceGroupId !== groupId || d.status === "ARCHIVED") return d;
+    if (
+      d.sourceGroupId !== groupId ||
+      d.status === "ARCHIVED" ||
+      d.status === "COMPLETED"
+    ) {
+      return d;
+    }
     const driveOnly = d.recipients.filter(
       (r) => (r.rosterSource ?? "GROUP") === "DRIVE_ONLY",
     );
@@ -332,9 +339,16 @@ function syncDrivesFromGroup(groupId: string) {
       (r) =>
         (r.rosterSource ?? "GROUP") === "GROUP" && memberKeys.has(personKey(r)),
     );
+    // Soft-removed on this run (still in group) — do not re-add.
+    const removedKeys = new Set(
+      d.recipients
+        .filter((r) => (r.rosterSource as string) === "RUN_REMOVED")
+        .map(personKey),
+    );
     const linkedKeys = new Set([
       ...groupLinked.map(personKey),
       ...driveOnly.map(personKey),
+      ...removedKeys,
     ]);
     const additions = group.members.filter(
       (m) => !linkedKeys.has(personKey(m)),
@@ -589,6 +603,7 @@ export async function updateDriveMetaToApi(
       | "driveDate"
       | "status"
       | "occasionType"
+      | "sourceGroupId"
       | "defaultAssigneeEmployeeId"
       | "defaultAssigneeName"
       | "defaultMode"
@@ -614,6 +629,7 @@ export function updateDriveMeta(
       | "driveDate"
       | "status"
       | "occasionType"
+      | "sourceGroupId"
       | "defaultAssigneeEmployeeId"
       | "defaultAssigneeName"
       | "defaultMode"
@@ -721,7 +737,7 @@ export function addPeopleToDrive(driveId: string, people: PersonRef[]) {
   return { added: additions.length, drive: updated };
 }
 
-/** Remove gift-run-only recipients (group members must be changed in the People Group). */
+/** Remove recipients from this Gift Run only (People Group is never changed). */
 export async function removePeopleFromDriveToApi(
   driveId: string,
   recipientIds: string[],
@@ -739,14 +755,6 @@ export function removePeopleFromDrive(driveId: string, recipientIds: string[]) {
   const drive = getDrive(driveId);
   if (!drive) throw new Error("Gift Run not found");
   const idSet = new Set(recipientIds);
-  const blocked = drive.recipients.filter(
-    (r) => idSet.has(r.id) && (r.rosterSource ?? "GROUP") !== "DRIVE_ONLY",
-  );
-  if (blocked.length) {
-    throw new Error(
-      "Only people added on this Gift Run can be removed here. Update the People Group to change group members.",
-    );
-  }
 
   const updated: CourtesyDrive = {
     ...drive,

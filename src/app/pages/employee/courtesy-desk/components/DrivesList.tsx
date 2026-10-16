@@ -9,6 +9,8 @@ import {
   alpha,
   useTheme,
 } from "@mui/material";
+import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
+import UnarchiveOutlinedIcon from "@mui/icons-material/UnarchiveOutlined";
 import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
 import { MRT_ColumnDef } from "material-react-table";
@@ -16,6 +18,11 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
+import { actionsColumn } from "@app/modules/common/components/table/columns";
+import {
+  ActionIconButton,
+  useConfirmDialog,
+} from "@app/modules/common/components/ui";
 import { SolidChip } from "@app/pages/billing/operations/TrackerCells";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
@@ -27,18 +34,22 @@ import {
   giftRunStatusColor,
   occasionLabel,
 } from "../types";
-import SolidChipPickMenu from "./SolidChipPickMenu";
-import { DriveCreateModal } from "./DriveCreate";
+import {
+  DriveCreateModal,
+  DriveEditModal,
+  isGiftRunEditable,
+} from "./DriveCreate";
 import { T } from "@app/modules/common/components/ui/tokens";
 
 export default function DrivesList() {
   const theme = useTheme();
   const desk = useCourtesyDesk();
   const navigate = useNavigate();
+  const { ask, dialog: confirmDialog } = useConfirmDialog();
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
+  const [editDrive, setEditDrive] = useState<CourtesyDrive | null>(null);
   const [presetGroupId, setPresetGroupId] = useState<string | undefined>();
-  const [showArchived, setShowArchived] = useState(false);
   const [occasionFilter, setOccasionFilter] = useState<"ALL" | string>("ALL");
   const [giftRunStatusFilter, setGiftRunStatusFilter] = useState<
     "ALL" | string
@@ -66,7 +77,8 @@ export default function DrivesList() {
     setCreateOpen(false);
     setPresetGroupId(undefined);
   };
-  const drives = listDrives(showArchived);
+  // Always include archived so the status filter can surface them.
+  const drives = listDrives(true);
   const giftRunStatuses = desk.config.giftRunStatuses;
   const occasions = desk.config.occasions;
 
@@ -74,9 +86,10 @@ export default function DrivesList() {
     return drives.filter((d) => {
       if (occasionFilter !== "ALL" && d.occasionType !== occasionFilter)
         return false;
-      if (giftRunStatusFilter !== "ALL" && d.status !== giftRunStatusFilter)
-        return false;
-      return true;
+      // "All" keeps archived out of the default list; pick "Archived" (or a
+      // specific status) to see those rows.
+      if (giftRunStatusFilter === "ALL") return d.status !== "ARCHIVED";
+      return d.status === giftRunStatusFilter;
     });
   }, [drives, occasionFilter, giftRunStatusFilter]);
 
@@ -119,23 +132,94 @@ export default function DrivesList() {
         accessorKey: "status",
         header: "Gift Run status",
         size: 150,
-        Cell: ({ row }) => (
-          <SolidChipPickMenu
-            valueId={row.original.status}
-            heading="SET GIFT RUN STATUS"
-            options={giftRunStatuses}
-            onPick={(status) => {
-              void updateDriveMetaToApi(row.original.id, { status })
-                .then(() => toast.success("Gift run status updated"))
-                .catch((err: unknown) =>
-                  toast.error(apiErrorMessage(err, "Something went wrong")),
-                );
-            }}
-          />
-        ),
+        Cell: ({ row }) => {
+          const s = giftRunStatuses.find((x) => x.id === row.original.status);
+          return (
+            <SolidChip
+              label={s?.name || row.original.status}
+              color={s?.color || giftRunStatusColor(desk.config, row.original.status)}
+            />
+          );
+        },
       },
+      actionsColumn({
+        size: 100,
+        Cell: ({ row }) => {
+          const d = row.original;
+          const archived = d.status === "ARCHIVED";
+          return (
+            <Stack
+              direction="row"
+              spacing={0.75}
+              alignItems="center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {isGiftRunEditable(d.status) ? (
+                <ActionIconButton
+                  iconName="pencil"
+                  title={`Edit ${GIFT_RUN_LABEL}`}
+                  size="sm"
+                  tone="indigo"
+                  onClick={() => setEditDrive(d)}
+                />
+              ) : null}
+              {archived ? (
+                <ActionIconButton
+                  icon={<UnarchiveOutlinedIcon sx={{ fontSize: 18 }} />}
+                  title={`Restore ${GIFT_RUN_LABEL}`}
+                  size="sm"
+                  tone="success"
+                  onClick={() => {
+                    void ask({
+                      variant: "confirm",
+                      title: `Restore ${GIFT_RUN_LABEL}`,
+                      message: `Are you sure you want to restore this gift run from archive?`,
+                      confirmLabel: "Restore",
+                      icon: "archive",
+                    }).then((ok) => {
+                      if (!ok) return;
+                      void updateDriveMetaToApi(d.id, { status: "COMPLETED" })
+                        .then(() => toast.success("Gift run restored."))
+                        .catch((err: unknown) =>
+                          toast.error(
+                            apiErrorMessage(err, "Something went wrong"),
+                          ),
+                        );
+                    });
+                  }}
+                />
+              ) : (
+                <ActionIconButton
+                  icon={<ArchiveOutlinedIcon sx={{ fontSize: 18 }} />}
+                  title={`Archive ${GIFT_RUN_LABEL}`}
+                  size="sm"
+                  tone="danger"
+                  onClick={() => {
+                    void ask({
+                      variant: "delete",
+                      title: `Archive ${GIFT_RUN_LABEL}`,
+                      message: `Are you sure you want to archive this gift run? You can restore it later.`,
+                      confirmLabel: "Archive",
+                      icon: "archive",
+                    }).then((ok) => {
+                      if (!ok) return;
+                      void updateDriveMetaToApi(d.id, { status: "ARCHIVED" })
+                        .then(() => toast.success("Gift run archived."))
+                        .catch((err: unknown) =>
+                          toast.error(
+                            apiErrorMessage(err, "Something went wrong"),
+                          ),
+                        );
+                    });
+                  }}
+                />
+              )}
+            </Stack>
+          );
+        },
+      }),
     ],
-    [desk.config, giftRunStatuses],
+    [ask, desk.config, giftRunStatuses],
   );
 
   const rowStatusTint = (statusId: string) => {
@@ -186,6 +270,7 @@ export default function DrivesList() {
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
+      {confirmDialog}
       <Stack
         direction={{ xs: "column", md: "row" }}
         justifyContent="space-between"
@@ -251,6 +336,11 @@ export default function DrivesList() {
         open={createOpen}
         onClose={closeCreate}
         presetGroupId={presetGroupId}
+      />
+      <DriveEditModal
+        open={!!editDrive}
+        drive={editDrive}
+        onClose={() => setEditDrive(null)}
       />
     </Box>
   );

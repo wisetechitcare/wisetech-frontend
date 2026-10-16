@@ -11,10 +11,8 @@ import {
   Autocomplete,
   Box,
   Button,
-  Dialog,
   DialogActions,
   DialogContent,
-  DialogTitle,
   Link,
   MenuItem,
   Paper,
@@ -24,6 +22,7 @@ import {
   alpha,
   useTheme,
 } from "@mui/material";
+import { KTIcon } from "@metronic/helpers";
 import { toast } from "react-toastify";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import {
@@ -40,9 +39,12 @@ import { fetchAllEmployeesSelectedData } from "@services/employee";
 import { getClientContactById } from "@services/companies";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import {
-  ActionIconButton,
+  GlassDialog,
+  GlassHeader,
   StatTile,
   TRIO,
+  useConfirmDialog,
+  WtButton,
 } from "@app/modules/common/components/ui";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
@@ -70,6 +72,8 @@ import PersonPicker, {
   PersonAvatar,
   courtesyDeskAssigneeOptions,
 } from "./PersonPicker";
+import { DriveEditModal, isGiftRunEditable } from "./DriveCreate";
+import GiftHistoryButton from "./GroupActivityLog";
 import SolidChipPickMenu from "./SolidChipPickMenu";
 
 const SKIP_REASON_OPTIONS: ConfigOption[] = [
@@ -112,6 +116,7 @@ function AssigneeFieldSelect({
   options,
   fallbackName,
   tableCell,
+  disabled = false,
 }: {
   label?: string;
   value: string;
@@ -119,6 +124,7 @@ function AssigneeFieldSelect({
   options: AssigneeOpt[];
   fallbackName?: string;
   tableCell?: boolean;
+  disabled?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -138,10 +144,11 @@ function AssigneeFieldSelect({
   return (
     <Autocomplete
       size="small"
+      disabled={disabled}
       options={options}
       value={valueOpt}
       open={menuOpen}
-      onOpen={() => setMenuOpen(true)}
+      onOpen={() => !disabled && setMenuOpen(true)}
       onClose={() => setMenuOpen(false)}
       onChange={(_, opt) => onChange(opt?.id ?? "")}
       getOptionLabel={(o) => o.name}
@@ -306,7 +313,9 @@ export default function DriveDetail() {
   const desk = useCourtesyDesk();
   const { driveId } = useParams<{ driveId: string }>();
   const drive = driveId ? getDrive(driveId) : undefined;
+  const runEditable = isGiftRunEditable(drive?.status ?? "");
   const navigate = useNavigate();
+  const { ask, dialog: confirmDialog } = useConfirmDialog();
   const dispatch = useDispatch<AppDispatch>();
   const employees = useSelector((s: RootState) => s.allEmployees.list);
   const employeeId = useSelector(
@@ -337,6 +346,7 @@ export default function DriveDetail() {
   const [addPeopleOpen, setAddPeopleOpen] = useState(false);
   const [pickerPeople, setPickerPeople] = useState<PersonRef[]>([]);
   const [addingPeople, setAddingPeople] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [employeeProfiles, setEmployeeProfiles] = useState(
     () => new Map<string, PersonProfile>(),
   );
@@ -567,7 +577,7 @@ export default function DriveDetail() {
     recipientId: string,
     patch: Parameters<typeof updateRecipientToApi>[2],
   ) => {
-    if (!driveId) return;
+    if (!driveId || !runEditable) return;
     void updateRecipientToApi(driveId, recipientId, patch).catch(toastApiErr);
   };
 
@@ -644,22 +654,6 @@ export default function DriveDetail() {
                   )}
                 </Stack>
               </Box>
-              {(r.rosterSource ?? "GROUP") === "DRIVE_ONLY" && (
-                <Box sx={{ ml: "auto", flexShrink: 0 }}>
-                  <ActionIconButton
-                    iconName="trash"
-                    title="Remove from this Gift Run"
-                    tone="danger"
-                    size="sm"
-                    onClick={() => {
-                      if (!driveId) return;
-                      void removePeopleFromDriveToApi(driveId, [r.id])
-                        .then(() => toast.success("Removed from Gift Run."))
-                        .catch((err: unknown) => toastApiErr(err));
-                    }}
-                  />
-                </Box>
-              )}
             </Stack>
           );
         },
@@ -703,6 +697,7 @@ export default function DriveDetail() {
           <TextField
             type="number"
             size="small"
+            disabled={!runEditable}
             inputProps={{ min: 1, step: 1 }}
             value={row.original.quantity ?? 1}
             onClick={(e) => e.stopPropagation()}
@@ -723,6 +718,7 @@ export default function DriveDetail() {
             valueId={row.original.status}
             heading="SET STATUS"
             options={deliveryStatuses}
+            disabled={!runEditable}
             onPick={(status) =>
               patchRecipient(row.original.id, {
                 status,
@@ -744,6 +740,7 @@ export default function DriveDetail() {
             valueId={row.original.mode}
             heading="SET MODE"
             options={deliveryModes}
+            disabled={!runEditable}
             onPick={(mode) => {
               if (mode === "IN_PERSON" && !row.original.assigneeName) {
                 const id =
@@ -782,6 +779,7 @@ export default function DriveDetail() {
         Cell: ({ row }) => (
           <AssigneeFieldSelect
             tableCell
+            disabled={!runEditable}
             value={row.original.assigneeEmployeeId || ""}
             fallbackName={row.original.assigneeName}
             options={assigneeOptions}
@@ -801,6 +799,7 @@ export default function DriveDetail() {
         Cell: ({ row }) => (
           <TextField
             size="small"
+            disabled={!runEditable}
             placeholder="Optional"
             value={row.original.remark || ""}
             onClick={(e) => e.stopPropagation()}
@@ -823,6 +822,7 @@ export default function DriveDetail() {
               valueId={row.original.skippedReason || "REFUSED"}
               heading="SET REASON"
               options={SKIP_REASON_OPTIONS}
+              disabled={!runEditable}
               onPick={(id) =>
                 patchRecipient(row.original.id, {
                   skippedReason: id as SkippedReason,
@@ -844,6 +844,7 @@ export default function DriveDetail() {
     employeeAvatarById,
     recipientDesignation,
     recipientGender,
+    runEditable,
   ]);
 
   if (!drive) {
@@ -867,6 +868,7 @@ export default function DriveDetail() {
   const wholeAssignee = drive.defaultAssigneeEmployeeId || "";
 
   const applyWholeAssignee = (assigneeId: string) => {
+    if (!runEditable) return;
     if (!assigneeId) {
       void updateDriveMetaToApi(drive.id, {
         defaultAssigneeEmployeeId: "",
@@ -889,7 +891,7 @@ export default function DriveDetail() {
   };
 
   const applyWholeMode = (mode: DeliveryMode | "ALL") => {
-    if (mode === "ALL") return;
+    if (!runEditable || mode === "ALL") return;
     if (mode === "COURIER") {
       void applyDriveAssigneeModeToApi(drive.id, { mode: "COURIER" })
         .then(() => toast.success("Mode set to Courier for all."))
@@ -908,7 +910,7 @@ export default function DriveDetail() {
   };
 
   const applyFieldsToSelected = () => {
-    if (!selectedRows.length || !driveId) return;
+    if (!runEditable || !selectedRows.length || !driveId) return;
     const patch: Parameters<typeof bulkUpdateRecipientsToApi>[2] = {};
     if (selectionStatus) {
       patch.status = selectionStatus;
@@ -950,32 +952,33 @@ export default function DriveDetail() {
   };
 
   const removeSelectedFromRun = () => {
-    if (!driveId || !selectedRows.length) return;
-    const ids = selectedRows
-      .filter((r) => (r.rosterSource ?? "GROUP") === "DRIVE_ONLY")
-      .map((r) => r.id);
-    if (!ids.length) {
-      toast.warning(
-        "Only people added on this Gift Run can be removed here. Change the People Group to remove group members.",
-      );
-      return;
-    }
-    void removePeopleFromDriveToApi(driveId, ids)
-      .then(() => {
-        toast.success(`Removed ${ids.length} from Gift Run.`);
-        setSelectedRows([]);
-        setTableSelectionReset((n) => n + 1);
-      })
-      .catch(toastApiErr);
+    if (!runEditable || !driveId || !selectedRows.length) return;
+    const ids = selectedRows.map((r) => r.id);
+    void ask({
+      variant: "delete",
+      title: "Remove from Gift Run",
+      message: `Remove ${ids.length} person(s) from this Gift Run? The People Group is unchanged.`,
+      confirmLabel: "Remove",
+    }).then((ok) => {
+      if (!ok) return;
+      void removePeopleFromDriveToApi(driveId, ids)
+        .then(() => {
+          toast.success(`Removed ${ids.length} from Gift Run.`);
+          setSelectedRows([]);
+          setTableSelectionReset((n) => n + 1);
+        })
+        .catch(toastApiErr);
+    });
   };
 
   const openAddPeople = () => {
+    if (!runEditable) return;
     setPickerPeople([]);
     setAddPeopleOpen(true);
   };
 
   const confirmAddPeople = () => {
-    if (!driveId) return;
+    if (!runEditable || !driveId) return;
     const toAdd = pickerPeople.filter(
       (p) => !existingPersonKeys.has(`${p.memberType}:${p.personId}`),
     );
@@ -1091,14 +1094,17 @@ export default function DriveDetail() {
           </MenuItem>
         ))}
       </TextField> */}
-      <Button size="large" variant="contained" onClick={openAddPeople}>
-        Add people
-      </Button>
+      {runEditable ? (
+        <Button size="large" variant="contained" onClick={openAddPeople}>
+          Add people
+        </Button>
+      ) : null}
     </Stack>
   );
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
+      {confirmDialog}
       <Button
         size="small"
         variant="text"
@@ -1124,22 +1130,57 @@ export default function DriveDetail() {
             </Typography>
             <Stack
               direction="row"
-              alignItems="flex-end"
+              alignItems="center"
               spacing={0.75}
               useFlexGap
+              flexWrap="wrap"
             >
               <SolidChipPickMenu
                 valueId={drive.status}
                 heading="SET GIFT RUN STATUS"
                 options={giftRunStatuses}
                 onPick={(status) => {
-                  void updateDriveMetaToApi(drive.id, { status })
-                    .then(() => toast.success("Gift run status updated"))
-                    .catch((err: unknown) => toastApiErr(err));
+                  const needsConfirm =
+                    status === "COMPLETED" ||
+                    status === "ARCHIVED" ||
+                    !isGiftRunEditable(drive.status);
+                  const apply = () =>
+                    void updateDriveMetaToApi(drive.id, { status })
+                      .then(() => toast.success("Gift run status updated"))
+                      .catch((err: unknown) => toastApiErr(err));
+                  if (!needsConfirm) {
+                    apply();
+                    return;
+                  }
+                  void ask({
+                    variant: "confirm",
+                    title: "Change gift run status",
+                    message:
+                      "Are you sure you want to change the status of this gift run?",
+                    confirmLabel: "Change Status",
+                  }).then((ok) => {
+                    if (ok) apply();
+                  });
                 }}
               />
+              {runEditable ? (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AppIcon name="bi-pencil" />}
+                  onClick={() => setEditOpen(true)}
+                >
+                  Edit
+                </Button>
+              ) : null}
+              <GiftHistoryButton kind="drive" id={drive.id} />
             </Stack>
           </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+            {occasionLabel(desk.config, drive.occasionType)}
+            {drive.giftItem ? ` · ${drive.giftItem}` : ""}
+            {drive.driveDate ? ` · ${drive.driveDate}` : ""}
+          </Typography>
           <Typography variant="h6" fontWeight={700} color="text.secondary">
             Group:{" "}
             <Link
@@ -1199,150 +1240,72 @@ export default function DriveDetail() {
         </Box>
       )}
 
-      <Box
-        sx={{
-          mb: 2,
-          p: 1.5,
-          borderRadius: 2,
-          border: "1px solid",
-          borderColor: "divider",
-          bgcolor: "action.hover",
-        }}
-      >
-        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>
-          Assign for whole {GIFT_RUN_LABEL}
-        </Typography>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          display="block"
-          sx={{ mb: 1.5 }}
+      {runEditable ? (
+        <Box
+          sx={{
+            mb: 2,
+            p: 1.5,
+            borderRadius: 2,
+            border: "1px solid",
+            borderColor: "divider",
+            bgcolor: "action.hover",
+          }}
         >
-          Per person: use the Assignee column in the table. Select rows for a
-          batch assignee (below or in the table toolbar).
-        </Typography>
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          alignItems={{ sm: "flex-end" }}
-        >
-          <AssigneeFieldSelect
-            label="Assignee (all)"
-            value={wholeAssignee}
-            fallbackName={drive.defaultAssigneeName}
-            options={assigneeOptions}
-            onChange={(id) => applyWholeAssignee(id)}
-          />
-          {/* <AssigneeSelect
-            // label="Assignee (all)"
-            value={wholeAssignee}
-            fallbackLabel={drive.defaultAssigneeName}
-            options={assigneeOptions}
-            minWidth={180}
-            onChange={(id) => applyWholeAssignee(id)}
-          /> */}
-          <TextField
-            select
-            size="small"
-            label="Mode (all)"
-            value={wholeModeSelectValue}
-            onChange={(e) =>
-              applyWholeMode(e.target.value as DeliveryMode | "ALL")
-            }
-            sx={{ minWidth: 180 }}
+          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>
+            Assign for whole {GIFT_RUN_LABEL}
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            display="block"
+            sx={{ mb: 1.5 }}
           >
-            {wholeModeSelectValue === "ALL" && (
-              <MenuItem value="ALL">All</MenuItem>
-            )}
-            {deliveryModes.map((m: ConfigOption) => (
-              <MenuItem key={m.id} value={m.id}>
-                {m.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Stack>
-
-        {selectedRows.length > 0 && (
-          <>
-            <Typography
-              variant="subtitle2"
-              fontWeight={700}
-              sx={{ mt: 2.5, mb: 1.5 }}
+            Per person: use the Assignee column in the table. Select rows for a
+            batch assignee (below or in the table toolbar).
+          </Typography>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems={{ sm: "flex-end" }}
+          >
+            <AssigneeFieldSelect
+              label="Assignee (all)"
+              value={wholeAssignee}
+              fallbackName={drive.defaultAssigneeName}
+              options={assigneeOptions}
+              onChange={(id) => applyWholeAssignee(id)}
+            />
+            <TextField
+              select
+              size="small"
+              label="Mode (all)"
+              value={wholeModeSelectValue}
+              onChange={(e) =>
+                applyWholeMode(e.target.value as DeliveryMode | "ALL")
+              }
+              sx={{ minWidth: 180 }}
             >
-              Edit selected ({selectedRows.length})
-            </Typography>
-            <Stack spacing={2}>
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={2}
-                alignItems={{ sm: "flex-end" }}
-                flexWrap="wrap"
-                useFlexGap
+              {wholeModeSelectValue === "ALL" && (
+                <MenuItem value="ALL">All</MenuItem>
+              )}
+              {deliveryModes.map((m: ConfigOption) => (
+                <MenuItem key={m.id} value={m.id}>
+                  {m.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+
+          {selectedRows.length > 0 && (
+            <>
+              <Typography
+                variant="subtitle2"
+                fontWeight={700}
+                sx={{ mt: 2.5, mb: 1.5 }}
               >
-                <TextField
-                  select
-                  size="small"
-                  label="Delivery status"
-                  value={selectionStatus}
-                  onChange={(e) => setSelectionStatus(e.target.value)}
-                  sx={{ minWidth: 160 }}
-                >
-                  <MenuItem value="">—</MenuItem>
-                  {deliveryStatuses.map((s: ConfigOption) => (
-                    <MenuItem key={s.id} value={s.id}>
-                      {s.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  select
-                  size="small"
-                  label="Mode"
-                  value={selectionMode}
-                  onChange={(e) => setSelectionMode(e.target.value)}
-                  sx={{ minWidth: 140 }}
-                >
-                  <MenuItem value="">—</MenuItem>
-                  {deliveryModes.map((m: ConfigOption) => (
-                    <MenuItem key={m.id} value={m.id}>
-                      {m.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  type="number"
-                  size="small"
-                  label="Qty"
-                  value={selectionQty}
-                  onChange={(e) => setSelectionQty(e.target.value)}
-                  inputProps={{ min: 1 }}
-                  sx={{ width: 90 }}
-                />
-                <TextField
-                  size="small"
-                  label="Remark"
-                  value={selectionRemark}
-                  onChange={(e) => setSelectionRemark(e.target.value)}
-                  sx={{ minWidth: 160 }}
-                />
-                {selectionStatus === "SKIPPED" && (
-                  <TextField
-                    select
-                    size="small"
-                    label="Skip reason"
-                    value={selectionSkipReason || "REFUSED"}
-                    onChange={(e) => setSelectionSkipReason(e.target.value)}
-                    sx={{ minWidth: 150 }}
-                  >
-                    {SKIP_REASON_OPTIONS.map((o) => (
-                      <MenuItem key={o.id} value={o.id}>
-                        {o.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                )}
-              </Stack>
-              <Stack spacing={1}>
+                Edit selected ({selectedRows.length})
+              </Typography>
+              <Stack spacing={2}>
                 <Stack
                   direction={{ xs: "column", sm: "row" }}
                   spacing={2}
@@ -1350,53 +1313,131 @@ export default function DriveDetail() {
                   flexWrap="wrap"
                   useFlexGap
                 >
-                  <AssigneeFieldSelect
-                    label="Assignee"
-                    value={selectionAssigneeId}
-                    options={assigneeOptions}
-                    onChange={setSelectionAssigneeId}
+                  <TextField
+                    select
+                    size="small"
+                    label="Delivery status"
+                    value={selectionStatus}
+                    onChange={(e) => setSelectionStatus(e.target.value)}
+                    sx={{ minWidth: 160 }}
+                  >
+                    <MenuItem value="">—</MenuItem>
+                    {deliveryStatuses.map((s: ConfigOption) => (
+                      <MenuItem key={s.id} value={s.id}>
+                        {s.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    select
+                    size="small"
+                    label="Mode"
+                    value={selectionMode}
+                    onChange={(e) => setSelectionMode(e.target.value)}
+                    sx={{ minWidth: 140 }}
+                  >
+                    <MenuItem value="">—</MenuItem>
+                    {deliveryModes.map((m: ConfigOption) => (
+                      <MenuItem key={m.id} value={m.id}>
+                        {m.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    type="number"
+                    size="small"
+                    label="Qty"
+                    value={selectionQty}
+                    onChange={(e) => setSelectionQty(e.target.value)}
+                    inputProps={{ min: 1 }}
+                    sx={{ width: 90 }}
                   />
-                  {/* <AssigneeSelect
-                    label="Assignee"
-                    value={selectionAssigneeId}
-                    options={assigneeOptions}
-                    minWidth={220}
-                    onChange={setSelectionAssigneeId}
-                  /> */}
-                  <Button
-                    size="medium"
-                    variant="contained"
-                    onClick={applyFieldsToSelected}
-                  >
-                    Apply to selected
-                  </Button>
-                  <Button
-                    size="medium"
-                    color="error"
-                    variant="outlined"
-                    onClick={removeSelectedFromRun}
-                  >
-                    Remove from Gift Run
-                  </Button>
+                  <TextField
+                    size="small"
+                    label="Remark"
+                    value={selectionRemark}
+                    onChange={(e) => setSelectionRemark(e.target.value)}
+                    sx={{ minWidth: 160 }}
+                  />
+                  {selectionStatus === "SKIPPED" && (
+                    <TextField
+                      select
+                      size="small"
+                      label="Skip reason"
+                      value={selectionSkipReason || "REFUSED"}
+                      onChange={(e) => setSelectionSkipReason(e.target.value)}
+                      sx={{ minWidth: 150 }}
+                    >
+                      {SKIP_REASON_OPTIONS.map((o) => (
+                        <MenuItem key={o.id} value={o.id}>
+                          {o.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
                 </Stack>
-                <Typography variant="caption" color="text.secondary">
-                  Remove works only for people you added on this Gift Run
-                  (marked “Gift only”). People from the linked People Group must
-                  be changed in the group — not removed here.
-                </Typography>
+                <Stack spacing={1}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={2}
+                    alignItems={{ sm: "flex-end" }}
+                    flexWrap="wrap"
+                    useFlexGap
+                  >
+                    <AssigneeFieldSelect
+                      label="Assignee"
+                      value={selectionAssigneeId}
+                      options={assigneeOptions}
+                      onChange={setSelectionAssigneeId}
+                    />
+                    <Button
+                      size="medium"
+                      variant="contained"
+                      onClick={applyFieldsToSelected}
+                    >
+                      Apply to selected
+                    </Button>
+                    <Button
+                      size="medium"
+                      color="error"
+                      variant="contained"
+                      onClick={removeSelectedFromRun}
+                    >
+                      Remove from Gift Run
+                    </Button>
+                  </Stack>
+                </Stack>
               </Stack>
-            </Stack>
-          </>
-        )}
-      </Box>
+            </>
+          )}
+        </Box>
+      ) : (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          This gift run is{" "}
+          {drive.status === "ARCHIVED" ? "archived" : "completed"} — editing is
+          locked. Change status to reopen.
+        </Alert>
+      )}
 
-      <Dialog
+      <DriveEditModal
+        open={editOpen}
+        drive={drive}
+        onClose={() => setEditOpen(false)}
+      />
+
+      <GlassDialog
         open={addPeopleOpen}
         onClose={() => !addingPeople && setAddPeopleOpen(false)}
         maxWidth="md"
-        fullWidth
+        plain
+        header={
+          <GlassHeader
+            icon={<KTIcon iconName="people" className="fs-2" />}
+            title="Add people to this Gift Run"
+            onClose={() => !addingPeople && setAddPeopleOpen(false)}
+          />
+        }
       >
-        <DialogTitle>Add people to this Gift Run</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             These people are added only to this run — not to the linked People
@@ -1404,22 +1445,19 @@ export default function DriveDetail() {
           </Typography>
           <PersonPicker selected={pickerPeople} onChange={setPickerPeople} />
         </DialogContent>
-        <DialogActions>
-          <Button
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <WtButton
+            ghost
             onClick={() => setAddPeopleOpen(false)}
             disabled={addingPeople}
           >
             Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={confirmAddPeople}
-            disabled={addingPeople}
-          >
+          </WtButton>
+          <WtButton onClick={confirmAddPeople} disabled={addingPeople}>
             {addingPeople ? "Adding…" : "Add to Gift Run"}
-          </Button>
+          </WtButton>
         </DialogActions>
-      </Dialog>
+      </GlassDialog>
 
       <MaterialTable
         key={`Courtesy-Gift-Run-Recipients-${tableSelectionReset}`}
@@ -1429,7 +1467,7 @@ export default function DriveDetail() {
         employeeId={employeeId}
         enableFilters={false}
         enableGrouping={false}
-        enableRowSelection
+        enableRowSelection={runEditable}
         onSelectedRowsChange={setSelectedRows}
         renderTopToolbarRightActions={() => toolbarFilters}
         muiTableProps={{
