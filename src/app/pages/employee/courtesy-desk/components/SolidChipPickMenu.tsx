@@ -8,11 +8,13 @@ export default function SolidChipPickMenu({
   options,
   heading,
   onPick,
+  disabled = false,
 }: {
   valueId: string;
   options: ConfigOption[];
   heading: string;
   onPick: (id: string) => void;
+  disabled?: boolean;
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const current = options.find((o) => o.id === valueId);
@@ -23,11 +25,20 @@ export default function SolidChipPickMenu({
       <Box
         onClick={(e) => {
           stop(e);
+          if (disabled) return;
           setAnchor(e.currentTarget);
         }}
-        sx={{ cursor: 'pointer', width: 'fit-content', lineHeight: 0 }}
+        sx={{
+          cursor: disabled ? 'default' : 'pointer',
+          width: 'fit-content',
+          lineHeight: 0,
+        }}
       >
-        <SolidChip label={current?.name || valueId} color={current?.color} dropdown />
+        <SolidChip
+          label={current?.name || valueId}
+          color={current?.color}
+          dropdown={!disabled}
+        />
       </Box>
       <Menu
         anchorEl={anchor}

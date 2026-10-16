@@ -1,34 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  DialogActions,
-  DialogContent,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-  alpha,
-  useTheme,
-} from "@mui/material";
-import { KTIcon } from "@metronic/helpers";
+import { Alert, Box, Button } from "@mui/material";
 import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
-import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
-import {
-  GlassDialog,
-  GlassHeader,
-  InlineHint,
-  WtButton,
-} from "@app/modules/common/components/ui";
-import { TRIO } from "@app/modules/common/components/ui/patterns";
-import { FormSectionHead } from "@app/pages/employee/tasks/components/primitives";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
-import PersonPicker, { MemberListPanel, personKey } from "./PersonPicker";
+import { personKey } from "./PersonPicker";
+import PeopleGroupDetailView from "./PeopleGroupDetailView";
+import PeopleGroupUpdateView from "./PeopleGroupUpdateView";
 import { DriveCreateModal } from "./DriveCreate";
 import { getGroup, saveGroupToApi } from "../store/courtesyDeskStore";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
@@ -42,7 +21,6 @@ function membersEqual(a: PersonRef[], b: PersonRef[]) {
 
 export default function PeopleGroupEditor() {
   useCourtesyDesk();
-  const theme = useTheme();
   const { groupId } = useParams<{ groupId: string }>();
   const isNew = !groupId || groupId === "new";
   const existing = !isNew ? getGroup(groupId) : undefined;
@@ -56,8 +34,10 @@ export default function PeopleGroupEditor() {
   const [baselineMembers, setBaselineMembers] = useState<PersonRef[]>(
     existing?.members || [],
   );
+  const [editing, setEditing] = useState(isNew);
   const [error, setError] = useState("");
   const [giftRunModalOpen, setGiftRunModalOpen] = useState(false);
+  const [addPeopleOpen, setAddPeopleOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -72,6 +52,7 @@ export default function PeopleGroupEditor() {
     setBaselineName(nextName);
     setBaselineNotes(nextNotes);
     setBaselineMembers(nextMembers);
+    setEditing(isNew);
     setError("");
   }, [groupId, isNew]);
 
@@ -150,6 +131,18 @@ export default function PeopleGroupEditor() {
     memberDiff.removed,
   ]);
 
+  const previewNames = useMemo(() => {
+    const names = members
+      .map((m) => m.fullName?.trim())
+      .filter(Boolean) as string[];
+    if (!names.length) return "";
+    const shown = names.slice(0, 4);
+    const more = names.length - shown.length;
+    return more > 0 ? `${shown.join(", ")}, +${more}` : shown.join(", ");
+  }, [members]);
+
+  const goBack = () => navigate(`${GIFT_MANAGEMENT_BASE}/people-groups`);
+
   if (!isNew && !existing) {
     return (
       <Box sx={{ p: 3 }}>
@@ -157,7 +150,7 @@ export default function PeopleGroupEditor() {
         <Box sx={{ mt: 2 }}>
           <Button
             startIcon={<AppIcon name="bi-arrow-left" />}
-            onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/people-groups`)}
+            onClick={goBack}
           >
             Back to People Groups
           </Button>
@@ -165,6 +158,15 @@ export default function PeopleGroupEditor() {
       </Box>
     );
   }
+
+  const cancelEdit = () => {
+    setName(baselineName);
+    setNotes(baselineNotes);
+    setMembers(baselineMembers);
+    setEditing(false);
+    setError("");
+    setAddPeopleOpen(false);
+  };
 
   const persist = () => {
     setSaving(true);
@@ -179,7 +181,7 @@ export default function PeopleGroupEditor() {
         toast.success(
           isNew ? "Group created." : "Group updated — linked Gift Runs synced.",
         );
-        navigate(`${GIFT_MANAGEMENT_BASE}/people-groups`);
+        goBack();
       })
       .catch((err: unknown) => {
         const msg = apiErrorMessage(err, "Something went wrong");
@@ -201,162 +203,85 @@ export default function PeopleGroupEditor() {
       toast.error("Select at least one person.");
       return;
     }
-
     if (!isNew) {
       setConfirmOpen(true);
       return;
     }
-
     persist();
   };
 
-  const summaryChip = (
-    label: string,
-    count: number,
-    trio: (typeof TRIO)["blue"],
-  ) => (
-    <Chip
-      label={`${count} ${label}`}
-      sx={{
-        fontWeight: 700,
-        bgcolor: alpha(trio.c, theme.palette.mode === "dark" ? 0.22 : 0.12),
-        color: trio.c,
-        border: `1px solid ${alpha(trio.c, 0.35)}`,
-      }}
-    />
-  );
+  const removeMember = (person: PersonRef) =>
+    setMembers((prev) =>
+      prev.filter((m) => personKey(m) !== personKey(person)),
+    );
+
+  const isMixed = counts.contacts > 0 && counts.employees > 0;
+  const memberLabel =
+    members.length === 1 ? "1 member" : `${members.length} members`;
+  const mixedHint = isMixed
+    ? `${counts.contacts} contacts, ${counts.employees} employees`
+    : undefined;
+  const title = isNew ? "New People Group" : name.trim() || "People Group";
+
+  const shared = {
+    title,
+    memberLabel,
+    mixedHint,
+    previewNames: previewNames || undefined,
+  };
+
+  if (!editing) {
+    return (
+      <>
+        <PeopleGroupDetailView
+          {...shared}
+          groupId={groupId!}
+          members={existingStillInGroup}
+          onBack={goBack}
+          onEdit={() => setEditing(true)}
+        />
+        {existing && (
+          <DriveCreateModal
+            open={giftRunModalOpen}
+            onClose={() => setGiftRunModalOpen(false)}
+            presetGroupId={existing.id}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1040 }}>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{ mb: 2 }}
-        flexWrap="wrap"
-        useFlexGap
-        spacing={1}
-      >
-        <Box>
-          <Typography variant="h5" fontWeight={700}>
-            {isNew ? "New People Group" : "Update People Group"}
-          </Typography>
-          <Typography color="text.secondary">
-            {isNew
-              ? "Mix Contacts and Employees. Selected people appear once you tick them."
-              : "Existing members are listed above. Newly selected people appear under Add people."}
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <Button
-            startIcon={<AppIcon name="bi-arrow-left" />}
-            onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/people-groups`)}
-          >
-            Back
-          </Button>
-          {(isNew || hasChanges) && (
-            <PremiumButton icon="bi-check-lg" onClick={onSave} disabled={saving}>
-              {isNew ? "Save Group" : "Update Group"}
-            </PremiumButton>
-          )}
-        </Stack>
-      </Stack>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      <Paper variant="outlined" sx={{ p: 2.5, mb: 2.5, borderRadius: 2 }}>
-        <FormSectionHead
-          icon="bi-card-text"
-          title="Group details"
-          hint="Name and optional notes for this reusable list."
-          tone="blue"
-        />
-        <Stack spacing={2}>
-          <TextField
-            label="Group name"
-            placeholder="e.g. Reza Peoples"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            fullWidth
-            required
-          />
-          <TextField
-            label="Notes (optional)"
-            placeholder="e.g. Partners only"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            fullWidth
-            multiline
-            minRows={2}
-          />
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {summaryChip("selected", members.length, TRIO.green)}
-            {summaryChip("contacts", counts.contacts, TRIO.blue)}
-            {summaryChip("employees", counts.employees, TRIO.cyan)}
-            {!isNew && memberDiff.added > 0 && (
-              summaryChip("new", memberDiff.added, TRIO.green)
-            )}
-            {!isNew && memberDiff.removed > 0 && (
-              summaryChip("removed", memberDiff.removed, TRIO.amber)
-            )}
-          </Stack>
-        </Stack>
-      </Paper>
-
-      {!isNew && (
-        <Paper variant="outlined" sx={{ p: 2.5, mb: 2.5, borderRadius: 2 }}>
-          <FormSectionHead
-            icon="profile-user"
-            title="Existing members"
-            hint="People already saved in this group. Remove anyone who should no longer belong."
-            tone="blue"
-          />
-          {existingStillInGroup.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              No existing members left — all previous members were removed, or
-              add people below.
-            </Typography>
-          ) : (
-            <MemberListPanel
-              title="In this group"
-              people={existingStillInGroup}
-              tone={TRIO.blue}
-              icon="profile-user"
-              clearLabel="Remove all existing"
-              onClear={() => setMembers(newlySelected)}
-              onRemove={(person) =>
-                setMembers((prev) =>
-                  prev.filter((m) => personKey(m) !== personKey(person)),
-                )
-              }
-              sx={{ mb: 0 }}
-            />
-          )}
-        </Paper>
-      )}
-
-      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <FormSectionHead
-          icon="people"
-          title="Add people"
-          hint={
-            isNew
-              ? "Search contacts or employees — the selected list appears once you tick someone."
-              : "Search and tick to add. Newly selected people appear here in green."
-          }
-          tone="green"
-        />
-        <PersonPicker
-          selected={members}
-          onChange={setMembers}
-          baselineSelected={isNew ? undefined : baselineMembers}
-        />
-      </Paper>
-
+    <>
+      <PeopleGroupUpdateView
+        {...shared}
+        isNew={isNew}
+        name={name}
+        notes={notes}
+        members={members}
+        existingMembers={existingStillInGroup}
+        newlySelected={newlySelected}
+        baselineMembers={baselineMembers}
+        error={error}
+        saving={saving}
+        hasChanges={hasChanges}
+        memberDiff={memberDiff}
+        changeLines={changeLines}
+        confirmName={name.trim() || baselineName}
+        addPeopleOpen={addPeopleOpen}
+        confirmOpen={confirmOpen}
+        onNameChange={setName}
+        onNotesChange={setNotes}
+        onMembersChange={setMembers}
+        onRemoveMember={removeMember}
+        onBack={goBack}
+        onCancel={cancelEdit}
+        onSave={onSave}
+        onOpenAddPeople={() => setAddPeopleOpen(true)}
+        onCloseAddPeople={() => setAddPeopleOpen(false)}
+        onCloseConfirm={() => setConfirmOpen(false)}
+        onConfirmPersist={persist}
+      />
       {!isNew && existing && (
         <DriveCreateModal
           open={giftRunModalOpen}
@@ -364,69 +289,6 @@ export default function PeopleGroupEditor() {
           presetGroupId={existing.id}
         />
       )}
-
-      <GlassDialog
-        open={confirmOpen}
-        onClose={() => !saving && setConfirmOpen(false)}
-        maxWidth="xs"
-        header={
-          <GlassHeader
-            icon={<KTIcon iconName="information-5" className="fs-2" />}
-            title="Confirm update"
-            onClose={() => !saving && setConfirmOpen(false)}
-          />
-        }
-      >
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 0.5 }}>
-            <Typography sx={{ fontSize: 14, lineHeight: 1.5 }}>
-              Update{" "}
-              <Box component="span" sx={{ fontWeight: 700 }}>
-                {name.trim() || baselineName}
-              </Box>
-              ?
-            </Typography>
-
-            {changeLines.length > 0 && (
-              <Box
-                component="ul"
-                sx={{
-                  m: 0,
-                  pl: 2.25,
-                  py: 0,
-                  "& li": {
-                    fontSize: 13.5,
-                    lineHeight: 1.55,
-                    color: "text.secondary",
-                    mb: 0.5,
-                    "&:last-child": { mb: 0 },
-                  },
-                }}
-              >
-                {changeLines.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </Box>
-            )}
-
-            <InlineHint>
-              Linked Gift Runs will sync with this group after you confirm.
-            </InlineHint>
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <WtButton
-            ghost
-            onClick={() => setConfirmOpen(false)}
-            disabled={saving}
-          >
-            Cancel
-          </WtButton>
-          <WtButton tone="primary" onClick={persist} disabled={saving}>
-            {saving ? "Updating…" : "Update Group"}
-          </WtButton>
-        </DialogActions>
-      </GlassDialog>
-    </Box>
+    </>
   );
 }

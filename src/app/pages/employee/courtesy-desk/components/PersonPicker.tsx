@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import {
   Avatar,
   Box,
@@ -6,8 +7,8 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
-  IconButton,
   InputAdornment,
+  Link,
   Stack,
   Tab,
   Tabs,
@@ -17,23 +18,33 @@ import {
   useTheme,
 } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@redux/store";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { getAllClientContacts } from "@services/companies";
 import { initialsOf } from "@app/modules/common/components/EmployeeIdentityCell";
 import {
-  IconBox,
-  TRIO,
-  type Trio,
-} from "@app/modules/common/components/ui/patterns";
+  ActionIconButton,
+  ConfirmDialog,
+  useConfirmDialog,
+} from "@app/modules/common/components/ui";
+import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
+import { TRIO, type Trio } from "@app/modules/common/components/ui/patterns";
 import type { MemberType, PersonRef } from "../types";
+
+export function personProfilePath(
+  p: Pick<PersonRef, "memberType" | "personId">,
+) {
+  return p.memberType === "CONTACT"
+    ? `/contacts/${p.personId}`
+    : `/employees/${p.personId}`;
+}
 
 type SourceTab = "CONTACTS" | "EMPLOYEES";
 
-/** ~15 compact rows visible before scroll */
-const SELECTED_LIST_MAX_HEIGHT = 480;
+/** Tall enough on desktop; on phone use more of the viewport. */
+const SELECTED_LIST_MAX_HEIGHT = { xs: "min(62vh, 520px)", md: 520 };
 
 /** Same page size as ContactPicker — server searches; we do not ship 6k rows. */
 const CONTACT_PAGE_SIZE = 25;
@@ -62,6 +73,8 @@ interface PersonPickerProps {
    * Selected people are split into "Already in group" vs "Newly selected".
    */
   baselineSelected?: PersonRef[];
+  /** Hide the selected/newly-selected chip panels (e.g. when the parent already lists them). */
+  hideSelectedPanels?: boolean;
 }
 
 function matchesQuery(haystack: string, q: string) {
@@ -149,43 +162,97 @@ export function PersonAvatar({
 
 function PersonChipRow({
   person,
-  tone,
   onRemove,
+  selectable,
+  selected,
+  onToggleSelect,
 }: {
   person: PersonRef;
-  tone: Trio;
-  onRemove: () => void;
+  onRemove?: () => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const hoverBg = isDark
+    ? alpha(theme.palette.common.white, 0.06)
+    : theme.palette.grey[50];
+  const selectedBg = alpha(theme.palette.primary.main, isDark ? 0.18 : 0.08);
+  const selectedHoverBg = alpha(
+    theme.palette.primary.main,
+    isDark ? 0.24 : 0.12,
+  );
+  const isDemo = person.personId.startsWith("demo_");
+  const profilePath = personProfilePath(person);
+
   return (
     <Stack
       direction="row"
       alignItems="center"
-      spacing={1}
+      spacing={{ xs: 1, sm: 1.25 }}
+      onClick={selectable ? onToggleSelect : undefined}
       sx={{
-        px: 1,
-        py: 0.5,
-        borderRadius: 1.25,
-        bgcolor: alpha(tone.c, theme.palette.mode === "dark" ? 0.2 : 0.1),
-        border: `1px solid ${alpha(tone.c, 0.28)}`,
+        px: { xs: 1.25, sm: 1.75 },
+        py: { xs: 1.25, sm: 1.1 },
+        minHeight: { xs: 64, sm: "auto" },
+        borderBottom: "1px solid",
+        borderColor: alpha(theme.palette.divider, 0.9),
+        bgcolor: selected ? selectedBg : "transparent",
+        cursor: selectable ? "pointer" : "default",
+        transition: "background-color 0.12s ease",
+        "&:hover": {
+          bgcolor: selected ? selectedHoverBg : hoverBg,
+        },
+        "&:last-child": { borderBottom: "none" },
       }}
     >
-      <PersonAvatar person={person} size={28} />
+      {selectable && (
+        <Checkbox
+          size="small"
+          checked={Boolean(selected)}
+          onChange={onToggleSelect}
+          onClick={(e) => e.stopPropagation()}
+          sx={{ p: 0.25, flexShrink: 0 }}
+        />
+      )}
+      <PersonAvatar person={person} size={38} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Stack
           direction="row"
           spacing={0.75}
           alignItems="center"
-          flexWrap="nowrap"
+          flexWrap="wrap"
+          useFlexGap
         >
-          <Typography
-            variant="body2"
-            fontWeight={600}
-            noWrap
-            sx={{ minWidth: 0 }}
-          >
-            {person.fullName}
-          </Typography>
+          {isDemo ? (
+            <Typography
+              variant="body2"
+              fontWeight={600}
+              noWrap
+              sx={{ minWidth: 0, maxWidth: "100%", color: "text.primary" }}
+            >
+              {person.fullName}
+            </Typography>
+          ) : (
+            <Link
+              component={RouterLink}
+              to={profilePath}
+              variant="body2"
+              fontWeight={600}
+              noWrap
+              onClick={(e) => e.stopPropagation()}
+              sx={{
+                minWidth: 0,
+                maxWidth: "100%",
+                color: "primary.main",
+                textDecoration: "none",
+                "&:hover": { textDecoration: "underline" },
+              }}
+            >
+              {person.fullName}
+            </Link>
+          )}
           <MemberTypeChip memberType={person.memberType} />
         </Stack>
         <Typography
@@ -193,136 +260,298 @@ function PersonChipRow({
           color="text.secondary"
           noWrap
           display="block"
+          sx={{ mt: 0.15 }}
         >
           {[person.companyName, person.area].filter(Boolean).join(" · ") || "—"}
         </Typography>
       </Box>
-      <IconButton
-        size="small"
-        onClick={onRemove}
-        aria-label="Remove"
-        sx={{ color: "text.secondary" }}
-      >
-        <CloseRoundedIcon sx={{ fontSize: 16 }} />
-      </IconButton>
+      {onRemove && (
+        <Box onClick={(e) => e.stopPropagation()} sx={{ flexShrink: 0 }}>
+          <ActionIconButton
+            icon={<AppIcon name="bi-trash" className="fs-6" />}
+            title="Remove"
+            size="sm"
+            tone="danger"
+            onClick={onRemove}
+          />
+        </Box>
+      )}
     </Stack>
   );
 }
 
-/** Reusable member chip list — used by PersonPicker and the Existing members section. */
+/** Reusable member list — used by PersonPicker and the Existing members section. */
 export function MemberListPanel({
-  title,
+  title: _title,
   people,
-  tone,
-  icon,
+  tone: _tone,
+  icon: _icon,
   emptyText,
-  clearLabel,
-  onClear,
   onRemove,
+  searchable = false,
+  selectable = false,
   hideWhenEmpty = false,
   sx,
 }: {
-  title: string;
+  title?: string;
   people: PersonRef[];
-  tone: Trio;
-  /** KTIcon name for a proper section-style header. */
+  tone?: Trio;
   icon?: string;
   emptyText?: string;
-  clearLabel?: string;
-  onClear?: () => void;
-  onRemove: (person: PersonRef) => void;
-  /** When true, render nothing if the list is empty. */
+  onRemove?: (person: PersonRef) => void;
+  searchable?: boolean;
+  selectable?: boolean;
   hideWhenEmpty?: boolean;
   sx?: object;
 }) {
   const theme = useTheme();
+  const [query, setQuery] = useState("");
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [pendingRemove, setPendingRemove] = useState<PersonRef[] | null>(null);
+
+  const sorted = useMemo(
+    () =>
+      [...people].sort((a, b) =>
+        (a.fullName || "").localeCompare(b.fullName || "", undefined, {
+          sensitivity: "base",
+        }),
+      ),
+    [people],
+  );
+
+  const visible = useMemo(() => {
+    const q = query.trim();
+    if (!q) return sorted;
+    return sorted.filter((p) =>
+      matchesQuery(
+        [p.fullName, p.companyName, p.area, p.phone].filter(Boolean).join(" "),
+        q,
+      ),
+    );
+  }, [sorted, query]);
+
+  const peopleKeys = useMemo(() => new Set(people.map(personKey)), [people]);
+
+  useEffect(() => {
+    setSelectedKeys((prev) => {
+      const next = new Set<string>();
+      prev.forEach((k) => {
+        if (peopleKeys.has(k)) next.add(k);
+      });
+      return next.size === prev.size ? prev : next;
+    });
+  }, [peopleKeys]);
+
   if (hideWhenEmpty && people.length === 0) return null;
 
-  const border = alpha(tone.c, 0.45);
-  const bg = alpha(tone.c, theme.palette.mode === "dark" ? 0.12 : 0.06);
+  const selectedCount = selectedKeys.size;
+  const allSelected = people.length > 0 && selectedCount === people.length;
+  const allVisibleSelected =
+    visible.length > 0 && visible.every((p) => selectedKeys.has(personKey(p)));
+  const someVisibleSelected = visible.some((p) =>
+    selectedKeys.has(personKey(p)),
+  );
+  const removeBtnLabel = allSelected ? "Remove all" : "Remove selected";
+
+  const toggleSelect = (key: string) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visible.forEach((p) => next.delete(personKey(p)));
+      } else {
+        visible.forEach((p) => next.add(personKey(p)));
+      }
+      return next;
+    });
+  };
+
+  const askRemoveOne = (person: PersonRef) => setPendingRemove([person]);
+
+  const askRemoveSelected = () => {
+    if (!selectedCount) return;
+    setPendingRemove(people.filter((p) => selectedKeys.has(personKey(p))));
+  };
+
+  const confirmPendingRemove = () => {
+    if (!pendingRemove?.length || !onRemove) return;
+    pendingRemove.forEach((p) => onRemove(p));
+    setSelectedKeys(new Set());
+    setPendingRemove(null);
+  };
+
+  const canRemove = Boolean(onRemove);
+
+  const pendingCount = pendingRemove?.length ?? 0;
+  const pendingIsAll =
+    pendingCount > 0 && pendingCount === people.length && allSelected;
 
   return (
-    <Box
-      sx={{
-        mb: 2,
-        p: 1.5,
-        borderRadius: 2,
-        border: `1px solid ${border}`,
-        bgcolor: bg,
-        ...sx,
-      }}
-    >
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{ mb: people.length === 0 ? 0 : 1, px: 0.25 }}
-        spacing={1}
-      >
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-          {icon && <IconBox icon={icon} trio={tone} size={30} fs="fs-5" />}
-          <Typography variant="body2" fontWeight={700} sx={{ color: tone.c }}>
-            {title} ({people.length})
-          </Typography>
-        </Stack>
-        {clearLabel && onClear && people.length > 0 && (
-          <Chip
-            size="small"
-            label={clearLabel}
-            onClick={onClear}
-            clickable
-            variant="outlined"
-            sx={{
-              borderColor: alpha(tone.c, 0.5),
-              color: tone.c,
-              height: 24,
-              flexShrink: 0,
-            }}
-          />
-        )}
-      </Stack>
+    <Box sx={{ mb: 2, ...sx }}>
       {people.length === 0 ? (
         emptyText ? (
-          <Typography variant="body2" color="text.secondary" sx={{ px: 0.25, mt: 0.75 }}>
+          <Typography variant="body2" color="text.secondary">
             {emptyText}
           </Typography>
         ) : null
       ) : (
-        <>
-          {people.length > 12 && (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", mb: 0.5, px: 0.25 }}
-            >
-              Scroll to see all {people.length}
-            </Typography>
+        <Stack spacing={1.5}>
+          {searchable && (
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="Search members…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  bgcolor:
+                    theme.palette.mode === "dark"
+                      ? alpha(theme.palette.common.white, 0.04)
+                      : theme.palette.grey[50],
+                  borderRadius: 2,
+                },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchRoundedIcon fontSize="small" color="action" />
+                  </InputAdornment>
+                ),
+              }}
+            />
           )}
-          <Box
-            sx={{
-              maxHeight: SELECTED_LIST_MAX_HEIGHT,
-              overflowY: "auto",
-              pr: 0.5,
-              "&::-webkit-scrollbar": { width: 6 },
-              "&::-webkit-scrollbar-thumb": {
-                borderRadius: 3,
-                bgcolor: alpha(theme.palette.text.primary, 0.2),
-              },
-            }}
-          >
-            <Stack spacing={0.5}>
-              {people.map((p) => (
-                <PersonChipRow
-                  key={personKey(p)}
-                  person={p}
-                  tone={tone}
-                  onRemove={() => onRemove(p)}
+
+          {selectable && canRemove && (
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              alignItems={{ xs: "stretch", sm: "center" }}
+              justifyContent="space-between"
+              spacing={1}
+              sx={{
+                px: 1.25,
+                py: 0.75,
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor: "divider",
+                bgcolor:
+                  theme.palette.mode === "dark"
+                    ? alpha(theme.palette.common.white, 0.03)
+                    : theme.palette.grey[50],
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={0.5}>
+                <Checkbox
+                  size="small"
+                  checked={allVisibleSelected}
+                  indeterminate={someVisibleSelected && !allVisibleSelected}
+                  onChange={toggleSelectAllVisible}
+                  sx={{ p: 0.5 }}
+                  inputProps={{ "aria-label": "Select all" }}
                 />
-              ))}
+                <Typography variant="body2" fontWeight={700}>
+                  Select all
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  ·{" "}
+                  {selectedCount > 0
+                    ? `${selectedCount} selected`
+                    : `${people.length} member${people.length === 1 ? "" : "s"}`}
+                </Typography>
+              </Stack>
+              {selectedCount > 0 && (
+                <Button
+                  size="medium"
+                  color="error"
+                  variant="contained"
+                  onClick={askRemoveSelected}
+                  startIcon={<AppIcon name="bi-trash" className="fs-6" />}
+                  sx={{
+                    flexShrink: 0,
+                    textTransform: "none",
+                    fontWeight: 700,
+                    width: { xs: "100%", sm: "auto" },
+                  }}
+                >
+                  {removeBtnLabel}
+                </Button>
+              )}
             </Stack>
-          </Box>
-        </>
+          )}
+
+          {searchable && query.trim() && visible.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ px: 0.5 }}>
+              No members match “{query.trim()}”.
+            </Typography>
+          ) : (
+            <Box
+              sx={{
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 2,
+                maxHeight: SELECTED_LIST_MAX_HEIGHT,
+                overflowY: "auto",
+                overflowX: "hidden",
+                bgcolor: "background.paper",
+                boxShadow:
+                  theme.palette.mode === "dark"
+                    ? "none"
+                    : `inset 0 1px 0 ${alpha(theme.palette.common.black, 0.02)}`,
+                "&::-webkit-scrollbar": { width: 8 },
+                "&::-webkit-scrollbar-thumb": {
+                  borderRadius: 4,
+                  bgcolor: alpha(theme.palette.text.primary, 0.2),
+                },
+                scrollbarWidth: "thin",
+              }}
+            >
+              {visible.map((p) => {
+                const key = personKey(p);
+                return (
+                  <PersonChipRow
+                    key={key}
+                    person={p}
+                    onRemove={canRemove ? () => askRemoveOne(p) : undefined}
+                    selectable={selectable && canRemove}
+                    selected={selectedKeys.has(key)}
+                    onToggleSelect={() => toggleSelect(key)}
+                  />
+                );
+              })}
+            </Box>
+          )}
+        </Stack>
       )}
+
+      <ConfirmDialog
+        open={Boolean(pendingRemove?.length)}
+        variant="delete"
+        title={
+          pendingCount === 1
+            ? "Remove member?"
+            : pendingIsAll
+              ? "Remove all members?"
+              : "Remove selected members?"
+        }
+        message={
+          pendingCount === 1
+            ? `Are you sure you want to remove from this group? They will no longer be part of this list or future Gift Runs that use it.`
+            : pendingIsAll
+              ? `Are you sure you want to remove all ${pendingCount} members from this group? Everyone on this list will be cleared and will no longer be included in future Gift Runs that use it.`
+              : `Are you sure you want to remove ${pendingCount} selected members from this group? They will no longer be part of this list or future Gift Runs that use it.`
+        }
+        confirmLabel={"Remove"}
+        onClose={() => setPendingRemove(null)}
+        onConfirm={confirmPendingRemove}
+      />
     </Box>
   );
 }
@@ -331,10 +560,12 @@ export default function PersonPicker({
   selected,
   onChange,
   baselineSelected,
+  hideSelectedPanels = false,
 }: PersonPickerProps) {
   const theme = useTheme();
   const dispatch = useDispatch<AppDispatch>();
   const employees = useSelector((s: RootState) => s.allEmployees.list);
+  const { ask, dialog: confirmDialog } = useConfirmDialog();
   const [source, setSource] = useState<SourceTab>("CONTACTS");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -489,227 +720,290 @@ export default function PersonPicker({
   const hasMoreContacts =
     source === "CONTACTS" && contacts.length < contactTotal;
 
+  const isLockedInPicker = (key: string) =>
+    baselineKeys.has(key) && selectedKeys.has(key);
+
   const toggle = (person: PersonRef) => {
     const key = personKey(person);
+    // WhatsApp-style: current group members stay locked here (edit them outside).
+    if (isLockedInPicker(key)) return;
     if (selectedKeys.has(key)) {
       onChange(selected.filter((s) => personKey(s) !== key));
       return;
     }
+    const add = () =>
+      onChange([
+        ...selected,
+        { ...person, giftQuantity: person.giftQuantity ?? 1 },
+      ]);
     if (person.doNotGift) {
-      const ok = window.confirm(
-        `${person.fullName} is marked Do not gift. Add anyway?`,
-      );
-      if (!ok) return;
+      void ask({
+        variant: "confirm",
+        title: "Do not gift",
+        message: `${person.fullName} is marked Do not gift. Add anyway?`,
+        confirmLabel: "Add anyway",
+        icon: "bi-exclamation-triangle",
+      }).then((ok) => {
+        if (ok) add();
+      });
+      return;
     }
-    onChange([
-      ...selected,
-      { ...person, giftQuantity: person.giftQuantity ?? 1 },
-    ]);
+    add();
   };
 
   const selectAllFiltered = () => {
     const map = new Map(selected.map((s) => [personKey(s), s]));
     filtered.forEach((p) => {
-      if (!p.doNotGift) map.set(personKey(p), p);
+      const key = personKey(p);
+      if (p.doNotGift || isLockedInPicker(key)) return;
+      map.set(key, p);
     });
     onChange(Array.from(map.values()));
   };
 
   return (
-    <Box>
-      {splitExisting ? (
-        <MemberListPanel
-          title="Newly selected"
-          people={newlySelected}
-          tone={SELECTED_TRIO}
-          icon="people"
-          hideWhenEmpty
-          clearLabel="Clear new"
-          onClear={() => onChange(existingMembers)}
-          onRemove={toggle}
-        />
-      ) : (
-        <MemberListPanel
-          title="Selected"
-          people={selected}
-          tone={SELECTED_TRIO}
-          icon="people"
-          hideWhenEmpty
-          clearLabel="Clear all"
-          onClear={() => onChange([])}
-          onRemove={toggle}
-        />
-      )}
-
-      <Tabs
-        value={source}
-        onChange={(_, v: SourceTab) => setSource(v)}
-        sx={{ mb: 1.5, minHeight: 40 }}
-      >
-        <Tab
-          value="CONTACTS"
-          label={
-            contactTotal
-              ? `Contacts (${contactTotal.toLocaleString()})`
-              : "Contacts"
-          }
-        />
-        <Tab value="EMPLOYEES" label={`Employees (${employeePeople.length})`} />
-      </Tabs>
-
-      <TextField
-        fullWidth
-        size="small"
-        placeholder="Search by name, company, phone, email…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchRoundedIcon fontSize="small" />
-            </InputAdornment>
-          ),
-        }}
-        sx={{ mb: 1.5 }}
-      />
-
-      <Stack
-        direction="row"
-        spacing={1}
-        alignItems="center"
-        sx={{ mb: 1 }}
-        flexWrap="wrap"
-        useFlexGap
-      >
-        <Chip
-          size="small"
-          label="Select all on this page"
-          onClick={selectAllFiltered}
-          clickable
-          variant="outlined"
-          sx={{
-            borderColor: alpha(SELECTED_TRIO.c, 0.5),
-            color: SELECTED_TRIO.c,
-          }}
-        />
-        {source === "CONTACTS" && contactTotal > 0 && (
-          <Typography variant="caption" color="text.secondary">
-            Showing {contacts.length.toLocaleString()} of{" "}
-            {contactTotal.toLocaleString()}
-            {!debouncedQuery ? " — type to search all" : ""}
-          </Typography>
-        )}
-      </Stack>
-
-      {loading ? (
-        <Box sx={{ py: 4, textAlign: "center" }}>
-          <CircularProgress size={28} />
-        </Box>
-      ) : (
-        <Box
-          sx={{
-            maxHeight: 360,
-            overflow: "auto",
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: 2,
-          }}
-        >
-          {filtered.length === 0 ? (
-            <Typography sx={{ p: 2 }} color="text.secondary">
-              No people match this search.
-            </Typography>
+    <>
+      <Box>
+        {!hideSelectedPanels &&
+          (splitExisting ? (
+            <MemberListPanel
+              people={newlySelected}
+              hideWhenEmpty
+              selectable
+              onRemove={toggle}
+            />
           ) : (
-            <>
-              {filtered.map((p) => {
-                const key = personKey(p);
-                const checked = selectedKeys.has(key);
-                const trio = memberTrio(p.memberType);
-                const rowBg = checked
-                  ? alpha(
-                      SELECTED_TRIO.c,
-                      theme.palette.mode === "dark" ? 0.22 : 0.12,
-                    )
-                  : "transparent";
-                return (
-                  <Stack
-                    key={key}
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                    onClick={() => toggle(p)}
-                    sx={{
-                      px: 1.25,
-                      py: 0.75,
-                      cursor: "pointer",
-                      borderBottom: "1px solid",
-                      borderColor: "divider",
-                      bgcolor: rowBg,
-                      borderLeft: checked
-                        ? `3px solid ${SELECTED_TRIO.c}`
-                        : "3px solid transparent",
-                      "&:hover": {
-                        bgcolor: checked ? rowBg : alpha(trio.c, 0.06),
-                      },
-                    }}
-                  >
-                    <Checkbox
-                      checked={checked}
-                      size="small"
-                      tabIndex={-1}
-                      sx={{
-                        p: 0.5,
-                        color: alpha(SELECTED_TRIO.c, 0.6),
-                        "&.Mui-checked": { color: SELECTED_TRIO.c },
-                      }}
-                    />
-                    <PersonAvatar person={p} size={34} />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Stack
-                        direction="row"
-                        spacing={0.75}
-                        alignItems="center"
-                        flexWrap="wrap"
-                        useFlexGap
-                      >
-                        <Typography fontWeight={600} noWrap>
-                          {p.fullName}
-                        </Typography>
-                        <MemberTypeChip memberType={p.memberType} />
-                        {p.doNotGift && (
-                          <Chip
-                            size="small"
-                            color="warning"
-                            label="Do not gift"
-                            sx={{ height: 20 }}
-                          />
-                        )}
-                      </Stack>
-                      <Typography variant="body2" color="text.secondary" noWrap>
-                        {[p.companyName, p.area, p.phone, p.address]
-                          .filter(Boolean)
-                          .join(" · ") || "—"}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                );
-              })}
-              {hasMoreContacts && (
-                <Box sx={{ p: 1, textAlign: "center" }}>
-                  <Button
-                    size="large"
-                    variant="outlined"
-                    onClick={loadMoreContacts}
-                    disabled={loadingMore}
-                  >
-                    {loadingMore ? "Loading…" : "Load more"}
-                  </Button>
-                </Box>
-              )}
-            </>
+            <MemberListPanel
+              people={selected}
+              hideWhenEmpty
+              selectable
+              onRemove={toggle}
+            />
+          ))}
+
+        <Tabs
+          value={source}
+          onChange={(_, v: SourceTab) => setSource(v)}
+          sx={{ mb: 1.5, minHeight: 40 }}
+        >
+          <Tab
+            value="CONTACTS"
+            label={
+              contactTotal
+                ? `Contacts (${contactTotal.toLocaleString()})`
+                : "Contacts"
+            }
+          />
+          <Tab
+            value="EMPLOYEES"
+            label={`Employees (${employeePeople.length})`}
+          />
+        </Tabs>
+
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Search by name, company, phone, email…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchRoundedIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ mb: 1.5 }}
+        />
+
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{ mb: 1 }}
+          flexWrap="wrap"
+          useFlexGap
+        >
+          <Chip
+            size="small"
+            label="Select all on this page"
+            onClick={selectAllFiltered}
+            clickable
+            variant="outlined"
+            sx={{
+              borderColor: alpha(SELECTED_TRIO.c, 0.5),
+              color: SELECTED_TRIO.c,
+            }}
+          />
+          {source === "CONTACTS" && contactTotal > 0 && (
+            <Typography variant="caption" color="text.secondary">
+              Showing {contacts.length.toLocaleString()} of{" "}
+              {contactTotal.toLocaleString()}
+              {!debouncedQuery ? " — type to search all" : ""}
+            </Typography>
           )}
-        </Box>
-      )}
-    </Box>
+        </Stack>
+
+        {loading ? (
+          <Box sx={{ py: 4, textAlign: "center" }}>
+            <CircularProgress size={28} />
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              maxHeight: 360,
+              overflow: "auto",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 2,
+            }}
+          >
+            {filtered.length === 0 ? (
+              <Typography sx={{ p: 2 }} color="text.secondary">
+                No people match this search.
+              </Typography>
+            ) : (
+              <>
+                {filtered.map((p) => {
+                  const key = personKey(p);
+                  const alreadyInGroup = isLockedInPicker(key);
+                  const checked = selectedKeys.has(key);
+                  const newlyPicked = checked && !alreadyInGroup;
+                  const trio = memberTrio(p.memberType);
+                  const lockedTone = theme.palette.text.disabled;
+                  const rowBg = alreadyInGroup
+                    ? alpha(
+                        theme.palette.text.primary,
+                        theme.palette.mode === "dark" ? 0.08 : 0.04,
+                      )
+                    : newlyPicked
+                      ? alpha(
+                          SELECTED_TRIO.c,
+                          theme.palette.mode === "dark" ? 0.22 : 0.12,
+                        )
+                      : "transparent";
+                  return (
+                    <Stack
+                      key={key}
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      onClick={() => toggle(p)}
+                      sx={{
+                        px: 1.25,
+                        py: 0.75,
+                        cursor: alreadyInGroup ? "default" : "pointer",
+                        opacity: alreadyInGroup ? 0.72 : 1,
+                        borderBottom: "1px solid",
+                        borderColor: "divider",
+                        bgcolor: rowBg,
+                        borderLeft: newlyPicked
+                          ? `3px solid ${SELECTED_TRIO.c}`
+                          : alreadyInGroup
+                            ? `3px solid ${alpha(theme.palette.text.primary, 0.25)}`
+                            : "3px solid transparent",
+                        "&:hover": {
+                          bgcolor: alreadyInGroup
+                            ? rowBg
+                            : newlyPicked
+                              ? rowBg
+                              : alpha(trio.c, 0.06),
+                        },
+                      }}
+                    >
+                      {alreadyInGroup ? (
+                        <Box
+                          sx={{
+                            width: 34,
+                            display: "flex",
+                            justifyContent: "center",
+                            color: lockedTone,
+                          }}
+                          title="Already in this group"
+                        >
+                          <LockOutlinedIcon sx={{ fontSize: 18 }} />
+                        </Box>
+                      ) : (
+                        <Checkbox
+                          checked={checked}
+                          size="small"
+                          tabIndex={-1}
+                          sx={{
+                            p: 0.5,
+                            color: alpha(SELECTED_TRIO.c, 0.6),
+                            "&.Mui-checked": { color: SELECTED_TRIO.c },
+                          }}
+                        />
+                      )}
+                      <PersonAvatar person={p} size={34} />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Stack
+                          direction="row"
+                          spacing={0.75}
+                          alignItems="center"
+                          flexWrap="wrap"
+                          useFlexGap
+                        >
+                          <Typography fontWeight={600} noWrap>
+                            {p.fullName}
+                          </Typography>
+                          <MemberTypeChip memberType={p.memberType} />
+                          {alreadyInGroup && (
+                            <Chip
+                              size="small"
+                              label="Already in group"
+                              sx={{
+                                height: 20,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                bgcolor: alpha(
+                                  theme.palette.text.primary,
+                                  0.08,
+                                ),
+                                color: "text.secondary",
+                              }}
+                            />
+                          )}
+                          {p.doNotGift && (
+                            <Chip
+                              size="small"
+                              color="warning"
+                              label="Do not gift"
+                              sx={{ height: 20 }}
+                            />
+                          )}
+                        </Stack>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          noWrap
+                        >
+                          {[p.companyName, p.area, p.phone, p.address]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  );
+                })}
+                {hasMoreContacts && (
+                  <Box sx={{ p: 1, textAlign: "center" }}>
+                    <Button
+                      size="large"
+                      variant="outlined"
+                      onClick={loadMoreContacts}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? "Loading…" : "Load more"}
+                    </Button>
+                  </Box>
+                )}
+              </>
+            )}
+          </Box>
+        )}
+      </Box>
+      {confirmDialog}
+    </>
   );
 }

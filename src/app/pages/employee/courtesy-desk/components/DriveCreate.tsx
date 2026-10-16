@@ -14,6 +14,7 @@ import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
 import {
+  ConfirmDialog,
   GlassDialog,
   GlassHeader,
   WtButton,
@@ -22,9 +23,17 @@ import {
 import { menuOptionSx } from "@app/modules/common/components/ui/patterns";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
-import { createDriveToApi, listGroups } from "../store/courtesyDeskStore";
-import type { ConfigOption } from "../types";
+import {
+  createDriveToApi,
+  listGroups,
+  updateDriveMetaToApi,
+} from "../store/courtesyDeskStore";
+import type { ConfigOption, CourtesyDrive } from "../types";
 import { GIFT_RUN_LABEL } from "../types";
+
+export function isGiftRunEditable(status: string) {
+  return status !== "COMPLETED" && status !== "ARCHIVED";
+}
 
 const fieldHeightSx = {
   "& .MuiOutlinedInput-root": { minHeight: 56 },
@@ -241,5 +250,198 @@ export function DriveCreateModal({
         </Stack>
       </Box>
     </GlassDialog>
+  );
+}
+
+type DriveEditModalProps = {
+  open: boolean;
+  drive: CourtesyDrive | null;
+  onClose: () => void;
+};
+
+/** Edit title / gift / occasion / date / group. Caller must not open for Completed / Archived. */
+export function DriveEditModal({ open, drive, onClose }: DriveEditModalProps) {
+  const theme = useTheme();
+  const desk = useCourtesyDesk();
+  const occasions = desk.config.occasions;
+  const groups = listGroups();
+
+  const [groupId, setGroupId] = useState("");
+  const [title, setTitle] = useState("");
+  const [giftItem, setGiftItem] = useState("");
+  const [occasionType, setOccasionType] = useState("");
+  const [driveDate, setDriveDate] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open || !drive) return;
+    setGroupId(drive.sourceGroupId);
+    setTitle(drive.title);
+    setGiftItem(drive.giftItem);
+    setOccasionType(drive.occasionType);
+    setDriveDate(drive.driveDate || "");
+    setConfirmOpen(false);
+  }, [open, drive]);
+
+  const onSubmitForm = (e: FormEvent) => {
+    e.preventDefault();
+    if (!drive) return;
+    if (!groupId) {
+      toast.error("People Group is required.");
+      return;
+    }
+    if (!title.trim()) {
+      toast.error("Title is required.");
+      return;
+    }
+    if (!giftItem.trim()) {
+      toast.error("Gift item is required.");
+      return;
+    }
+    if (!occasionType) {
+      toast.error("Occasion is required.");
+      return;
+    }
+    setConfirmOpen(true);
+  };
+
+  const groupChanged = !!drive && groupId !== drive.sourceGroupId;
+
+  const onConfirmPersist = () => {
+    if (!drive) return;
+    setSaving(true);
+    void updateDriveMetaToApi(drive.id, {
+      title: title.trim(),
+      giftItem: giftItem.trim(),
+      occasionType,
+      driveDate: driveDate || undefined,
+      sourceGroupId: groupId,
+    })
+      .then(() => {
+        toast.success(
+          groupChanged
+            ? `${GIFT_RUN_LABEL} updated — recipients synced from the new group.`
+            : `${GIFT_RUN_LABEL} updated`,
+        );
+        setConfirmOpen(false);
+        onClose();
+      })
+      .catch((err: unknown) => {
+        toast.error(apiErrorMessage(err, "Something went wrong"));
+      })
+      .finally(() => setSaving(false));
+  };
+
+  return (
+    <>
+      <GlassDialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+        <GlassHeader
+          icon={<KTIcon iconName="pencil" className="fs-1" />}
+          title={`Edit ${GIFT_RUN_LABEL}`}
+          subtitle="Update group, title, gift, occasion, or date."
+          onClose={onClose}
+        />
+        <Box
+          component="form"
+          onSubmit={onSubmitForm}
+          sx={{ px: { xs: 2, md: 3 }, pb: 3, pt: 2.5 }}
+        >
+          <Stack spacing={2.5}>
+            <TextField
+              select
+              label="People Group"
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              fullWidth
+              required
+              sx={selectFieldSx}
+              SelectProps={{
+                MenuProps: { PaperProps: { sx: menuOptionSx(theme) } },
+              }}
+              helperText={
+                groupChanged
+                  ? "Changing the group replaces group-linked recipients. People added only to this run are kept."
+                  : undefined
+              }
+            >
+              {groups.map((g) => (
+                <MenuItem key={g.id} value={g.id}>
+                  {g.name} ({g.members.length})
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label={`${GIFT_RUN_LABEL} title`}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              fullWidth
+              required
+              sx={fieldHeightSx}
+            />
+            <TextField
+              label="Gift item"
+              value={giftItem}
+              onChange={(e) => setGiftItem(e.target.value)}
+              fullWidth
+              required
+              sx={fieldHeightSx}
+            />
+            <TextField
+              select
+              label="Occasion"
+              value={occasionType}
+              onChange={(e) => setOccasionType(e.target.value)}
+              fullWidth
+              required
+              sx={selectFieldSx}
+              SelectProps={{
+                MenuProps: { PaperProps: { sx: menuOptionSx(theme) } },
+              }}
+            >
+              {occasions.map((o: ConfigOption) => (
+                <MenuItem key={o.id} value={o.id}>
+                  {o.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <WtDateField
+              label="Date"
+              value={driveDate}
+              onChange={(v) => setDriveDate(v || "")}
+              fullWidth
+              sx={fieldHeightSx}
+            />
+          </Stack>
+          <Stack
+            direction="row"
+            spacing={1}
+            justifyContent="flex-end"
+            sx={{ mt: 3 }}
+          >
+            <WtButton ghost={true} type="button" onClick={onClose}>
+              Cancel
+            </WtButton>
+            <WtButton type="submit">Save</WtButton>
+          </Stack>
+        </Box>
+      </GlassDialog>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        variant="confirm"
+        title={`Confirm ${GIFT_RUN_LABEL} Update`}
+        message={
+          groupChanged
+            ? `Save changes and switch this run to the selected group? Group-linked recipients will be replaced; people added only to this run stay.`
+            : `Are you sure you want to update this ${GIFT_RUN_LABEL}?`
+        }
+        confirmLabel="Save"
+        loading={saving}
+        loadingLabel="Updating…"
+        onClose={() => !saving && setConfirmOpen(false)}
+        onConfirm={onConfirmPersist}
+      />
+    </>
   );
 }
