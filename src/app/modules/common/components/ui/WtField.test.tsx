@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { Stack } from '@mui/material';
 import { WtField } from './WtField';
+import { wtFieldSelectChromePx, wtFieldSelectWidthPx } from './wtFieldSelectWidth';
 
 // Two layout bugs seen on the offer form, both in this component:
 //  1. `sx` reached only the input INSIDE a full-width frame, so `sx={{ flex: 1 }}` did nothing in a
@@ -53,6 +54,11 @@ describe('WtField', () => {
             { value: 'shortlisted', label: 'Shortlisted' },
             { value: 'interview', label: 'Interview' },
         ];
+        const labels = options.map((o) => o.label);
+        const expected = wtFieldSelectWidthPx(labels, {
+            chromePx: wtFieldSelectChromePx({ size: 'sm' }),
+            size: 'sm',
+        });
         render(
             <WtField
                 label="Stage"
@@ -64,7 +70,7 @@ describe('WtField', () => {
         );
         const frame = frameOf(screen.getByLabelText('Stage'));
         const frameW = parseFloat(getComputedStyle(frame).width);
-        expect(frameW).toBeGreaterThan(120);
+        expect(frameW).toBe(expected);
         const value = screen.getByText('Shortlisted');
         expect(getComputedStyle(value).textOverflow).not.toBe('ellipsis');
     });

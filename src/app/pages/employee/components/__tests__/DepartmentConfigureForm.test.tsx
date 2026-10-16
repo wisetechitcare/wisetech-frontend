@@ -107,7 +107,9 @@ describe('DepartmentConfigureForm', () => {
         const picker = screen.getByLabelText('Designations in this department');
         await waitFor(() => expect(picker.hasAttribute('disabled')).toBe(false));
         await userEvent.click(picker);
-        await userEvent.click(await within(document.body).findByText('IT Specialist'));
+        // Boundary SSOT sets pointer-events:none when Popper reports reference-hidden in jsdom.
+        const option = await within(document.body).findByText('IT Specialist');
+        await userEvent.click(option, { pointerEventsCheck: 0 });
         await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
         await waitFor(() => expect(api.setDepartmentDesignations).toHaveBeenCalledWith('new-dept', ['it-specialist']));
     });

@@ -70,12 +70,18 @@ export interface WtSwitchProps extends Omit<SwitchProps, 'size' | 'color'> {
 
 /** Canonical app-wide toggle — use everywhere instead of a raw MUI Switch or a Bootstrap form-switch. */
 export const WtSwitch = forwardRef<HTMLButtonElement, WtSwitchProps>(function WtSwitch(
-  { tone = T.color.brand, size = 'md', sx, ...rest }, ref,
+  { tone = T.color.brand, size = 'md', sx, inputProps, 'aria-label': ariaLabel, ...rest }, ref,
 ) {
   return (
     <Switch
       ref={ref}
       disableRipple
+      // Name the real checkbox input (role=checkbox). MUI puts a top-level aria-label on the
+      // SwitchBase span, leaving the checkbox with an empty accessible name for getByRole.
+      inputProps={{
+        ...inputProps,
+        ...(ariaLabel ? { 'aria-label': ariaLabel } : null),
+      }}
       // caller sx layered after the recipe so per-use tweaks always win
       sx={[wtSwitchSx(tone, size), ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
       {...rest}
