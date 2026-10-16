@@ -7,12 +7,26 @@ import { useIsDark } from './tw/useIsDark';
 /**
  * Reusable button primitives for the premium UI kit — single source of truth for CTA physics.
  *
+ * **Brand CTA (locked):** navy primary (`tone="primary"`) + white Cancel (`ghost`).
+ * Sandwich Add Rule is the visual benchmark. Appearance may theme other chrome;
+ * do **not** invent gold Cancel, yellow-on-navy primary, or a second button component.
+ *
  * The recipe is the Meridian calendar's Create-Event button (CustomCalendar.premium.css
  * .mrd-createbtn / .mrd-btn--primary), generalized and re-tonable:
  *   • 180deg gradient to a darker shade of the same hue
  *   • triple shadow: crisp 1px + long soft colored glow + inset 1px white top-highlight ("glass" edge)
  *   • hover: -1px lift with a deeper glow · active: scale(.98) press
  *   • spring-ish easing cubic-bezier(.22,.61,.36,1)
+ *
+ * Recipe matrix:
+ *   Create / Save / Submit / Add → `<WtButton>` (default primary)
+ *   Cancel / secondary close     → `<WtButton ghost>`
+ *   Header Add on gradient       → `<WtButton inverted>`
+ *   Delete / destructive         → `<WtButton tone="danger">`
+ *   Success confirm              → `<WtButton tone="success">`
+ *   Adjacent toolbar CTAs        → `<WtButton flat>` or `size="small"`
+ *   Icon-only                    → `WtIconButton` / `ActionIconButton` / `WtCloseButton`
+ *   Dialog Cancel + Submit       → `GlassDialogActions` (not hand-rolled DialogActions)
  *
  * Usage:
  *   <WtButton tone="primary">Save</WtButton>
@@ -43,8 +57,29 @@ export const WT_CONTROL_HEIGHT_MD = 44;
 export const controlHeightSxFor = (density: 'sm' | 'md' = 'sm') => {
   const h = density === 'md' ? WT_CONTROL_HEIGHT_MD : WT_CONTROL_HEIGHT;
   return {
-    '& .MuiOutlinedInput-root': { minHeight: h },
-    '& .MuiOutlinedInput-input': { paddingTop: 0, paddingBottom: 0, height: h - 2 },
+    // Lock height (not only minHeight) so Autocomplete + avatar adornments cannot grow
+    // taller than neighbouring plain Selects in the same form row.
+    '& .MuiOutlinedInput-root': { minHeight: h, height: h, alignItems: 'center', boxSizing: 'border-box' },
+    '& .MuiOutlinedInput-input': {
+      paddingTop: 0,
+      paddingBottom: 0,
+      height: h - 2,
+      boxSizing: 'border-box',
+      // Real <input>s (Autocomplete / text) center via line-box; keep them optically middle.
+      lineHeight: `${h - 2}px`,
+    },
+    // MUI Select is a div.MuiSelect-select — height alone leaves the label high in the
+    // box. Flex-center to match Autocomplete (EmployeePicker / Recruiter gold standard).
+    '& .MuiSelect-select': {
+      display: 'flex',
+      alignItems: 'center',
+      paddingTop: 0,
+      paddingBottom: 0,
+      height: h - 2,
+      boxSizing: 'border-box',
+      lineHeight: 1.25,
+    },
+    '& .MuiAutocomplete-inputRoot': { flexWrap: 'nowrap', py: '0 !important' },
   } as const;
 };
 

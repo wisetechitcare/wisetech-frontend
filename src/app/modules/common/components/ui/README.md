@@ -41,7 +41,7 @@ are built from.
 
 | Need | Use | Never |
 |---|---|---|
-| Button | `WtButton` (`ghost` = cancel, `inverted` = secondary) | `<button className="btn">` |
+| Button (any labelled CTA) | **`WtButton`** — see recipe matrix below | raw MUI `<Button>`, Bootstrap `btn-*`, `<button className="btn">`, ad-hoc hex CTAs, a second “global” button |
 | Icon action | `WtIconButton` | a hand-rolled `<button>` with `place-items-center` |
 | Edit / delete / share on a row, card or chip | `ActionIconButton` (`size="sm"` in chips; `tone="success"` for share/send; `icon=` for a non-font glyph) | a `bi bi-pencil` / `fab fa-whatsapp` in a bare `<button>` |
 | Brand logo glyph (WhatsApp…) | `WhatsAppIcon` from `brandIcons` | `KTIcon iconName="whatsapp"` — the duotone font paints its first layer at 40% opacity, so the mark washes out |
@@ -63,7 +63,7 @@ are built from.
 | Toggle | `WtSwitch` / `WtSwitchField` | raw `<Switch>`, `.form-switch` |
 | Checkbox | `WtCheckbox` / `WtCheckboxField` (`WtControlLabel` for switch+label rows). Look is also themed on `MuiCheckbox` app-wide. | inventing a second checkbox style per screen |
 | Dialog | `GlassDialog` + `GlassHeader` (`preset="form"` / `"workspace"` for height) | react-bootstrap `<Modal>`; hand-rolled `maxHeight` vh |
-| Dialog footer | `GlassDialogActions` (or `ConfigureFormDialog` for short masters) | hand-rolled `DialogActions sx={{ px, py, borderTop }}` |
+| Dialog footer (Cancel + Submit) | **`GlassDialogActions`** (SSOT; or leave `ConfigureFormDialog` / `WtFormDialog`) | hand-rolled `DialogActions sx={{ px, py, borderTop }}`; Bootstrap Cancel/`btn-light` pairs |
 | Dialog form card | `FormSection` + `FORM_SPACE` | local `GlassSurface` + `SectionHead` stacks with magic gaps |
 | Surface / card | `GlassSurface` / `GlassCard` | `<div className="card">` |
 | Config section | `SettingsSection` (optional `count` chip) | a `GlassSurface` with your own accent + header |
@@ -90,6 +90,35 @@ are built from.
 | Employee picker | `EmployeeSelectionDialog` | a bespoke picker |
 | Org filter data | `useOrgScope` | re-deriving an org list per feature |
 
+## Buttons — one public API (`WtButton`)
+
+**Brand CTA (locked):** navy primary + white Cancel (`ghost`). Sandwich Add Rule
+(`GlassDialogActions`) is the visual benchmark. Do **not** invent a second global
+button, gold Cancel, or yellow-on-navy primary. Appearance may theme other chrome;
+these recipes stay.
+
+| Need | Use |
+|------|-----|
+| Create / Save / Submit / Add | `WtButton` (default `tone="primary"`) |
+| Cancel / Close secondary | `WtButton ghost` |
+| Header Add on gradient | `WtButton inverted` |
+| Delete / destructive | `WtButton tone="danger"` |
+| Success confirm | `WtButton tone="success"` |
+| Adjacent toolbar CTAs | `WtButton flat` (or `size="small"`) |
+| Icon-only circle/square | `WtIconButton` / `ActionIconButton` / `WtCloseButton` |
+| Dialog Cancel + Submit | **`GlassDialogActions`** (not hand-rolled `DialogActions`) |
+
+**Never in feature code:** raw MUI `<Button>`, Bootstrap `btn` / `btn-primary` /
+`btn-light`, `<button className="btn …">`, or ad-hoc `#1E3A8A` / maroon CTA hex.
+Migrate remaining screens one surface per PR — see
+[`docs/bootstrap-to-kit-migration.md`](../../../../../../docs/bootstrap-to-kit-migration.md) §2.
+
+`ConfigureFormDialog` / `WtFormDialog` already ship matching Cancel/Submit
+`WtButton`s; leave those. New form dialogs prefer `GlassDialogActions`.
+
+Do **not** expand `ui/tw/Buttons.tsx` — narrow twin for surfaces already on TW;
+new forms stay on this MUI kit.
+
 ## Labelled inputs — never build the pairing yourself
 
 `WtField` is the one labelled control. A label, a field, and a hint or error, laid
@@ -115,6 +144,24 @@ row cannot disagree about height, radius, focus ring or error colour.
 
 **`addOption`** is the reusable create affordance (`WtAddOption`): `{ onAdd, label?, placement? }`.
 Default `placement: 'menu'` puts `+ Add New` as the first list row; `'label'` puts a text button on the label row (legacy adapters). Formik forms use the same prop on `WtFieldFormik`.
+
+**Toolbar / filter selects:** use `fullWidth={false}` on a plain (non-searchable) select — the kit sizes the closed field and its menu to the widest option label (including icon/prefix chrome) so values are not ellipsized. Override with `fitContent={false}` if you need a fixed width. Full-width form selects still lock the menu to the field width inside dialogs.
+
+### 360° Select contract (FAANG bar)
+
+Kit redesign is allowed when enhance-in-place cannot meet this contract. All of these share one surface for plain Select, searchable Autocomplete, and person pickers (`EmployeePickerField`):
+
+| Aspect | Contract |
+|--------|----------|
+| Label | Floating Sandwich notch by default; always shrink when valued |
+| Required | Visible `*` + MUI `required` |
+| Placeholder | Empty closed state only — never a substitute for the label |
+| Hint / error | One message slot; `error` replaces `hint`; alert role when invalid |
+| Disabled / clearable / icon / prefix / tone | Same chrome rules as text fields |
+| Menu | Flip + max-height inside the dialog scroll port (`dropdownBoundary`) |
+| Layout | `fullWidth` → cell + ellipsis; `fullWidth={false}` → `fitContent` |
+
+Audit: `summary/audits/SELECT_KIT_360_2026-10-15.md`.
 
 **It renders MUI's outlined field with its floating label** — the same control the
 "Add Rule" dialog in `pages/company/settings/SandwhichLeave.tsx` uses, which is the
@@ -389,35 +436,24 @@ The v3 prefix form is not the canonical syntax here.
    table above.** An undocumented kit component gets reinvented.
 
 
-## Selects — one engine, three wrappers
+## Selects — public API vs engines
 
-`WtSelect` is the **engine**: menu portalled to `<body>`, `menuPlacement: auto` (flips up
-when there is no room below), a bounded self-scrolling menu, z-index above MUI's dialog
-layer, windowed rendering past ~80 options, theme-aware light/dark, and keyboard + ARIA
-inherited from react-select rather than re-invented.
+**Public API for labelled forms:** `WtField` / `WtFieldFormik` (plain MUI Select or searchable Autocomplete, including avatar/description options). **Toolbar:** `ToolbarFilterSelect` → **`WtField`** (`fullWidth={false}`, `fitContent`). **Person single:** `EmployeePickerField` → floating `WtField` searchable.
 
-It exposes what an enterprise select needs and none of the wrappers previously had:
-`isMulti`, `isClearable`, `isLoading`, `isCreatable`, `isDisabled`, grouped options with
-headings, `error` state, `size`, and `optionVariant` (`plain` | `avatar` | `colour`, with an
-optional second `description` line).
-
-The three wrappers stay, because a form field, a toolbar filter and a standalone control
-genuinely differ in binding and layout:
+**`WtSelect`** is the **rich-list engine** (grouped / creatable / colour / windowed): menu portalled to `<body>`, placement + `maxMenuHeight` capped to the dialog scroll port (same `dropdownBoundary` SSOT as Autocomplete/plain Select), z-index above MUI dialogs, windowing past ~80 options.
 
 | Context | Use | Engine |
 |---|---|---|
-| Formik form field | `DropdownInput` | `WtSelect` |
+| Labelled form / filter | `WtField` / `WtFieldFormik` | MUI Select or Autocomplete |
+| Toolbar filter | `ToolbarFilterSelect` | **`WtField`** plain select |
+| Person single-select | `EmployeePickerField` | `WtField` searchable + avatar options |
+| Legacy Formik (do not expand) | `DropdownInput` | `WtSelect` |
 | Standalone / redux-bound | `SelectInput` | `WtSelect` |
 | Country / state field | `LocationDropdown` | `WtSelect` |
-| Address from a map pin | `SmartLocationPicker` (one level up in `components/`, docs in `SmartLocationPicker.md`) | Leaflet + Nominatim |
-| Reimbursement type field | `ReimbursementDropdown` | `WtSelect` |
-| Toolbar filter | `ToolbarFilterSelect` | **MUI `Select`** — see below |
+| Address from a map pin | `SmartLocationPicker` | Leaflet + Nominatim |
+| Reimbursement type field | `ReimbursementDropdown` | `WtField` / `WtSelect` |
 
-`ToolbarFilterSelect` deliberately does NOT use `WtSelect`. It is a compact toolbar
-control whose floating uppercase label is MUI's own notched `InputLabel`; routing it
-through a react-select engine would lose that label and its wiring. Two engines is correct
-here — one for rich, searchable, large-list selects, one for small MUI-native controls.
-What was never correct was nine wrappers each re-deriving menu behaviour.
+Two engines remain correct — Sandwich MUI for labelled density, react-select for rich/windowed lists — with **one** menu-boundary SSOT. Do not invent a third.
 
 `DropdownInput` keeps only what is genuinely its own — the Formik binding, the label row,
 the "+ Add" affordance, and the option renderers (colour dot / avatar / titled row). Menu

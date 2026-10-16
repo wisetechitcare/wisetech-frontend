@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Box, Stack, Typography, CircularProgress, LinearProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
@@ -13,6 +13,7 @@ import { formatDate } from "@utils/dateFormats";
 import { formatCurrencyCompact } from "@utils/currency";
 import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
+import { useOrgScope } from "@/hooks/useOrgScope";
 import {
     getApplicants, getApplicantById, updateApplicant, getApplicantSources, uploadApplicantResume,
     type Applicant, type ApplicantSource, type OrgScoped,
@@ -53,6 +54,10 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
     const navigate = useNavigate();
     const qc = useQueryClient();
+    // Labels only — shell already owns the filter; we resolve write-company names for R3 badges.
+    const { selectOptions: orgOptions } = useOrgScope({ allLabel: "All organizations" });
+    const orgName = (id?: string | null) =>
+        (id && orgOptions.find((o) => o.value === id)?.label) || null;
 
     const [searchInput, setSearchInput] = useState("");
     const [search, setSearch] = useState("");
@@ -63,18 +68,44 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
 
     const [addToRole, setAddToRole] = useState<Applicant | null>(null);
 
-    // The server does the searching, so the key includes the term. The previous results stay on screen
-    // while the next load — the grid used to blank to a spinner on every keystroke.
-    const { data: page, isLoading, isFetching, isError, error, refetch } = useQuery({
-        queryKey: queryKeys.recruitment.applicants(search, companyId),
-        queryFn: () => getApplicants(search || undefined, companyId),
+    // The server does the searching, so the key includes the term. Cursor pages append via Load more.
+    const {
+        data: pages,
+        isLoading,
+        isFetching,
+        isError,
+        error,
+        refetch,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteQuery({
+        queryKey: queryKeys.recruitment.applicants(search, companyId ?? ""),
+        queryFn: ({ pageParam }) => getApplicants(search || undefined, companyId, pageParam),
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (last) => last.nextCursor ?? undefined,
         placeholderData: keepPreviousData,
     });
-    // `items` plus the server's own `hasMore`. The page is 200 rows; a directory that simply stops
-    // at 200 reads as "that is everyone", and the Overview's candidate count on the next tab says
-    // otherwise. Surfaced under the header instead of dropped. Audit H3.
-    const applicants = page?.items ?? [];
-    const applicantsTruncated = page?.hasMore ?? false;
+    const applicants = useMemo(() => pages?.pages.flatMap((p) => p.items) ?? [], [pages]);
+    /**
+     * Family-wide board + per-org unique keys → same email can appear twice under sister orgs.
+     * Surface the count when viewing All so recruiters know (360 R3). Full merge is a later tool.
+     */
+    const duplicateIdentityCount = useMemo(() => {
+        if (companyId) return 0;
+        const emails = new Map<string, number>();
+        const phones = new Map<string, number>();
+        for (const a of applicants) {
+            const em = a.email?.trim().toLowerCase();
+            if (em) emails.set(em, (emails.get(em) ?? 0) + 1);
+            const ph = a.phone?.replace(/\D/g, "");
+            if (ph && ph.length >= 8) phones.set(ph, (phones.get(ph) ?? 0) + 1);
+        }
+        let n = 0;
+        for (const c of emails.values()) if (c > 1) n += 1;
+        for (const c of phones.values()) if (c > 1) n += 1;
+        return n;
+    }, [applicants, companyId]);
     const { data: sources = [] } = useQuery({
         queryKey: queryKeys.recruitment.applicantSources(),
         queryFn: getApplicantSources,
@@ -141,12 +172,18 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
         onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not update the candidate") }),
     });
 
+    const withShellOrg = (path: string) => {
+        if (!companyId) return path;
+        const sep = path.includes("?") ? "&" : "?";
+        return `${path}${sep}companyId=${encodeURIComponent(companyId)}`;
+    };
+
     const openEdit = (a: Applicant) => {
-        navigate(`/recruitment/candidates/${a.id}/edit`);
+        navigate(withShellOrg(`/recruitment/candidates/${a.id}/edit`));
     };
 
     const startAdd = () => {
-        navigate("/recruitment/candidates/new");
+        navigate(withShellOrg("/recruitment/candidates/new"));
     };
 
     const toggleBlacklist = async (a: Applicant) => {
@@ -207,18 +244,37 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 )
             ) : (
                 <>
-                {applicantsTruncated && (
+                {duplicateIdentityCount > 0 && (
                     <Box sx={{ mb: 1.5 }}>
                         <InlineNotice icon="information-5">
-                            Showing the first {applicants.length}. There are more candidates than fit one
-                            page — search by name, email, job title or employer to narrow it.
+                            {duplicateIdentityCount === 1
+                                ? "One email or phone appears on more than one candidate card — usually the same person entered under two organizations. Filter by organization to tell them apart."
+                                : `${duplicateIdentityCount} emails or phones appear on more than one candidate card — usually the same people entered under two organizations. Filter by organization to tell them apart.`}
                         </InlineNotice>
+                    </Box>
+                )}
+                {hasNextPage && (
+                    <Box sx={{ mb: 1.5 }}>
+                        <InlineNotice icon="information-5">
+                            Showing {applicants.length} candidates. More remain — load the next page,
+                            or search by name, email, job title or employer.
+                        </InlineNotice>
+                        <Box sx={{ mt: 1 }}>
+                            <WtButton
+                                size="small"
+                                disabled={isFetchingNextPage}
+                                onClick={() => fetchNextPage()}
+                            >
+                                {isFetchingNextPage ? "Loading…" : "Load more"}
+                            </WtButton>
+                        </Box>
                     </Box>
                 )}
                 <AutoGrid min={320}>
                     {applicants.map((a: Applicant) => {
                         const exp = experienceLabel(a.totalExperienceMonths);
                         const src = sourceName(a.sourceId);
+                        const org = orgName(a.companyId);
                         // Phone-only candidates are the intake this form was built for; show whichever they have.
                         const contact = [a.email, a.phone].filter(Boolean).join(" · ");
                         return (
@@ -228,6 +284,11 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                                         <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3, overflowWrap: "anywhere" }}>
                                             {fullName(a)}
                                         </Typography>
+                                        {org && !companyId && (
+                                            <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.25 }}>
+                                                {org}
+                                            </Typography>
+                                        )}
                                         {contact && (
                                             <Typography sx={{ fontSize: 12, color: "text.secondary", overflowWrap: "anywhere", mt: 0.15 }}>
                                                 {contact}

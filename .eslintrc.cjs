@@ -267,11 +267,11 @@ module.exports = {
             paths: [
               {
                 name: 'react-select',
-                message: 'Migrate to WtField / WtFieldFormik / MultiSelectWithInlineCreate / WtSelect adapter.',
+                message: 'Migrate to WtField / WtFieldFormik / MultiSelectWithInlineCreate / WtSelect adapter. See summary/audits/SELECT_KIT_360_2026-10-15.md Wave 4.',
               },
               {
                 name: 'react-select/creatable',
-                message: 'Migrate to WtSelect (isCreatable) via a kit adapter.',
+                message: 'Migrate to WtSelect (isCreatable) via a kit adapter. See summary/audits/SELECT_KIT_360_2026-10-15.md Wave 4.',
               },
             ],
           },

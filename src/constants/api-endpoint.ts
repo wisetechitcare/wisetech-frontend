@@ -60,6 +60,7 @@ export const RECRUITMENT = {
     GET_APPLICATION_BY_ID: "api/recruitment/applications/:id",
     UPDATE_APPLICATION_SECTION: "api/recruitment/applications/:id/section",
     MOVE_APPLICATION_STAGE: "api/recruitment/applications/:id/move",
+    LINK_CONVERTED_EMPLOYEE: "api/recruitment/applications/:id/link-employee",
     ARCHIVE_APPLICATION: "api/recruitment/applications/:id",
     // Interviews + scorecards (Phase 4)
     CREATE_INTERVIEW: "api/recruitment/interviews",

@@ -64,10 +64,15 @@ export default function CandidateWizardHost() {
   const [searchParams] = useSearchParams();
   const roleRequired = searchParams.get("roleRequired") === "1";
   const queryRequisitionId = searchParams.get("requisitionId") ?? "";
+  // Inherit the shell org when Add/Edit is opened from a scoped tab (360 Wave B / U4).
+  const shellCompanyId = searchParams.get("companyId") ?? "";
 
   // Same org filter RecruitmentMain uses — ALL_ORGS omits companyId so roles
   // across the family appear (resolveActiveOrgId alone scoped to root and returned []).
-  const { scopeId } = useOrgScope({ includeAll: true });
+  const { scopeId } = useOrgScope({
+    includeAll: true,
+    initialScopeId: shellCompanyId || undefined,
+  });
   const companyId = toCompanyIdParam(scopeId);
 
   const { data: companyOverviewRes } = useQuery({

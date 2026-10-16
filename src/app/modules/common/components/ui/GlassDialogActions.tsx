@@ -5,13 +5,18 @@ import { WtButton, type WtCtaTone } from './buttons';
 import { FORM_SPACE } from './FormSection';
 
 /**
- * Shared Cancel / Save (or custom) footer for GlassDialog.
+ * Shared Cancel / Save (or custom) footer for GlassDialog — **dialog footer SSOT**.
+ *
+ * Renders brand CTA: `WtButton ghost` Cancel (white) + `WtButton` Submit (navy primary).
+ * Sandwich Add Rule is the visual benchmark. Prefer this over hand-rolled
+ * `DialogActions sx={{ px, py, borderTop }}` so every form dialog agrees on footer
+ * rhythm (FORM_SPACE) and button look.
  *
  * Pins to the bottom of a height-capped Paper when paired with DialogContent —
  * GlassDialog detects this component as dialog chrome (same as MUI DialogActions).
  *
- * Prefer this over hand-rolled `DialogActions sx={{ px, py, borderTop }}` so every
- * form dialog agrees on footer rhythm (FORM_SPACE).
+ * `ConfigureFormDialog` / `WtFormDialog` already embed matching WtButtons — leave them.
+ * When migrating a Bootstrap/MUI Cancel–Save pair, switch here (one surface per PR).
  *
  * @example
  * <GlassDialogActions onCancel={onClose} onSubmit={save} submitLabel="Create Rule" submitting={busy} />

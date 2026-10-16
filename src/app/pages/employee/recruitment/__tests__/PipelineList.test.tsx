@@ -145,18 +145,17 @@ describe('Pipeline list view', { timeout: 60000 }, () => {
     });
 
     test('a capped page says so, and an uncapped one stays quiet', async () => {
-        // The server pages at 200 and answers `hasMore` itself. Dropping that answer is what made
-        // a board silently miss its 201st card — the notice is the whole point of audit H3, so it
-        // gets a test rather than trust.
+        // The server pages at 200 and answers `hasMore` / `nextCursor` itself. Dropping that answer
+        // is what made a board silently miss its 201st card — Load more is the 360 Wave B fix.
         const row = await renderList();
         expect(within(row).getByText('Suhel Pathan')).toBeTruthy();
-        expect(screen.queryByText(/Showing the first/)).toBeNull();
+        expect(screen.queryByText(/Load more/i)).toBeNull();
 
         cleanup();
         api.getApplications.mockResolvedValue({ items: [application], hasMore: true, nextCursor: 'app-1' });
         await renderList();
-        expect(await screen.findByText(/Showing the first/)).toBeTruthy();
-        expect(screen.getByText(/not the whole board/)).toBeTruthy();
+        expect(await screen.findByText(/Showing \d+ candidates/)).toBeTruthy();
+        expect(screen.getByRole('button', { name: /Load more/i })).toBeTruthy();
     });
 
     test('an action opens only its own dialog — the click does not also open the candidate', async () => {

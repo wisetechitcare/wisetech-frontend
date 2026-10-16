@@ -38,6 +38,10 @@ export function DepartmentDesignationFields({ departmentId, designationId, onCha
     const designationOptions = dd.designationsFor(departmentId, designationId).map((d) => ({ value: d.id, label: d.role }));
     const { hint, error } = dd.designationHint(departmentId, designationId);
     const loadError = dd.isError ? 'Could not load departments and designations. Refresh to try again.' : undefined;
+    // Same control mode as Department — Designation alone flipping to Autocomplete made its box
+    // taller than Department's Select. Prefer Department's compact Select height; a long
+    // designation menu scrolls inside the Select, same as before searchable existed.
+    const searchable = departmentOptions.length >= SEARCHABLE_FROM;
 
     const changeDepartment = (next: string) => {
         const nextDepartment = next || null;
@@ -55,13 +59,17 @@ export function DepartmentDesignationFields({ departmentId, designationId, onCha
     };
 
     return (
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={sx}>
+        <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            sx={sx}
+        >
             <WtField
                 label="Department" required={required} clearable sx={{ flex: 1 }}
                 value={departmentId ?? ''}
                 onChange={changeDepartment}
                 options={departmentOptions}
-                searchable={departmentOptions.length >= SEARCHABLE_FROM}
+                searchable={searchable}
                 placeholder={dd.isLoading ? 'Loading…' : 'Choose a department'}
                 disabled={disabled || dd.isLoading}
                 error={loadError}
@@ -71,7 +79,7 @@ export function DepartmentDesignationFields({ departmentId, designationId, onCha
                 value={designationId ?? ''}
                 onChange={changeDesignation}
                 options={designationOptions}
-                searchable={designationOptions.length >= SEARCHABLE_FROM}
+                searchable={searchable}
                 placeholder={dd.isLoading ? 'Loading…' : 'Choose a designation'}
                 disabled={disabled || dd.isLoading}
                 error={disabled ? undefined : error}

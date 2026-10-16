@@ -8,9 +8,9 @@
  *      the menu — options are simply not there. Portalling the menu to <body> is the only
  *      reliable escape; no amount of z-index fixes a clipped box.
  *   2. The menu always drops DOWNWARD, so a control near the bottom of the viewport opens
- *      into no space at all and the list is unreachable. `menuPlacement: 'auto'` flips it
- *      above the control when below cannot fit — the behaviour Atlassian's dropdown and
- *      Semantic UI both ship by default.
+ *      into no space at all and the list is unreachable. `WtSelect` measures the dialog
+ *      scroll port (`menuGeometryInBoundary`) and sets `menuPlacement` + `maxMenuHeight`
+ *      on open — same contract as `useDropdownBoundary` / `menuPropsInside` on WtField.
  *
  * `menuPosition: 'fixed'` pairs with the portal so the menu stays glued to its control while
  * an ancestor scrolls, and `maxMenuHeight` gives the list its own scrollbar instead of

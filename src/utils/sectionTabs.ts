@@ -76,6 +76,16 @@ export const SECTION_TABS: Record<string, SectionTab[]> = {
     { key: "tasks", label: "Tasks", icon: "bi-check2-square", hint: "The tasks board" },
     configure("tasks"),
   ],
+  // Keep in step with backend SECTION_TABS.recruitment and RecruitmentMain tab titles / TERMS.
+  recruitment: [
+    overview("recruitment"),
+    { key: "roles", label: "Roles", icon: "bi-briefcase", hint: "Open roles and approvals" },
+    { key: "job-adverts", label: "Job Adverts", icon: "bi-megaphone", hint: "Public job postings" },
+    { key: "pipeline", label: "Pipeline", icon: "bi-kanban", hint: "Applications by stage" },
+    { key: "candidates", label: "Candidates", icon: "bi-people", hint: "Applicant directory" },
+    { key: "import", label: "Import", icon: "bi-upload", hint: "HR tracker import" },
+    configure("recruitment"),
+  ],
   "finance.salary": [
     { key: "my-salary", label: "My Salary", icon: "bi-cash-coin", hint: "Their own salary slips" },
     { key: "employee-payrolls", label: "Employee Payrolls", icon: "bi-clipboard-data", hint: "Everyone's payroll" , needsWrite: true },

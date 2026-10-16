@@ -8,11 +8,12 @@ import { SEARCHABLE_FROM } from "@utils/requisitions";
  *
  * One component for both forms, because the branch is what decides the currency of every
  * salary on the record, and two copies would disagree about labels, the empty state or what
- * "no branch" means. It says which currency the branch uses right under the field, so choosing
- * a branch visibly changes the salary fields beside it.
+ * "no branch" means. Currency is shown on the CTC fields (`₹` / money prefix), not repeated
+ * as a hint under Branch. Company stays in the open menu (`menuLabel`) when the list spans
+ * orgs — never as helper text under the closed field.
  *
- * A long list becomes searchable; a family with several orgs shows which org each branch
- * belongs to, because "Head Office" alone is ambiguous across them.
+ * Pass `companyId` from the recruitment org filter so the list matches the board you are on
+ * (Audit M15). Without it, every family branch appears.
  */
 interface Props {
     value: string | null | undefined;
@@ -20,7 +21,7 @@ interface Props {
     required?: boolean;
     /** Read-only, e.g. on a record whose terms are frozen. */
     disabled?: boolean;
-    /** A server or form message; replaces the currency hint when set. */
+    /** A server or form message under the field. */
     error?: string;
     /**
      * Narrow the offered branches to one organization — the shell's organization filter.
@@ -38,10 +39,16 @@ export const RecruitmentBranchField = ({ value, onChange, required, disabled, er
     const { branches, byId, isLoading, isError, spansOrgs } = useRecruitmentBranches({ companyId, keepId: value });
     const selected = value ? byId.get(value) : undefined;
 
-    const options = branches.map((b) => ({
-        value: b.id,
-        label: spansOrgs && b.companyName ? `${b.name} · ${b.companyName}` : b.name,
-    }));
+    const options = branches.map((b) => {
+        const full = spansOrgs && b.companyName ? `${b.name} · ${b.companyName}` : b.name;
+        return {
+            value: b.id,
+            // Closed field: branch name only so a three-column offer row stays readable.
+            label: b.name,
+            // Open menu: keep company when the list spans orgs (disambiguate "Head Office").
+            ...(full !== b.name ? { menuLabel: full, title: full } : {}),
+        };
+    });
 
     const message = error
         ?? (isError ? "Could not load branches. Refresh to try again." : undefined)
@@ -59,7 +66,6 @@ export const RecruitmentBranchField = ({ value, onChange, required, disabled, er
             placeholder={isLoading ? "Loading branches…" : disabled ? "Not set" : "Choose a branch"}
             disabled={disabled || isLoading || isError || !branches.length}
             error={message}
-            hint={selected ? `Salaries are in ${selected.currency}` : "Decides the currency salaries are in"}
             icon="geolocation"
             sx={sx}
         />

@@ -36,13 +36,35 @@ const SCROLLS = /auto|scroll|overlay/;
  * Null is a real answer and not a failure: a picker on an ordinary page has no sheet to stay
  * inside, and `clippingParents` — Popper's own default — is the right boundary there.
  */
-const scrollParentOf = (node: HTMLElement): HTMLElement | null => {
+export const scrollParentOf = (node: HTMLElement): HTMLElement | null => {
     for (let el = node.parentElement; el; el = el.parentElement) {
         const style = getComputedStyle(el);
         if (SCROLLS.test(style.overflowY) || SCROLLS.test(style.overflow)) return el;
     }
     return null;
 };
+
+/**
+ * Cap and flip a menu so it stays inside a scroll port (or the viewport).
+ * Shared by MUI Select (MenuProps) and react-select (WtSelect).
+ */
+export function menuGeometryInBoundary(
+    anchor: DOMRect,
+    boundary: DOMRect | null,
+    maxCap = 260,
+    pad = 8,
+): { menuPlacement: 'bottom' | 'top'; maxMenuHeight: number } {
+    const edgeBottom = boundary ? boundary.bottom : (typeof window !== 'undefined' ? window.innerHeight : 800);
+    const edgeTop = boundary ? boundary.top : 0;
+    const spaceBelow = edgeBottom - anchor.bottom - pad;
+    const spaceAbove = anchor.top - edgeTop - pad;
+    const placeBelow = spaceBelow >= spaceAbove || spaceBelow >= 120;
+    const available = placeBelow ? spaceBelow : spaceAbove;
+    return {
+        menuPlacement: placeBelow ? 'bottom' : 'top',
+        maxMenuHeight: Math.max(96, Math.min(maxCap, Math.floor(available))),
+    };
+}
 
 /**
  * `slotProps` for an Autocomplete whose list must stay within `boundary`.
@@ -66,6 +88,33 @@ export const popperInside = (boundary: HTMLElement | null) => ({
 });
 
 /**
+ * MUI Select `MenuProps` for the same scroll-port contract (MUI 5 Menu = Popover portal).
+ * Mount into the sheet when present; cap height so long lists scroll in-paper instead of
+ * painting past the dialog footer.
+ */
+export const menuPropsInside = (
+    boundary: HTMLElement | null,
+    opts?: { maxHeight?: number; anchorOriginVertical?: 'top' | 'bottom' },
+) => {
+    const maxHeight = opts?.maxHeight ?? 320;
+    const vertical = opts?.anchorOriginVertical ?? 'bottom';
+    return {
+        ...(boundary ? { container: boundary } : {}),
+        marginThreshold: 8,
+        anchorOrigin: { vertical, horizontal: 'left' as const },
+        transformOrigin: {
+            vertical: (vertical === 'bottom' ? 'top' : 'bottom') as 'top' | 'bottom',
+            horizontal: 'left' as const,
+        },
+        PaperProps: {
+            sx: {
+                maxHeight,
+            },
+        },
+    };
+};
+
+/**
  * Find the scroll port for yourself, and get the `slotProps` that stay inside it.
  *
  * Put `ref` on any element inside the sheet — the component's own root will do, since MUI
@@ -82,5 +131,9 @@ export const useDropdownBoundary = () => {
     const ref = useCallback((node: HTMLElement | null) => {
         setBoundary(node ? scrollParentOf(node) : null);
     }, []);
-    return { ref, slotProps: useMemo(() => popperInside(boundary), [boundary]) };
+    return {
+        ref,
+        boundary,
+        slotProps: useMemo(() => popperInside(boundary), [boundary]),
+    };
 };
