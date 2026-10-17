@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Box, Stack, Typography, LinearProgress } from "@mui/material";
-import { TRIO, ToneChip } from "@app/modules/common/components/ui";
+import { AutoGrid, TRIO, ToneChip } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import { getProjectReport, type ProjectReportRow } from "@services/billingReports";
@@ -84,14 +84,14 @@ const ProjectReportPage: React.FC = () => {
         <BillingEmptyState title="Project not found" />
       ) : (
         <>
-          <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
+          <AutoGrid min={170} stretch sx={{ mb: 2, gap: 1.25 }}>
             <BillingStatsCard label="Contract Value" icon="briefcase" trio={TRIO.slate} value={formatCurrencyDecimal(summary.contractValue)} />
             <BillingStatsCard label="Billed Amount" icon="document" trio={TRIO.blue} value={formatCurrencyDecimal(summary.billedAmount)} />
             <BillingStatsCard label="Collected" icon="check-square" trio={TRIO.green} value={formatCurrencyDecimal(summary.collectedAmount)} />
             <BillingStatsCard label="Outstanding" icon="wallet" trio={TRIO.rose} value={formatCurrencyDecimal(summary.outstandingAmount)} />
             <BillingStatsCard label="Remaining Billing" icon="delivery" trio={TRIO.amber} value={formatCurrencyDecimal(summary.remainingBilling)} />
             <BillingStatsCard label="Billing %" icon="chart-pie-simple" trio={TRIO.purple} value={`${summary.billingPercentage.toFixed(1)}%`} />
-          </Box>
+          </AutoGrid>
 
           <Box sx={{ mb: 2 }}>
             <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>

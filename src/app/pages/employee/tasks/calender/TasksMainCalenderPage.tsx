@@ -9,6 +9,7 @@ import { LEAD_PROJECT_COMPANY } from '@constants/api-endpoint'
 import { get, set } from 'lodash'
 import { useStoredState } from '@app/hooks/useStoredState';
 import { canSection } from '@utils/can'
+import { ToneChip } from '@app/modules/common/components/ui'
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
@@ -234,21 +235,11 @@ const TeamCard: React.FC<{
                                                 verticalAlign: 'middle',
                                             }}
                                         >
-                                            <span
-                                                className="badge rounded-pill d-inline-flex align-items-center justify-content-center"
-                                                style={{
-                                                    backgroundColor:
-                                                        member.role === 'TEAM_LEADER' ? '#ffe0ba' : '#e4e6f4',
-                                                    color: member.role === 'TEAM_LEADER' ? '#b86e13' : '#6067cf',
-                                                    fontFamily: 'Inter',
-                                                    fontSize: '14px',
-                                                    fontWeight: '400',
-                                                    width: '120px',
-                                                    height: '25px',
-                                                }}
-                                            >
-                                                {member.role === 'TEAM_LEADER' ? 'Team Leader' : 'Member'}
-                                            </span>
+                                            <ToneChip
+                                                tone={member.role === 'TEAM_LEADER' ? 'warning' : 'brand'}
+                                                label={member.role === 'TEAM_LEADER' ? 'Team Leader' : 'Member'}
+                                                sx={{ minWidth: 120, height: 25, fontWeight: 400, fontSize: '0.875rem' }}
+                                            />
                                         </td>
 
                                         <td

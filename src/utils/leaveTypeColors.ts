@@ -41,6 +41,6 @@ export const resolveLeaveTypeColor = (name: string, c: LeaveTypeColorConfig): st
     return c?.casualLeaveColor || '#3498DB';
 };
 
-/** Soft fill / border derived from a resolved colour function (Apply Leave's exact tint math). */
-export const tintOf   = (name: string, colorOf: (n: string) => string) => rgba(colorOf(name), 0.12);
-export const borderOf = (name: string, colorOf: (n: string) => string) => rgba(colorOf(name), 0.28);
+/** Soft fill / border derived from a resolved colour (same alphas as ToneChip soft tint). */
+export const tintOf   = (name: string, colorOf: (n: string) => string) => rgba(colorOf(name), 0.18);
+export const borderOf = (name: string, colorOf: (n: string) => string) => rgba(colorOf(name), 0.4);

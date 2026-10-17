@@ -3,25 +3,26 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Box, Stack, Typography, DialogContent, DialogActions, CircularProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
-    GlassCard, GlassDialog, GlassHeader, WtButton, WtSwitchField, ActionIconButton,
-    IconBox, ToneChip, TRIO, WtEmptyState, toast, confirmDialog, WtField,
+    GlassDialog, GlassHeader, WtButton, WtSwitchField, ActionIconButton,
+    TRIO, WtEmptyState, toast, confirmDialog, WtField,
+    ConfigColorChip, ConfigChipGrid, WeightSliderList,
 } from "@app/modules/common/components/ui";
+import { ConfigSectionCard } from "@app/modules/configuration";
 import { queryKeys } from "@/lib/queryKeys";
 import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
+import { toPercentages } from "@utils/weightBalancer";
 import { useDepartmentDesignations } from "@/hooks/useDepartmentDesignations";
 import {
     getScorecardTemplates, createScorecardTemplate, updateScorecardTemplate, deleteScorecardTemplate,
     type ScorecardTemplate, type ScorecardTemplatePayload,
 } from "@services/recruitment";
 import { SEARCHABLE_FROM } from "@utils/requisitions";
+import { VersionHistory } from "@modules/audit/VersionHistory";
 
 /**
  * One editable criterion. `key` is local only — the API assigns real ids on save.
- *
- * `weight` is held as TEXT, not a number. As a number, clearing the field parsed to 0 and the
- * cursor sat behind a 0 you had to delete again; and `weight || 1` on save turned a deliberate
- * 0 into 1. What you type is what is stored.
+ * `weight` is stored as a percentage string (sum 100 across named criteria) via WeightSliderList.
  */
 interface FactorDraft {
     key: string;
@@ -29,12 +30,18 @@ interface FactorDraft {
     weight: string;
 }
 
-const newFactor = (): FactorDraft => ({ key: Math.random().toString(36).slice(2), label: "", weight: "1" });
+const newFactor = (): FactorDraft => ({ key: Math.random().toString(36).slice(2), label: "", weight: "0" });
 
-const toDrafts = (t: ScorecardTemplate | null): FactorDraft[] =>
-    t?.factors?.length
-        ? t.factors.map((f) => ({ key: f.id, label: f.label, weight: String(f.weight ?? 1) }))
-        : [newFactor()];
+const toDrafts = (t: ScorecardTemplate | null): FactorDraft[] => {
+    if (!t?.factors?.length) return [newFactor()];
+    const raw = Object.fromEntries(t.factors.map((f) => [f.id, Number(f.weight) || 0]));
+    const pct = toPercentages(raw);
+    return t.factors.map((f) => ({
+        key: f.id,
+        label: f.label,
+        weight: String(pct[f.id] ?? 0),
+    }));
+};
 
 /**
  * Scorecard templates — the interview rubric.
@@ -164,29 +171,21 @@ const ScorecardTemplateSection = () => {
     const canSave = named && hasCriterion && !unreachable && !clash && !saveMut.isPending;
 
     return (
-        <GlassCard preset="section" sx={{ p: { xs: 1.5, sm: 2 } }}>
-            <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 1.5 }}>
-                <IconBox icon="questionnaire-tablet" trio={TRIO.amber} size={36} fs="fs-3" />
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 700, fontSize: { xs: 14.5, sm: 15.5 }, lineHeight: 1.3 }}>
-                        Interview Scorecards
-                    </Typography>
-                    <Typography sx={{ fontSize: 12.5, lineHeight: 1.45, color: "text.secondary", mt: 0.25 }}>
-                        The criteria a panelist rates. One per designation, plus a default for everything else.
-                    </Typography>
-                </Box>
-                {canWrite && <WtButton
-                    tone="primary" size="small" onClick={openNew}
-                    startIcon={<KTIcon iconName="plus" className="fs-6" />}
-                    sx={{ flexShrink: 0, minHeight: 36, px: { xs: 1.5, sm: 2 }, fontSize: 13, borderRadius: "10px", alignSelf: "flex-start" }}
-                >
-                    New
-                </WtButton>}
-            </Stack>
-
-            {isLoading ? (
-                <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={22} /></Stack>
-            ) : isError ? (
+        <ConfigSectionCard
+            title="Interview Scorecards"
+            description="The criteria a panelist rates. One per designation, plus a default for everything else."
+            icon="bi-clipboard-check"
+            iconColor="amber"
+            badge={templates.length > 0 ? { label: String(templates.length) } : undefined}
+            loading={isLoading}
+            primaryAction={canWrite ? {
+                label: "New",
+                icon: "bi-plus-lg",
+                onClick: openNew,
+                variant: "primary",
+            } : undefined}
+        >
+            {isError ? (
                 <WtEmptyState
                     variant="error" dense
                     title="Could not load the scorecards"
@@ -194,7 +193,7 @@ const ScorecardTemplateSection = () => {
                     actionLabel="Retry"
                     onAction={() => refetch()}
                 />
-            ) : templates.length === 0 ? (
+            ) : templates.length === 0 && !isLoading ? (
                 <WtEmptyState
                     dense
                     icon="questionnaire-tablet"
@@ -205,45 +204,43 @@ const ScorecardTemplateSection = () => {
                     onAction={openNew}
                 />
             ) : (
-                <Stack spacing={1}>
+                <ConfigChipGrid>
                     {templates.map((t) => {
                         const busy = deleteMut.isPending && deleteMut.variables === t.id;
                         const target = t.designationId ? designationName(t.designationId) : null;
+                        const badge = t.isDefault
+                            ? "Default"
+                            : target
+                                ? target
+                                : !t.designationId
+                                    ? "Never Used"
+                                    : undefined;
+                        const caption = [
+                            t.factors.length
+                                ? t.factors.map((f) => f.label).join(" · ")
+                                : "Overall rating only",
+                            scales.find((sc) => sc.id === t.ratingScale)?.label ?? "Default scale",
+                        ].join(" · ");
                         return (
-                            <Stack
+                            <ConfigColorChip
                                 key={t.id}
-                                direction="row"
-                                alignItems="center"
-                                spacing={1}
-                                sx={{ p: 1.25, borderRadius: "10px", bgcolor: "action.hover", minWidth: 0 }}
-                            >
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap>
-                                        <Typography sx={{ fontWeight: 600, fontSize: 13.5 }}>{t.name}</Typography>
-                                        {t.isDefault && <ToneChip tone="success" label="Default" dense />}
-                                        {target && <ToneChip tone="brand" label={target} dense />}
-                                        {/* Neither the default nor tied to a designation ⇒ the server
-                                            can never pick it. Older templates predate the field. */}
-                                        {!t.isDefault && !t.designationId && <ToneChip tone="warning" label="Never Used" dense />}
-                                    </Stack>
-                                    <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.25 }}>
-                                        {t.factors.length
-                                            ? t.factors.map((f) => f.label).join(" · ")
-                                            : "No criteria — records an overall rating only"}
-                                    </Typography>
-                                    {/* Two templates with the same criteria can still score differently. */}
-                                    <Typography sx={{ fontSize: 11.5, color: "text.disabled", mt: 0.25 }}>
-                                        {scales.find((sc) => sc.id === t.ratingScale)?.label ?? "Default scale"}
-                                        {" · "}
-                                        {decisionSets.find((ds) => ds.id === t.decisionSet)?.label ?? "Default decisions"}
-                                    </Typography>
-                                </Box>
-                                {canWrite && <ActionIconButton iconName="pencil" title="Edit" size="sm" tone="indigo" disabled={busy} onClick={() => openEdit(t)} />}
-                                {canWrite && <ActionIconButton iconName="trash" title="Remove" size="sm" tone="danger" disabled={busy} onClick={() => remove(t)} />}
-                            </Stack>
+                                name={t.name}
+                                color={TRIO.amber.c}
+                                badge={badge}
+                                caption={caption}
+                                captionStrong
+                                disabled={busy}
+                                onEdit={canWrite ? () => openEdit(t) : undefined}
+                                action={canWrite ? {
+                                    icon: "bi-trash",
+                                    title: `Delete ${t.name}`,
+                                    danger: true,
+                                    onClick: () => void remove(t),
+                                } : undefined}
+                            />
                         );
                     })}
-                </Stack>
+                </ConfigChipGrid>
             )}
 
             <GlassDialog
@@ -327,11 +324,8 @@ const ScorecardTemplateSection = () => {
                                 <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: "text.secondary" }}>
                                     Criteria
                                 </Typography>
-                                {/* Honest about what the number does today: it is shown to the panel
-                                    beside each criterion, and nothing computes with it yet — the panel
-                                    average is the mean of the overall ratings people give. */}
                                 <Typography sx={{ fontSize: 11.5, color: "text.disabled" }}>
-                                    Weight is shown to the panel as importance; the average is still of their overall ratings
+                                    Weights total 100%. Shown to the panel as importance; the average is still of overall ratings.
                                 </Typography>
                             </Stack>
                             <Stack spacing={1}>
@@ -343,37 +337,58 @@ const ScorecardTemplateSection = () => {
                                             onChange={(v) => setFactorAt(f.key, { label: v })}
                                             disabled={saveMut.isPending}
                                         />
-                                        <WtField
-                                            label="Weight" type="number" inputMode="decimal" min={0} step={0.5}
-                                            minWidth={104} fullWidth={false}
-                                            value={f.weight}
-                                            onChange={(v) => setFactorAt(f.key, { weight: v })}
-                                            disabled={saveMut.isPending}
-                                        />
                                         <ActionIconButton
                                             iconName="cross" title="Remove Criterion" size="sm"
-                                            // Never remove the last row: an empty list gives the panelist
-                                            // nothing to rate and reads as a broken form.
                                             disabled={factors.length === 1 || saveMut.isPending}
-                                            onClick={() => setFactors((rows) => rows.filter((r) => r.key !== f.key))}
+                                            onClick={() => setFactors((rows) => {
+                                                const next = rows.filter((r) => r.key !== f.key);
+                                                const named = next.filter((r) => r.label.trim());
+                                                if (named.length < 1) return next;
+                                                const pct = toPercentages(
+                                                    Object.fromEntries(named.map((r) => [r.key, Number(r.weight) || 0])),
+                                                );
+                                                return next.map((r) => (
+                                                    pct[r.key] != null ? { ...r, weight: String(pct[r.key]) } : r
+                                                ));
+                                            })}
                                         />
                                     </Stack>
                                 ))}
                             </Stack>
                             <WtButton
-                                ghost size="small" sx={{ mt: 1 }}
+                                ghost size="small" sx={{ mt: 1, mb: 1.5 }}
                                 startIcon={<KTIcon iconName="plus" className="fs-6" />}
                                 onClick={() => setFactors((rows) => [...rows, newFactor()])}
                                 disabled={saveMut.isPending}
                             >
                                 Add Criterion
                             </WtButton>
+                            {factors.some((f) => f.label.trim()) && (
+                                <WeightSliderList
+                                    fields={factors
+                                        .filter((f) => f.label.trim())
+                                        .map((f) => ({ key: f.key, label: f.label.trim() }))}
+                                    weights={Object.fromEntries(factors.map((f) => [f.key, Number(f.weight) || 0]))}
+                                    onChange={(next) => setFactors((rows) => rows.map((r) => (
+                                        next[r.key] != null ? { ...r, weight: String(next[r.key]) } : r
+                                    )))}
+                                    disabled={saveMut.isPending}
+                                />
+                            )}
                             {named && !hasCriterion && (
                                 <Typography sx={{ fontSize: 12, color: "error.main", mt: 1 }}>
                                     Name at least one criterion — a scorecard with none records only an overall rating.
                                 </Typography>
                             )}
                         </Box>
+                        {editing?.id && (
+                            <Stack spacing={1} sx={{ pt: 1 }}>
+                                <Typography sx={{ fontWeight: 600, fontSize: 13, color: "text.secondary" }}>
+                                    Version History
+                                </Typography>
+                                <VersionHistory type="SCORECARD_TEMPLATE" id={editing.id} isAdmin={false} />
+                            </Stack>
+                        )}
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -383,7 +398,7 @@ const ScorecardTemplateSection = () => {
                     </WtButton>
                 </DialogActions>
             </GlassDialog>
-        </GlassCard>
+        </ConfigSectionCard>
     );
 };
 

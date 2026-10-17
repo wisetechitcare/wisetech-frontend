@@ -57,7 +57,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import LeadBulkImport from "./LeadBulkImport";
 import { useOrgScope } from "@hooks/useOrgScope";
-import { ActionIconButton, toast } from "@app/modules/common/components/ui";
+import { ActionIconButton, ToneChip, toast } from "@app/modules/common/components/ui";
 import LeadNoteDialog, { ReminderCell, REMINDER_COLUMN_WIDTH } from "./LeadNoteDialog";
 import LeadActionPicker from "./LeadActionPicker";
 // The SAME meeting dialog the calendar and the project board use. A second form here is how
@@ -1055,17 +1055,13 @@ const LeadNewLead: React.FC = () => {
         const poStatus = row?.original?.poStatus;
         if (row?.original?.status?.name !== "Received" || !poStatus)
           return <span>N/A</span>;
-        const color = poStatus === "Received" ? "#28A745" : "#FFC107";
         return (
-          <div
-            className="badge badge-light"
-            style={{
-              backgroundColor: color,
-              color: poStatus === "Received" ? "white" : "#333",
-            }}
-          >
-            {poStatus}
-          </div>
+          <ToneChip
+            dense
+            tone={poStatus === "Received" ? "success" : "warning"}
+            label={poStatus}
+            solid={poStatus === "Received"}
+          />
         );
       },
     },

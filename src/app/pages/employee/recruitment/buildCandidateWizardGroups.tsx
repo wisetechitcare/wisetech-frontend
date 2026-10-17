@@ -21,6 +21,7 @@ import { CandidateApplicationStrip } from "./CandidateApplicationStrip";
 import { CandidateContactSection } from "./CandidateContactSection";
 import { CandidateDocumentsSection } from "./CandidateDocumentsSection";
 import { CandidateHiringSection } from "./CandidateHiringSection";
+import { CandidateMealSection } from "./CandidateMealSection";
 import { candidateHasContact } from "./candidateProfile";
 
 interface BuildArgs {
@@ -69,7 +70,8 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
           title: "Personal Information",
           subtitle: "Photo, legal name and key dates",
           icon: <PersonOutlined />,
-          fields: ["avatar", "firstName", "lastName", "dateOfBirth", "gender", "maritalStatus", "anniversary", "bloodGroup"],
+          // bloodGroup lives on Health & Emergency — do not double-count on this leaf's rail.
+          fields: ["avatar", "firstName", "lastName", "dateOfBirth", "gender", "maritalStatus", "anniversary"],
           requiredFields: ["firstName"],
           render: (p) => <S.PersonalInfoSection {...p} />,
         },
@@ -134,7 +136,7 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
           subtitle: "Dietary preference",
           icon: <RestaurantOutlined />,
           fields: ["meal"],
-          render: (p) => <S.AdditionalDetailsSection {...p} />,
+          render: () => <CandidateMealSection disabled={args.disabled} />,
         },
       ],
     },

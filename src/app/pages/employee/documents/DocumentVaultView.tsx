@@ -7,7 +7,8 @@ import {
   GlassSurface,
   ToneChip,
   toast,
-  ViewModeSwitch,
+  GridListViewSwitch,
+  type GridListView,
   WtButton,
 } from "@app/modules/common/components/ui";
 import { formatDate } from "@utils/dateFormats";
@@ -19,15 +20,11 @@ import DocumentCard from "./components/DocumentCard";
 import DocumentListRow from "./components/DocumentListRow";
 import DocumentPreviewDialog from "./components/DocumentPreviewDialog";
 
-const VIEW_MODES = ["grid", "list"] as const;
-type ViewMode = (typeof VIEW_MODES)[number];
+const VIEW_MODES = ["grid", "list"] as const satisfies ReadonlyArray<GridListView>;
+type ViewMode = GridListView;
 
 const VIEW_MODE_KEY = "wt-documents-view-mode";
 
-const VIEW_MODE_OPTIONS = [
-  { value: "grid" as const, icon: "bi-grid-3x3-gap-fill", label: "Grid view" },
-  { value: "list" as const, icon: "bi-list-ul", label: "List view" },
-];
 
 /**
  * Which layout the user last chose is remembered by `useRememberedChoice` — the reader and writer
@@ -325,8 +322,7 @@ const DocumentVaultView: React.FC<DocumentVaultViewProps> = ({
             {archiving ? "Preparing…" : `Download All (${documents.length})`}
           </WtButton>
 
-          <ViewModeSwitch<ViewMode>
-            options={VIEW_MODE_OPTIONS}
+          <GridListViewSwitch
             value={viewMode}
             onChange={changeViewMode}
             ariaLabel="Document layout"
@@ -350,13 +346,9 @@ const DocumentVaultView: React.FC<DocumentVaultViewProps> = ({
             {viewMode === "grid" ? (
               <AutoGrid
                 min={210}
-                // `auto-FILL`, not AutoGrid's default `auto-fit`. With auto-fit the
-                // browser collapses the empty tracks and the surviving ones absorb the
-                // width, so a category holding a single document rendered one card
-                // across the entire page — a full-width tile with a postage-stamp icon
-                // floating in it. auto-fill keeps the empty tracks, so every card stays
-                // the size of a card no matter how few there are.
-                sx={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(210px, 100%), 1fr))" }}
+                max={240}
+                // Slightly tighter max than the kit default (~400) so document tiles stay
+                // postage-stamp sized; AutoGrid already uses auto-fill + capped tracks.
               >
                 {items.map((doc) => (
                   <DocumentCard key={doc.id} employeeId={employeeId} document={doc} onOpen={setPreview} />

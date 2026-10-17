@@ -423,7 +423,7 @@ export default function CandidateWizardHost() {
                 onCancel={handleCancel}
                 onFinalSave={handleFinalSave}
                 onDirectSave={handleEarlySave}
-                directSaveLabel="Save draft"
+                directSaveLabel="Save Candidate"
                 submitText={isEdit || applicantId ? "Done" : "Add Candidate"}
                 summaryTitle="Candidate Summary"
                 summaryRows={(v) => summaryRows(v as CandidateFormValues)}

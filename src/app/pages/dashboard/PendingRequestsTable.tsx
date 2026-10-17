@@ -38,6 +38,7 @@ import { can } from "@utils/can";
 import {
   GlassDialog,
   PlainDialogHeader,
+  ToneChip,
   WtButton,
   WtField,
 } from "@app/modules/common/components/ui";
@@ -540,22 +541,12 @@ const PendingRequestsTable = () => {
         size: 120,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
         Cell: ({ renderedCellValue }: any) => (
-          <span
-            className="badge"
-            style={{
-              backgroundColor: getLeaveTypeColor(renderedCellValue as string),
-              color: 'white',
-              fontWeight: '500',
-              fontSize: '11px',
-              padding: '5px 8px',
-              borderRadius: '12px',
-              display: 'inline-block',
-              minWidth: '60px',
-              textAlign: 'center'
-            }}
-          >
-            {renderedCellValue}
-          </span>
+          <ToneChip
+            dense
+            solid
+            color={getLeaveTypeColor(renderedCellValue as string)}
+            label={String(renderedCellValue ?? '')}
+          />
         )
       },
       {

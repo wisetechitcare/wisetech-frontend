@@ -19,6 +19,7 @@ import {
     getScorecardTemplateForInterview,
     type DecisionOutcome, type RatingScale,
 } from "@services/recruitment";
+import RecruitmentVersionHistoryDialog from "./RecruitmentVersionHistoryDialog";
 
 /** Stored codes → what a person reads. The codes stay on the wire; only the labels are for people. */
 const TYPES = [
@@ -164,6 +165,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
     const [roundText, setRoundText] = useState("1");
     const [scoreFor, setScoreFor] = useState<Interview | null>(null);
     const [score, setScore] = useState<ScorecardPayload>(blankScorecard());
+    const [historyId, setHistoryId] = useState<string | null>(null);
 
     // The rubric for the interview being scored. Resolved server-side from the
     // requisition's designation, falling back to the tenant default; null is an ordinary
@@ -331,31 +333,36 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                                         {formatDateTime(iv.scheduledStart)} · {plural(iv.panelistIds?.length ?? 0, "panelist")} · {plural(iv.scorecards?.length ?? 0, "scorecard")}
                                     </Typography>
                                 </Box>
-                                {!canWrite ? (
-                                    <ToneChip tone="neutral" label={labelOf(STATUSES, iv.status)} dense />
-                                ) : (
                                 <Stack direction="row" spacing={1} alignItems="center">
-                                    <WtField
-                                        label="Status"
-                                        value={iv.status}
-                                        onChange={(v) => statusMut.mutate({ id: iv.id, status: v })}
-                                        options={STATUSES.some((s) => s.value === iv.status) ? STATUSES : [...STATUSES, { value: iv.status, label: iv.status }]}
-                                        disabled={statusMut.isPending}
-                                        sx={{ flex: 1, minWidth: 150 }}
-                                    />
-                                    {/* Hidden once the interview is over or off: there is nothing
-                                        left to move, and an edit would mail a panel about a slot
-                                        that has already been and gone. */}
-                                    {!CLOSED_STATUSES.has(iv.status) && (
-                                        <WtIconButton title="Reschedule or Edit" onClick={() => openEdit(iv)}>
-                                            <KTIcon iconName="pencil" className="fs-5" />
-                                        </WtIconButton>
+                                    {!canWrite ? (
+                                        <ToneChip tone="neutral" label={labelOf(STATUSES, iv.status)} dense />
+                                    ) : (
+                                        <>
+                                            <WtField
+                                                label="Status"
+                                                value={iv.status}
+                                                onChange={(v) => statusMut.mutate({ id: iv.id, status: v })}
+                                                options={STATUSES.some((s) => s.value === iv.status) ? STATUSES : [...STATUSES, { value: iv.status, label: iv.status }]}
+                                                disabled={statusMut.isPending}
+                                                sx={{ flex: 1, minWidth: 150 }}
+                                            />
+                                            {/* Hidden once the interview is over or off: there is nothing
+                                                left to move, and an edit would mail a panel about a slot
+                                                that has already been and gone. */}
+                                            {!CLOSED_STATUSES.has(iv.status) && (
+                                                <WtIconButton title="Reschedule or Edit" onClick={() => openEdit(iv)}>
+                                                    <KTIcon iconName="pencil" className="fs-5" />
+                                                </WtIconButton>
+                                            )}
+                                            <WtIconButton title="Add Scorecard" onClick={() => openScorecard(iv)}>
+                                                <KTIcon iconName="questionnaire-tablet" className="fs-5" />
+                                            </WtIconButton>
+                                        </>
                                     )}
-                                    <WtIconButton title="Add Scorecard" onClick={() => openScorecard(iv)}>
-                                        <KTIcon iconName="questionnaire-tablet" className="fs-5" />
+                                    <WtIconButton title="Version History" onClick={() => setHistoryId(iv.id)}>
+                                        <KTIcon iconName="time" className="fs-5" />
                                     </WtIconButton>
                                 </Stack>
-                                )}
                             </Stack>
                         </GlassCard>
                     ))}
@@ -537,6 +544,14 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                     </WtButton>
                 </DialogActions>
             </GlassDialog>
+
+            <RecruitmentVersionHistoryDialog
+                open={!!historyId}
+                onClose={() => setHistoryId(null)}
+                type="INTERVIEW"
+                id={historyId ?? ""}
+                title="Interview History"
+            />
         </SettingsSection>
     );
 };

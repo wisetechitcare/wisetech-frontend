@@ -14,7 +14,7 @@ import {
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { usePermission } from '@hooks/usePermission';
 import { fetchQueryTopics, resolveQuery, OTHER_TOPIC, type QueryTopic } from '@services/reimbursementQueries';
-import { GlassDialog, GlassHeader, WtButton, tonePair } from '@app/modules/common/components/ui';
+import { GlassDialog, GlassHeader, WtButton, tonePair, ToneChip } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import QueryConversationDialog from '../components/QueryConversation';
@@ -37,12 +37,12 @@ import { fmtDate, fmtAmount, resolveStatusNum, STATUS, downloadBlob } from '../u
 export { fmtDate, fmtAmount };
 
 export function statusBadge(status: number) {
-  if (status === 1) return <span className='badge badge-light-success fw-semibold fs-8'>Approved</span>;
-  if (status === 2) return <span className='badge badge-light-danger fw-semibold fs-8'>Rejected</span>;
+  if (status === 1) return <ToneChip dense tone='success' label='Approved' />;
+  if (status === 2) return <ToneChip dense tone='danger' label='Rejected' />;
   // NEEDS_INFO rendered as "Pending" here, so a line the approver had asked a question about
   // looked identical to one nobody had touched — and the employee had no reason to open it.
-  if (status === STATUS.NEEDS_INFO) return <span className='badge badge-light-warning fw-semibold fs-8'>Needs info</span>;
-  return <span className='badge badge-light-warning fw-semibold fs-8'>Pending</span>;
+  if (status === STATUS.NEEDS_INFO) return <ToneChip dense tone='warning' label='Needs info' />;
+  return <ToneChip dense tone='warning' label='Pending' />;
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────

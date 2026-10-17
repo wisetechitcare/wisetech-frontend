@@ -28,8 +28,6 @@ import {
 import {
   ConfigPageLayout,
   ConfigSectionCard,
-  ConfigColorChip,
-  ConfigChipGrid,
   C,
   FONT,
   SP,
@@ -38,7 +36,11 @@ import {
 } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
 import { ProjectPointsConfigSection } from '@app/modules/projectPoints';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import {
+  AppIcon,
+  ConfigColorChip,
+  ConfigChipGrid,
+} from '@app/modules/common/components/ui';
 
 /**
  * One delete flow for every list on this screen: confirm, optionally transfer, then

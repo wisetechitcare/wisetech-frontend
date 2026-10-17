@@ -2,7 +2,7 @@
 
 HRMS web client (Metronic-based admin theme). React 18 + TypeScript + Vite. Pairs with `../wisetech-backend`.
 
-**Team handbook:** [docs/HANDBOOK.md](docs/HANDBOOK.md) · **Tenancy:** [docs/multi-tenancy.md](docs/multi-tenancy.md)
+**Team handbook:** [docs/HANDBOOK.md](docs/HANDBOOK.md) · **Strict DRY:** [docs/DRY.md](docs/DRY.md) · **Tenancy:** [docs/multi-tenancy.md](docs/multi-tenancy.md)
 
 ## Commands
 - Dev: `pnpm run dev` (Vite) · LAN: `pnpm run dev:host`

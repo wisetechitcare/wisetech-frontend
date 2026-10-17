@@ -357,8 +357,8 @@ export function useNavigation() {
         to: '/gift-management',
         title: 'Gift Managements',
         fontIcon: 'bi-gift',
-        // Prototype: visible with Contacts until a dedicated crm.courtesyDesk permission exists.
-        visible: !isSectionBlocked('crm.contacts'),
+        // PSA pack + Contacts section until a dedicated crm.courtesyDesk permission exists.
+        visible: isPackEnabled('psa') && !isSectionBlocked('crm.contacts'),
       },
 
       // ── Project Department ────────────────────────────────────────────────

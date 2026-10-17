@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Box, Typography } from "@mui/material";
 import type { MRT_ColumnDef } from "material-react-table";
 import { ToneChip } from "@app/modules/common/components/ui";
+import { actionsColumn } from "@app/modules/common/components/table/columns";
 import { SCORE_BAND_META, SCORE_FACTORS, type Application, type ScoreBand } from "@services/recruitment";
 import type { SemanticTone } from "@app/theme/tokens";
 import { formatDate } from "@utils/dateFormats";
@@ -160,19 +161,15 @@ export function applicationColumns(opts: ApplicationColumnOptions = {}): MRT_Col
     const kept = columns.filter((c) => !omit.has(c.id as never));
 
     if (opts.actions) {
-        kept.push({
-            id: "actions",
-            header: "Actions",
+        kept.push(actionsColumn({
             // Sized for a row of up to four 30px icon actions — never wrapping.
             size: 170,
             minSize: 170,
-            // Buttons are not data: sorting, filtering and exporting them is meaningless,
-            // and leaving them enabled offers the user three controls that do nothing.
-            enableSorting: false,
+            // Buttons are not data: sorting, filtering and exporting them is meaningless.
             enableColumnFilter: false,
             enableGlobalFilter: false,
             Cell: ({ row }) => opts.actions!(row.original),
-        });
+        }) as MRT_ColumnDef<Application>);
     }
 
     return kept;

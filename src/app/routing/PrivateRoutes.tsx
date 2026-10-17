@@ -51,6 +51,7 @@ const PersonalKpiMain = lazy(() => import('@pages/employee/kpis/personal/Persona
 const LeadsMain = lazy(() => import('@pages/employee/leads/LeadsMain'))
 const RecruitmentMain = lazy(() => import('@pages/employee/recruitment/RecruitmentMain'))
 const CandidateWizardHost = lazy(() => import('@pages/employee/recruitment/CandidateWizardHost'))
+const JobCreateWizardHost = lazy(() => import('@pages/employee/recruitment/JobCreateWizardHost'))
 // Opt-in beta: migrated EnterpriseForm wizard (parallel to classic LeadFormModal)
 const LeadWizardBetaPage = lazy(() => import('@pages/employee/leads/lead/LeadWizardBetaPage'))
 const ProjectsMain = lazy(() => import('@pages/employee/projects/ProjectsMain'))
@@ -576,6 +577,43 @@ const PrivateRoutes = () => {
             <SectionGuard module='recruitment'>
               <SuspensedView>
                 <CandidateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
+        {/* Create / Edit Role (+ advert) wizard — same fullscreen family as Candidate / Onboarding */}
+        <Route
+          path='/recruitment/jobs/create'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <JobCreateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
+        <Route
+          path='/recruitment/jobs/adverts/new'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <JobCreateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
+        <Route
+          path='/recruitment/jobs/adverts/:postingId/edit'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <JobCreateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
+        <Route
+          path='/recruitment/jobs/:requisitionId/edit'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <JobCreateWizardHost />
               </SuspensedView>
             </SectionGuard>}
         />

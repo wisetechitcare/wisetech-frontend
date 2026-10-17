@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Stack, Typography } from "@mui/material";
-import { GlassCard, IconBox, ToneChip, TRIO, type Trio } from "@app/modules/common/components/ui";
+import { AutoGrid, GlassCard, IconBox, ToneChip, TRIO, type Trio } from "@app/modules/common/components/ui";
 import { BillingPageHeader } from "../components";
 
 /**
@@ -90,13 +90,7 @@ const BillingReportsPage: React.FC = () => {
         trio={TRIO.purple}
       />
 
-      <Box
-        sx={{
-          display: "grid",
-          gap: 1.25,
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-        }}
-      >
+      <AutoGrid min={280} stretch sx={{ gap: 1.25 }}>
         {REPORTS.map((report) => (
           <GlassCard
             key={report.key}
@@ -124,7 +118,7 @@ const BillingReportsPage: React.FC = () => {
             </Stack>
           </GlassCard>
         ))}
-      </Box>
+      </AutoGrid>
     </Box>
   );
 };
