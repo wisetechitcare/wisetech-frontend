@@ -6,6 +6,7 @@ import {
     WtButton, WtField, ToneChip, WtDateField, WtMoneyField, SettingsSection, TRIO,
     toast, confirmDialog, type SemanticTone,
 } from "@app/modules/common/components/ui";
+import { VersionHistory } from "@modules/audit/VersionHistory";
 import { annualAmountError } from "@utils/ctc";
 import { apiErrorMessage } from "@utils/apiError";
 import { formatDateTime } from "@utils/dateFormats";
@@ -247,6 +248,14 @@ const OfferPanel = ({ applicationId, applicantName, companyId }: Props) => {
                     )}
                     {offer && !locked && !dirty && !termsComplete(offer) && (
                         <Typography sx={{ fontSize: 12, color: "text.secondary" }}>Add a branch, the offered CTC and a joining date before submitting.</Typography>
+                    )}
+                    {offer?.id && (
+                        <Stack spacing={0.75} sx={{ pt: 1 }}>
+                            <Typography sx={{ fontWeight: 600, fontSize: 12.5, color: "text.secondary" }}>
+                                Offer history
+                            </Typography>
+                            <VersionHistory type="OFFER" id={offer.id} isAdmin={false} />
+                        </Stack>
                     )}
                 </Stack>
             )}

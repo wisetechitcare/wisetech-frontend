@@ -189,9 +189,13 @@ second chip/pill next to `ToneChip` on the same card.
 | Need | Use |
 |------|-----|
 | Any data table | **`MaterialTable`** (`@app/modules/common/components`) |
+| Actions column | **`actionsColumn`** from `…/table/columns` (header defaults to **Actions**) |
+| Date column (chrono sort) | **`dateColumn`** from `…/table/columns` |
+| Row multi-select | `enableRowSelection` on `MaterialTable` |
+| Bulk CTA strip while rows selected | **`TableSelectionBar`** + `WtButton` via `renderSelectionActions` |
 | Sort / filter / export / fullscreen | Engine columns (`MRT_ColumnDef` in `useMemo`); actions column disables filters |
 
-**Never:** page-local `<Table>` / second MRT fork. Details: Neighbors section below + `NEIGHBORS_KIT_360`.
+**Never:** page-local `<Table>` / second MRT fork; hand-rolled "N selected" toolbars; blank `header: ""` on actions. Details: Neighbors section below + `NEIGHBORS_KIT_360`.
 
 ## Empty / loading / error
 

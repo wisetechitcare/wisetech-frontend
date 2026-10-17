@@ -18,6 +18,7 @@ import {
     type ScorecardTemplate, type ScorecardTemplatePayload,
 } from "@services/recruitment";
 import { SEARCHABLE_FROM } from "@utils/requisitions";
+import { VersionHistory } from "@modules/audit/VersionHistory";
 
 /**
  * One editable criterion. `key` is local only — the API assigns real ids on save.
@@ -380,6 +381,14 @@ const ScorecardTemplateSection = () => {
                                 </Typography>
                             )}
                         </Box>
+                        {editing?.id && (
+                            <Stack spacing={1} sx={{ pt: 1 }}>
+                                <Typography sx={{ fontWeight: 600, fontSize: 13, color: "text.secondary" }}>
+                                    Version History
+                                </Typography>
+                                <VersionHistory type="SCORECARD_TEMPLATE" id={editing.id} isAdmin={false} />
+                            </Stack>
+                        )}
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>

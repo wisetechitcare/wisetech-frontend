@@ -106,7 +106,8 @@ export function PostingFormFields({
                 label="Public Description"
                 fullWidth
                 multiline
-                minRows={4}
+                minRows={3}
+                maxRows={5}
                 value={value.descriptionHtml ?? ""}
                 onChange={(v) => patch({ descriptionHtml: v })}
                 disabled={disabled}

@@ -237,6 +237,7 @@ const RecruitmentConfigurationMain = () => (
                 createFn={(p) => createApplicationStatus(p as never)}
                 updateFn={(id, p) => updateApplicationStatus(id, p as never)}
                 deleteFn={deleteApplicationStatus}
+                auditEntityType="APPLICATION_STATUS"
                 flags={[
                     { key: "isDefault", label: "Default" },
                     { key: "isHiredOutcome", label: "Hired", tone: "success" },
@@ -283,6 +284,7 @@ const RecruitmentConfigurationMain = () => (
                 createFn={(p) => createRequisitionStage(p as never)}
                 updateFn={(id, p) => updateRequisitionStage(id, p as never)}
                 deleteFn={deleteRequisitionStage}
+                auditEntityType="REQUISITION_STAGE"
                 flags={[
                     { key: "isDefault", label: "Default" },
                     { key: "isOpenTrigger", label: "Opens headcount", tone: "success" },
@@ -303,6 +305,7 @@ const RecruitmentConfigurationMain = () => (
                 createFn={(p) => createRejectionReason(p as never)}
                 updateFn={(id, p) => updateRejectionReason(id, p as never)}
                 deleteFn={deleteRejectionReason}
+                auditEntityType="REJECTION_REASON"
             />
 
             <MasterListSection
@@ -319,6 +322,7 @@ const RecruitmentConfigurationMain = () => (
                 updateFn={(id, p) => updateApplicantSource(id, p as never)}
                 deleteFn={deleteApplicantSource}
                 flags={[{ key: "isReferral", label: "Referral", tone: "brand" }]}
+                auditEntityType="APPLICANT_SOURCE"
             />
 
             <ScoringAutomationSection />

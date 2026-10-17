@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Box, Typography } from "@mui/material";
 import type { MRT_ColumnDef } from "material-react-table";
 import { ToneChip, type SemanticTone } from "@app/modules/common/components/ui";
+import { actionsColumn } from "@app/modules/common/components/table/columns";
 import type { JobRequisition } from "@services/recruitment";
 import { formatCurrencyCompact } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
@@ -146,18 +147,15 @@ export function requisitionColumns(
   const kept = columns.filter((c) => !omit.has(c.id as never));
 
   if (opts.actions) {
-    kept.push({
-      id: "actions",
-      header: "Actions",
+    kept.push(actionsColumn({
       // Compact icon row — never wrap (wrapping doubles list row height).
       size: 148,
       minSize: 148,
       maxSize: 180,
-      enableSorting: false,
       enableColumnFilter: false,
       enableGlobalFilter: false,
       Cell: ({ row }) => opts.actions!(row.original),
-    });
+    }) as MRT_ColumnDef<JobRequisition>);
   }
 
   return kept;

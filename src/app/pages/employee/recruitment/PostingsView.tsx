@@ -6,7 +6,7 @@ import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, EntityCard, WtButton, TRIO,
     type EntityCardTag,
-    WtSwitch, ActionIconButton, toast, confirmDialog, WtEmptyState,
+    WtSwitch, ActionIconButton, toast, confirmDialog, TableSelectionBar, WtEmptyState,
     CardsListViewSwitch, type CardsListView,
 } from "@app/modules/common/components/ui";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -133,7 +133,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
         </Stack>
     );
 
-    /** Card footer: labelled Publish + Edit (cards have no row-click for edit alone). */
+    /** Card footer: Publish + copy + Archive. Edit = whole-card click → wizard. */
     const cardActions = (p: JobPosting) => (
         <Stack
             direction="row"
@@ -157,7 +157,6 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                 </Stack>
             )}
             <Box sx={{ flex: 1 }} />
-            {canWrite && <ActionIconButton iconName="pencil" title="Edit Advert" size="sm" onClick={() => openEdit(p)} />}
             {p.publicUrl ? (
                 <ActionIconButton
                     iconName="copy"
@@ -237,6 +236,28 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                     data={postings}
                     isLoading={isLoading}
                     tableName="RecruitmentAdvertsList"
+                    enableRowSelection={canWrite}
+                    renderSelectionActions={(selected: JobPosting[]) => (
+                        <TableSelectionBar count={selected.length}>
+                            <WtButton
+                                size="small"
+                                tone="danger"
+                                disabled={deleteMut.isPending}
+                                onClick={async () => {
+                                    const ok = await confirmDialog({
+                                        icon: "warning",
+                                        title: `Archive ${selected.length} adverts?`,
+                                        text: "They come off the careers page and move to Archive. Restore or permanently delete from the Archive tab.",
+                                        confirmText: "Archive",
+                                    });
+                                    if (!ok) return;
+                                    await Promise.allSettled(selected.map((p) => deleteMut.mutateAsync(p.id)));
+                                }}
+                            >
+                                Archive selected
+                            </WtButton>
+                        </TableSelectionBar>
+                    )}
                     muiTableProps={canWrite ? {
                         muiTableBodyRowProps: ({ row }: { row: { original: JobPosting } }) => ({
                             onClick: () => openEdit(row.original),

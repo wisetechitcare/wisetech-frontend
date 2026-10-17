@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Stack, CircularProgress, DialogContent } from '@mui/material';
+import { Stack, CircularProgress, DialogContent, Typography } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 // Deep import — avoid ui ↔ configuration barrel cycle (ConfigSectionCard pulls ui/text only).
 import ConfigSectionCard from '@app/modules/configuration/ConfigSectionCard';
@@ -21,6 +21,8 @@ import { toast, confirmDialog } from './feedback';
 import { TRIO, type Trio } from './patterns';
 import type { SemanticTone } from './tokens';
 import { apiErrorMessage } from '@utils/apiError';
+import { VersionHistory } from '@modules/audit/VersionHistory';
+import type { AuditEntityType } from '@modules/audit/audit.service';
 
 /** Minimum shape every master row must carry. Extra fields ride along as unknowns. */
 export type MasterListRow = { id: string; color?: string | null; sortOrder?: number };
@@ -81,6 +83,11 @@ export interface MasterListSectionProps {
   removeConfirmText?: string;
   /** Primary CTA label. Default: `New`. */
   newLabel?: string;
+  /**
+   * When set, the edit dialog shows per-record Version History for this Change
+   * Intelligence entity type (e.g. APPLICATION_STATUS). Create dialogs omit it.
+   */
+  auditEntityType?: AuditEntityType;
 }
 
 const DEFAULT_COLOR = '#4B5563';
@@ -120,6 +127,7 @@ export function MasterListSection({
   extraFromRow,
   removeConfirmText = 'It will be deactivated.',
   newLabel,
+  auditEntityType,
 }: MasterListSectionProps) {
   const qc = useQueryClient();
   const { data: rows = [], isLoading, isError, error, refetch } = useQuery({
@@ -325,6 +333,14 @@ export function MasterListSection({
               />
             ))}
             {renderExtraFields?.({ disabled: saving, extra, setExtra })}
+            {editing && auditEntityType ? (
+              <Stack spacing={1} sx={{ pt: 1 }}>
+                <Typography sx={{ fontWeight: 600, fontSize: 13, color: 'text.secondary' }}>
+                  Version History
+                </Typography>
+                <VersionHistory type={auditEntityType} id={editing.id} isAdmin={false} />
+              </Stack>
+            ) : null}
           </Stack>
         </DialogContent>
         <GlassDialogActions

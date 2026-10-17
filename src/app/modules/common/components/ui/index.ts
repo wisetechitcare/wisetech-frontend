@@ -178,6 +178,9 @@ export { NavCard } from './NavCard';
 export type { NavCardProps } from './NavCard';
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
+// MaterialTable `renderSelectionActions` strip — "{n} selected" + bulk CTAs (WtButton).
+export { TableSelectionBar } from './TableSelectionBar';
+export type { TableSelectionBarProps } from './TableSelectionBar';
 export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
 export type { ToolbarFilterSelectProps, FilterSelectTheme } from './ToolbarFilterSelect';
 export { OrgFilterToolbar, useOrgFilters } from './OrgFilterToolbar';

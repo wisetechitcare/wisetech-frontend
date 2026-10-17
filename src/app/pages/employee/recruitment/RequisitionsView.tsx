@@ -4,7 +4,7 @@ import { Box, Stack, CircularProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, EntityCard, WtButton, ActionIconButton, TRIO,
-    toast, confirmDialog,
+    toast, confirmDialog, TableSelectionBar,
     WtEmptyState, CardsListViewSwitch, type CardsListView,
     type EntityCardTag,
 } from "@app/modules/common/components/ui";
@@ -21,7 +21,7 @@ import { formatDate } from '@utils/dateFormats';
 import { apiErrorMessage } from '@utils/apiError';
 import { canSection } from '@utils/can';
 import {
-    stageOf, isEditable, ctcLabel, requisitionColumns,
+    stageOf, ctcLabel, requisitionColumns,
 } from "./requisitionColumns";
 import { useNavigate } from "react-router-dom";
 
@@ -76,7 +76,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
     };
 
     /**
-     * List: icon-only, no wrap. Edit is row-click when editable (Pipeline pattern).
+     * List: icon-only, no wrap. Edit is always row/card click → wizard (locks role when needed).
      * Soft archive only — restore / hard delete live on the Archive tab.
      */
     const listActions = (r: JobRequisition) => {
@@ -113,7 +113,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
         );
     };
 
-    /** Card footer: labelled Open (legacy) + Edit when unlocked. */
+    /** Card footer: Open (legacy) + Archive. Edit = whole-card click → wizard. */
     const cardActions = (r: JobRequisition) => {
         if (!canWrite) return null;
         const canOpen = !r.approvalPending && r.status !== 1;
@@ -131,13 +131,6 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                     </WtButton>
                 )}
                 <Box sx={{ flex: 1 }} />
-                {isEditable(r) ? (
-                    <ActionIconButton
-                        iconName="pencil" size="sm" tone="indigo"
-                        title="Edit"
-                        onClick={() => openEdit(r)}
-                    />
-                ) : null}
                 <ActionIconButton
                     iconName="trash" size="sm" tone="danger"
                     title="Archive"
@@ -197,10 +190,32 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                     data={requisitions}
                     isLoading={isLoading}
                     tableName="RecruitmentRolesList"
+                    enableRowSelection={canWrite}
+                    renderSelectionActions={(selected: JobRequisition[]) => (
+                        <TableSelectionBar count={selected.length}>
+                            <WtButton
+                                size="small"
+                                tone="danger"
+                                disabled={archiveMut.isPending}
+                                onClick={async () => {
+                                    const ok = await confirmDialog({
+                                        icon: "warning",
+                                        title: `Archive ${selected.length} roles?`,
+                                        text: "They move to Archive with their job adverts. Restore or permanently delete from the Archive tab.",
+                                        confirmText: "Archive",
+                                    });
+                                    if (!ok) return;
+                                    await Promise.allSettled(selected.map((r) => archiveMut.mutateAsync(r.id)));
+                                }}
+                            >
+                                Archive selected
+                            </WtButton>
+                        </TableSelectionBar>
+                    )}
                     muiTableProps={canWrite ? {
                         muiTableBodyRowProps: ({ row }: { row: { original: JobRequisition } }) => ({
-                            onClick: () => { if (isEditable(row.original)) openEdit(row.original); },
-                            sx: { cursor: isEditable(row.original) ? "pointer" : "default" },
+                            onClick: () => openEdit(row.original),
+                            sx: { cursor: "pointer" },
                         }),
                     } : undefined}
                 />
@@ -235,11 +250,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                                 status={status}
                                 tags={tags}
                                 actions={canWrite ? cardActions(r) : undefined}
-                                onClick={
-                                    canWrite && isEditable(r)
-                                        ? () => openEdit(r)
-                                        : undefined
-                                }
+                                onClick={canWrite ? () => openEdit(r) : undefined}
                             />
                         );
                     })}

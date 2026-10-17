@@ -7,7 +7,7 @@ import {
 import { KTIcon } from "@metronic/helpers";
 import {
     ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, WtEmptyState,
-    BoardListViewSwitch, confirmDialog, type BoardListView,
+    BoardListViewSwitch, confirmDialog, TableSelectionBar, type BoardListView,
 } from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
@@ -389,6 +389,28 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     data={applications}
                     isLoading={isLoading}
                     tableName="RecruitmentPipelineList"
+                    enableRowSelection={canWrite}
+                    renderSelectionActions={(selected: Application[]) => (
+                        <TableSelectionBar count={selected.length}>
+                            <WtButton
+                                size="small"
+                                tone="danger"
+                                disabled={archiveMut.isPending}
+                                onClick={async () => {
+                                    const ok = await confirmDialog({
+                                        icon: "warning",
+                                        title: `Archive ${selected.length} applications?`,
+                                        text: "They move to Archive. Restore or permanently delete from the Archive tab.",
+                                        confirmText: "Archive",
+                                    });
+                                    if (!ok) return;
+                                    await Promise.allSettled(selected.map((a) => archiveMut.mutateAsync(a.id)));
+                                }}
+                            >
+                                Archive selected
+                            </WtButton>
+                        </TableSelectionBar>
+                    )}
                     // The whole row opens the candidate — the record that holds stage, interviews,
                     // offer and convert — so the row is the target, not a 30px icon at its end.
                     muiTableProps={{

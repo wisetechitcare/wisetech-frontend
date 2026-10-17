@@ -2,8 +2,11 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMatch, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Formik, Form, useFormikContext, type FormikProps } from "formik";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, CircularProgress } from "@mui/material";
-import { toast, confirmDialog } from "@app/modules/common/components/ui";
+import { Box, CircularProgress, Stack } from "@mui/material";
+import { toast, confirmDialog, WtButton } from "@app/modules/common/components/ui";
+import { KTIcon } from "@metronic/helpers";
+import RecruitmentVersionHistoryDialog from "./RecruitmentVersionHistoryDialog";
+import type { AuditEntityType } from "@modules/audit/audit.service";
 import { queryKeys } from "@/lib/queryKeys";
 import { useOrgScope, toCompanyIdParam } from "@/hooks/useOrgScope";
 import { useEmployeeLevels } from "@/hooks/useEmployeeLevels";
@@ -65,6 +68,7 @@ export default function JobCreateWizardHost() {
     const [searchParams] = useSearchParams();
     const shellCompanyId = searchParams.get("companyId") ?? "";
     const isEdit = Boolean(routeReqId || routePostingId);
+    const [historyTarget, setHistoryTarget] = useState<{ type: AuditEntityType; id: string; title: string } | null>(null);
 
     const { scopeId } = useOrgScope({
         includeAll: true,
@@ -410,13 +414,65 @@ export default function JobCreateWizardHost() {
                     };
                     const prefix = requisition?.prefix;
                     const headerTitle = isAttach ? "New Advert" : isEdit ? "Edit Role" : "Create Role";
-                    const headerSub = isAttach
+                    // History stays in headerSub — never a Form sibling. enterprise-wizard is
+                    // height:100% under overflow:hidden; a Stack above it clips the footer.
+                    const subtitleText = isAttach
                         ? "From an approved role — careers advert and screening"
                         : isEdit
                           ? (prefix
                               ? `${prefix} — role, careers advert and screening`
                               : "Role, careers advert and screening")
                           : "Role, careers advert and screening — then create or publish";
+                    const showHistory = isEdit && Boolean(requisition?.id || linkedPosting?.id);
+                    const headerSub: ReactNode = showHistory ? (
+                        <Stack
+                            component="span"
+                            direction="row"
+                            alignItems="center"
+                            flexWrap="wrap"
+                            useFlexGap
+                            spacing={1}
+                            sx={{ display: "inline-flex", maxWidth: "100%" }}
+                        >
+                            <span>{subtitleText}</span>
+                            {requisition?.id && (
+                                <WtButton
+                                    type="button"
+                                    size="small"
+                                    ghost
+                                    startIcon={<KTIcon iconName="time" className="fs-6" />}
+                                    onClick={() =>
+                                        setHistoryTarget({
+                                            type: "REQUISITION",
+                                            id: requisition.id,
+                                            title: "Role History",
+                                        })
+                                    }
+                                >
+                                    Role history
+                                </WtButton>
+                            )}
+                            {linkedPosting?.id && (
+                                <WtButton
+                                    type="button"
+                                    size="small"
+                                    ghost
+                                    startIcon={<KTIcon iconName="time" className="fs-6" />}
+                                    onClick={() =>
+                                        setHistoryTarget({
+                                            type: "POSTING",
+                                            id: linkedPosting.id,
+                                            title: "Advert History",
+                                        })
+                                    }
+                                >
+                                    Advert history
+                                </WtButton>
+                            )}
+                        </Stack>
+                    ) : (
+                        subtitleText
+                    );
                     return (
                         <Form noValidate style={{ height: "100%", display: "flex", flexDirection: "column" }}>
                             {!isEdit && !isAttach && <BranchDefaultSync defaultBranchId={defaultBranchId} />}
@@ -442,6 +498,13 @@ export default function JobCreateWizardHost() {
                     );
                 }}
             </Formik>
+            <RecruitmentVersionHistoryDialog
+                open={!!historyTarget}
+                onClose={() => setHistoryTarget(null)}
+                type={historyTarget?.type ?? "REQUISITION"}
+                id={historyTarget?.id ?? ""}
+                title={historyTarget?.title}
+            />
         </FullscreenWizardModal>
     );
 }

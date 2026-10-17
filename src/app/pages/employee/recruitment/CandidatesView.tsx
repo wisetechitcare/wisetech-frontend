@@ -5,7 +5,7 @@ import { Box, Stack, Typography, CircularProgress, LinearProgress } from "@mui/m
 import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, WtButton, ActionIconButton, ToneChip,
-    toast, confirmDialog, WtEmptyState, WtField, InlineNotice,
+    toast, confirmDialog, TableSelectionBar, WtEmptyState, WtField, InlineNotice,
     CardsListViewSwitch, type CardsListView,
 } from "@app/modules/common/components/ui";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -423,6 +423,28 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                         data={applicants}
                         isLoading={isLoading}
                         tableName="RecruitmentCandidatesList"
+                        enableRowSelection={canWrite}
+                        renderSelectionActions={(selected: Applicant[]) => (
+                            <TableSelectionBar count={selected.length}>
+                                <WtButton
+                                    size="small"
+                                    tone="danger"
+                                    disabled={archiveMut.isPending}
+                                    onClick={async () => {
+                                        const ok = await confirmDialog({
+                                            icon: "warning",
+                                            title: `Archive ${selected.length} candidates?`,
+                                            text: "They move to Archive with their active applications. Restore or permanently delete from the Archive tab.",
+                                            confirmText: "Archive",
+                                        });
+                                        if (!ok) return;
+                                        await Promise.allSettled(selected.map((a) => archiveMut.mutateAsync(a.id)));
+                                    }}
+                                >
+                                    Archive selected
+                                </WtButton>
+                            </TableSelectionBar>
+                        )}
                         muiTableProps={canWrite ? {
                             muiTableBodyRowProps: ({ row }: { row: { original: Applicant } }) => ({
                                 onClick: () => openEdit(row.original),

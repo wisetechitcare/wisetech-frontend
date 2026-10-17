@@ -64,6 +64,7 @@ export function RequisitionFormFields({
                 fullWidth
                 multiline
                 minRows={3}
+                maxRows={5}
                 value={value.jobDescription ?? ""}
                 onChange={(v) => patch({ jobDescription: v })}
                 disabled={disabled}

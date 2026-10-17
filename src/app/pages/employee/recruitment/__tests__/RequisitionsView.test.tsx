@@ -11,6 +11,12 @@ import { configureStore } from '@reduxjs/toolkit';
 
 vi.mock('@redux/store', () => ({ store: { getState: () => ({ authz: { tier: 'SUPER_ADMIN' } }) } }));
 
+const navigate = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('react-router-dom')>()),
+    useNavigate: () => navigate,
+}));
+
 const api = vi.hoisted(() => ({
     getRequisitions: vi.fn(),
     getRequisitionStages: vi.fn(),
@@ -82,6 +88,7 @@ const renderView = () => {
 beforeEach(() => {
     api.getRequisitionStages.mockResolvedValue([]);
     api.getRecruitmentBranches.mockResolvedValue([]);
+    navigate.mockClear();
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -107,12 +114,16 @@ describe('RequisitionsView', () => {
         expect(screen.queryByRole('button', { name: /^resubmit$/i })).toBeNull();
     });
 
-    test('Edit is shown for open roles as well as drafts — only locked while awaiting approval', async () => {
+    test('clicking a role card opens the edit wizard — no pencil button', async () => {
         api.getRequisitions.mockResolvedValue(requisitions);
         renderView();
         await screen.findByText('Draft role');
-        // Draft, open, closed — three editable; pending has no Edit.
-        expect(screen.getAllByRole('button', { name: /^edit$/i })).toHaveLength(3);
+        expect(screen.queryByRole('button', { name: /^edit$/i })).toBeNull();
+        // Pending and open alike — wizard locks role fields when needed.
+        await userEvent.click(screen.getByText('Pending role'));
+        expect(navigate).toHaveBeenCalledWith('/recruitment/jobs/r-pending/edit');
+        await userEvent.click(screen.getByText('Open role'));
+        expect(navigate).toHaveBeenCalledWith('/recruitment/jobs/r-open/edit');
     });
 
     test('opening a legacy draft calls the open endpoint and toasts success', async () => {

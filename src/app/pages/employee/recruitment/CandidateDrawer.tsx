@@ -25,6 +25,7 @@ import { ScoreChip } from "./applicationColumns";
 import { AddToRoleDialog } from "./AddToRoleDialog";
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
+import { VersionHistory } from "@modules/audit/VersionHistory";
 
 /** The server's limit on a note body; the field says so before the API has to. */
 const NOTE_MAX = 4000;
@@ -429,6 +430,11 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                                 })}
                             </Stack>
                         )}
+                    </SettingsSection>
+
+                    <SettingsSection tone={TRIO.slate} icon="abstract-26" title="Change History"
+                        description="Notes, stage moves, and other edits on this application.">
+                        <VersionHistory type="APPLICATION" id={a.id} isAdmin={false} />
                     </SettingsSection>
 
                     <InterviewsPanel applicationId={a.id} applicantName={fullName(a)} />

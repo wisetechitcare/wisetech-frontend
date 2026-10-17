@@ -12,6 +12,12 @@ import { configureStore } from '@reduxjs/toolkit';
 
 vi.mock('@redux/store', () => ({ store: { getState: () => ({ appSettings: {}, authz: { tier: 'SUPER_ADMIN' } }) } }));
 
+const navigate = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('react-router-dom')>()),
+    useNavigate: () => navigate,
+}));
+
 const api = vi.hoisted(() => ({
     getPostings: vi.fn(),
     getRequisitions: vi.fn(),
@@ -72,6 +78,7 @@ beforeEach(() => {
     api.updatePosting.mockResolvedValue({});
     api.deletePosting.mockResolvedValue({});
     written.length = 0;
+    navigate.mockClear();
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -115,24 +122,12 @@ describe('PostingsView', () => {
         expect(names).toEqual(['Site Engineer']);
     });
 
-    test('an advert can be edited after creation, and its role stays fixed', async () => {
+    test('clicking an advert card opens the edit wizard (no pencil button)', async () => {
         renderView();
-        await userEvent.click(await screen.findByRole('button', { name: /edit advert/i }));
-        expect(await screen.findByText('Edit Job Advert')).toBeTruthy();
-        // The public link was minted for this role, so the server ignores a change of role —
-        // the field says so instead of pretending to offer it.
-        expect(screen.getByRole('combobox', { name: /^role/i }).getAttribute('aria-disabled')).toBe('true');
-
-        const title = screen.getByLabelText(/public title/i);
-        await userEvent.clear(title);
-        await userEvent.type(title, 'Senior Site Engineer');
-        await userEvent.click(screen.getByRole('button', { name: /save changes/i }));
-
-        await waitFor(() => expect(api.updatePosting).toHaveBeenCalledTimes(1));
-        const [id, payload] = api.updatePosting.mock.calls[0];
-        expect(id).toBe('p-1');
-        expect(payload.title).toBe('Senior Site Engineer');
-        expect('requisitionId' in payload).toBe(false);
+        await screen.findByText('Site Engineer');
+        expect(screen.queryByRole('button', { name: /edit advert/i })).toBeNull();
+        await userEvent.click(screen.getByText('Site Engineer'));
+        expect(navigate).toHaveBeenCalledWith('/recruitment/jobs/adverts/p-1/edit');
     });
 
     test('taking an advert down says what happened, in the server\'s words when it fails', async () => {

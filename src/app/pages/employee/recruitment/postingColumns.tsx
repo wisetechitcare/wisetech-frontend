@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Box, Typography } from "@mui/material";
 import type { MRT_ColumnDef } from "material-react-table";
 import { ToneChip } from "@app/modules/common/components/ui";
+import { actionsColumn } from "@app/modules/common/components/table/columns";
 import type { JobPosting } from "@services/recruitment";
 
 /**
@@ -95,18 +96,15 @@ export function postingColumns(
   const kept = columns.filter((c) => !omit.has(c.id as never));
 
   if (opts.actions) {
-    kept.push({
-      id: "actions",
-      header: "Actions",
+    kept.push(actionsColumn({
       // Publish switch + icon actions on one line.
       size: 168,
       minSize: 168,
       maxSize: 200,
-      enableSorting: false,
       enableColumnFilter: false,
       enableGlobalFilter: false,
       Cell: ({ row }) => opts.actions!(row.original),
-    });
+    }) as MRT_ColumnDef<JobPosting>);
   }
 
   return kept;
