@@ -27,7 +27,7 @@ import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { SegmentedControl } from '@app/modules/common/components/ui/SegmentedControl';
-import { AutoGrid } from '@app/modules/common/components/ui/patterns';
+import { AutoGrid } from '@app/modules/common/components/ui/AutoGrid';
 import { getTimeTokens } from '@utils/timeFormat';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { errorConfirmation } from '@utils/modal';
