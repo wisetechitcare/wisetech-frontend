@@ -69,7 +69,8 @@ import type {
   PersonRef,
   SkippedReason,
 } from "../types";
-import { formatCurrencyDecimal } from "@utils/currency";
+import { formatCurrencyCompact } from "@utils/currency";
+import { useSensitiveData } from "@app/modules/common/components/SensitiveData";
 import {
   GIFT_RUN_LABEL,
   deliveryStatusColor,
@@ -321,6 +322,7 @@ function AssigneeSelect({
 export default function DriveDetail() {
   const theme = useTheme();
   const desk = useCourtesyDesk();
+  const sensitive = useSensitiveData();
   const { driveId } = useParams<{ driveId: string }>();
   const drive = driveId ? getDrive(driveId) : undefined;
   const runEditable = isGiftRunEditable(drive?.status ?? "");
@@ -743,18 +745,32 @@ export default function DriveDetail() {
         accessorFn: (r) =>
           hasCost ? unitCost * Math.max(1, r.quantity || 1) : 0,
         Cell: ({ row }) => (
-          <Typography fontWeight={700} sx={{ fontSize: "0.875rem" }}>
-            {formatCurrencyDecimal(
-              hasCost
-                ? unitCost * Math.max(1, row.original.quantity || 1)
-                : 0,
+          <Box
+            component="span"
+            className={sensitive.cls}
+            sx={{
+              display: "inline-block",
+              fontWeight: 700,
+              fontSize: "0.875rem",
+            }}
+          >
+            {formatCurrencyCompact(
+              hasCost ? unitCost * Math.max(1, row.original.quantity || 1) : 0,
             )}
-          </Typography>
+          </Box>
         ),
         Footer: () => (
-          <Typography fontWeight={800} sx={{ fontSize: "0.8rem" }}>
-            {formatCurrencyDecimal(tableAmountTotal)}
-          </Typography>
+          <Box
+            component="span"
+            className={sensitive.cls}
+            sx={{
+              display: "inline-block",
+              fontWeight: 800,
+              fontSize: "0.8rem",
+            }}
+          >
+            {formatCurrencyCompact(tableAmountTotal)}
+          </Box>
         ),
       },
       {
@@ -893,6 +909,7 @@ export default function DriveDetail() {
     recipientDesignation,
     recipientGender,
     runEditable,
+    sensitive.cls,
     tableAmountTotal,
   ]);
 
@@ -1240,9 +1257,7 @@ export default function DriveDetail() {
                   void cloneDriveToApi(drive.id, title)
                     .then((cloned) => {
                       toast.success(`${GIFT_RUN_LABEL} cloned.`);
-                      navigate(
-                        `${GIFT_MANAGEMENT_BASE}/drives/${cloned.id}`,
-                      );
+                      navigate(`${GIFT_MANAGEMENT_BASE}/drives/${cloned.id}`);
                     })
                     .catch((err: unknown) => toastApiErr(err));
                 }}
@@ -1334,9 +1349,18 @@ export default function DriveDetail() {
             {occasionLabel(desk.config, drive.occasionType)}
             {drive.giftItem ? ` · ${drive.giftItem}` : ""}
             {drive.driveDate ? ` · ${drive.driveDate}` : ""}
-            {drive.costPerGift != null
-              ? ` · Cost per gift ${formatCurrencyDecimal(Number(drive.costPerGift))}`
-              : ""}
+            {drive.costPerGift != null ? (
+              <>
+                {" · Cost per gift "}
+                <Box
+                  component="span"
+                  className={sensitive.cls}
+                  sx={{ display: "inline-block" }}
+                >
+                  {formatCurrencyCompact(Number(drive.costPerGift))}
+                </Box>
+              </>
+            ) : null}
           </Typography>
           <Typography variant="h6" fontWeight={700} color="text.secondary">
             Group:{" "}
@@ -1377,12 +1401,6 @@ export default function DriveDetail() {
             icon="time"
           />
           <StatTile
-            label="Total amount"
-            value={formatCurrencyDecimal(runStats.amount)}
-            trio={TRIO.cyan}
-            icon="bill"
-          />
-          <StatTile
             label="Delivered"
             value={String(runStats.delivered)}
             trio={TRIO.green}
@@ -1393,6 +1411,13 @@ export default function DriveDetail() {
             value={String(runStats.skipped)}
             trio={TRIO.slate}
             icon="cross-circle"
+          />
+          <StatTile
+            label="Total amount"
+            value={formatCurrencyCompact(runStats.amount)}
+            valueClassName={sensitive.cls}
+            trio={TRIO.cyan}
+            icon="bill"
           />
         </Box>
       )}

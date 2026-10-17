@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { GIFT_MANAGEMENT_BASE } from './giftPaths';
@@ -13,7 +13,13 @@ export function giftTabIndexFromPath(pathname: string): number {
   return 0;
 }
 
-export default function GiftManagementTabBar() {
+type GiftManagementTabBarProps = {
+  headerAction?: ReactNode;
+};
+
+export default function GiftManagementTabBar({
+  headerAction,
+}: GiftManagementTabBarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = giftTabIndexFromPath(location.pathname);
@@ -42,6 +48,7 @@ export default function GiftManagementTabBar() {
       activeTab={activeTab}
       onTabChange={onTabChange}
       hideScrollButtons
+      headerAction={headerAction}
     />
   );
 }

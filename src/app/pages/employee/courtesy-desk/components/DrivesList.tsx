@@ -33,7 +33,8 @@ import {
   listDrives,
   unarchiveDriveToApi,
 } from "../store/courtesyDeskStore";
-import { formatCurrencyDecimal } from "@utils/currency";
+import { formatCurrencyCompact } from "@utils/currency";
+import { useSensitiveData } from "@app/modules/common/components/SensitiveData";
 import type { CourtesyDrive } from "../types";
 import {
   GIFT_RUN_LABEL,
@@ -53,6 +54,7 @@ export default function DrivesList() {
   const theme = useTheme();
   const desk = useCourtesyDesk();
   const navigate = useNavigate();
+  const sensitive = useSensitiveData();
   const { ask, dialog: confirmDialog } = useConfirmDialog();
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
@@ -152,14 +154,30 @@ export default function DrivesList() {
         size: 120,
         accessorFn: (r) => giftRunTotalAmount(r),
         Cell: ({ row }) => (
-          <Typography fontWeight={700} sx={{ fontSize: "0.875rem" }}>
-            {formatCurrencyDecimal(giftRunTotalAmount(row.original))}
-          </Typography>
+          <Box
+            component="span"
+            className={sensitive.cls}
+            sx={{
+              display: "inline-block",
+              fontWeight: 700,
+              fontSize: "0.875rem",
+            }}
+          >
+            {formatCurrencyCompact(giftRunTotalAmount(row.original))}
+          </Box>
         ),
         Footer: () => (
-          <Typography fontWeight={800} sx={{ fontSize: "0.8rem" }}>
-            {formatCurrencyDecimal(filteredAmountTotal)}
-          </Typography>
+          <Box
+            component="span"
+            className={sensitive.cls}
+            sx={{
+              display: "inline-block",
+              fontWeight: 800,
+              fontSize: "0.8rem",
+            }}
+          >
+            {formatCurrencyCompact(filteredAmountTotal)}
+          </Box>
         ),
       },
       {
@@ -310,7 +328,14 @@ export default function DrivesList() {
         },
       }),
     ],
-    [ask, desk.config, filteredAmountTotal, giftRunStatuses, navigate],
+    [
+      ask,
+      desk.config,
+      filteredAmountTotal,
+      giftRunStatuses,
+      navigate,
+      sensitive.cls,
+    ],
   );
 
   const rowStatusTint = (statusId: string) => {
