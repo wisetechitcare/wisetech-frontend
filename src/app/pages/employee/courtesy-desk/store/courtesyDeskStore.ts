@@ -15,6 +15,7 @@ import {
   DEFAULT_DELIVERY_STATUSES,
   DEFAULT_GIFT_RUN_STATUSES,
   DEFAULT_OCCASIONS,
+  giftRunTotalAmount,
 } from "../types";
 import * as giftsApi from "@services/gifts";
 
@@ -317,14 +318,21 @@ export async function saveGroupToApi(input: {
   return saved;
 }
 
-/** Gift Run roster mirrors its People Group; DRIVE_ONLY rows stay until removed on the run. */
+/** Gift Run roster mirrors its People Group; DRIVE_ONLY rows stay until removed on the run.
+ *  COMPLETED / ARCHIVED runs are frozen — group edits must not change their roster. */
 function syncDrivesFromGroup(groupId: string) {
   const group = state.groups.find((g) => g.id === groupId);
   if (!group) return;
   const memberKeys = new Set(group.members.map(personKey));
   const ts = nowIso();
   const drives = state.drives.map((d) => {
-    if (d.sourceGroupId !== groupId || d.status === "ARCHIVED") return d;
+    if (
+      d.sourceGroupId !== groupId ||
+      d.status === "ARCHIVED" ||
+      d.status === "COMPLETED"
+    ) {
+      return d;
+    }
     const driveOnly = d.recipients.filter(
       (r) => (r.rosterSource ?? "GROUP") === "DRIVE_ONLY",
     );
@@ -332,9 +340,16 @@ function syncDrivesFromGroup(groupId: string) {
       (r) =>
         (r.rosterSource ?? "GROUP") === "GROUP" && memberKeys.has(personKey(r)),
     );
+    // Soft-removed on this run (still in group) — do not re-add.
+    const removedKeys = new Set(
+      d.recipients
+        .filter((r) => (r.rosterSource as string) === "RUN_REMOVED")
+        .map(personKey),
+    );
     const linkedKeys = new Set([
       ...groupLinked.map(personKey),
       ...driveOnly.map(personKey),
+      ...removedKeys,
     ]);
     const additions = group.members.filter(
       (m) => !linkedKeys.has(personKey(m)),
@@ -538,6 +553,7 @@ export async function createDriveToApi(input: {
   driveDate?: string;
   sourceGroupId: string;
   defaultQuantity?: number;
+  costPerGift?: number | null;
 }) {
   requireApi();
   const drive = await giftsApi.createDriveApi(input);
@@ -552,6 +568,7 @@ export function createDrive(input: {
   driveDate?: string;
   sourceGroupId: string;
   defaultQuantity?: number;
+  costPerGift?: number | null;
 }) {
   const group = getGroup(input.sourceGroupId);
   if (!group) throw new Error("People Group not found");
@@ -567,6 +584,7 @@ export function createDrive(input: {
     sourceGroupId: group.id,
     sourceGroupName: group.name,
     status: "IN_PROGRESS",
+    costPerGift: input.costPerGift ?? null,
     defaultMode: "IN_PERSON",
     recipients: snapshotRecipients(
       group.members,
@@ -589,6 +607,8 @@ export async function updateDriveMetaToApi(
       | "driveDate"
       | "status"
       | "occasionType"
+      | "sourceGroupId"
+      | "costPerGift"
       | "defaultAssigneeEmployeeId"
       | "defaultAssigneeName"
       | "defaultMode"
@@ -604,6 +624,45 @@ export async function updateDriveMetaToApi(
   return drive;
 }
 
+export async function cloneDriveToApi(driveId: string, newTitle?: string) {
+  requireApi();
+  const drive = await giftsApi.cloneDriveApi(
+    driveId,
+    newTitle?.trim() || undefined,
+  );
+  setState({ ...state, drives: [drive, ...state.drives] });
+  return drive;
+}
+
+export async function archiveDriveToApi(driveId: string) {
+  requireApi();
+  const drive = await giftsApi.archiveDriveApi(driveId);
+  setState({
+    ...state,
+    drives: state.drives.map((d) => (d.id === drive.id ? drive : d)),
+  });
+  return drive;
+}
+
+export async function unarchiveDriveToApi(driveId: string) {
+  requireApi();
+  const drive = await giftsApi.unarchiveDriveApi(driveId);
+  setState({
+    ...state,
+    drives: state.drives.map((d) => (d.id === drive.id ? drive : d)),
+  });
+  return drive;
+}
+
+export async function deleteDriveToApi(driveId: string) {
+  requireApi();
+  await giftsApi.deleteDriveApi(driveId);
+  setState({
+    ...state,
+    drives: state.drives.filter((d) => d.id !== driveId),
+  });
+}
+
 export function updateDriveMeta(
   driveId: string,
   patch: Partial<
@@ -614,6 +673,8 @@ export function updateDriveMeta(
       | "driveDate"
       | "status"
       | "occasionType"
+      | "sourceGroupId"
+      | "costPerGift"
       | "defaultAssigneeEmployeeId"
       | "defaultAssigneeName"
       | "defaultMode"
@@ -721,7 +782,7 @@ export function addPeopleToDrive(driveId: string, people: PersonRef[]) {
   return { added: additions.length, drive: updated };
 }
 
-/** Remove gift-run-only recipients (group members must be changed in the People Group). */
+/** Remove recipients from this Gift Run only (People Group is never changed). */
 export async function removePeopleFromDriveToApi(
   driveId: string,
   recipientIds: string[],
@@ -739,14 +800,6 @@ export function removePeopleFromDrive(driveId: string, recipientIds: string[]) {
   const drive = getDrive(driveId);
   if (!drive) throw new Error("Gift Run not found");
   const idSet = new Set(recipientIds);
-  const blocked = drive.recipients.filter(
-    (r) => idSet.has(r.id) && (r.rosterSource ?? "GROUP") !== "DRIVE_ONLY",
-  );
-  if (blocked.length) {
-    throw new Error(
-      "Only people added on this Gift Run can be removed here. Update the People Group to change group members.",
-    );
-  }
 
   const updated: CourtesyDrive = {
     ...drive,
@@ -910,10 +963,11 @@ export function getOverviewStats(fyStart?: string, fyEnd?: string) {
 
   let pending = 0;
   let delivered = 0;
-  let out = 0;
   let skipped = 0;
+  let totalAmount = 0;
 
   drives.forEach((d) => {
+    totalAmount += giftRunTotalAmount(d);
     d.recipients.forEach((r) => {
       switch (r.status) {
         case "PENDING":
@@ -921,9 +975,6 @@ export function getOverviewStats(fyStart?: string, fyEnd?: string) {
           break;
         case "DELIVERED":
           delivered += 1;
-          break;
-        case "OUT":
-          out += 1;
           break;
         case "SKIPPED":
           skipped += 1;
@@ -940,9 +991,9 @@ export function getOverviewStats(fyStart?: string, fyEnd?: string) {
       (d) => d.status === "IN_PROGRESS" || d.status === "DRAFT",
     ).length,
     pending,
-    out,
     delivered,
     skipped,
+    totalAmount,
     drives: drives.map((d) => ({
       id: d.id,
       title: d.title,
@@ -951,9 +1002,8 @@ export function getOverviewStats(fyStart?: string, fyEnd?: string) {
       occasionType: d.occasionType,
       total: d.recipients.length,
       delivered: d.recipients.filter((r) => r.status === "DELIVERED").length,
-      pending: d.recipients.filter(
-        (r) => r.status === "PENDING" || r.status === "OUT",
-      ).length,
+      pending: d.recipients.filter((r) => r.status === "PENDING").length,
+      amount: giftRunTotalAmount(d),
     })),
   };
 }

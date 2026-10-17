@@ -9,6 +9,7 @@ import {
   alpha,
   useTheme,
 } from "@mui/material";
+import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
 import { MRT_ColumnDef } from "material-react-table";
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
@@ -16,7 +17,11 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { SolidChip } from "@app/pages/billing/operations/TrackerCells";
 import { actionsColumn } from "@app/modules/common/components/table/columns";
-import { ActionIconButton, AppIcon } from "@app/modules/common/components/ui";
+import {
+  ActionIconButton,
+  AppIcon,
+  useConfirmDialog,
+} from "@app/modules/common/components/ui";
 import { T } from "@app/modules/common/components/ui/tokens";
 import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
@@ -31,15 +36,25 @@ import {
 import type { PeopleGroup } from "../types";
 import { groupStatusColor, parseGroupStatus } from "../types";
 
+type GroupStatusScope = "ACTIVE" | "ARCHIVED" | "ALL";
+
 export default function PeopleGroupsList() {
   const theme = useTheme();
   useCourtesyDesk();
   const navigate = useNavigate();
+  const { ask, dialog: confirmDialog } = useConfirmDialog();
   const employeeId = useSelector(
     (s: RootState) => s.employee.currentEmployee?.id,
   );
-  const [showArchived, setShowArchived] = useState(false);
-  const groups = listGroups(showArchived);
+  const [statusScope, setStatusScope] = useState<GroupStatusScope>("ACTIVE");
+  // Re-read on every store-driven render (useCourtesyDesk above).
+  const allGroups = listGroups(true);
+  const groups =
+    statusScope === "ALL"
+      ? allGroups
+      : statusScope === "ARCHIVED"
+        ? allGroups.filter((g) => parseGroupStatus(g.status) === "ARCHIVED")
+        : allGroups.filter((g) => parseGroupStatus(g.status) === "ACTIVE");
 
   const rowStatusTint = (status: unknown) => {
     const c = groupStatusColor(parseGroupStatus(status));
@@ -134,12 +149,19 @@ export default function PeopleGroupsList() {
               />
               {g.status === "ACTIVE" ? (
                 <ActionIconButton
-                  iconName="archive"
+                  icon={<ArchiveOutlinedIcon sx={{ fontSize: 18 }} />}
                   title="Archive group"
                   size="sm"
                   tone="danger"
                   onClick={() => {
-                    if (window.confirm(`Archive “${g.name}”?`)) {
+                    void ask({
+                      variant: "delete",
+                      title: "Archive group",
+                      message: `Archive “${g.name}”? You can restore it later.`,
+                      confirmLabel: "Archive",
+                      icon: "archive",
+                    }).then((ok) => {
+                      if (!ok) return;
                       void archiveGroupToApi(g.id)
                         .then(() => toast.success("Group archived."))
                         .catch((err: unknown) =>
@@ -147,7 +169,7 @@ export default function PeopleGroupsList() {
                             apiErrorMessage(err, "Something went wrong"),
                           ),
                         );
-                    }
+                    });
                   }}
                 />
               ) : (
@@ -188,11 +210,12 @@ export default function PeopleGroupsList() {
         },
       }),
     ],
-    [navigate],
+    [ask, navigate],
   );
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
+      {confirmDialog}
       <Stack
         direction={{ xs: "column", md: "row" }}
         justifyContent="space-between"
@@ -212,12 +235,14 @@ export default function PeopleGroupsList() {
           <TextField
             select
             size="small"
-            value={showArchived ? "all" : "active"}
-            onChange={(e) => setShowArchived(e.target.value === "all")}
+            label="Status"
+            value={statusScope}
+            onChange={(e) => setStatusScope(e.target.value as GroupStatusScope)}
             sx={{ minWidth: 150 }}
           >
-            <MenuItem value="active">Active only</MenuItem>
-            <MenuItem value="all">Include archived</MenuItem>
+            <MenuItem value="ALL">All</MenuItem>
+            <MenuItem value="ACTIVE">Active</MenuItem>
+            <MenuItem value="ARCHIVED">Archive</MenuItem>
           </TextField>
           <PremiumButton
             icon="bi-plus-lg"

@@ -96,6 +96,16 @@ export type {
 } from './glass';
 // Shared Cancel/Save footer for GlassDialog — prefer over hand-rolled DialogActions sx.
 export { GlassDialogActions, type GlassDialogActionsProps } from './GlassDialogActions';
+// Alert-style confirm / delete dialog (Glass + WtButton). Prefer over window.confirm / raw MUI Dialog.
+export {
+  ConfirmDialog,
+  type ConfirmDialogProps,
+  type ConfirmDialogVariant,
+} from './ConfirmDialog';
+export {
+  useConfirmDialog,
+  type AskConfirmOptions,
+} from './useConfirmDialog';
 // Dialog form cards (Sandwich Add Rule shape) + spacing rhythm SSOT.
 export { FormSection, FORM_SPACE, type FormSectionProps } from './FormSection';
 // Shared UI pattern atoms — app-wide primitives (single source of truth; use across every feature).
