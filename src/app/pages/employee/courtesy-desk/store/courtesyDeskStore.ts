@@ -15,6 +15,7 @@ import {
   DEFAULT_DELIVERY_STATUSES,
   DEFAULT_GIFT_RUN_STATUSES,
   DEFAULT_OCCASIONS,
+  giftRunTotalAmount,
 } from "../types";
 import * as giftsApi from "@services/gifts";
 
@@ -552,6 +553,7 @@ export async function createDriveToApi(input: {
   driveDate?: string;
   sourceGroupId: string;
   defaultQuantity?: number;
+  costPerGift?: number | null;
 }) {
   requireApi();
   const drive = await giftsApi.createDriveApi(input);
@@ -566,6 +568,7 @@ export function createDrive(input: {
   driveDate?: string;
   sourceGroupId: string;
   defaultQuantity?: number;
+  costPerGift?: number | null;
 }) {
   const group = getGroup(input.sourceGroupId);
   if (!group) throw new Error("People Group not found");
@@ -581,6 +584,7 @@ export function createDrive(input: {
     sourceGroupId: group.id,
     sourceGroupName: group.name,
     status: "IN_PROGRESS",
+    costPerGift: input.costPerGift ?? null,
     defaultMode: "IN_PERSON",
     recipients: snapshotRecipients(
       group.members,
@@ -604,6 +608,7 @@ export async function updateDriveMetaToApi(
       | "status"
       | "occasionType"
       | "sourceGroupId"
+      | "costPerGift"
       | "defaultAssigneeEmployeeId"
       | "defaultAssigneeName"
       | "defaultMode"
@@ -619,6 +624,45 @@ export async function updateDriveMetaToApi(
   return drive;
 }
 
+export async function cloneDriveToApi(driveId: string, newTitle?: string) {
+  requireApi();
+  const drive = await giftsApi.cloneDriveApi(
+    driveId,
+    newTitle?.trim() || undefined,
+  );
+  setState({ ...state, drives: [drive, ...state.drives] });
+  return drive;
+}
+
+export async function archiveDriveToApi(driveId: string) {
+  requireApi();
+  const drive = await giftsApi.archiveDriveApi(driveId);
+  setState({
+    ...state,
+    drives: state.drives.map((d) => (d.id === drive.id ? drive : d)),
+  });
+  return drive;
+}
+
+export async function unarchiveDriveToApi(driveId: string) {
+  requireApi();
+  const drive = await giftsApi.unarchiveDriveApi(driveId);
+  setState({
+    ...state,
+    drives: state.drives.map((d) => (d.id === drive.id ? drive : d)),
+  });
+  return drive;
+}
+
+export async function deleteDriveToApi(driveId: string) {
+  requireApi();
+  await giftsApi.deleteDriveApi(driveId);
+  setState({
+    ...state,
+    drives: state.drives.filter((d) => d.id !== driveId),
+  });
+}
+
 export function updateDriveMeta(
   driveId: string,
   patch: Partial<
@@ -630,6 +674,7 @@ export function updateDriveMeta(
       | "status"
       | "occasionType"
       | "sourceGroupId"
+      | "costPerGift"
       | "defaultAssigneeEmployeeId"
       | "defaultAssigneeName"
       | "defaultMode"
@@ -918,10 +963,11 @@ export function getOverviewStats(fyStart?: string, fyEnd?: string) {
 
   let pending = 0;
   let delivered = 0;
-  let out = 0;
   let skipped = 0;
+  let totalAmount = 0;
 
   drives.forEach((d) => {
+    totalAmount += giftRunTotalAmount(d);
     d.recipients.forEach((r) => {
       switch (r.status) {
         case "PENDING":
@@ -929,9 +975,6 @@ export function getOverviewStats(fyStart?: string, fyEnd?: string) {
           break;
         case "DELIVERED":
           delivered += 1;
-          break;
-        case "OUT":
-          out += 1;
           break;
         case "SKIPPED":
           skipped += 1;
@@ -948,9 +991,9 @@ export function getOverviewStats(fyStart?: string, fyEnd?: string) {
       (d) => d.status === "IN_PROGRESS" || d.status === "DRAFT",
     ).length,
     pending,
-    out,
     delivered,
     skipped,
+    totalAmount,
     drives: drives.map((d) => ({
       id: d.id,
       title: d.title,
@@ -959,9 +1002,8 @@ export function getOverviewStats(fyStart?: string, fyEnd?: string) {
       occasionType: d.occasionType,
       total: d.recipients.length,
       delivered: d.recipients.filter((r) => r.status === "DELIVERED").length,
-      pending: d.recipients.filter(
-        (r) => r.status === "PENDING" || r.status === "OUT",
-      ).length,
+      pending: d.recipients.filter((r) => r.status === "PENDING").length,
+      amount: giftRunTotalAmount(d),
     })),
   };
 }

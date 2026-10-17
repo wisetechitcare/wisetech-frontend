@@ -38,9 +38,9 @@ const del = async <T>(url: string): Promise<T> => {
 export type GiftsOverview = {
   activeDriveCount: number;
   pending: number;
-  out: number;
   delivered: number;
   skipped: number;
+  totalAmount: number;
   drives: Array<{
     id: string;
     title: string;
@@ -50,6 +50,7 @@ export type GiftsOverview = {
     total: number;
     delivered: number;
     pending: number;
+    amount: number;
   }>;
 };
 
@@ -164,6 +165,7 @@ export async function createDriveApi(input: {
   driveDate?: string;
   sourceGroupId: string;
   defaultQuantity?: number;
+  costPerGift?: number | null;
 }) {
   const res = await post<{ drive: CourtesyDrive }>(GIFTS.DRIVES, input);
   return res.drive;
@@ -172,6 +174,27 @@ export async function createDriveApi(input: {
 export async function updateDriveApi(id: string, patch: Partial<CourtesyDrive>) {
   const res = await patchJson<{ drive: CourtesyDrive }>(path(GIFTS.DRIVE_BY_ID, { id }), patch);
   return res.drive;
+}
+
+export async function cloneDriveApi(id: string, title?: string) {
+  const res = await post<{ drive: CourtesyDrive }>(path(GIFTS.CLONE_DRIVE, { id }), {
+    ...(title?.trim() ? { title: title.trim() } : {}),
+  });
+  return res.drive;
+}
+
+export async function archiveDriveApi(id: string) {
+  const res = await post<{ drive: CourtesyDrive }>(path(GIFTS.ARCHIVE_DRIVE, { id }));
+  return res.drive;
+}
+
+export async function unarchiveDriveApi(id: string) {
+  const res = await post<{ drive: CourtesyDrive }>(path(GIFTS.UNARCHIVE_DRIVE, { id }));
+  return res.drive;
+}
+
+export async function deleteDriveApi(id: string) {
+  await del<{ message?: string }>(path(GIFTS.DRIVE_BY_ID, { id }));
 }
 
 export async function applyDriveDefaultsApi(
