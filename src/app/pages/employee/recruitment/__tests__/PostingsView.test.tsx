@@ -102,24 +102,20 @@ describe('PostingsView', () => {
         await waitFor(() => expect(written).toEqual(['https://careers.example.com/careers/site-engineer-ab12cd34']));
     });
 
-    test('with no careers site configured, Copy is disabled and says why', async () => {
+    test('with no careers site configured, Copy is not offered', async () => {
         api.getPostings.mockResolvedValue([{ ...posting, publicUrl: null }]);
         renderView();
         await screen.findByText('Site Engineer');
-        const copy = screen.getByRole('button', { name: /no careers site is configured/i });
-        expect((copy as HTMLButtonElement).disabled).toBe(true);
+        expect(screen.queryByRole('button', { name: /copy public link/i })).toBeNull();
         expect(written).toEqual([]);
     });
 
-    test('only approved, open roles can be advertised', async () => {
+    test('New Advert opens the attach wizard once an open role exists', async () => {
         api.getPostings.mockResolvedValue([]);
         renderView();
-        await waitFor(() => expect(api.getRequisitions).toHaveBeenCalled());
-        await userEvent.click(screen.getByRole('button', { name: /new job advert/i }));
-        await userEvent.click(await screen.findByRole('combobox', { name: /^role/i }));
-        const names = (await screen.findAllByRole('option')).map((o) => o.textContent);
-        // Not the draft, and not the archived role whose adverts the server takes down anyway.
-        expect(names).toEqual(['Site Engineer']);
+        const [headerNew] = await screen.findAllByRole('button', { name: /^new advert$/i });
+        await userEvent.click(headerNew);
+        expect(navigate).toHaveBeenCalledWith('/recruitment/jobs/adverts/new');
     });
 
     test('clicking an advert card opens the edit wizard (no pencil button)', async () => {

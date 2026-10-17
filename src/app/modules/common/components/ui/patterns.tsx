@@ -564,44 +564,7 @@ export type {
   DmsViewMode,
 } from './ViewModeSwitch';
 
-/**
- * Responsive card grid — the **standard list/collection layout**.
- *
- * Default: `auto-fill` + capped track (`max`, ~400px) + `justifyContent: start` so a sparse
- * list does not stretch one card full-bleed. Pass `stretch` only when tiles must absorb leftover
- * width (`auto-fit` + `1fr`, the pre-cap behaviour).
- *
- *   <AutoGrid min={320}>{items.map(i => <GlassCard key={i.id} preset="row" …/>)}</AutoGrid>
- */
-export function AutoGrid({
-  children, min = 300, max = 400, gap = 12, stretch = false, sx,
-}: {
-  children: React.ReactNode;
-  min?: number;
-  /** Max track width when not stretching (default 400). Ignored when `stretch`. */
-  max?: number;
-  gap?: number | string;
-  /** Absorb leftover width (`auto-fit` + `1fr`). Opt-in only — cards default to capped width. */
-  stretch?: boolean;
-  sx?: SxProps<Theme>;
-}) {
-  return (
-    <Box
-      sx={[{
-        display: 'grid',
-        gap: typeof gap === 'number' ? `${gap}px` : gap,
-        // `min(min, 100%)` clamps the track on very narrow screens so a card never forces horizontal scroll.
-        gridTemplateColumns: stretch
-          ? `repeat(auto-fit, minmax(min(${min}px, 100%), 1fr))`
-          : `repeat(auto-fill, minmax(min(${min}px, 100%), ${max}px))`,
-        justifyContent: stretch ? undefined : 'start',
-        alignItems: 'stretch',
-      }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
-    >
-      {children}
-    </Box>
-  );
-}
+export { AutoGrid } from './AutoGrid';
 
 /**
  * Standard list/page header: title (+ optional subtitle) on the left, actions on the right. Wraps
