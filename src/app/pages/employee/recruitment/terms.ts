@@ -72,7 +72,7 @@ export const COPY = {
     noPostings: {
         title: 'Nothing Published Yet',
         hint: 'Publishing a role puts it on the careers page so people can apply themselves.',
-        action: 'Publish a Role',
+        action: 'New Advert',
     },
     noInterviews: {
         title: 'No Interviews Scheduled',

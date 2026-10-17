@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Box, Stack, Typography } from "@mui/material";
-import { GlassCard, TRIO } from "@app/modules/common/components/ui";
+import { AutoGrid, GlassCard, TRIO } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import { listBillingRequests, type BillingRequest } from "@services/billingRequest";
@@ -66,15 +66,7 @@ const BillingDashboard: React.FC = () => {
         trio={TRIO.purple}
       />
 
-      {/* AutoGrid-style responsive tiles: fill wide screens, collapse to one column. */}
-      <Box
-        sx={{
-          display: "grid",
-          gap: 1.25,
-          gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-          mb: 2,
-        }}
-      >
+      <AutoGrid min={230} stretch sx={{ mb: 2, gap: 1.25 }}>
         <BillingStatsCard
           label="Draft Requests" icon="file" trio={TRIO.blue}
           value={stats.drafts} loading={isLoading}
@@ -101,7 +93,7 @@ const BillingDashboard: React.FC = () => {
         <BillingStatsCard label="Collected" icon="check-circle" trio={TRIO.green} value={DASH} hint="Payments module pending" />
         <BillingStatsCard label="Outstanding" icon="information-5" trio={TRIO.rose} value={DASH} hint="Invoices module pending" />
         <BillingStatsCard label="Invoices Generated" icon="receipt-square" trio={TRIO.blue} value={stats.proformad || DASH} hint="Proformas raised so far" />
-      </Box>
+      </AutoGrid>
 
       <Box
         sx={{

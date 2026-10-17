@@ -29,14 +29,12 @@ import { formatDateTime } from '@utils/dateFormats';
 import NewTimeLogForm from '@app/pages/employee/timesheet/employeetimesheet/component/NewTimeLogForm';
 import { TaskStateBlock, AssigneeAvatar } from './primitives';
 import { useInvalidateTasks } from '../useTaskQueries';
-import { ViewModeSwitch, WtButton } from '@app/modules/common/components/ui';
+import {
+    GridListViewSwitch, WtButton, type GridListView,
+    viewModeSwitchTrackSx, viewModeSwitchButtonSx,
+} from '@app/modules/common/components/ui';
 
-type EntryView = 'grid' | 'list';
-
-const ENTRY_VIEW_OPTIONS = [
-    { value: 'grid' as const, icon: 'bi-grid-3x3-gap-fill', label: 'Card view' },
-    { value: 'list' as const, icon: 'bi-list-ul', label: 'Table view' },
-];
+type EntryView = GridListView;
 import TimeLogDetailDialog from '@app/pages/employee/timesheet/components/TimeLogDetailDialog';
 import type { TimeLogAttachment } from '@app/pages/employee/timesheet/components/TimeLogAttachments';
 
@@ -532,20 +530,8 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
             {rows.length > 0 && (
                 <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
                     {involvement.length > 0 && (
-                        // The OUTER shell matches ViewModeSwitch exactly — same padding, border,
-                        // radius and background — with the pressable 30x26 inside it. Styling the
-                        // button alone made it a whole shell shorter than the switch beside it.
-                        <Box
-                            sx={{
-                                display: 'inline-flex',
-                                p: 0.375,
-                                borderRadius: '10px',
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                bgcolor: 'action.hover',
-                                flexShrink: 0,
-                            }}
-                        >
+                        // Same track + cell tokens as ViewModeSwitch — heights stay flush.
+                        <Box sx={viewModeSwitchTrackSx(theme)}>
                             <Tooltip title={showInvolvement ? 'Hide involvement' : 'Show who did what'}>
                                 <Box
                                     component="button"
@@ -553,24 +539,14 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
                                     aria-pressed={showInvolvement}
                                     aria-label="Involvement chart"
                                     onClick={() => setShowInvolvement((open) => !open)}
-                                    sx={{
-                                        display: 'grid', placeItems: 'center',
-                                        width: 30, height: 26, p: 0, border: 0,
-                                        borderRadius: '7px', cursor: 'pointer',
-                                        bgcolor: showInvolvement ? 'background.paper' : 'transparent',
-                                        color: showInvolvement ? 'text.primary' : 'text.secondary',
-                                        boxShadow: showInvolvement ? '0 1px 2px rgba(16, 24, 40, 0.10)' : 'none',
-                                        transition: 'background-color .12s ease, color .12s ease',
-                                        '&:hover': { color: 'text.primary' },
-                                    }}
+                                    sx={viewModeSwitchButtonSx(showInvolvement, theme)}
                                 >
-                                    <Box component="i" className="bi-bar-chart-fill" aria-hidden sx={{ fontSize: 13 }} />
+                                    <Box component="i" className="bi-bar-chart-fill" aria-hidden sx={{ fontSize: 13, lineHeight: 1 }} />
                                 </Box>
                             </Tooltip>
                         </Box>
                     )}
-                    <ViewModeSwitch<EntryView>
-                        options={ENTRY_VIEW_OPTIONS}
+                    <GridListViewSwitch
                         value={entryView}
                         onChange={setEntryView}
                         ariaLabel="Time entry layout"

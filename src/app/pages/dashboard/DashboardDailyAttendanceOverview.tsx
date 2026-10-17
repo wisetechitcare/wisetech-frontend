@@ -106,7 +106,7 @@ const LEAVE_COLUMNS = [
   {
     accessorKey: 'leaveType',
     header: 'Leave Type',
-    Cell: ({ cell }: any) => <span className="badge bg-warning text-dark">{cell.getValue()}</span>,
+    Cell: ({ cell }: any) => <ToneChip dense tone="warning" label={String(cell.getValue() ?? '')} />,
   },
   {
     accessorKey: 'duration',

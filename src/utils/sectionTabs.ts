@@ -84,6 +84,7 @@ export const SECTION_TABS: Record<string, SectionTab[]> = {
     { key: "pipeline", label: "Pipeline", icon: "bi-kanban", hint: "Applications by stage" },
     { key: "candidates", label: "Candidates", icon: "bi-people", hint: "Applicant directory" },
     { key: "import", label: "Import", icon: "bi-upload", hint: "HR tracker import" },
+    { key: "archive", label: "Archive", icon: "bi-archive", hint: "Restore or permanently delete archived items" },
     configure("recruitment"),
   ],
   "finance.salary": [

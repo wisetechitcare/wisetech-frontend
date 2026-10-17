@@ -17,6 +17,7 @@ import {
 import { Pagination, Spinner, Alert } from 'react-bootstrap';
 import { KTIcon } from '../../../../_metronic/helpers';
 import AssignedTasksInbox from './AssignedTasksInbox';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 interface Notification {
   id: string;
@@ -207,12 +208,7 @@ const Notifications: React.FC = () => {
                 {/* Text */}
                 <div className="flex-grow-1 overflow-hidden">
                   <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                    <span
-                      className="badge rounded-pill small fw-semibold px-2"
-                      style={{ background: borderColor + '22', color: text, fontSize: '0.7rem' }}
-                    >
-                      {label}
-                    </span>
+                    <ToneChip dense color={text} label={label} />
                     <span className="text-muted" style={{ fontSize: '0.72rem' }}>
                       {formatNotificationDate(n.createdAt)}
                     </span>

@@ -12,8 +12,9 @@
  * configures (leave-type colours) — it wins over `tone`. Never pass a raw hex for something that
  * has a semantic tone; that's how palettes drift.
  *
- * Tint formula matches utils/leaveTypeColors.ts (bg 12%, border 28%) so a leave chip rendered here
- * is pixel-identical to the same leave inside ApplyLeave's calendar.
+ * Tint formula matches utils/leaveTypeColors.ts (bg 18%, border 40%) so a leave chip rendered here
+ * is pixel-identical to the same leave inside ApplyLeave's calendar. Soft alphas are raised so
+ * status + meta chips stay readable on glass cards without a second MetaPill primitive.
  */
 import { Chip, type ChipProps } from '@mui/material';
 // Canonical module, not the ./tokens shim — that file's own docblock says new consumers must
@@ -60,9 +61,9 @@ export function ToneChip({ tone = 'neutral', color, solid = false, dense = false
                     fontWeight: 600,
                     borderRadius: 999,
                     maxWidth: '100%',
-                    backgroundColor: solid ? fg : toneAlpha(fg, 0.12),
+                    backgroundColor: solid ? fg : toneAlpha(fg, 0.18),
                     color: solid ? '#fff' : fg,
-                    border: `1px solid ${solid ? 'transparent' : toneAlpha(fg, 0.28)}`,
+                    border: `1px solid ${solid ? 'transparent' : toneAlpha(fg, 0.4)}`,
                     '& .MuiChip-label': { px: dense ? 0.75 : 1, overflow: 'hidden', textOverflow: 'ellipsis' },
                 },
                 ...(Array.isArray(sx) ? sx : [sx]),

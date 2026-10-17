@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 import { Button, ButtonProps, IconButton, IconButtonProps, Tooltip } from '@mui/material';
-import type { SxProps, Theme } from '@mui/material/styles';
+import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 import { titleCaseNode } from './text';
 import { useIsDark } from './tw/useIsDark';
 
@@ -242,32 +242,75 @@ export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function Wt
   );
 });
 
+/**
+ * Aside-menu icon-tile surface — **kit SSOT** for tinted icon buttons.
+ *
+ * Soft pastel of `color` at rest → richer pastel of the *same* colour on hover
+ * (never grey/slate, never solid). Glyph stays full-strength ink so contrast holds.
+ * Used by `WtIconButton` and `ActionIconButton` — do not re-implement per screen.
+ */
+export function tintedIconSurfaceSx(
+  color: string,
+  opts: { dark?: boolean; radius?: string | number } = {},
+): SxProps<Theme> {
+  const dark = Boolean(opts.dark);
+  const radius = opts.radius ?? '12px';
+  const restBg = alpha(color, dark ? 0.22 : 0.12);
+  const hoverBg = alpha(color, dark ? 0.40 : 0.28);
+  const restBd = alpha(color, dark ? 0.40 : 0.28);
+  const hoverBd = alpha(color, dark ? 0.62 : 0.45);
+  return {
+    color,
+    bgcolor: restBg,
+    border: `1px solid ${restBd}`,
+    borderRadius: radius,
+    '& .ki-duotone, & .ki-solid, & .ki-outline': {
+      color: 'inherit',
+      '& [class*="path"]': { opacity: 1, color: 'inherit' },
+    },
+    transition: [
+      'background-color .2s cubic-bezier(0.4, 0, 0.2, 1)',
+      'border-color .2s cubic-bezier(0.4, 0, 0.2, 1)',
+      `transform .16s ${MRD_EASE}`,
+      'box-shadow .15s',
+    ].join(', '),
+    '&:hover': {
+      bgcolor: hoverBg,
+      borderColor: hoverBd,
+      transform: 'translateY(-1px)',
+      boxShadow: `0 5px 12px ${alpha(color, 0.28)}`,
+    },
+    '&:active': { transform: 'translateY(0) scale(.93)' },
+    '&:focus-visible': { outline: `2px solid ${color}`, outlineOffset: 2 },
+    '&.Mui-disabled': {
+      opacity: 0.5,
+      boxShadow: 'none',
+      transform: 'none',
+    },
+  };
+}
+
 export interface WtIconButtonProps extends Omit<IconButtonProps, 'color'> {
-  /** Tone hex — tint derives from it via the Devices-modal alpha formula (bg 8%, border 24%). */
+  /** Tone hex — tint derives from `tintedIconSurfaceSx` (aside-menu darken-to-icon-colour). */
   color?: string;
   /** Tooltip label (also used as aria-label). */
   title?: string;
 }
 
-/** Tinted-ghost icon button (BiometricDevicesModal action-button pattern) with the same press
- * physics: tint deepens on hover, -1px lift, scale(.94) press. Pass the glyph as children. */
+/** Tinted icon button — same surface recipe as ActionIconButton (`tintedIconSurfaceSx`). */
 export const WtIconButton = forwardRef<HTMLButtonElement, WtIconButtonProps>(function WtIconButton(
   { color = '#64748b', title, sx, children, ...rest }, ref,
 ) {
+  const dark = useIsDark();
   const btn = (
     <IconButton
       ref={ref}
       aria-label={title}
-      sx={[{
-        width: 44, height: 44, borderRadius: '12px', color,
-        bgcolor: `${color}14`, border: `1px solid ${color}3D`,
-        transition: `background-color .15s, border-color .15s, transform .16s ${MRD_EASE}, box-shadow .15s`,
-        '& .fs-2, & .fs-3': { fontSize: '1.2rem' },
-        '&:hover': { bgcolor: `${color}30`, borderColor: `${color}66`, transform: 'translateY(-1.5px)', boxShadow: `0 5px 12px ${color}3D` },
-        '&:active': { transform: 'translateY(0) scale(.93)' },
-        '&:focus-visible': { outline: `2px solid ${color}`, outlineOffset: 2 },
-        '&.Mui-disabled': { opacity: 0.5 },
-      }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
+      sx={[
+        tintedIconSurfaceSx(color, { dark, radius: '12px' }),
+        { width: 44, height: 44, '& .fs-2, & .fs-3': { fontSize: '1.2rem' } },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ] as SxProps<Theme>}
       {...rest}
     >
       {children}

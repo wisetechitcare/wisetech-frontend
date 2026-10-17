@@ -6,8 +6,11 @@ import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, WtButton, ActionIconButton, ToneChip,
     toast, confirmDialog, WtEmptyState, WtField, InlineNotice,
+    CardsListViewSwitch, type CardsListView,
 } from "@app/modules/common/components/ui";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { queryKeys } from "@/lib/queryKeys";
+import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import { COPY } from "./terms";
 import { formatDate } from "@utils/dateFormats";
 import { formatCurrencyCompact } from "@utils/currency";
@@ -15,30 +18,11 @@ import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
 import { useOrgScope } from "@/hooks/useOrgScope";
 import {
-    getApplicants, getApplicantById, updateApplicant, getApplicantSources, uploadApplicantResume,
+    getApplicants, getApplicantById, updateApplicant, archiveApplicant, getApplicantSources, uploadApplicantResume,
     type Applicant, type ApplicantSource, type OrgScoped,
 } from "@services/recruitment";
 import { AddToRoleDialog } from "./AddToRoleDialog";
-
-/** Compact, muted meta chip — packs identity/metrics into the card without stretched gaps. */
-const MetaPill = ({ text }: { text: string }) => (
-    <Box sx={{
-        px: 0.9, py: 0.3, borderRadius: "8px", bgcolor: "action.hover",
-        fontSize: 11.5, fontWeight: 600, color: "text.secondary", whiteSpace: "nowrap", lineHeight: 1.5,
-    }}>
-        {text}
-    </Box>
-);
-
-/** Months → "3 yr 4 mo" / "7 mo". Raw month counts are unreadable on a card. */
-const experienceLabel = (months?: number | null): string | null => {
-    if (months == null || months <= 0) return null;
-    const y = Math.floor(months / 12);
-    const m = months % 12;
-    return [y ? `${y} yr` : null, m ? `${m} mo` : null].filter(Boolean).join(" ") + " experience";
-};
-
-const fullName = (a: Applicant) => [a.firstName, a.lastName].filter(Boolean).join(" ").trim() || a.email || a.phone || "Candidate";
+import { candidateColumns, experienceLabel, fullName } from "./candidateColumns";
 
 /** Wait this long after the last keystroke before searching — one request per pause, not per letter. */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -46,9 +30,8 @@ const SEARCH_DEBOUNCE_MS = 300;
 /**
  * Candidates — the applicant directory (Recruitment › Candidates).
  *
- * Add / Edit always open the fullscreen Candidate wizard. Candidates are never hard-deleted:
- * data retention and the audit trail both require the row to survive, so the destructive
- * action is "blacklist" (an update), not a delete.
+ * Soft archive moves them to the Archive tab (restore / hard delete there). Blacklist stays a
+ * separate flag for future applications. DPDP erase remains manage-only on the API.
  */
 const CandidatesView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
@@ -67,6 +50,10 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
     }, [searchInput]);
 
     const [addToRole, setAddToRole] = useState<Applicant | null>(null);
+    /** Cards or list — remembered like Pipeline / Roles / Adverts. */
+    const [mode, setMode] = useRememberedChoice<CardsListView>(
+        "recruitment:candidates-view", ["cards", "list"], "cards",
+    );
 
     // The server does the searching, so the key includes the term. Cursor pages append via Load more.
     const {
@@ -168,8 +155,14 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
 
     const blacklistMut = useMutation({
         mutationFn: (vars: { id: string; isBlacklisted: boolean }) => updateApplicant(vars.id, { isBlacklisted: vars.isBlacklisted }),
-        onSuccess: (_d, vars) => { toast({ icon: "success", title: vars.isBlacklisted ? "Candidate blacklisted" : "Candidate restored" }); invalidate(); },
+        onSuccess: (_d, vars) => { toast({ icon: "success", title: vars.isBlacklisted ? "Candidate blacklisted" : "Removed from blacklist" }); invalidate(); },
         onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not update the candidate") }),
+    });
+
+    const archiveMut = useMutation({
+        mutationFn: (id: string) => archiveApplicant(id),
+        onSuccess: () => { toast({ icon: "success", title: "Candidate archived" }); invalidate(); },
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not archive the candidate") }),
     });
 
     const withShellOrg = (path: string) => {
@@ -197,9 +190,183 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
         if (ok) blacklistMut.mutate({ id: a.id, isBlacklisted: true });
     };
 
+    const archive = async (a: Applicant) => {
+        const ok = await confirmDialog({
+            icon: "warning",
+            title: `Archive ${fullName(a)}?`,
+            text: "They move to Archive with their active applications. Restore or permanently delete from the Archive tab.",
+            confirmText: "Archive",
+        });
+        if (ok) archiveMut.mutate(a.id);
+    };
+
     const sourceName = useMemo(
         () => (id?: string | null) => sources.find((s: ApplicantSource) => s.id === id)?.name ?? null,
         [sources],
+    );
+
+    /**
+     * List actions stay a single non-wrapping icon row. "Added" lives in its own column;
+     * Edit is the row click (same as Pipeline list) so it is not repeated here.
+     */
+    const listActions = (a: Applicant) => (
+        <Stack
+            direction="row"
+            alignItems="center"
+            spacing={0.5}
+            flexWrap="nowrap"
+            onClick={(e) => e.stopPropagation()}
+            sx={{ whiteSpace: "nowrap" }}
+        >
+            {canWrite && (
+                <ActionIconButton iconName="briefcase" size="sm" tone="brand" title="Add to a Role" onClick={() => setAddToRole(a)} />
+            )}
+            {canWrite && (
+                <ActionIconButton
+                    iconName={a.resumeS3Url ? "arrows-circle" : "cloud-add"}
+                    icon={uploadingId === a.id ? <CircularProgress size={14} color="inherit" /> : undefined}
+                    size="sm"
+                    tone="indigo"
+                    title={uploadingId === a.id ? "Uploading…" : a.resumeS3Url ? "Replace resume" : "Attach resume"}
+                    disabled={uploadingId === a.id}
+                    onClick={() => pickResume(a)}
+                />
+            )}
+            {a.resumeS3Url ? (
+                <ActionIconButton
+                    iconName="document"
+                    size="sm"
+                    tone="indigo"
+                    title={a.resumeFileName ? `Open resume — ${a.resumeFileName}` : "Open resume"}
+                    onClick={() => openResume(a)}
+                />
+            ) : null}
+            {canWrite && (
+                <ActionIconButton
+                    iconName={a.isBlacklisted ? "check" : "shield-cross"}
+                    size="sm"
+                    tone={a.isBlacklisted ? "success" : "danger"}
+                    title={a.isBlacklisted ? "Remove from blacklist" : "Blacklist"}
+                    disabled={blacklistMut.isPending}
+                    onClick={() => toggleBlacklist(a)}
+                />
+            )}
+            {canWrite && (
+                <ActionIconButton
+                    iconName="trash"
+                    size="sm"
+                    tone="danger"
+                    title="Archive"
+                    disabled={archiveMut.isPending}
+                    onClick={() => archive(a)}
+                />
+            )}
+        </Stack>
+    );
+
+    /** Card footer: date + full action set (Edit stays visible — cards have no row-click). */
+    const cardActions = (a: Applicant) => (
+        <Stack
+            direction="row"
+            alignItems="center"
+            spacing={0.5}
+            flexWrap="wrap"
+            useFlexGap
+            sx={{ width: "100%" }}
+        >
+            <Typography sx={{ fontSize: 11.5, color: "text.disabled", fontWeight: 600 }}>
+                Added {formatDate(a.createdAt)}
+            </Typography>
+            <Box sx={{ flex: 1 }} />
+            {canWrite && (
+                <ActionIconButton iconName="briefcase" size="sm" tone="brand" title="Add to a Role" onClick={() => setAddToRole(a)} />
+            )}
+            {canWrite && (
+                <ActionIconButton
+                    iconName={a.resumeS3Url ? "arrows-circle" : "cloud-add"}
+                    icon={uploadingId === a.id ? <CircularProgress size={14} color="inherit" /> : undefined}
+                    size="sm"
+                    tone="indigo"
+                    title={uploadingId === a.id ? "Uploading…" : a.resumeS3Url ? "Replace resume" : "Attach resume"}
+                    disabled={uploadingId === a.id}
+                    onClick={() => pickResume(a)}
+                />
+            )}
+            {a.resumeS3Url ? (
+                <ActionIconButton
+                    iconName="document"
+                    size="sm"
+                    tone="indigo"
+                    title={a.resumeFileName ? `Open resume — ${a.resumeFileName}` : "Open resume"}
+                    onClick={() => openResume(a)}
+                />
+            ) : null}
+            {canWrite && (
+                <ActionIconButton iconName="pencil" size="sm" tone="indigo" title="Edit" onClick={() => openEdit(a)} />
+            )}
+            {canWrite && (
+                <ActionIconButton
+                    iconName={a.isBlacklisted ? "check" : "shield-cross"}
+                    size="sm"
+                    tone={a.isBlacklisted ? "success" : "danger"}
+                    title={a.isBlacklisted ? "Remove from blacklist" : "Blacklist"}
+                    disabled={blacklistMut.isPending}
+                    onClick={() => toggleBlacklist(a)}
+                />
+            )}
+            {canWrite && (
+                <ActionIconButton
+                    iconName="trash"
+                    size="sm"
+                    tone="danger"
+                    title="Archive"
+                    disabled={archiveMut.isPending}
+                    onClick={() => archive(a)}
+                />
+            )}
+        </Stack>
+    );
+
+    const listColumns = useMemo(
+        () => candidateColumns({
+            orgName,
+            sourceName,
+            actions: listActions,
+            omit: companyId ? ["org"] : undefined,
+        }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- actions use live mutators / upload state
+        [companyId, sources, orgOptions, canWrite, uploadingId, blacklistMut.isPending, archiveMut.isPending],
+    );
+
+    const listChrome = (
+        <>
+            {duplicateIdentityCount > 0 && (
+                <Box sx={{ mb: 1.5 }}>
+                    <InlineNotice icon="information-5">
+                        {duplicateIdentityCount === 1
+                            ? "One email or phone appears on more than one candidate card — usually the same person entered under two organizations. Filter by organization to tell them apart."
+                            : `${duplicateIdentityCount} emails or phones appear on more than one candidate card — usually the same people entered under two organizations. Filter by organization to tell them apart.`}
+                    </InlineNotice>
+                </Box>
+            )}
+            {hasNextPage && (
+                <Box sx={{ mb: 1.5 }}>
+                    <InlineNotice icon="information-5">
+                        Showing {applicants.length} candidates. More remain — load the next page,
+                        or search by name, email, job title or employer.
+                    </InlineNotice>
+                    <Box sx={{ mt: 1 }}>
+                        <WtButton
+                            size="small"
+                            disabled={isFetchingNextPage}
+                            onClick={() => fetchNextPage()}
+                        >
+                            {isFetchingNextPage ? "Loading…" : "Load more"}
+                        </WtButton>
+                    </Box>
+                </Box>
+            )}
+        </>
     );
 
     return (
@@ -211,13 +378,18 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 title="Candidates"
                 subtitle="Everyone on record — search by name, email, job title or employer."
                 actions={
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: "100%", sm: "auto" } }}>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: "100%", sm: "auto" } }} alignItems={{ sm: "center" }}>
                         <WtField
                             label="Search Candidates" icon="magnifier" clearable
                             value={searchInput} onChange={setSearchInput}
                             placeholder="Name, email, title or employer"
                             fullWidth={false}
                             sx={{ width: { xs: "100%", sm: 280 } }}
+                        />
+                        <CardsListViewSwitch
+                            ariaLabel="Candidates view"
+                            value={mode}
+                            onChange={setMode}
                         />
                         {canWrite && (
                             <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
@@ -244,32 +416,21 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 )
             ) : (
                 <>
-                {duplicateIdentityCount > 0 && (
-                    <Box sx={{ mb: 1.5 }}>
-                        <InlineNotice icon="information-5">
-                            {duplicateIdentityCount === 1
-                                ? "One email or phone appears on more than one candidate card — usually the same person entered under two organizations. Filter by organization to tell them apart."
-                                : `${duplicateIdentityCount} emails or phones appear on more than one candidate card — usually the same people entered under two organizations. Filter by organization to tell them apart.`}
-                        </InlineNotice>
-                    </Box>
-                )}
-                {hasNextPage && (
-                    <Box sx={{ mb: 1.5 }}>
-                        <InlineNotice icon="information-5">
-                            Showing {applicants.length} candidates. More remain — load the next page,
-                            or search by name, email, job title or employer.
-                        </InlineNotice>
-                        <Box sx={{ mt: 1 }}>
-                            <WtButton
-                                size="small"
-                                disabled={isFetchingNextPage}
-                                onClick={() => fetchNextPage()}
-                            >
-                                {isFetchingNextPage ? "Loading…" : "Load more"}
-                            </WtButton>
-                        </Box>
-                    </Box>
-                )}
+                {listChrome}
+                {mode === "list" ? (
+                    <MaterialTable
+                        columns={listColumns}
+                        data={applicants}
+                        isLoading={isLoading}
+                        tableName="RecruitmentCandidatesList"
+                        muiTableProps={canWrite ? {
+                            muiTableBodyRowProps: ({ row }: { row: { original: Applicant } }) => ({
+                                onClick: () => openEdit(row.original),
+                                sx: { cursor: "pointer" },
+                            }),
+                        } : undefined}
+                    />
+                ) : (
                 <AutoGrid min={320}>
                     {applicants.map((a: Applicant) => {
                         const exp = experienceLabel(a.totalExperienceMonths);
@@ -305,47 +466,30 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                                 )}
 
                                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.25 }}>
-                                    {exp && <MetaPill text={exp} />}
-                                    {a.expectedCtc != null && <MetaPill text={`${formatCurrencyCompact(Number(a.expectedCtc))} expected`} />}
-                                    {a.noticePeriodDays != null && <MetaPill text={a.noticePeriodDays === 0 ? "Immediate joiner" : `${a.noticePeriodDays} days notice`} />}
-                                    {src && <MetaPill text={src} />}
+                                    {exp && <ToneChip dense tone="neutral" label={exp} />}
+                                    {a.expectedCtc != null && (
+                                        <ToneChip dense tone="brand" label={`${formatCurrencyCompact(Number(a.expectedCtc))} expected`} />
+                                    )}
+                                    {a.noticePeriodDays != null && (
+                                        <ToneChip
+                                            dense
+                                            tone={a.noticePeriodDays === 0 ? "success" : "neutral"}
+                                            label={a.noticePeriodDays === 0 ? "Immediate joiner" : `${a.noticePeriodDays} days notice`}
+                                        />
+                                    )}
+                                    {src && <ToneChip dense tone="indigo" label={src} />}
                                 </Stack>
 
-                                {/* Spacer keeps the action row pinned to the bottom so tiles align in the grid. */}
                                 <Box sx={{ flex: 1 }} />
 
-                                <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
-                                    <Typography sx={{ fontSize: 11.5, color: "text.disabled", fontWeight: 600 }}>
-                                        Added {formatDate(a.createdAt)}
-                                    </Typography>
-                                    <Box sx={{ flex: 1 }} />
-                                    {canWrite && <ActionIconButton iconName="briefcase" size="sm" tone="brand" title="Add to a Role" onClick={() => setAddToRole(a)} />}
-                                    {canWrite && <ActionIconButton
-                                        iconName={a.resumeS3Url ? "arrows-circle" : "cloud-add"}
-                                        icon={uploadingId === a.id ? <CircularProgress size={14} color="inherit" /> : undefined}
-                                        size="sm" tone="indigo"
-                                        title={uploadingId === a.id ? "Uploading…" : a.resumeS3Url ? "Replace resume" : "Attach resume"}
-                                        disabled={uploadingId === a.id}
-                                        onClick={() => pickResume(a)}
-                                    />}
-                                    {a.resumeS3Url && (
-                                        <ActionIconButton iconName="document" size="sm" tone="indigo"
-                                            title={a.resumeFileName ? `Open resume — ${a.resumeFileName}` : "Open resume"}
-                                            onClick={() => openResume(a)} />
-                                    )}
-                                    {canWrite && <ActionIconButton iconName="pencil" size="sm" tone="indigo" title="Edit" onClick={() => openEdit(a)} />}
-                                    {canWrite && <ActionIconButton
-                                        iconName={a.isBlacklisted ? "check" : "shield-cross"} size="sm"
-                                        tone={a.isBlacklisted ? "success" : "danger"}
-                                        title={a.isBlacklisted ? "Remove from blacklist" : "Blacklist"}
-                                        disabled={blacklistMut.isPending}
-                                        onClick={() => toggleBlacklist(a)}
-                                    />}
-                                </Stack>
+                                <Box sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+                                    {cardActions(a)}
+                                </Box>
                             </GlassCard>
                         );
                     })}
                 </AutoGrid>
+                )}
                 </>
             )}
 

@@ -19,6 +19,7 @@ import PipelineView from "./PipelineView";
 import CandidatesView from "./CandidatesView";
 import RecruitmentConfigurationMain from "./RecruitmentConfigurationMain";
 import ImportView from "./ImportView";
+import ArchiveView from "./ArchiveView";
 import { TERMS } from "./terms";
 
 /**
@@ -200,6 +201,7 @@ const RecruitmentMain = () => {
     // Sits before Configure: it is a migration tool, used heavily for a short while and
     // then rarely, so it belongs beside the day-to-day tabs rather than buried in settings.
     { title: "Import", component: <ImportView />, icon: "bi-upload" },
+    { title: "Archive", component: <ArchiveView companyId={companyId} />, icon: "bi-archive" },
     { title: "Configure", component: <RecruitmentConfigurationMain />, icon: "bi-gear" },
   ] as TabItem[]).filter((t) => canTab("recruitment", tabSlug(t.title)));
 

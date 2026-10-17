@@ -9,6 +9,7 @@ import {
   generateStatusInsights,
   generateServiceInsights,
 } from "./leadAnalyticsUtils";
+import { AutoGrid } from '@app/modules/common/components/ui';
 
 interface LeadAnalyticsPanelProps {
   statusData: ChartDatum[];
@@ -54,13 +55,7 @@ const LeadAnalyticsPanel: React.FC<LeadAnalyticsPanelProps> = ({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* ── KPI header row ─────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-          gap: 16,
-        }}
-      >
+      <AutoGrid min={150} stretch gap={16}>
         {kpiCards.map((c, i) => (
           <KpiStatCard
             key={c.label}
@@ -72,7 +67,7 @@ const LeadAnalyticsPanel: React.FC<LeadAnalyticsPanelProps> = ({
             index={i}
           />
         ))}
-      </div>
+      </AutoGrid>
 
       {/* ── Charts: 2-up on desktop, stacked below ─────────────────────── */}
       <div className="row g-3">

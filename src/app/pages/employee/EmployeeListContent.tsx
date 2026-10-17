@@ -24,7 +24,8 @@ import { getEmployeeStatusString, calculateTotalExperience } from "@utils/employ
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import {
   ActionIconButton, AppIcon, AutoGrid, GlassSurface, Pager,
-  StatusCyclePill, ViewModeSwitch, WhatsAppIcon, riseInSx,
+  StatusCyclePill, CardsTableViewSwitch, type CardsTableView,
+  WhatsAppIcon, riseInSx,
 } from "@app/modules/common/components/ui";
 import { Box, InputAdornment, Stack, TextField, Typography } from "@mui/material";
 import { useDebounce } from "@metronic/helpers";
@@ -34,8 +35,8 @@ import EmployeeCard from "./components/EmployeeCard";
 import { useStoredState } from "@app/hooks/useStoredState";
 
 type StatusType = "all" | "active" | "inactive";
-const VIEW_MODES = ["table", "cards"] as const;
-type ViewMode = (typeof VIEW_MODES)[number];
+const VIEW_MODES = ["table", "cards"] as const satisfies ReadonlyArray<CardsTableView>;
+type ViewMode = CardsTableView;
 
 /** Remembered across visits: a view preference that resets on every navigation is
  *  one the user has to keep re-picking. Guarded because storage THROWS, not just
@@ -69,10 +70,6 @@ const STATUS_OPTIONS: ReadonlyArray<{ value: StatusType; label: string; color: s
  */
 const CARD_PAGE_SIZES = PAGE_SIZE_OPTIONS.filter((size) => size <= 100);
 
-const VIEW_OPTIONS = [
-  { value: "cards" as const, icon: "bi-grid-3x3-gap-fill", label: "Card view" },
-  { value: "table" as const, icon: "bi-list-ul", label: "Table view" },
-];
 
 interface StatusCounts {
   all: number;
@@ -653,8 +650,7 @@ const EmployeeListContent = () => {
             value={selectedStatus}
             onChange={setSelectedStatus}
           />
-          <ViewModeSwitch<ViewMode>
-            options={VIEW_OPTIONS}
+          <CardsTableViewSwitch
             value={viewMode}
             onChange={setViewMode}
             ariaLabel="Employee list layout"

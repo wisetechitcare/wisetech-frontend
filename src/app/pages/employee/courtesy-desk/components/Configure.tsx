@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import {
-  ConfigChipGrid,
-  ConfigColorChip,
   ConfigPageLayout,
   ConfigSectionCard,
   EmptyState,
 } from "@app/modules/configuration";
+import { ConfigChipGrid, ConfigColorChip } from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import {

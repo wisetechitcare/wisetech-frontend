@@ -27,6 +27,9 @@ export {
 } from './checkbox';
 export type { WtCheckboxProps, WtCheckboxFieldProps, WtCheckboxSize } from './checkbox';
 export { ToneChip, toneAlpha } from './chips';
+// Collection entity card — Roles / Adverts / Candidates / Projects. Composes GlassCard + ToneChip.
+export { EntityCard } from './EntityCard';
+export type { EntityCardProps, EntityCardTag } from './EntityCard';
 
 export { default as ActionIconButton, trioToActionTone } from './ActionIconButton';
 export type { ActionIconButtonProps, ActionTone } from './ActionIconButton';
@@ -97,7 +100,8 @@ export { GlassDialogActions, type GlassDialogActionsProps } from './GlassDialogA
 export { FormSection, FORM_SPACE, type FormSectionProps } from './FormSection';
 // Shared UI pattern atoms — app-wide primitives (single source of truth; use across every feature).
 // AutoGrid + ListHeader are the standard responsive list-page layout — prefer them over per-feature
-// grid/toolbar breakpoints so every collection view fills wide screens and stacks cleanly on mobile.
+// grid/toolbar breakpoints. AutoGrid defaults to auto-fill + ~400px max (no full-bleed stretch);
+// pass stretch only when tiles must absorb leftover width.
 // hoverTileSx is THE hover for a tinted tile or card: the aside menu's language, which is the
 // surface everyone sees most — the wash and border warm, the IconBox lifts a pixel and deepens,
 // the caption sharpens, and the card itself stays put. Spread it instead of writing another
@@ -106,8 +110,17 @@ export {
   TRIO, EASE_200, SHADOW_REST, SHADOW_HOVER, IconBox, StatusBadge, StatTile, Eyebrow, SectionHead,
   AutoGrid, ListHeader, ViewModeSwitch, StatusCyclePill, UnderlineTabs,
   hoverTileSx, ICON_BOX_CLASS, TILE_LABEL_CLASS,
+  VIEW_MODE_ICONS,
+  CARDS_LIST_VIEW_OPTIONS, GRID_LIST_VIEW_OPTIONS, BOARD_LIST_VIEW_OPTIONS, CARDS_TABLE_VIEW_OPTIONS,
+  KANBAN_TABLE_VIEW_OPTIONS, DMS_VIEW_OPTIONS,
+  CardsListViewSwitch, GridListViewSwitch, BoardListViewSwitch, CardsTableViewSwitch, KanbanTableViewSwitch,
+  DmsViewSwitch,
+  viewModeSwitchTrackSx, viewModeSwitchButtonSx,
 } from './patterns';
-export type { Trio, ViewModeOption, StatusCycleOption, UnderlineTabItem } from './patterns';
+export type {
+  Trio, ViewModeOption, ViewModeSwitchProps, StatusCycleOption, UnderlineTabItem,
+  CardsListView, GridListView, BoardListView, CardsTableView, KanbanTableView, DmsViewMode,
+} from './patterns';
 // Choose-one-from-a-visual-set controls, for any feature that lets an admin
 // brand a record (section icon/colour, status colour, category icon).
 export { IconPicker, TONE_NAMES } from './SwatchPicker';
@@ -128,6 +141,24 @@ export { toTitleCase, HEADING_CASE_SX } from './text';
 // accent rule, icon tile, header, spacing — so those screens stop drifting apart.
 export { SettingsSection } from './SettingsSection';
 export type { SettingsSectionProps } from './SettingsSection';
+// Reorderable masters CRUD section (Recruitment Configure, future Gift/Leads lists).
+export { MasterListSection } from './MasterListSection';
+export type {
+  MasterListSectionProps, MasterListRow, MasterListFlagDef, MasterListExtraFieldsApi,
+} from './MasterListSection';
+export { WeightSliderList } from './WeightSliderList';
+export type { WeightSliderListProps, WeightSliderField } from './WeightSliderList';
+// Compact configure value row (colour rail + name + hover actions). Theme-token surfaces.
+export { ConfigColorChip, ConfigChipGrid } from './ConfigColorChip';
+export type { ConfigColorChipProps, ConfigChipAction } from './ConfigColorChip';
+// Drag-to-reorder list — neighbor living next to ui; re-exported so Rule zero finds it
+// on the kit barrel (README: Reorder → ReorderableGroup + DragHandle).
+export {
+  default as ReorderableGroup,
+  DragHandle,
+  type DragHandleProps,
+  type ReorderableGroupProps,
+} from '../ReorderableGroup';
 // Billing-style entity title block (icon + title + description + action).
 export { EntityPageHeader } from './EntityPageHeader';
 export type { EntityPageHeaderProps } from './EntityPageHeader';

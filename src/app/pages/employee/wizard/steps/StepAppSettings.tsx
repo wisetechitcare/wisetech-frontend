@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useFormikContext } from "formik";
 import { fetchAllEmployees } from "@services/employee";
-import { WtFieldFormik } from "@app/modules/common/components/ui";
+import { ToneChip, WtFieldFormik } from "@app/modules/common/components/ui";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
 import MonthYearInput from "@app/modules/common/inputs/MonthYearInput";
@@ -331,11 +331,7 @@ function PrivacyControls() {
                     />
                 </div>
                 <div className="text-center mt-1">
-                    <span
-                        className={`badge ${isHidden ? "badge-light-danger" : "badge-light-success"} fs-8 fw-bold`}
-                    >
-                        {isHidden ? "Hidden" : "Visible"}
-                    </span>
+                    <ToneChip dense tone={isHidden ? "danger" : "success"} label={isHidden ? "Hidden" : "Visible"} />
                 </div>
             </div>
         </div>

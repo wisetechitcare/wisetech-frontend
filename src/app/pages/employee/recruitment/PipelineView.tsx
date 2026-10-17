@@ -5,7 +5,10 @@ import {
     Box, Stack, Typography, CircularProgress, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, WtEmptyState, ViewModeSwitch } from "@app/modules/common/components/ui";
+import {
+    ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, WtEmptyState,
+    BoardListViewSwitch, confirmDialog, type BoardListView,
+} from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
 import { COPY } from "./terms";
@@ -13,7 +16,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import {
     getApplications, getRequisitions, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
-    stashConversion,
+    archiveApplication, stashConversion,
     type Application, type ApplicationStatus, type OrgScoped,
 } from "@services/recruitment";
 import InterviewsPanel from "./InterviewsPanel";
@@ -36,7 +39,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
      * Board or list, REMEMBERED. It reset to Board on every navigation, so a recruiter who works
      * in the list re-chose it all day. Audit M20.
      */
-    const [mode, setMode] = useRememberedChoice<"board" | "list">(
+    const [mode, setMode] = useRememberedChoice<BoardListView>(
         "recruitment:pipeline-view", ["board", "list"], "board",
     );
     /** Narrow the board to one role — the only honest way past the 200-row page (360 Wave B). */
@@ -103,6 +106,22 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         onError: (err) => { toast({ icon: "error", title: apiErrorMessage(err, "Could not move the candidate") }); invalidate(); },
     });
 
+    const archiveMut = useMutation({
+        mutationFn: (id: string) => archiveApplication(id),
+        onSuccess: () => { toast({ icon: "success", title: "Application archived" }); invalidate(); },
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not archive the application") }),
+    });
+
+    const archiveApp = async (a: Application) => {
+        const ok = await confirmDialog({
+            icon: "warning",
+            title: `Archive ${applicantName(a)}?`,
+            text: "This application leaves the pipeline and moves to Archive. Restore or permanently delete it from the Archive tab.",
+            confirmText: "Archive",
+        });
+        if (ok) archiveMut.mutate(a.id);
+    };
+
     /**
      * The list view is the SAME records the overview drill-downs show, so it uses the same
      * column definition and adds only what is unique to this screen: the row actions.
@@ -124,13 +143,23 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                             ? <ToneChip tone="success" label="Converted" dense />
                             : <ActionIconButton iconName="user-tick" size="sm" tone="success" title="Convert to Employee" onClick={() => convertToEmployee(a)} />
                     )}
+                    {canWrite && (
+                        <ActionIconButton
+                            iconName="trash"
+                            size="sm"
+                            tone="danger"
+                            title="Archive"
+                            disabled={archiveMut.isPending}
+                            onClick={() => archiveApp(a)}
+                        />
+                    )}
                 </Stack>
             ),
         }),
         // convertToEmployee is stable for the life of the component; the setters are
         // React state setters, which never change identity.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [canWrite],
+        [canWrite, archiveMut.isPending],
     );
 
     const byStatus = useMemo(() => {
@@ -216,25 +245,24 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                         <WtField
                             label="Role"
                             fullWidth={false}
+                            minWidth={160}
                             value={requisitionId}
                             onChange={setRequisitionId}
-                            sx={{ width: { xs: "100%" }, flexShrink: 0 }}
+                            // MUI `xs` alone applies at every breakpoint — `width: { xs: "100%" }`
+                            // was filling the actions row and wrapping Add Candidate under the filter.
+                            // Cap content-sized width so a long role title cannot shove the CTA down.
+                            sx={{ maxWidth: 240, flexShrink: 0 }}
                             options={[
                                 { value: "", label: "All roles" },
                                 ...roles.map((r) => ({ value: r.id, label: r.title })),
                             ]}
                         />
-                        {/* The kit's view toggle, which the document vault, the employee list and
-                            the task stage board all use — this screen had a raw ToggleButtonGroup
-                            with its own text-transform override. Audit M20. */}
-                        <ViewModeSwitch
+                        {/* Kit layout switch — board glyph (kanban) ↔ list. Same chrome as
+                            Roles/Adverts/Candidates CardsListViewSwitch; only the left icon differs. */}
+                        <BoardListViewSwitch
                             ariaLabel="Pipeline view"
                             value={mode}
                             onChange={setMode}
-                            options={[
-                                { value: "board", label: "Board", icon: "bi-kanban" },
-                                { value: "list", label: "List", icon: "bi-list-ul" },
-                            ]}
                         />
                         {canWrite && (
                             <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
