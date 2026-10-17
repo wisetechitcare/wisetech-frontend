@@ -856,11 +856,14 @@ thead.MuiTableHead-root th {
 .sensitive-data-hidden {
   filter: blur(5px);
   user-select: none;
+  pointer-events: none;
   transition: filter 0.3s ease;
 }
 
 .sensitive-data-visible {
   filter: none;
+  user-select: auto;
+  pointer-events: auto;
   transition: filter 0.3s ease;
 }
 

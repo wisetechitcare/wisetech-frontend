@@ -1,5 +1,9 @@
 import { PageTitle } from '@metronic/layout/core';
 import { useEffect, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
+import SensitiveDataProvider, {
+  SensitiveDataHeaderToggle,
+} from '@app/modules/common/components/SensitiveData';
 import { bootstrapCourtesyDeskFromApi } from './store/courtesyDeskStore';
 import GiftManagementTabBar from './GiftManagementTabBar';
 import { GIFT_MANAGEMENT_BASE } from './giftPaths';
@@ -11,6 +15,12 @@ export default function CourtesyDeskDetailShell({
   title: string;
   children: ReactNode;
 }) {
+  const location = useLocation();
+  // Drive detail shows amounts; people-group editor does not.
+  const eyeOn =
+    location.pathname.includes('/drives/') ||
+    location.pathname.includes('/gift-runs/');
+
   useEffect(() => {
     void bootstrapCourtesyDeskFromApi();
   }, []);
@@ -27,8 +37,12 @@ export default function CourtesyDeskDetailShell({
   return (
     <>
       <PageTitle breadcrumbs={breadcrumbs}>{title}</PageTitle>
-      <GiftManagementTabBar />
-      {children}
+      <SensitiveDataProvider disabled={!eyeOn}>
+        <GiftManagementTabBar
+          headerAction={eyeOn ? <SensitiveDataHeaderToggle /> : undefined}
+        />
+        {children}
+      </SensitiveDataProvider>
     </>
   );
 }
