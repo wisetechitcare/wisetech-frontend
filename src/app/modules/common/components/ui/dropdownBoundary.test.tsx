@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { describe, test, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import { popperInside, useDropdownBoundary } from './dropdownBoundary';
+import {
+    menuGeometryInBoundary,
+    menuPropsInside,
+    popperInside,
+    useDropdownBoundary,
+} from './dropdownBoundary';
 
 afterEach(cleanup);
 
@@ -72,5 +77,31 @@ describe('useDropdownBoundary', () => {
     test('nothing scrolls, nothing is bounded — the list is free on a plain page', () => {
         render(<div id="page"><Probe /></div>);
         expect(screen.getByTestId('probe').textContent).toBe('clippingParents');
+    });
+});
+
+describe('menuPropsInside', () => {
+    test('mounts the Select menu into the scroll port when one exists', () => {
+        const el = document.createElement('div');
+        expect(menuPropsInside(el).container).toBe(el);
+        expect(menuPropsInside(null).container).toBeUndefined();
+    });
+
+    test('flips anchor origin when the field sits near the bottom of the sheet', () => {
+        const props = menuPropsInside(null, { anchorOriginVertical: 'top', maxHeight: 180 });
+        expect(props.anchorOrigin.vertical).toBe('top');
+        expect(props.transformOrigin.vertical).toBe('bottom');
+        expect(props.PaperProps.sx.maxHeight).toBe(180);
+    });
+});
+
+describe('menuGeometryInBoundary', () => {
+    test('opens upward and caps height when more room sits above the control', () => {
+        const anchor = { top: 400, bottom: 440, left: 0, right: 100, width: 100, height: 40, x: 0, y: 400, toJSON: () => ({}) } as DOMRect;
+        const boundary = { top: 100, bottom: 480, left: 0, right: 400, width: 400, height: 380, x: 0, y: 100, toJSON: () => ({}) } as DOMRect;
+        const geo = menuGeometryInBoundary(anchor, boundary, 260);
+        expect(geo.menuPlacement).toBe('top');
+        expect(geo.maxMenuHeight).toBeLessThanOrEqual(260);
+        expect(geo.maxMenuHeight).toBeGreaterThanOrEqual(96);
     });
 });

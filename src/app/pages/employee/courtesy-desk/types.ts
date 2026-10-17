@@ -4,7 +4,7 @@ export type GroupStatus = 'ACTIVE' | 'ARCHIVED';
 
 export type DriveStatus = 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'ARCHIVED';
 
-export type DeliveryStatus = 'PENDING' | 'OUT' | 'DELIVERED' | 'SKIPPED';
+export type DeliveryStatus = 'PENDING' | 'DELIVERED' | 'SKIPPED';
 
 export type DeliveryMode = 'IN_PERSON' | 'COURIER';
 
@@ -42,6 +42,34 @@ export interface PeopleGroup {
   updatedAt: string;
 }
 
+/** WhatsApp-style system line on a People Group. */
+export type GroupActivityType =
+  | 'GROUP_CREATED'
+  | 'GROUP_UPDATED'
+  | 'GROUP_ARCHIVED'
+  | 'GROUP_UNARCHIVED'
+  | 'DRIVE_STARTED'
+  | 'DRIVE_STATUS_CHANGED';
+
+export interface GroupActivity {
+  id: string;
+  type: GroupActivityType;
+  message: string;
+  actorId?: string | null;
+  actorName?: string | null;
+  actorAvatar?: string | null;
+  runId?: string | null;
+  createdAt: string;
+}
+
+export interface GroupActivityPage {
+  activity: GroupActivity[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
 export interface CourtesyRecipient {
   id: string;
   memberType: MemberType;
@@ -75,6 +103,8 @@ export interface CourtesyDrive {
   sourceGroupId: string;
   sourceGroupName: string;
   status: string;
+  /** Unit cost of one gift; total = costPerGift × sum(quantities). */
+  costPerGift?: number | null;
   /** Drive-level defaults — apply to all, or leave empty when mixed. */
   defaultAssigneeEmployeeId?: string;
   defaultAssigneeName?: string;
@@ -82,6 +112,20 @@ export interface CourtesyDrive {
   recipients: CourtesyRecipient[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** Total spend for a run: costPerGift × sum(recipient quantities). */
+export function giftRunTotalAmount(drive: {
+  costPerGift?: number | null;
+  recipients: Array<{ quantity?: number | null }>;
+}): number {
+  const cost = Number(drive.costPerGift);
+  if (!Number.isFinite(cost) || cost < 0) return 0;
+  const qty = drive.recipients.reduce(
+    (sum, r) => sum + Math.max(1, Number(r.quantity) || 1),
+    0,
+  );
+  return cost * qty;
 }
 
 export interface ConfigOption {
@@ -111,7 +155,6 @@ export interface CourtesyDeskState {
 
 export const DEFAULT_STATUS_COLORS: Record<DeliveryStatus, string> = {
   PENDING: '#d97706',
-  OUT: '#2563eb',
   DELIVERED: '#16a34a',
   SKIPPED: '#64748b',
 };
@@ -125,7 +168,6 @@ export const DEFAULT_OCCASIONS: ConfigOption[] = [
 
 export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
   PENDING: 'Pending',
-  OUT: 'Out',
   DELIVERED: 'Delivered',
   SKIPPED: 'Skipped',
 };

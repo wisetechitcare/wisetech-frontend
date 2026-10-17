@@ -20,9 +20,18 @@ const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'
 export function SecurityPinHost() {
     const { unlocked, pending, pendingArea, gates, required } = useSecurityPin();
 
-    // Keep support grant in sync so gates open after refresh without a PIN unlock.
+    // Load PIN policy + support grant once signed in. Without this, `required` stays true until
+    // a gate mounts a panel — and with SECURITY_PIN_DISABLED the Set Up PIN screen still flashed.
     useEffect(() => {
         let alive = true;
+        securityPinApi.status()
+            .then((s) => {
+                if (!alive) return;
+                const pinOff = s.disabled === true || s.required === false;
+                securityPinBus.setPolicy(pinOff ? false : s.required === true, s.ttlMinutes ?? 15, s.areas);
+                if (pinOff) securityPinBus.cancel();
+            })
+            .catch(() => { /* gate/panel will retry */ });
         securityPinApi.supportStatus()
             .then((s) => { if (alive) securityPinBus.setSupportGrant(s.activeGrant); })
             .catch(() => { if (alive) securityPinBus.clearSupportGrant(); });
@@ -35,6 +44,8 @@ export function SecurityPinHost() {
     useEffect(() => {
         if (!unlocked || !required) return;
         let lastTouch = 0;
+        // Tabs whose server lock is still in flight, so the next tick doesn't send it twice.
+        const locking = new Set<SecurityArea>();
         const mark = () => {
             const now = Date.now();
             if (now - lastTouch > 5_000) {
@@ -54,8 +65,16 @@ export function SecurityPinHost() {
                     ?? snap.unlockedAreas[area]?.unlockedAt
                     ?? 0;
                 if (now - activityAt >= policy.lockMinutes * 60_000) {
-                    securityPinBus.markAreaLocked(area);
-                    securityPinApi.lock(area).catch(() => undefined);
+                    if (locking.has(area)) continue;
+                    locking.add(area);
+                    // Lock on the server first. Locking here first mounts the lock screen, which asks
+                    // the server for its status; a still-unlocked answer would reopen the page.
+                    securityPinApi.lock(area)
+                        .catch(() => undefined)
+                        .finally(() => {
+                            securityPinBus.markAreaLocked(area);
+                            locking.delete(area);
+                        });
                 }
             }
         };
@@ -67,7 +86,8 @@ export function SecurityPinHost() {
         };
     }, [unlocked, required]);
 
-    const open = pending && gates === 0;
+    // Never chase the user with a PIN dialog when the feature is off for them.
+    const open = pending && gates === 0 && required;
     return (
         <GlassDialog open={open} onClose={() => securityPinBus.cancel()} maxWidth="xs" mobileFullScreen={false}>
             <Box

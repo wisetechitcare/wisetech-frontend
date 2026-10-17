@@ -185,6 +185,8 @@ export interface ApplicationStatus {
 }
 export interface Applicant {
     id: string; firstName: string; lastName?: string | null; email: string; phone?: string | null;
+    /** Write-company stamp — family-wide lists may show peers from sister orgs (360 R3). */
+    companyId?: string | null;
     currentEmployer?: string | null; currentTitle?: string | null; totalExperienceMonths?: number | null;
     currentLocation?: string | null; qualification?: string | null; employeeLevelId?: string | null;
     /** Full annual amounts. */
@@ -209,6 +211,10 @@ export interface Application {
     rejectionReasonId?: string | null; rejectionReason?: RejectionReason | null; rejectionNote?: string | null;
     coverLetter?: string | null; appliedDate?: string | null; lastStageChangeAt?: string | null; hiredDate?: string | null;
     convertedEmployeeId?: string | null;
+    /** Public careers intake — when the candidate consented (ISO). */
+    consentAt?: string | null;
+    /** Posting they applied through, when known. */
+    appliedPostingId?: string | null;
     isActive: boolean; revisionCount: number; createdAt: string;
     /**
      * How long this application has sat in its CURRENT stage. Server-computed, because the
@@ -321,7 +327,19 @@ const pagedList = <T,>(rows: T[] | undefined | null, body: unknown): PagedList<T
 // ─── Applications ────────────────────────────────────────────────────────────
 // `from`/`to` window the list on the date the person applied — the same window the overview
 // counts by, so a drill-down lists the people its bar counted. Audit H8.
-export const getApplications = async (filters: { requisitionId?: string; statusId?: string; sourceId?: string; search?: string; applicantId?: string; from?: string; to?: string } = {}, companyId?: string): Promise<PagedList<Application>> => {
+export const getApplications = async (
+    filters: {
+        requisitionId?: string;
+        statusId?: string;
+        sourceId?: string;
+        search?: string;
+        applicantId?: string;
+        from?: string;
+        to?: string;
+        cursor?: string;
+    } = {},
+    companyId?: string,
+): Promise<PagedList<Application>> => {
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${listQuery({ ...filters, companyId })}`);
     return pagedList<Application>(data?.applications, data);
 };
@@ -422,11 +440,11 @@ export const clearConversion = () => {
     try { sessionStorage.removeItem(CONVERT_KEY); } catch { /* ignore */ }
 };
 
-/** Back-link a newly created employee to the application it came from. */
+/** Back-link a newly created employee to the application it came from (dedicated convert endpoint). */
 export const linkConvertedEmployee = async (applicationId: string, employeeId: string) => {
-    const { data } = await axios.patch(
-        `${API_BASE_URL}/${RECRUITMENT.UPDATE_APPLICATION_SECTION.replace(":id", applicationId)}`,
-        { convertedEmployeeId: employeeId },
+    const { data } = await axios.post(
+        `${API_BASE_URL}/${RECRUITMENT.LINK_CONVERTED_EMPLOYEE.replace(":id", applicationId)}`,
+        { employeeId },
     );
     return data;
 };
@@ -452,8 +470,12 @@ export const uploadApplicantResume = async (applicantId: string, file: File): Pr
     return data?.applicant;
 };
 
-export const getApplicants = async (search?: string, companyId?: string): Promise<PagedList<Applicant>> => {
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICANTS}${listQuery({ search, companyId })}`);
+export const getApplicants = async (
+    search?: string,
+    companyId?: string,
+    cursor?: string,
+): Promise<PagedList<Applicant>> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICANTS}${listQuery({ search, companyId, cursor })}`);
     return pagedList<Applicant>(data?.applicants, data);
 };
 
@@ -830,6 +852,8 @@ export interface Offer {
     offeredEmployeeTypeConfigId?: string | null; offeredCtc?: number | string | null; proposedJoiningDate?: string | null;
     status: number; acceptanceStatus: string; offerLetterUrl?: string | null; notes?: string | null;
     expiresAt?: string | null; revisionCount: number;
+    /** When the candidate (or staff) recorded accept/decline. */
+    respondedAt?: string | null;
     /** ISO 4217 the offer is in — its branch, else its requisition's, else its company's. */
     currency?: string;
     /** Out for sign-off right now. Status 0 is both a draft and a submitted offer; this says which. */

@@ -19,6 +19,8 @@ import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { SolidChip } from "@app/pages/billing/operations/TrackerCells";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
+import { formatCurrencyCompact } from "@utils/currency";
+import { useSensitiveData } from "@app/modules/common/components/SensitiveData";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import {
   getOverviewStats,
@@ -39,7 +41,13 @@ import {
 
 type Segment = { id: string; label: string; value: number; color: string };
 
-function SegmentBar({ segments, height = 14 }: { segments: Segment[]; height?: number }) {
+function SegmentBar({
+  segments,
+  height = 14,
+}: {
+  segments: Segment[];
+  height?: number;
+}) {
   const total = segments.reduce((s, x) => s + x.value, 0);
   if (!total) {
     return (
@@ -73,7 +81,13 @@ function SegmentBar({ segments, height = 14 }: { segments: Segment[]; height?: n
             />
           ))}
       </Box>
-      <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1.5} sx={{ mt: 1.25 }}>
+      <Stack
+        direction="row"
+        flexWrap="wrap"
+        useFlexGap
+        spacing={1.5}
+        sx={{ mt: 1.25 }}
+      >
         {segments.map((s) => (
           <Stack key={s.id} direction="row" spacing={0.75} alignItems="center">
             <Box
@@ -87,7 +101,12 @@ function SegmentBar({ segments, height = 14 }: { segments: Segment[]; height?: n
             />
             <Typography variant="caption" color="text.secondary">
               {s.label}{" "}
-              <Typography component="span" variant="caption" fontWeight={700} color="text.primary">
+              <Typography
+                component="span"
+                variant="caption"
+                fontWeight={700}
+                color="text.primary"
+              >
                 {s.value}
               </Typography>
             </Typography>
@@ -102,6 +121,7 @@ export default function Overview() {
   const theme = useTheme();
   const desk = useCourtesyDesk();
   const navigate = useNavigate();
+  const sensitive = useSensitiveData();
   const [fyDate, setFyDate] = useState<Dayjs>(dayjs());
   const [fiscalYear, setFiscalYear] = useState("");
 
@@ -116,7 +136,9 @@ export default function Overview() {
     return [s || undefined, e || undefined];
   }, [fiscalYear]);
 
-  const [stats, setStats] = useState<GiftsOverview>(() => getOverviewStats(fyStart, fyEnd));
+  const [stats, setStats] = useState<GiftsOverview>(() =>
+    getOverviewStats(fyStart, fyEnd),
+  );
 
   useEffect(() => {
     void getOverviewStatsFromApi(fyStart, fyEnd).then(setStats);
@@ -126,18 +148,19 @@ export default function Overview() {
   const fyLabel = fiscalYear ? `FY ${formatFiscalYearLabel(fiscalYear)}` : "…";
 
   const handoverSegments = useMemo<Segment[]>(() => {
-    const counts = {
+    const counts: Record<string, number> = {
       PENDING: stats.pending,
-      OUT: stats.out,
       DELIVERED: stats.delivered,
       SKIPPED: stats.skipped,
     };
-    return desk.config.deliveryStatuses.map((s) => ({
-      id: s.id,
-      label: s.name,
-      value: counts[s.id as keyof typeof counts] ?? 0,
-      color: deliveryStatusColor(desk.config, s.id),
-    }));
+    return desk.config.deliveryStatuses
+      .filter((s) => s.id !== "OUT")
+      .map((s) => ({
+        id: s.id,
+        label: s.name,
+        value: counts[s.id] ?? 0,
+        color: deliveryStatusColor(desk.config, s.id),
+      }));
   }, [desk.config, stats]);
 
   const giftRunStatusSegments = useMemo<Segment[]>(() => {
@@ -155,7 +178,7 @@ export default function Overview() {
   }, [desk.config, stats.drives]);
 
   const completionPct = useMemo(() => {
-    const total = stats.pending + stats.out + stats.delivered + stats.skipped;
+    const total = stats.pending + stats.delivered + stats.skipped;
     return total ? Math.round((stats.delivered / total) * 100) : 0;
   }, [stats]);
 
@@ -210,7 +233,8 @@ export default function Overview() {
           gridTemplateColumns: {
             xs: "1fr",
             sm: "1fr 1fr",
-            lg: "repeat(5, 1fr)",
+            lg: "repeat(3, 1fr)",
+            xl: "repeat(6, 1fr)",
           },
           mb: 3,
         }}
@@ -222,8 +246,14 @@ export default function Overview() {
           icon="gift"
         />
         <StatTile
+          label="People groups"
+          value={String(groups.length)}
+          trio={TRIO.purple}
+          icon="people"
+        />
+        <StatTile
           label="Pending handovers"
-          value={String(stats.pending + stats.out)}
+          value={String(stats.pending)}
           trio={TRIO.amber}
           icon="time"
         />
@@ -240,10 +270,11 @@ export default function Overview() {
           icon="cross-circle"
         />
         <StatTile
-          label="People groups"
-          value={String(groups.length)}
-          trio={TRIO.purple}
-          icon="people"
+          label="Total amount"
+          value={formatCurrencyCompact(stats.totalAmount ?? 0)}
+          valueClassName={sensitive.cls}
+          trio={TRIO.cyan}
+          icon="bill"
         />
       </Box>
 
@@ -264,7 +295,12 @@ export default function Overview() {
           </Typography>
           <SegmentBar segments={handoverSegments} />
           <Box sx={{ mt: 2 }}>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              display="block"
+              sx={{ mb: 0.5 }}
+            >
               Overall completion
             </Typography>
             <LinearProgress
@@ -273,8 +309,14 @@ export default function Overview() {
               sx={{
                 height: 10,
                 borderRadius: 999,
-                bgcolor: alpha(TRIO.blue.c, theme.palette.mode === "dark" ? 0.2 : 0.12),
-                "& .MuiLinearProgress-bar": { borderRadius: 999, bgcolor: TRIO.blue.c },
+                bgcolor: alpha(
+                  TRIO.blue.c,
+                  theme.palette.mode === "dark" ? 0.2 : 0.12,
+                ),
+                "& .MuiLinearProgress-bar": {
+                  borderRadius: 999,
+                  bgcolor: TRIO.blue.c,
+                },
               }}
             />
           </Box>
@@ -285,7 +327,8 @@ export default function Overview() {
             {GIFT_RUN_LABEL} status
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {stats.drives.length} run{stats.drives.length === 1 ? "" : "s"} in period
+            {stats.drives.length} run{stats.drives.length === 1 ? "" : "s"} in
+            period
           </Typography>
           <SegmentBar segments={giftRunStatusSegments} />
         </GlassSurface>
@@ -301,7 +344,8 @@ export default function Overview() {
       {stats.drives.length === 0 ? (
         <GlassSurface variant="thin" sx={{ p: 2.5, borderRadius: 2 }}>
           <Typography color="text.secondary">
-            No {GIFT_RUN_LABEL_PLURAL.toLowerCase()} in {fyLabel}. Start one from the button above.
+            No {GIFT_RUN_LABEL_PLURAL.toLowerCase()} in {fyLabel}. Start one
+            from the button above.
           </Typography>
         </GlassSurface>
       ) : (
@@ -315,7 +359,9 @@ export default function Overview() {
               <GlassSurface
                 key={d.id}
                 variant="thin"
-                onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/drives/${d.id}`)}
+                onClick={() =>
+                  navigate(`${GIFT_MANAGEMENT_BASE}/drives/${d.id}`)
+                }
                 sx={{
                   p: 2,
                   borderRadius: 2,
@@ -344,7 +390,12 @@ export default function Overview() {
                       {d.giftItem}
                     </Typography>
                   </Box>
-                  <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                  <Stack
+                    direction="row"
+                    spacing={0.75}
+                    flexWrap="wrap"
+                    useFlexGap
+                  >
                     <SolidChip label={occ} color={occCol} />
                     <SolidChip
                       label={giftRunStatusLabel(desk.config, d.status)}
@@ -352,7 +403,11 @@ export default function Overview() {
                     />
                   </Stack>
                 </Stack>
-                <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.75 }}>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  sx={{ mb: 0.75 }}
+                >
                   <Typography variant="caption" color="text.secondary">
                     {d.delivered}/{d.total} delivered
                     {d.pending ? ` · ${d.pending} pending` : ""}
@@ -379,7 +434,6 @@ export default function Overview() {
           })}
         </Stack>
       )}
-
     </Box>
   );
 }

@@ -4,9 +4,10 @@ import { Box, Stack, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import DrillDownDialog from "@app/modules/common/components/DrillDownDialog";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { InlineNotice } from "@app/modules/common/components/ui";
+import { InlineNotice, WtEmptyState } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { getApplications } from "@services/recruitment";
+import { apiErrorMessage } from "@utils/apiError";
 import { applicationColumns } from "./applicationColumns";
 
 /**
@@ -49,7 +50,7 @@ const ApplicationsDrillDown = ({ open, onClose, title, statusId, sourceId, compa
         ...(to ? { to } : {}),
     };
 
-    const { data: rowPage, isLoading } = useQuery({
+    const { data: rowPage, isLoading, isError, error, refetch } = useQuery({
         queryKey: queryKeys.recruitment.applications({ companyId, ...filters }),
         queryFn: () => getApplications(filters, companyId),
         // Nothing to fetch until the dialog is open — a closed drill-down must not cost a
@@ -76,30 +77,47 @@ const ApplicationsDrillDown = ({ open, onClose, title, statusId, sourceId, compa
                     <Box sx={{ minWidth: 0 }}>
                         <Typography sx={{ fontWeight: 700, fontSize: { xs: 15, sm: 16.5 }, lineHeight: 1.3 }}>{title}</Typography>
                         <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
-                            {isLoading ? "Loading…" : `${rows.length} ${rows.length === 1 ? "candidate" : "candidates"}`}
+                            {isLoading
+                                ? "Loading…"
+                                : isError
+                                    ? "Could not load"
+                                    : `${rows.length} ${rows.length === 1 ? "candidate" : "candidates"}`}
                         </Typography>
                     </Box>
                 </Stack>
             </Box>
 
-            {rowsTruncated && (
-                <Box sx={{ mb: 1.5 }}>
-                    <InlineNotice icon="information-5">
-                        Showing the first {rows.length}. The bar you clicked counts more than fit one
-                        page, so this list is not the whole of it.
-                    </InlineNotice>
-                </Box>
-            )}
+            {isError ? (
+                <WtEmptyState
+                    variant="error"
+                    title="Could not load these candidates"
+                    hint={apiErrorMessage(error, "Check your connection and try again.")}
+                    actionLabel="Retry"
+                    onAction={() => refetch()}
+                    dense
+                />
+            ) : (
+                <>
+                    {rowsTruncated && (
+                        <Box sx={{ mb: 1.5 }}>
+                            <InlineNotice icon="information-5">
+                                Showing the first {rows.length}. The bar you clicked counts more than fit one
+                                page, so this list is not the whole of it.
+                            </InlineNotice>
+                        </Box>
+                    )}
 
-            <MaterialTable
-                columns={columns}
-                data={rows}
-                isLoading={isLoading}
-                // Named per chart so a recruiter's column choices on the stage drill-down do
-                // not silently rearrange the source one.
-                tableName={statusId ? "RecruitmentByStage" : "RecruitmentBySource"}
-                muiTableContainerProps={{ sx: { maxHeight: "52vh" } }}
-            />
+                    <MaterialTable
+                        columns={columns}
+                        data={rows}
+                        isLoading={isLoading}
+                        // Named per chart so a recruiter's column choices on the stage drill-down do
+                        // not silently rearrange the source one.
+                        tableName={statusId ? "RecruitmentByStage" : "RecruitmentBySource"}
+                        muiTableContainerProps={{ sx: { maxHeight: "52vh" } }}
+                    />
+                </>
+            )}
         </DrillDownDialog>
     );
 };

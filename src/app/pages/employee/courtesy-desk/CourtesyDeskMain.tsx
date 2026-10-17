@@ -4,6 +4,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
+import SensitiveDataProvider, {
+  SensitiveDataHeaderToggle,
+} from "@app/modules/common/components/SensitiveData";
 import { PageTitle } from "@metronic/layout/core";
 import Overview from "./components/Overview";
 import PeopleGroupsList from "./components/PeopleGroupsList";
@@ -18,6 +21,9 @@ const TAB_TITLES = [
   "Gift Runs",
   "Configure",
 ] as const;
+
+/** Tabs that render amounts — eye only here so other tabs aren't blurred with no reveal. */
+const EYE_TABS: ReadonlySet<string> = new Set(["Overview", "Gift Runs"]);
 
 export default function CourtesyDeskMain() {
   useEffect(() => {
@@ -69,15 +75,20 @@ export default function CourtesyDeskMain() {
     },
   ];
 
+  const eyeOn = EYE_TABS.has(TAB_TITLES[activeTab] ?? "");
+
   return (
     <>
       <PageTitle breadcrumbs={breadcrumbs}>{TAB_TITLES[activeTab]}</PageTitle>
-      <MaterialHeaderTab
-        tabItems={tabItems}
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-        hideScrollButtons
-      />
+      <SensitiveDataProvider disabled={!eyeOn}>
+        <MaterialHeaderTab
+          tabItems={tabItems}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          hideScrollButtons
+          headerAction={eyeOn ? <SensitiveDataHeaderToggle /> : undefined}
+        />
+      </SensitiveDataProvider>
     </>
   );
 }

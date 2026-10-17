@@ -7,6 +7,7 @@ import {
   ConfigSectionCard,
   EmptyState,
 } from "@app/modules/configuration";
+import { useConfirmDialog } from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import {
@@ -31,6 +32,7 @@ type ModalKind = "occasion" | "status" | "giftRunStatus" | "mode" | null;
 
 export default function Configure() {
   const desk = useCourtesyDesk();
+  const { ask, dialog: confirmDialog } = useConfirmDialog();
   const [modal, setModal] = useState<ModalKind>(null);
   const [editing, setEditing] = useState<ConfigOption | null>(null);
 
@@ -47,6 +49,20 @@ export default function Configure() {
   const closeModal = () => {
     setModal(null);
     setEditing(null);
+  };
+
+  const askDelete = (
+    label: string,
+    name: string,
+    action: () => Promise<unknown>,
+  ) => {
+    void ask({
+      variant: "delete",
+      message: `Delete ${label} “${name}”? This cannot be undone.`,
+      confirmLabel: "Delete",
+    }).then((ok) => {
+      if (ok) runConfig(action(), "Deleted.");
+    });
   };
 
   return (
@@ -86,10 +102,10 @@ export default function Configure() {
                       icon: "bi-trash",
                       title: `Delete ${s.name}`,
                       danger: true,
-                      onClick: () => {
-                        if (window.confirm(`Delete status “${s.name}”?`))
-                          runConfig(deleteGiftRunStatusToApi(s.id), "Deleted.");
-                      },
+                      onClick: () =>
+                        askDelete("status", s.name, () =>
+                          deleteGiftRunStatusToApi(s.id),
+                        ),
                     }}
                   />
                 ))}
@@ -123,10 +139,10 @@ export default function Configure() {
                       icon: "bi-trash",
                       title: `Delete ${s.name}`,
                       danger: true,
-                      onClick: () => {
-                        if (window.confirm(`Delete status “${s.name}”?`))
-                          runConfig(deleteDeliveryStatusToApi(s.id), "Deleted.");
-                      },
+                      onClick: () =>
+                        askDelete("status", s.name, () =>
+                          deleteDeliveryStatusToApi(s.id),
+                        ),
                     }}
                   />
                 ))}
@@ -160,10 +176,10 @@ export default function Configure() {
                       icon: "bi-trash",
                       title: `Delete ${m.name}`,
                       danger: true,
-                      onClick: () => {
-                        if (window.confirm(`Delete mode “${m.name}”?`))
-                          runConfig(deleteDeliveryModeToApi(m.id), "Deleted.");
-                      },
+                      onClick: () =>
+                        askDelete("mode", m.name, () =>
+                          deleteDeliveryModeToApi(m.id),
+                        ),
                     }}
                   />
                 ))}
@@ -197,10 +213,10 @@ export default function Configure() {
                       icon: "bi-trash",
                       title: `Delete ${o.name}`,
                       danger: true,
-                      onClick: () => {
-                        if (window.confirm(`Delete occasion “${o.name}”?`))
-                          runConfig(deleteOccasionToApi(o.id), "Deleted.");
-                      },
+                      onClick: () =>
+                        askDelete("occasion", o.name, () =>
+                          deleteOccasionToApi(o.id),
+                        ),
                     }}
                   />
                 ))}
@@ -210,12 +226,15 @@ export default function Configure() {
         </div>
       </ConfigPageLayout>
 
+      {confirmDialog}
+
       <GiftConfigOptionModal
         show={modal === "occasion"}
         onClose={closeModal}
         title="Occasion"
         nameLabel="Occasion name"
         initial={editing}
+        existing={desk.config.occasions}
         onSave={(o) => runConfig(saveOccasionToApi(o), "Saved.")}
       />
       <GiftConfigOptionModal
@@ -224,6 +243,7 @@ export default function Configure() {
         title="Delivery status"
         nameLabel="Status name"
         initial={editing}
+        existing={desk.config.deliveryStatuses}
         onSave={(o) => runConfig(saveDeliveryStatusToApi(o), "Saved.")}
       />
       <GiftConfigOptionModal
@@ -232,6 +252,7 @@ export default function Configure() {
         title="Gift Run status"
         nameLabel="Status name"
         initial={editing}
+        existing={desk.config.giftRunStatuses}
         onSave={(o) => runConfig(saveGiftRunStatusToApi(o), "Saved.")}
       />
       <GiftConfigOptionModal
@@ -240,6 +261,7 @@ export default function Configure() {
         title="Mode"
         nameLabel="Mode name"
         initial={editing}
+        existing={desk.config.deliveryModes}
         onSave={(o) => runConfig(saveDeliveryModeToApi(o), "Saved.")}
       />
     </>

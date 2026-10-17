@@ -365,13 +365,6 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                             value={form.title}
                             onChange={(v) => setForm({ ...form, title: v })}
                         />
-                        {/* The role's department and designation. The designation also chooses the
-                            interview scorecard, and a new offer for this role starts with both. */}
-                        <DepartmentDesignationFields
-                            departmentId={form.departmentId ?? null}
-                            designationId={form.designationId ?? null}
-                            onChange={(next) => setForm({ ...form, departmentId: next.departmentId, designationId: next.designationId })}
-                        />
                         <WtField
                             label="Job Description" fullWidth multiline minRows={3}
                             value={form.jobDescription ?? ""}
@@ -390,8 +383,6 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                                 value={form.targetStartDate}
                                 onChange={(v) => setForm({ ...form, targetStartDate: v || null })}
                             />
-                            {/* Same ladder the candidate form reads. A level comparison between
-                                the two sides only means anything if both picked from one list. */}
                             {!noLevels && (
                                 <WtField
                                     label="Seniority" sx={{ flex: 1 }} clearable
@@ -402,15 +393,20 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                                 />
                             )}
                         </Stack>
+                        {/* Org placement sits with CTC/Stage: Branch alone, then Dept + Designation. */}
+                        <RecruitmentBranchField
+                            companyId={companyId}
+                            required
+                            value={form.branchId}
+                            onChange={(v) => setForm({ ...form, branchId: v })}
+                            error={form.branchId && !branchUsable ? "This branch is no longer active. Choose another." : undefined}
+                        />
+                        <DepartmentDesignationFields
+                            departmentId={form.departmentId ?? null}
+                            designationId={form.designationId ?? null}
+                            onChange={(next) => setForm({ ...form, departmentId: next.departmentId, designationId: next.designationId })}
+                        />
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            {/* Branch first: it decides the currency the band beside it is typed in. */}
-                            <RecruitmentBranchField
-                                companyId={companyId}
-                                required sx={{ flex: 1 }}
-                                value={form.branchId}
-                                onChange={(v) => setForm({ ...form, branchId: v })}
-                                error={form.branchId && !branchUsable ? "This branch is no longer active. Choose another." : undefined}
-                            />
                             <WtMoneyField
                                 label="Min CTC" per="year" currency={bandCurrency} sx={{ flex: 1 }}
                                 value={form.minCtc}
@@ -423,23 +419,20 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                                 onChange={(v) => setForm({ ...form, maxCtc: v })}
                                 error={band.max}
                             />
+                            {stages.length > 0 && (
+                                <WtField
+                                    label="Stage" clearable sx={{ flex: 1 }}
+                                    value={form.requisitionStageId ?? ""}
+                                    onChange={(v) => setForm({ ...form, requisitionStageId: v || null })}
+                                    options={stages.map((s) => ({ value: s.id, label: s.name }))}
+                                    placeholder="Default"
+                                />
+                            )}
                         </Stack>
-                        {stages.length > 0 && (
-                            <WtField
-                                label="Stage" fullWidth clearable
-                                value={form.requisitionStageId ?? ""}
-                                onChange={(v) => setForm({ ...form, requisitionStageId: v || null })}
-                                options={stages.map((s) => ({ value: s.id, label: s.name }))}
-                                placeholder="Default"
-                            />
-                        )}
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <EmployeePickerField
                                 label="Hiring Manager" sx={{ flex: 1 }}
                                 placeholder="Select a manager…"
-                                // The server routes approval to the hiring manager — unless that is the
-                                // person submitting, who cannot approve their own request; then it goes
-                                // up their reporting line.
                                 helperText="Approves this request. If that is you, it goes to your manager instead."
                                 value={form.hiringManagerId ?? null}
                                 onChange={(ids) => setForm({ ...form, hiringManagerId: ids[0] ?? null })}

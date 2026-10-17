@@ -124,6 +124,8 @@ function normalizeSupportGrant(
 }
 const listeners = new Set<Listener>();
 let waiters: Array<{ area: SecurityArea | null; resolve: () => void; reject: (e: unknown) => void }> = [];
+/** Tabs the person walked away from — late 403s must not reopen their PIN dialog elsewhere. */
+const leftAreas = new Set<SecurityArea>();
 
 const CHANNEL = 'wt-security-pin';
 const channel: BroadcastChannel | null = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CHANNEL) : null;
@@ -296,6 +298,11 @@ export const securityPinBus = {
     /** Called by the interceptor on a 403 SECURITY_LOCKED: resolves once THAT tab is unlocked. */
     waitForUnlock(area?: unknown): Promise<void> {
         const a = isSecurityArea(area) ? area : state.pendingArea;
+        // Person left this tab (e.g. Salary → Attendance). Fail the retry instead of
+        // opening "My Salary is locked" on top of the next page.
+        if (a && leftAreas.has(a)) {
+            return Promise.reject(new Error('Unlock cancelled'));
+        }
         set({ unlocked: state.unlocked, pending: true, pendingArea: a });
         if (a && securityPinBus.isAreaUnlocked(a)) {
             return Promise.resolve();
@@ -303,9 +310,20 @@ export const securityPinBus = {
         return new Promise((resolve, reject) => waiters.push({ area: a, resolve, reject }));
     },
 
-    registerGate(): () => void {
+    /**
+     * A page gate for `area` is on screen. Clears the "left this tab" mark so unlocks work again.
+     * On leave: drop any pending unlock for this tab so the global dialog does not follow them.
+     */
+    registerGate(area?: SecurityArea | null): () => void {
+        if (area) leftAreas.delete(area);
         set({ gates: state.gates + 1 });
-        return () => set({ gates: Math.max(0, state.gates - 1) });
+        return () => {
+            set({ gates: Math.max(0, state.gates - 1) });
+            if (area) {
+                leftAreas.add(area);
+                if (state.pending && state.pendingArea === area) securityPinBus.cancel();
+            }
+        };
     },
 
     /** From the status call: this person's per-tab settings (+ which tabs are already unlocked). */

@@ -19,8 +19,22 @@ type Props = {
   title: string;
   nameLabel?: string;
   initial?: ConfigOption | null;
+  /** Other options in this section — used to block duplicate name / id. */
+  existing?: ConfigOption[];
   onSave: (option: ConfigOption) => void;
 };
+
+function optionSlug(name: string, fallbackId?: string) {
+  return (
+    fallbackId?.trim() ||
+    name
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "_")
+      .replace(/^_|_$/g, "") ||
+    `OPT_${Date.now()}`
+  );
+}
 
 export default function GiftConfigOptionModal({
   show,
@@ -28,6 +42,7 @@ export default function GiftConfigOptionModal({
   title,
   nameLabel = "Name",
   initial,
+  existing = [],
   onSave,
 }: Props) {
   const isEditing = Boolean(initial?.id);
@@ -48,13 +63,18 @@ export default function GiftConfigOptionModal({
       setError(`${nameLabel} is required`);
       return;
     }
-    const id =
-      initial?.id ||
-      trimmed
-        .toUpperCase()
-        .replace(/[^A-Z0-9]+/g, "_")
-        .replace(/^_|_$/g, "") ||
-      `OPT_${Date.now()}`;
+    const id = optionSlug(trimmed, initial?.id);
+    const rivals = existing.filter((o) => o.id !== initial?.id);
+    if (rivals.some((o) => o.id === id)) {
+      setError(`${nameLabel} already exists`);
+      return;
+    }
+    if (
+      rivals.some((o) => o.name.trim().toLowerCase() === trimmed.toLowerCase())
+    ) {
+      setError(`${nameLabel} already exists`);
+      return;
+    }
     onSave({ id, name: trimmed, color });
     onClose();
   };

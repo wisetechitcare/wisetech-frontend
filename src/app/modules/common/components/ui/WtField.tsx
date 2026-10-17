@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React, { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { Autocomplete, Avatar, Box, Chip, MenuItem, TextField, Typography, alpha } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
@@ -11,6 +11,8 @@ import {
     type WtAddOption,
 } from './WtAddOption';
 import { controlHeightSxFor } from './buttons';
+import { menuGeometryInBoundary, menuPropsInside, useDropdownBoundary } from './dropdownBoundary';
+import { wtFieldSelectChromePx, wtFieldSelectWidthPx } from './wtFieldSelectWidth';
 
 export type { WtAddOption, WtAddOptionPlacement } from './WtAddOption';
 
@@ -46,20 +48,25 @@ export type { WtAddOption, WtAddOptionPlacement } from './WtAddOption';
  * ONE MESSAGE SLOT. `error` is a MESSAGE, not a boolean, and it replaces `hint` when set —
  * so a field can never show a red border with cheerful guidance underneath it.
  *
- * DELEGATION, NOT REIMPLEMENTATION. Searchable and multi-select use MUI Autocomplete (floating label).
- * Grouped / creatable / avatar lists stay on `WtSelect` via adapters. Dates stay `WtDateField` /
- * `WtDateTimeField`. This owns the frame, not every engine in it.
+ * DELEGATION, NOT REIMPLEMENTATION. Searchable and multi-select use MUI Autocomplete (floating label),
+ * including avatar/description options for person pickers. Grouped / creatable / colour lists stay
+ * on `WtSelect` via adapters. Dates stay `WtDateField` / `WtDateTimeField`.
  */
 
 export type WtFieldSize = 'sm' | 'md';
 
 export interface WtFieldOption {
     value: string;
+    /** What the closed field shows (keep short — long strings crush a flex row). */
     label: string;
     disabled?: boolean;
-    /** Optional avatar URL — shown in the menu (and multi chips) when set. */
+    /** Hover / title text when the visible label is shortened. */
+    title?: string;
+    /** Optional longer text inside the open menu (e.g. branch · company). Falls back to `label`. */
+    menuLabel?: string;
+    /** Avatar URL — person pickers (Hiring Manager / Recruiter) on the searchable Autocomplete path. */
     avatar?: string | null;
-    /** Optional second line under the label (e.g. designation). */
+    /** Secondary line under the label in the menu (and closed field when avatar is set). */
     description?: string;
 }
 
@@ -119,6 +126,12 @@ export interface WtFieldProps {
      */
     size?: WtFieldSize;
     fullWidth?: boolean;
+    /**
+     * Plain select only: size the control and its menu to the widest option (full label visible).
+     * Defaults to `true` when `fullWidth={false}` — toolbar / compact filters. Set `false` to keep
+     * `auto` width with ellipsis. Full-width form selects are unchanged.
+     */
+    fitContent?: boolean;
     minWidth?: number;
 
     /** Leading glyph. A `bi-` prefix renders a Bootstrap icon; anything else a KTIcon. */
@@ -159,9 +172,8 @@ export interface WtFieldProps {
      * Grouped / creatable / avatar lists still use `WtSelect` via an adapter.
      */
     multiple?: boolean;
-
     /**
-     * When `multiple`, how many chips to show before collapsing to “+N”.
+     * Multi-select only: max chips shown before a “+N” overflow chip.
      * Keeps dense forms (dialogs, policy panels) from growing into a chip wall.
      */
     limitTags?: number;
@@ -213,6 +225,8 @@ const controlSx = (
     tone: string | undefined,
     invalid: boolean,
     density: WtFieldSize,
+    /** Content-sized toolbar selects show the full label — do not force outer ellipsis. */
+    contentSized = false,
 ): SxProps<Theme> => {
     const height = controlHeightSxFor(density);
     return {
@@ -220,12 +234,21 @@ const controlSx = (
         '& .MuiOutlinedInput-root': {
             ...height['& .MuiOutlinedInput-root'],
             borderRadius: '10px',
-            // A long option must ellipsize rather than widen the control past its container.
+            // A long option must ellipsize rather than widen the control past its container —
+            // unless the kit sized the control to the content (`fitContent` / `fullWidth={false}`).
             '& .MuiSelect-select': {
-                minWidth: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                ...height['& .MuiSelect-select'],
+                ...(contentSized
+                    ? { minWidth: 0, overflow: 'visible', textOverflow: 'clip', whiteSpace: 'nowrap' }
+                    : {
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                    }),
+            },
+            '& .MuiOutlinedInput-input': {
+                ...height['& .MuiOutlinedInput-input'],
             },
             ...(tone && !invalid && {
                 '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha(tone, 0.5) },
@@ -246,7 +269,7 @@ const ADD_OPTION_VALUE = '__wt_add__';
 
 export const WtField: React.FC<WtFieldProps> = ({
     label, ariaLabel, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, placeholder,
-    size = 'sm', fullWidth = true, minWidth, icon, prefix, tone,
+    size = 'sm', fullWidth = true, fitContent, minWidth, icon, prefix, tone,
     type = 'text', multiline, minRows = 3, inputMode, min, max, step,
     searchable, multiple, limitTags, addOption, onAddOption, addOptionLabel, clearable, id, name, autoFocus, sx, children,
 }) => {
@@ -255,15 +278,49 @@ export const WtField: React.FC<WtFieldProps> = ({
     const messageId = `${fieldId}-msg`;
     const invalid = Boolean(error);
     const message = error || hint;
+    const hasValue = Array.isArray(value)
+        ? value.length > 0
+        : String(value ?? '').length > 0;
     const isSelect = Boolean(options);
+    const plainSelect = isSelect && !searchable && !multiple && !children;
+    const contentSized = plainSelect && (fitContent ?? !fullWidth);
+    const optionLabels = useMemo(
+        () => (options ?? []).map((o) => o.menuLabel ?? o.label),
+        [options],
+    );
+    const contentWidthPx = useMemo(() => {
+        if (!contentSized) return undefined;
+        return wtFieldSelectWidthPx(optionLabels, {
+            chromePx: wtFieldSelectChromePx({
+                hasIcon: !!icon,
+                prefix,
+                clearable: !!clearable && hasValue,
+                size,
+            }),
+            size,
+        });
+    }, [contentSized, optionLabels, icon, prefix, clearable, hasValue, size]);
+
+    // Full-width selects in dialogs: menu width = field width on open (see MenuProps below).
+    const selectFrameRef = useRef<HTMLDivElement | null>(null);
+    const [selectMenuWidth, setSelectMenuWidth] = useState<number | undefined>(undefined);
+    const [selectMenuGeom, setSelectMenuGeom] = useState<{ maxHeight: number; vertical: 'top' | 'bottom' }>({
+        maxHeight: 320,
+        vertical: 'bottom',
+    });
+    const { ref: boundaryRef, boundary, slotProps: autocompleteBoundary } = useDropdownBoundary();
+    const setSelectFrameRef = useCallback(
+        (node: HTMLDivElement | null) => {
+            selectFrameRef.current = node;
+            boundaryRef(node);
+        },
+        [boundaryRef],
+    );
     // MUI size drives BOTH input and floating-label metrics (and the notch). Never restyle
     // `.MuiInputLabel-root` by hand — that is how labels land on the border line.
     const muiSize = size === 'sm' ? 'small' : 'medium';
     const aboveLabelFs = size === 'sm' ? 12 : 13.5;
     const messageFs = size === 'sm' ? 11.5 : 12.5;
-    const hasValue = Array.isArray(value)
-        ? value.length > 0
-        : String(value ?? '').length > 0;
     const resolvedAdd = resolveWtAddOption(addOption, onAddOption, addOptionLabel);
     const addInMenu = resolvedAdd?.placement !== 'label' ? resolvedAdd : undefined;
     const addOnLabel = resolvedAdd?.placement === 'label' ? resolvedAdd : undefined;
@@ -324,7 +381,11 @@ export const WtField: React.FC<WtFieldProps> = ({
      * instead of forcing its neighbours out; the caller's own `minWidth` still wins.
      */
     const frameSx = [
-        { width: fullWidth ? '100%' : 'auto', minWidth: minWidth ?? 0 },
+        {
+            width: fullWidth ? '100%' : contentWidthPx ?? 'auto',
+            minWidth: minWidth ?? (contentWidthPx ? undefined : 0),
+            ...(contentWidthPx ? { maxWidth: contentWidthPx, flexShrink: 0 } : {}),
+        },
         ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
     ] as SxProps<Theme>;
 
@@ -345,7 +406,7 @@ export const WtField: React.FC<WtFieldProps> = ({
             : options;
 
         return (
-            <Box sx={frameSx}>
+            <Box ref={boundaryRef} sx={frameSx}>
                 {addOnLabel && (
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
                         <WtAddOptionButton
@@ -387,8 +448,6 @@ export const WtField: React.FC<WtFieldProps> = ({
                     autoHighlight
                     size={muiSize}
                     fullWidth
-                    // Multi tags follow Appearance brand (same primary as menuOptionSx / focus ring),
-                    // not MUI's neutral grey default — so selected chips match the bluish product chrome.
                     renderTags={multiple ? (tagValue, getTagProps) => {
                         // Custom renderTags skips MUI's limitTags — apply it ourselves so
                         // dense forms stay one line instead of growing into a chip wall.
@@ -427,6 +486,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                     renderOption={(props, option) => {
                         const { key, ...rest } = props as React.HTMLAttributes<HTMLLIElement> & { key?: string };
                         const isAdd = option.value === ADD_OPTION_VALUE;
+                        const rich = !isAdd && (option.avatar || option.description);
                         return (
                             <Box
                                 component="li"
@@ -438,6 +498,8 @@ export const WtField: React.FC<WtFieldProps> = ({
                                     color: isAdd ? 'primary.main' : 'inherit',
                                     borderBottom: isAdd ? '1px solid' : undefined,
                                     borderColor: isAdd ? 'divider' : undefined,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: 1,
@@ -452,46 +514,66 @@ export const WtField: React.FC<WtFieldProps> = ({
                                         sx={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
                                     />
                                 ) : null}
-                                <Box sx={{ minWidth: 0, flex: 1 }}>
-                                    <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {option.label}
-                                    </Box>
-                                    {option.description ? (
-                                        <Box sx={{ fontSize: 11.5, opacity: 0.7, lineHeight: 1.3 }}>
-                                            {option.description}
+                                {rich ? (
+                                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                                        <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {option.menuLabel ?? option.label}
                                         </Box>
-                                    ) : null}
-                                </Box>
+                                        {option.description ? (
+                                            <Box sx={{ fontSize: 11.5, color: 'text.secondary', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {option.description}
+                                            </Box>
+                                        ) : null}
+                                    </Box>
+                                ) : (
+                                    option.label
+                                )}
                             </Box>
                         );
                     }}
-                    // Above app dialogs (1300, nested 1302), as the date pickers do. The offset keeps a list
-                    // that opens UPWARD clear of the floating label, which sits on the field's top border —
-                    // flush against it, the list covered the label ("Designation" hidden under an option).
+                    // Stay inside the dialog scroll port (useDropdownBoundary) and above nested
+                    // modals. Offset keeps an upward list clear of the floating label.
                     slotProps={{
-                        popper: { sx: { zIndex: 1350 }, modifiers: [{ name: 'offset', options: { offset: [0, 10] } }] },
-                        paper: { sx: menuOptionSx },
+                        popper: {
+                            ...autocompleteBoundary.popper,
+                            sx: { zIndex: 1350, ...((autocompleteBoundary.popper as { sx?: object }).sx ?? {}) },
+                            modifiers: [
+                                ...(((autocompleteBoundary.popper as { modifiers?: object[] }).modifiers) ?? []),
+                                { name: 'offset', options: { offset: [0, 10] } },
+                            ],
+                        },
+                        paper: { sx: [{ width: '100%', maxWidth: '100%', maxHeight: 320 }, menuOptionSx] },
                     }}
-                    renderInput={(params) => (
-                        <TextField
-                            {...params}
-                            name={name}
-                            label={label}
-                            required={required}
-                            placeholder={placeholder}
-                            autoFocus={autoFocus}
-                            error={invalid}
-                            helperText={message}
-                            FormHelperTextProps={invalid ? { role: 'alert' } : undefined}
-                            InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
-                            InputProps={{
-                                ...params.InputProps,
-                                notched: true,
-                                startAdornment: <>{startAdornment}{params.InputProps.startAdornment}</>,
-                            }}
-                            sx={controlSx(activeTone, invalid, size)}
-                        />
-                    )}
+                    renderInput={(params) => {
+                        const avatarStart = !multiple && selected?.avatar ? (
+                            <Box
+                                component="img"
+                                src={selected.avatar}
+                                alt=""
+                                sx={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', mr: 0.75, flexShrink: 0 }}
+                            />
+                        ) : null;
+                        return (
+                            <TextField
+                                {...params}
+                                name={name}
+                                label={label}
+                                required={required}
+                                placeholder={placeholder}
+                                autoFocus={autoFocus}
+                                error={invalid}
+                                helperText={message}
+                                FormHelperTextProps={invalid ? { role: 'alert' } : undefined}
+                                InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
+                                InputProps={{
+                                    ...params.InputProps,
+                                    notched: true,
+                                    startAdornment: <>{startAdornment}{avatarStart}{params.InputProps.startAdornment}</>,
+                                }}
+                                sx={controlSx(activeTone, invalid, size)}
+                            />
+                        );
+                    }}
                 />
             </Box>
         );
@@ -568,7 +650,10 @@ export const WtField: React.FC<WtFieldProps> = ({
     }
 
     return (
-        <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 0.5 }, ...(frameSx as object[])] as SxProps<Theme>}>
+        <Box
+            ref={setSelectFrameRef}
+            sx={[{ display: 'flex', flexDirection: 'column', gap: 0.5 }, ...(frameSx as object[])] as SxProps<Theme>}
+        >
             {addOnLabel && (
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <WtAddOptionButton
@@ -612,15 +697,56 @@ export const WtField: React.FC<WtFieldProps> = ({
                 FormHelperTextProps={invalid ? { role: 'alert' } : undefined}
                 SelectProps={isSelect ? {
                     displayEmpty: true,
+                    onOpen: () => {
+                        const frame = selectFrameRef.current;
+                        if (!frame) return;
+                        const rect = frame.getBoundingClientRect();
+                        if (!contentSized) {
+                            setSelectMenuWidth(Math.round(rect.width));
+                        }
+                        const geo = menuGeometryInBoundary(
+                            rect,
+                            boundary?.getBoundingClientRect() ?? null,
+                            320,
+                        );
+                        setSelectMenuGeom({
+                            maxHeight: geo.maxMenuHeight,
+                            vertical: geo.menuPlacement,
+                        });
+                    },
                     renderValue: (current: unknown) => {
                         const match = options?.find((o) => o.value === String(current ?? ''));
                         if (!match) {
+                            // Same left + vertically-centered look as Autocomplete placeholders
+                            // (EmployeePicker / Recruiter). Vertical centering comes from
+                            // controlHeightSxFor on `.MuiSelect-select`.
                             return <Box component="span" sx={{ color: 'text.disabled' }}>{placeholder ?? ''}</Box>;
                         }
-                        // The full value stays reachable on hover once it ellipsizes.
-                        return <Box component="span" title={match.label}>{match.label}</Box>;
+                        if (contentSized) {
+                            return <Box component="span">{match.label}</Box>;
+                        }
+                        return (
+                            <Box
+                                component="span"
+                                title={match.title ?? match.label}
+                                sx={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    display: 'block',
+                                    minWidth: 0,
+                                    flex: 1,
+                                }}
+                            >
+                                {match.label}
+                            </Box>
+                        );
                     },
                     MenuProps: {
+                        ...menuPropsInside(boundary, {
+                            maxHeight: selectMenuGeom.maxHeight,
+                            anchorOriginVertical: selectMenuGeom.vertical,
+                        }),
                         PaperProps: {
                             // Same accent selected/hover pills as searchable Autocomplete
                             // (`menuOptionSx`) — without this, MUI's default action.selected
@@ -629,19 +755,30 @@ export const WtField: React.FC<WtFieldProps> = ({
                                 {
                                     borderRadius: '10px',
                                     mt: 0.5,
-                                    maxHeight: 320,
+                                    maxHeight: selectMenuGeom.maxHeight,
                                     boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
+                                    ...(contentWidthPx
+                                        ? { width: contentWidthPx, maxWidth: contentWidthPx }
+                                        : selectMenuWidth
+                                            ? { width: selectMenuWidth, maxWidth: selectMenuWidth }
+                                            : { maxWidth: 'min(100vw - 32px, 360px)' }),
                                 },
                                 menuOptionSx,
                             ],
                         },
                     },
                 } : undefined}
-                sx={controlSx(activeTone, invalid, size)}
+                sx={controlSx(activeTone, invalid, size, contentSized)}
             >
                 {isSelect && options?.map((o) => (
-                    <MenuItem key={o.value} value={o.value} disabled={o.disabled}>
-                        {o.label}
+                    <MenuItem
+                        key={o.value}
+                        value={o.value}
+                        disabled={o.disabled}
+                        title={o.title ?? o.menuLabel ?? o.label}
+                        sx={contentSized ? undefined : { overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}
+                    >
+                        {o.menuLabel ?? o.label}
                     </MenuItem>
                 ))}
             </TextField>

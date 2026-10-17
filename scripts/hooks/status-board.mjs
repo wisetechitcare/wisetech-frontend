@@ -2,28 +2,34 @@
 /**
  * Terminal status board for git hooks — ONE fixed-width card.
  *
- * - Card appears immediately (0%) so the terminal never looks stuck.
- * - It is updated IN PLACE (cursor up + overwrite, one write per frame,
- *   no clear-screen between frames), so it does not blink or stack.
- * - When finished, the card is replaced once by the final green/red card.
+ * Git hooks on Windows often pipe stdout (not a TTY), so a board written only
+ * to stdout stays blank until the process exits, then dumps at 100%.
+ * Live frames go to stderr (usually connected to the console and unbuffered).
+ * The final green/red card uses the same stream so you see one card, not two.
  *
- * Fallbacks: CI / NO_COLOR / narrow terminal / HOOKS_LIVE=0 → final card only.
+ * Disable live updates: HOOKS_LIVE=0
  */
 import { writeSync } from 'node:fs'
 
 const INNER = 48
-const FRAME_MS = 250
+const FRAME_MS = 200
 
-const cols = process.stdout.columns || process.stderr.columns || 0
+const inCi = process.env.CI === 'true' || process.env.CI === '1'
 const canColor =
   !process.env.NO_COLOR &&
   process.env.TERM !== 'dumb' &&
-  !process.env.CI
+  !inCi
 
-const live =
-  canColor &&
-  process.env.HOOKS_LIVE !== '0' &&
-  (cols === 0 || cols >= INNER + 4)
+/** Prefer stderr when stdout is not a real terminal (husky/git on Windows). */
+const outFd =
+  typeof process.stderr.fd === 'number' && !process.stdout.isTTY
+    ? process.stderr.fd
+    : typeof process.stdout.fd === 'number'
+      ? process.stdout.fd
+      : 1
+
+/** Live in-place card unless CI or HOOKS_LIVE=0 — does not require a TTY. */
+const live = !inCi && process.env.HOOKS_LIVE !== '0'
 
 const c = {
   reset: canColor ? '\x1b[0m' : '',
@@ -89,11 +95,10 @@ function progressRow(pct, tone) {
 
 function writeSafe(text) {
   try {
-    if (typeof process.stdout.fd === 'number') writeSync(process.stdout.fd, text)
-    else process.stdout.write(text)
+    writeSync(outFd, text)
   } catch {
     try {
-      process.stdout.write(text)
+      process.stderr.write(text)
     } catch {
       /* broken pipe */
     }
@@ -102,17 +107,18 @@ function writeSafe(text) {
 
 function printWhatToDo(titleText, tips) {
   const tipsList = (Array.isArray(tips) ? tips : [tips]).filter(Boolean)
-  const head = ' What to do '
+  const head = ' Next steps '
   const fill = Math.max(0, INNER - head.length)
-  const lines = [
-    '',
-    `${c.red}┌${head}${'─'.repeat(fill)}┐${c.reset}`,
-    `${c.red}│${c.reset}${fit(` ${titleText}`, INNER)}${c.red}│${c.reset}`,
-    ...tipsList.map((tip) => `${c.red}│${c.reset}${fit(`  ${tip}`, INNER)}${c.red}│${c.reset}`),
-    `${c.red}└${'─'.repeat(INNER)}┘${c.reset}`,
-    '',
-  ]
-  writeSafe(`${lines.join('\n')}\n`)
+  writeSafe(
+    [
+      '',
+      `${c.red}┌${head}${'─'.repeat(fill)}┐${c.reset}`,
+      `${c.red}│${c.reset}${fit(` ${titleText}`, INNER)}${c.red}│${c.reset}`,
+      ...tipsList.map((tip) => `${c.red}│${c.reset}${fit(`  → ${tip}`, INNER)}${c.red}│${c.reset}`),
+      `${c.red}└${'─'.repeat(INNER)}┘${c.reset}`,
+      '',
+    ].join('\n') + '\n',
+  )
 }
 
 export function createBoard(title, stepNames) {
@@ -139,7 +145,6 @@ export function createBoard(title, stepNames) {
     return steps.some((s) => s.status === 'fail')
   }
 
-  /** Finished steps + smooth creep inside the running step (never loops back). */
   function percent() {
     const n = steps.length || 1
     const base = (doneCount() / n) * 100
@@ -207,7 +212,6 @@ export function createBoard(title, stepNames) {
     writeSafe(SHOW_CURSOR)
   }
 
-  /** In-place frame: move up, overwrite each line, clear only to end of line. */
   function paintLive() {
     if (!live || disposed) return
     const lines = buildLines(hasFail() ? 'fail' : 'run')
@@ -222,7 +226,6 @@ export function createBoard(title, stepNames) {
     lastLines = lines.length
   }
 
-  /** Final card: replace the live card once (or just print it when not live). */
   function paintFinal(tone, footer) {
     let out = ''
     if (live && lastLines > 0) out += `\x1b[${lastLines}A\x1b[0J`
@@ -268,6 +271,10 @@ export function createBoard(title, stepNames) {
     start() {
       if (disposed) return
       stepStartedAt = Date.now()
+      if (!live) {
+        writeSafe(`${title || 'Checks'}\n`)
+        return
+      }
       paintLive()
       startSpin()
     },
@@ -292,7 +299,6 @@ export function createBoard(title, stepNames) {
       paintFinal('fail')
       printWhatToDo(titleText || 'Check failed.', tips)
     },
-    /** Unexpected crash / tool missing — mark running step (or last) as failed. */
     crash(titleText, tips) {
       stopSpin()
       const running = steps.findIndex((s) => s.status === 'run')
@@ -306,7 +312,6 @@ export function createBoard(title, stepNames) {
       stopSpin()
       paintFinal('ok', message)
     },
-    /** Always call on exit paths so the spinner and cursor cannot leak. */
     dispose() {
       disposed = true
       stopSpin()

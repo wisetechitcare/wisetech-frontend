@@ -5,4 +5,6 @@ if [ ! -d node_modules ]; then
   echo "Dependencies missing. Run: pnpm install" >&2
   exit 1
 fi
+# stderr shows immediately — proves the hook started before TypeScript runs.
+echo "Pre-push: running checks..." >&2
 node scripts/hooks/run.mjs pre-push

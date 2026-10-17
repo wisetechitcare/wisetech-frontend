@@ -14,15 +14,13 @@ import { securityPinBus } from '@utils/securityPinBus';
 import { SupportAccessPanel } from './SupportAccessPanel';
 
 /**
- * 4-step Security PIN flow ("Salary Unlock & PIN Reset"):
- *   1. Unlock Screen       — Lock icon · 6 masked PIN slots · "Unlock <Area>" · "Forgot PIN?"
- *   2. Request PIN Reset   — Lock icon · masked email chip · "Send Code to Email" · "Back to Unlock"
- *   3. Enter Email OTP     — Mail icon · Step 1 / 2 · "Email Verification Code Sent" badge · 3–3 unmasked OTP
- *   4. Choose New PIN      — Lock icon · Step 2 / 2 · 6 masked PIN slots (enter + confirm) · "Cancel"
- *
- * Header uses the same brand navy gradient + accent rule as GlassHeader / Material dialogs
- * across every step. OTP vs PIN is differentiated by the 3–3 unmasked split grid + notification
- * badge vs the 6 masked PIN boxes + microcopy label.
+ * Security PIN flow ("Salary Unlock & PIN Reset"):
+ *   Unlock Screen       — Lock icon · 6 masked PIN slots · "Unlock <Area>" · "Forgot PIN?"
+ *   Request PIN Reset   — Lock icon · masked email chip · "Send Code to Email" · "Back to Unlock"
+ *   Then a 3-step reset/setup:
+ *     1 / 3  Check Your Email  — Mail icon · green header · unmasked OTP
+ *     2 / 3  Choose New PIN    — Lock icon · blue header · masked PIN
+ *     3 / 3  Confirm New PIN   — Lock icon · blue header · masked PIN
  */
 
 type View =
@@ -88,13 +86,18 @@ export function SecurityPinPanel({ onUnlocked, onCancel, area }: SecurityPinPane
 
     const routeFromStatus = useCallback((s: SecurityPinStatus) => {
         setStatus(s);
-        securityPinBus.setPolicy(s.required !== false, s.ttlMinutes ?? 15, s.areas);
+        const pinOff = s.disabled === true || s.required === false;
+        // Only treat the feature as on when the server explicitly says so — never default to on
+        // when `required` is missing (that used to force "Set Up Security PIN" under the kill-switch).
+        securityPinBus.setPolicy(pinOff ? false : s.required === true, s.ttlMinutes ?? 15, s.areas);
+        if (pinOff) {
+            onUnlocked?.();
+            return;
+        }
         const tab = area ? s.areas?.[area] : undefined;
         if (tab && !tab.required) { onUnlocked?.(); return; }
         // Only treat THIS tab as open — another tab's unlock must not skip the PIN here.
-        const fresh = tab
-            ? tab.unlocked
-            : s.required === false;
+        const fresh = tab ? tab.unlocked : false;
         if (fresh) {
             if (area && tab?.unlocked) {
                 securityPinBus.markAreaUnlocked(area, tab.unlockedUntil ?? s.unlockedUntil, tab.lockMinutes);
@@ -352,9 +355,9 @@ export function SecurityPinPanel({ onUnlocked, onCancel, area }: SecurityPinPane
                 </Stack>
             );
         } else if (step === 'code') {
-            // Step 3: Enter Email OTP
+            // Step 1 of 3: Enter Email OTP
             title = 'Check Your Email';
-            stepPill = '1 / 2';
+            stepPill = '1 / 3';
             const targetEmail = sentTo || email || 'your email';
             const waiting = resendAt > now;
             body = (
@@ -393,9 +396,9 @@ export function SecurityPinPanel({ onUnlocked, onCancel, area }: SecurityPinPane
                 </Stack>
             );
         } else if (step === 'pin') {
-            // Step 4a: Choose New PIN
+            // Step 2 of 3: Choose New PIN
             title = reset ? 'Choose a New PIN' : 'Choose Security PIN';
-            stepPill = '2 / 2';
+            stepPill = '2 / 3';
             body = (
                 <Stack spacing={1.75} sx={{ width: '100%' }}>
                     <Lead>
@@ -430,9 +433,9 @@ export function SecurityPinPanel({ onUnlocked, onCancel, area }: SecurityPinPane
                 </Stack>
             );
         } else {
-            // Step 4b: Confirm New PIN (stays in Step 2 / 2)
+            // Step 3 of 3: Confirm New PIN
             title = 'Confirm New PIN';
-            stepPill = '2 / 2';
+            stepPill = '3 / 3';
             body = (
                 <Stack spacing={1.75} sx={{ width: '100%' }}>
                     <Lead>
@@ -493,7 +496,7 @@ export function SecurityPinPanel({ onUnlocked, onCancel, area }: SecurityPinPane
                 textAlign: 'left',
             }}
         >
-            {/* Same band as GlassHeader / Material dialogs — brand navy + accent rule */}
+            {/* Check email = green; choose/confirm PIN = brand navy blue */}
             <Box
                 sx={{
                     display: 'flex',
@@ -502,9 +505,11 @@ export function SecurityPinPanel({ onUnlocked, onCancel, area }: SecurityPinPane
                     gap: 1.25,
                     px: { xs: 1.5, sm: 3 },
                     py: { xs: 1.35, sm: 1.75 },
-                    background: `linear-gradient(135deg, ${T.color.brandHover} 0%, ${T.color.brand} 100%)`,
+                    background: isMailHeader
+                        ? 'linear-gradient(135deg, #15803d 0%, #16a34a 100%)'
+                        : `linear-gradient(135deg, ${T.color.brandHover} 0%, ${T.color.brand} 100%)`,
                     color: '#fff',
-                    borderBottom: `3px solid ${T.color.accent}`,
+                    borderBottom: `3px solid ${isMailHeader ? '#4ade80' : T.color.accent}`,
                     flexShrink: 0,
                     minWidth: 0,
                 }}

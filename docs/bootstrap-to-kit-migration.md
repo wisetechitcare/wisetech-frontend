@@ -27,7 +27,8 @@ Use the kit barrel. Do **not** invent one-off maroon/navy hex buttons.
 |--------------------------|-------------|
 | `<Card>` / white box + `borderRadius: 12` | `GlassCard` (`preset="section"` / `"tile"` / `"row"`) |
 | Pill tabs (`#a94442`, rounded-full) | `SegmentedControl` |
-| Primary / danger buttons | `WtButton` (`tone`, `ghost`, `inverted`) |
+| Primary / danger / Cancel buttons | **`WtButton`** only — recipe matrix in kit `ui/README.md` (navy primary + white `ghost` Cancel locked) |
+| Dialog Cancel + Submit footer | **`GlassDialogActions`** (or leave `ConfigureFormDialog` / `WtFormDialog`) |
 | Icon-only row actions | `WtIconButton` / `ActionIconButton` |
 | `<Modal>` | `GlassDialog` (+ `GlassHeader` or `PlainDialogHeader`) |
 | Long multi-section form modal | `WtFormDialog` |
@@ -45,7 +46,8 @@ Use the kit barrel. Do **not** invent one-off maroon/navy hex buttons.
 1. **No new** `react-bootstrap` imports in new code or in files you open for migration.  
 2. **No** hardcoded brand hex for CTAs (`#a94442`, `#9d4141`, ad-hoc `#1E3A8A` button styles) — use `WtButton` / tokens.  
 3. One **PR = one surface or one shared primitive** (see §4). Do not “while I’m here” rewrite an entire module.  
-4. Prefer **shared helpers first** (`CommonModal` → kit dialog) so many call sites improve at once.
+4. Prefer **shared helpers first** (`CommonModal` → kit dialog) so many call sites improve at once.  
+5. **Buttons:** new code uses only `WtButton` / `WtIconButton` / `ActionIconButton` / `GlassDialogActions` from the kit barrel. Do **not** mega-PR every remaining MUI `Button` or Bootstrap `btn-*` — replace CTAs when you migrate that surface (opened file). Do not invent a second global button or change the locked navy + white Cancel brand look.
 
 ---
 
