@@ -10,6 +10,11 @@ Companion: [`AGENTS.md`](../AGENTS.md) · [`docs/multi-tenancy.md`](./multi-tena
 
 Same bar as backend: **Rule zero** (reuse before invent), automated gates over tribal knowledge, AI drafts under human ownership for security-sensitive work.
 
+**DRY / Rule zero (FE):** Grep the UI kit + Neighbors first (`ui/README.md`). Enhance the shared primitive (`ToneChip`, `AutoGrid`, `WtField`, …), then migrate consumers — never a feature-local twin (`MetaPill`, unbounded stretch grids, raw `TextField`+`MenuItem`). Backend applies the same bar to services / Yup schemas / tenant helpers ([BE handbook](../../wisetech-backend/docs/HANDBOOK.md)).
+
+**Strict DRY law (FE + BE):** [`docs/DRY.md`](./DRY.md) — decision gate, Need→Use→Never, PR checklist. Non-negotiable.  
+**100% scorecard (entire codebase):** [`summary/audits/DRY_100_SCORECARD.md`](../../summary/audits/DRY_100_SCORECARD.md) — catalog + adoption waves W1–W7.
+
 Frontend does **not** enforce multi-tenant isolation — the API does. Still never forge or “helpfully invent” org/company IDs outside `useOrgScope` / session-backed options.
 
 ---
@@ -37,6 +42,8 @@ Frontend does **not** enforce multi-tenant isolation — the API does. Still nev
 - Dialog chrome: **`FormSection` + `FORM_SPACE`** for form cards; **`GlassDialog preset="form"|"workspace"`** instead of hand-rolled `maxHeight`; **`GlassDialogActions`** for Cancel/Save footers (SSOT); **`SettingsSection`** (accent settings, optional `count`) vs **`WtFormSection`** (long nav forms).
 - Toggles / checkboxes: **`WtSwitch` / `WtCheckbox`** (labelled: `WtSwitchField` / `WtCheckboxField` / `WtControlLabel`). Checkbox look is themed globally on `MuiCheckbox`; still prefer the kit helpers for `size` / `tone`.
 - Tables → shared table engine (`MaterialTableImpl` / kit), not a one-off `<Table>`.
+- Chips (status **and** meta) → **`ToneChip`** / `StatusBadge` only — no private `MetaPill`.
+- List cards → **`GlassCard`** + capped **`AutoGrid`** (default max ~400; `stretch` opt-in only).
 - MUI = product controls; Tailwind = layout/utilities on shared tokens. Do not grow a parallel TW form kit (`ui/tw` stays narrow).
 - Details: `.cursor/rules/ui-design-system.mdc` and the kit README.
 

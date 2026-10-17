@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useTheme } from '@mui/material/styles';
 import { KTIcon } from '@metronic/helpers';
 import { C, FONT, T, SP, RADIUS, BTN, ICON_COLORS } from './ConfigDesignSystem';
 import { keeniconFor } from '@app/modules/common/components/ui/iconMap';
@@ -61,29 +62,21 @@ export interface ConfigSectionCardProps {
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
-const SkeletonLine: React.FC<{ width?: string; height?: string }> = ({
-  width = '100%', height = '14px',
+const SkeletonLine: React.FC<{ width?: string; height?: string; pulseBg: string }> = ({
+  width = '100%', height = '14px', pulseBg,
 }) => (
   <div style={{
     width, height,
     borderRadius: RADIUS.sm,
-    backgroundColor: '#eef0f5',
+    backgroundColor: pulseBg,
     animation: 'cfgPulse 1.5s ease-in-out infinite',
   }} />
 );
 
-// ─── Status chip ──────────────────────────────────────────────────────────────
-
-const STATUS_MAP: Record<string, { dot: string; bg: string; text: string; label: string }> = {
-  active:   { dot: C.success,    bg: C.successLight, text: '#16a34a', label: 'Active'   },
-  inactive: { dot: C.textMuted,  bg: '#f3f4f6',      text: C.textMuted, label: 'Inactive' },
-  warning:  { dot: C.warning,    bg: C.warningLight, text: C.amber,   label: 'Warning'  },
-  error:    { dot: C.danger,     bg: C.dangerLight,  text: C.danger,  label: 'Error'    },
-};
-
 // ─── Action button ────────────────────────────────────────────────────────────
 
 const ActionBtn: React.FC<{ action: ConfigSectionCardAction }> = ({ action }) => {
+  const theme = useTheme();
   const [hov, setHov] = useState(false);
 
   let base: React.CSSProperties = {
@@ -91,8 +84,11 @@ const ActionBtn: React.FC<{ action: ConfigSectionCardAction }> = ({ action }) =>
     padding: '7px 16px',
     fontSize: '13px',
     fontWeight: 500,
+    backgroundColor: theme.palette.background.paper,
+    color: theme.palette.text.primary,
+    borderColor: theme.palette.divider,
   };
-  let hovStyle: React.CSSProperties = { backgroundColor: C.primaryLight };
+  let hovStyle: React.CSSProperties = { backgroundColor: theme.palette.action.hover };
 
   if (action.variant === 'primary') {
     base = { ...BTN.primary, padding: '7px 16px', fontSize: '13px' };
@@ -102,11 +98,11 @@ const ActionBtn: React.FC<{ action: ConfigSectionCardAction }> = ({ action }) =>
       boxShadow: `0 3px 6px ${C.primaryShadow}, 0 18px 32px -10px ${C.primaryShadowMd}, inset 0 1px 0 rgba(255,255,255,0.16)`,
     };
   } else if (action.variant === 'danger') {
-    base = { ...BTN.outline, color: C.danger, borderColor: C.danger, padding: '7px 16px', fontSize: '13px' };
+    base = { ...BTN.outline, color: C.danger, borderColor: C.danger, padding: '7px 16px', fontSize: '13px', backgroundColor: theme.palette.background.paper };
     hovStyle = { backgroundColor: C.dangerLight };
   } else if (action.variant === 'secondary') {
-    base = { ...BTN.secondary, padding: '7px 16px', fontSize: '13px' };
-    hovStyle = { borderColor: C.borderDark, backgroundColor: '#fafbfc' };
+    base = { ...BTN.secondary, padding: '7px 16px', fontSize: '13px', backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, borderColor: theme.palette.divider };
+    hovStyle = { borderColor: theme.palette.divider, backgroundColor: theme.palette.action.hover };
   }
 
   return (
@@ -131,8 +127,18 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
   collapsible = false, badge, status, compact = false,
   headerRight, children, className = '', variant = 'default',
 }) => {
+  const theme = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [hov, setHov] = useState(false);
+  const paper = theme.palette.background.paper;
+  const divider = theme.palette.divider;
+  const pulseBg = theme.palette.action.hover;
+  const statusMap: Record<string, { dot: string; bg: string; text: string; label: string }> = {
+    active:   { dot: C.success,   bg: C.successLight, text: theme.palette.success.dark, label: 'Active' },
+    inactive: { dot: theme.palette.text.disabled, bg: theme.palette.action.selected, text: theme.palette.text.secondary, label: 'Inactive' },
+    warning:  { dot: C.warning,   bg: C.warningLight, text: C.amber, label: 'Warning' },
+    error:    { dot: C.danger,    bg: C.dangerLight,  text: C.danger, label: 'Error' },
+  };
 
   /**
    * Skeletons are for the FIRST paint only — never for a refetch.
@@ -160,12 +166,12 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        backgroundColor: '#fff',
+        backgroundColor: paper,
         borderRadius: RADIUS.xl,
-        border: `1px solid ${hov ? C.borderDark : C.border}`,
+        border: `1px solid ${hov ? theme.palette.text.disabled : divider}`,
         boxShadow: hov
-          ? '0 8px 32px rgba(24,28,50,0.1)'
-          : '0 2px 12px rgba(24,28,50,0.05)',
+          ? theme.shadows[4]
+          : theme.shadows[1],
         transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
         overflow: 'hidden',
         position: 'relative',
@@ -206,13 +212,13 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexWrap: 'wrap' }}>
               {loading
-                ? <SkeletonLine width="140px" height="16px" />
+                ? <SkeletonLine width="140px" height="16px" pulseBg={pulseBg} />
                 // Title Case applied here rather than at ~30 call sites, matching what
                 // GlassHeader/SectionHead/SettingsSection already do in the ui kit — so a
                 // heading reads the same whichever design-system module renders it.
                 // toTitleCase never touches a word that already has a capital, so acronyms
                 // and proper nouns ("WISETECH", "MEP") survive untouched.
-                : <span style={{ ...T.cardTitle, fontSize: '15px', fontWeight: 600, ...HEADING_CASE_SX }}>{toTitleCase(title)}</span>
+                : <span style={{ ...T.cardTitle, fontSize: '15px', fontWeight: 600, color: theme.palette.text.primary, ...HEADING_CASE_SX }}>{toTitleCase(title)}</span>
               }
               {!loading && badge && (
                 <span style={{
@@ -228,24 +234,24 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
               {!loading && status && (
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', gap: '4px',
-                  backgroundColor: STATUS_MAP[status].bg,
-                  color: STATUS_MAP[status].text,
+                  backgroundColor: statusMap[status].bg,
+                  color: statusMap[status].text,
                   borderRadius: RADIUS.full,
                   fontSize: '10px', fontWeight: 600, padding: '2px 8px', fontFamily: FONT.body,
                 }}>
-                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: STATUS_MAP[status].dot }} />
-                  {STATUS_MAP[status].label}
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: statusMap[status].dot }} />
+                  {statusMap[status].label}
                 </span>
               )}
             </div>
 
             {description && !loading && (
-              <p className="cfg-section-desc" style={{ fontFamily: FONT.body, fontSize: '12px', color: C.textMuted, fontWeight: 400, margin: '4px 0 0 0', lineHeight: 1.5 }}>
+              <p className="cfg-section-desc" style={{ fontFamily: FONT.body, fontSize: '12px', color: theme.palette.text.secondary, fontWeight: 400, margin: '4px 0 0 0', lineHeight: 1.5 }}>
                 {description}
               </p>
             )}
             {loading && description && (
-              <div style={{ marginTop: '6px' }}><SkeletonLine width="220px" height="12px" /></div>
+              <div style={{ marginTop: '6px' }}><SkeletonLine width="220px" height="12px" pulseBg={pulseBg} /></div>
             )}
           </div>
         </div>
@@ -258,7 +264,7 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
           {collapsible && (
             <button
               onClick={() => setCollapsed(c => !c)}
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.textMuted, padding: '4px', display: 'flex', alignItems: 'center', transition: 'transform 0.2s ease', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: theme.palette.text.secondary, padding: '4px', display: 'flex', alignItems: 'center', transition: 'transform 0.2s ease', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
             >
               <i className="bi bi-chevron-down" style={{ fontSize: '15px' }} />
             </button>
@@ -268,7 +274,7 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
 
       {/* Divider below header */}
       {children && !collapsed && (
-        <div style={{ height: '1px', backgroundColor: C.border, margin: `0 ${pad}` }} />
+        <div style={{ height: '1px', backgroundColor: divider, margin: `0 ${pad}` }} />
       )}
 
       {/* Body */}
@@ -276,7 +282,7 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
         <div style={{ padding: `${SP.md} ${pad} ${pad} calc(${pad} + 8px)` }}>
           {showSkeleton
             ? <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-                <SkeletonLine /><SkeletonLine width="80%" /><SkeletonLine width="60%" />
+                <SkeletonLine pulseBg={pulseBg} /><SkeletonLine width="80%" pulseBg={pulseBg} /><SkeletonLine width="60%" pulseBg={pulseBg} />
               </div>
             : children
           }

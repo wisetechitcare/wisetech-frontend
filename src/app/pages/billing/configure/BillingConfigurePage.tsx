@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Stack, TextField, Typography } from "@mui/material";
+import { Stack } from "@mui/material";
 import {
-  ConfigPageLayout, ConfigSectionCard, ConfigColorChip, ConfigChipGrid,
+  ConfigPageLayout, ConfigSectionCard,
 } from "@app/modules/configuration";
 import {
-  GlassDialog, GlassHeader, WtButton, WtCheckboxField, WtColorPicker, isHexColor,
+  GlassDialog, GlassHeader, WtButton, WtCheckboxField, WtColorPicker, WtField, isHexColor,
+  ConfigColorChip, ConfigChipGrid,
   type ColorSwatch, type SemanticTone,
 } from "@app/modules/common/components/ui";
 import { confirmDialog, toast } from "@app/modules/common/components/ui/feedback";
@@ -248,27 +249,14 @@ const BillingConfigurePage: React.FC = () => {
         }
       >
         <Stack spacing={3} sx={{ px: 3, pt: 1, pb: 3 }}>
-          <Stack spacing={1}>
-            <Typography sx={{ fontSize: 14, fontWeight: 500, color: "text.primary" }}>
-              Status Name <Typography component="span" sx={{ color: "error.main" }}>*</Typography>
-            </Typography>
-            <TextField
-              value={label}
-              autoFocus
-              placeholder="Enter status name"
-              inputProps={{ maxLength: 80 }}
-              onChange={(e) => setLabel(e.target.value)}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  bgcolor: "action.hover",
-                  borderRadius: "8px",
-                  fontSize: 14,
-                  "& fieldset": { borderColor: "divider" },
-                },
-                "& .MuiOutlinedInput-input": { py: 1.5, px: 2 },
-              }}
-            />
-          </Stack>
+          <WtField
+            label="Status Name"
+            required
+            fullWidth
+            value={label}
+            placeholder="Enter status name"
+            onChange={setLabel}
+          />
 
           {/* A checkbox on the left, not a toggle on the right — the shape Leads
               Configure uses for exactly this setting. Offered on every group: each
@@ -282,19 +270,14 @@ const BillingConfigurePage: React.FC = () => {
             description={`Work that reaches the end settles here. Only one entry in ${editingGroup || "this list"} can hold it — turning it on takes it off whichever has it now.`}
           />
 
-          <Stack spacing={1}>
-            <Typography sx={{ fontSize: 14, fontWeight: 500, color: "text.primary" }}>
-              Choose Status Colour
-            </Typography>
-            <WtColorPicker
-              variant="row"
-              label="Status colour"
-              value={tone}
-              palette={swatches}
-              disabled={busy}
-              onChange={setTone}
-            />
-          </Stack>
+          <WtColorPicker
+            variant="row"
+            label="Status colour"
+            value={tone}
+            palette={swatches}
+            disabled={busy}
+            onChange={setTone}
+          />
 
           <Stack direction="row" justifyContent="flex-end">
             <WtButton

@@ -61,6 +61,7 @@ import {
 } from "./entityUtils";
 import { currencyPrefix } from '@utils/currency';
 import { canViewCommercial } from '@utils/can';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 // Money columns and the section whose commercial flag lets them show.
 const MONEY_COLUMN_SECTION: Record<string, 'crm.leads' | 'projects'> = {
@@ -1015,14 +1016,13 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           Cell: ({ row }: any) => {
             const poStatus = row?.original?.poStatus;
             if (!row?.original?.isProject || !poStatus) return <span>N/A</span>;
-            const color = poStatus === "Received" ? "#28A745" : "#FFC107";
             return (
-              <div
-                className="badge badge-light"
-                style={{ backgroundColor: color, color: poStatus === "Received" ? "white" : "#333" }}
-              >
-                {poStatus}
-              </div>
+              <ToneChip
+                dense
+                tone={poStatus === "Received" ? "success" : "warning"}
+                label={poStatus}
+                solid={poStatus === "Received"}
+              />
             );
           },
         },

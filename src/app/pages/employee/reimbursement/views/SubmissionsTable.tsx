@@ -35,6 +35,7 @@ import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { resolveStatusNum as resolveStatus, STATUS, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
 import SubmissionMobileCard from '../components/SubmissionMobileCard';
 import { SkeletonTable } from '@app/modules/common/components/Skeleton';
+import { ToneChip } from '@app/modules/common/components/ui';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -218,14 +219,14 @@ function SubmissionDetailModal({
         enableColumnActions: false,
         Cell: ({ row }: any) => {
           const statusNum = resolveStatusNum(row.original.status);
-          if (statusNum === 1) return <span className="badge badge-light-success fw-semibold fs-8">Approved</span>;
-          if (statusNum === 2) return <span className="badge badge-light-danger fw-semibold fs-8">Rejected</span>;
+          if (statusNum === 1) return <ToneChip dense tone="success" label="Approved" />;
+          if (statusNum === 2) return <ToneChip dense tone="danger" label="Rejected" />;
           // A questioned line read as "Pending", so the one row the employee had to act on
           // looked exactly like the rows they had to wait on.
           if (statusNum === STATUS.NEEDS_INFO) {
-            return <span className="badge badge-light-warning fw-semibold fs-8">Needs info</span>;
+            return <ToneChip dense tone="warning" label="Needs info" />;
           }
-          return <span className="badge badge-light-warning fw-semibold fs-8">Pending</span>;
+          return <ToneChip dense tone="warning" label="Pending" />;
         },
       },
       // Shown for a QUESTION as well as a rejection. Both write the same column on the line, but
@@ -256,12 +257,12 @@ function SubmissionDetailModal({
                 return (
                   <div style={{ maxWidth: 240, lineHeight: 1.35 }} className="py-0.5">
                     <div style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'baseline', rowGap: '4px' }}>
-                      <span
-                        className={`badge badge-light-${asking ? (hasAwaitingQuery ? 'warning' : 'secondary') : 'danger'} fw-bold fs-9 px-1.5 py-0.5 me-1.5`}
-                        style={{ display: 'inline-flex', alignSelf: 'center' }}
-                      >
-                        {asking ? (hasAwaitingQuery ? 'Question' : 'Responded') : 'Rejected'}
-                      </span>
+                      <ToneChip
+                        dense
+                        tone={asking ? (hasAwaitingQuery ? 'warning' : 'neutral') : 'danger'}
+                        label={asking ? (hasAwaitingQuery ? 'Question' : 'Responded') : 'Rejected'}
+                        sx={{ alignSelf: 'center', mr: 0.75 }}
+                      />
                       <span className="text-gray-800 fs-7 fw-normal" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                         {reason}
                       </span>
@@ -358,17 +359,9 @@ function SubmissionDetailModal({
                 if (statusNum === 2) return <span className="text-muted">N/A</span>;
                 if (statusNum !== 1) return <span className="text-muted">N/A</span>;
                 const ps = row.original.paymentStatus;
-                if (ps === 'PAID')
-                  return (
-                    <span className="badge badge-light-success text-success fw-bold px-3 py-2">Paid</span>
-                  );
-                if (ps === 'PARTIAL')
-                  return (
-                    <span className="badge badge-light-info text-info fw-bold px-3 py-2">Partially Paid</span>
-                  );
-                return (
-                  <span className="badge badge-light-warning text-warning fw-bold px-3 py-2">Pending</span>
-                );
+                if (ps === 'PAID') return <ToneChip dense tone="success" label="Paid" />;
+                if (ps === 'PARTIAL') return <ToneChip dense tone="cyan" label="Partially Paid" />;
+                return <ToneChip dense tone="warning" label="Pending" />;
               },
             },
           ]
@@ -1158,25 +1151,25 @@ function SubmissionsTable({
         size: 130,
         Cell: ({ row }: any) => {
           const s = row.original._status;
-          if (s === 1) return <span className="badge badge-light-success fw-semibold fs-8">Approved</span>;
-          if (s === 2) return <span className="badge badge-light-danger fw-semibold fs-8">Rejected</span>;
+          if (s === 1) return <ToneChip dense tone="success" label="Approved" />;
+          if (s === 2) return <ToneChip dense tone="danger" label="Rejected" />;
           // Every line questioned: the batch is waiting on the EMPLOYEE, not the approver, and
           // saying "Pending" here sent them looking for someone else to chase.
           if (s === STATUS.NEEDS_INFO) {
             return (
               <Tooltip title="Your approver asked a question — open the batch to read it and answer by editing the expense">
-                <span className="badge badge-light-warning fw-semibold fs-8">Needs info</span>
+                <span><ToneChip dense tone="warning" label="Needs info" /></span>
               </Tooltip>
             );
           }
           if (s === MIXED_STATUS) {
             return (
               <Tooltip title="This batch has mixed outcomes — some expenses may still be pending, approved, rejected, or awaiting your reply. Open it to see which. Approved lines are already payable on the Payment desk.">
-                <span className="badge badge-light-info fw-semibold fs-8">Partly approved</span>
+                <span><ToneChip dense tone="cyan" label="Partly approved" /></span>
               </Tooltip>
             );
           }
-          return <span className="badge badge-light-warning fw-semibold fs-8">Pending</span>;
+          return <ToneChip dense tone="warning" label="Pending" />;
         },
       },
       {
@@ -1198,11 +1191,9 @@ function SubmissionsTable({
           // status — a partly-approved batch still has approved lines to pay.
           const ps = row.original._paymentStatus;
           if (!ps) return <span className="text-muted fs-7">N/A</span>;
-          if (ps === 'PAID')
-            return <span className="badge badge-light-success text-success fw-bold px-3 py-2 fs-8">Paid</span>;
-          if (ps === 'PARTIAL')
-            return <span className="badge badge-light-info text-info fw-bold px-3 py-2 fs-8">Partially Paid</span>;
-          return <span className="badge badge-light-warning text-warning fw-bold px-3 py-2 fs-8">Pending</span>;
+          if (ps === 'PAID') return <ToneChip dense tone="success" label="Paid" />;
+          if (ps === 'PARTIAL') return <ToneChip dense tone="cyan" label="Partially Paid" />;
+          return <ToneChip dense tone="warning" label="Pending" />;
         },
       },
     ],

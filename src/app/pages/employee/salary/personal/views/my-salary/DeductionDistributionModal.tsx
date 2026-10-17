@@ -12,6 +12,7 @@ import { deductionMasterService } from '@modules/payroll/services/payrollService
 import { MASTER_KEY_TO_HARDCODED } from '@modules/payroll/hooks/useSalaryComponentNames';
 import dayjs from 'dayjs';
 import { getCurrencySymbol } from '@utils/currency';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 interface DeductionDistributionModalProps {
     show: boolean;
@@ -598,7 +599,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                                 <span className="fw-bolder fs-9 text-uppercase text-gray-500" style={{ letterSpacing: '0.06em' }}>
                                                     {title}
                                                 </span>
-                                                {readOnly && <span className="badge badge-light-success fs-9 py-1 px-2">Auto-Calculated</span>}
+                                                {readOnly && <ToneChip dense tone="success" label="Auto-Calculated" />}
                                             </div>
                                             {showAdd && (
                                                 <button type="button" className="btn btn-sm btn-light-primary fw-bold py-1 px-3 fs-8" onClick={() => addNewField(sectionType || 'custom')}>

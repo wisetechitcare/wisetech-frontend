@@ -153,7 +153,9 @@ export interface WtFieldProps {
     /** Input-only. */
     type?: 'text' | 'number' | 'email' | 'tel' | 'password';
     multiline?: boolean;
+    /** Starting height, in lines. The box grows with the text up to `maxRows`, then scrolls. */
     minRows?: number;
+    maxRows?: number;
     inputMode?: 'text' | 'numeric' | 'decimal' | 'tel' | 'email';
     min?: number;
     max?: number;
@@ -227,17 +229,21 @@ const controlSx = (
     density: WtFieldSize,
     /** Content-sized toolbar selects show the full label — do not force outer ellipsis. */
     contentSized = false,
+    /** Multiline textareas size to `minRows`. A fixed control height clips them to one line. */
+    lockHeight = true,
 ): SxProps<Theme> => {
-    const height = controlHeightSxFor(density);
+    const height = lockHeight ? controlHeightSxFor(density) : null;
     return {
-        ...height,
+        ...(height ?? {}),
         '& .MuiOutlinedInput-root': {
-            ...height['& .MuiOutlinedInput-root'],
+            ...(height
+                ? height['& .MuiOutlinedInput-root']
+                : { height: 'auto', alignItems: 'flex-start' }),
             borderRadius: '10px',
             // A long option must ellipsize rather than widen the control past its container —
             // unless the kit sized the control to the content (`fitContent` / `fullWidth={false}`).
             '& .MuiSelect-select': {
-                ...height['& .MuiSelect-select'],
+                ...(height ? height['& .MuiSelect-select'] : {}),
                 ...(contentSized
                     ? { minWidth: 0, overflow: 'visible', textOverflow: 'clip', whiteSpace: 'nowrap' }
                     : {
@@ -247,9 +253,9 @@ const controlSx = (
                         whiteSpace: 'nowrap',
                     }),
             },
-            '& .MuiOutlinedInput-input': {
-                ...height['& .MuiOutlinedInput-input'],
-            },
+            '& .MuiOutlinedInput-input': height
+                ? { ...height['& .MuiOutlinedInput-input'] }
+                : { height: 'auto', lineHeight: 1.5, boxSizing: 'border-box' },
             ...(tone && !invalid && {
                 '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha(tone, 0.5) },
                 '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: tone },
@@ -270,7 +276,7 @@ const ADD_OPTION_VALUE = '__wt_add__';
 export const WtField: React.FC<WtFieldProps> = ({
     label, ariaLabel, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, placeholder,
     size = 'sm', fullWidth = true, fitContent, minWidth, icon, prefix, tone,
-    type = 'text', multiline, minRows = 3, inputMode, min, max, step,
+    type = 'text', multiline, minRows = 3, maxRows, inputMode, min, max, step,
     searchable, multiple, limitTags, addOption, onAddOption, addOptionLabel, clearable, id, name, autoFocus, sx, children,
 }) => {
     const reactId = useId();
@@ -627,12 +633,13 @@ export const WtField: React.FC<WtFieldProps> = ({
                         type={type}
                         multiline={multiline}
                         minRows={multiline ? minRows : undefined}
+                        maxRows={multiline ? maxRows : undefined}
                         size={muiSize}
                         fullWidth
                         error={invalid}
                         InputProps={{ startAdornment, endAdornment: clearButton }}
                         inputProps={{ inputMode, min, max, step, 'aria-label': label ? undefined : ariaLabel, 'aria-describedby': message ? messageId : undefined }}
-                        sx={controlSx(activeTone, invalid, size)}
+                        sx={controlSx(activeTone, invalid, size, false, !multiline)}
                     />
                 )}
 
@@ -677,6 +684,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                 type={isSelect ? undefined : type}
                 multiline={!isSelect && multiline}
                 minRows={!isSelect && multiline ? minRows : undefined}
+                maxRows={!isSelect && multiline ? maxRows : undefined}
                 size={muiSize}
                 fullWidth
                 error={invalid}
@@ -768,7 +776,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                         },
                     },
                 } : undefined}
-                sx={controlSx(activeTone, invalid, size, contentSized)}
+                sx={controlSx(activeTone, invalid, size, contentSized, !multiline)}
             >
                 {isSelect && options?.map((o) => (
                     <MenuItem

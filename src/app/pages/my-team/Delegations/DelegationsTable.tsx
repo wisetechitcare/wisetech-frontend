@@ -13,6 +13,7 @@ import {
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 type EmployeeOption = { id: string; name: string; employeeCode?: string | null };
 
@@ -321,15 +322,15 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
         const now = new Date();
         const inWindow = new Date(d.startDate) <= now && now <= new Date(d.endDate);
         if (!d.isActive) {
-          return <span className='badge badge-light-danger fw-semibold fs-8'>Cancelled</span>;
+          return <ToneChip dense tone='danger' label='Cancelled' />;
         }
         if (inWindow) {
-          return <span className='badge badge-light-success fw-semibold fs-8'>Active</span>;
+          return <ToneChip dense tone='success' label='Active' />;
         }
         if (new Date(d.startDate) > now) {
-          return <span className='badge badge-light-info fw-semibold fs-8'>Upcoming</span>;
+          return <ToneChip dense tone='cyan' label='Upcoming' />;
         }
-        return <span className='badge badge-light-warning fw-semibold fs-8'>Expired</span>;
+        return <ToneChip dense tone='warning' label='Expired' />;
       },
     },
     {

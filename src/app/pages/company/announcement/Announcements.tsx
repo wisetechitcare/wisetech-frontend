@@ -10,7 +10,7 @@ import dayjs from "dayjs";
 import { ShareWith } from "@constants/statistics";
 import CreateAnnouncementButton from "@pages/dashboard/views/CreateAnnouncementButton";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
-import { Modal } from "react-bootstrap";
+import { confirmDialog } from "@app/modules/common/components/ui";
 import { IAnnouncement } from "@models/company";
 import { canSection } from "@utils/can";
 import AnnouncementFormDialog from "./AnnouncementFormDialog";
@@ -26,12 +26,9 @@ function Announcements() {
     const [announcementsList, setAnnouncementsList] = useState<IAnnouncement[]>(
         []
     );
-    const [announcementToBeDeleted, setAnnouncementToBeDeleted] =
-        useState<IAnnouncement | null>(null);
     const [announcementToBeEdited, setAnnouncementToBeEdited] =
         useState<IAnnouncement | null>(null);
     const [refetch, setRefetch] = useState(false);
-    const [showDeleteModal, setshowDeleteModal] = useState(false);
     const [currentPage, setCurrentPage] = useState(0);
     const itemsPerPage = 7;
 
@@ -42,16 +39,6 @@ function Announcements() {
 
     const handleEditClose = () => {
         setShowEditModal(false);
-    };
-
-    const handleDeleteClose = () => {
-        setshowDeleteModal(false);
-        setAnnouncementToBeDeleted(null);
-    };
-
-    const handleShowDeleteModal = (announcement: IAnnouncement) => {
-        setshowDeleteModal(true);
-        setAnnouncementToBeDeleted(announcement);
     };
 
     useEffect(() => {
@@ -81,7 +68,19 @@ function Announcements() {
             console.error("Error deleting announcement:", error);
             errorConfirmation("Failed to delete announcement");
         }
-        setshowDeleteModal(false);
+    };
+
+    const handleConfirmDelete = async (item: IAnnouncement) => {
+        if (!item.id) return;
+        const confirmed = await confirmDialog({
+            title: "Delete Announcement",
+            text: `Are you sure you want to delete "${item.title}"?`,
+            confirmText: "Delete",
+            cancelText: "Cancel",
+            danger: true,
+        });
+        if (!confirmed) return;
+        await handleDelete(item.id);
     };
 
     // Filter out expired announcements (where toDate has passed)
@@ -217,7 +216,7 @@ function Announcements() {
 
                                                         {canWrite && <div
                                                             className="btn p-0 btn-active-color-primary btn-sm"
-                                                            onClick={() => handleShowDeleteModal(announcement)}
+                                                            onClick={() => handleConfirmDelete(announcement)}
                                                         >
                                                             <KTIcon
                                                                 iconName="trash"
@@ -355,47 +354,6 @@ function Announcements() {
                     )}
                 </KTCard>
             </div>
-
-            <Modal
-                show={showDeleteModal}
-                onHide={handleDeleteClose}
-                size="lg"
-                aria-labelledby="contained-modal-title-vcenter"
-                centered
-            >
-                <Modal.Body>
-                    <div className="d-flex flex-column align-items-center justify-content-center gap-5">
-                        <Modal.Title
-                            id="contained-modal-title-vcenter"
-                            className="d-flex flex-row align-items-center justify-content-center w-100"
-                        >
-                            <div className="fs-2">Delete Announcement</div>
-                        </Modal.Title>
-                        <div className="fs-14 text-center text-primary">
-                            Are you sure you want to delete this announcement?
-                        </div>
-                        <div className="fs-14 border p-3 rounded">
-                            {announcementToBeDeleted?.title}
-                        </div>
-                        <div className="d-flex gap-4">
-                            <button
-                                className="btn btn-sm btn-light-primary py-2"
-                                onClick={handleDeleteClose}
-                            >
-                                Cancel
-                            </button>
-                            {announcementToBeDeleted?.id && (
-                                <button
-                                    className="btn btn-sm btn-primary py-2"
-                                    onClick={() => handleDelete((announcementToBeDeleted?.id))}
-                                >
-                                    Delete
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </Modal.Body>
-            </Modal>
 
             <AnnouncementFormDialog
                 open={showEditModal}

@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Box, Stack, Typography } from "@mui/material";
-import { TRIO, ToneChip } from "@app/modules/common/components/ui";
+import { AutoGrid, TRIO, ToneChip } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { getClientReport, type ClientProjectRow } from "@services/billingReports";
 import { BillingPageHeader, BillingStatsCard, BillingTable, BillingEmptyState, type BillingColumn } from "../components";
@@ -87,13 +87,13 @@ const ClientReportPage: React.FC = () => {
         <BillingEmptyState title="Client not found" />
       ) : (
         <>
-          <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+          <AutoGrid min={180} stretch sx={{ mb: 2, gap: 1.25 }}>
             <BillingStatsCard label="Total Projects" icon="abstract-26" trio={TRIO.blue} value={summary.totalProjects} />
             <BillingStatsCard label="Total Revenue" icon="wallet" trio={TRIO.green} value={formatCurrencyDecimal(summary.totalRevenue)} />
             <BillingStatsCard label="Outstanding" icon="wallet" trio={TRIO.rose} value={formatCurrencyDecimal(summary.outstanding)} />
             <BillingStatsCard label="Paid" icon="check-square" trio={TRIO.green} value={formatCurrencyDecimal(summary.paid)} />
             <BillingStatsCard label="Pending" icon="information-5" trio={TRIO.amber} value={formatCurrencyDecimal(summary.pending)} />
-          </Box>
+          </AutoGrid>
 
           <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" } }}>
             <ReportChart title="Revenue Timeline" subtitle="Last 12 months" type="area" data={data?.charts.revenueTimeline ?? []} height={260} />

@@ -795,6 +795,40 @@
   background: transparent !important;
   box-shadow: none !important;
 }
+/* Multiline MUI fields (Job Description, Public Description, notes).
+   The single-line rules above pin `.MuiOutlinedInput-root` to 44px and give every
+   textarea its own border, padding and width:100% (content-box), so the words
+   paint outside the outline. MUI owns the chrome and sets the textarea height
+   inline to fit the text — do not override that height. */
+.ob-wizard-root .MuiOutlinedInput-root:has(textarea) {
+  height: auto !important;
+  /* 3 lines of 1.5em text plus the textarea's 12px vertical padding. */
+  min-height: calc(4.5em + 24px) !important;
+  max-height: calc(7.5em + 24px) !important;
+  align-items: stretch !important;
+  overflow: hidden !important;
+}
+.ob-wizard-root .MuiInputBase-root textarea,
+.ob-wizard-root .MuiInputBase-root textarea:hover,
+.ob-wizard-root .MuiInputBase-root textarea:focus {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  /* Empty = 3 lines. field-sizing grows with the text up to 5 lines, then it scrolls. */
+  field-sizing: content;
+  height: auto !important;
+  min-height: calc(4.5em + 24px) !important;
+  max-height: calc(7.5em + 24px) !important;
+  margin: 0 !important;
+  padding: 12px 14px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  line-height: 1.5 !important;
+  overflow-y: auto !important;
+  resize: none;
+}
 .ob-wizard-root .form-control:hover:not(:focus),
 .ob-wizard-root input[type="text"]:hover:not(:focus),
 .ob-wizard-root input[type="email"]:hover:not(:focus) {
@@ -841,6 +875,15 @@
   height: var(--ob-input-h) !important; border-radius: var(--ob-r) !important;
   font-family: var(--ob-font) !important; font-size: 0.875rem !important;
   background: var(--ob-surface) !important; transition: background var(--ob-tr) !important;
+}
+/* Must follow the single-line lock above. A textarea field grows with its text;
+   the 44px height is what let Job Description / Public Description spill past the border. */
+.ob-wizard-root .MuiOutlinedInput-root:has(textarea) {
+  height: auto !important;
+  min-height: calc(4.5em + 24px) !important;
+  max-height: calc(7.5em + 24px) !important;
+  align-items: stretch !important;
+  overflow: hidden !important;
 }
 .ob-wizard-root .MuiOutlinedInput-notchedOutline {
   border: 1.5px solid var(--ob-border) !important; border-radius: var(--ob-r) !important;

@@ -377,17 +377,17 @@ function ExpandedDetail({
                 <div key={s.id ?? i} className='d-flex align-items-center gap-2 flex-wrap' style={{ padding: '8px 12px', border: '1px solid #eceef0', borderRadius: 9, background: '#fff' }}>
                   <span className='fw-semibold fs-8'>{s.leaveType ?? 'Leave'}</span>
                   <span className='fs-8 text-muted'>{typeof s.days === 'number' ? `${s.days}d` : ''}</span>
-                  <span className={`badge fs-8 ${s.isPaid ? 'badge-light-success text-success' : 'badge-light-danger text-danger'}`}>{s.isPaid ? 'Paid' : 'Unpaid'}</span>
+                  <ToneChip dense tone={s.isPaid ? 'success' : 'danger'} label={s.isPaid ? 'Paid' : 'Unpaid'} />
                   <span className='ms-auto'>
-                    {s.status === 1 && <span className='badge badge-light-success text-success fs-8'>✓ Approved</span>}
-                    {s.status === 2 && <span className='badge badge-light-danger text-danger fs-8'>✕ Rejected</span>}
+                    {s.status === 1 && <ToneChip dense tone='success' label='✓ Approved' />}
+                    {s.status === 2 && <ToneChip dense tone='danger' label='✕ Rejected' />}
                     {pending && canDecide && s.id && onDecide && (
                       <span className='d-inline-flex gap-2'>
                         <button className='btn btn-sm btn-light-success py-1 px-3 fs-8' onClick={() => onDecide(s.id!, 'approved')}>Approve</button>
                         <button className='btn btn-sm btn-light-danger py-1 px-3 fs-8' onClick={() => onDecide(s.id!, 'rejected')}>Reject</button>
                       </span>
                     )}
-                    {pending && !canDecide && <span className='badge badge-light-warning text-warning fs-8'>Waiting</span>}
+                    {pending && !canDecide && <ToneChip dense tone='warning' label='Waiting' />}
                   </span>
                 </div>
               );
@@ -760,7 +760,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             <div className='d-flex flex-column'>
               <span className='text-dark fw-semibold fs-7'>{formatDateWithDay(day)}</span>
               {worked && (
-                <span className='badge badge-light-success fw-bold fs-8 mt-1 align-self-start'>{worked}</span>
+                <ToneChip dense tone='success' label={worked} sx={{ mt: 0.5, alignSelf: 'flex-start' }} />
               )}
             </div>
           );
@@ -782,25 +782,29 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             <span className='text-dark fw-semibold fs-7'>{from}</span>
             {isRange && <span className='text-muted fs-8'>→ {to}</span>}
             {isHalfDay ? (
-              <span className='badge badge-light-primary fw-bold fs-8 mt-1 align-self-start'>
-                ½ day{session === 'AM' || session === 'PM' ? ` (${session})` : ''}
-              </span>
+              <ToneChip
+                dense
+                tone='brand'
+                label={`½ day${session === 'AM' || session === 'PM' ? ` (${session})` : ''}`}
+                sx={{ mt: 0.5, alignSelf: 'flex-start' }}
+              />
             ) : hasSegments ? (
               <div className='d-flex flex-wrap gap-1 mt-1'>
-                <span className='badge badge-light-primary fw-bold fs-8'>
-                  {days} {days === 1 ? 'day' : 'days'} total
-                </span>
+                <ToneChip dense tone='brand' label={`${days} ${days === 1 ? 'day' : 'days'} total`} />
                 {!!rd.paidDays && (
-                  <span className='badge badge-light-success fw-bold fs-8'>{rd.paidDays} paid</span>
+                  <ToneChip dense tone='success' label={`${rd.paidDays} paid`} />
                 )}
                 {!!rd.unpaidDays && (
-                  <span className='badge badge-light-secondary fw-bold fs-8'>{rd.unpaidDays} unpaid</span>
+                  <ToneChip dense tone='neutral' label={`${rd.unpaidDays} unpaid`} />
                 )}
               </div>
             ) : (
-              <span className='badge badge-light-primary fw-bold fs-8 mt-1 align-self-start'>
-                {days} {days === 1 ? 'day' : 'days'}
-              </span>
+              <ToneChip
+                dense
+                tone='brand'
+                label={`${days} ${days === 1 ? 'day' : 'days'}`}
+                sx={{ mt: 0.5, alignSelf: 'flex-start' }}
+              />
             )}
           </div>
         );
@@ -813,9 +817,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       Cell: ({ row }) => {
         const { currentLevel, totalLevels } = row.original.instance;
         return (
-          <span className='badge badge-light-primary fw-semibold fs-7'>
-            {currentLevel} / {totalLevels}
-          </span>
+          <ToneChip dense tone='brand' label={`${currentLevel} / ${totalLevels}`} />
         );
       },
     },

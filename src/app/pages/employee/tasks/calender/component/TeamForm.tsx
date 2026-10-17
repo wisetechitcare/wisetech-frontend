@@ -4,6 +4,7 @@ import { deleteConfirmation, removeConfirmation, successConfirmation } from '@ut
 import { canSection } from '@utils/can'
 import React, { useState, useEffect } from 'react'
 import { Modal } from 'react-bootstrap'
+import { ToneChip } from '@app/modules/common/components/ui'
 
 // Types
 interface TeamMember {
@@ -671,31 +672,16 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                 whiteSpace: "nowrap"
                                                             }}
                                                         >
-                                                            <span
-                                                                className="badge rounded-pill"
-                                                                style={{
-                                                                    backgroundColor:
-                                                                        member.role === 'TEAM_LEADER'
-                                                                            ? '#ffe0ba'
-                                                                            : '#e4e6f4',
-                                                                    color:
-                                                                        member.role === 'TEAM_LEADER'
-                                                                            ? '#b86e13'
-                                                                            : '#6067cf',
-                                                                    fontFamily: 'Inter',
-                                                                    fontSize: '14px',
-                                                                    fontWeight: '400',
-                                                                    padding: '4px 12px',
-                                                                    minWidth: '120px',
-                                                                    display: 'inline-block',
-                                                                    textAlign: 'center',
-                                                                    paddingTop: '6px',
-                                                                    paddingBottom: '6px',
-                                                                    whiteSpace: "nowrap"
+                                                            <ToneChip
+                                                                tone={member.role === 'TEAM_LEADER' ? 'warning' : 'brand'}
+                                                                label={member.role === 'TEAM_LEADER' ? 'Team Leader' : 'Member'}
+                                                                sx={{
+                                                                    minWidth: 120,
+                                                                    fontWeight: 400,
+                                                                    fontSize: '0.875rem',
+                                                                    '& .MuiChip-label': { whiteSpace: 'nowrap' },
                                                                 }}
-                                                            >
-                                                                {member.role === 'TEAM_LEADER' ? 'Team Leader' : 'Member'}
-                                                            </span>
+                                                            />
                                                         </td>
 
                                                         <td

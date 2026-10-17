@@ -7,76 +7,15 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
 import OrganizationConfigureForm from "./components/OrganizationConfigureForm";
-import { ActionIconButton, AppIcon } from "@app/modules/common/components/ui";
+import { AppIcon, ConfigColorChip, ConfigChipGrid } from "@app/modules/common/components/ui";
 import {
   ConfigPageLayout,
   ConfigSectionCard,
   C,
   FONT,
   SP,
-  RADIUS,
   KEYFRAMES,
 } from '@app/modules/configuration';
-
-// ─── NameChip (no color field for org config items) ───────────────────────────
-
-interface NameChipProps {
-  name: string;
-  onEdit: () => void;
-  onDelete: () => void;
-}
-
-const NameChip: React.FC<NameChipProps> = ({ name, onEdit, onDelete }) => {
-  const [hov, setHov] = useState(false);
-  return (
-    <div
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: hov ? '#ffffff' : '#f7f8fa',
-        border: `1px solid ${hov ? '#d1d5e0' : '#eaecf0'}`,
-        borderRadius: RADIUS.lg,
-        padding: '9px 12px 9px 16px',
-        transition: 'all 0.15s ease',
-        boxShadow: hov ? '0 4px 14px rgba(24,28,50,0.09)' : '0 1px 3px rgba(24,28,50,0.04)',
-        position: 'relative',
-        overflow: 'hidden',
-        cursor: 'default',
-      }}
-    >
-      <div style={{
-        position: 'absolute', top: 0, bottom: 0, left: 0,
-        width: '3px', backgroundColor: C.primary,
-        borderRadius: '3px 0 0 3px', opacity: hov ? 0.7 : 0.25,
-        transition: 'opacity 0.15s ease',
-      }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0, paddingLeft: '4px' }}>
-        <AppIcon name="bi-dash-circle" className="fs-8" color={C.textMuted} style={{ flexShrink: 0 }} />
-        <span style={{
-          fontFamily: FONT.body, fontWeight: 500, fontSize: '13px',
-          color: C.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {name}
-        </span>
-      </div>
-      {/* Always visible: these used to sit at 0.35 opacity until hover, which read as
-          disabled and is unreachable on touch, where there is no hover at all. */}
-      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-        <ActionIconButton iconName="pencil" title="Edit" onClick={onEdit} size="sm" />
-        <ActionIconButton iconName="trash" title="Delete" tone="danger" onClick={onDelete} size="sm" />
-      </div>
-    </div>
-  );
-};
-
-const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: SP.sm, marginTop: SP.md }}>
-    {children}
-  </div>
-);
 
 const EmptyState: React.FC<{ label: string }> = ({ label }) => (
   <div style={{ textAlign: 'center', padding: '28px 16px', color: C.textMuted, fontFamily: FONT.body, fontSize: '13px' }}>
@@ -85,8 +24,6 @@ const EmptyState: React.FC<{ label: string }> = ({ label }) => (
   </div>
 );
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface OrganizationConfigItem {
   id: string;
   type: string;
@@ -94,8 +31,6 @@ interface OrganizationConfigItem {
   createdAt: string;
   updatedAt: string;
 }
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 const OrganizationConfigure = () => {
   const [loading, setLoading] = useState(false);
@@ -108,18 +43,11 @@ const OrganizationConfigure = () => {
   const [showWorkingTypeModal, setShowWorkingTypeModal] = useState(false);
   const [editingWorkingType, setEditingWorkingType] = useState<OrganizationConfigItem | null>(null);
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
-
   const handleShiftModalOpen = () => setShowShiftModal(true);
   const handleShiftModalClose = () => { setShowShiftModal(false); setEditingShift(null); };
   const handleShiftEdit = (s: OrganizationConfigItem) => { setEditingShift(s); setShowShiftModal(true); };
 
-  const handleWorkingTypeModalOpen = () => setShowWorkingTypeModal(true);
   const handleWorkingTypeModalClose = () => { setShowWorkingTypeModal(false); setEditingWorkingType(null); };
-  const handleWorkingTypeEdit = (w: OrganizationConfigItem) => { setEditingWorkingType(w); setShowWorkingTypeModal(true); };
-
-
-  // ── Fetch functions ─────────────────────────────────────────────────────────
 
   const fetchShifts = async () => {
     try {
@@ -139,8 +67,6 @@ const OrganizationConfigure = () => {
     finally { setLoading(false); }
   };
 
-  // ── Delete handler ──────────────────────────────────────────────────────────
-
   const handleDelete = async (id: string, type: 'SHIFT' | 'WORKING_TYPE') => {
     try {
       const confirmed = await deleteConfirmation(`Successfully deleted ${type.toLowerCase().replace('_', ' ')}`);
@@ -153,14 +79,10 @@ const OrganizationConfigure = () => {
     } catch (error) { console.error(`Error deleting ${type}:`, error); }
   };
 
-  // ── Effects ─────────────────────────────────────────────────────────────────
-
   useEffect(() => { fetchShifts(); fetchWorkingTypes(); }, []);
 
   useEventBus(EVENT_KEYS.organizationConfigCreated, () => { fetchShifts(); fetchWorkingTypes(); });
   useEventBus(EVENT_KEYS.organizationConfigUpdated, () => { fetchShifts(); fetchWorkingTypes(); });
-
-  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -168,7 +90,6 @@ const OrganizationConfigure = () => {
       <ConfigPageLayout>
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
 
-          {/* Shifts */}
           <ConfigSectionCard
             title="Shifts"
             description="Configure the shift types that employees are assigned to."
@@ -180,22 +101,26 @@ const OrganizationConfigure = () => {
             {shifts.length === 0
               ? <EmptyState label="shifts" />
               : (
-                <ChipGrid>
+                <ConfigChipGrid>
                   {shifts.map((s) => (
-                    <NameChip
-                      key={s.id} name={s.name}
+                    <ConfigColorChip
+                      key={s.id}
+                      name={s.name}
                       onEdit={() => handleShiftEdit(s)}
-                      onDelete={() => handleDelete(s.id, 'SHIFT')}
+                      action={{
+                        icon: 'bi-trash',
+                        title: `Delete ${s.name}`,
+                        danger: true,
+                        onClick: () => handleDelete(s.id, 'SHIFT'),
+                      }}
                     />
                   ))}
-                </ChipGrid>
+                </ConfigChipGrid>
               )
             }
           </ConfigSectionCard>
         </div>
       </ConfigPageLayout>
-
-      {/* ── Modals ──────────────────────────────────────────────────────────────── */}
 
       <OrganizationConfigureForm
         show={showShiftModal}

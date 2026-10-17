@@ -533,138 +533,38 @@ export function StatusCyclePill<T extends string>({
   );
 }
 
-export interface ViewModeOption<T extends string> {
-  value: T;
-  /** Bootstrap Icon class, e.g. `bi-grid-3x3-gap-fill`. */
-  icon: string;
-  /** Tooltip + accessible name, e.g. "Grid view". */
-  label: string;
-}
+// ViewModeSwitch + layout presets live in ./ViewModeSwitch — re-exported here so
+// older `from './patterns'` imports keep working. Prefer the kit barrel.
+export {
+  ViewModeSwitch,
+  CardsListViewSwitch,
+  GridListViewSwitch,
+  BoardListViewSwitch,
+  CardsTableViewSwitch,
+  KanbanTableViewSwitch,
+  DmsViewSwitch,
+  VIEW_MODE_ICONS,
+  CARDS_LIST_VIEW_OPTIONS,
+  GRID_LIST_VIEW_OPTIONS,
+  BOARD_LIST_VIEW_OPTIONS,
+  CARDS_TABLE_VIEW_OPTIONS,
+  KANBAN_TABLE_VIEW_OPTIONS,
+  DMS_VIEW_OPTIONS,
+  viewModeSwitchTrackSx,
+  viewModeSwitchButtonSx,
+} from './ViewModeSwitch';
+export type {
+  ViewModeOption,
+  ViewModeSwitchProps,
+  CardsListView,
+  GridListView,
+  BoardListView,
+  CardsTableView,
+  KanbanTableView,
+  DmsViewMode,
+} from './ViewModeSwitch';
 
-/**
- * Icon-only layout switch — the file-explorer grid/list control.
- *
- * The **standard** way to offer "same data, different layout" (documents vault,
- * employee roster). Use `SegmentedControl` instead when the choice has a *name*
- * worth reading — a status filter, a time period. A layout is recognised by its
- * glyph, and two words of chrome next to a real filter reads as a second filter.
- *
- * `icon` is a Bootstrap Icon CLASS, not an `AppIcon` name: the mapped keenicons
- * (`element-plus`, `text-align-left`) do not read as "grid" and "list", which is
- * the one thing an icon-only control has to get right.
- */
-export function ViewModeSwitch<T extends string>({
-  options,
-  value,
-  onChange,
-  ariaLabel,
-  sx,
-}: {
-  options: ReadonlyArray<ViewModeOption<T>>;
-  value: T;
-  onChange: (value: T) => void;
-  ariaLabel: string;
-  sx?: SxProps<Theme>;
-}) {
-  return (
-    <Box
-      role="group"
-      aria-label={ariaLabel}
-      sx={
-        [
-          {
-            display: "inline-flex",
-            p: 0.375,
-            gap: 0.375,
-            borderRadius: "10px",
-            border: "1px solid",
-            borderColor: "divider",
-            bgcolor: "action.hover",
-            flexShrink: 0,
-          },
-          ...(Array.isArray(sx) ? sx : [sx]),
-        ] as SxProps<Theme>
-      }
-    >
-      {options.map(({ value: optionValue, icon, label }) => {
-        const active = optionValue === value;
-        return (
-          <Box
-            key={optionValue}
-            component="button"
-            type="button"
-            aria-label={label}
-            aria-pressed={active}
-            title={label}
-            onClick={() => onChange(optionValue)}
-            sx={{
-              display: "grid",
-              placeItems: "center",
-              width: 30,
-              height: 26,
-              border: 0,
-              // Metronic's unlayered Bootstrap button rules outrank a utility class
-              // here, so the radius has to be stated in `sx` to hold.
-              borderRadius: "7px",
-              cursor: "pointer",
-              transition: "background-color .12s ease, color .12s ease",
-              bgcolor: active ? "background.paper" : "transparent",
-              color: active ? "text.primary" : "text.secondary",
-              boxShadow: active ? "0 1px 2px rgba(16, 24, 40, 0.10)" : "none",
-              "&:hover": { color: "text.primary" },
-            }}
-          >
-            <Box
-              component="i"
-              className={icon}
-              aria-hidden
-              sx={{ fontSize: 13 }}
-            />
-          </Box>
-        );
-      })}
-    </Box>
-  );
-}
-
-/**
- * Responsive auto-fit card grid — the **standard list/collection layout**. Fills wide screens with
- * as many columns as fit (so there's no dead whitespace / big right-hand gutter) and collapses
- * cleanly to a single column on mobile. `min` = each card's minimum width before the grid drops a
- * column. Reuse this instead of hand-rolling `gridTemplateColumns` breakpoints per feature.
- *
- *   <AutoGrid min={320}>{items.map(i => <GlassCard key={i.id} preset="row" …/>)}</AutoGrid>
- */
-export function AutoGrid({
-  children,
-  min = 300,
-  gap = 12,
-  sx,
-}: {
-  children: React.ReactNode;
-  min?: number;
-  gap?: number | string;
-  sx?: SxProps<Theme>;
-}) {
-  return (
-    <Box
-      sx={
-        [
-          {
-            display: "grid",
-            gap: typeof gap === "number" ? `${gap}px` : gap,
-            // `min(min, 100%)` clamps the track on very narrow screens so a card never forces horizontal scroll.
-            gridTemplateColumns: `repeat(auto-fit, minmax(min(${min}px, 100%), 1fr))`,
-            alignItems: "stretch",
-          },
-          ...(Array.isArray(sx) ? sx : [sx]),
-        ] as SxProps<Theme>
-      }
-    >
-      {children}
-    </Box>
-  );
-}
+export { AutoGrid } from './AutoGrid';
 
 /**
  * Standard list/page header: title (+ optional subtitle) on the left, actions on the right. Wraps

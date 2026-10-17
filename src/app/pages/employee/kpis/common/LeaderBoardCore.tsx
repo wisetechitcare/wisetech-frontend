@@ -17,6 +17,7 @@ import { EMPLOYEE } from "@constants/api-endpoint";
 import { sortKpiFactors } from "@utils/kpiSort";
 import { formatHours } from "./kpiUtils";
 import CommonCard from "@app/modules/common/components/CommonCard";
+import { ToneChip } from "@app/modules/common/components/ui";
 import { maleIcons } from "@metronic/assets/sidepanelicons";
 import { miscellaneousIcons } from "../../../../../_metronic/assets/miscellaneousicons";
 import { getKpiBehavior, KpiBehavior, normalizeScoreSign } from "@utils/kpiBehavior";
@@ -1832,7 +1833,7 @@ const KpiInfoModal = ({ show, onHide, factorsGroups }: any) => {
                 </p>
                 <div className="d-flex flex-wrap gap-2">
                   {factorsGroups.positive.map((f: any) => (
-                    <span key={f.id} className="badge badge-light-success border border-success border-opacity-20 px-3 py-2 fw-bold">{f.name}</span>
+                    <ToneChip key={f.id} dense tone="success" label={f.name} />
                   ))}
                 </div>
               </div>
@@ -1852,7 +1853,7 @@ const KpiInfoModal = ({ show, onHide, factorsGroups }: any) => {
                 </p>
                 <div className="d-flex flex-wrap gap-2">
                   {factorsGroups.negative.map((f: any) => (
-                    <span key={f.id} className="badge badge-light-danger border border-danger border-opacity-20 px-3 py-2 fw-bold">{f.name}</span>
+                    <ToneChip key={f.id} dense tone="danger" label={f.name} />
                   ))}
                 </div>
               </div>

@@ -18,7 +18,7 @@ import {
   Line,
   ComposedChart,
 } from "recharts";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { AppIcon, ToneChip } from '@app/modules/common/components/ui';
 import { getCurrencySymbol, getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { canSection } from "@utils/can";
 
@@ -136,20 +136,16 @@ const CustomTooltip = ({ active, payload, label, showFullDigits }: any) => {
           >
             VALUE CONVERSION
           </span>
-          <span
-            className="badge rounded-pill px-2 py-1"
-            style={{
-              fontSize: "10px",
-              backgroundColor: "#ECFDF5",
-              color: "#059669",
-              border: "1px solid #D1FAE5",
-            }}
-          >
-            {payload[0]?.value > 0
-              ? Math.round((payload[1]?.value / payload[0]?.value) * 100)
-              : 0}
-            % Efficiency
-          </span>
+          <ToneChip
+            dense
+            tone="success"
+            label={`${
+              payload[0]?.value > 0
+                ? Math.round((payload[1]?.value / payload[0]?.value) * 100)
+                : 0
+            }% Efficiency`}
+            sx={{ fontSize: '10px', height: 22 }}
+          />
         </div>
       </div>
     );

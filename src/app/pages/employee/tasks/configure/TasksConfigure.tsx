@@ -13,7 +13,9 @@
 //   deleteStakeholderService,
 // } from "@services/projects";
 
-import { ActionIconButton, AppIcon, ViewModeSwitch } from '@app/modules/common/components/ui';
+import {
+  ActionIconButton, AppIcon, GridListViewSwitch,
+} from '@app/modules/common/components/ui';
 import {
   getAllTasksStatus,
   createTasksStatus,
@@ -72,10 +74,6 @@ import {
 
 // Bootstrap Icon CLASSES, not AppIcon names: the mapped keenicons do not read as "grid" and
 // "list", which is the one thing an icon-only control has to get right.
-const STAGE_VIEW_OPTIONS = [
-  { value: 'grid' as const, icon: 'bi-grid-3x3-gap-fill', label: 'Grid view' },
-  { value: 'list' as const, icon: 'bi-list-ul', label: 'List view' },
-];
 
 import BillingRateCard from './BillingRateCard';
 
@@ -837,8 +835,7 @@ const TasksConfigure = () => {
                       onClick={() => handleScopeChange('')}
                     />
                   )}
-                  <ViewModeSwitch<StageView>
-                    options={STAGE_VIEW_OPTIONS}
+                  <GridListViewSwitch
                     value={stageView}
                     onChange={setStageView}
                     ariaLabel="Stage layout"

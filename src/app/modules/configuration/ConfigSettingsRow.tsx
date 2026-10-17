@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@mui/material/styles';
 import { C, FONT, SP, RADIUS, ICON_COLORS } from './ConfigDesignSystem';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 // From the module, not the ui barrel — see ConfigSectionCard.
@@ -33,12 +34,12 @@ export interface ConfigSettingsRowProps {
   loading?: boolean;
 }
 
-const Shimmer: React.FC<{ width?: string; height?: string; radius?: string }> = ({
-  width = '120px', height = '14px', radius = RADIUS.sm,
+const Shimmer: React.FC<{ width?: string; height?: string; radius?: string; pulseBg: string }> = ({
+  width = '120px', height = '14px', radius = RADIUS.sm, pulseBg,
 }) => (
   <div style={{
     width, height, borderRadius: radius,
-    backgroundColor: '#eef0f5',
+    backgroundColor: pulseBg,
     animation: 'cfgPulse 1.5s ease-in-out infinite',
   }} />
 );
@@ -48,8 +49,12 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
   value, actionLabel, actionIcon, onAction, rightContent, footer,
   active = false, disabled = false, compact = false, loading = false,
 }) => {
+  const theme = useTheme();
   const [hov, setHov] = useState(false);
   const [btnHov, setBtnHov] = useState(false);
+  const paper = theme.palette.background.paper;
+  const divider = theme.palette.divider;
+  const pulseBg = theme.palette.action.hover;
 
   const scheme = accentColor
     ? { color: accentColor, bg: accentBg ?? `${accentColor}14` }
@@ -66,12 +71,10 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: active ? activeTint : '#fff',
-        border: `1px solid ${hov ? '#d1d5e0' : C.border}`,
+        backgroundColor: active ? activeTint : paper,
+        border: `1px solid ${hov ? theme.palette.text.disabled : divider}`,
         borderRadius: RADIUS.xl,
-        boxShadow: hov
-          ? '0 6px 24px rgba(24,28,50,0.09)'
-          : '0 1px 6px rgba(24,28,50,0.04)',
+        boxShadow: hov ? theme.shadows[3] : theme.shadows[1],
         transition: 'all 0.18s ease',
         opacity: disabled ? 0.5 : 1,
         cursor: disabled ? 'not-allowed' : 'default',
@@ -123,8 +126,8 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
         <div style={{ minWidth: 0 }}>
           {loading ? (
             <>
-              <Shimmer width="160px" height="14px" />
-              {description && <div style={{ marginTop: '6px' }}><Shimmer width="220px" height="11px" /></div>}
+              <Shimmer width="160px" height="14px" pulseBg={pulseBg} />
+              {description && <div style={{ marginTop: '6px' }}><Shimmer width="220px" height="11px" pulseBg={pulseBg} /></div>}
             </>
           ) : (
             <>
@@ -132,7 +135,7 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
                 fontFamily: FONT.body,
                 fontWeight: 600,
                 fontSize: compact ? '13px' : '14px',
-                color: C.textPrimary,
+                color: theme.palette.text.primary,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 letterSpacing: '0.01em',
               }}>
@@ -145,7 +148,7 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
                   fontFamily: FONT.body,
                   fontWeight: 400,
                   fontSize: '12px',
-                  color: C.textMuted,
+                  color: theme.palette.text.secondary,
                   marginTop: '3px',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   lineHeight: 1.4,
@@ -161,7 +164,7 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
       {/* Right: value + action */}
       <div className="cfg-row-right" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         {loading ? (
-          <Shimmer width="80px" height="32px" radius={RADIUS.md} />
+          <Shimmer width="80px" height="32px" radius={RADIUS.md} pulseBg={pulseBg} />
         ) : (
           <>
             {value !== undefined && (
@@ -193,9 +196,9 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
                   fontFamily: FONT.body,
                   fontWeight: 500,
                   fontSize: '13px',
-                  color: btnHov ? C.primary : C.textSecondary,
-                  backgroundColor: btnHov ? C.primaryLight : '#fff',
-                  border: `1px solid ${btnHov ? 'rgba(30, 58, 138,0.25)' : C.border}`,
+                  color: btnHov ? C.primary : theme.palette.text.secondary,
+                  backgroundColor: btnHov ? C.primaryLight : paper,
+                  border: `1px solid ${btnHov ? 'rgba(30, 58, 138,0.25)' : divider}`,
                   borderRadius: RADIUS.md,
                   padding: '7px 16px',
                   cursor: disabled ? 'not-allowed' : 'pointer',
@@ -219,7 +222,7 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
       {footer && !loading && (
         <div style={{
           padding: compact ? '0 20px 14px' : '0 22px 18px',
-          borderTop: `1px solid ${C.border}`,
+          borderTop: `1px solid ${theme.palette.divider}`,
           paddingTop: compact ? '12px' : '14px',
           marginTop: '2px',
         }}>

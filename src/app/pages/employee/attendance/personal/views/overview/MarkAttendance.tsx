@@ -28,6 +28,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { Status } from "@constants/statistics";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 interface MarkAttendanceProps {
     variant?: 'default' | 'dashboard';
@@ -902,9 +903,7 @@ const getBlockingMessage = async () => {
                         </h4>
                         <p className="text-muted mb-0 fs-7">Let's record your hours for today.</p>
                     </div>
-                    <span className="badge badge-light-primary fw-semibold px-3 py-2 fs-8 rounded-pill">
-                        {formattedDate}
-                    </span>
+                    <ToneChip dense tone="brand" label={formattedDate} />
                 </div>
             ) : (
                 <div className="mb-6">

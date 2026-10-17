@@ -1,10 +1,13 @@
 /**
- * Tailwind UI kit — the re-platformed WiseTech glass design system.
+ * Tailwind UI twin — narrow surfaces already on TW (e.g. attendance calendar).
  *
- * Pure Tailwind + framer-motion, ZERO MUI. Same component names/props as the
- * legacy MUI kit (`@app/modules/common/components/ui`) so surfaces migrate by
- * changing the import path and dropping `sx` for `className`. This is the new
- * single source of truth going forward.
+ * Pure Tailwind + framer-motion, ZERO MUI. Names often mirror the MUI product
+ * kit (`@app/modules/common/components/ui`) but **props differ** (`className`
+ * vs `sx`) — the kits are not interchangeable.
+ *
+ * **Not the product SSOT.** Labelled forms, selects, dialogs, and new chrome
+ * belong in the MUI kit barrel. Do **not** expand this folder into a parallel
+ * Field/Select/Button form kit. See `../README.md` North star.
  */
 export { cn } from './cn';
 export { BRAND, SHADOW, TRIO, EASE } from './tokens';

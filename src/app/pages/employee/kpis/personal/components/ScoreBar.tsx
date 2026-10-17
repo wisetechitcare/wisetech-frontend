@@ -1,4 +1,5 @@
 import React from "react";
+import { ToneChip } from "@app/modules/common/components/ui";
 
 interface ScoreBarProps {
   score: number;
@@ -67,9 +68,13 @@ const ScoreBar: React.FC<ScoreBarProps> = ({ score, maxScore }) => {
             zIndex: 11
           }}
         >
-          <div className="badge badge-dark fw-bolder fs-8 px-2 py-1 shadow-sm border border-white border-opacity-10">
-            {parseFloat(score.toFixed(2))}
-          </div>
+          <ToneChip
+            dense
+            solid
+            tone="neutral"
+            label={String(parseFloat(score.toFixed(2)))}
+            sx={{ boxShadow: 1, border: '1px solid rgba(255,255,255,0.1)' }}
+          />
         </div>
       </div>
     </div>
