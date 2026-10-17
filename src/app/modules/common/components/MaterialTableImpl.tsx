@@ -710,8 +710,11 @@ function MaterialTable({
     () => [
       { label: "All Columns", value: "all" },
       ...effectiveSearchableColumns
-        .filter((col) => col.value !== "all")
-        .map((col) => ({ label: String(col.label), value: String(col.value) })),
+        .filter((col: SearchableColumn) => col.value !== "all")
+        .map((col: SearchableColumn) => ({
+          label: String(col.label),
+          value: String(col.value),
+        })),
     ],
     [effectiveSearchableColumns],
   );
