@@ -19,6 +19,7 @@ import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { SolidChip } from "@app/pages/billing/operations/TrackerCells";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
+import { formatCurrencyDecimal } from "@utils/currency";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import {
   getOverviewStats,
@@ -126,18 +127,19 @@ export default function Overview() {
   const fyLabel = fiscalYear ? `FY ${formatFiscalYearLabel(fiscalYear)}` : "…";
 
   const handoverSegments = useMemo<Segment[]>(() => {
-    const counts = {
+    const counts: Record<string, number> = {
       PENDING: stats.pending,
-      OUT: stats.out,
       DELIVERED: stats.delivered,
       SKIPPED: stats.skipped,
     };
-    return desk.config.deliveryStatuses.map((s) => ({
-      id: s.id,
-      label: s.name,
-      value: counts[s.id as keyof typeof counts] ?? 0,
-      color: deliveryStatusColor(desk.config, s.id),
-    }));
+    return desk.config.deliveryStatuses
+      .filter((s) => s.id !== "OUT")
+      .map((s) => ({
+        id: s.id,
+        label: s.name,
+        value: counts[s.id] ?? 0,
+        color: deliveryStatusColor(desk.config, s.id),
+      }));
   }, [desk.config, stats]);
 
   const giftRunStatusSegments = useMemo<Segment[]>(() => {
@@ -155,7 +157,7 @@ export default function Overview() {
   }, [desk.config, stats.drives]);
 
   const completionPct = useMemo(() => {
-    const total = stats.pending + stats.out + stats.delivered + stats.skipped;
+    const total = stats.pending + stats.delivered + stats.skipped;
     return total ? Math.round((stats.delivered / total) * 100) : 0;
   }, [stats]);
 
@@ -210,7 +212,8 @@ export default function Overview() {
           gridTemplateColumns: {
             xs: "1fr",
             sm: "1fr 1fr",
-            lg: "repeat(5, 1fr)",
+            lg: "repeat(3, 1fr)",
+            xl: "repeat(6, 1fr)",
           },
           mb: 3,
         }}
@@ -223,9 +226,15 @@ export default function Overview() {
         />
         <StatTile
           label="Pending handovers"
-          value={String(stats.pending + stats.out)}
+          value={String(stats.pending)}
           trio={TRIO.amber}
           icon="time"
+        />
+        <StatTile
+          label="Total amount"
+          value={formatCurrencyDecimal(stats.totalAmount ?? 0)}
+          trio={TRIO.cyan}
+          icon="bill"
         />
         <StatTile
           label="Delivered"

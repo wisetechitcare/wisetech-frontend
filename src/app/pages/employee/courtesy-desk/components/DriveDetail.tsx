@@ -51,10 +51,14 @@ import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import {
   addPeopleToDriveToApi,
   applyDriveAssigneeModeToApi,
+  archiveDriveToApi,
   bulkUpdateRecipientsToApi,
+  cloneDriveToApi,
+  deleteDriveToApi,
   getDrive,
   refreshDriveFromApi,
   removePeopleFromDriveToApi,
+  unarchiveDriveToApi,
   updateDriveMetaToApi,
   updateRecipientToApi,
 } from "../store/courtesyDeskStore";
@@ -65,7 +69,13 @@ import type {
   PersonRef,
   SkippedReason,
 } from "../types";
-import { GIFT_RUN_LABEL, deliveryStatusColor, occasionLabel } from "../types";
+import { formatCurrencyDecimal } from "@utils/currency";
+import {
+  GIFT_RUN_LABEL,
+  deliveryStatusColor,
+  giftRunTotalAmount,
+  occasionLabel,
+} from "../types";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import PersonPicker, {
   MemberTypeChip,
@@ -499,9 +509,9 @@ export default function DriveDetail() {
     const total = recipients.length;
     const delivered = recipients.filter((r) => r.status === "DELIVERED").length;
     const pending = recipients.filter((r) => r.status === "PENDING").length;
-    const out = recipients.filter((r) => r.status === "OUT").length;
     const skipped = recipients.filter((r) => r.status === "SKIPPED").length;
-    return { total, delivered, pending, out, skipped };
+    const amount = giftRunTotalAmount(drive);
+    return { total, delivered, pending, skipped, amount };
   }, [drive]);
 
   const statusOverview = useMemo(() => {
@@ -581,11 +591,28 @@ export default function DriveDetail() {
     void updateRecipientToApi(driveId, recipientId, patch).catch(toastApiErr);
   };
 
+  const tableAmountTotal = useMemo(() => {
+    if (!drive) return 0;
+    const cost = Number(drive.costPerGift);
+    if (!Number.isFinite(cost) || cost < 0) return 0;
+    return tableRows.reduce(
+      (sum, r) => sum + cost * Math.max(1, r.quantity || 1),
+      0,
+    );
+  }, [drive, tableRows]);
+
   const columns = useMemo<MRT_ColumnDef<CourtesyRecipient>[]>(() => {
+    const unitCost = Number(drive?.costPerGift);
+    const hasCost = Number.isFinite(unitCost) && unitCost >= 0;
     return [
       {
         accessorKey: "fullName",
         header: "Person",
+        Footer: () => (
+          <Typography fontWeight={800} sx={{ fontSize: "0.8rem" }}>
+            TOTAL
+          </Typography>
+        ),
         Cell: ({ row }) => {
           const r = row.original;
           const href =
@@ -707,6 +734,27 @@ export default function DriveDetail() {
             }}
             sx={{ width: 80 }}
           />
+        ),
+      },
+      {
+        id: "amount",
+        header: "Amount",
+        size: 120,
+        accessorFn: (r) =>
+          hasCost ? unitCost * Math.max(1, r.quantity || 1) : 0,
+        Cell: ({ row }) => (
+          <Typography fontWeight={700} sx={{ fontSize: "0.875rem" }}>
+            {formatCurrencyDecimal(
+              hasCost
+                ? unitCost * Math.max(1, row.original.quantity || 1)
+                : 0,
+            )}
+          </Typography>
+        ),
+        Footer: () => (
+          <Typography fontWeight={800} sx={{ fontSize: "0.8rem" }}>
+            {formatCurrencyDecimal(tableAmountTotal)}
+          </Typography>
         ),
       },
       {
@@ -845,6 +893,7 @@ export default function DriveDetail() {
     recipientDesignation,
     recipientGender,
     runEditable,
+    tableAmountTotal,
   ]);
 
   if (!drive) {
@@ -1144,10 +1193,15 @@ export default function DriveDetail() {
                     status === "COMPLETED" ||
                     status === "ARCHIVED" ||
                     !isGiftRunEditable(drive.status);
-                  const apply = () =>
-                    void updateDriveMetaToApi(drive.id, { status })
+                  const apply = () => {
+                    const request =
+                      status === "ARCHIVED"
+                        ? archiveDriveToApi(drive.id)
+                        : updateDriveMetaToApi(drive.id, { status });
+                    void request
                       .then(() => toast.success("Gift run status updated"))
                       .catch((err: unknown) => toastApiErr(err));
+                  };
                   if (!needsConfirm) {
                     apply();
                     return;
@@ -1173,6 +1227,106 @@ export default function DriveDetail() {
                   Edit
                 </Button>
               ) : null}
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<AppIcon name="bi-copy" />}
+                onClick={() => {
+                  const title = window.prompt(
+                    `New ${GIFT_RUN_LABEL} title`,
+                    `${drive.title} (copy)`,
+                  );
+                  if (!title) return;
+                  void cloneDriveToApi(drive.id, title)
+                    .then((cloned) => {
+                      toast.success(`${GIFT_RUN_LABEL} cloned.`);
+                      navigate(
+                        `${GIFT_MANAGEMENT_BASE}/drives/${cloned.id}`,
+                      );
+                    })
+                    .catch((err: unknown) => toastApiErr(err));
+                }}
+              >
+                Clone
+              </Button>
+              {drive.status === "ARCHIVED" ? (
+                <>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="success"
+                    startIcon={<AppIcon name="bi-arrow-counterclockwise" />}
+                    onClick={() => {
+                      void ask({
+                        variant: "confirm",
+                        title: `Unarchive ${GIFT_RUN_LABEL}`,
+                        message: `Move “${drive.title}” out of archive back to its previous status?`,
+                        confirmLabel: "Unarchive",
+                        icon: "archive",
+                      }).then((ok) => {
+                        if (!ok) return;
+                        void unarchiveDriveToApi(drive.id)
+                          .then(() =>
+                            toast.success(`${GIFT_RUN_LABEL} unarchived.`),
+                          )
+                          .catch((err: unknown) => toastApiErr(err));
+                      });
+                    }}
+                  >
+                    Unarchive
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    startIcon={<AppIcon name="bi-trash" />}
+                    onClick={() => {
+                      void ask({
+                        variant: "delete",
+                        title: `Delete ${GIFT_RUN_LABEL}`,
+                        message: `Permanently delete “${drive.title}”? This cannot be undone.`,
+                        confirmLabel: "Delete permanently",
+                        icon: "trash",
+                      }).then((ok) => {
+                        if (!ok) return;
+                        void deleteDriveToApi(drive.id)
+                          .then(() => {
+                            toast.success(`${GIFT_RUN_LABEL} deleted.`);
+                            navigate(`${GIFT_MANAGEMENT_BASE}/drives`);
+                          })
+                          .catch((err: unknown) => toastApiErr(err));
+                      });
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="warning"
+                  startIcon={<AppIcon name="bi-archive" />}
+                  onClick={() => {
+                    void ask({
+                      variant: "delete",
+                      title: `Archive ${GIFT_RUN_LABEL}`,
+                      message: `Archive “${drive.title}”? You can unarchive it later.`,
+                      confirmLabel: "Archive",
+                      icon: "archive",
+                    }).then((ok) => {
+                      if (!ok) return;
+                      void archiveDriveToApi(drive.id)
+                        .then(() =>
+                          toast.success(`${GIFT_RUN_LABEL} archived.`),
+                        )
+                        .catch((err: unknown) => toastApiErr(err));
+                    });
+                  }}
+                >
+                  Archive
+                </Button>
+              )}
               <GiftHistoryButton kind="drive" id={drive.id} />
             </Stack>
           </Stack>
@@ -1180,6 +1334,9 @@ export default function DriveDetail() {
             {occasionLabel(desk.config, drive.occasionType)}
             {drive.giftItem ? ` · ${drive.giftItem}` : ""}
             {drive.driveDate ? ` · ${drive.driveDate}` : ""}
+            {drive.costPerGift != null
+              ? ` · Cost per gift ${formatCurrencyDecimal(Number(drive.costPerGift))}`
+              : ""}
           </Typography>
           <Typography variant="h6" fontWeight={700} color="text.secondary">
             Group:{" "}
@@ -1220,10 +1377,10 @@ export default function DriveDetail() {
             icon="time"
           />
           <StatTile
-            label="Out"
-            value={String(runStats.out)}
+            label="Total amount"
+            value={formatCurrencyDecimal(runStats.amount)}
             trio={TRIO.cyan}
-            icon="delivery"
+            icon="bill"
           />
           <StatTile
             label="Delivered"
@@ -1468,6 +1625,7 @@ export default function DriveDetail() {
         enableFilters={false}
         enableGrouping={false}
         enableRowSelection={runEditable}
+        showColumnFooter
         onSelectedRowsChange={setSelectedRows}
         renderTopToolbarRightActions={() => toolbarFilters}
         muiTableProps={{

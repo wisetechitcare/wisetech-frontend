@@ -29,9 +29,7 @@ function filterRecipients(
     case "ALL":
       return drive.recipients;
     case "PENDING":
-      return drive.recipients.filter(
-        (r) => r.status === "PENDING" || r.status === "OUT",
-      );
+      return drive.recipients.filter((r) => r.status === "PENDING");
     case "DELIVERED":
       return drive.recipients.filter((r) => r.status === "DELIVERED");
     default: {

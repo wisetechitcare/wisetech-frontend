@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -12,6 +12,7 @@ import {
 import { KTIcon } from "@metronic/helpers";
 import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
+import { formatCurrencyDecimal } from "@utils/currency";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
 import {
   ConfirmDialog,
@@ -70,6 +71,7 @@ export function DriveCreateModal({
     new Date().toISOString().slice(0, 10),
   );
   const [defaultQuantity, setDefaultQuantity] = useState(1);
+  const [costPerGift, setCostPerGift] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -80,7 +82,24 @@ export function DriveCreateModal({
     setGiftItem("");
     setDriveDate(new Date().toISOString().slice(0, 10));
     setDefaultQuantity(1);
+    setCostPerGift("");
   }, [open, presetGroupId]);
+
+  const previewQty = useMemo(() => {
+    const g = groups.find((x) => x.id === groupId);
+    if (!g?.members.length) return 0;
+    const fallback = Math.max(1, defaultQuantity || 1);
+    return g.members.reduce(
+      (sum, m) => sum + Math.max(1, m.giftQuantity || fallback),
+      0,
+    );
+  }, [groups, groupId, defaultQuantity]);
+
+  const previewCost = Number(costPerGift);
+  const previewTotal =
+    Number.isFinite(previewCost) && previewCost >= 0
+      ? previewCost * previewQty
+      : 0;
 
   const onCreate = (e: FormEvent) => {
     e.preventDefault();
@@ -92,6 +111,13 @@ export function DriveCreateModal({
       if (!giftItem.trim()) throw new Error("Gift item is required.");
       if (!occasionType)
         throw new Error("Choose an occasion (add new ones under Configure).");
+      const cost =
+        costPerGift.trim() === ""
+          ? null
+          : Number(costPerGift);
+      if (cost !== null && (!Number.isFinite(cost) || cost < 0)) {
+        throw new Error("Cost per gift must be a valid number.");
+      }
       void createDriveToApi({
         title,
         occasionType,
@@ -99,6 +125,7 @@ export function DriveCreateModal({
         driveDate,
         sourceGroupId: groupId,
         defaultQuantity: Math.max(1, defaultQuantity || 1),
+        costPerGift: cost,
       })
         .then((drive) => {
           toast.success(`${GIFT_RUN_LABEL} created`);
@@ -232,6 +259,21 @@ export function DriveCreateModal({
               fullWidth
               sx={fieldHeightSx}
             />
+            <TextField
+              type="number"
+              label="Cost per gift"
+              value={costPerGift}
+              onChange={(e) => setCostPerGift(e.target.value)}
+              placeholder="e.g. 250"
+              inputProps={{ min: 0, step: "0.01" }}
+              fullWidth
+              sx={fieldHeightSx}
+              helperText={
+                costPerGift.trim() !== "" && previewQty > 0
+                  ? `Total amount: ${formatCurrencyDecimal(previewTotal)} (${formatCurrencyDecimal(previewCost)} × ${previewQty})`
+                  : "Optional — total = cost × gift quantities"
+              }
+            />
           </Stack>
         )}
 
@@ -271,6 +313,7 @@ export function DriveEditModal({ open, drive, onClose }: DriveEditModalProps) {
   const [giftItem, setGiftItem] = useState("");
   const [occasionType, setOccasionType] = useState("");
   const [driveDate, setDriveDate] = useState("");
+  const [costPerGift, setCostPerGift] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -281,8 +324,27 @@ export function DriveEditModal({ open, drive, onClose }: DriveEditModalProps) {
     setGiftItem(drive.giftItem);
     setOccasionType(drive.occasionType);
     setDriveDate(drive.driveDate || "");
+    setCostPerGift(
+      drive.costPerGift !== null && drive.costPerGift !== undefined
+        ? String(drive.costPerGift)
+        : "",
+    );
     setConfirmOpen(false);
   }, [open, drive]);
+
+  const editPreviewQty = useMemo(
+    () =>
+      (drive?.recipients ?? []).reduce(
+        (sum, r) => sum + Math.max(1, r.quantity || 1),
+        0,
+      ),
+    [drive],
+  );
+  const editCost = Number(costPerGift);
+  const editTotal =
+    Number.isFinite(editCost) && editCost >= 0
+      ? editCost * editPreviewQty
+      : 0;
 
   const onSubmitForm = (e: FormEvent) => {
     e.preventDefault();
@@ -310,6 +372,12 @@ export function DriveEditModal({ open, drive, onClose }: DriveEditModalProps) {
 
   const onConfirmPersist = () => {
     if (!drive) return;
+    const cost =
+      costPerGift.trim() === "" ? null : Number(costPerGift);
+    if (cost !== null && (!Number.isFinite(cost) || cost < 0)) {
+      toast.error("Cost per gift must be a valid number.");
+      return;
+    }
     setSaving(true);
     void updateDriveMetaToApi(drive.id, {
       title: title.trim(),
@@ -317,6 +385,7 @@ export function DriveEditModal({ open, drive, onClose }: DriveEditModalProps) {
       occasionType,
       driveDate: driveDate || undefined,
       sourceGroupId: groupId,
+      costPerGift: cost,
     })
       .then(() => {
         toast.success(
@@ -411,6 +480,21 @@ export function DriveEditModal({ open, drive, onClose }: DriveEditModalProps) {
               onChange={(v) => setDriveDate(v || "")}
               fullWidth
               sx={fieldHeightSx}
+            />
+            <TextField
+              type="number"
+              label="Cost per gift"
+              value={costPerGift}
+              onChange={(e) => setCostPerGift(e.target.value)}
+              placeholder="e.g. 250"
+              inputProps={{ min: 0, step: "0.01" }}
+              fullWidth
+              sx={fieldHeightSx}
+              helperText={
+                costPerGift.trim() !== "" && editPreviewQty > 0
+                  ? `Total amount: ${formatCurrencyDecimal(editTotal)} (${formatCurrencyDecimal(editCost)} × ${editPreviewQty})`
+                  : "Optional — total = cost × gift quantities"
+              }
             />
           </Stack>
           <Stack

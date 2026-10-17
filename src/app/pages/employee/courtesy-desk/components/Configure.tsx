@@ -234,6 +234,7 @@ export default function Configure() {
         title="Occasion"
         nameLabel="Occasion name"
         initial={editing}
+        existing={desk.config.occasions}
         onSave={(o) => runConfig(saveOccasionToApi(o), "Saved.")}
       />
       <GiftConfigOptionModal
@@ -242,6 +243,7 @@ export default function Configure() {
         title="Delivery status"
         nameLabel="Status name"
         initial={editing}
+        existing={desk.config.deliveryStatuses}
         onSave={(o) => runConfig(saveDeliveryStatusToApi(o), "Saved.")}
       />
       <GiftConfigOptionModal
@@ -250,6 +252,7 @@ export default function Configure() {
         title="Gift Run status"
         nameLabel="Status name"
         initial={editing}
+        existing={desk.config.giftRunStatuses}
         onSave={(o) => runConfig(saveGiftRunStatusToApi(o), "Saved.")}
       />
       <GiftConfigOptionModal
@@ -258,6 +261,7 @@ export default function Configure() {
         title="Mode"
         nameLabel="Mode name"
         initial={editing}
+        existing={desk.config.deliveryModes}
         onSave={(o) => runConfig(saveDeliveryModeToApi(o), "Saved.")}
       />
     </>

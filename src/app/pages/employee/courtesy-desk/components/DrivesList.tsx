@@ -26,12 +26,20 @@ import {
 import { SolidChip } from "@app/pages/billing/operations/TrackerCells";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
-import { listDrives, updateDriveMetaToApi } from "../store/courtesyDeskStore";
+import {
+  archiveDriveToApi,
+  cloneDriveToApi,
+  deleteDriveToApi,
+  listDrives,
+  unarchiveDriveToApi,
+} from "../store/courtesyDeskStore";
+import { formatCurrencyDecimal } from "@utils/currency";
 import type { CourtesyDrive } from "../types";
 import {
   GIFT_RUN_LABEL,
   GIFT_RUN_LABEL_PLURAL,
   giftRunStatusColor,
+  giftRunTotalAmount,
   occasionLabel,
 } from "../types";
 import {
@@ -93,6 +101,11 @@ export default function DrivesList() {
     });
   }, [drives, occasionFilter, giftRunStatusFilter]);
 
+  const filteredAmountTotal = useMemo(
+    () => filteredDrives.reduce((sum, d) => sum + giftRunTotalAmount(d), 0),
+    [filteredDrives],
+  );
+
   const columns = useMemo<MRT_ColumnDef<CourtesyDrive>[]>(
     () => [
       {
@@ -100,6 +113,11 @@ export default function DrivesList() {
         header: "Title",
         Cell: ({ cell }) => (
           <Typography fontWeight={700}>{cell.getValue<string>()}</Typography>
+        ),
+        Footer: () => (
+          <Typography fontWeight={800} sx={{ fontSize: "0.8rem" }}>
+            TOTAL
+          </Typography>
         ),
       },
       { accessorKey: "giftItem", header: "Gift" },
@@ -129,6 +147,22 @@ export default function DrivesList() {
           r.recipients.reduce((sum, x) => sum + (x.quantity || 1), 0),
       },
       {
+        id: "amount",
+        header: "Amount",
+        size: 120,
+        accessorFn: (r) => giftRunTotalAmount(r),
+        Cell: ({ row }) => (
+          <Typography fontWeight={700} sx={{ fontSize: "0.875rem" }}>
+            {formatCurrencyDecimal(giftRunTotalAmount(row.original))}
+          </Typography>
+        ),
+        Footer: () => (
+          <Typography fontWeight={800} sx={{ fontSize: "0.8rem" }}>
+            {formatCurrencyDecimal(filteredAmountTotal)}
+          </Typography>
+        ),
+      },
+      {
         accessorKey: "status",
         header: "Gift Run status",
         size: 150,
@@ -143,7 +177,7 @@ export default function DrivesList() {
         },
       },
       actionsColumn({
-        size: 100,
+        size: 160,
         Cell: ({ row }) => {
           const d = row.original;
           const archived = d.status === "ARCHIVED";
@@ -163,31 +197,86 @@ export default function DrivesList() {
                   onClick={() => setEditDrive(d)}
                 />
               ) : null}
+              <ActionIconButton
+                iconName="copy"
+                title={`Clone ${GIFT_RUN_LABEL}`}
+                size="sm"
+                tone="brand"
+                onClick={() => {
+                  const title = window.prompt(
+                    `New ${GIFT_RUN_LABEL} title`,
+                    `${d.title} (copy)`,
+                  );
+                  if (!title) return;
+                  void cloneDriveToApi(d.id, title)
+                    .then((cloned) => {
+                      toast.success(`${GIFT_RUN_LABEL} cloned.`);
+                      navigate(
+                        `${GIFT_MANAGEMENT_BASE}/drives/${cloned.id}`,
+                      );
+                    })
+                    .catch((err: unknown) =>
+                      toast.error(
+                        apiErrorMessage(err, "Something went wrong"),
+                      ),
+                    );
+                }}
+              />
               {archived ? (
-                <ActionIconButton
-                  icon={<UnarchiveOutlinedIcon sx={{ fontSize: 18 }} />}
-                  title={`Restore ${GIFT_RUN_LABEL}`}
-                  size="sm"
-                  tone="success"
-                  onClick={() => {
-                    void ask({
-                      variant: "confirm",
-                      title: `Restore ${GIFT_RUN_LABEL}`,
-                      message: `Are you sure you want to restore this gift run from archive?`,
-                      confirmLabel: "Restore",
-                      icon: "archive",
-                    }).then((ok) => {
-                      if (!ok) return;
-                      void updateDriveMetaToApi(d.id, { status: "COMPLETED" })
-                        .then(() => toast.success("Gift run restored."))
-                        .catch((err: unknown) =>
-                          toast.error(
-                            apiErrorMessage(err, "Something went wrong"),
-                          ),
-                        );
-                    });
-                  }}
-                />
+                <>
+                  <ActionIconButton
+                    icon={<UnarchiveOutlinedIcon sx={{ fontSize: 18 }} />}
+                    title={`Unarchive ${GIFT_RUN_LABEL}`}
+                    size="sm"
+                    tone="success"
+                    onClick={() => {
+                      void ask({
+                        variant: "confirm",
+                        title: `Unarchive ${GIFT_RUN_LABEL}`,
+                        message: `Move “${d.title}” out of archive back to its previous status?`,
+                        confirmLabel: "Unarchive",
+                        icon: "archive",
+                      }).then((ok) => {
+                        if (!ok) return;
+                        void unarchiveDriveToApi(d.id)
+                          .then(() =>
+                            toast.success(`${GIFT_RUN_LABEL} unarchived.`),
+                          )
+                          .catch((err: unknown) =>
+                            toast.error(
+                              apiErrorMessage(err, "Something went wrong"),
+                            ),
+                          );
+                      });
+                    }}
+                  />
+                  <ActionIconButton
+                    iconName="trash"
+                    title={`Delete ${GIFT_RUN_LABEL}`}
+                    size="sm"
+                    tone="danger"
+                    onClick={() => {
+                      void ask({
+                        variant: "delete",
+                        title: `Delete ${GIFT_RUN_LABEL}`,
+                        message: `Permanently delete “${d.title}”? This cannot be undone.`,
+                        confirmLabel: "Delete permanently",
+                        icon: "trash",
+                      }).then((ok) => {
+                        if (!ok) return;
+                        void deleteDriveToApi(d.id)
+                          .then(() =>
+                            toast.success(`${GIFT_RUN_LABEL} deleted.`),
+                          )
+                          .catch((err: unknown) =>
+                            toast.error(
+                              apiErrorMessage(err, "Something went wrong"),
+                            ),
+                          );
+                      });
+                    }}
+                  />
+                </>
               ) : (
                 <ActionIconButton
                   icon={<ArchiveOutlinedIcon sx={{ fontSize: 18 }} />}
@@ -198,13 +287,15 @@ export default function DrivesList() {
                     void ask({
                       variant: "delete",
                       title: `Archive ${GIFT_RUN_LABEL}`,
-                      message: `Are you sure you want to archive this gift run? You can restore it later.`,
+                      message: `Archive “${d.title}”? You can unarchive it later.`,
                       confirmLabel: "Archive",
                       icon: "archive",
                     }).then((ok) => {
                       if (!ok) return;
-                      void updateDriveMetaToApi(d.id, { status: "ARCHIVED" })
-                        .then(() => toast.success("Gift run archived."))
+                      void archiveDriveToApi(d.id)
+                        .then(() =>
+                          toast.success(`${GIFT_RUN_LABEL} archived.`),
+                        )
                         .catch((err: unknown) =>
                           toast.error(
                             apiErrorMessage(err, "Something went wrong"),
@@ -219,7 +310,7 @@ export default function DrivesList() {
         },
       }),
     ],
-    [ask, desk.config, giftRunStatuses],
+    [ask, desk.config, filteredAmountTotal, giftRunStatuses, navigate],
   );
 
   const rowStatusTint = (statusId: string) => {
@@ -301,6 +392,7 @@ export default function DrivesList() {
         enableFilters={false}
         enableGrouping={false}
         enableStatusColorCoding={false}
+        showColumnFooter
         renderTopToolbarRightActions={() => toolbarFilters}
         muiTablePaperStyle={{
           borderRadius: `${T.radius.lg}px`,
