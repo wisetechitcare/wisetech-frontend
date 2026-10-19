@@ -32,6 +32,11 @@ export const updateCompanyAgendaCategory = async (
   return data;
 };
 
+export const deleteCompanyAgendaCategory = async (categoryId: string) => {
+  const { data } = await axios.delete(`${meetingsRoot}/agenda-categories/${categoryId}`);
+  return data;
+};
+
 export const getCompanyMeetingPurposes = async () => {
   const { data } = await axios.get(`${meetingsRoot}/purposes`);
   return data;
@@ -54,6 +59,11 @@ export const updateCompanyMeetingPurpose = async (
   return data;
 };
 
+export const deleteCompanyMeetingPurpose = async (purposeId: string) => {
+  const { data } = await axios.delete(`${meetingsRoot}/purposes/${purposeId}`);
+  return data;
+};
+
 export const getMeetingDetail = async (meetingId: string) => {
   const { data } = await axios.get(`${base(meetingId)}/detail`);
   return data;
@@ -64,11 +74,6 @@ export const updateMeetingPurpose = async (
   payload: { purposeCode?: string | null; purposeOtherText?: string | null },
 ) => {
   const { data } = await axios.patch(`${base(meetingId)}/purpose`, payload);
-  return data;
-};
-
-export const confirmMeetingHeld = async (meetingId: string) => {
-  const { data } = await axios.post(`${base(meetingId)}/confirm-held`);
   return data;
 };
 

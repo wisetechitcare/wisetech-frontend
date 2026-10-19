@@ -1,16 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
 import { WtButton, WtSwitch } from '@app/modules/common/components/ui';
 import {
+  ConfigSectionCard,
+  ConfigColorChip,
+  ConfigChipGrid,
+} from '@app/modules/configuration';
+import {
   createCompanyAgendaCategory,
   createCompanyMeetingPurpose,
+  deleteCompanyAgendaCategory,
+  deleteCompanyMeetingPurpose,
   getCompanyAgendaCategories,
   getCompanyMeetingPurposes,
   updateCompanyAgendaCategory,
@@ -18,18 +29,44 @@ import {
 } from '@services/meetingAgendaMom';
 import { MeetingsAppearancePanel } from '../../calendar/views/CalendarConfigure';
 
+const CHIP_COLORS = [
+  '#F59E0B',
+  '#8B5CF6',
+  '#EF4444',
+  '#14B8A6',
+  '#3B82F6',
+  '#EC4899',
+  '#10B981',
+  '#6366F1',
+];
+
+type EditTarget =
+  | { kind: 'category'; id: string; name: string; isActive: boolean }
+  | { kind: 'purpose'; id: string; name: string; isActive: boolean; requiresOther?: boolean }
+  | null;
+
+function byNameAz<T extends { name: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+}
+
 /**
- * Meetings → Configure: calendar appearance (moved from Calendar → Configure → Meetings),
- * agenda categories, and configurable meeting purposes.
+ * Meetings → Configure: calendar appearance, agenda categories, meeting purposes.
+ * Categories / purposes match Leads Configure chip UI (rail + edit/delete).
  */
 export default function MeetingsConfigureTab() {
   const [categories, setCategories] = useState<any[]>([]);
   const [purposes, setPurposes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [name, setName] = useState('');
-  const [purposeName, setPurposeName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [edit, setEdit] = useState<EditTarget>(null);
+  const [editName, setEditName] = useState('');
+  const [editActive, setEditActive] = useState(true);
+  const [createKind, setCreateKind] = useState<'category' | 'purpose' | null>(null);
+  const [createName, setCreateName] = useState('');
+
+  const sortedCategories = useMemo(() => byNameAz(categories), [categories]);
+  const sortedPurposes = useMemo(() => byNameAz(purposes), [purposes]);
 
   const load = async () => {
     const [cats, purps] = await Promise.all([
@@ -52,60 +89,85 @@ export default function MeetingsConfigureTab() {
     })();
   }, []);
 
-  const addCategory = async () => {
-    if (!name.trim()) return;
+  const openEdit = (target: NonNullable<EditTarget>) => {
+    setEdit(target);
+    setEditName(target.name);
+    setEditActive(!!target.isActive);
+  };
+
+  const saveEdit = async () => {
+    if (!edit || !editName.trim()) return;
     setBusy(true);
     try {
-      await createCompanyAgendaCategory({ name: name.trim() });
-      setName('');
+      if (edit.kind === 'category') {
+        await updateCompanyAgendaCategory(edit.id, {
+          name: editName.trim(),
+          isActive: editActive,
+        });
+      } else {
+        await updateCompanyMeetingPurpose(edit.id, {
+          name: editName.trim(),
+          isActive: editActive,
+        });
+      }
+      setEdit(null);
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not create category');
+      setError(e?.response?.data?.message || 'Could not save');
     } finally {
       setBusy(false);
     }
   };
 
-  const toggleCategory = async (cat: any) => {
+  const createItem = async () => {
+    if (!createKind || !createName.trim()) return;
     setBusy(true);
     try {
-      await updateCompanyAgendaCategory(cat.id, { isActive: !cat.isActive });
+      if (createKind === 'category') {
+        await createCompanyAgendaCategory({ name: createName.trim() });
+      } else {
+        await createCompanyMeetingPurpose({ name: createName.trim() });
+      }
+      setCreateKind(null);
+      setCreateName('');
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not update category');
+      setError(e?.response?.data?.message || 'Could not create');
     } finally {
       setBusy(false);
     }
   };
 
-  const addPurpose = async () => {
-    if (!purposeName.trim()) return;
+  const removeCategory = async (cat: any) => {
+    if (!window.confirm(`Delete category “${cat.name}”? Agenda items using it will keep their text.`)) {
+      return;
+    }
     setBusy(true);
     try {
-      await createCompanyMeetingPurpose({ name: purposeName.trim() });
-      setPurposeName('');
+      await deleteCompanyAgendaCategory(cat.id);
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not create purpose');
+      setError(e?.response?.data?.message || 'Could not delete category');
     } finally {
       setBusy(false);
     }
   };
 
-  const togglePurpose = async (purpose: any) => {
+  const removePurpose = async (purpose: any) => {
+    if (!window.confirm(`Delete purpose “${purpose.name}”?`)) return;
     setBusy(true);
     try {
-      await updateCompanyMeetingPurpose(purpose.id, { isActive: !purpose.isActive });
+      await deleteCompanyMeetingPurpose(purpose.id);
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not update purpose');
+      setError(e?.response?.data?.message || 'Could not delete purpose');
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Box className="px-lg-0 px-2 pt-4" sx={{ pb: 4 }}>
+    <Box className="px-lg-0 px-2 pt-4" sx={{ pb: 4, maxWidth: 1100 }}>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
@@ -118,128 +180,176 @@ export default function MeetingsConfigureTab() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
         Visibility, half-day colours, status colours and related calendar appearance for meetings.
       </Typography>
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: 3 }}>
         <MeetingsAppearancePanel />
       </Box>
 
-      <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-        Agenda categories
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Company-specific headings for Minutes of Meeting.
-      </Typography>
-
       {loading ? (
-        <CircularProgress size={24} sx={{ mb: 3 }} />
+        <CircularProgress size={24} />
       ) : (
-        <>
-          <Stack direction="row" spacing={1} sx={{ mb: 2, maxWidth: 720 }}>
-            <TextField
-              size="small"
-              label="New category"
-              fullWidth
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <WtButton size="small" disabled={busy || !name.trim()} onClick={addCategory}>
-              Add
-            </WtButton>
-          </Stack>
-
-          <Stack spacing={1} sx={{ mb: 4, maxWidth: 720 }}>
-            {categories.map((cat) => (
-              <Box
-                key={cat.id}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  p: 1.5,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                }}
-              >
-                <Typography>
-                  {cat.name}
-                  <Typography component="span" variant="body2" color="text.secondary">
-                    {' '}
-                    · order {cat.sortOrder}
-                  </Typography>
-                </Typography>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Typography variant="body2" color="text.secondary">
-                    Active
-                  </Typography>
-                  <WtSwitch
-                    checked={!!cat.isActive}
+        <Stack spacing={2.5}>
+          <ConfigSectionCard
+            title="Agenda categories"
+            description="Company-specific headings used on agenda items and Minutes of Meeting."
+            icon="bi-list-ul"
+            iconColor="blue"
+            primaryAction={{
+              label: 'New category',
+              icon: 'bi-plus-lg',
+              onClick: () => {
+                setCreateName('');
+                setCreateKind('category');
+              },
+              variant: 'primary',
+              disabled: busy,
+            }}
+          >
+            {sortedCategories.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                No categories yet — add one to use on agenda items.
+              </Typography>
+            ) : (
+              <ConfigChipGrid>
+                {sortedCategories.map((cat, i) => (
+                  <ConfigColorChip
+                    key={cat.id}
+                    name={cat.name}
+                    color={CHIP_COLORS[i % CHIP_COLORS.length]}
+                    badge={cat.isActive ? undefined : 'Inactive'}
                     disabled={busy}
-                    onChange={() => toggleCategory(cat)}
-                    size="sm"
+                    onEdit={() =>
+                      openEdit({
+                        kind: 'category',
+                        id: cat.id,
+                        name: cat.name,
+                        isActive: !!cat.isActive,
+                      })
+                    }
+                    action={{
+                      icon: 'bi-trash',
+                      title: `Delete ${cat.name}`,
+                      danger: true,
+                      onClick: () => removeCategory(cat),
+                    }}
                   />
-                </Stack>
-              </Box>
-            ))}
-          </Stack>
+                ))}
+              </ConfigChipGrid>
+            )}
+          </ConfigSectionCard>
 
-          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-            Meeting purposes
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Used on meeting detail. Title remains the separate calendar/list name.
-          </Typography>
-
-          <Stack direction="row" spacing={1} sx={{ mb: 2, maxWidth: 720 }}>
-            <TextField
-              size="small"
-              label="New purpose"
-              fullWidth
-              value={purposeName}
-              onChange={(e) => setPurposeName(e.target.value)}
-            />
-            <WtButton size="small" disabled={busy || !purposeName.trim()} onClick={addPurpose}>
-              Add
-            </WtButton>
-          </Stack>
-
-          <Stack spacing={1} sx={{ maxWidth: 720 }}>
-            {purposes.map((purpose) => (
-              <Box
-                key={purpose.id}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  p: 1.5,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                }}
-              >
-                <Typography>
-                  {purpose.name}
-                  <Typography component="span" variant="body2" color="text.secondary">
-                    {' '}
-                    · order {purpose.sortOrder}
-                    {purpose.requiresOther ? ' · needs details' : ''}
-                  </Typography>
-                </Typography>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Typography variant="body2" color="text.secondary">
-                    Active
-                  </Typography>
-                  <WtSwitch
-                    checked={!!purpose.isActive}
+          <ConfigSectionCard
+            title="Meeting purposes"
+            description="Used on meeting detail. Title remains the separate calendar/list name."
+            icon="bi-bullseye"
+            iconColor="teal"
+            primaryAction={{
+              label: 'New purpose',
+              icon: 'bi-plus-lg',
+              onClick: () => {
+                setCreateName('');
+                setCreateKind('purpose');
+              },
+              variant: 'primary',
+              disabled: busy,
+            }}
+          >
+            {sortedPurposes.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                No purposes yet — add one for meeting detail.
+              </Typography>
+            ) : (
+              <ConfigChipGrid>
+                {sortedPurposes.map((purpose, i) => (
+                  <ConfigColorChip
+                    key={purpose.id}
+                    name={purpose.name}
+                    color={CHIP_COLORS[(i + 3) % CHIP_COLORS.length]}
+                    caption={purpose.requiresOther ? 'Needs details' : undefined}
+                    badge={purpose.isActive ? undefined : 'Inactive'}
                     disabled={busy}
-                    onChange={() => togglePurpose(purpose)}
-                    size="sm"
+                    onEdit={() =>
+                      openEdit({
+                        kind: 'purpose',
+                        id: purpose.id,
+                        name: purpose.name,
+                        isActive: !!purpose.isActive,
+                        requiresOther: !!purpose.requiresOther,
+                      })
+                    }
+                    action={{
+                      icon: 'bi-trash',
+                      title: `Delete ${purpose.name}`,
+                      danger: true,
+                      onClick: () => removePurpose(purpose),
+                    }}
                   />
-                </Stack>
-              </Box>
-            ))}
-          </Stack>
-        </>
+                ))}
+              </ConfigChipGrid>
+            )}
+          </ConfigSectionCard>
+        </Stack>
       )}
+
+      <Dialog open={!!createKind} onClose={() => !busy && setCreateKind(null)} fullWidth maxWidth="xs">
+        <DialogTitle>{createKind === 'purpose' ? 'New purpose' : 'New category'}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            label="Name"
+            value={createName}
+            onChange={(e) => setCreateName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void createItem();
+            }}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <WtButton ghost disabled={busy} onClick={() => setCreateKind(null)}>
+            Cancel
+          </WtButton>
+          <WtButton size="small" disabled={busy || !createName.trim()} onClick={createItem}>
+            Add
+          </WtButton>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!edit} onClose={() => !busy && setEdit(null)} fullWidth maxWidth="xs">
+        <DialogTitle>{edit?.kind === 'purpose' ? 'Edit purpose' : 'Edit category'}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              autoFocus
+              fullWidth
+              size="small"
+              label="Name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+            />
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography variant="body2" color="text.secondary">
+                Active
+              </Typography>
+              <WtSwitch
+                checked={editActive}
+                disabled={busy}
+                onChange={() => setEditActive((v) => !v)}
+                size="sm"
+              />
+            </Stack>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <WtButton ghost disabled={busy} onClick={() => setEdit(null)}>
+            Cancel
+          </WtButton>
+          <WtButton size="small" disabled={busy || !editName.trim()} onClick={saveEdit}>
+            Save
+          </WtButton>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -121,7 +121,7 @@ export default function MeetingsOverviewTab() {
   }, [myMeetings, agendaDay, withoutAgendaIds]);
 
   const pendingTimesheets: MeetingSlim[] = summary?.pendingTimesheets || [];
-  const awaitingConfirm: MeetingSlim[] = summary?.awaitingConfirm || [];
+  const withoutAgendaList: MeetingSlim[] = summary?.withoutAgenda || [];
   const momDrafts: Array<{
     meetingId: string;
     title: string;
@@ -149,7 +149,8 @@ export default function MeetingsOverviewTab() {
   }
 
   const openDetail = (id: string, tab?: string) => {
-    navigate(`/employees/meetings/${id}${tab ? `?tab=${tab}` : ''}`);
+    const panel = tab === 'mom' || tab === 'minutes' ? 'mom' : tab === 'agenda' ? 'agenda' : '';
+    navigate(`/employees/meetings/agenda?meeting=${id}${panel ? `&panel=${panel}` : ''}`);
   };
 
   const joinMeeting = (m: MeetingSlim) => {
@@ -446,30 +447,33 @@ export default function MeetingsOverviewTab() {
           )}
         </Panel>
 
-        {/* Awaiting held confirmation */}
         <Panel
-          title="Awaiting Held Confirmation"
-          subtitle="Past meetings still unconfirmed"
+          title="Without agenda"
+          subtitle="Add agenda items from the Agenda tab"
           icon={<HourglassEmptyRounded sx={{ fontSize: 18, color: C.amber }} />}
           iconWash={C.amberWash}
-          viewAll={() => navigate('/employees/meetings/all-meetings')}
+          viewAll={() => navigate('/employees/meetings/agenda')}
         >
-          {!awaitingConfirm.length ? (
-            <Empty>Nothing waiting for confirmation.</Empty>
+          {!withoutAgendaList.length ? (
+            <Empty>Every meeting has an agenda.</Empty>
           ) : (
             <Stack spacing={0.75} sx={{ overflowY: 'auto', minHeight: 0, flex: 1 }}>
-              {awaitingConfirm.map((m) => (
-                <Row key={m.id} onClick={() => openDetail(m.id)} leading={<DateBlock date={m.endDate || m.startDate} />}>
+              {withoutAgendaList.map((m) => (
+                <Row
+                  key={m.id}
+                  onClick={() => navigate(`/employees/meetings/agenda?meeting=${m.id}`)}
+                  leading={<DateBlock date={m.endDate || m.startDate} />}
+                >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
                     <Box sx={{ minWidth: 0, flex: 1 }}>
                       <Typography noWrap sx={{ fontWeight: 700, fontSize: 13.5, color: C.ink }}>
                         {m.title}
                       </Typography>
                       <Typography noWrap sx={{ fontSize: 12, color: C.mute }}>
-                        {dayjs(m.endDate).format('HH:mm')}
+                        {dayjs(m.endDate || m.startDate).format('HH:mm')}
                       </Typography>
                     </Box>
-                    <Pill label="Awaiting confirmation" bg={C.amberWash} fg={C.amber} />
+                    <Pill label="No agenda" bg={C.amberWash} fg={C.amber} />
                   </Box>
                 </Row>
               ))}

@@ -4,12 +4,10 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   Alert,
-  Autocomplete,
   Box,
   Chip,
   CircularProgress,
@@ -17,25 +15,35 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Fab,
+  IconButton,
   InputAdornment,
+  MenuItem,
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import SearchRounded from '@mui/icons-material/SearchRounded';
 import PlaceOutlined from '@mui/icons-material/PlaceOutlined';
 import AccessTimeRounded from '@mui/icons-material/AccessTimeRounded';
 import VideocamOutlined from '@mui/icons-material/VideocamOutlined';
-import NotesOutlined from '@mui/icons-material/NotesOutlined';
-import CheckCircleOutlineRounded from '@mui/icons-material/CheckCircleOutlineRounded';
-import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
+import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
+import AddRounded from '@mui/icons-material/AddRounded';
 import dayjs from 'dayjs';
 import { hasPermission } from '@utils/authAbac';
 import {
   permissionConstToUseWithHasPermission,
   resourceNameMapWithCamelCase,
 } from '@constants/statistics';
-import { WtButton, WtDateField } from '@app/modules/common/components/ui';
+import {
+  WtButton,
+  WtDateField,
+  WtSelect,
+  type WtSelectOption,
+} from '@app/modules/common/components/ui';
+import { useEmployeeDirectory } from '@app/modules/common/components/EmployeePickerField';
 import MeetingDialog from '../../MeetingDialog';
 import TaskPathSelect, { buildTaskPathOptions } from '../../tasks/components/TaskPathSelect';
 import { usePresetTasks } from '../../tasks/useTaskQueries';
@@ -43,15 +51,20 @@ import { useProjectDeliverables } from '../../tasks/useProjectDeliverables';
 import { getPresetSubtreeIds } from '@utils/presetTaskHierarchy';
 import type { PresetTask } from '../../tasks/taskDomain';
 import { getProjectTeam } from '@services/tasks';
-import { fetchAllEmployees } from '@services/employee';
 import {
+  amendMeetingMinutes,
   createAgendaItem,
+  createMeetingMinutesDraft,
   deleteAgendaItem,
   downloadMeetingMinutesPdf,
   getAgendaItems,
+  getCompanyAgendaCategories,
   getMeetingDetail,
   getMeetingMinutes,
   getMeetingsAgendaHub,
+  updateAgendaItem,
+  updateMeetingMinutesDraft,
+  updateMeetingPurpose,
 } from '@services/meetingAgendaMom';
 
 type HubMeeting = {
@@ -66,7 +79,6 @@ type HubMeeting = {
   purposeLabel?: string | null;
   purposeCode?: string | null;
   projectId?: string | null;
-  heldConfirmedAt?: string | Date | null;
   description?: string | null;
   agendaCount: number;
   hasAgenda: boolean;
@@ -80,6 +92,7 @@ type DetailCache = {
   permissions: any;
   items: any[];
   minutes: any | null;
+  purposeOptions: Array<{ code: string; label: string; requiresOther?: boolean }>;
 };
 
 type FilterKey = 'all' | 'upcoming' | 'past' | 'withAgenda' | 'noAgenda' | 'overdue';
@@ -99,6 +112,26 @@ const C = {
   amberWash: '#FFEDD5',
   slate: '#F1F5F9',
 };
+
+/** Clear (X) collapses until hover/focus so the assignee name + avatar stay readable. */
+const assigneeSelectSx = {
+  minWidth: 168,
+  '& .react-select__clear-indicator': {
+    opacity: 0,
+    width: 0,
+    padding: 0,
+    overflow: 'hidden',
+    transition: 'opacity .12s ease',
+  },
+  '&:hover .react-select__clear-indicator, &:focus-within .react-select__clear-indicator': {
+    opacity: 1,
+    width: 'auto',
+    padding: '6px',
+  },
+  '& .react-select__single-value': {
+    maxWidth: '100%',
+  },
+} as const;
 
 const fmtDate = (v?: string | Date | null) => (v ? dayjs(v).format('DD MMM YYYY') : '—');
 const fmtTime = (v?: string | Date | null) => (v ? dayjs(v).format('HH:mm') : '—');
@@ -136,7 +169,8 @@ const statusTone = (status?: string) => {
  * Left list stays mounted; selection is instant; detail is cached + prefetched.
  */
 export default function MeetingsAgendaHubTab() {
-  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const [searchParams, setSearchParams] = useSearchParams();
   const canCreate = hasPermission(
     resourceNameMapWithCamelCase.meeting,
@@ -157,20 +191,26 @@ export default function MeetingsAgendaHubTab() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<'overview' | 'agenda' | 'mom'>('agenda');
+  const panelParam = searchParams.get('panel');
+  const [detailTab, setDetailTab] = useState<'overview' | 'agenda' | 'mom'>(
+    panelParam === 'mom' ? 'mom' : panelParam === 'overview' ? 'overview' : 'agenda',
+  );
   const [detailLoading, setDetailLoading] = useState(false);
   const [cache, setCache] = useState<Record<string, DetailCache>>({});
   const [showNew, setShowNew] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [mobileDetail, setMobileDetail] = useState(false);
 
   const cacheRef = useRef(cache);
   cacheRef.current = cache;
   const abortRef = useRef<AbortController | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  const loadHub = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadHub = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const res = await getMeetingsAgendaHub();
       const list: HubMeeting[] = res.meetings || [];
@@ -185,10 +225,12 @@ export default function MeetingsAgendaHubTab() {
       });
       return list;
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not load meetings');
+      if (!opts?.silent) {
+        setError(e?.response?.data?.message || 'Could not load meetings');
+      }
       return [] as HubMeeting[];
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, []);
 
@@ -200,15 +242,22 @@ export default function MeetingsAgendaHubTab() {
       const fromUrl = searchParams.get('meeting');
       const pick =
         (fromUrl && list.some((m) => m.id === fromUrl) && fromUrl)
-        || list[0]?.id
+        || (!isMobile ? list[0]?.id : null)
         || null;
-      if (pick) setSelectedId(pick);
+      if (pick) {
+        setSelectedId(pick);
+        if (isMobile && fromUrl) setMobileDetail(true);
+      }
+      const panel = searchParams.get('panel');
+      if (panel === 'mom' || panel === 'agenda' || panel === 'overview') {
+        setDetailTab(panel);
+      }
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reloadToken drives refresh
-  }, [loadHub, reloadToken]);
+  }, [loadHub, reloadToken, isMobile]);
 
   const filtered = useMemo(() => {
     return meetings.filter((m) => {
@@ -271,6 +320,7 @@ export default function MeetingsAgendaHubTab() {
         permissions: d.data?.permissions,
         items: agenda.items || [],
         minutes: mom?.minutes ?? null,
+        purposeOptions: d.purposeOptions || [],
       };
       setCache((prev) => ({ ...prev, [meetingId]: next }));
       return next;
@@ -313,18 +363,37 @@ export default function MeetingsAgendaHubTab() {
   }, [selectedId, filtered, loadDetail]);
 
   const selectMeeting = (id: string) => {
-    if (id === selectedId) return;
-    setSelectedId(id);
-    setDetailTab('agenda');
-    // Instant paint: if cached, no spinner; otherwise list selection is already painted
-    if (!cacheRef.current[id]) setDetailLoading(true);
+    if (id !== selectedId) {
+      setSelectedId(id);
+      setDetailTab('agenda');
+      if (!cacheRef.current[id]) setDetailLoading(true);
+    }
+    if (isMobile) setMobileDetail(true);
   };
 
+  const backToList = () => setMobileDetail(false);
+
+  /** Soft refresh — never flips hub `loading` (that unmounted the whole page). */
   const refreshSelected = async () => {
     if (!selectedId) return;
-    await loadDetail(selectedId, { force: true });
-    await loadHub();
+    await loadDetail(selectedId, { force: true, silent: true });
+    await loadHub({ silent: true });
   };
+
+  /** Patch one agenda row in cache — no hub reload, no full-page spinner. */
+  const patchCachedItem = useCallback((meetingId: string, itemId: string, patch: Record<string, unknown>) => {
+    setCache((prev) => {
+      const cur = prev[meetingId];
+      if (!cur) return prev;
+      return {
+        ...prev,
+        [meetingId]: {
+          ...cur,
+          items: cur.items.map((it: any) => (it.id === itemId ? { ...it, ...patch } : it)),
+        },
+      };
+    });
+  }, []);
 
   const filterChips: { key: FilterKey; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: counts.all },
@@ -343,6 +412,9 @@ export default function MeetingsAgendaHubTab() {
     );
   }
 
+  const showList = !isMobile || !mobileDetail;
+  const showDetail = !isMobile || mobileDetail;
+
   return (
     <Box
       sx={{
@@ -352,6 +424,7 @@ export default function MeetingsAgendaHubTab() {
         minHeight: { lg: 'calc(100vh - 220px)' },
         borderTop: `1px solid ${C.line}`,
         bgcolor: C.page,
+        position: 'relative',
       }}
     >
       {error && (
@@ -369,7 +442,7 @@ export default function MeetingsAgendaHubTab() {
         sx={{
           borderRight: { lg: `1px solid ${C.line}` },
           bgcolor: C.paper,
-          display: 'flex',
+          display: showList ? 'flex' : 'none',
           flexDirection: 'column',
           minHeight: 0,
           maxHeight: { lg: 'calc(100vh - 220px)' },
@@ -384,7 +457,7 @@ export default function MeetingsAgendaHubTab() {
           <Typography sx={{ fontWeight: 800, fontSize: 16, color: C.ink }}>
             Meetings ({counts.all})
           </Typography>
-          {canCreate && (
+          {canCreate && !isMobile && (
             <WtButton size="small" onClick={() => setShowNew(true)}>
               + New Meeting
             </WtButton>
@@ -495,6 +568,7 @@ export default function MeetingsAgendaHubTab() {
           overflowY: 'auto',
           bgcolor: C.page,
           p: { xs: 1.5, md: 2 },
+          display: showDetail ? 'block' : 'none',
         }}
       >
         {!selectedMeeting ? (
@@ -506,13 +580,31 @@ export default function MeetingsAgendaHubTab() {
             loading={detailLoading && !cached}
             detailTab={detailTab}
             setDetailTab={setDetailTab}
-            onOpenFull={() => navigate(`/employees/meetings/${selectedMeeting.id}`)}
-            onOpenMom={() => navigate(`/employees/meetings/${selectedMeeting.id}?tab=mom`)}
+            onBack={isMobile ? backToList : undefined}
             onRefresh={refreshSelected}
+            onPatchItem={patchCachedItem}
             onError={setError}
           />
         )}
       </Box>
+
+      {canCreate && isMobile && showList && (
+        <Fab
+          color="primary"
+          aria-label="New meeting"
+          onClick={() => setShowNew(true)}
+          sx={{
+            position: 'fixed',
+            right: 20,
+            bottom: 24,
+            bgcolor: C.blue,
+            '&:hover': { bgcolor: C.blueEdge },
+            zIndex: 8,
+          }}
+        >
+          <AddRounded />
+        </Fab>
+      )}
 
       <MeetingDialog
         key="agenda-hub-new"
@@ -659,9 +751,9 @@ function DetailPane({
   loading,
   detailTab,
   setDetailTab,
-  onOpenFull,
-  onOpenMom,
+  onBack,
   onRefresh,
+  onPatchItem,
   onError,
 }: {
   listMeeting: HubMeeting;
@@ -669,37 +761,20 @@ function DetailPane({
   loading: boolean;
   detailTab: 'overview' | 'agenda' | 'mom';
   setDetailTab: (t: 'overview' | 'agenda' | 'mom') => void;
-  onOpenFull: () => void;
-  onOpenMom: () => void;
+  onBack?: () => void;
   onRefresh: () => Promise<void>;
+  onPatchItem: (meetingId: string, itemId: string, patch: Record<string, unknown>) => void;
   onError: (m: string) => void;
 }) {
   const meeting = cached?.meeting || listMeeting;
   const items = cached?.items || [];
   const minutes = cached?.minutes;
   const perms = cached?.permissions;
+  const purposeOptions = cached?.purposeOptions || [];
   const agendaCount = cached ? items.length : listMeeting.agendaCount;
-
-  const exportPdf = async () => {
-    try {
-      const res = await downloadMeetingMinutesPdf(listMeeting.id);
-      const blob = res.data instanceof Blob ? res.data : new Blob([res.data], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${minutes?.documentNo || 'minutes-of-meeting'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      onError(errMsg(e));
-    }
-  };
 
   return (
     <Stack spacing={1.75} sx={{ opacity: loading ? 0.72 : 1, transition: 'opacity .18s ease' }}>
-      {/* Header card */}
       <Box
         sx={{
           bgcolor: C.paper,
@@ -708,17 +783,22 @@ function DetailPane({
           p: { xs: 1.5, md: 2 },
         }}
       >
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'flex-start' }}>
+        <Stack direction="row" spacing={1.25} alignItems="flex-start">
+          {onBack && (
+            <IconButton
+              aria-label="Back to meetings"
+              onClick={onBack}
+              size="small"
+              sx={{ mt: 0.25, border: `1px solid ${C.line}` }}
+            >
+              <ArrowBackRounded fontSize="small" />
+            </IconButton>
+          )}
           <DateBadge date={meeting.startDate} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
-              <Typography sx={{ fontWeight: 800, fontSize: { xs: 20, md: 22 }, color: C.ink, letterSpacing: '-0.02em' }}>
-                {meeting.title}
-              </Typography>
-              <WtButton size="small" inverted onClick={onOpenFull} sx={{ flexShrink: 0 }}>
-                Edit meeting
-              </WtButton>
-            </Stack>
+            <Typography sx={{ fontWeight: 800, fontSize: { xs: 18, md: 22 }, color: C.ink, letterSpacing: '-0.02em' }}>
+              {meeting.title}
+            </Typography>
             <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1.5} sx={{ mt: 0.75, color: C.mute, fontSize: 13 }}>
               <span>{fmtDate(meeting.startDate)}</span>
               <Stack direction="row" alignItems="center" gap={0.4}>
@@ -734,11 +814,6 @@ function DetailPane({
               )}
             </Stack>
             <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.75} sx={{ mt: 1.25 }}>
-              {meeting.heldConfirmedAt || listMeeting.heldConfirmedAt ? (
-                <Chip size="small" color="success" label="Held confirmed" />
-              ) : (
-                <Chip size="small" variant="outlined" label="Held not confirmed" />
-              )}
               {meeting.projectName && (
                 <Chip
                   size="small"
@@ -755,7 +830,11 @@ function DetailPane({
           </Box>
         </Stack>
 
-        <Stack direction="row" spacing={0.5} sx={{ mt: 2, borderBottom: `1px solid ${C.line}` }}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{ mt: 2, borderBottom: `1px solid ${C.line}`, overflowX: 'auto' }}
+        >
           {(
             [
               { key: 'overview', label: 'Overview' },
@@ -781,6 +860,7 @@ function DetailPane({
                   borderBottom: active ? `2px solid ${C.blue}` : '2px solid transparent',
                   cursor: 'pointer',
                   mb: '-1px',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {t.label}
@@ -795,14 +875,25 @@ function DetailPane({
           <CircularProgress size={26} />
         </Box>
       ) : detailTab === 'overview' ? (
-        <OverviewPanel meeting={meeting} listMeeting={listMeeting} items={items} />
+        <OverviewPanel
+          meetingId={listMeeting.id}
+          meeting={meeting}
+          listMeeting={listMeeting}
+          items={items}
+          purposeOptions={purposeOptions}
+          canEdit={!!perms?.canManage}
+          onRefresh={onRefresh}
+          onError={onError}
+        />
       ) : detailTab === 'mom' ? (
         <MomPanel
+          meetingId={listMeeting.id}
           minutes={minutes}
+          canEdit={!!perms?.canEditMom}
+          canFinalize={!!perms?.canFinalizeMom}
           canExport={!!perms?.canExportPdf}
-          onView={onOpenMom}
-          onDownload={exportPdf}
-          onAmend={onOpenMom}
+          onRefresh={onRefresh}
+          onError={onError}
         />
       ) : (
         <AgendaPanel
@@ -810,9 +901,14 @@ function DetailPane({
           meetingId={listMeeting.id}
           meeting={meeting}
           items={items}
+          minutes={minutes}
           canEdit={!!perms?.canEditAgenda}
+          canEditMom={!!perms?.canEditMom}
+          permsLoaded={perms != null}
           onRefresh={onRefresh}
+          onPatchItem={onPatchItem}
           onError={onError}
+          onOpenMom={() => setDetailTab('mom')}
         />
       )}
     </Stack>
@@ -847,38 +943,112 @@ function DateBadge({ date }: { date?: string | Date | null }) {
 }
 
 function OverviewPanel({
+  meetingId,
   meeting,
   listMeeting,
   items,
+  purposeOptions,
+  canEdit,
+  onRefresh,
+  onError,
 }: {
+  meetingId: string;
   meeting: any;
   listMeeting: HubMeeting;
   items: any[];
+  purposeOptions: Array<{ code: string; label: string; requiresOther?: boolean }>;
+  canEdit: boolean;
+  onRefresh: () => Promise<void>;
+  onError: (m: string) => void;
 }) {
+  const [purposeCode, setPurposeCode] = useState(meeting?.purposeCode || listMeeting.purposeCode || '');
+  const [other, setOther] = useState(meeting?.purposeOtherText || '');
+  const [busy, setBusy] = useState(false);
+  const needsOther = !!(
+    purposeOptions.find((o) => o.code === purposeCode)?.requiresOther
+    || purposeCode === 'OTHER'
+  );
+
+  useEffect(() => {
+    setPurposeCode(meeting?.purposeCode || listMeeting.purposeCode || '');
+    setOther(meeting?.purposeOtherText || '');
+  }, [meeting?.purposeCode, meeting?.purposeOtherText, listMeeting.purposeCode]);
+
+  const savePurpose = async () => {
+    setBusy(true);
+    try {
+      await updateMeetingPurpose(meetingId, {
+        purposeCode: purposeCode || null,
+        purposeOtherText: needsOther ? other : null,
+      });
+      await onRefresh();
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <Box
-      sx={{
-        display: 'grid',
-        gap: 1.5,
-        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-      }}
-    >
-      <InfoCard title="Purpose" body={meeting.purposeLabel || listMeeting.purposeLabel || 'Not set'} />
-      <InfoCard
-        title="Held confirmation"
-        body={
-          meeting.heldConfirmedAt || listMeeting.heldConfirmedAt
-            ? `Confirmed ${fmtDate(meeting.heldConfirmedAt || listMeeting.heldConfirmedAt)}`
-            : 'Not confirmed yet'
-        }
-      />
-      <InfoCard title="Agenda items" body={`${items.length || listMeeting.agendaCount} item(s)`} />
-      <InfoCard title="Location" body={placeLabel(meeting)} />
-    </Box>
+    <Stack spacing={1.5}>
+      <Box sx={{ p: 2, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
+        <Typography sx={{ fontWeight: 800, mb: 1, color: C.ink }}>Purpose</Typography>
+        {canEdit ? (
+          <Stack spacing={1.25}>
+            <TextField
+              select
+              size="small"
+              label="Purpose"
+              value={purposeCode}
+              onChange={(e) => setPurposeCode(e.target.value)}
+              fullWidth
+            >
+              <MenuItem value="">Not set</MenuItem>
+              {purposeOptions.map((o) => (
+                <MenuItem key={o.code} value={o.code}>{o.label}</MenuItem>
+              ))}
+            </TextField>
+            {needsOther && (
+              <TextField
+                size="small"
+                label="Please specify"
+                value={other}
+                onChange={(e) => setOther(e.target.value)}
+                fullWidth
+              />
+            )}
+            <WtButton size="small" disabled={busy} onClick={savePurpose} sx={{ alignSelf: 'flex-start' }}>
+              Save purpose
+            </WtButton>
+          </Stack>
+        ) : (
+          <Typography fontWeight={700}>
+            {meeting.purposeLabel || listMeeting.purposeLabel || 'Not set'}
+          </Typography>
+        )}
+      </Box>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 1.5,
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+        }}
+      >
+        <InfoCard title="Agenda items" body={`${items.length || listMeeting.agendaCount} item(s)`} />
+        <InfoCard title="Location" body={placeLabel(meeting)} />
+        <InfoCard title="Meeting type" body={placeLabel(meeting)} />
+        <InfoCard
+          title="Project"
+          body={
+            [meeting.projectNumber, meeting.projectName].filter(Boolean).join(' — ') || '—'
+          }
+        />
+      </Box>
+    </Stack>
   );
 }
 
-function InfoCard({ title, body }: { title: string; body: ReactNode }) {
+function InfoCard({ title, body }: { title: string; body: string }) {
   return (
     <Box sx={{ p: 2, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
       <Typography sx={{ fontSize: 12, fontWeight: 700, color: C.mute, mb: 0.5 }}>{title}</Typography>
@@ -888,54 +1058,318 @@ function InfoCard({ title, body }: { title: string; body: ReactNode }) {
 }
 
 function MomPanel({
+  meetingId,
   minutes,
+  canEdit,
+  canFinalize,
   canExport,
-  onView,
-  onDownload,
-  onAmend,
+  onRefresh,
+  onError,
 }: {
+  meetingId: string;
   minutes: any;
+  canEdit: boolean;
+  canFinalize: boolean;
   canExport: boolean;
-  onView: () => void;
-  onDownload: () => void;
-  onAmend: () => void;
+  onRefresh: () => Promise<void>;
+  onError: (m: string) => void;
 }) {
+  const [discussionNotes, setDiscussionNotes] = useState(minutes?.discussionNotes || '');
+  const [decisions, setDecisions] = useState(minutes?.decisions || '');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setDiscussionNotes(minutes?.discussionNotes || '');
+    setDecisions(minutes?.decisions || '');
+  }, [minutes?.id, minutes?.discussionNotes, minutes?.decisions, minutes?.revision]);
+
+  const generate = async () => {
+    setBusy(true);
+    try {
+      await createMeetingMinutesDraft(meetingId);
+      await onRefresh();
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveNotes = async () => {
+    setBusy(true);
+    try {
+      await updateMeetingMinutesDraft(meetingId, { discussionNotes, decisions });
+      await onRefresh();
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const amend = async () => {
+    setBusy(true);
+    try {
+      await amendMeetingMinutes(meetingId);
+      await onRefresh();
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const exportPdf = async () => {
+    setBusy(true);
+    try {
+      const res = await downloadMeetingMinutesPdf(meetingId);
+      const blob = res.data instanceof Blob ? res.data : new Blob([res.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${minutes?.documentNo || 'minutes-of-meeting'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!minutes) {
     return (
-      <Alert severity="info">
-        No Minutes of Meeting yet. Open the meeting to generate a draft after held confirmation.
-      </Alert>
+      <Stack spacing={1.5} alignItems="flex-start">
+        <Alert severity="info" sx={{ width: '100%' }}>
+          No Minutes of Meeting yet. Generate a draft to record discussion notes and decisions.
+        </Alert>
+        {canEdit && (
+          <WtButton size="small" disabled={busy} onClick={generate}>
+            Generate MoM draft
+          </WtButton>
+        )}
+      </Stack>
     );
   }
+
   const isFinal = minutes.status === 'FINAL';
+  const isDraft = minutes.status === 'DRAFT';
+
   return (
-    <Box sx={{ p: 2, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-        <Typography sx={{ fontWeight: 800, color: C.ink }}>Minutes of Meeting</Typography>
-        <Chip
-          size="small"
-          label={isFinal ? 'Finalized' : 'Draft'}
-          color={isFinal ? 'success' : 'default'}
-        />
-      </Stack>
-      <Typography sx={{ fontSize: 13, color: C.mute, mb: 2 }}>
-        Document No. {minutes.documentNo || '—'} · Rev. {String(minutes.revision ?? 0).padStart(2, '0')}
-      </Typography>
-      <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1}>
-        <WtButton size="small" inverted onClick={onView}>
-          View
-        </WtButton>
-        {canExport && (
-          <WtButton size="small" onClick={onDownload}>
-            Download PDF
-          </WtButton>
-        )}
-        {isFinal && (
-          <WtButton size="small" inverted onClick={onAmend}>
-            Create amendment draft
-          </WtButton>
-        )}
-      </Stack>
+    <Stack spacing={1.5}>
+      <Box sx={{ p: 2, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" useFlexGap gap={1}>
+          <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+            <Chip size="small" label={isFinal ? 'Finalized' : 'Draft'} color={isFinal ? 'success' : 'default'} />
+            <Typography sx={{ fontSize: 13, color: C.mute }}>
+              Document No. {minutes.documentNo || '—'} · Rev. {String(minutes.revision ?? 0).padStart(2, '0')}
+            </Typography>
+          </Stack>
+          <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1}>
+            {canExport && (
+              <WtButton size="small" disabled={busy} onClick={exportPdf}>
+                Download PDF
+              </WtButton>
+            )}
+            {canFinalize && isFinal && (
+              <WtButton size="small" inverted disabled={busy} onClick={amend}>
+                Create amendment draft
+              </WtButton>
+            )}
+            {canEdit && isDraft && (
+              <WtButton size="small" inverted disabled={busy} onClick={saveNotes}>
+                Save notes
+              </WtButton>
+            )}
+          </Stack>
+        </Stack>
+      </Box>
+
+      <NotesDecisionsEditors
+        discussionNotes={discussionNotes}
+        decisions={decisions}
+        setDiscussionNotes={setDiscussionNotes}
+        setDecisions={setDecisions}
+        readOnly={!isDraft || !canEdit}
+        seed={`${minutes?.id || 'none'}-${minutes?.revision ?? 0}`}
+      />
+    </Stack>
+  );
+}
+
+/**
+ * Uncontrolled rich field: React never rewrites the DOM while you type
+ * (controlled contentEditable + setState was wiping bold/lists).
+ * Seeds only when `seed` changes (minutes id / revision).
+ */
+function MomRichField({
+  label,
+  value,
+  onChange,
+  readOnly,
+  placeholder,
+  seed,
+}: {
+  label: string;
+  value: string;
+  onChange: (html: string) => void;
+  readOnly: boolean;
+  placeholder: string;
+  seed: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const lastSeed = useRef('');
+
+  useEffect(() => {
+    if (!ref.current) return;
+    if (lastSeed.current === seed) return;
+    lastSeed.current = seed;
+    ref.current.innerHTML = value || '';
+  }, [seed, value]);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    ref.current.contentEditable = readOnly ? 'false' : 'true';
+  }, [readOnly]);
+
+  const emit = () => {
+    if (!ref.current) return;
+    onChange(ref.current.innerHTML);
+  };
+
+  const run = (cmd: string) => {
+    if (readOnly || !ref.current) return;
+    ref.current.focus();
+    // Ensure a caret exists so bold/list have something to apply to
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount === 0) {
+      const range = document.createRange();
+      range.selectNodeContents(ref.current);
+      range.collapse(false);
+      sel.addRange(range);
+    }
+    document.execCommand(cmd, false);
+    emit();
+  };
+
+  return (
+    <Box sx={{ p: 1.75, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
+      <Typography sx={{ fontWeight: 800, fontSize: 13.5, mb: 1, color: C.ink }}>{label}</Typography>
+      {!readOnly && (
+        <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap' }}>
+          {[
+            { cmd: 'bold', label: 'B', sx: { fontWeight: 800 } as const },
+            { cmd: 'italic', label: 'I', sx: { fontStyle: 'italic' as const } },
+            { cmd: 'underline', label: 'U', sx: { textDecoration: 'underline' as const } },
+            { cmd: 'insertUnorderedList', label: '• List', sx: {} },
+            { cmd: 'insertOrderedList', label: '1. List', sx: {} },
+          ].map((t) => (
+            <Box
+              key={t.cmd}
+              component="button"
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                run(t.cmd);
+              }}
+              sx={{
+                border: `1px solid ${C.line}`,
+                bgcolor: C.slate,
+                borderRadius: 1,
+                px: 1,
+                py: 0.35,
+                fontSize: 12,
+                color: C.ink,
+                cursor: 'pointer',
+                ...t.sx,
+              }}
+            >
+              {t.label}
+            </Box>
+          ))}
+        </Stack>
+      )}
+      <Box
+        ref={ref}
+        contentEditable={!readOnly}
+        suppressContentEditableWarning
+        role="textbox"
+        aria-label={label}
+        aria-multiline
+        aria-readonly={readOnly}
+        data-placeholder={placeholder}
+        onInput={emit}
+        onBlur={emit}
+        sx={{
+          minHeight: 110,
+          px: 1.25,
+          py: 1,
+          borderRadius: 1.5,
+          border: `1px solid ${C.line}`,
+          bgcolor: readOnly ? C.slate : '#fff',
+          outline: 'none',
+          fontSize: 13.5,
+          lineHeight: 1.55,
+          color: C.ink,
+          cursor: readOnly ? 'default' : 'text',
+          '&:focus': { borderColor: C.blue, boxShadow: '0 0 0 2px rgba(29,78,216,0.12)' },
+          '&:empty:before': {
+            content: 'attr(data-placeholder)',
+            color: C.mute,
+            pointerEvents: 'none',
+          },
+          '& b, & strong': { fontWeight: 700 },
+          '& i, & em': { fontStyle: 'italic' },
+          '& u': { textDecoration: 'underline' },
+          '& ul, & ol': { pl: 2.5, my: 0.5 },
+          '& p': { m: 0, mb: 0.5 },
+        }}
+      />
+    </Box>
+  );
+}
+
+function NotesDecisionsEditors({
+  discussionNotes,
+  decisions,
+  setDiscussionNotes,
+  setDecisions,
+  readOnly,
+  seed,
+}: {
+  discussionNotes: string;
+  decisions: string;
+  setDiscussionNotes: (v: string) => void;
+  setDecisions: (v: string) => void;
+  readOnly: boolean;
+  seed: string;
+}) {
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gap: 1.5,
+        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+      }}
+    >
+      <MomRichField
+        label="Discussion notes"
+        value={discussionNotes}
+        onChange={setDiscussionNotes}
+        readOnly={readOnly}
+        placeholder="Key discussion points from the meeting."
+        seed={`${seed}:d`}
+      />
+      <MomRichField
+        label="Decisions"
+        value={decisions}
+        onChange={setDecisions}
+        readOnly={readOnly}
+        placeholder="Key decisions taken in this meeting."
+        seed={`${seed}:c`}
+      />
     </Box>
   );
 }
@@ -944,24 +1378,104 @@ function AgendaPanel({
   meetingId,
   meeting,
   items,
+  minutes,
   canEdit,
+  canEditMom,
+  permsLoaded,
   onRefresh,
+  onPatchItem,
   onError,
+  onOpenMom,
 }: {
   meetingId: string;
   meeting: any;
   items: any[];
+  minutes: any;
   canEdit: boolean;
+  canEditMom: boolean;
+  permsLoaded: boolean;
   onRefresh: () => Promise<void>;
+  onPatchItem: (meetingId: string, itemId: string, patch: Record<string, unknown>) => void;
   onError: (m: string) => void;
+  onOpenMom: () => void;
 }) {
   const [agendaSearch, setAgendaSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
   const [selectedAgenda, setSelectedAgenda] = useState<Array<{ id: string; label: string }>>([]);
   const [assignToId, setAssignToId] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [assignees, setAssignees] = useState<{ id: string; name: string }[]>([]);
+  const [addCategoryId, setAddCategoryId] = useState('');
+  const [teamIds, setTeamIds] = useState<Set<string> | null>(null);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
+  const [discussionNotes, setDiscussionNotes] = useState(minutes?.discussionNotes || '');
+  const [decisions, setDecisions] = useState(minutes?.decisions || '');
+  const [notesBusy, setNotesBusy] = useState(false);
+  const { data: directory = [], isLoading: directoryLoading } = useEmployeeDirectory();
+
+  useEffect(() => {
+    setDiscussionNotes(minutes?.discussionNotes || '');
+    setDecisions(minutes?.decisions || '');
+  }, [minutes?.id, minutes?.discussionNotes, minutes?.decisions, minutes?.revision]);
+
+  const notesReadOnly = minutes?.status === 'FINAL' || !canEditMom;
+
+  const ensureDraft = async () => {
+    if (minutes) return minutes;
+    const res = await createMeetingMinutesDraft(meetingId);
+    await onRefresh();
+    return res?.minutes || null;
+  };
+
+  const saveNotes = async () => {
+    if (notesReadOnly) return;
+    setNotesBusy(true);
+    try {
+      await ensureDraft();
+      await updateMeetingMinutesDraft(meetingId, { discussionNotes, decisions });
+      await onRefresh();
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setNotesBusy(false);
+    }
+  };
+
+  const ensureMomThenEdit = async () => {
+    if (minutes) {
+      onOpenMom();
+      return;
+    }
+    setNotesBusy(true);
+    try {
+      await createMeetingMinutesDraft(meetingId);
+      await onRefresh();
+      onOpenMom();
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setNotesBusy(false);
+    }
+  };
+
+  const patchItem = async (
+    itemId: string,
+    payload: Record<string, unknown>,
+    displayPatch?: Record<string, unknown>,
+  ) => {
+    setRowBusyId(itemId);
+    // Optimistic row update — avoid full hub reload (that spun the whole page).
+    onPatchItem(meetingId, itemId, { ...payload, ...displayPatch });
+    try {
+      await updateAgendaItem(meetingId, itemId, payload);
+    } catch (e) {
+      onError(errMsg(e));
+      await onRefresh();
+    } finally {
+      setRowBusyId(null);
+    }
+  };
 
   const visibleItems = useMemo(() => {
     if (!agendaSearch.trim()) return items;
@@ -1003,57 +1517,77 @@ function AgendaPanel({
   const agendaPickerKey = selectedAgenda.map((a) => a.id).join('|') || 'empty';
 
   useEffect(() => {
-    if (!open) return;
+    if (!projectId) {
+      setTeamIds(null);
+      return;
+    }
+    if (!canEdit && !open) return;
     let cancelled = false;
     (async () => {
       try {
-        if (projectId) {
-          const res = await getProjectTeam(projectId);
-          const list = res?.members || [];
-          const rows = (Array.isArray(list) ? list : [])
-            .map((m: any) => {
-              const id = m.id || m.employeeId;
-              const name =
-                [m.users?.firstName, m.users?.lastName].filter(Boolean).join(' ')
-                || m.name
-                || '';
-              return { id: String(id || ''), name: String(name) };
-            })
-            .filter((r: { id: string; name: string }) => r.id && r.name)
-            .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
-          if (!cancelled) setAssignees(rows);
-        } else {
-          const res = await fetchAllEmployees(true);
-          const list = res?.data?.employees || [];
-          const rows = (Array.isArray(list) ? list : [])
-            .map((e: any) => ({
-              id: String(e.id),
-              name: [e.users?.firstName || e.firstName, e.users?.lastName || e.lastName]
-                .filter(Boolean)
-                .join(' ') || '',
-            }))
-            .filter((r: { id: string; name: string }) => r.id && r.name)
-            .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
-          if (!cancelled) setAssignees(rows);
-        }
+        const res = await getProjectTeam(projectId);
+        const list = res?.members || [];
+        const ids = new Set(
+          (Array.isArray(list) ? list : [])
+            .map((m: any) => String(m.id || m.employeeId || ''))
+            .filter(Boolean),
+        );
+        if (!cancelled) setTeamIds(ids);
       } catch {
-        if (!cancelled) setAssignees([]);
+        if (!cancelled) setTeamIds(null);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, projectId]);
+  }, [canEdit, open, projectId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getCompanyAgendaCategories();
+        const rows = (res?.categories || [])
+          .filter((c: any) => c.isActive !== false)
+          .map((c: any) => ({ id: String(c.id), name: String(c.name || '') }))
+          .filter((c: { id: string; name: string }) => c.id && c.name)
+          .sort((a: { name: string }, b: { name: string }) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+          );
+        if (!cancelled) setCategories(rows);
+      } catch {
+        if (!cancelled) setCategories([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const assigneeOptions: WtSelectOption[] = useMemo(() => {
+    const list = projectId && teamIds
+      ? directory.filter((e) => teamIds.has(e.id))
+      : directory;
+    return list
+      .map((e) => ({
+        value: e.id,
+        label: e.name,
+        avatar: e.avatar,
+        description: e.designation,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  }, [directory, projectId, teamIds]);
 
   const assigneeSelected = useMemo(
-    () => assignees.find((a) => a.id === assignToId) ?? null,
-    [assignees, assignToId],
+    () => assigneeOptions.find((a) => a.value === assignToId) ?? null,
+    [assigneeOptions, assignToId],
   );
 
   const resetForm = () => {
     setSelectedAgenda([]);
     setAssignToId('');
     setDueDate('');
+    setAddCategoryId('');
   };
 
   const submit = async () => {
@@ -1067,6 +1601,7 @@ function AgendaPanel({
             description: item.label,
             itemMode: 'DISCUSSION',
             status,
+            categoryId: addCategoryId || null,
             responsibleUserId: assignToId || null,
             targetCompletionDate: dueDate || null,
           }),
@@ -1114,11 +1649,15 @@ function AgendaPanel({
           }}
           sx={{ maxWidth: { sm: 320 }, bgcolor: C.paper, borderRadius: 2 }}
         />
-        {canEdit && (
+        {canEdit ? (
           <WtButton size="small" onClick={() => setOpen(true)}>
             + Add agenda items
           </WtButton>
-        )}
+        ) : permsLoaded ? (
+          <Typography sx={{ fontSize: 12, color: C.mute, maxWidth: 280, textAlign: { sm: 'right' } }}>
+            Only the organizer or a project manager can add agenda items.
+          </Typography>
+        ) : null}
       </Stack>
 
       <Box
@@ -1131,7 +1670,9 @@ function AgendaPanel({
       >
         {items.length === 0 ? (
           <Alert severity="info" sx={{ m: 1.5 }}>
-            No structured agenda items yet. Add items to get started.
+            {canEdit
+              ? 'No structured agenda items yet. Use “+ Add agenda items” to get started.'
+              : 'No structured agenda items yet. Only the organizer or a project manager can add them.'}
           </Alert>
         ) : visibleItems.length === 0 ? (
           <Alert severity="info" sx={{ m: 1.5 }}>
@@ -1177,6 +1718,12 @@ function AgendaPanel({
               <Box component="tbody">
                 {visibleItems.map((item: any, idx: number) => {
                   const tone = statusTone(item.statusLabel || item.status);
+                  const rowBusy = rowBusyId === item.id;
+                  const assigneeVal =
+                    assigneeOptions.find((a) => a.value === item.responsibleUserId) || null;
+                  const dueVal = item.targetCompletionDate
+                    ? dayjs(item.targetCompletionDate).format('YYYY-MM-DD')
+                    : '';
                   return (
                     <Box component="tr" key={item.id}>
                       <Box component="td" sx={{ color: C.mute, width: 36 }}>
@@ -1185,10 +1732,105 @@ function AgendaPanel({
                       <Box component="td" sx={{ minWidth: 180, fontWeight: 600 }}>
                         {item.description}
                       </Box>
-                      <Box component="td">{item.category?.name || '—'}</Box>
-                      <Box component="td">{item.responsibleName || '—'}</Box>
-                      <Box component="td" sx={{ whiteSpace: 'nowrap' }}>
-                        {fmtDate(item.targetCompletionDate)}
+                      <Box component="td" sx={{ minWidth: 140 }}>
+                        {canEdit ? (
+                          <TextField
+                            select
+                            size="small"
+                            fullWidth
+                            disabled={rowBusy}
+                            value={item.categoryId || ''}
+                            onChange={(e) => {
+                              const categoryId = e.target.value || null;
+                              const cat = categories.find((c) => c.id === categoryId);
+                              void patchItem(
+                                item.id,
+                                { categoryId },
+                                {
+                                  categoryId,
+                                  category: categoryId
+                                    ? { id: categoryId, name: cat?.name || '' }
+                                    : null,
+                                },
+                              );
+                            }}
+                            sx={{ '& .MuiInputBase-root': { fontSize: 13 } }}
+                          >
+                            <MenuItem value="">
+                              <em>—</em>
+                            </MenuItem>
+                            {categories.map((c) => (
+                              <MenuItem key={c.id} value={c.id}>
+                                {c.name}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        ) : (
+                          item.category?.name || '—'
+                        )}
+                      </Box>
+                      <Box component="td" sx={{ minWidth: 200 }}>
+                        {canEdit ? (
+                          <Box sx={assigneeSelectSx}>
+                            <WtSelect
+                              size="sm"
+                              options={assigneeOptions}
+                              value={assigneeVal}
+                              isDisabled={rowBusy}
+                              isLoading={directoryLoading}
+                              isClearable
+                              isSearchable
+                              optionVariant="avatar"
+                              placeholder="Assignee"
+                              ariaLabel="Assignee"
+                              onChange={(next) => {
+                                const opt = next as WtSelectOption | null;
+                                const status = opt || dueVal ? 'OPEN' : item.status;
+                                void patchItem(
+                                  item.id,
+                                  {
+                                    responsibleUserId: opt?.value || null,
+                                    status,
+                                  },
+                                  {
+                                    responsibleUserId: opt?.value || null,
+                                    responsibleName: opt?.label || null,
+                                    status,
+                                    statusLabel: status === 'OPEN' ? 'Open' : item.statusLabel,
+                                  },
+                                );
+                              }}
+                            />
+                          </Box>
+                        ) : (
+                          item.responsibleName || '—'
+                        )}
+                      </Box>
+                      <Box component="td" sx={{ whiteSpace: 'nowrap', minWidth: 150 }}>
+                        {canEdit ? (
+                          <WtDateField
+                            label=""
+                            value={dueVal}
+                            disabled={rowBusy}
+                            onChange={(v) => {
+                              const status = v || item.responsibleUserId ? 'OPEN' : item.status;
+                              void patchItem(
+                                item.id,
+                                {
+                                  targetCompletionDate: v || null,
+                                  status,
+                                },
+                                {
+                                  targetCompletionDate: v || null,
+                                  status,
+                                  statusLabel: status === 'OPEN' ? 'Open' : item.statusLabel,
+                                },
+                              );
+                            }}
+                          />
+                        ) : (
+                          fmtDate(item.targetCompletionDate)
+                        )}
                       </Box>
                       <Box component="td">
                         <Chip
@@ -1208,6 +1850,7 @@ function AgendaPanel({
                           <WtButton
                             size="small"
                             ghost
+                            disabled={rowBusy}
                             onClick={() => onDelete(item.id)}
                             sx={{ color: '#DC2626 !important', minWidth: 0, px: 1 }}
                           >
@@ -1224,29 +1867,40 @@ function AgendaPanel({
         )}
       </Box>
 
-      <Box
-        sx={{
-          display: 'grid',
-          gap: 1.5,
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
-        }}
-      >
-        <BottomNote
-          icon={<NotesOutlined sx={{ fontSize: 18, color: C.blue }} />}
-          title="Discussion notes"
-          body="Open Minutes of Meeting to record discussion notes."
+      <Stack spacing={1}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Typography sx={{ fontWeight: 800, fontSize: 14, color: C.ink }}>
+            Discussion notes & decisions
+          </Typography>
+          <Stack direction="row" spacing={1}>
+            {!minutes && canEditMom && (
+              <WtButton size="small" inverted disabled={notesBusy} onClick={ensureMomThenEdit}>
+                Open MoM
+              </WtButton>
+            )}
+            {!notesReadOnly && (
+              <WtButton size="small" inverted disabled={notesBusy} onClick={saveNotes}>
+                Save notes
+              </WtButton>
+            )}
+          </Stack>
+        </Stack>
+        {notesReadOnly && permsLoaded && (
+          <Alert severity="info">
+            {minutes?.status === 'FINAL'
+              ? 'Minutes are finalized — create an amendment draft on the Minutes tab to edit notes.'
+              : 'Only the organizer or a project manager can edit discussion notes and decisions.'}
+          </Alert>
+        )}
+        <NotesDecisionsEditors
+          discussionNotes={discussionNotes}
+          decisions={decisions}
+          setDiscussionNotes={setDiscussionNotes}
+          setDecisions={setDecisions}
+          readOnly={notesReadOnly}
+          seed={`${meetingId}-${minutes?.id || 'none'}-${minutes?.revision ?? 0}`}
         />
-        <BottomNote
-          icon={<CheckCircleOutlineRounded sx={{ fontSize: 18, color: C.green }} />}
-          title="Decisions"
-          body="Open Minutes of Meeting to record decisions."
-        />
-        <BottomNote
-          icon={<DescriptionOutlined sx={{ fontSize: 18, color: C.mute }} />}
-          title="Minutes of Meeting"
-          body="Use the Minutes tab above to view, download, or amend."
-        />
-      </Box>
+      </Stack>
 
       <Alert
         severity="warning"
@@ -1308,21 +1962,42 @@ function AgendaPanel({
                   : 'Pick one or more agenda items.'
               }
             />
-            <Autocomplete
+            <TextField
+              select
               size="small"
-              options={assignees}
-              value={assigneeSelected}
-              onChange={(_, next) => setAssignToId(next?.id || '')}
-              getOptionLabel={(o) => o.name}
-              isOptionEqualToValue={(a, b) => a.id === b.id}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Assign to"
+              fullWidth
+              label="Category"
+              value={addCategoryId}
+              onChange={(e) => setAddCategoryId(e.target.value)}
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {categories.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Box>
+              <Typography sx={{ fontSize: 12, fontWeight: 600, color: C.mute, mb: 0.5 }}>
+                Assign to
+              </Typography>
+              <Box sx={assigneeSelectSx}>
+                <WtSelect
+                  size="sm"
+                  options={assigneeOptions}
+                  value={assigneeSelected}
+                  isLoading={directoryLoading}
+                  isClearable
+                  isSearchable
+                  optionVariant="avatar"
                   placeholder={projectId ? 'Search project team…' : 'Search active employees…'}
+                  ariaLabel="Assign to"
+                  onChange={(next) => setAssignToId((next as WtSelectOption | null)?.value || '')}
                 />
-              )}
-            />
+              </Box>
+            </Box>
             <WtDateField label="Due date" value={dueDate} onChange={setDueDate} />
           </Stack>
         </DialogContent>
@@ -1355,22 +2030,3 @@ function AgendaPanel({
   );
 }
 
-function BottomNote({
-  icon,
-  title,
-  body,
-}: {
-  icon: ReactNode;
-  title: string;
-  body: string;
-}) {
-  return (
-    <Box sx={{ p: 1.75, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75 }}>
-        {icon}
-        <Typography sx={{ fontWeight: 800, fontSize: 13.5, color: C.ink }}>{title}</Typography>
-      </Stack>
-      <Typography sx={{ fontSize: 12.5, color: C.mute, lineHeight: 1.45 }}>{body}</Typography>
-    </Box>
-  );
-}

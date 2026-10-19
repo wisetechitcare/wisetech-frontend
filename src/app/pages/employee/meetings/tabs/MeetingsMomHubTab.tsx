@@ -50,8 +50,8 @@ export default function MeetingsMomHubTab() {
         setFinalized(s.momFinalized || []);
         const all = [
           ...(s.upcoming || []),
-          ...(s.awaitingConfirm || []),
           ...(s.recentCompleted || []),
+          ...(s.withoutAgenda || []),
           ...(s.momDrafts || []).map((d: MomRow) => ({
             id: d.meetingId,
             title: d.title,
@@ -90,7 +90,7 @@ export default function MeetingsMomHubTab() {
   );
 
   const openMom = (meetingId: string) => {
-    navigate(`/employees/meetings/${meetingId}?tab=mom`);
+    navigate(`/employees/meetings/agenda?meeting=${meetingId}&panel=mom`);
   };
 
   if (loading) {

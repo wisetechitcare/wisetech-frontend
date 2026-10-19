@@ -1848,7 +1848,7 @@ const DayDetail: React.FC<{
                                             icon="bi-journal-text"
                                             label="Detail"
                                             color="#0F766E"
-                                            onClick={() => navigate(`/employees/meetings/${m.id}`)}
+                                            onClick={() => navigate(`/employees/meetings/agenda?meeting=${m.id}`)}
                                         />
                                     )}
                                     {onCancel && m.canManage && (
@@ -2205,7 +2205,7 @@ const MobileDayAgenda = ({
                                                 icon="bi-journal-text"
                                                 label="Detail"
                                                 color="#0F766E"
-                                                onClick={() => navigate(`/employees/meetings/${m.id}`)}
+                                                onClick={() => navigate(`/employees/meetings/agenda?meeting=${m.id}`)}
                                             />
                                         )}
                                         {onCancel && m.canManage && (
@@ -2726,7 +2726,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                         {!isCancelled(m) && (
                             <button
                                 type="button"
-                                onClick={() => navigate(`/employees/meetings/${m.id}`)}
+                                onClick={() => navigate(`/employees/meetings/agenda?meeting=${m.id}`)}
                                 title="Open meeting detail (agenda and minutes)"
                                 style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#0F766E' }}
                             >
