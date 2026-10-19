@@ -16,7 +16,6 @@ import {
   fetchAllStates,
 } from "@services/options";
 
-import { Modal, Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, FieldArray } from "formik";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
@@ -27,8 +26,6 @@ import { useEffect, useMemo, useState } from "react";
 import Select from "react-select";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
-import { Close } from "@mui/icons-material";
-import { Box, IconButton, Typography } from "@mui/material";
 import CompanyConfigForm from "../../companyConfig/components/CompanyConfigForm";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -43,6 +40,19 @@ import DragDropFileField from "@app/modules/common/components/DragDropFileField"
 import { IFormField, IFormSection } from "@models/company";
 import { cloneCompanyDefaults, mergeCompanySchema } from "./companyFormSchema";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
+import { FullscreenWizardModal } from "@app/pages/employee/forms/shared/FullscreenWizardModal";
+import { CompanyWorkspace } from "../../forms/CompanyWorkspace";
+import { CrmSection } from "../../forms/CrmSection";
+import {
+  CRM_ACTIVE_COLOR,
+  CRM_INACTIVE_COLOR,
+} from "../../crmListRowSx";
+
+const COMPANY_STATUS_OPTIONS = [
+  { value: "ACTIVE", label: "Active", color: CRM_ACTIVE_COLOR },
+  { value: "CLOSED", label: "Inactive", color: CRM_INACTIVE_COLOR },
+];
+
 
 // Type definitions
 interface CompanyType {
@@ -957,216 +967,115 @@ const NewCompanyForm: React.FC<Props> = ({
 
   return (
     <>
-      <Modal
+      <FullscreenWizardModal
         show={show}
-        onHide={onClose}
-        size="xl"
-        centered
-        aria-labelledby="responsive-modal"
-        dialogClassName="responsive-modal"
+        onClose={onClose}
+        closeLabel="Close company form"
       >
-        <Box
-          sx={{
-            position: "relative",
-            backgroundColor: "#F3F4F7",
-            p: { xs: 0, md: 3 },
-          }}
+        <Formik
+          initialValues={initialValues}
+          onSubmit={handleSubmit}
+          validationSchema={validationSchema}
+          enableReinitialize={true}
         >
-          <Typography
-            variant="h6"
-            component="h2"
-            sx={{ fontWeight: 600, pl: { xs: 2, md: 0 }, pt: { xs: 1, md: 0 } }}
-            style={{
-              fontSize: "20px",
-              fontFamily: "Barlow",
-              fontWeight: "600",
-            }}
-          >
-            {isEditMode ? "Edit Company" : "Add New Company"}
-            {/* <button
-              className="btn btn-primary ms-9"
-              onClick={() => {
-                setShowSubCompanyForm(true);
-                onClose();
-              }}
-            >
-              Add Sub Company
-            </button> */}
-            <p style={{ marginBottom: "10px", fontSize: "15px" }}>
-              {prefix && `Company Id: ${prefix}`}
-            </p>
-          </Typography>
-          <IconButton
-            onClick={onClose}
-            sx={{
-              position: "absolute",
-              right: 8,
-              top: 8,
-              color: "text.secondary",
-            }}
-          >
-            <Close />
-          </IconButton>
-          <Formik
-            initialValues={initialValues}
-            onSubmit={handleSubmit}
-            validationSchema={validationSchema}
-            enableReinitialize={true}
-          >
-            {({ setFieldValue, values, isSubmitting }) => {
-              return (
-              <FormikForm>
-                {/* <Modal.Header>
-
-              </Modal.Header> */}
-                <Modal.Body style={{ maxHeight: "80vh", overflowY: "auto" }}>
-                  {isDataLoading ? (
-                    <div className="text-center p-4">
+          {({ setFieldValue, values, isSubmitting }) => {
+            return (
+              <FormikForm style={{ height: "100%" }}>
+                <CompanyWorkspace
+                  isEdit={isEditMode}
+                  onCancel={onClose}
+                  isSubmitting={isSubmitting || isDataLoading}
+                  headerMeta={
+                    prefix ? (
+                      <span className="wizard-meta-chip">
+                        <AppIcon name="bi-hash" /> {prefix}
+                      </span>
+                    ) : undefined
+                  }
+                  headerActions={
+                    <button
+                      type="button"
+                      onClick={() => setShowSchemaManager(true)}
+                      className="wt-btn wt-btn-outline-primary"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 13,
+                        fontWeight: 700,
+                      }}
+                    >
+                      <AppIcon name="bi-gear-fill" className="fs-5" style={{ lineHeight: 1 }} />
+                      Manage Sections &amp; Fields
+                    </button>
+                  }
+                
+                  sections={
+                    isDataLoading
+                      ? [
+                          {
+                            id: "loading",
+                            label: "Loading",
+                            title: "Loading",
+                            fields: [],
+                            icon: "bi-hourglass-split",
+                            content: (<div className="text-center p-4">
                       <div className="spinner-border" role="status">
                         <span className="visually-hidden">Loading...</span>
                       </div>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Manage custom sections & fields (per-company schema) */}
-                      <div className="d-flex justify-content-end mb-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowSchemaManager(true)}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            background: "#fff",
-                            border: "1.5px solid #1E3A8A",
-                            borderRadius: "8px",
-                            padding: "6px 16px",
-                            color: "#1E3A8A",
-                            fontWeight: 700,
-                            fontSize: "13px",
-                            cursor: "pointer",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          <AppIcon name="bi-gear-fill" className="fs-5" style={{ lineHeight: 1 }} />
-                          Manage Sections &amp; Fields
-                        </button>
-                      </div>
-
-                      {/* Logo */}
-                      <div className="mb-4">
-                        <label
-                          className="form-label fw-semibold"
-                          style={{
-                            fontSize: "17px",
-                            fontFamily: "Inter",
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px 2px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            fontWeight: "600",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          Logo
-                          <div
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "100%",
-                              height: "0px",
-                            }}
-                          ></div>
-                        </label>
-                        <div className="d-flex align-items-center ms-6" style={{ gap: 16 }}>
-                          {/* Circular logo preview — matches how the logo appears in SmartAvatar */}
-                          <label htmlFor="logo" style={{ cursor: "pointer", flexShrink: 0 }}>
-                            <div
-                              style={{
-                                width: 80,
-                                height: 80,
-                                borderRadius: "50%",
-                                border: logoPreview ? "2.5px solid #1E3A8A" : "2px dashed #ccc",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                overflow: "hidden",
-                                background: "#f8f9fa",
-                                boxShadow: logoPreview ? "0 2px 10px rgba(30, 58, 138,0.15)" : "none",
-                                transition: "border-color .2s, box-shadow .2s",
-                              }}
-                            >
-                              {logoPreview ? (
-                                <img
-                                  src={logoPreview}
-                                  alt="Logo"
-                                  style={{ width: "82%", height: "82%", objectFit: "contain" }}
-                                />
-                              ) : (
-                                <span style={{ fontSize: 11, color: "#aab2bd", textAlign: "center", lineHeight: 1.4, padding: "0 6px" }}>
-                                  Choose<br />Logo
-                                </span>
-                              )}
-                            </div>
+                    </div>),
+                          },
+                        ]
+                      : [
+                          {
+                            id: "profile",
+                            label: "Profile",
+                            title: "Company Profile",
+                            subtitle: "Logo, name, types and services",
+                            fields: ["companyName", "companyTypes", "subTypes", "serviceIds", "subCompanyIds"],
+                            requiredFields: ["companyName"],
+                            icon: "bi-building",
+                            content: (
+                              <>
+                                <CrmSection title="Company Logo">
+                        <div className="crm-avatar-wrap">
+                          <label
+                            htmlFor="logo"
+                            className={`crm-avatar-circle${logoPreview ? " has-image" : ""}`}
+                            title="Upload company logo"
+                          >
+                            {logoPreview ? (
+                              <img src={logoPreview} alt="Logo preview" />
+                            ) : (
+                              <span className="crm-avatar-placeholder">
+                                <AppIcon name="bi-building" />
+                                <span>Add logo</span>
+                              </span>
+                            )}
                           </label>
-                          <div>
-                            <input
-                              type="file"
-                              id="logo"
-                              accept="image/*"
-                              onChange={handleLogoChange}
-                              style={{ display: "none" }}
-                            />
-                            <div className="text-muted small">{logoFile?.name || "No file chosen"}</div>
-                            <div style={{ fontSize: 11, color: "#aab2bd", marginTop: 3 }}>Click the circle to change</div>
+                          <div className="crm-avatar-actions">
+                            <button
+                              type="button"
+                              className="wt-btn wt-btn-outline-primary"
+                              style={{ fontSize: 13, fontWeight: 600 }}
+                              onClick={() => document.getElementById("logo")?.click()}
+                            >
+                              {logoPreview ? "Change logo" : "Upload logo"}
+                            </button>
+                            <span className="crm-avatar-hint">
+                              {logoFile?.name || "PNG or JPG · shown on company lists"}
+                            </span>
                           </div>
+                          <input
+                            type="file"
+                            id="logo"
+                            accept="image/*"
+                            onChange={handleLogoChange}
+                            style={{ display: "none" }}
+                          />
                         </div>
-                      </div>
-
-                      {/* Basic */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          PROJECT DETAILS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
+                      </CrmSection>
+                                <CrmSection title="Company Profile">
                           <div className="row g-3">
                             <div className="col-md-12">
                               <TextInput
@@ -1284,46 +1193,21 @@ const NewCompanyForm: React.FC<Props> = ({
                               )}
                             </div>
                           </div>
-                        </div>
-                      </fieldset>
-
-                      {/* References */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          REFERENCES
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
+                      </CrmSection>
+                              </>
+                            ),
+                          },
+                          {
+                            id: "references",
+                            label: "References",
+                            title: "References",
+                            subtitle: "Related contacts and companies",
+                            fields: ["references"],
+                            requiredFields: [],
+                            icon: "bi-people",
+                            content: (
+                              <>
+                                <CrmSection title="References">
                           <div className="row g-3">
                             <FieldArray name="referenceType">
                               {({ push, remove }) => (
@@ -1538,46 +1422,21 @@ const NewCompanyForm: React.FC<Props> = ({
                               )}
                             </FieldArray>
                           </div>
-                        </div>
-                      </fieldset>
-
-                      {/* Contact */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          CONTACT DETAILS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
+                      </CrmSection>
+                              </>
+                            ),
+                          },
+                          {
+                            id: "contact",
+                            label: "Contact",
+                            title: "Contact & Address",
+                            subtitle: "Phone, email, website and location",
+                            fields: ["phone", "phone2", "fax", "email", "website", "addressLine1", "country", "state", "city", "area", "zipCode"],
+                            requiredFields: [],
+                            icon: "bi-geo-alt",
+                            content: (
+                              <>
+                                <CrmSection title="Contact Details">
                           <div className="row g-3">
                             <div className="col-lg-4">
                               <PhoneNumberInput
@@ -1617,46 +1476,8 @@ const NewCompanyForm: React.FC<Props> = ({
                               />
                             </div>
                           </div>
-                        </div>
-                      </fieldset>
-
-                      {/* Address */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 14px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          ADDRESS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
+                      </CrmSection>
+                                <CrmSection title="Address">
                           <div className="row g-3">
                             <div className="col-lg-6">
                               <TextInput
@@ -1824,46 +1645,21 @@ const NewCompanyForm: React.FC<Props> = ({
 
 
                         </div>
-                        </div>
-                      </fieldset>
-
-                      {/* GST & Statutory */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          GST &amp; STATUTORY DETAILS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
+                      </CrmSection>
+                              </>
+                            ),
+                          },
+                          {
+                            id: "statutory",
+                            label: "More",
+                            title: "Statutory & Notes",
+                            subtitle: "GST, custom fields, status and notes",
+                            fields: ["gstNumber", "panNumber", "gstAddress", "status", "note", "blacklisted"],
+                            requiredFields: [],
+                            icon: "bi-journal-text",
+                            content: (
+                              <>
+                                <CrmSection title="GST & Statutory">
                           <div className="row g-3">
                             {/* GST: number + its own compact attachment */}
                             <div className="col-lg-6">
@@ -1915,135 +1711,69 @@ const NewCompanyForm: React.FC<Props> = ({
                               />
                             </div>
                           </div>
-                        </div>
-                      </fieldset>
-
-                      {/* Admin-defined custom fields (per-company schema). Built-in fields are
+                      </CrmSection>
+                                {/* Admin-defined custom fields (per-company schema). Built-in fields are
                           rendered by the form above; only custom fields appear here, grouped
                           under their section title. */}
                       {formSections.map((section) => {
                         const visibleFields = section.fields.filter((f) => !f.isSystem && !f.hidden);
                         if (visibleFields.length === 0) return null;
                         return (
-                          <fieldset
-                            key={section.id}
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              padding: "clamp(14px, 2vw, 15px)",
-                            }}
-                            className="mt-7"
-                          >
-                            <legend
-                              style={{
-                                fontSize: "17px",
-                                fontWeight: 600,
-                                fontFamily: "Inter",
-                                marginTop: "-25px",
-                                marginLeft: "-17px",
-                                backgroundColor: "#F3F4F7",
-                                width: "auto",
-                                lineHeight: "1",
-                                letterSpacing: 0,
-                                color: "#1E3A8A",
-                                padding: "2px 2px 8px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                              }}
-                            >
-                              <div
-                                className="ms-5"
-                                style={{
-                                  borderTop: "1px solid #1E3A8A",
-                                  width: "30px",
-                                  height: "0px",
-                                }}
-                              ></div>
-                              {section.title || "CUSTOM SECTION"}
-                            </legend>
-                            <div className="card-body card responsive-card p-md-10 p-3 ">
-                              <div className="row g-3">
-                                {visibleFields.map((field) => (
-                                  <div
-                                    key={field.id}
-                                    className={field.type === "file" ? "col-md-12" : "col-lg-6"}
-                                  >
-                                    {renderCustomField(field, section.id)}
-                                  </div>
-                                ))}
-                              </div>
+                          <CrmSection key={section.id} title={section.title || "Custom Fields"}>
+                            <div className="row g-3">
+                              {visibleFields.map((field) => (
+                                <div
+                                  key={field.id}
+                                  className={field.type === "file" ? "col-md-12" : "col-lg-6"}
+                                >
+                                  {renderCustomField(field, section.id)}
+                                </div>
+                              ))}
                             </div>
-                          </fieldset>
+                          </CrmSection>
                         );
                       })}
-
-                      {/* Other */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 14px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          <span>OTHERS</span>
-                          {/* <div style={{borderTop: "1px solid #1E3A8A", width: "100px", height: "0px",}}></div> */}
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
-                          <div className="mb-3">
-                            {/* Status drives the company's active/inactive state: ACTIVE = active,
-                                CLOSED = inactive. Styled like the contact form's status dropdown
-                                (colour dots) since both convey the same active/inactive meaning. */}
-                            <DropDownInput
-                              inputLabel="Status"
-                              placeholder="Select status"
-                              isRequired={false}
-                              formikField="status"
-                              showColor={true}
-                              options={[
-                                { value: "ACTIVE", label: "Active", color: "#50cd89" },
-                                { value: "CLOSED", label: "Inactive", color: "#f1416c" },
-                              ]}
-                            />
-                          </div>
-                          {/* Blacklist toggle — a blacklisted company is highlighted in the list. */}
-                          <div className="mb-3 d-flex align-items-center gap-3">
-                            <label className="form-label mb-0" htmlFor="blacklistedToggle">
-                              Is Blacklisted
-                            </label>
-                            <div className="form-check form-switch m-0">
-                              <Field
-                                type="checkbox"
-                                name="blacklisted"
-                                id="blacklistedToggle"
-                                className="form-check-input"
-                                role="switch"
+                                <CrmSection title="Status & Notes">
+                          <div className="row g-3 mb-3">
+                            <div className="col-md-6">
+                              <DropDownInput
+                                inputLabel="Status"
+                                placeholder="Select status"
+                                isRequired={false}
+                                formikField="status"
+                                options={COMPANY_STATUS_OPTIONS}
+                                showColor
+                                disableAlphabeticalSort
+                                onChange={(value) => {
+                                  const next =
+                                    value && typeof value === "object" && "value" in value
+                                      ? value.value
+                                      : value;
+                                  setFieldValue("status", next || "ACTIVE");
+                                }}
+                                value={
+                                  COMPANY_STATUS_OPTIONS.find(
+                                    (o) => o.value === values.status
+                                  ) || COMPANY_STATUS_OPTIONS[0]
+                                }
                               />
+                            </div>
+                            <div className="col-md-6 d-flex align-items-end pb-1">
+                              {/* Blacklist toggle — a blacklisted company is highlighted in the list. */}
+                              <div className="d-flex align-items-center gap-3 w-100" style={{ minHeight: 44 }}>
+                                <label className="form-label mb-0" htmlFor="blacklistedToggle">
+                                  Is Blacklisted
+                                </label>
+                                <div className="form-check form-switch m-0">
+                                  <Field
+                                    type="checkbox"
+                                    name="blacklisted"
+                                    id="blacklistedToggle"
+                                    className="form-check-input"
+                                    role="switch"
+                                  />
+                                </div>
+                              </div>
                             </div>
                           </div>
                           {/* <div className="mb-3">
@@ -2087,33 +1817,18 @@ const NewCompanyForm: React.FC<Props> = ({
                               placeholder="Enter note"
                             />
                           </div>
-                        </div>
-                      </fieldset>
-                    </>
-                  )}
-                </Modal.Body>
-                <div className="d-flex justify-content-start gap-2 mt-4 mb-4 p-4">
-                  {/* <Button variant="outline-secondary" onClick={onClose}>
-                  Cancel
-                </Button> */}
-                  <Button
-                    variant="primary"
-                    type="submit"
-                    disabled={isSubmitting || isDataLoading}
-                  >
-                    {isSubmitting
-                      ? "Saving..."
-                      : isEditMode
-                      ? "Update"
-                      : "Submit"}
-                  </Button>
-                </div>
+                      </CrmSection>
+                              </>
+                            ),
+                          },
+                        ]
+                  }
+                />
               </FormikForm>
-              );
-            }}
-          </Formik>
-        </Box>
-      </Modal>
+            );
+          }}
+        </Formik>
+      </FullscreenWizardModal>
 
       <CompanyConfigForm
         show={showCompanyTypeModal}
