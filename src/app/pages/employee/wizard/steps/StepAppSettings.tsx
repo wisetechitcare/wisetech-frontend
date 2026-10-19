@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useFormikContext } from "formik";
 import { fetchAllEmployees } from "@services/employee";
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import { ToneChip, WtFieldFormik } from "@app/modules/common/components/ui";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
 import MonthYearInput from "@app/modules/common/inputs/MonthYearInput";
@@ -31,12 +31,13 @@ function ReportingConfig() {
     return (
         <div className="row">
             <div className="col-lg-6 col-md-6 col-sm-12">
-                <DropDownInput
-                    isRequired={false}
-                    formikField="reportsToId"
-                    inputLabel="Reporting Manager"
+                <WtFieldFormik
+                    name="reportsToId"
+                    label="Reporting Manager"
                     placeholder="Select reporting manager"
                     options={managerOptions}
+                    searchable
+                    clearable
                 />
             </div>
         </div>
@@ -330,11 +331,7 @@ function PrivacyControls() {
                     />
                 </div>
                 <div className="text-center mt-1">
-                    <span
-                        className={`badge ${isHidden ? "badge-light-danger" : "badge-light-success"} fs-8 fw-bold`}
-                    >
-                        {isHidden ? "Hidden" : "Visible"}
-                    </span>
+                    <ToneChip dense tone={isHidden ? "danger" : "success"} label={isHidden ? "Hidden" : "Visible"} />
                 </div>
             </div>
         </div>

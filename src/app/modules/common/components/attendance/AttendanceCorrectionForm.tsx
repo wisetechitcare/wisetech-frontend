@@ -120,7 +120,7 @@ export function AttendanceCorrectionForm({
               label="Status"
               required
               value={c.status}
-              onChange={c.setStatus}
+              onChange={(v) => { if (typeof v === 'string') c.setStatus(v); }}
               options={STATUS_OPTIONS}
               disabled={c.saving}
             />

@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Modal } from "react-bootstrap";
-import CloseIcon from "@mui/icons-material/Close";
-import { Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
 import { successConfirmation } from "@utils/modal";
 import { useDashboardSettings, DashboardSection, isWidgetAllowed } from "./useDashboardSettings";
-import { WtSwitch } from "@app/modules/common/components/ui";
+import {
+  GlassDialog,
+  PlainDialogHeader,
+  WtButton,
+  WtSwitch,
+} from "@app/modules/common/components/ui";
 
 interface CustomizeDashboardProps {
   show: boolean;
@@ -17,7 +20,6 @@ const CustomizeDashboard: React.FC<CustomizeDashboardProps> = ({ show, onHide, o
   const [sections, setSections] = useState<DashboardSection[]>(savedSections);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Update local state when modal opens
   useEffect(() => {
     if (show) {
       setSections(savedSections);
@@ -35,17 +37,9 @@ const CustomizeDashboard: React.FC<CustomizeDashboardProps> = ({ show, onHide, o
   const handleSave = async () => {
     try {
       setIsSubmitting(true);
-
-      // Save to API
       await saveSections(sections);
-
       successConfirmation("Dashboard settings saved successfully!");
-
-      // Notify parent component to refresh
-      if (onSettingsChange) {
-        onSettingsChange();
-      }
-
+      onSettingsChange?.();
       onHide();
     } catch (error) {
       console.error("Error saving dashboard settings:", error);
@@ -55,99 +49,70 @@ const CustomizeDashboard: React.FC<CustomizeDashboardProps> = ({ show, onHide, o
   };
 
   return (
-    <Modal
-      show={show}
-      onHide={onHide}
-      size="xl"
-      centered
-      className="responsive-modal"
+    <GlassDialog
+      open={show}
+      onClose={onHide}
+      maxWidth="md"
+      plain
+      header={
+        <PlainDialogHeader
+          title="Customize Cards Visibility"
+          subtitle="Select which sections you want to display on your dashboard."
+          onClose={onHide}
+        />
+      }
     >
-      <Modal.Body
-        style={{
-          backgroundColor: "white",
-          padding: "20px",
-          borderRadius: "8px",
-          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-        }}
-      >
-        <div
-          style={{
-            backgroundColor: "white",
-            padding: "20px",
-            borderRadius: "8px",
+      <Box sx={{ px: { xs: 2, sm: 3 }, py: 2.5 }}>
+        <Typography
+          component="h3"
+          sx={{
+            fontWeight: 700,
+            fontSize: 14,
+            letterSpacing: "-0.01em",
+            mb: 1.5,
+            pb: 1,
+            borderBottom: 1,
+            borderColor: "divider",
           }}
         >
-          {/* Custom Close Button */}
-          <button
-            onClick={onHide}
-            style={{
-              position: "absolute",
-              top: "15px",
-              right: "20px",
-              background: "none",
-              border: "none",
-              fontSize: "18px",
-              cursor: "pointer",
-              color: "#6c757d",
-              zIndex: 1,
-            }}
-          >
-            <CloseIcon style={{ fontSize: "24px" }} />
-          </button>
+          Dashboard Sections
+        </Typography>
 
-          <Typography
-            style={{
-              fontFamily: "Inter",
-              fontWeight: 600,
-              fontSize: "18px",
-              color: "#333",
-              marginBottom: "10px",
-            }}
-          >
-            Customize Cards Visibility
-          </Typography>
-
-          <p
-            style={{
-              fontFamily: "Inter",
-              fontSize: "14px",
-              color: "#666",
-              marginBottom: "20px",
-            }}
-          >
-            Select which sections you want to display on your dashboard.
-          </p>
-
-          {/* Dashboard Sections */}
-          <div className="container mt-4">
-            <div className="mb-4">
-              <h5 className="border-bottom pb-2">Dashboard Sections</h5>
-              {/* Only widgets this person may see at all; the rest keep their saved state untouched. */}
-              {sections.filter((section) => isWidgetAllowed(section.key)).map((section) => (
-                <div
-                  key={section.key}
-                  className="d-flex justify-content-between align-items-center mb-3 flex-wrap"
+        <Stack spacing={1.5}>
+          {sections
+            .filter((section) => isWidgetAllowed(section.key))
+            .map((section) => (
+              <Stack
+                key={section.key}
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                gap={2}
+                sx={{ py: 0.25 }}
+              >
+                <Typography
+                  component="label"
+                  htmlFor={section.key}
+                  sx={{ fontSize: 14, fontWeight: 500, cursor: "pointer" }}
                 >
-                  <label className="form-label mb-0" htmlFor={section.key}>
-                    {section.label}
-                  </label>
-                  <WtSwitch id={section.key} checked={section.enabled} onChange={() => handleToggle(section.key)} />
-                </div>
-              ))}
-            </div>
+                  {section.label}
+                </Typography>
+                <WtSwitch
+                  id={section.key}
+                  checked={section.enabled}
+                  onChange={() => handleToggle(section.key)}
+                />
+              </Stack>
+            ))}
+        </Stack>
 
-            <button
-              type="button"
-              className="btn btn-primary mt-3"
-              onClick={handleSave}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Saving..." : "Save Settings"}
-            </button>
-          </div>
-        </div>
-      </Modal.Body>
-    </Modal>
+        <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
+          <WtButton tone="primary" onClick={handleSave} disabled={isSubmitting}>
+            {isSubmitting ? "Saving…" : "Save Settings"}
+          </WtButton>
+        </Box>
+      </Box>
+    </GlassDialog>
   );
 };
 

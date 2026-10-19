@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatStageNo, resolveStageFormat, stageNumber, type StageNumberingFormat } from './stageNumbering';
+import { formatStageNo, resolveStageFormat, stageNumber, stageSrNo, type StageNumberingFormat } from './stageNumbering';
 
 describe('stageNumber', () => {
   it('renders every style', () => {
@@ -34,6 +34,14 @@ describe('formatStageNo', () => {
 
   it('falls back to the position with no format', () => {
     expect(formatStageNo(null, 4)).toBe('5');
+  });
+});
+
+describe('stageSrNo', () => {
+  it('uses the rendered label, else the position', () => {
+    expect(stageSrNo(1, ['Stage 1', 'STG-02'])).toBe('STG-02');
+    expect(stageSrNo(0, null)).toBe('1');
+    expect(stageSrNo(2, ['Stage 1'])).toBe('3');
   });
 });
 

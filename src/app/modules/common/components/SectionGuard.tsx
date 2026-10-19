@@ -2,7 +2,9 @@ import React from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
 import { canSection } from "@utils/can";
+import { getPacksFromState, isSectionPackEnabled } from "@utils/tenantPacks";
 import NoAccessPage from "./NoAccessPage";
+import { packForSection } from "@constants/entitlements";
 
 interface SectionGuardProps {
   /** Section/sub-section key, e.g. "projects" or "reports.kpi". */
@@ -16,7 +18,13 @@ interface SectionGuardProps {
  * while the person is on the page swaps it for No access at once (and back when it's given).
  */
 export const SectionGuard: React.FC<SectionGuardProps> = ({ module, children }) => {
+  const flags = useSelector((s: RootState) => (s as any).authz?.packs);
   useSelector((s: RootState) => (s as any).authz?.access);
+  const packs = getPacksFromState(flags);
+  const requiredPack = packForSection(module);
+  if (requiredPack && !isSectionPackEnabled(module, packs)) {
+    return <NoAccessPage kind="entitlement" pack={requiredPack} />;
+  }
   if (!canSection(module, "read")) return <NoAccessPage section={module} />;
   return <>{children}</>;
 };

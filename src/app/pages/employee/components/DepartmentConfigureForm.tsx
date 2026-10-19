@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Box, Stack, Typography, DialogContent, DialogActions } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
-  GlassDialog, GlassHeader, WtButton, WtField, WtSelect, ToneChip, toast,
+  GlassDialog, GlassHeader, WtButton, WtField, ToneChip, toast,
 } from "@app/modules/common/components/ui";
 import { createNewDepartment, updateDepartmentById, setDepartmentDesignations } from "@services/company";
 // `detail` carries the server's reason; `.message` is only the HTTP status name.
@@ -162,24 +162,19 @@ const DepartmentConfigureForm: React.FC<DepartmentFormProps> = ({
 
           <WtField
             label="Designations in this department"
+            multiple
+            searchable
+            options={options}
+            value={designationIds}
+            onChange={(ids) => setDesignationIds(Array.isArray(ids) ? ids : [])}
+            disabled={isSubmitting || dd.isLoading}
+            placeholder="Search designations…"
             hint={
               designationIds.length
                 ? `Only these ${designationIds.length} can be chosen with this department.`
                 : "None linked — this department allows every designation until you add some."
             }
-          >
-            <WtSelect
-              isMulti
-              isSearchable
-              isDisabled={isSubmitting || dd.isLoading}
-              isLoading={dd.isLoading}
-              options={options}
-              value={designationIds.map((id) => ({ value: id, label: roleById.get(id) ?? id }))}
-              onChange={(values: { value: string }[] | null) => setDesignationIds((values ?? []).map((v) => v.value))}
-              placeholder="Search designations…"
-              ariaLabel="Designations in this department"
-            />
-          </WtField>
+          />
 
           {suggestions.length > 0 && (
             <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "action.hover" }}>

@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
+import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
 // The candidate modal, rendered the way the pipeline board renders it, against a mocked API.
@@ -44,6 +45,10 @@ vi.mock('@services/company', async (importOriginal) => ({
     getDepartmentDesignations: vi.fn(async () => ({ links: [], suggestions: [] })),
 }));
 vi.mock('@app/modules/common/components/EmployeePickerField', () => ({ EmployeePickerField: () => null }));
+vi.mock('@modules/audit/VersionHistory', () => ({
+    VersionHistory: () => <div data-testid="version-history" />,
+    default: () => <div data-testid="version-history" />,
+}));
 
 import CandidateDrawer from '../CandidateDrawer';
 import type { Application, ApplicationStatus } from '@services/recruitment';
@@ -92,7 +97,11 @@ const renderDrawer = (props: Partial<React.ComponentProps<typeof CandidateDrawer
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const store = configureStore({ reducer: { employee: () => ({ currentEmployee: { id: 'emp-me' } }) } });
     const wrap = ({ children }: { children: ReactNode }) => (
-        <Provider store={store}><QueryClientProvider client={client}>{children}</QueryClientProvider></Provider>
+        <Provider store={store}>
+            <QueryClientProvider client={client}>
+                <MemoryRouter>{children}</MemoryRouter>
+            </QueryClientProvider>
+        </Provider>
     );
     return render(<CandidateDrawer application={row} statuses={statuses} onClose={() => {}} {...props} />, { wrapper: wrap });
 };
@@ -120,7 +129,7 @@ describe('CandidateDrawer', () => {
         renderDrawer();
         const dialog = await screen.findByRole('dialog');
         expect(within(dialog).getAllByText('Aisha Rahman')).toHaveLength(1);
-        for (const heading of ['Profile', 'Notes', 'Stage History', 'Interviews', 'Offer']) {
+        for (const heading of ['Profile', 'Notes', 'Stage History', 'Change History', 'Interviews', 'Offer']) {
             expect(within(dialog).getAllByText(heading)).toHaveLength(1);
         }
         expect(within(dialog).queryByText(/Interviews —/)).toBeNull();

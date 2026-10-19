@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { IconButton, Tooltip } from "@mui/material";
-import { ConfigSectionCard, ConfigSettingsRow, C, ICON_COLORS } from "@app/modules/configuration";
+import { ConfigSectionCard, ConfigSettingsRow, C, ICON_COLORS, coloredActionBtn } from "@app/modules/configuration";
 import { deleteConfirmation } from "@utils/modal";
 import {
     getAllProjectPointMasters,
@@ -162,19 +162,5 @@ const ProjectPointsConfigSection: React.FC = () => {
         </ConfigSectionCard>
     );
 };
-
-const coloredActionBtn = (color: string, disabled = false): React.CSSProperties => ({
-    background: disabled ? "#f1f5f9" : `${color}14`,
-    border: `1px solid ${disabled ? "#e2e8f0" : `${color}2a`}`,
-    color: disabled ? "#cbd5e1" : color,
-    cursor: disabled ? "not-allowed" : "pointer",
-    padding: "8px",
-    borderRadius: "8px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.15s ease",
-    opacity: disabled ? 0.5 : 1,
-});
 
 export default ProjectPointsConfigSection;

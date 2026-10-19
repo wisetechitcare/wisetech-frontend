@@ -286,9 +286,10 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
           Edit-Profile modal, its backdrop must sit above the parent so the form
           behind is properly dimmed. */}
       <style>{`
-        .schema-mgr-backdrop.modal-backdrop { z-index: 1190; background: #0E1016; }
+        /* Above MUI dialogs (theme.zIndex.modal = 1300): this opens FROM inside one (the org profile editor). */
+        .schema-mgr-backdrop.modal-backdrop { z-index: 1390; background: #0E1016; }
         .schema-mgr-backdrop.modal-backdrop.show { opacity: 0.55; }
-        .schema-mgr-modal { z-index: 1200; }
+        .schema-mgr-modal { z-index: 1400; }
         .schema-mgr-dialog { max-width: 1120px; }
         .schema-mgr-content {
           border: none;
@@ -336,7 +337,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
         dialogClassName="schema-mgr-dialog"
         contentClassName="schema-mgr-content"
         className="schema-mgr-modal"
-        style={{ zIndex: 1200 }}
+        style={{ zIndex: 1400 }}
       >
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 26px', borderBottom: `1px solid ${C.line}`, background: C.surface }}>

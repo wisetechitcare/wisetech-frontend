@@ -67,21 +67,15 @@ export const getReimbursementSchema = ({
             .test('not-future', 'An expense cannot be dated in the future', (value) =>
                 !value || !dayjs(value).isAfter(dayjs(), 'day'))
             .label('Date'),
+        // Company type/name stay optional — they only narrow the project picker.
         clientTypeId: Yup.string().label('Company Type'),
-        // Company and project stay OPTIONAL, against the plan's "required means required".
-        //
-        // The plan's own risk note says to check how many submissions would start failing before
-        // enforcing. Measured against live data: 66% of existing expenses have no client company
-        // and 80% have no project at all. Requiring them does not improve data quality, it blocks
-        // the way four out of five expenses are actually filed, and the likeliest outcome is
-        // people picking any project to get past the field — which is worse than a null, because
-        // a null is honestly empty and a wrong project is silently wrong.
-        //
-        // Making these required is a policy change to announce and stage, not a validation rule
-        // to slip in. The single-schema consolidation stands either way; flip these two lines
-        // when finance has decided.
         clientCompanyId: Yup.string().label('Company Name'),
-        projectId: Yup.string().label('Project'),
+        // PROJECT IS REQUIRED on a new expense (business decision, 2026-10-01). Not on an edit,
+        // the same as Category: most historical expenses were filed with no project, and editing
+        // one must not force a project pick just to fix its amount.
+        projectId: isEditing
+            ? Yup.string().label('Project')
+            : Yup.string().required('Project is required').label('Project'),
         reimbursementTypeId: isEditing
             ? Yup.string().label('Category')
             : Yup.string().required('Category is required').label('Category'),

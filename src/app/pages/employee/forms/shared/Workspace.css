@@ -398,14 +398,14 @@
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Brand Primary — WiseTech Navy Brand (T.color.brand*) */
-  --wt-primary:           #1E3A8A;                    /* T.color.brand */
-  --wt-primary-mid:       #2C56C4;                    /* T.color.brandGradientLeftToRight start */
-  --wt-primary-dark:      #15265C;                    /* T.color.brandGradientLeftToRight end */
-  --wt-primary-light:     #E9EEF8;                    /* T.color.brandSoft */
-  --wt-primary-border:    rgba(30, 58, 138, 0.16);    /* T.color.brandRing */
-  --wt-primary-shadow:    rgba(30, 58, 138, 0.15);    /* navy shadow */
-  --wt-primary-shadow-md: rgba(30, 58, 138, 0.22);    /* navy shadow md */
+  /* ── Brand Primary — defaults = WiseTech Navy; ColorMode overwrites from Appearance */
+  --wt-primary:           var(--wt-brand, #1E3A8A);
+  --wt-primary-mid:       #2C56C4;
+  --wt-primary-dark:      #15265C;
+  --wt-primary-light:     #E9EEF8;
+  --wt-primary-border:    rgba(30, 58, 138, 0.16);
+  --wt-primary-shadow:    rgba(30, 58, 138, 0.15);
+  --wt-primary-shadow-md: rgba(30, 58, 138, 0.22);
 
   /* ── Semantic Colors — C.success / warning / danger / info */
   --wt-success:           #17c964;                    /* C.success */
@@ -1090,6 +1090,13 @@
   padding: 1.5rem;
   box-shadow: var(--wt-shadow-sm);
   transition: box-shadow 0.2s var(--wt-ease);
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Sandwich Leave section frame — accent rule makes stacked cards scannable. */
+.wt-section-card--sandwich {
+  border-top: 3.5px solid var(--wt-primary, #2563eb);
 }
 
 .wt-section-card:hover {
@@ -1113,16 +1120,24 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 1.125rem;
-  padding-bottom: 0.625rem;
+  padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--wt-gray-100);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .wt-section-heading-icon {
   color: var(--wt-primary);
   font-size: 1rem !important;
+}
+
+.wt-section-heading-text {
+  min-width: 0;
+  flex: 1;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 /* Dynamic row entry cards */
@@ -1752,6 +1767,21 @@
   .wt-step-body {
     /* Extra bottom padding so the last field clears the fixed footer bar. */
     padding: 1rem 1rem 5.5rem;
+  }
+
+  .wt-section-card {
+    padding: 1rem;
+  }
+
+  .wt-section-card--sandwich {
+    border-top-width: 3px;
+  }
+
+  .wt-section-heading {
+    gap: 0.625rem;
+    margin-bottom: 0.875rem;
+    padding-bottom: 0.625rem;
+    font-size: 0.72rem;
   }
 
   .wizard-footer-bar {

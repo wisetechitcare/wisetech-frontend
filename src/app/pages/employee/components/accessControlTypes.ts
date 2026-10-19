@@ -1,4 +1,5 @@
 // Shared by the access editor's two views (AccessControlTable, AccessControlCards).
+import type { SecurityPinSubject } from "@app/modules/common/components/SecurityPin";
 
 // Effective access per section. "none" = no access.
 export type EffLevel = "view" | "edit" | "none";
@@ -29,6 +30,8 @@ export interface AccessControlProps {
   recordCells?: Record<string, RecordCells>;
   /** Tabs inside sections (Access → Advanced). Omit to hide the Advanced controls. */
   tabs?: TabControls;
+  /** Whose security PIN the protected rows (Salary, Increment, Roles & Permissions) show and edit. */
+  pinSubject?: SecurityPinSubject;
 }
 
 /** Staged tab settings, keyed `<section>/<tab>` (see utils/sectionTabs). */

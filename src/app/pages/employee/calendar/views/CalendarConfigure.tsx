@@ -24,13 +24,15 @@ import {
   MEETING_STATUS_AWAITING,
   MEETING_STATUS_HELD,
   MEETING_TIMESHEET_FILLED,
-  MEETING_TIMESHEET_PENDING
+  MEETING_TIMESHEET_PENDING,
+  MEETING_TODAY_COLOR,
 } from '@constants/configurations-key'
 import { fetchConfiguration, createNewConfiguration, updateConfigurationById } from '@services/company'
 // The calendar's own tint helpers, not a second copy: a preview derived independently is a
 // preview that can disagree with the grid it is previewing.
 import {
   rowTone, readableOn, lifecycleTone, LIFECYCLE_DEFAULT_COLORS,
+  todayCellStyle, todayInkFor, calendarChipTone, MEETING_TODAY_DEFAULT,
 } from '@app/modules/common/components/MeetingsList'
 import { safeJsonParse } from '@utils/safeJson'
 import Loader from '@app/modules/common/utils/Loader'
@@ -90,6 +92,8 @@ interface EventItem {
   rowBadge?: string
   /** Previews as a MEETINGS CALENDAR CHIP — the only place a timesheet colour is painted. */
   chip?: boolean
+  /** Previews as today's wash on the meetings month grid. */
+  today?: boolean
 }
 
 interface EventSection {
@@ -112,7 +116,7 @@ const SECTIONS: EventSection[] = [
     id: 'birthdays', tone: TRIO.amber, icon: 'gift',
     title: 'Birthdays', desc: 'Whose birthdays land on the calendar.',
     items: [
-      { key: SHOW_BIRTHDAYS_INTERNAL, label: 'Current employees', desc: 'Everyone on the active roster.', sample: "[Name]'s Birthday", defaultColor: '#E91E63' },
+      { key: SHOW_BIRTHDAYS_INTERNAL, label: 'Current employees', desc: 'Everyone on the active roster.', sample: "[Name]'s Birthday", defaultColor: '#E91E63', defaultEnabled: true },
       { key: SHOW_BIRTHDAYS_INTERNAL_INACTIVE, label: 'Former employees', desc: 'People who have since left the company.', sample: "[Name]'s Birthday (Inactive Employee)", defaultColor: '#E91E63' },
       { key: SHOW_BIRTHDAYS_EXTERNAL, label: 'External contacts', desc: 'Client, vendor and partner contacts.', sample: "[Name]'s Birthday", defaultColor: '#0288D1' },
     ],
@@ -121,7 +125,7 @@ const SECTIONS: EventSection[] = [
     id: 'work', tone: TRIO.purple, icon: 'award',
     title: 'Work Anniversaries', desc: 'Whose joining date is marked each year.',
     items: [
-      { key: SHOW_ANNIVERSARIES_INTERNAL, label: 'Current employees', desc: 'Everyone on the active roster.', sample: "[Name]'s Work Anniversary", defaultColor: '#9C27B0' },
+      { key: SHOW_ANNIVERSARIES_INTERNAL, label: 'Current employees', desc: 'Everyone on the active roster.', sample: "[Name]'s Work Anniversary", defaultColor: '#9C27B0', defaultEnabled: true },
       { key: SHOW_ANNIVERSARIES_INTERNAL_INACTIVE, label: 'Former employees', desc: 'People who have since left the company.', sample: "[Name]'s Work Anniversary (Inactive Employee)", defaultColor: '#9C27B0' },
       { key: SHOW_ANNIVERSARIES_EXTERNAL, label: 'External contacts', desc: 'Client, vendor and partner contacts.', sample: "[Name]'s Anniversary", defaultColor: '#F57C00' },
     ],
@@ -130,7 +134,7 @@ const SECTIONS: EventSection[] = [
     id: 'marriage', tone: TRIO.rose, icon: 'heart',
     title: 'Marriage Anniversaries', desc: 'Whose wedding anniversary is marked each year.',
     items: [
-      { key: SHOW_MARRIAGE_ANNIVERSARY_INTERNAL, label: 'Current employees', desc: 'Everyone on the active roster.', sample: "[Name]'s Marriage Anniversary", defaultColor: '#E64980' },
+      { key: SHOW_MARRIAGE_ANNIVERSARY_INTERNAL, label: 'Current employees', desc: 'Everyone on the active roster.', sample: "[Name]'s Marriage Anniversary", defaultColor: '#E64980', defaultEnabled: true },
       { key: SHOW_MARRIAGE_ANNIVERSARY_INTERNAL_INACTIVE, label: 'Former employees', desc: 'People who have since left the company.', sample: "[Name]'s Marriage Anniversary (Inactive Employee)", defaultColor: '#E64980' },
       { key: SHOW_MARRIAGE_ANNIVERSARY_EXTERNAL, label: 'External contacts', desc: 'Client, vendor and partner contacts.', sample: "[Name]'s Marriage Anniversary", defaultColor: '#AE3EC9' },
     ],
@@ -167,7 +171,7 @@ const MEETING_SECTIONS: EventSection[] = [
     id: 'meetings', tone: TRIO.blue, icon: 'people',
     title: 'Meetings on the calendar', desc: 'Whether scheduled meetings show as calendar events.',
     items: [
-      { key: SHOW_MEETINGS_ON_CALENDAR, label: 'Team meetings', desc: 'Meetings you organise or are invited to.', sample: '[Meeting title]', defaultColor: '#2196F3' },
+      { key: SHOW_MEETINGS_ON_CALENDAR, label: 'Team meetings', desc: 'Meetings you organise or are invited to.', sample: '[Meeting title]', defaultColor: '#2196F3', defaultEnabled: true },
     ],
   },
   {
@@ -193,10 +197,22 @@ const MEETING_SECTIONS: EventSection[] = [
   {
     id: 'timesheets', tone: TRIO.cyan, icon: 'calendar-tick', showCount: false,
     title: 'Timesheet colours',
-    desc: 'How past meetings are coloured on the meetings calendar, by whether every attendee has logged their time. Upcoming meetings keep their half-day colour.',
+    desc: 'How past meeting days are washed on the month grid (same style as today), and how those meetings’ chips are coloured. Upcoming meetings keep their half-day colour.',
     items: [
-      { key: MEETING_TIMESHEET_FILLED, chip: true, label: 'Timesheets filled', desc: 'The meeting is over and everyone in it has logged their time.', sample: '10:00 AM Design review', defaultColor: LIFECYCLE_DEFAULT_COLORS.filled, defaultEnabled: true },
-      { key: MEETING_TIMESHEET_PENDING, chip: true, label: 'Timesheets pending', desc: 'The meeting is over, but at least one attendee has not logged their time yet.', sample: '4:30 PM Client call', defaultColor: LIFECYCLE_DEFAULT_COLORS.pending, defaultEnabled: true },
+      { key: MEETING_TIMESHEET_FILLED, today: true, label: 'Timesheets filled', desc: 'Past meeting day wash when every attendee has logged time. Meeting chips use the same colour.', sample: '14', defaultColor: LIFECYCLE_DEFAULT_COLORS.filled, defaultEnabled: true },
+      { key: MEETING_TIMESHEET_PENDING, today: true, label: 'Timesheets pending', desc: 'Past meeting day wash when at least one attendee still owes time. Meeting chips use the same colour.', sample: '14', defaultColor: LIFECYCLE_DEFAULT_COLORS.pending, defaultEnabled: true },
+    ],
+  },
+  {
+    id: 'today', tone: TRIO.green, icon: 'calendar2-day', showCount: false,
+    title: "Today's cell",
+    desc: 'How the current day is marked on the meetings calendar month grid.',
+    items: [
+      {
+        key: MEETING_TODAY_COLOR, today: true, label: 'Today marker',
+        desc: 'The wash and border around the cell for today. The date numeral uses a darker shade of the same colour.',
+        sample: '14', defaultColor: MEETING_TODAY_DEFAULT, defaultEnabled: true,
+      },
     ],
   },
 ]
@@ -312,13 +328,30 @@ function StatusRowPreview({ setting, item }: { setting: CalendarConfigItem; item
 /** A timesheet colour, drawn exactly as the meetings calendar draws a past meeting's chip. */
 function ChipPreview({ setting, item }: { setting: CalendarConfigItem; item: EventItem }) {
   const color = setting.enabled ? setting.color : item.defaultColor
-  const tone = rowTone(color)
+  const tone = calendarChipTone(color)
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', px: 1, py: 0.625, minWidth: 0,
-      borderRadius: '6px', bgcolor: tone.bg, color: tone.fg, borderLeft: `3px solid ${color}`,
+      borderRadius: '6px', bgcolor: tone.bg, color: tone.fg,
     }}>
       <Typography component="span" noWrap sx={{ fontSize: 11.5, fontWeight: 600, color: 'inherit' }}>
+        {item.sample}
+      </Typography>
+    </Box>
+  )
+}
+
+function TodayPreview({ setting, item }: { setting: CalendarConfigItem; item: EventItem }) {
+  const color = setting.enabled ? setting.color : item.defaultColor
+  return (
+    <Box sx={{
+      position: 'relative', height: 52, borderRadius: '8px', overflow: 'hidden',
+      ...todayCellStyle('#FFFFFF', color),
+    }}>
+      <Typography component="span" sx={{
+        position: 'absolute', top: 8, left: 10, fontSize: 13, fontWeight: 800,
+        color: todayInkFor(color),
+      }}>
         {item.sample}
       </Typography>
     </Box>
@@ -387,6 +420,8 @@ function EventSettingCard({ item, setting, tone, onOpen }: {
         ? <HalfPreview setting={setting} item={item} />
         : item.chip
         ? <ChipPreview setting={setting} item={item} />
+        : item.today
+          ? <TodayPreview setting={setting} item={item} />
         : item.rowBadge !== undefined
           ? <StatusRowPreview setting={setting} item={item} />
           : <EventPreview setting={setting} sample={item.sample} />}

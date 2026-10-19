@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useFormikContext } from "formik";
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import AppRoleField from "./AppRoleField";
 import { fetchRoles } from "@services/roles";
 import RadioInput, { RadioButton } from "@app/modules/common/inputs/RadioInput";
 import { useParams } from "react-router-dom";
@@ -19,8 +19,7 @@ const isEmployeeActiveRadioBtn: RadioButton[] = [
 function AppSettings() {
     const { employeeId } = useParams<{ employeeId: string }>();
     const { values, touched, setFieldValue } = useFormikContext<any>();
-    const fieldName = 'appRole';
-    const [roleOptions, setRoleOptions] = useState<any[]>([]);
+    const [roles, setRoles] = useState<any[]>([]);
 
     useEffect(() => {
         const fetchAllRoles = async () => {
@@ -32,7 +31,7 @@ function AppSettings() {
                 return null;
             });
             const rolesData = Array.isArray(response?.data) ? response.data : [];
-            setRoleOptions(rolesData.map((role: any) => ({ value: role.id, label: role.name })));
+            setRoles(rolesData);
         };
         fetchAllRoles();
     }, []);
@@ -89,12 +88,7 @@ function AppSettings() {
             {/* Row 2: App Role */}
             <div className="row mb-4">
                 <div className="col-lg-6 col-md-6 col-sm-12">
-                    <DropDownInput
-                        isRequired={true}
-                        formikField={fieldName}
-                        inputLabel="App Role"
-                        options={roleOptions}
-                    />
+                    <AppRoleField employeeId={employeeId} roles={roles} />
                 </div>
             </div>
 

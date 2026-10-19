@@ -1,103 +1,68 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Box, Stack, Typography, CircularProgress, DialogContent, DialogActions, FormControlLabel } from "@mui/material";
+import { Box, Stack, Typography, CircularProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
-    AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtField, WtDateField, ToneChip,
-    WtSwitch, WtSwitchField, ActionIconButton, toast, confirmDialog, WtEmptyState,
+    AutoGrid, ListHeader, EntityCard, WtButton, TRIO,
+    type EntityCardTag,
+    WtSwitch, ActionIconButton, toast, confirmDialog, TableSelectionBar, WtEmptyState,
+    CardsListViewSwitch, type CardsListView,
 } from "@app/modules/common/components/ui";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { queryKeys } from "@/lib/queryKeys";
+import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
 import { COPY, TERMS } from "./terms";
 import {
-    getPostings, createPosting, updatePosting, deletePosting, getRequisitions,
-    type JobPosting, type PostingPayload, type JobRequisition, type OrgScoped,
+    getPostings, updatePosting, deletePosting, getRequisitions,
+    type JobPosting, type OrgScoped,
 } from "@services/recruitment";
+import { isRoleOpenForCandidates } from "@utils/requisitions";
+import { postingColumns } from "./postingColumns";
 
 /**
  * Job adverts — the public face of an approved role.
  *
- * The link a recruiter copies comes from the SERVER (`posting.publicUrl`). It used to be a
- * literal `https://www.wisetech-mep.com/careers` in this file, which meant every tenant on the
- * platform handed candidates one company's domain. When no careers site is configured the
- * action is disabled and says so — a missing button gets asked about; a wrong link does not.
+ * The link a recruiter copies comes from the SERVER (`posting.publicUrl`). Copy is shown
+ * only when `publicUrl` is set — no careers site configured ⇒ no inert control.
+ *
+ * Create Role lives on Roles. New Advert + Edit open JobCreateWizardHost
+ * (`/recruitment/jobs/adverts/new` · `/recruitment/jobs/adverts/:id/edit`).
  */
-
-const emptyForm = (): PostingPayload => ({
-    requisitionId: "", title: "", location: "", isRemote: false, employmentType: "Full-time",
-    descriptionHtml: "", isPublished: false, showSalary: false, expiresAt: null,
-});
-
-/** Past this many options a plain menu becomes a scroll hunt. */
-const SEARCHABLE_FROM = 8;
-
-/** Compact, muted meta chip — packs identity/metrics into the card without stretched gaps. */
-const MetaPill = ({ text }: { text: string }) => (
-    <Box sx={{
-        px: 0.9, py: 0.3, borderRadius: "8px", bgcolor: "action.hover",
-        fontSize: 11.5, fontWeight: 600, color: "text.secondary", whiteSpace: "nowrap", lineHeight: 1.5,
-    }}>
-        {text}
-    </Box>
-);
 
 const PostingsView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
+    const navigate = useNavigate();
     const qc = useQueryClient();
-    /** null + open ⇒ creating; a posting ⇒ editing it. One dialog, so the two cannot drift apart. */
-    const [open, setOpen] = useState(false);
-    const [editing, setEditing] = useState<JobPosting | null>(null);
-    const [form, setForm] = useState<PostingPayload>(emptyForm());
-    const [attempted, setAttempted] = useState(false);
+    const [mode, setMode] = useRememberedChoice<CardsListView>(
+        "recruitment:adverts-view", ["cards", "list"], "cards",
+    );
 
     const { data: postings = [], isLoading, isError, error, refetch } = useQuery({
         queryKey: queryKeys.recruitment.postings(companyId),
         queryFn: () => getPostings(companyId),
     });
-    const { data: requisitions = [], isLoading: rolesLoading } = useQuery({
+    const { data: requisitions = [] } = useQuery({
         queryKey: queryKeys.recruitment.requisitions(companyId),
         queryFn: () => getRequisitions(companyId),
     });
-    // Approved AND still open: an archived role is not hiring, and the server takes its adverts
-    // down — offering it here would only produce a posting nobody can see.
     const approved = useMemo(
-        () => requisitions.filter((r: JobRequisition) => r.status === 1 && r.isActive !== false),
+        () => requisitions.filter(isRoleOpenForCandidates),
         [requisitions],
     );
 
     const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.recruitment.postings(companyId) });
 
-    const openCreate = () => { setEditing(null); setForm(emptyForm()); setAttempted(false); setOpen(true); };
-    const openEdit = (p: JobPosting) => {
-        setEditing(p);
-        setForm({
-            requisitionId: p.requisitionId, title: p.title ?? "", location: p.location ?? "",
-            isRemote: !!p.isRemote, employmentType: p.employmentType ?? "", descriptionHtml: p.descriptionHtml ?? "",
-            isPublished: !!p.isPublished, showSalary: !!p.showSalary,
-            expiresAt: p.expiresAt ? p.expiresAt.slice(0, 10) : null,
-        });
-        setAttempted(false);
-        setOpen(true);
+    const withCompany = (path: string) => {
+        const q = new URLSearchParams();
+        if (companyId) q.set("companyId", companyId);
+        return `${path}${q.toString() ? `?${q}` : ""}`;
     };
-
-    const saveMut = useMutation({
-        mutationFn: () => {
-            // The server ignores requisitionId on update by design — an advert's role is fixed
-            // once its public slug is minted — so it is not sent, and the field is locked below.
-            if (editing) {
-                const { requisitionId: _role, ...rest } = form;
-                return updatePosting(editing.id, rest);
-            }
-            return createPosting(form);
-        },
-        onSuccess: () => {
-            toast({ icon: "success", title: editing ? `"${form.title || editing.title}" updated` : "Advert created" });
-            setOpen(false);
-            invalidate();
-        },
-        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, editing ? "Could not update the advert" : "Could not create the advert") }),
-    });
+    /** Same wizard host as Edit — attach mode (pick open role, create posting only). */
+    const openAttach = () => navigate(withCompany("/recruitment/jobs/adverts/new"));
+    const openEdit = (p: JobPosting) => navigate(withCompany(`/recruitment/jobs/adverts/${p.id}/edit`));
 
     const publishMut = useMutation({
         mutationFn: (vars: { id: string; isPublished: boolean }) => updatePosting(vars.id, { isPublished: vars.isPublished }),
@@ -120,28 +85,127 @@ const PostingsView = ({ companyId }: OrgScoped) => {
         catch { toast({ icon: "info", title: p.publicUrl }); }
     };
     const remove = async (p: JobPosting) => {
-        if (await confirmDialog({ icon: "warning", title: "Remove advert?", text: `"${p.title}" will be taken off the careers page and removed.` })) deleteMut.mutate(p.id);
+        if (await confirmDialog({
+            icon: "warning",
+            title: "Archive this advert?",
+            text: `"${p.title}" comes off the careers page and moves to Archive. Restore or permanently delete it from the Archive tab.`,
+            confirmText: "Archive",
+        })) deleteMut.mutate(p.id);
     };
 
-    const roleValid = !!editing || !!form.requisitionId;
-    const save = () => {
-        setAttempted(true);
-        if (roleValid && !saveMut.isPending) saveMut.mutate();
-    };
+    /** List: switch + icons, one line. Edit is row-click; no "Publish" label (aria covers it). */
+    const listActions = (p: JobPosting) => (
+        <Stack
+            direction="row"
+            alignItems="center"
+            spacing={0.5}
+            flexWrap="nowrap"
+            onClick={(e) => e.stopPropagation()}
+            sx={{ whiteSpace: "nowrap", cursor: "default" }}
+        >
+            {canWrite && (
+                <WtSwitch
+                    size="sm"
+                    checked={p.isPublished}
+                    disabled={busy(p.id)}
+                    aria-label={p.isPublished ? "Unpublish advert" : "Publish advert"}
+                    onChange={(e) => publishMut.mutate({ id: p.id, isPublished: e.target.checked })}
+                />
+            )}
+            {p.publicUrl ? (
+                <ActionIconButton
+                    iconName="copy"
+                    title="Copy public link"
+                    size="sm"
+                    onClick={() => copyLink(p)}
+                />
+            ) : null}
+            {canWrite && (
+                <ActionIconButton
+                    iconName="trash"
+                    title="Archive"
+                    tone="danger"
+                    size="sm"
+                    disabled={busy(p.id)}
+                    onClick={() => remove(p)}
+                />
+            )}
+        </Stack>
+    );
 
-    // Keep the form off-screen state clean: a cancelled draft never reappears behind the next open.
-    useEffect(() => { if (!open) setAttempted(false); }, [open]);
+    /** Card footer: Publish + copy + Archive. Edit = whole-card click → wizard. */
+    const cardActions = (p: JobPosting) => (
+        <Stack
+            direction="row"
+            alignItems="center"
+            spacing={0.5}
+            flexWrap="wrap"
+            useFlexGap
+            onClick={(e) => e.stopPropagation()}
+            sx={{ width: "100%", cursor: "default" }}
+        >
+            {canWrite && (
+                <Stack direction="row" alignItems="center" spacing={0.75}>
+                    <WtSwitch
+                        size="sm"
+                        checked={p.isPublished}
+                        disabled={busy(p.id)}
+                        aria-label={p.isPublished ? "Unpublish advert" : "Publish advert"}
+                        onChange={(e) => publishMut.mutate({ id: p.id, isPublished: e.target.checked })}
+                    />
+                    <Typography sx={{ fontSize: 12, fontWeight: 600 }}>Publish</Typography>
+                </Stack>
+            )}
+            <Box sx={{ flex: 1 }} />
+            {p.publicUrl ? (
+                <ActionIconButton
+                    iconName="copy"
+                    title="Copy public link"
+                    size="sm"
+                    onClick={() => copyLink(p)}
+                />
+            ) : null}
+            {canWrite && (
+                <ActionIconButton
+                    iconName="trash"
+                    title="Archive"
+                    tone="danger"
+                    size="sm"
+                    disabled={busy(p.id)}
+                    onClick={() => remove(p)}
+                />
+            )}
+        </Stack>
+    );
+
+    const listColumns = useMemo(
+        () => postingColumns({
+            actions: listActions,
+            omit: ["ref"],
+        }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- actions use live mutators
+        [canWrite, publishMut.isPending, deleteMut.isPending, publishMut.variables, deleteMut.variables],
+    );
 
     return (
         <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
             <ListHeader
                 title={TERMS.Postings}
                 subtitle="Public adverts for approved roles — shown on the careers page."
-                actions={canWrite && (
-                    <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openCreate}>
-                        New {TERMS.Posting}
-                    </WtButton>
-                )}
+                actions={
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                        <CardsListViewSwitch
+                            ariaLabel="Job adverts view"
+                            value={mode}
+                            onChange={setMode}
+                        />
+                        {canWrite && approved.length > 0 && (
+                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openAttach}>
+                                New Advert
+                            </WtButton>
+                        )}
+                    </Stack>
+                }
             />
 
             {isLoading ? (
@@ -156,154 +220,79 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                 />
             ) : postings.length === 0 ? (
                 <WtEmptyState
-                    icon="share"
+                    icon="notification-status"
                     title={COPY.noPostings.title}
-                    hint={COPY.noPostings.hint}
-                    actionLabel={canWrite && approved.length ? COPY.noPostings.action : undefined}
-                    onAction={approved.length ? openCreate : undefined}
+                    hint={
+                        canWrite && approved.length > 0
+                            ? COPY.noPostings.hint
+                            : "Raise a role under Roles first, then publish an advert here."
+                    }
+                    actionLabel={canWrite && approved.length > 0 ? COPY.noPostings.action : undefined}
+                    onAction={canWrite && approved.length > 0 ? openAttach : undefined}
+                />
+            ) : mode === "list" ? (
+                <MaterialTable
+                    columns={listColumns}
+                    data={postings}
+                    isLoading={isLoading}
+                    tableName="RecruitmentAdvertsList"
+                    enableRowSelection={canWrite}
+                    renderSelectionActions={(selected: JobPosting[]) => (
+                        <TableSelectionBar count={selected.length}>
+                            <WtButton
+                                size="small"
+                                tone="danger"
+                                disabled={deleteMut.isPending}
+                                onClick={async () => {
+                                    const ok = await confirmDialog({
+                                        icon: "warning",
+                                        title: `Archive ${selected.length} adverts?`,
+                                        text: "They come off the careers page and move to Archive. Restore or permanently delete from the Archive tab.",
+                                        confirmText: "Archive",
+                                    });
+                                    if (!ok) return;
+                                    await Promise.allSettled(selected.map((p) => deleteMut.mutateAsync(p.id)));
+                                }}
+                            >
+                                Archive selected
+                            </WtButton>
+                        </TableSelectionBar>
+                    )}
+                    muiTableProps={canWrite ? {
+                        muiTableBodyRowProps: ({ row }: { row: { original: JobPosting } }) => ({
+                            onClick: () => openEdit(row.original),
+                            sx: { cursor: "pointer" },
+                        }),
+                    } : undefined}
                 />
             ) : (
                 <AutoGrid min={320}>
-                    {postings.map((p) => (
-                        <GlassCard
-                            key={p.id}
-                            preset="row"
-                            interactive={canWrite}
-                            // The card lifts on hover, so it has to do something when clicked.
-                            onClick={canWrite ? () => openEdit(p) : undefined}
-                            sx={{ display: "flex", flexDirection: "column", gap: 1, height: "100%", p: 1.75, cursor: canWrite ? "pointer" : "default" }}
-                        >
-                            <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ minWidth: 0 }}>
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3, wordBreak: "break-word" }}>{p.title}</Typography>
-                                    {p.requisition?.prefix && (
-                                        <Typography sx={{ fontSize: 11.5, color: "text.disabled", fontWeight: 700, letterSpacing: "0.02em", mt: 0.15 }}>{p.requisition.prefix}</Typography>
-                                    )}
-                                </Box>
-                                <ToneChip tone={p.isPublished ? "success" : "warning"} label={p.isPublished ? "Published" : "Draft"} dense />
-                            </Stack>
-
-                            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.25 }}>
-                                {p.location && <MetaPill text={p.location} />}
-                                {p.isRemote && <MetaPill text="Remote" />}
-                                {/* Visible on the card so nobody has to open an advert to find out
-                                    whether it is advertising a pay band. */}
-                                {p.showSalary && <MetaPill text="Salary shown" />}
-                                {p.employmentType && <MetaPill text={p.employmentType} />}
-                            </Stack>
-
-                            {/* Spacer keeps the action row pinned to the bottom so tiles align in the grid. */}
-                            <Box sx={{ flex: 1 }} />
-
-                            {/* stopPropagation: these controls act on the row, they do not open it. */}
-                            <Stack
-                                direction="row" alignItems="center" spacing={0.5} flexWrap="wrap" useFlexGap
-                                onClick={(e) => e.stopPropagation()}
-                                sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider", cursor: "default" }}
-                            >
-                                {canWrite && <FormControlLabel
-                                    sx={{ mr: 0, ml: 0, gap: 0.75 }}
-                                    control={
-                                        <WtSwitch
-                                            size="sm"
-                                            checked={p.isPublished}
-                                            disabled={busy(p.id)}
-                                            onChange={(e) => publishMut.mutate({ id: p.id, isPublished: e.target.checked })}
-                                        />
-                                    }
-                                    label={<Typography sx={{ fontSize: 12, fontWeight: 600 }}>Publish</Typography>}
-                                />}
-                                <Box sx={{ flex: 1 }} />
-                                {canWrite && <ActionIconButton iconName="pencil" title="Edit Advert" size="sm" onClick={() => openEdit(p)} />}
-                                <ActionIconButton
-                                    iconName="copy"
-                                    title={p.publicUrl ? "Copy public link" : "No careers site is configured for this deployment yet"}
-                                    size="sm"
-                                    disabled={!p.publicUrl}
-                                    onClick={() => copyLink(p)}
-                                />
-                                {canWrite && <ActionIconButton iconName="trash" title="Remove" tone="danger" size="sm" disabled={busy(p.id)} onClick={() => remove(p)} />}
-                            </Stack>
-                        </GlassCard>
-                    ))}
+                    {postings.map((p) => {
+                        const tags: EntityCardTag[] = [
+                            ...(p.location ? [{ label: p.location, tone: "neutral" as const }] : []),
+                            ...(p.isRemote ? [{ label: "Remote", tone: "cyan" as const }] : []),
+                            ...(p.showSalary ? [{ label: "Salary shown", tone: "success" as const }] : []),
+                            ...(p.employmentType ? [{ label: p.employmentType, tone: "neutral" as const }] : []),
+                        ];
+                        return (
+                            <EntityCard
+                                key={p.id}
+                                icon="notification-status"
+                                iconTrio={p.isPublished ? TRIO.green : TRIO.cyan}
+                                title={p.title}
+                                subtitle={p.requisition?.prefix || undefined}
+                                status={{
+                                    label: p.isPublished ? "Published" : "Draft",
+                                    tone: p.isPublished ? "success" : "warning",
+                                }}
+                                tags={tags}
+                                actions={cardActions(p)}
+                                onClick={canWrite ? () => openEdit(p) : undefined}
+                            />
+                        );
+                    })}
                 </AutoGrid>
             )}
-
-            <GlassDialog
-                open={open}
-                onClose={saveMut.isPending ? undefined : () => setOpen(false)}
-                maxWidth="sm"
-                header={
-                    <GlassHeader
-                        title={editing ? "Edit Job Advert" : "New Job Advert"}
-                        subtitle={editing ? (editing.isPublished ? "Live on the careers page — changes show immediately" : "Draft — not visible to candidates yet") : "From an approved role"}
-                        icon={<KTIcon iconName="questionnaire-tablet" className="fs-2" />}
-                        onClose={saveMut.isPending ? undefined : () => setOpen(false)}
-                    />
-                }
-            >
-                <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <WtField
-                            label="Role" required fullWidth
-                            value={form.requisitionId ?? ""}
-                            onChange={(v) => setForm({ ...form, requisitionId: v })}
-                            options={approved.map((r) => ({ value: r.id, label: r.prefix ? `${r.prefix} · ${r.title}` : r.title }))}
-                            searchable={approved.length >= SEARCHABLE_FROM}
-                            placeholder={rolesLoading ? "Loading roles…" : approved.length ? "Choose an approved role" : "No approved roles yet"}
-                            disabled={!!editing || rolesLoading || saveMut.isPending}
-                            error={attempted && !roleValid ? "Choose the approved role this advert is for" : undefined}
-                            hint={editing
-                                ? "The role an advert points at cannot be changed — its public link was minted for this one. Remove the advert and post the role again."
-                                : "Only approved, open roles can be advertised."}
-                        />
-                        <WtField
-                            label="Public Title" fullWidth
-                            value={form.title ?? ""} onChange={(v) => setForm({ ...form, title: v })}
-                            disabled={saveMut.isPending}
-                            hint="Defaults to the role's own title if left blank."
-                        />
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <WtField label="Location" sx={{ flex: 1 }} value={form.location ?? ""} onChange={(v) => setForm({ ...form, location: v })} disabled={saveMut.isPending} />
-                            <WtField label="Employment Type" sx={{ flex: 1 }} value={form.employmentType ?? ""} onChange={(v) => setForm({ ...form, employmentType: v })} disabled={saveMut.isPending} />
-                        </Stack>
-                        <WtDateField
-                            label="Closes On"
-                            value={form.expiresAt ?? ""}
-                            onChange={(v) => setForm({ ...form, expiresAt: v || null })}
-                            helperText="After this date the advert comes off the careers page on its own. Leave blank to keep it up until you take it down."
-                        />
-                        <WtField
-                            label="Public Description" fullWidth multiline minRows={4}
-                            value={form.descriptionHtml ?? ""} onChange={(v) => setForm({ ...form, descriptionHtml: v })}
-                            disabled={saveMut.isPending}
-                            hint="What a candidate reads. The internal job description is not published."
-                        />
-                        <WtSwitchField title="Remote" checked={!!form.isRemote} onChange={(e) => setForm({ ...form, isRemote: e.target.checked })} />
-                        {/* Deliberately worded as a warning rather than a feature: turning this on
-                            publishes an internal pay band to the open internet, where it is read by
-                            candidates negotiating against it and by staff looking up their own. */}
-                        <WtSwitchField
-                            title="Show Salary Range Publicly"
-                            description="Puts this role's CTC band on the careers page and in its Google listing. Off by default — it is internal pay data, and once published it cannot be unseen."
-                            checked={!!form.showSalary}
-                            onChange={(e) => setForm({ ...form, showSalary: e.target.checked })}
-                        />
-                        <WtSwitchField
-                            title={editing ? "Published" : "Publish immediately"}
-                            description="Make it live on the careers page."
-                            checked={!!form.isPublished}
-                            onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
-                        />
-                    </Stack>
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <WtButton ghost onClick={() => setOpen(false)} disabled={saveMut.isPending}>Cancel</WtButton>
-                    <WtButton tone="primary" onClick={save} disabled={saveMut.isPending || (attempted && !roleValid)}>
-                        {saveMut.isPending ? "Saving…" : editing ? "Save Changes" : "Create Advert"}
-                    </WtButton>
-                </DialogActions>
-            </GlassDialog>
         </Box>
     );
 };

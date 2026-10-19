@@ -9,13 +9,13 @@
  * All are presentation-only, framework-consistent (MUI `sx` + the glass kit), and mobile-aware.
  * Reuse these instead of re-declaring them in any feature.
  */
-import React from 'react';
-import { Box, Typography, Tooltip, useTheme } from '@mui/material';
-import { alpha, type SxProps, type Theme } from '@mui/material/styles';
-import { KTIcon } from '@metronic/helpers';
-import { GlassSurface } from './glass';
-import { toTitleCase, titleCaseNode, HEADING_CASE_SX } from './text';
-import { ICON_BOX_CLASS, TILE_LABEL_CLASS } from './classNames';
+import React from "react";
+import { Box, Typography, Tooltip, useTheme } from "@mui/material";
+import { alpha, type SxProps, type Theme } from "@mui/material/styles";
+import { KTIcon } from "@metronic/helpers";
+import { GlassSurface } from "./glass";
+import { toTitleCase, titleCaseNode, HEADING_CASE_SX } from "./text";
+import { ICON_BOX_CLASS, TILE_LABEL_CLASS } from "./classNames";
 
 /** Accent tone: foreground / fill / border — drives IconBox, StatusBadge, StatTile, and keylines. */
 export type Trio = { c: string; bg: string; bd: string };
@@ -31,14 +31,17 @@ export function toneSurface(trio: Trio, dark: boolean) {
 
 /** The shared accent palette (mirrors the Sandwich Leave benchmark). Semantics: green=success/active,
  * rose=danger/derived, amber=warning, blue=info, slate=neutral/inactive, purple=category. */
-export const TRIO: Record<'blue' | 'green' | 'purple' | 'amber' | 'rose' | 'cyan' | 'slate', Trio> = {
-  blue:   { c: '#2563eb', bg: '#eff6ff', bd: '#dbeafe' },
-  green:  { c: '#16a34a', bg: '#f0fdf4', bd: '#dcfce7' },
-  purple: { c: '#7c3aed', bg: '#f5f3ff', bd: '#ede9fe' },
-  amber:  { c: '#d97706', bg: '#fffbeb', bd: '#fde68a' },
-  rose:   { c: '#e11d48', bg: '#fff1f2', bd: '#fecdd3' },
-  cyan:   { c: '#0891b2', bg: '#ecfeff', bd: '#cffafe' },
-  slate:  { c: '#64748b', bg: '#f8fafc', bd: '#e2e8f0' },
+export const TRIO: Record<
+  "blue" | "green" | "purple" | "amber" | "rose" | "cyan" | "slate",
+  Trio
+> = {
+  blue: { c: "#2563eb", bg: "#eff6ff", bd: "#dbeafe" },
+  green: { c: "#16a34a", bg: "#f0fdf4", bd: "#dcfce7" },
+  purple: { c: "#7c3aed", bg: "#f5f3ff", bd: "#ede9fe" },
+  amber: { c: "#d97706", bg: "#fffbeb", bd: "#fde68a" },
+  rose: { c: "#e11d48", bg: "#fff1f2", bd: "#fecdd3" },
+  cyan: { c: "#0891b2", bg: "#ecfeff", bd: "#cffafe" },
+  slate: { c: "#64748b", bg: "#f8fafc", bd: "#e2e8f0" },
 };
 
 /**
@@ -53,30 +56,32 @@ export const TRIO: Record<'blue' | 'green' | 'purple' | 'amber' | 'rose' | 'cyan
  *   <Autocomplete slotProps={{ listbox: { sx: menuOptionSx } }} />
  */
 export const menuOptionSx = (theme: Theme) => {
-  const dark = theme.palette.mode === 'dark';
+  const dark = theme.palette.mode === "dark";
   const c = theme.palette.primary.main;
   return {
-    '& .MuiMenuItem-root, & .MuiAutocomplete-option': {
-      borderRadius: '8px',
-      marginLeft: '4px',
-      marginRight: '4px',
-      marginTop: '2px',
-      marginBottom: '2px',
-      '&:hover, &.Mui-focused, &.Mui-focusVisible': {
+    "& .MuiMenuItem-root, & .MuiAutocomplete-option": {
+      borderRadius: "8px",
+      marginLeft: "4px",
+      marginRight: "4px",
+      marginTop: "2px",
+      marginBottom: "2px",
+      "&:hover, &.Mui-focused, &.Mui-focusVisible": {
         backgroundColor: alpha(c, dark ? 0.2 : 0.08),
       },
       '&.Mui-selected, &[aria-selected="true"]': {
         backgroundColor: alpha(c, dark ? 0.34 : 0.13),
         color: dark ? theme.palette.primary.light : theme.palette.primary.dark,
         fontWeight: 600,
-        '&:hover, &.Mui-focused': { backgroundColor: alpha(c, dark ? 0.42 : 0.18) },
+        "&:hover, &.Mui-focused": {
+          backgroundColor: alpha(c, dark ? 0.42 : 0.18),
+        },
       },
     },
   };
 };
 
 /** Card hover physics (shared) — matches the aside menu's `.menu-link` transition exactly. */
-export const EASE_200 = 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)';
+export const EASE_200 = "all 200ms cubic-bezier(0.4, 0, 0.2, 1)";
 
 /**
  * Re-exported, not declared here. The Tailwind twin stamps the same classes and imports no
@@ -111,21 +116,23 @@ export function hoverTileSx(trio: Trio, dark: boolean): SxProps<Theme> {
   return {
     transition: EASE_200,
     boxShadow: SHADOW_REST,
-    '&:hover': {
+    "&:hover": {
       borderColor: t.bd,
       boxShadow: SHADOW_HOVER,
       backgroundImage: `linear-gradient(0deg, ${wash}, ${wash})`,
       [`& .${ICON_BOX_CLASS}`]: {
-        transform: 'translateY(-1px)',
+        transform: "translateY(-1px)",
         backgroundColor: alpha(trio.c, dark ? 0.34 : 0.16),
         borderColor: alpha(trio.c, dark ? 0.6 : 0.32),
       },
-      [`& .${TILE_LABEL_CLASS}`]: { color: 'text.primary' },
+      [`& .${TILE_LABEL_CLASS}`]: { color: "text.primary" },
     },
   };
 }
-export const SHADOW_REST = '0 1px 2px rgba(15,23,42,0.04), 0 8px 16px rgba(15,23,42,0.035)';
-export const SHADOW_HOVER = '0 2px 4px rgba(15,23,42,0.04), 0 14px 22px rgba(15,23,42,0.055)';
+export const SHADOW_REST =
+  "0 1px 2px rgba(15,23,42,0.04), 0 8px 16px rgba(15,23,42,0.035)";
+export const SHADOW_HOVER =
+  "0 2px 4px rgba(15,23,42,0.04), 0 14px 22px rgba(15,23,42,0.055)";
 
 /**
  * Tinted leading glyph tile. `fs` is a Metronic icon-font size class (fs-1..fs-5).
@@ -136,20 +143,46 @@ export const SHADOW_HOVER = '0 2px 4px rgba(15,23,42,0.04), 0 14px 22px rgba(15,
  * the app showed a `$` regardless of what the branch actually bills in. Pass
  * `<CurrencySymbol />` (see `hooks/useCurrency`) and the tile states the real currency.
  */
-export function IconBox({ icon, trio, size = 40, fs = 'fs-2', className }: { icon: React.ReactNode; trio: Trio; size?: number; fs?: string; className?: string }) {
-  const t = toneSurface(trio, useTheme().palette.mode === 'dark');
+export function IconBox({
+  icon,
+  trio,
+  size = 40,
+  fs = "fs-2",
+  className,
+}: {
+  icon: React.ReactNode;
+  trio: Trio;
+  size?: number;
+  fs?: string;
+  className?: string;
+}) {
+  const t = toneSurface(trio, useTheme().palette.mode === "dark");
   return (
     <Box
       // The class is what lets a hovering parent animate this glyph — see `hoverTileSx`.
       className={className ? `${ICON_BOX_CLASS} ${className}` : ICON_BOX_CLASS}
       sx={{
-      width: size, height: size, borderRadius: '11px', display: 'grid', placeItems: 'center',
-      bgcolor: t.bg, color: t.fg, border: `1px solid ${t.bd}`, flexShrink: 0,
-      transition: EASE_200,
-      // Sized for a text glyph; a KTIcon carries its own `fs-*` class and ignores this.
-      fontSize: Math.round(size * 0.45), fontWeight: 700, lineHeight: 1,
-    }}>
-      {typeof icon === 'string' ? <KTIcon iconName={icon} className={fs} /> : icon}
+        width: size,
+        height: size,
+        borderRadius: "11px",
+        display: "grid",
+        placeItems: "center",
+        bgcolor: t.bg,
+        color: t.fg,
+        border: `1px solid ${t.bd}`,
+        flexShrink: 0,
+        transition: EASE_200,
+        // Sized for a text glyph; a KTIcon carries its own `fs-*` class and ignores this.
+        fontSize: Math.round(size * 0.45),
+        fontWeight: 700,
+        lineHeight: 1,
+      }}
+    >
+      {typeof icon === "string" ? (
+        <KTIcon iconName={icon} className={fs} />
+      ) : (
+        icon
+      )}
     </Box>
   );
 }
@@ -164,80 +197,232 @@ export function IconBox({ icon, trio, size = 40, fs = 'fs-2', className }: { ico
  * copy hardcoded the trio's light-mode hex and so went invisible in dark mode, which is
  * exactly what `toneSurface` exists to prevent.
  */
-export function StatusBadge({ trio, label, pulse, title, onClick, disabled }: {
-  trio: Trio; label: string; pulse?: boolean; title?: string;
+export function StatusBadge({
+  trio,
+  label,
+  pulse,
+  title,
+  onClick,
+  disabled,
+}: {
+  trio: Trio;
+  label: string;
+  pulse?: boolean;
+  title?: string;
   /** Present = interactive toggle. Absent = static chip, unchanged. */
   onClick?: () => void;
   disabled?: boolean;
 }) {
-  const t = toneSurface(trio, useTheme().palette.mode === 'dark');
+  const t = toneSurface(trio, useTheme().palette.mode === "dark");
   const interactive = !!onClick;
   const badge = (
     <Box
-      role={interactive ? 'button' : undefined}
+      role={interactive ? "button" : undefined}
       tabIndex={interactive && !disabled ? 0 : undefined}
       aria-pressed={interactive ? pulse : undefined}
       aria-disabled={interactive ? disabled : undefined}
       onClick={interactive && !disabled ? onClick : undefined}
-      onKeyDown={interactive && !disabled ? (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick!(); }
-      } : undefined}
-      onPointerDown={interactive ? (e: React.PointerEvent) => e.stopPropagation() : undefined}
+      onKeyDown={
+        interactive && !disabled
+          ? (e: React.KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick!();
+              }
+            }
+          : undefined
+      }
+      onPointerDown={
+        interactive ? (e: React.PointerEvent) => e.stopPropagation() : undefined
+      }
       sx={{
-        display: 'inline-flex', alignItems: 'center', gap: '6px', px: '10px', py: '3px',
-        borderRadius: 999, bgcolor: t.bg, border: `1px solid ${t.bd}`, flexShrink: 0, userSelect: 'none',
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        px: "10px",
+        py: "3px",
+        borderRadius: 999,
+        bgcolor: t.bg,
+        border: `1px solid ${t.bd}`,
+        flexShrink: 0,
+        userSelect: "none",
         ...(interactive && {
-          cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.6 : 1, transition: EASE_200,
-          '&:hover': disabled ? {} : { filter: 'brightness(0.96)', boxShadow: SHADOW_REST },
-          '&:active': disabled ? {} : { transform: 'scale(0.95)' },
-          '&:focus-visible': { outline: `2px solid ${t.fg}`, outlineOffset: 2 },
+          cursor: disabled ? "wait" : "pointer",
+          opacity: disabled ? 0.6 : 1,
+          transition: EASE_200,
+          "&:hover": disabled
+            ? {}
+            : { filter: "brightness(0.96)", boxShadow: SHADOW_REST },
+          "&:active": disabled ? {} : { transform: "scale(0.95)" },
+          "&:focus-visible": { outline: `2px solid ${t.fg}`, outlineOffset: 2 },
         }),
       }}
     >
-      <Box className={pulse ? 'sw-dot-pulse' : undefined} sx={{ width: 7, height: 7, borderRadius: 999, bgcolor: t.fg }} />
-      <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: t.fg, lineHeight: 1, whiteSpace: 'nowrap' }}>{label}</Typography>
+      <Box
+        className={pulse ? "sw-dot-pulse" : undefined}
+        sx={{ width: 7, height: 7, borderRadius: 999, bgcolor: t.fg }}
+      />
+      <Typography
+        sx={{
+          fontSize: 11.5,
+          fontWeight: 700,
+          color: t.fg,
+          lineHeight: 1,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {label}
+      </Typography>
     </Box>
   );
   return title ? <Tooltip title={title}>{badge}</Tooltip> : badge;
 }
 
 /** KPI stat tile (icon + uppercase eyebrow + big value) on a thin glass surface.
- * Value font is responsive ({xs:16, sm:19}) so it doesn't truncate in 2-up mobile grids. */
-export function StatTile({ label, value, trio, icon }: { label: string; value: React.ReactNode; trio: Trio; icon: React.ReactNode }) {
-  const dark = useTheme().palette.mode === 'dark';
+ * Value font is responsive ({xs:16, sm:19}) so it doesn't truncate in 2-up mobile grids.
+ * `valueClassName` is for the salary eye (`sensitive-data-*`): put the class on this
+ * Typography — not a nested span — and keep overflow visible so blur(5px) isn't clipped. */
+export function StatTile({
+  label,
+  value,
+  trio,
+  icon,
+  valueClassName,
+}: {
+  label: string;
+  value: React.ReactNode;
+  trio: Trio;
+  icon: React.ReactNode;
+  valueClassName?: string;
+}) {
+  const dark = useTheme().palette.mode === "dark";
   return (
-    <GlassSurface variant="thin" sx={{
-      minWidth: 0, p: 1.5, borderRadius: '14px', display: 'flex', alignItems: 'center', gap: 1.25,
-      borderColor: 'divider',
-      // The aside menu's hover, shared — surface warms, glyph lifts, caption sharpens.
-      ...(hoverTileSx(trio, dark) as object),
-    }}>
+    <GlassSurface
+      variant="thin"
+      sx={{
+        minWidth: 0,
+        p: 1.5,
+        borderRadius: "14px",
+        display: "flex",
+        alignItems: "center",
+        gap: 1.25,
+        borderColor: "divider",
+        // The aside menu's hover, shared — surface warms, glyph lifts, caption sharpens.
+        ...(hoverTileSx(trio, dark) as object),
+      }}
+    >
       <IconBox icon={icon} trio={trio} size={40} fs="fs-2" />
       <Box sx={{ minWidth: 0 }}>
-        <Typography noWrap className={TILE_LABEL_CLASS} sx={{ fontSize: 10.5, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700, transition: EASE_200 }}>{label}</Typography>
-        <Typography noWrap sx={{ fontSize: { xs: 16, sm: 19 }, fontWeight: 800, lineHeight: 1.2, color: 'text.primary' }}>{value}</Typography>
+        <Typography
+          noWrap
+          className={TILE_LABEL_CLASS}
+          sx={{
+            fontSize: 10.5,
+            color: "text.secondary",
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+            fontWeight: 700,
+            transition: EASE_200,
+          }}
+        >
+          {label}
+        </Typography>
+        <Typography
+          className={valueClassName}
+          sx={{
+            fontSize: { xs: 16, sm: 19 },
+            fontWeight: 800,
+            lineHeight: 1.2,
+            color: "text.primary",
+            whiteSpace: "nowrap",
+            // Visible so `sensitive-data-hidden` blur isn't cut off (MUI `noWrap` clips it).
+            overflow: "visible",
+          }}
+        >
+          {value}
+        </Typography>
       </Box>
     </GlassSurface>
   );
 }
 
 /** Small uppercase eyebrow label (stat/section/tile headers). */
-export function Eyebrow({ children, sx }: { children: React.ReactNode; sx?: SxProps<Theme> }) {
+export function Eyebrow({
+  children,
+  sx,
+}: {
+  children: React.ReactNode;
+  sx?: SxProps<Theme>;
+}) {
   return (
-    <Typography sx={[{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'text.secondary' }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}>
+    <Typography
+      sx={
+        [
+          {
+            fontSize: 11.5,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: "text.secondary",
+          },
+          ...(Array.isArray(sx) ? sx : [sx]),
+        ] as SxProps<Theme>
+      }
+    >
       {children}
     </Typography>
   );
 }
 
 /** Section header: tinted IconBox + title + optional description — the standard card/section lead-in. */
-export function SectionHead({ tone, icon, title, desc }: { tone: Trio; icon: string; title: string; desc?: string }) {
+export function SectionHead({
+  tone,
+  icon,
+  title,
+  desc,
+}: {
+  tone: Trio;
+  icon: string;
+  title: string;
+  desc?: string;
+}) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
-      <IconBox icon={icon} trio={tone} size={40} fs="fs-2" />
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.25, ...HEADING_CASE_SX }}>{toTitleCase(title)}</Typography>
-        {desc && <Typography sx={{ fontSize: 13, color: 'text.secondary', lineHeight: 1.5, mt: 0.25 }}>{desc}</Typography>}
+    // `center` keeps a single-line title optically mid-aligned with the IconBox.
+    // With a desc, the whole text block centers on the glyph (not top-stuck to it).
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+      <IconBox icon={icon} trio={tone} size={36} fs="fs-3" />
+      <Box
+        sx={{
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+        }}
+      >
+        {/* Mid-scale title (15) over quieter desc (13) — readable, not shouty. */}
+        <Typography
+          sx={{
+            fontSize: 15,
+            fontWeight: 700,
+            color: "text.primary",
+            lineHeight: 1.25,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {toTitleCase(title)}
+        </Typography>
+        {desc && (
+          <Typography
+            sx={{
+              fontSize: 13,
+              color: "text.secondary",
+              lineHeight: 1.4,
+              mt: 0.15,
+            }}
+          >
+            {desc}
+          </Typography>
+        )}
       </Box>
     </Box>
   );
@@ -266,14 +451,20 @@ export interface StatusCycleOption<T extends string> {
  * picks a hue rather than three matching values.
  */
 export function StatusCyclePill<T extends string>({
-  options, value, onChange, sx,
+  options,
+  value,
+  onChange,
+  sx,
 }: {
   options: ReadonlyArray<StatusCycleOption<T>>;
   value: T;
   onChange: (value: T) => void;
   sx?: SxProps<Theme>;
 }) {
-  const index = Math.max(0, options.findIndex((option) => option.value === value));
+  const index = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  );
   const current = options[index];
   const next = options[(index + 1) % options.length];
   if (!current) return null;
@@ -284,41 +475,56 @@ export function StatusCyclePill<T extends string>({
       type="button"
       onClick={() => onChange(next.value)}
       title={`Showing ${current.label.toLowerCase()} — click to show ${next.label.toLowerCase()}`}
-      sx={[{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 0.875,
-        px: 1.5,
-        height: 38,
-        flexShrink: 0,
-        border: '1px solid',
-        // Metronic's unlayered Bootstrap button rules outrank a utility class.
-        borderRadius: '10px',
-        cursor: 'pointer',
-        font: 'inherit',
-        fontSize: 12.5,
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-        transition: 'background-color .15s, color .15s, border-color .15s',
-        borderColor: alpha(current.color, 0.35),
-        bgcolor: alpha(current.color, 0.1),
-        color: current.color,
-        '&:hover': { bgcolor: alpha(current.color, 0.18) },
-      }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
+      sx={
+        [
+          {
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 0.875,
+            px: 1.5,
+            height: 38,
+            flexShrink: 0,
+            border: "1px solid",
+            // Metronic's unlayered Bootstrap button rules outrank a utility class.
+            borderRadius: "10px",
+            cursor: "pointer",
+            font: "inherit",
+            fontSize: 12.5,
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+            transition: "background-color .15s, color .15s, border-color .15s",
+            borderColor: alpha(current.color, 0.35),
+            bgcolor: alpha(current.color, 0.1),
+            color: current.color,
+            "&:hover": { bgcolor: alpha(current.color, 0.18) },
+          },
+          ...(Array.isArray(sx) ? sx : [sx]),
+        ] as SxProps<Theme>
+      }
     >
       <Box
         component="span"
         aria-hidden
-        sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'currentColor', flexShrink: 0 }}
+        sx={{
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          bgcolor: "currentColor",
+          flexShrink: 0,
+        }}
       />
       {current.label}
-      {typeof current.count === 'number' && (
+      {typeof current.count === "number" && (
         // Hidden on a phone, in CSS rather than by not passing it: the tally is the
         // widest part of this pill and the toolbar row it shares needs those ~34px
         // for the search and New buttons. The count is still one breakpoint away.
         <Box
           component="span"
-          sx={{ display: { xs: 'none', sm: 'inline' }, opacity: 0.7, fontVariantNumeric: 'tabular-nums' }}
+          sx={{
+            display: { xs: "none", sm: "inline" },
+            opacity: 0.7,
+            fontVariantNumeric: "tabular-nums",
+          }}
         >
           ({current.count})
         </Box>
@@ -327,111 +533,38 @@ export function StatusCyclePill<T extends string>({
   );
 }
 
-export interface ViewModeOption<T extends string> {
-  value: T;
-  /** Bootstrap Icon class, e.g. `bi-grid-3x3-gap-fill`. */
-  icon: string;
-  /** Tooltip + accessible name, e.g. "Grid view". */
-  label: string;
-}
+// ViewModeSwitch + layout presets live in ./ViewModeSwitch — re-exported here so
+// older `from './patterns'` imports keep working. Prefer the kit barrel.
+export {
+  ViewModeSwitch,
+  CardsListViewSwitch,
+  GridListViewSwitch,
+  BoardListViewSwitch,
+  CardsTableViewSwitch,
+  KanbanTableViewSwitch,
+  DmsViewSwitch,
+  VIEW_MODE_ICONS,
+  CARDS_LIST_VIEW_OPTIONS,
+  GRID_LIST_VIEW_OPTIONS,
+  BOARD_LIST_VIEW_OPTIONS,
+  CARDS_TABLE_VIEW_OPTIONS,
+  KANBAN_TABLE_VIEW_OPTIONS,
+  DMS_VIEW_OPTIONS,
+  viewModeSwitchTrackSx,
+  viewModeSwitchButtonSx,
+} from './ViewModeSwitch';
+export type {
+  ViewModeOption,
+  ViewModeSwitchProps,
+  CardsListView,
+  GridListView,
+  BoardListView,
+  CardsTableView,
+  KanbanTableView,
+  DmsViewMode,
+} from './ViewModeSwitch';
 
-/**
- * Icon-only layout switch — the file-explorer grid/list control.
- *
- * The **standard** way to offer "same data, different layout" (documents vault,
- * employee roster). Use `SegmentedControl` instead when the choice has a *name*
- * worth reading — a status filter, a time period. A layout is recognised by its
- * glyph, and two words of chrome next to a real filter reads as a second filter.
- *
- * `icon` is a Bootstrap Icon CLASS, not an `AppIcon` name: the mapped keenicons
- * (`element-plus`, `text-align-left`) do not read as "grid" and "list", which is
- * the one thing an icon-only control has to get right.
- */
-export function ViewModeSwitch<T extends string>({
-  options, value, onChange, ariaLabel, sx,
-}: {
-  options: ReadonlyArray<ViewModeOption<T>>;
-  value: T;
-  onChange: (value: T) => void;
-  ariaLabel: string;
-  sx?: SxProps<Theme>;
-}) {
-  return (
-    <Box
-      role="group"
-      aria-label={ariaLabel}
-      sx={[{
-        display: 'inline-flex',
-        p: 0.375,
-        gap: 0.375,
-        borderRadius: '10px',
-        border: '1px solid',
-        borderColor: 'divider',
-        bgcolor: 'action.hover',
-        flexShrink: 0,
-      }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
-    >
-      {options.map(({ value: optionValue, icon, label }) => {
-        const active = optionValue === value;
-        return (
-          <Box
-            key={optionValue}
-            component="button"
-            type="button"
-            aria-label={label}
-            aria-pressed={active}
-            title={label}
-            onClick={() => onChange(optionValue)}
-            sx={{
-              display: 'grid',
-              placeItems: 'center',
-              width: 30,
-              height: 26,
-              border: 0,
-              // Metronic's unlayered Bootstrap button rules outrank a utility class
-              // here, so the radius has to be stated in `sx` to hold.
-              borderRadius: '7px',
-              cursor: 'pointer',
-              transition: 'background-color .12s ease, color .12s ease',
-              bgcolor: active ? 'background.paper' : 'transparent',
-              color: active ? 'text.primary' : 'text.secondary',
-              boxShadow: active ? '0 1px 2px rgba(16, 24, 40, 0.10)' : 'none',
-              '&:hover': { color: 'text.primary' },
-            }}
-          >
-            <Box component="i" className={icon} aria-hidden sx={{ fontSize: 13 }} />
-          </Box>
-        );
-      })}
-    </Box>
-  );
-}
-
-/**
- * Responsive auto-fit card grid — the **standard list/collection layout**. Fills wide screens with
- * as many columns as fit (so there's no dead whitespace / big right-hand gutter) and collapses
- * cleanly to a single column on mobile. `min` = each card's minimum width before the grid drops a
- * column. Reuse this instead of hand-rolling `gridTemplateColumns` breakpoints per feature.
- *
- *   <AutoGrid min={320}>{items.map(i => <GlassCard key={i.id} preset="row" …/>)}</AutoGrid>
- */
-export function AutoGrid({
-  children, min = 300, gap = 12, sx,
-}: { children: React.ReactNode; min?: number; gap?: number | string; sx?: SxProps<Theme> }) {
-  return (
-    <Box
-      sx={[{
-        display: 'grid',
-        gap: typeof gap === 'number' ? `${gap}px` : gap,
-        // `min(min, 100%)` clamps the track on very narrow screens so a card never forces horizontal scroll.
-        gridTemplateColumns: `repeat(auto-fit, minmax(min(${min}px, 100%), 1fr))`,
-        alignItems: 'stretch',
-      }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
-    >
-      {children}
-    </Box>
-  );
-}
+export { AutoGrid } from './AutoGrid';
 
 /**
  * Standard list/page header: title (+ optional subtitle) on the left, actions on the right. Wraps
@@ -439,23 +572,68 @@ export function AutoGrid({
  * every list view for a consistent, readable, responsive toolbar (replaces the copy-pasted
  * `<Stack direction="row" justifyContent="space-between" flexWrap>` header). */
 export function ListHeader({
-  title, subtitle, actions, sx,
-}: { title: React.ReactNode; subtitle?: React.ReactNode; actions?: React.ReactNode; sx?: SxProps<Theme> }) {
+  title,
+  subtitle,
+  actions,
+  sx,
+}: {
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
+  actions?: React.ReactNode;
+  sx?: SxProps<Theme>;
+}) {
   return (
     <Box
-      sx={[{
-        display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
-        gap: 1, mb: 2,
-      }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
+      sx={
+        [
+          {
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+            mb: 2,
+          },
+          ...(Array.isArray(sx) ? sx : [sx]),
+        ] as SxProps<Theme>
+      }
     >
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 700, fontSize: { xs: 16, sm: 18 }, lineHeight: 1.25, ...HEADING_CASE_SX }}>{titleCaseNode(title)}</Typography>
+        <Typography
+          sx={{
+            fontWeight: 700,
+            fontSize: { xs: 16, sm: 18 },
+            lineHeight: 1.25,
+            ...HEADING_CASE_SX,
+          }}
+        >
+          {titleCaseNode(title)}
+        </Typography>
         {subtitle && (
-          <Typography sx={{ fontSize: 12.5, color: 'text.secondary', lineHeight: 1.45, mt: 0.25 }}>{subtitle}</Typography>
+          <Typography
+            sx={{
+              fontSize: 12.5,
+              color: "text.secondary",
+              lineHeight: 1.45,
+              mt: 0.25,
+            }}
+          >
+            {subtitle}
+          </Typography>
         )}
       </Box>
       {actions && (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', flexShrink: 0 }}>{actions}</Box>
+        <Box
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 1,
+            alignItems: "center",
+            flexShrink: 0,
+          }}
+        >
+          {actions}
+        </Box>
       )}
     </Box>
   );
@@ -484,7 +662,13 @@ export interface UnderlineTabItem<K extends string = string> {
  * start drifting apart.
  */
 export function UnderlineTabs<K extends string>({
-  tabs, value, onChange, sticky = false, ariaLabel, sx,
+  tabs,
+  value,
+  onChange,
+  sticky = false,
+  ariaLabel,
+  sx,
+  actions,
 }: {
   tabs: ReadonlyArray<UnderlineTabItem<K>>;
   value: K;
@@ -493,97 +677,145 @@ export function UnderlineTabs<K extends string>({
   sticky?: boolean;
   ariaLabel?: string;
   sx?: SxProps<Theme>;
+  /**
+   * Controls pinned to the right-hand end of the tab row, on the same rule as the tabs —
+   * for a switch that governs the tab's content and should stay reachable while it scrolls.
+   * Outside the tablist, so it is not announced as a tab.
+   */
+  actions?: React.ReactNode;
 }) {
   return (
     <Box
-      sx={[
-        sticky && {
-          position: 'sticky',
-          top: 0,
-          zIndex: 20,
-          bgcolor: 'background.default',
-          backdropFilter: 'blur(6px)',
-          mx: -1,
-          px: 1,
-        },
-        { mb: 2.25 },
-        ...(Array.isArray(sx) ? sx : [sx]),
-      ] as SxProps<Theme>}
+      sx={
+        [
+          sticky && {
+            position: "sticky",
+            top: 0,
+            zIndex: 20,
+            bgcolor: "background.default",
+            backdropFilter: "blur(6px)",
+            mx: -1,
+            px: 1,
+          },
+          { mb: 2.25 },
+          ...(Array.isArray(sx) ? sx : [sx]),
+        ] as SxProps<Theme>
+      }
     >
+      {/* The rule moves to this row so the tabs and the actions share one baseline. The
+          tablist keeps the scrolling; the actions stay put at the end of the row rather
+          than scrolling away with a long set of tabs. */}
       <Box
-        role="tablist"
-        aria-label={ariaLabel}
         sx={{
-          display: 'flex',
-          flexWrap: 'nowrap',
-          gap: 0.5,
-          // The rule the active indicator sits on; tabs overlap it by 1px.
+          display: "flex",
+          alignItems: "stretch",
+          gap: 1,
           borderBottom: 1,
-          borderColor: 'divider',
-          overflowX: 'auto',
-          // The scrollbar under a tab bar is chrome nobody needs; the row still scrolls.
-          scrollbarWidth: 'none',
-          '&::-webkit-scrollbar': { display: 'none' },
+          borderColor: "divider",
         }}
       >
-        {tabs.map((tab) => {
-          const isActive = tab.key === value;
-          const count = tab.count ?? 0;
-          return (
-            <Box
-              key={tab.key}
-              component="button"
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => onChange(tab.key)}
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 1,
-                px: 1.5,
-                pt: 1,
-                pb: 1.25,
-                mb: '-1px',
-                border: 0,
-                background: 'transparent',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                fontSize: '13.5px',
-                fontWeight: isActive ? 700 : 500,
-                color: isActive ? 'primary.main' : 'text.secondary',
-                borderBottom: '2px solid',
-                borderBottomColor: isActive ? 'primary.main' : 'transparent',
-                transition: 'color .15s ease, border-color .15s ease',
-                '&:hover': { color: isActive ? 'primary.main' : 'text.primary' },
-                '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
-              }}
-            >
-              {tab.icon && <i className={tab.icon.startsWith('bi ') ? tab.icon : `bi ${tab.icon}`} />}
-              {tab.label}
-              {count > 0 && (
-                <Box
-                  component="span"
-                  sx={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    borderRadius: 999,
-                    minWidth: 18,
-                    height: 18,
-                    px: 0.625,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: isActive ? 'primary.contrastText' : 'text.secondary',
-                    bgcolor: isActive ? 'primary.main' : 'action.selected',
-                  }}
-                >
-                  {count}
-                </Box>
-              )}
-            </Box>
-          );
-        })}
+        <Box
+          role="tablist"
+          aria-label={ariaLabel}
+          sx={{
+            display: "flex",
+            flexWrap: "nowrap",
+            gap: 0.5,
+            flex: 1,
+            minWidth: 0,
+            mb: "-1px",
+            overflowX: "auto",
+            // The scrollbar under a tab bar is chrome nobody needs; the row still scrolls.
+            scrollbarWidth: "none",
+            "&::-webkit-scrollbar": { display: "none" },
+          }}
+        >
+          {tabs.map((tab) => {
+            const isActive = tab.key === value;
+            const count = tab.count ?? 0;
+            return (
+              <Box
+                key={tab.key}
+                component="button"
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => onChange(tab.key)}
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 1,
+                  px: 1.5,
+                  pt: 1,
+                  pb: 1.25,
+                  mb: "-1px",
+                  border: 0,
+                  background: "transparent",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  fontSize: "13.5px",
+                  fontWeight: isActive ? 700 : 500,
+                  color: isActive ? "primary.main" : "text.secondary",
+                  borderBottom: "2px solid",
+                  borderBottomColor: isActive ? "primary.main" : "transparent",
+                  transition: "color .15s ease, border-color .15s ease",
+                  "&:hover": {
+                    color: isActive ? "primary.main" : "text.primary",
+                  },
+                  "&:focus-visible": {
+                    outline: "2px solid",
+                    outlineColor: "primary.main",
+                    outlineOffset: -2,
+                  },
+                }}
+              >
+                {tab.icon && (
+                  <i
+                    className={
+                      tab.icon.startsWith("bi ") ? tab.icon : `bi ${tab.icon}`
+                    }
+                  />
+                )}
+                {tab.label}
+                {count > 0 && (
+                  <Box
+                    component="span"
+                    sx={{
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      borderRadius: 999,
+                      minWidth: 18,
+                      height: 18,
+                      px: 0.625,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: isActive
+                        ? "primary.contrastText"
+                        : "text.secondary",
+                      bgcolor: isActive ? "primary.main" : "action.selected",
+                    }}
+                  >
+                    {count}
+                  </Box>
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+        {actions && (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              flexShrink: 0,
+              pb: 0.25,
+            }}
+          >
+            {actions}
+          </Box>
+        )}
       </Box>
     </Box>
   );

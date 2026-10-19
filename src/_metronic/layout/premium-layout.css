@@ -59,8 +59,12 @@ body[data-aside-collapsed='true'] {
    residual horizontal overflow. `overflow-x: clip` (not `hidden`) is used so it
    does NOT create a scroll container — `position: sticky` keeps working and
    nested scrollers (data tables) keep their own horizontal scroll.
+
+   On `body` only: with `html` left visible, body's overflow propagates to the viewport, so the page
+   still never scrolls sideways. Clipping `html` too stopped that propagation — then every MUI
+   dialog's scroll lock (`body { overflow: hidden }`) cut the page to one screen and threw it back
+   to the top on open.
    ========================================================================== */
-html,
 body {
   overflow-x: clip !important;
   max-width: 100% !important;

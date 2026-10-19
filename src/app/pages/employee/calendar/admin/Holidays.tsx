@@ -1,12 +1,6 @@
-import Holiday from '@pages/company/Holiday';
-import PublicHoliday from '@pages/company/PublicHoliday';
 import PublicHolidaysListTwo from '@pages/employee/calendar/views/PublicHolidayListTwo';
 import React, { useState } from 'react'
-import { Modal } from 'react-bootstrap';
-import { hasPermission } from '@utils/authAbac';
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { PageTitle } from '@metronic/layout/core';
-import { KTIcon } from '@metronic/helpers';
 
 function Holidays() {
   const [notificationToggle, setNotificationToggle] = useState(false);
@@ -43,4 +37,4 @@ function Holidays() {
   )
 }
 
-export default Holidays
+export default Holidays

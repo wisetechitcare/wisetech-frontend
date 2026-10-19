@@ -9,13 +9,14 @@ import { canViewCommercial } from "@utils/can";
  * How a project lands on the chart, shared with the Contact Projects tab so both
  * report the same thing.
  *
- * Charted on the INQUIRY date — when the work was asked for — because that is the
- * date the rest of the CRM reasons about; startDate and createdAt only stand in for
- * rows that never got one. `projectValue` is resolved server-side (fee line items,
- * falling back to the agreed cost) so the money here matches the Lead Reference tab.
+ * Charted on the RECEIVED date — the Lead Status step's Received Date, the day the
+ * lead became a project, so that IS the project's start. startDate / inquiryDate /
+ * createdAt only stand in for rows that never got one. `projectValue` is resolved
+ * server-side (fee line items, falling back to the agreed cost) so the money here
+ * matches the Lead Reference tab.
  */
 export const projectRow = (p: any) => ({
-  date: p?.inquiryDate || p?.startDate || p?.createdAt,
+  date: p?.receivedDate || p?.startDate || p?.inquiryDate || p?.createdAt,
   // 0 turns the chart's Amount toggle and ₹ figures off.
   value: canViewCommercial('projects') ? Number(p?.projectValue) || 0 : 0,
   series: p?.status?.name || "No status",

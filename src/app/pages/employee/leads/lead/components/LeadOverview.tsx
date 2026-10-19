@@ -16,6 +16,7 @@ import type { AppDispatch, RootState } from "@redux/store";
 // Audit (change history)
 import { VersionHistory } from "@modules/audit/VersionHistory";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { ToneChip } from '@app/modules/common/components/ui';
 import { getTimeTokens } from '@utils/timeFormat';
 import { currencyPrefix } from '@utils/currency';
 
@@ -453,32 +454,9 @@ const LeadOverview = ({ lead }: { lead: any }) => {
   //   const badgeClass = status === 'Ongoing' ? 'bg-[#F9F4D7] text-dark' : 'bg-[#F9F4D9]';
   //   return <span className={`badge ${badgeClass} px-3 py-2 font-inter`}>{status}</span>;
   // };
-  const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-    const bgColor = status === 'Ongoing' ? '#F9F4D7' : '#F9F4D9';
-    return (
-      <span
-        className="badge px-8 py-3 font-inter rounded-pill"
-        style={{ backgroundColor: bgColor, color: "#B1821F" }}
-      >
-        <span style={{
-          fontFamily: 'Inter, sans-serif',
-          fontWeight: 400,
-          fontStyle: 'normal',
-          fontSize: '18px',
-          lineHeight: '100%',
-          letterSpacing: '0',
-        }}>•</span>
-        <span className="ms-4" style={{
-          fontFamily: 'Inter, sans-serif',
-          fontWeight: 400,
-          fontStyle: 'normal',
-          fontSize: '14px',
-          lineHeight: '100%',
-          letterSpacing: '0',
-        }}>{status}</span>
-      </span>
-    );
-  };
+  const StatusBadge: React.FC<{ status: string }> = ({ status }) => (
+    <ToneChip dense tone="warning" label={status} />
+  );
 
 
   const InfoCard: React.FC<{ title: string; icon?: string; customImage?: string; children: React.ReactNode }> = ({ title, icon, customImage, children }) => (

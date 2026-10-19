@@ -12,14 +12,12 @@
  * which is the same shell the calendar's day panel uses, so a correction looks the
  * same wherever it is raised.
  */
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import dayjs from 'dayjs';
 import { Box } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { GlassDialog, PlainDialogHeader } from '@app/modules/common/components/ui/glass';
-import { WtField } from '@app/modules/common/components/ui/WtField';
-import { WtSelect, type WtSelectOption } from '@app/modules/common/components/ui/WtSelect';
-import { useEmployeeDirectory } from '@app/modules/common/components/EmployeePickerField';
+import { EmployeePickerField } from '@app/modules/common/components/EmployeePickerField';
 import { AttendanceCorrectionForm } from './AttendanceCorrectionForm';
 import { useAttendanceCorrection, type UseAttendanceCorrectionArgs } from './useAttendanceCorrection';
 
@@ -70,6 +68,11 @@ export function AttendanceCorrectionDialog({
       onClose={close}
       maxWidth="sm"
       plain
+      /* The reason-picker is a react-select, whose menu renders in a portal OUTSIDE this dialog.
+         MUI's focus trap — now the kit default — would pull focus back the moment the menu opened
+         and the picker could not be used. Opted out here rather than app-wide, so every dialog
+         without a portaled menu still keeps its focus. */
+      disableEnforceFocus
       header={
         <PlainDialogHeader
           icon={<KTIcon iconName={correction.mode === 'edit' ? 'notepad-edit' : 'calendar-add'} className="fs-2" />}
@@ -107,7 +110,7 @@ export function AttendanceCorrectionDialog({
 /**
  * Who the request is for — one person, so a searchable single select, never a
  * checkbox dialog (a grid of every employee asks yes/no once per person to collect
- * one answer). Directory from the hook every picker shares, cached.
+ * one answer). Uses the shared EmployeePickerField (floating Sandwich + directory cache).
  */
 function EmployeeSlot({
   value,
@@ -122,35 +125,17 @@ function EmployeeSlot({
   disabled: boolean;
   nothingRecorded: boolean;
 }) {
-  const { data: directory = [], isLoading } = useEmployeeDirectory();
-  const options = useMemo<WtSelectOption[]>(
-    () => directory.map((e) => ({ value: e.id, label: e.name, avatar: e.avatar, description: e.designation })),
-    [directory],
-  );
-
   return (
-    <WtField
+    <EmployeePickerField
       label="Employee"
       required
-      value={value}
-      onChange={onChange}
+      value={value || null}
+      onChange={(ids) => onChange(ids[0] ?? '')}
+      disabled={disabled}
+      placeholder="Search by name or designation…"
       error={attempted && !value ? 'Select who this request is for' : undefined}
-      hint={nothingRecorded ? 'Nothing is recorded for this employee on this date.' : undefined}
-    >
-      <WtSelect
-        options={options}
-        value={options.find((o) => o.value === value) ?? null}
-        onChange={(opt: WtSelectOption | null) => onChange(opt?.value ?? '')}
-        optionVariant="avatar"
-        isSearchable
-        isClearable
-        isLoading={isLoading}
-        isDisabled={disabled}
-        placeholder="Search by name or designation…"
-        ariaLabel="Employee"
-        error={attempted && !value}
-      />
-    </WtField>
+      helperText={nothingRecorded ? 'Nothing is recorded for this employee on this date.' : undefined}
+    />
   );
 }
 

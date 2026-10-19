@@ -31,7 +31,7 @@ import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
 import { getReimbursementProjectOptions, getAllProjectStatuses } from '@services/projects';
 import TextInput from '@app/modules/common/inputs/TextInput';
-import DropDownInput from '@app/modules/common/inputs/DropdownInput';
+import { WtField, WtFieldFormik } from '@app/modules/common/components/ui';
 import DateInput from '@app/modules/common/inputs/DateInput';
 import ReimbursementDropdown from '@app/modules/common/inputs/ReimbursementDropdown';
 import { Option } from '@models/dropdown';
@@ -215,6 +215,9 @@ export interface EmployeeDetailsSectionProps {
   rejectedAmount: number;
   paidAmount?: number;
   remainingAmount?: number;
+  /** Unsubmitted drafts in the current period. Defaults to 0 (admin Search Employee has no inbox). */
+  inboxAmount?: number;
+  inboxCount?: number;
   overviewLoading: boolean;
   /** Optional employee override. When provided, used instead of currentEmployee from redux. */
   employee?: any;
@@ -231,6 +234,8 @@ export function EmployeeDetailsSection({
   rejectedAmount,
   paidAmount = 0,
   remainingAmount = 0,
+  inboxAmount = 0,
+  inboxCount = 0,
   overviewLoading,
   employee: employeeProp,
 }: EmployeeDetailsSectionProps) {
@@ -238,17 +243,12 @@ export function EmployeeDetailsSection({
   const employee = employeeProp !== undefined ? employeeProp : currentEmployee;
   const sensitive = useSensitiveData();
 
-  // Ten tiles became four cards.
-  //
-  // The ten were five count/amount pairs split into separate boxes — "24 approved" in one tile
-  // and "₹98,000 approved" in another, with the reader left to pair them. `YearlyKpiCard` renders
-  // a value with a footer strip beneath it, so each pair is one card, and the row reads in the
-  // order an expense actually moves: submitted, approved, awaiting, paid.
-  //
-  // Rejected loses its dedicated tiles. It is a terminal state you look up when it happens, not a
-  // number worth a quarter of the page every day — the records table below carries it as a status
-  // chip with a live count, which is also where the reason lives.
+  // Four stage cards: Drafts → Pending approval → Approved → Paid out.
+  // Submitted rollup is labeled on the pending-approval card when it adds context.
+  // Rejected stays in the records table as a status chip, not a KPI tile.
   const kpis = {
+    inboxAmount,
+    inboxCount,
     totalAmount: totalRequestedAmount,
     totalRequests,
     approvedAmount,
@@ -712,7 +712,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
   return (
     <>
-      {/* Employee Details + reimbursement KPI cards */}
+      {/* Employee Details + reimbursement KPI cards.
+          Inbox KPIs use the same period-filtered drafts as the inbox table below. */}
       <EmployeeDetailsSection
         totalRequests={totalRequests}
         totalRequestedAmount={totalRequestedAmount}
@@ -724,6 +725,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         rejectedAmount={rejectedAmount}
         paidAmount={paidAmount}
         remainingAmount={remainingAmount}
+        inboxAmount={totalAmount}
+        inboxCount={filteredDrafts.length}
         overviewLoading={overviewLoading}
       />
 
@@ -908,21 +911,27 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 {/* Row 2: Company Type + Company Name */}
                 <div className='row gx-2 gx-lg-3'>
                   <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
-                    <DropDownInput
-                      isRequired={true}
-                      formikField='clientTypeId'
-                      inputLabel='Company Type'
+                    <WtFieldFormik
+                      name='clientTypeId'
+                      label='Company Type'
                       placeholder='Select Company Type'
                       options={companyTypeOptions}
-                      onChange={(option: any) => handleClientTypeChange(option, formikProps.setFieldValue)}
-                      value={selectedClientType}
+                      searchable
+                      clearable
+                      onValueChange={(v) =>
+                        handleClientTypeChange(
+                          v
+                            ? { value: v, label: companyTypeOptions.find((o: any) => o.value === v)?.label ?? v }
+                            : null,
+                          formikProps.setFieldValue,
+                        )
+                      }
                     />
                   </div>
                   <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
-                    <DropDownInput
-                      isRequired={false}
-                      formikField='clientCompanyId'
-                      inputLabel='Company Name'
+                    <WtFieldFormik
+                      name='clientCompanyId'
+                      label='Company Name'
                       placeholder={
                         !formikProps.values.clientTypeId
                           ? 'Select Company Type First'
@@ -934,8 +943,15 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                         .sort((a: any, b: any) => a.companyName.localeCompare(b.companyName))
                         .map((c: any) => ({ value: c.id, label: c.companyName }))}
                       disabled={!formikProps.values.clientTypeId}
-                      onChange={(option: any) => handleClientCompanyChange(option, formikProps.setFieldValue)}
-                      value={selectedClientCompany}
+                      searchable
+                      clearable
+                      onValueChange={(v) => {
+                        const opt = filteredCompanies.find((c: any) => c.id === v);
+                        handleClientCompanyChange(
+                          v ? { value: v, label: opt?.companyName ?? v } : null,
+                          formikProps.setFieldValue,
+                        );
+                      }}
                     />
                   </div>
                 </div>
@@ -943,12 +959,9 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 {/* Row 3: Project status filter + Project */}
                 <div className='row gx-2 gx-lg-3'>
                   <div className='col-12 col-lg-4 mb-5 mb-lg-7'>
-                    {/* Filter only — deliberately no formikField, so it never reaches the
-                        saved record. It narrows the picker beside it. */}
-                    <DropDownInput
-                      isRequired={false}
-                      formikField=''
-                      inputLabel='Project Status'
+                    {/* Filter only — never part of the saved record. */}
+                    <WtField
+                      label='Project Status'
                       placeholder={
                         projectsLoading
                           ? 'Loading...'
@@ -958,15 +971,22 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       }
                       options={projectStatusOptions}
                       disabled={projectsLoading || projectStatusOptions.length === 0}
-                      onChange={(option: any) => handleProjectStatusChange(option)}
-                      value={selectedProjectStatus}
+                      value={selectedProjectStatus?.value ?? ''}
+                      onChange={(v) =>
+                        handleProjectStatusChange(
+                          v
+                            ? projectStatusOptions.find((o: any) => o.value === v) ?? { value: v, label: v }
+                            : null,
+                        )
+                      }
+                      clearable
                     />
                   </div>
                   <div className='col-12 col-lg-8 mb-5 mb-lg-7'>
-                    <DropDownInput
-                      isRequired={false}
-                      formikField='projectId'
-                      inputLabel='Choose Project Name'
+                    <WtFieldFormik
+                      required={!currentReimbursement}
+                      name='projectId'
+                      label='Choose Project Name'
                       placeholder={
                         projectsLoading
                           ? 'Loading Projects...'
@@ -976,9 +996,17 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       }
                       options={projectOptions}
                       disabled={projectsLoading}
-                      onChange={(option: any) => handleProjectChange(option, formikProps.setFieldValue)}
-                      value={selectedProject}
-                      disableAlphabeticalSort={true}
+                      searchable
+                      clearable
+                      disableAlphabeticalSort
+                      onValueChange={(v) =>
+                        handleProjectChange(
+                          v
+                            ? projectOptions.find((o: any) => o.value === v) ?? { value: v, label: v }
+                            : null,
+                          formikProps.setFieldValue,
+                        )
+                      }
                     />
                   </div>
                 </div>

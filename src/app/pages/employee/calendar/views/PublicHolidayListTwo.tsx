@@ -5,7 +5,6 @@ import { RootState } from "@redux/store";
 import { usePermission } from "@hooks/usePermission";
 import { KTIcon } from "@metronic/helpers";
 import { errorConfirmation, successConfirmation, deleteConfirmation } from "@utils/modal";
-import { Modal } from "react-bootstrap";
 import PublicHoliday from "@pages/company/PublicHoliday";
 import { IPublicHolidayUpdate } from "@models/company";
 import { hasPermission } from "@utils/authAbac";
@@ -15,7 +14,12 @@ import { useEventBus } from "@hooks/useEventBus";
 import { deletePublicHolidayById, fetchAllBranches, fetchPublicHolidays, fetchHolidays, generateHolidaysForYear, fetchCompanyOverview, fetchWeekendAudit, generateWeekendSchedule, type WeekendAudit } from "@services/company";
 import { resolveActiveOrgId } from "@utils/activeOrg";
 import { T } from "@app/modules/common/components/ui/tokens";
-import { confirmDialog } from "@app/modules/common/components/ui";
+import { Box } from "@mui/material";
+import {
+    GlassDialog, PlainDialogHeader, ToneChip, confirmDialog,
+    CardsListViewSwitch, type CardsListView,
+} from "@app/modules/common/components/ui";
+import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 
 interface PublicHoliday {
     id: string;
@@ -58,7 +62,12 @@ function PublicHolidaysListTwo({
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedLocation, setSelectedLocation] = useState('All');
     const [branchOptions, setBranchOptions] = useState<{ id: string; name: string }[]>([]);
-    const [viewMode, setViewMode] = useState<'List' | 'Cards'>('List');
+    // Same kit control + glyphs as Roles / Adverts / Candidates (cards ↔ list).
+    const [viewMode, setViewMode] = useRememberedChoice<CardsListView>(
+        "calendar:public-holidays-view",
+        ["list", "cards"],
+        "list",
+    );
     // Filters sidebar is always visible ≥768px; below that it's collapsed behind a
     // toggle button in the toolbar (a full-height filter column pushed above the fold
     // on every visit would bury the actual holiday list on mobile).
@@ -628,18 +637,18 @@ function PublicHolidaysListTwo({
                             <div style={{ minWidth: 0 }}>
                                 <h4 className="fs-6 fw-bold text-gray-900 m-0 mb-1.5 d-flex align-items-center flex-wrap gap-2" style={{ wordBreak: 'break-word' }}>
                                     {item.name}
-                                    {isNext && <span className="badge badge-light-success text-success fw-bold fs-10 px-2 py-0.5 rounded-sm" style={{ backgroundColor: '#E8F5E9' }}>NEXT</span>}
+                                    {isNext && <ToneChip dense tone="success" label="NEXT" />}
                                 </h4>
                                 <div className="d-flex align-items-center gap-2 text-muted fs-7">
                                     <span>{item.day}</span>
                                     <span className="bullet bullet-dot bg-gray-300"></span>
-                                    <span className="badge fw-bold px-2 py-0.5 fs-9" style={item.isWeekend ? { backgroundColor: '#F1F5F9', color: '#475569' } : isFixed ? { backgroundColor: T.color.brandSoft, color: T.color.brand } : { backgroundColor: '#FFFBEB', color: '#D97706' }}>
-                                        {item.isWeekend ? 'Weekend' : isFixed ? 'Fixed' : 'Floating'}
-                                    </span>
+                                    <ToneChip
+                                        dense
+                                        tone={item.isWeekend ? 'neutral' : isFixed ? 'brand' : 'warning'}
+                                        label={item.isWeekend ? 'Weekend' : isFixed ? 'Fixed' : 'Floating'}
+                                    />
                                     {item.branchName && (
-                                        <span className="badge fw-semibold px-2 py-0.5 fs-9" style={{ backgroundColor: '#EEF2FF', color: '#4338CA' }}>
-                                            {item.branchName}
-                                        </span>
+                                        <ToneChip dense tone="indigo" label={item.branchName} />
                                     )}
                                 </div>
                             </div>
@@ -771,26 +780,11 @@ function PublicHolidaysListTwo({
                         ))}
                     </select>
 
-                    {/* List/Cards View Toggles — full width on mobile (each half), matching
-                        every other toolbar control's width instead of shrinking to content. */}
-                    <div className="btn-group shadow-xs rounded w-100 w-md-auto" role="group">
-                        <button
-                            type="button"
-                            className={`btn btn-sm py-1.5 px-4 wt-touch-target flex-fill wt-filter-btn ${viewMode === 'List' ? 'wt-active border-transparent' : 'btn-light border-gray-200 text-gray-600 bg-white'}`}
-                            style={{ height: '38px' }}
-                            onClick={() => setViewMode('List')}
-                        >
-                            List
-                        </button>
-                        <button
-                            type="button"
-                            className={`btn btn-sm py-1.5 px-4 wt-touch-target flex-fill wt-filter-btn ${viewMode === 'Cards' ? 'wt-active border-transparent' : 'btn-light border-gray-200 text-gray-600 bg-white'}`}
-                            style={{ height: '38px' }}
-                            onClick={() => setViewMode('Cards')}
-                        >
-                            Cards
-                        </button>
-                    </div>
+                    <CardsListViewSwitch
+                        ariaLabel="Holiday layout"
+                        value={viewMode}
+                        onChange={setViewMode}
+                    />
 
                     {/* Pre-fill this year from the master list. Hidden when there is
                         nothing it could add, so it never appears as a button that
@@ -931,20 +925,13 @@ function PublicHolidaysListTwo({
                                         {weekendAudit.months.map(m => {
                                             const bad = m.status !== 'ok';
                                             return (
-                                                <span
+                                                <ToneChip
                                                     key={m.month}
-                                                    className="badge fw-semibold"
+                                                    dense
+                                                    tone={bad ? 'danger' : 'success'}
+                                                    label={`${m.label.split(' ')[0]} ${m.count}/${m.quota}`}
                                                     title={m.dates.length ? m.dates.join(', ') : 'No off-Saturdays set'}
-                                                    style={{
-                                                        background: '#ffffff',
-                                                        border: `1px solid ${bad ? '#fecaca' : '#bbf7d0'}`,
-                                                        color: bad ? '#991b1b' : '#166534',
-                                                        borderRadius: '999px',
-                                                        padding: '6px 12px',
-                                                    }}
-                                                >
-                                                    {m.label.split(' ')[0]} {m.count}/{m.quota}
-                                                </span>
+                                                />
                                             );
                                         })}
                                     </div>
@@ -972,19 +959,7 @@ function PublicHolidaysListTwo({
                                     </div>
                                     <div className="d-flex flex-wrap gap-2">
                                         {needsDateHolidays.map((m: any) => (
-                                            <span
-                                                key={m.id}
-                                                className="badge fw-semibold"
-                                                style={{
-                                                    background: '#ffffff',
-                                                    border: '1px solid #fde68a',
-                                                    color: '#92400e',
-                                                    borderRadius: '999px',
-                                                    padding: '6px 12px',
-                                                }}
-                                            >
-                                                {m.name}
-                                            </span>
+                                            <ToneChip key={m.id} dense tone="warning" label={m.name} />
                                         ))}
                                     </div>
                                 </div>
@@ -998,7 +973,7 @@ function PublicHolidaysListTwo({
                                 <span className="visually-hidden">Loading...</span>
                             </div>
                         </div>
-                    ) : viewMode === 'List' ? (
+                    ) : viewMode === 'list' ? (
                         // === GRID VIEW (TABLE SCHEDULE TIMELINE) ===
                         Object.keys(groupedHolidays).length === 0 ? (
                             <div className="text-center py-20 text-muted">
@@ -1034,11 +1009,7 @@ function PublicHolidaysListTwo({
                                                 const dObj = dayjs(item.date, 'DD-MM-YYYY');
                                                 const isFixed = item.type === 'Fixed';
                                                 const isNext = nextUpcomingHoliday && nextUpcomingHoliday.id === item.id;
-                                                const typeChip = item.isWeekend
-                                                    ? { backgroundColor: '#F1F5F9', color: '#475569' }
-                                                    : isFixed
-                                                        ? { backgroundColor: T.color.brandSoft, color: T.color.brand }
-                                                        : { backgroundColor: '#FFFBEB', color: '#D97706' };
+                                                const typeTone = item.isWeekend ? 'neutral' as const : isFixed ? 'brand' as const : 'warning' as const;
 
                                                 const rowActions = isAdmin ? (
                                                     <>
@@ -1081,23 +1052,14 @@ function PublicHolidaysListTwo({
 
                                                             <div className="col-4 fw-bold text-gray-900 d-flex align-items-center gap-2">
                                                                 {item.name}
-                                                                {isNext && (
-                                                                    <span className="badge badge-light-success text-success fw-bold fs-9 px-2 py-0.5" style={{ backgroundColor: '#E8F5E9', border: '1px solid #C8E6C9' }}>
-                                                                        NEXT
-                                                                    </span>
-                                                                )}
+                                                                {isNext && <ToneChip dense tone="success" label="NEXT" />}
                                                                 {item.branchName && (
-                                                                    <span className="badge fw-semibold fs-9 px-2 py-0.5" style={{ backgroundColor: '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE' }}>
-                                                                        <KTIcon iconName="geolocation" className="fs-9 me-1" />
-                                                                        {item.branchName}
-                                                                    </span>
+                                                                    <ToneChip dense tone="indigo" label={item.branchName} />
                                                                 )}
                                                             </div>
 
                                                             <div className="col-2">
-                                                                <span className="badge fw-bold px-3 py-1.5 fs-9" style={typeChip}>
-                                                                    {item.isWeekend ? 'Weekend' : item.type}
-                                                                </span>
+                                                                <ToneChip dense tone={typeTone} label={item.isWeekend ? 'Weekend' : item.type} />
                                                             </div>
 
                                                             <div className="col-2 text-muted">
@@ -1127,21 +1089,13 @@ function PublicHolidaysListTwo({
                                                             <div className="flex-grow-1" style={{ minWidth: 0 }}>
                                                                 <div className="fw-bold text-gray-900 fs-7 d-flex align-items-center gap-2" style={{ wordBreak: 'break-word' }}>
                                                                     <span>{item.name}</span>
-                                                                    {isNext && (
-                                                                        <span className="badge badge-light-success text-success fw-bold fs-10 px-2 py-0.5 flex-shrink-0" style={{ backgroundColor: '#E8F5E9' }}>
-                                                                            NEXT
-                                                                        </span>
-                                                                    )}
+                                                                    {isNext && <ToneChip dense tone="success" label="NEXT" />}
                                                                 </div>
                                                                 <div className="d-flex align-items-center flex-wrap gap-2 mt-1">
                                                                     <span className="fs-8 text-muted">{item.day}</span>
-                                                                    <span className="badge fw-bold px-2 py-0.5 fs-10" style={typeChip}>
-                                                                        {item.isWeekend ? 'Weekend' : item.type}
-                                                                    </span>
+                                                                    <ToneChip dense tone={typeTone} label={item.isWeekend ? 'Weekend' : item.type} />
                                                                     {item.branchName && (
-                                                                        <span className="badge fw-semibold fs-10 px-2 py-0.5" style={{ backgroundColor: '#EEF2FF', color: '#4338CA' }}>
-                                                                            {item.branchName}
-                                                                        </span>
+                                                                        <ToneChip dense tone="indigo" label={item.branchName} />
                                                                     )}
                                                                 </div>
                                                             </div>
@@ -1275,9 +1229,7 @@ function PublicHolidaysListTwo({
                     <div className="card shadow-xs border border-gray-150 p-6" style={{ borderRadius: '12px', background: '#fbfcfd' }}>
                         <div className="d-flex align-items-center justify-content-between mb-4">
                             <h4 className="fs-8 text-uppercase fw-bold text-gray-500 m-0" style={{ letterSpacing: '0.8px' }}>Long Weekends</h4>
-                            <span className="badge badge-light-primary text-primary fw-bold fs-9 py-1 px-2.5 rounded-sm" style={{ backgroundColor: T.color.brandSoft, color: T.color.brand }}>
-                                {longWeekends.length} Found
-                            </span>
+                            <ToneChip dense tone="brand" label={`${longWeekends.length} Found`} />
                         </div>
                         
                         {longWeekends.length === 0 ? (
@@ -1296,59 +1248,43 @@ function PublicHolidaysListTwo({
                 </div>
             </div>
 
-            {/* Edit Holiday Modal */}
-            <Modal show={showEditModal} onHide={() => setShowEditModal(false)} centered size="lg" fullscreen="md-down" contentClassName="rounded-4 border-0 shadow-lg">
-                <Modal.Header closeButton style={{ border: 'none', padding: '22px 24px 6px' }}>
-                    <div className="d-flex align-items-center gap-3">
-                        <div
-                            style={{
-                                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: `linear-gradient(135deg, ${T.color.brand}1F, ${T.color.brand}0D)`,
-                                color: T.color.brand,
-                            }}
-                        >
-                            <KTIcon iconName="pencil" className="fs-3" />
-                        </div>
-                        <div>
-                            <Modal.Title style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.2px', margin: 0 }}>
-                                Edit Holiday
-                            </Modal.Title>
-                            <div style={{ fontSize: 12.5, color: '#64748B', marginTop: 1 }}>Update this holiday's details</div>
-                        </div>
-                    </div>
-                </Modal.Header>
-                <Modal.Body style={{ padding: '10px 24px 24px' }}>
+            <GlassDialog
+                open={showEditModal}
+                onClose={() => setShowEditModal(false)}
+                maxWidth="md"
+                plain
+                header={
+                    <PlainDialogHeader
+                        title="Edit Holiday"
+                        subtitle="Update this holiday's details"
+                        icon={<KTIcon iconName="pencil" className="fs-3" />}
+                        onClose={() => setShowEditModal(false)}
+                    />
+                }
+            >
+                <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3, pt: 1 }}>
                     <PublicHoliday onClose={() => setShowEditModal(false)} setShowNewHolidayForm={setShowEditModal} isEditMode={true} editData={currentEditHolidayData || undefined} holidayNameForEditMode={holidayNameForEditMode} setRefetch={setRefetch} />
-                </Modal.Body>
-            </Modal>
+                </Box>
+            </GlassDialog>
 
-            {/* Add Holiday Modal */}
-            <Modal show={showAddModal} onHide={() => setShowAddModal(false)} centered size="lg" fullscreen="md-down" contentClassName="rounded-4 border-0 shadow-lg">
-                <Modal.Header closeButton style={{ border: 'none', padding: '22px 24px 6px' }}>
-                    <div className="d-flex align-items-center gap-3">
-                        <div
-                            style={{
-                                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: `linear-gradient(135deg, ${T.color.brand}1F, ${T.color.brand}0D)`,
-                                color: T.color.brand,
-                            }}
-                        >
-                            <KTIcon iconName="calendar" className="fs-3" />
-                        </div>
-                        <div>
-                            <Modal.Title style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.2px', margin: 0 }}>
-                                Add Holiday
-                            </Modal.Title>
-                            <div style={{ fontSize: 12.5, color: '#64748B', marginTop: 1 }}>Schedule a new holiday for {selectedYear}</div>
-                        </div>
-                    </div>
-                </Modal.Header>
-                <Modal.Body style={{ padding: '10px 24px 24px' }}>
+            <GlassDialog
+                open={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                maxWidth="md"
+                plain
+                header={
+                    <PlainDialogHeader
+                        title="Add Holiday"
+                        subtitle={`Schedule a new holiday for ${selectedYear}`}
+                        icon={<KTIcon iconName="calendar" className="fs-3" />}
+                        onClose={() => setShowAddModal(false)}
+                    />
+                }
+            >
+                <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3, pt: 1 }}>
                     <PublicHoliday onClose={() => setShowAddModal(false)} setShowNewHolidayForm={undefined} sendNotification={() => setRefetch(prev => !prev)} />
-                </Modal.Body>
-            </Modal>
+                </Box>
+            </GlassDialog>
         </div>
     );
 }

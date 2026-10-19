@@ -6,7 +6,7 @@ import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { useEffect, useState } from 'react'
 import { Box, Stack, Typography } from '@mui/material';
 import {
-  ActionIconButton, GlassDialog, GlassHeader, InlineHint, SettingsSection, TRIO, WtButton, WtEmptyState, WtField, toast,
+  ActionIconButton, GlassDialog, GlassHeader, InlineHint, SettingsSection, ToneChip, TRIO, WtButton, WtEmptyState, WtField, toast,
 } from '@app/modules/common/components/ui';
 import { EmployeeSelectionDialog, type EmployeeOption } from '@app/modules/common/components/EmployeeSelectionDialog';
 import RoleAccessEditor from './RoleAccessEditor';
@@ -77,7 +77,7 @@ function RoleMembers({ setRefetch, roleDetails }: { setRefetch: (show: boolean) 
         const emp = allEmployees.find((e) => e.id === id);
         if (emp) added.push(emp);
       }
-      toast({ icon: 'success', title: `Added ${added.length} ${added.length === 1 ? 'person' : 'people'} to ${roleDetails?.name}.` });
+      toast({ icon: 'success', title: `Set ${roleDetails?.name} for ${added.length} ${added.length === 1 ? 'person' : 'people'}.` });
     } catch (error) {
       errorConfirmation(serverMessage(error, 'Could not add everyone to this role.'));
     } finally {
@@ -162,7 +162,9 @@ function RoleMembers({ setRefetch, roleDetails }: { setRefetch: (show: boolean) 
         open={pickerOpen}
         onClose={() => { setPickerOpen(false); setPicked([]); }}
         title={`Add people to ${roleDetails?.name}`}
-        subtitle={isSuperAdminRole ? 'They will see and edit every section, in every organization.' : 'They get this role on top of the ones they already hold.'}
+        subtitle={isSuperAdminRole
+          ? 'They will see and edit every section, in every organization. This replaces any role they already hold.'
+          : 'Each person holds one role. Adding them here replaces whatever role they hold now.'}
         icon="people"
         tone="purple"
         employees={candidates}
@@ -311,7 +313,7 @@ function RolesAndPermissions({ editingRole, onEditRole }: { editingRole: any, on
             <div className='col-4 col-md-4'>
               {role.name}
               {role?.isSystem && (
-                <span className='badge badge-light-primary fs-8 ms-2'>System</span>
+                <ToneChip dense tone="brand" label="System" sx={{ ml: 1 }} />
               )}
             </div>
             <div className='col-4 col-md-3'>{role?.employees?.length}</div>

@@ -13,7 +13,7 @@ import { Box, Button, CircularProgress, LinearProgress, Stack, Typography, alpha
 import { KTIcon } from '@metronic/helpers';
 import { TaskRow, subtaskProgress, apiErrorMessage, isTaskFinal, shortTaskId } from '../taskDomain';
 import {
-    TaskStatusBadge, TaskProgress, TaskPriorityBadge, AssigneeAvatar, TaskDueDate, TaskStateBlock,
+    TaskStatusBadge, TaskProgress, TaskPriorityBadge, AssigneeAvatar, TaskDueDate, TaskStateBlock, primaryPillSx,
 } from './primitives';
 
 export interface TaskSubtasksPanelProps {
@@ -69,10 +69,9 @@ export const TaskSubtasksPanel = ({
                     disabled with a tooltip, because it is not a permission, it is the shape. */}
                 {!isSubtask && (
                     <Button
-                        size="small" variant="outlined"
-                        startIcon={<KTIcon iconName="plus" className="fs-7" />}
+                        startIcon={<KTIcon iconName="plus" className="fs-5" />}
                         onClick={onAddSubtask}
-                        sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, borderColor: 'divider' }}
+                        sx={primaryPillSx}
                     >
                         Add subtask
                     </Button>
@@ -132,7 +131,7 @@ export const TaskSubtasksPanel = ({
                                 </Box>
                                 {sub.priority && <TaskPriorityBadge priority={sub.priority} />}
                                 <Typography variant="caption" sx={{ color: 'text.disabled', fontFamily: 'monospace', fontSize: 10 }}>
-                                    {shortTaskId(sub.id)}
+                                    {shortTaskId(sub)}
                                 </Typography>
                             </Stack>
                         </Box>

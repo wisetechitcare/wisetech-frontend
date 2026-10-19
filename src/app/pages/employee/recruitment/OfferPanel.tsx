@@ -6,8 +6,10 @@ import {
     WtButton, WtField, ToneChip, WtDateField, WtMoneyField, SettingsSection, TRIO,
     toast, confirmDialog, type SemanticTone,
 } from "@app/modules/common/components/ui";
+import { VersionHistory } from "@modules/audit/VersionHistory";
 import { annualAmountError } from "@utils/ctc";
 import { apiErrorMessage } from "@utils/apiError";
+import { formatDateTime } from "@utils/dateFormats";
 import { canSection } from "@utils/can";
 import { useRecruitmentBranches } from "@/hooks/useRecruitmentBranches";
 import { RecruitmentBranchField } from "./RecruitmentBranchField";
@@ -63,6 +65,8 @@ const termsOf = (o: Offer | null) => ({
 interface Props {
     applicationId: string;
     applicantName: string;
+    /** Recruitment shell org filter — narrows Branch options (Audit M15). */
+    companyId?: string;
 }
 
 /**
@@ -70,15 +74,18 @@ interface Props {
  * generated offer letter, and record the candidate's response. Framed as a kit SettingsSection,
  * so it reads the same inside the candidate modal and in its own dialog.
  */
-const OfferPanel = ({ applicationId, applicantName }: Props) => {
+const OfferPanel = ({ applicationId, applicantName, companyId }: Props) => {
     const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const { data, isLoading, isError } = useQuery({ queryKey: queryKeys.recruitment.offer(applicationId), queryFn: () => getApplicationOffer(applicationId) });
     const offer = data?.offer ?? null;
-    const { byId: branchById, isLoading: branchesLoading } = useRecruitmentBranches();
     const { isPairAllowed } = useDepartmentDesignations();
 
     const [form, setForm] = useState<OfferPayload>({ applicationId });
+    const { byId: branchById, isLoading: branchesLoading } = useRecruitmentBranches({
+        companyId,
+        keepId: form.offeredBranchId,
+    });
 
     useEffect(() => {
         setForm({
@@ -160,9 +167,14 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
             title={offer?.prefix ? `Offer · ${offer.prefix}` : "Offer"}
             description={description}
             action={meta ? (
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap justifyContent="flex-end">
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap justifyContent="flex-end" alignItems="center">
                     <ToneChip tone={meta.tone} label={meta.label} dense />
                     {acceptance && <ToneChip tone={acceptance.tone} label={acceptance.label} dense />}
+                    {offer?.respondedAt && (
+                        <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+                            Responded {formatDateTime(offer.respondedAt)}
+                        </Typography>
+                    )}
                 </Stack>
             ) : undefined}
         >
@@ -172,13 +184,15 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
                 <Typography sx={{ fontSize: 13, color: "error.main" }}>Could not load the offer.</Typography>
             ) : (
                 <Stack spacing={2}>
+                    {/* Same rhythm as New Requisition: Branch alone, then money/date, then Dept + Designation. */}
+                    <RecruitmentBranchField
+                        required disabled={locked}
+                        companyId={companyId}
+                        value={form.offeredBranchId}
+                        onChange={(v) => setForm({ ...form, offeredBranchId: v })}
+                        error={!locked && form.offeredBranchId && !branchUsable ? "This branch is no longer active. Choose another." : undefined}
+                    />
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                        <RecruitmentBranchField
-                            required disabled={locked} sx={{ flex: 1 }}
-                            value={form.offeredBranchId}
-                            onChange={(v) => setForm({ ...form, offeredBranchId: v })}
-                            error={!locked && form.offeredBranchId && !branchUsable ? "This branch is no longer active. Choose another." : undefined}
-                        />
                         <WtMoneyField
                             label="Offered CTC" per="year" currency={currency} required disabled={locked} sx={{ flex: 1 }}
                             value={form.offeredCtc}
@@ -191,8 +205,6 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
                             onChange={(v) => setForm({ ...form, proposedJoiningDate: v || null })}
                         />
                     </Stack>
-                    {/* Department first, then the designations that department offers — the shared pair,
-                        so the rule is the same here as on the employee form and the requisition. */}
                     <DepartmentDesignationFields
                         disabled={locked}
                         departmentId={form.offeredDepartmentId ?? null}
@@ -236,6 +248,14 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
                     )}
                     {offer && !locked && !dirty && !termsComplete(offer) && (
                         <Typography sx={{ fontSize: 12, color: "text.secondary" }}>Add a branch, the offered CTC and a joining date before submitting.</Typography>
+                    )}
+                    {offer?.id && (
+                        <Stack spacing={0.75} sx={{ pt: 1 }}>
+                            <Typography sx={{ fontWeight: 600, fontSize: 12.5, color: "text.secondary" }}>
+                                Offer history
+                            </Typography>
+                            <VersionHistory type="OFFER" id={offer.id} isAdmin={false} />
+                        </Stack>
                     )}
                 </Stack>
             )}

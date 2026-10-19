@@ -174,7 +174,7 @@ export const TaskTable = ({
                                             {task.taskName}
                                         </Typography>
                                         <Typography variant="caption" sx={{ color: 'text.disabled', fontFamily: 'monospace', fontSize: 10 }}>
-                                            {shortTaskId(task.id)}
+                                            {shortTaskId(task)}
                                         </Typography>
                                     </TableCell>
 

@@ -11,6 +11,30 @@ export const AUTH = {
 
 // Recruitment / ATS module. Keep in sync with the backend copy
 // (wisetech-backend/src/constants/api-endpoint.ts RECRUITMENT).
+export const GIFTS = {
+    GET_OVERVIEW: "api/gifts/overview",
+    GET_CONFIG: "api/gifts/config",
+    CONFIG_KIND: "api/gifts/config/:kind",
+    CONFIG_KIND_BY_SLUG: "api/gifts/config/:kind/:slug",
+    GROUPS: "api/gifts/groups",
+    GROUP_BY_ID: "api/gifts/groups/:id",
+    GROUP_ACTIVITY: "api/gifts/groups/:id/activity",
+    CLONE_GROUP: "api/gifts/groups/:id/clone",
+    ARCHIVE_GROUP: "api/gifts/groups/:id/archive",
+    UNARCHIVE_GROUP: "api/gifts/groups/:id/unarchive",
+    DRIVES: "api/gifts/drives",
+    DRIVE_BY_ID: "api/gifts/drives/:id",
+    CLONE_DRIVE: "api/gifts/drives/:id/clone",
+    ARCHIVE_DRIVE: "api/gifts/drives/:id/archive",
+    UNARCHIVE_DRIVE: "api/gifts/drives/:id/unarchive",
+    DRIVE_ACTIVITY: "api/gifts/drives/:id/activity",
+    APPLY_DEFAULTS: "api/gifts/drives/:id/apply-defaults",
+    RECIPIENT_BY_ID: "api/gifts/drives/:id/recipients/:recipientId",
+    BULK_RECIPIENTS: "api/gifts/drives/:id/recipients/bulk",
+    ADD_RECIPIENTS: "api/gifts/drives/:id/recipients",
+    REMOVE_RECIPIENTS: "api/gifts/drives/:id/recipients/remove",
+};
+
 export const RECRUITMENT = {
     // Requisitions (Phase 1)
     GET_OVERVIEW: "api/recruitment/overview",
@@ -21,13 +45,21 @@ export const RECRUITMENT = {
     UPDATE_REQUISITION: "api/recruitment/requisitions/:id",
     UPDATE_REQUISITION_SECTION: "api/recruitment/requisitions/:id/section",
     ARCHIVE_REQUISITION: "api/recruitment/requisitions/:id",
+    RESTORE_REQUISITION: "api/recruitment/requisitions/:id/restore",
+    PERMANENTLY_DELETE_REQUISITION: "api/recruitment/requisitions/:id/permanent",
     SUBMIT_REQUISITION_APPROVAL: "api/recruitment/requisitions/:id/submit-approval",
     // Applicants (Phase 2)
     CREATE_APPLICANT: "api/recruitment/applicants",
     GET_ALL_APPLICANTS: "api/recruitment/applicants",
     GET_APPLICANT_BY_ID: "api/recruitment/applicants/:id",
     UPDATE_APPLICANT: "api/recruitment/applicants/:id",
+    ARCHIVE_APPLICANT: "api/recruitment/applicants/:id",
+    RESTORE_APPLICANT: "api/recruitment/applicants/:id/restore",
+    PERMANENTLY_DELETE_APPLICANT: "api/recruitment/applicants/:id/permanent",
     UPLOAD_APPLICANT_RESUME: "api/recruitment/applicants/:id/resume",
+    UPLOAD_APPLICANT_PHOTO: "api/recruitment/applicants/:id/photo",
+    UPLOAD_APPLICANT_DOCUMENT: "api/recruitment/applicants/:id/documents",
+    EXPORT_APPLICANT: "api/recruitment/applicants/:id/export",
     SCORECARD_TEMPLATES: "api/recruitment/config/scorecard-templates",
     SCORECARD_TEMPLATE_BY_ID: "api/recruitment/config/scorecard-templates/:id",
     SCORECARD_TEMPLATE_FOR_INTERVIEW: "api/recruitment/interviews/:id/scorecard-template",
@@ -39,7 +71,10 @@ export const RECRUITMENT = {
     GET_APPLICATION_BY_ID: "api/recruitment/applications/:id",
     UPDATE_APPLICATION_SECTION: "api/recruitment/applications/:id/section",
     MOVE_APPLICATION_STAGE: "api/recruitment/applications/:id/move",
+    LINK_CONVERTED_EMPLOYEE: "api/recruitment/applications/:id/link-employee",
     ARCHIVE_APPLICATION: "api/recruitment/applications/:id",
+    RESTORE_APPLICATION: "api/recruitment/applications/:id/restore",
+    PERMANENTLY_DELETE_APPLICATION: "api/recruitment/applications/:id/permanent",
     // Interviews + scorecards (Phase 4)
     CREATE_INTERVIEW: "api/recruitment/interviews",
     GET_INTERVIEW_BY_ID: "api/recruitment/interviews/:id",
@@ -62,6 +97,8 @@ export const RECRUITMENT = {
     GET_POSTING_BY_ID: "api/recruitment/postings/:id",
     UPDATE_POSTING: "api/recruitment/postings/:id",
     DELETE_POSTING: "api/recruitment/postings/:id",
+    RESTORE_POSTING: "api/recruitment/postings/:id/restore",
+    PERMANENTLY_DELETE_POSTING: "api/recruitment/postings/:id/permanent",
     // Configuration masters (stages / reasons / sources)
     CONFIG_ENTITY: "api/recruitment/config/:type",
     CONFIG_ENTITY_BY_ID: "api/recruitment/config/:type/:id",
@@ -82,6 +119,7 @@ export const USERS = {
     GET_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
     SAVE_ATTENDANCE_PERIOD_PREFERENCE: '/api/users/attendance-period-preference',
     GET_ATTENDANCE_PERIOD_PREFERENCE: '/api/users/attendance-period-preference',
+    EMAIL_CHECK: 'api/users/email-check',
 }
 
 export const COMPANY = {
@@ -123,6 +161,8 @@ export const COMPANY = {
     GET_ORGANIZATION_STATS: "api/company/overview/stats",
     DELETE_OVERVIEW_BY_ID: "api/company/overview/:id",
     GET_CONFIGURATION: "api/feature/config",
+    GET_ENTITLEMENTS: "api/company/entitlements",
+    PUT_ENTITLEMENTS: "api/company/entitlements",
 
     GET_ALL_FAQS: "api/company/faqs",
     POST_FAQ: "api/company/faq",
@@ -213,6 +253,7 @@ export const EMPLOYEE = {
     GET_DOCUMENT_FILE: "api/employee/documents/vault",
     GET_ATTENDANCE_BY_EMP_ID: "api/employee/attendance",
     GET_ALL_ATTENDANCE: "api/employee/attendance/all",
+    GET_ATTENDANCE_RANGE_CALENDAR: "api/employee/attendance/range-calendar",
     CREATE_EMPLOYEE_ATTENDANCE: "api/employee/attendance",
     CHECK_ATTENDANCE_MARKED: "api/employee/attendance/marked",
     MARK_CHECKOUT_ATTENDANCE: "api/employee/attendance",
@@ -250,6 +291,7 @@ export const EMPLOYEE = {
     DELETE_PENDING_DRAFT: "api/employee/reimbursement/pending-draft",
     SUBMIT_REIMBURSEMENT_BATCH: "api/employee/reimbursement/submit-batch",
     GET_REIMBURSEMENT_BATCHES: "api/employee/reimbursement/batches",
+    GET_REIMBURSEMENT_PAYMENT_QUEUE_COUNT: "api/employee/reimbursement/batches/payment-queue-count",
     GET_REIMBURSEMENT_BATCH: "api/employee/reimbursement/batches",
     PROCESS_BATCH_REQUEST: "api/employee/reimbursement/batches",
     GET_UNPAID_APPROVED_REIMBURSEMENTS: "api/employee/reimbursement/unpaid-approved",
@@ -680,6 +722,12 @@ export const PROJECT_EXECUTION = {
     // Configuration — amounts are always derived, never posted.
     RECALCULATE_STAGE_AMOUNTS: "api/projects/stages/:stageId/recalculate-amounts",
     GET_DELIVERABLE_CATEGORIES: "api/projects/deliverable-categories",
+    // Deliverables board — the plan's stages/deliverables plus project-only ones, with progress.
+    GET_DELIVERABLE_BOARD: "api/projects/:projectId/deliverable-board",
+    ADD_CUSTOM_STAGE: "api/projects/:projectId/custom-stages",
+    DELETE_CUSTOM_STAGE: "api/projects/custom-stages/:id",
+    ADD_CUSTOM_DELIVERABLE: "api/projects/:projectId/custom-deliverables",
+    DELETE_CUSTOM_DELIVERABLE: "api/projects/custom-deliverables/:id",
 }
 
 // Billing Request — the bridge from execution to finance. Approve/reject/send-back are

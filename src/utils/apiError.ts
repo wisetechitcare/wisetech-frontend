@@ -28,7 +28,7 @@ const STATUS_NAMES = new Set([
 
 const clean = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
 
-export const apiErrorMessage = (error: unknown, fallback: string): string => {
+export const apiErrorMessage = (error: unknown, fallback = 'Something went wrong'): string => {
     const data = (error as any)?.response?.data;
 
     const detail = clean(data?.detail);
@@ -38,6 +38,10 @@ export const apiErrorMessage = (error: unknown, fallback: string): string => {
     // the status name, which is what the envelope above always puts there.
     const message = clean(data?.message);
     if (message && !STATUS_NAMES.has(message.toLowerCase())) return message;
+
+    const status = (error as any)?.response?.status;
+    if (status === 403) return 'You are not permitted to do that.';
+    if (status === 404) return 'Not found.';
 
     return fallback;
 };

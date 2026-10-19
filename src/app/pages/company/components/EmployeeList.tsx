@@ -6,6 +6,7 @@ import { Employee, AdminFolder } from '@models/media';
 import { formatJoiningDate } from '@utils/media.utils';
 import MediaBreadcrumb from './MediaBreadcrumb';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { ToneChip } from '@app/modules/common/components/ui';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 
 interface EmployeeListProps {
@@ -91,11 +92,12 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ adminId, adminName, adminEm
 
             {/* Table header */}
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 my-2 mb-4">
-                <div className="badge badge-lg badge-light-primary fs-8 fs-sm-7">
-                    <div className="d-flex align-items-center flex-wrap p-1 px-2">
-                        <div className="text-break">Employees Created/Updated by {admins.find((a) => a.id === adminId)?.name || 'Admin'}</div>
-                    </div>
-                </div>
+                <ToneChip
+                    dense
+                    tone="brand"
+                    label={`Employees Created/Updated by ${admins.find((a) => a.id === adminId)?.name || 'Admin'}`}
+                    sx={{ height: 'auto', maxWidth: '100%', '& .MuiChip-label': { whiteSpace: 'normal', py: 0.5 } }}
+                />
                 <div className="badge badge-lg badge-primary fs-8 fs-sm-7">
                     <span id="kt_file_manager_items_counter" className="px-2">{adminEmployees?.length} employees</span>
                 </div>

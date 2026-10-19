@@ -3,10 +3,27 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { KTIcon } from "@metronic/helpers";
 import {
   HighlightMatch,
+  isSearchTypeEnabled,
   performGlobalSearch,
   UnifiedSearchResult,
   SearchMatchField,
+  SearchResultType,
 } from "@app/utils/search";
+import { isPackEnabled } from "@utils/tenantPacks";
+import { ToneChip } from "@app/modules/common/components/ui";
+import type { SemanticTone } from "@app/theme/tokens";
+
+const ALL_RESULT_TABS: Array<"All" | SearchResultType> = [
+  "All",
+  "Navigation",
+  "KPI",
+  "Company",
+  "Contact",
+  "Lead",
+  "Project",
+  "Employee",
+  "Task",
+];
 
 const SearchResultsPage: React.FC = () => {
   const location = useLocation();
@@ -24,6 +41,12 @@ const SearchResultsPage: React.FC = () => {
   );
 
   const query = q;
+  const visibleTabs = ALL_RESULT_TABS.filter(
+    (type) => type === "All" || isSearchTypeEnabled(type),
+  );
+  const effectiveTab = visibleTabs.includes(activeTab as (typeof visibleTabs)[number])
+    ? activeTab
+    : "All";
 
   useEffect(() => {
     if (!query) return;
@@ -44,12 +67,12 @@ const SearchResultsPage: React.FC = () => {
   }, [query]);
 
   useEffect(() => {
-    if (activeTab === "All") {
+    if (effectiveTab === "All") {
       setFilteredResults(allResults);
     } else {
-      setFilteredResults(allResults.filter((r) => r.type === activeTab));
+      setFilteredResults(allResults.filter((r) => r.type === effectiveTab));
     }
-  }, [allResults, activeTab]);
+  }, [allResults, effectiveTab]);
 
   return (
     <div className="card shadow-sm">
@@ -72,17 +95,7 @@ const SearchResultsPage: React.FC = () => {
             </div>
             <div className="card-toolbar">
               <div className="d-flex flex-wrap gap-2">
-                {[
-                  "All",
-                  "Navigation",
-                  "KPI",
-                  "Company",
-                  "Contact",
-                  "Lead",
-                  "Project",
-                  "Employee",
-                  "Task",
-                ].map((type) => {
+                {visibleTabs.map((type) => {
                   const label =
                     type === "All"
                       ? "All"
@@ -98,7 +111,7 @@ const SearchResultsPage: React.FC = () => {
                   return (
                     <button
                       key={type}
-                      className={`btn btn-sm ${activeTab === type ? "btn-primary" : "btn-light-primary"}`}
+                      className={`btn btn-sm ${effectiveTab === type ? "btn-primary" : "btn-light-primary"}`}
                       onClick={() => setActiveTab(type)}
                     >
                       {label} ({count})
@@ -142,11 +155,11 @@ const SearchResultsPage: React.FC = () => {
                                   query={query}
                                 />
                               </div>
-                              <span
-                                className={`badge badge-light-${getTypeColor(result.type)} fw-bold fs-8 px-2 py-1`}
-                              >
-                                {result.type}
-                              </span>
+                              <ToneChip
+                                dense
+                                tone={getTypeTone(result.type)}
+                                label={result.type}
+                              />
                             </div>
                             <div className="text-muted fw-semibold fs-7">
                               {result.subtitle}
@@ -174,9 +187,7 @@ const SearchResultsPage: React.FC = () => {
                                   />
                                 </span>
                                 {match.isMatch && (
-                                  <span className="badge badge-warning fs-9 px-2 ms-2">
-                                    Matched
-                                  </span>
+                                  <ToneChip dense tone="warning" label="Matched" sx={{ ml: 1 }} />
                                 )}
                               </div>
                             ),
@@ -196,10 +207,11 @@ const SearchResultsPage: React.FC = () => {
             ) : (
               <div className="text-center py-20">
                 <KTIcon iconName="search" className="fs-3x text-muted mb-5" />
-                <h4 className="fw-bold">No Results Found</h4>
-                <p className="text-muted">
-                  Try adjusting your search or filters to find what you're
-                  looking for.
+                <h4 className="fw-bold">No results found</h4>
+                <p className="text-muted mx-auto" style={{ maxWidth: 420 }}>
+                  {isPackEnabled("psa")
+                    ? "Try a different name, code, or page title — or clear the type filter."
+                    : "Try an employee name, code, or an HR page (Attendance, Departments, Settings). CRM and projects are not in this plan."}
                 </p>
               </div>
             )}
@@ -238,6 +250,26 @@ const getTypeColor = (type: string) => {
       return "dark";
     default:
       return "primary";
+  }
+};
+
+const getTypeTone = (type: string): SemanticTone => {
+  switch (type) {
+    case "Contact":
+      return "success";
+    case "Lead":
+      return "warning";
+    case "Employee":
+      return "danger";
+    case "KPI":
+    case "Project":
+      return "cyan";
+    case "Task":
+      return "neutral";
+    case "Navigation":
+    case "Company":
+    default:
+      return "brand";
   }
 };
 

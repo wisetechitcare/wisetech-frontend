@@ -8,11 +8,13 @@ import { successConfirmation, errorConfirmation } from "@utils/modal";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
+import AppRoleField from "@pages/employee/wizard/forms/AppRoleField";
 import MonthYearInput from "@app/modules/common/inputs/MonthYearInput";
 import Loader from "@app/modules/common/utils/Loader";
 import ApprovalSettings, { emptyApprovalChains, persistApprovalChains } from "@app/components/ApprovalSettings";
 import { useSalaryMaster } from "@/modules/payroll/hooks/useSalaryComponentNames";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { ToneChip } from '@app/modules/common/components/ui';
 // Leave Settings section removed — no longer needed
 // import LeaveAllocationStep from "@app/pages/employee/wizard/forms/LeaveAllocationStep";
 
@@ -325,7 +327,7 @@ function FinancialSection() {
     );
 }
 
-function AccessSection({ roleOptions }: { roleOptions: any[] }) {
+function AccessSection({ employeeId, roleOptions }: { employeeId: string; roleOptions: any[] }) {
     return (
         <div className="row g-4">
             <div className="col-sm-6">
@@ -337,12 +339,7 @@ function AccessSection({ roleOptions }: { roleOptions: any[] }) {
                 />
             </div>
             <div className="col-sm-6">
-                <DropDownInput
-                    isRequired={false}
-                    formikField="appRole"
-                    inputLabel="App Role"
-                    options={roleOptions}
-                />
+                <AppRoleField employeeId={employeeId} roles={roleOptions} isRequired={false} />
             </div>
         </div>
     );
@@ -383,9 +380,9 @@ function PrivacySection() {
                         style={{ width: "3rem", height: "1.5rem", cursor: "pointer" }}
                     />
                 </div>
-                <span className={`badge mt-1 ${isHidden ? "badge-light-danger" : "badge-light-success"} fs-8 fw-bold`}>
-                    {isHidden ? "Hidden" : "Visible"}
-                </span>
+                <div className="mt-1">
+                    <ToneChip dense tone={isHidden ? "danger" : "success"} label={isHidden ? "Hidden" : "Visible"} />
+                </div>
             </div>
         </div>
     );
@@ -425,7 +422,7 @@ function ModalContent({
         reporting: <ReportingSection managerOptions={managerOptions} />,
         financial: <FinancialSection />,
         reimbursement:  <ReimbursementSection />,
-        access:    <AccessSection roleOptions={roleOptions} />,
+        access:    <AccessSection employeeId={employeeId} roleOptions={roleOptions} />,
         privacy:   <PrivacySection />,
     };
 
@@ -609,7 +606,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
 
                 // role options
                 const roles: any[] = rolesRes?.data ?? [];
-                setRoleOptions(roles.map((r: any) => ({ value: r.id, label: r.name })));
+                setRoleOptions(roles); // raw roles: AppRoleField decides which can be given
             })
             .catch((err) => {
                 console.error("AppSettingsModal load error:", err);

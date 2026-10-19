@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { SecurityPinResetButton } from "@app/modules/common/components/SecurityPin";
 import { Modal } from "react-bootstrap";
 import { toast } from "react-toastify";
 import {
@@ -248,6 +249,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
             </span>
           ))
         )}
+        <span className="ms-auto"><SecurityPinResetButton employeeId={employeeId} /></span>
       </div>
 
       <div className="row g-5">
@@ -282,6 +284,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
                   onResetToRole={onResetToRole}
                   recordCells={recordCells}
                   tabs={tabs}
+                  pinSubject={{ kind: "employee", employeeId }}
                 />
                 </>
               )}
@@ -289,7 +292,8 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
           </div>
         </div>
 
-        {/* RIGHT: Recent access changes — a slim, dense column */}
+        {/* RIGHT: recent access changes — a slim, dense column. Security PINs are set inside the
+            access tree (Advanced dialog / Roles & Permissions chip), not in a panel of their own. */}
         <div className="col-12 col-xl-3">
           <div>
             <AccessActivity logs={auditLogs} />

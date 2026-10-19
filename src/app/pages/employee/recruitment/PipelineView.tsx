@@ -1,25 +1,29 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Box, Stack, Typography, ToggleButton, ToggleButtonGroup, CircularProgress, DialogContent, DialogActions,
+    Box, Stack, Typography, CircularProgress, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, AppIcon, WtEmptyState } from "@app/modules/common/components/ui";
+import {
+    ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, WtEmptyState,
+    BoardListViewSwitch, confirmDialog, TableSelectionBar, type BoardListView,
+} from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
 import { COPY } from "./terms";
 import { queryKeys } from "@/lib/queryKeys";
+import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import {
-    getApplications, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
-    stashConversion,
+    getApplications, getRequisitions, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
+    archiveApplication, stashConversion,
     type Application, type ApplicationStatus, type OrgScoped,
 } from "@services/recruitment";
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
 import CandidateDrawer from "./CandidateDrawer";
-import { AddCandidateDialog } from "./AddCandidateDialog";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { InlineNotice } from "@app/modules/common/components/ui";
 import { applicationColumns, applicantName, ScoreChip, WaitingChip } from "./applicationColumns";
 
 interface PendingMove {
@@ -31,8 +35,21 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
     const qc = useQueryClient();
     const navigate = useNavigate();
-    const [mode, setMode] = useState<"board" | "list">("board");
-    const [adding, setAdding] = useState(false);
+    /**
+     * Board or list, REMEMBERED. It reset to Board on every navigation, so a recruiter who works
+     * in the list re-chose it all day. Audit M20.
+     */
+    const [mode, setMode] = useRememberedChoice<BoardListView>(
+        "recruitment:pipeline-view", ["board", "list"], "board",
+    );
+    /** Narrow the board to one role — the only honest way past the 200-row page (360 Wave B). */
+    const [requisitionId, setRequisitionId] = useState("");
+
+    const startAdd = () => {
+        const q = new URLSearchParams({ roleRequired: "1" });
+        if (companyId) q.set("companyId", companyId);
+        navigate(`/recruitment/candidates/new?${q.toString()}`);
+    };
     const [pending, setPending] = useState<PendingMove | null>(null);
     const [rejectReasonId, setRejectReasonId] = useState("");
     const [rejectNote, setRejectNote] = useState("");
@@ -43,7 +60,35 @@ const PipelineView = ({ companyId }: OrgScoped) => {
     const [interviewsFor, setInterviewsFor] = useState<Application | null>(null);
     const [offerFor, setOfferFor] = useState<Application | null>(null);
 
-    const { data: applications = [], isLoading, isError, error, refetch } = useQuery({ queryKey: queryKeys.recruitment.applications({ companyId }), queryFn: () => getApplications({}, companyId) });
+    const appFilters = { companyId, requisitionId: requisitionId || undefined };
+    const {
+        data: applicationPages,
+        isLoading,
+        isError,
+        error,
+        refetch,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteQuery({
+        queryKey: queryKeys.recruitment.applications(appFilters),
+        queryFn: ({ pageParam }) =>
+            getApplications(
+                { requisitionId: requisitionId || undefined, cursor: pageParam },
+                companyId,
+            ),
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (last) => last.nextCursor ?? undefined,
+    });
+    // Flatten cursor pages — Load more appends; role filter resets via query key.
+    const applications = useMemo(
+        () => applicationPages?.pages.flatMap((p) => p.items) ?? [],
+        [applicationPages],
+    );
+    const { data: roles = [] } = useQuery({
+        queryKey: queryKeys.recruitment.requisitions(companyId ?? ""),
+        queryFn: () => getRequisitions(companyId),
+    });
     const { data: statuses = [], isLoading: statusesLoading, isError: statusesError } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
     const { data: reasons = [] } = useQuery({ queryKey: queryKeys.recruitment.rejectionReasons(), queryFn: getRejectionReasons });
 
@@ -60,6 +105,22 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         onSuccess: () => { toast({ icon: "success", title: "Moved" }); invalidate(); },
         onError: (err) => { toast({ icon: "error", title: apiErrorMessage(err, "Could not move the candidate") }); invalidate(); },
     });
+
+    const archiveMut = useMutation({
+        mutationFn: (id: string) => archiveApplication(id),
+        onSuccess: () => { toast({ icon: "success", title: "Application archived" }); invalidate(); },
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not archive the application") }),
+    });
+
+    const archiveApp = async (a: Application) => {
+        const ok = await confirmDialog({
+            icon: "warning",
+            title: `Archive ${applicantName(a)}?`,
+            text: "This application leaves the pipeline and moves to Archive. Restore or permanently delete it from the Archive tab.",
+            confirmText: "Archive",
+        });
+        if (ok) archiveMut.mutate(a.id);
+    };
 
     /**
      * The list view is the SAME records the overview drill-downs show, so it uses the same
@@ -82,13 +143,23 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                             ? <ToneChip tone="success" label="Converted" dense />
                             : <ActionIconButton iconName="user-tick" size="sm" tone="success" title="Convert to Employee" onClick={() => convertToEmployee(a)} />
                     )}
+                    {canWrite && (
+                        <ActionIconButton
+                            iconName="trash"
+                            size="sm"
+                            tone="danger"
+                            title="Archive"
+                            disabled={archiveMut.isPending}
+                            onClick={() => archiveApp(a)}
+                        />
+                    )}
                 </Stack>
             ),
         }),
         // convertToEmployee is stable for the life of the component; the setters are
         // React state setters, which never change identity.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [canWrite],
+        [canWrite, archiveMut.isPending],
     );
 
     const byStatus = useMemo(() => {
@@ -171,15 +242,30 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                 subtitle="Track candidates across stages. Drag cards between columns, or open a candidate to change their stage."
                 actions={
                     <>
-                        <ToggleButtonGroup
-                            size="small" exclusive value={mode} onChange={(_e, v) => v && setMode(v)}
-                            sx={{ "& .MuiToggleButton-root": { textTransform: "none", px: 1.25 } }}
-                        >
-                            <ToggleButton value="board"><AppIcon name="bi-kanban" />&nbsp;Board</ToggleButton>
-                            <ToggleButton value="list"><AppIcon name="bi-list-ul" />&nbsp;List</ToggleButton>
-                        </ToggleButtonGroup>
+                        <WtField
+                            label="Role"
+                            fullWidth={false}
+                            minWidth={160}
+                            value={requisitionId}
+                            onChange={setRequisitionId}
+                            // MUI `xs` alone applies at every breakpoint — `width: { xs: "100%" }`
+                            // was filling the actions row and wrapping Add Candidate under the filter.
+                            // Cap content-sized width so a long role title cannot shove the CTA down.
+                            sx={{ maxWidth: 240, flexShrink: 0 }}
+                            options={[
+                                { value: "", label: "All roles" },
+                                ...roles.map((r) => ({ value: r.id, label: r.title })),
+                            ]}
+                        />
+                        {/* Kit layout switch — board glyph (kanban) ↔ list. Same chrome as
+                            Roles/Adverts/Candidates CardsListViewSwitch; only the left icon differs. */}
+                        <BoardListViewSwitch
+                            ariaLabel="Pipeline view"
+                            value={mode}
+                            onChange={setMode}
+                        />
                         {canWrite && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
+                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
                                 Add Candidate
                             </WtButton>
                         )}
@@ -202,7 +288,28 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     actionLabel="Retry"
                     onAction={() => refetch()}
                 />
-            ) : mode === "board" ? (
+            ) : (
+                <>
+                {hasNextPage && (
+                    <Box sx={{ mb: 1.5 }}>
+                        <InlineNotice icon="information-5">
+                            Showing {applications.length} candidates
+                            {requisitionId ? " for this role" : ""}. More remain —
+                            load the next page, or narrow by role above.
+                        </InlineNotice>
+                        <Box sx={{ mt: 1 }}>
+                            <WtButton
+                                ghost
+                                size="small"
+                                disabled={isFetchingNextPage}
+                                onClick={() => fetchNextPage()}
+                            >
+                                {isFetchingNextPage ? "Loading…" : "Load more"}
+                            </WtButton>
+                        </Box>
+                    </Box>
+                )}
+                {mode === "board" ? (
                 <Box sx={{ display: "flex", gap: 1.5, overflowX: "auto", pb: 1 }}>
                     {/* Candidates whose stage is missing or was removed are listed first rather than
                         silently left off the board — otherwise the column counts never add up to the list. */}
@@ -233,7 +340,24 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                                             onClick={() => { if (!dragId) setOpenCandidate(a); }}
                                             role="button"
                                             tabIndex={0}
-                                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenCandidate(a); } }}
+                                            aria-keyshortcuts={canWrite ? "Enter Space ArrowLeft ArrowRight" : "Enter Space"}
+                                            title={canWrite ? "Enter opens · ←/→ moves stage" : undefined}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault();
+                                                    setOpenCandidate(a);
+                                                    return;
+                                                }
+                                                if (!canWrite || !statuses.length) return;
+                                                const idx = statuses.findIndex((st) => st.id === a.statusId);
+                                                if (e.key === "ArrowRight") {
+                                                    const next = statuses[Math.max(0, idx) + 1] ?? (idx < 0 ? statuses[0] : undefined);
+                                                    if (next) { e.preventDefault(); attemptMove(a, next); }
+                                                } else if (e.key === "ArrowLeft" && idx > 0) {
+                                                    e.preventDefault();
+                                                    attemptMove(a, statuses[idx - 1]);
+                                                }
+                                            }}
                                             sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "background.paper", boxShadow: 1, cursor: canWrite ? "grab" : "pointer", opacity: dragId === a.id ? 0.5 : 1, "&:hover": { boxShadow: 3 } }}
                                         >
                                             <Typography sx={{ fontWeight: 600, fontSize: 13.5, overflowWrap: "anywhere" }}>
@@ -265,6 +389,28 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     data={applications}
                     isLoading={isLoading}
                     tableName="RecruitmentPipelineList"
+                    enableRowSelection={canWrite}
+                    renderSelectionActions={(selected: Application[]) => (
+                        <TableSelectionBar count={selected.length}>
+                            <WtButton
+                                size="small"
+                                tone="danger"
+                                disabled={archiveMut.isPending}
+                                onClick={async () => {
+                                    const ok = await confirmDialog({
+                                        icon: "warning",
+                                        title: `Archive ${selected.length} applications?`,
+                                        text: "They move to Archive. Restore or permanently delete from the Archive tab.",
+                                        confirmText: "Archive",
+                                    });
+                                    if (!ok) return;
+                                    await Promise.allSettled(selected.map((a) => archiveMut.mutateAsync(a.id)));
+                                }}
+                            >
+                                Archive selected
+                            </WtButton>
+                        </TableSelectionBar>
+                    )}
                     // The whole row opens the candidate — the record that holds stage, interviews,
                     // offer and convert — so the row is the target, not a 30px icon at its end.
                     muiTableProps={{
@@ -274,10 +420,10 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                         }),
                     }}
                 />
+                )}
+                </>
             )}
 
-            {/* The shared Add candidate window. From the pipeline a role is required: a card with no role has no column. */}
-            <AddCandidateDialog open={adding} onClose={() => setAdding(false)} roleRequired companyId={companyId} />
             {/* Rejection reason capture on move to a terminal/requires-reason stage */}
             <GlassDialog
                 open={!!pending}
@@ -327,7 +473,11 @@ const PipelineView = ({ companyId }: OrgScoped) => {
             >
                 <DialogContent>
                     {offerFor && (
-                        <OfferPanel applicationId={offerFor.id} applicantName={applicantName(offerFor)} />
+                        <OfferPanel
+                            applicationId={offerFor.id}
+                            applicantName={applicantName(offerFor)}
+                            companyId={companyId ?? offerFor.applicant?.companyId ?? undefined}
+                        />
                     )}
                 </DialogContent>
             </GlassDialog>
@@ -344,6 +494,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     onMove={attemptMove}
                     moving={moveMut.isPending}
                     onConvert={convertToEmployee}
+                    companyId={companyId}
                 />
             )}
         </Box>

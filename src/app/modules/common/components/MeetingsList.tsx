@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
 import {
     getMeetingsByProject, getMeetingsByContact, getMeetingsByEmployee, getProjectMeetingAnalytics,
@@ -13,7 +13,7 @@ import {
 import {
     MEETING_HALF_PM, MEETING_HALF_FREE_COLOR, MEETING_HALF_AM,
     MEETING_STATUS_CANCELLED, MEETING_STATUS_AWAITING, MEETING_STATUS_HELD,
-    MEETING_TIMESHEET_FILLED, MEETING_TIMESHEET_PENDING,
+    MEETING_TIMESHEET_FILLED, MEETING_TIMESHEET_PENDING, MEETING_TODAY_COLOR,
 } from '@constants/configurations-key';
 import { Avatar, Box, Dialog, DialogContent, Tooltip, useMediaQuery } from '@mui/material';
 // Direct module, NOT the `ui` barrel. The barrel re-exports 58 symbols, one of which
@@ -27,8 +27,10 @@ import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { SegmentedControl } from '@app/modules/common/components/ui/SegmentedControl';
+import { AutoGrid } from '@app/modules/common/components/ui/AutoGrid';
 import { getTimeTokens } from '@utils/timeFormat';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { errorConfirmation } from '@utils/modal';
 
 /**
  * MeetingsList — the meetings surface, shared by the project (entity), contact and employee
@@ -110,7 +112,19 @@ interface MeetingRow {
         isOrganizer?: boolean; pendingTimesheet?: boolean;
     }>;
     externalAttendees?: Array<{ id: string; name: string; avatar?: string | null }>;
+    /** Whether the signed-in viewer may edit, cancel, or drag this meeting (server-derived). */
+    canManage?: boolean;
 }
+
+/** Matches the API refusal from `canManageMeeting`. */
+export const MEETING_MANAGE_DENIED =
+    'Only the meeting organizer or a manager of its project can change it.';
+
+export const canManageMeetingRow = (m: MeetingRow, viewerEmployeeId?: string): boolean => {
+    if (typeof m.canManage === 'boolean') return m.canManage;
+    if (!viewerEmployeeId) return false;
+    return m.employeeId === viewerEmployeeId;
+};
 
 const th: React.CSSProperties = {
     fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase',
@@ -276,6 +290,22 @@ export const timesheetStateOf = (m: Pick<MeetingRow, 'lifecycle' | 'pendingTimes
         ? null
         : m.pendingTimesheetNames.length ? 'pending' : 'filled');
 
+/**
+ * Day-cell wash for past meetings' timesheet state.
+ * Pending wins when both exist — unpaid time is the thing that needs attention.
+ */
+export const dayTimesheetMarker = (
+    list: Array<Pick<MeetingRow, 'lifecycle' | 'pendingTimesheetNames'>>,
+): 'pending' | 'filled' | null => {
+    let filled = false;
+    for (const m of list) {
+        const ts = timesheetStateOf(m);
+        if (ts === 'pending') return 'pending';
+        if (ts === 'filled') filled = true;
+    }
+    return filled ? 'filled' : null;
+};
+
 /** The tooltip line naming who still owes time, or '' when there is nothing to say. */
 const timesheetNote = (m: MeetingRow) => {
     const ts = timesheetStateOf(m);
@@ -283,6 +313,290 @@ const timesheetNote = (m: MeetingRow) => {
     return ts === 'filled'
         ? '\nAll timesheets filled'
         : `\nTimesheet pending: ${m.pendingTimesheetNames!.join(', ')}`;
+};
+
+/** How much vertical space each chip may use inside a fixed month cell. */
+const monthChipLayout = (stack: number, isPhone: boolean, hasMore: boolean) => {
+    const cellH = isPhone ? 76 : 118;
+    const pad = isPhone ? 8 : 12;
+    const dateRow = isPhone ? 14 : 22;
+    const moreRow = hasMore ? (isPhone ? 11 : 14) : 0;
+    const gap = isPhone ? 2 : 3;
+    const budget = cellH - pad - dateRow - moreRow - Math.max(0, stack - 1) * gap;
+    const per = stack > 0 ? Math.max(isPhone ? 13 : 15, Math.floor(budget / stack)) : budget;
+    if (isPhone) {
+        return { maxHeight: per, lines: 1, fontSize: 8.5 };
+    }
+    if (stack <= 1) {
+        return { maxHeight: CHIP_H + 8, lines: 1, fontSize: 11 };
+    }
+    if (stack === 2) {
+        return { maxHeight: per, lines: 2, fontSize: 10 };
+    }
+    return { maxHeight: per, lines: 1, fontSize: 9.5 };
+};
+
+/** Busy phone cells show one chip plus a count; quieter days may show two. */
+const phoneChipCap = (meetingCount: number) => (
+    meetingCount >= 3 ? 1 : Math.min(2, meetingCount)
+);
+
+/** Short start-time label for a narrow month cell (`10 AM` vs `2:30 PM`). */
+const phoneMonthTimeLabel = (startIso: string) => {
+    const d = dayjs(startIso);
+    return d.minute() === 0 ? d.format('h A') : d.format('h:mm A');
+};
+
+/** Tinted pill showing start time only — phone month grid (not full event cards). */
+const PhoneMonthTimeChip = ({
+    meeting,
+    chipColor,
+}: {
+    meeting: MeetingRow;
+    chipColor: (m: MeetingRow) => string;
+}) => {
+    const c = chipColor(meeting);
+    const label = phoneMonthTimeLabel(meeting.startDate);
+    const cancelled = isCancelled(meeting);
+    return (
+        <span
+            title={`${label} — ${meeting.title}`}
+            aria-hidden
+            style={{
+                display: 'block',
+                width: '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
+                padding: '2px 4px',
+                borderRadius: 5,
+                fontSize: 10,
+                fontWeight: 700,
+                lineHeight: 1.25,
+                textAlign: 'center',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                background: toneAlpha(c, 0.15),
+                color: c,
+                border: `1px solid ${toneAlpha(c, 0.34)}`,
+                ...(cancelled ? { opacity: 0.52, textDecoration: 'line-through' } : {}),
+            }}
+        >
+            {label}
+        </span>
+    );
+};
+
+/** Compact month-cell time chips on phone — no dots, no full-width colour blocks. */
+const PhoneMonthCellMeetings = ({
+    list,
+    onShowAgenda,
+    chipColor,
+}: {
+    list: MeetingRow[];
+    onShowAgenda: () => void;
+    chipColor: (m: MeetingRow) => string;
+}) => {
+    const n = list.length;
+    if (!n) return null;
+    const stop = (e: React.MouseEvent | React.KeyboardEvent) => e.stopPropagation();
+    const sorted = [...list].sort(
+        (a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf(),
+    );
+    const cap = phoneChipCap(n);
+    const shown = sorted.slice(0, cap);
+    const overflow = n - shown.length;
+
+    const moreBtn = (extra: number, total: number) => (
+        <button
+            type="button"
+            aria-label={`Show all ${total} meetings on this day`}
+            onClick={(e) => { stop(e); onShowAgenda(); }}
+            style={{
+                border: 0, background: 'transparent', padding: '2px 0', minHeight: 22,
+                fontSize: 9, fontWeight: 700, color: '#1E3A8A', textAlign: 'center', width: '100%',
+            }}
+        >
+            +{extra} more
+        </button>
+    );
+
+    if (cap === 0) {
+        return (
+            <div style={{ marginTop: 'auto', minWidth: 0, width: '100%', textAlign: 'center' }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: '#475569' }}>{n} meetings</span>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{
+            marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 2,
+            minWidth: 0, width: '100%',
+        }}>
+            {shown.map((m) => (
+                <PhoneMonthTimeChip key={m.id} meeting={m} chipColor={chipColor} />
+            ))}
+            {overflow > 0 && moreBtn(overflow, n)}
+        </div>
+    );
+};
+
+type MonthChipLayout = ReturnType<typeof monthChipLayout>;
+
+/** Month cell meeting row — fixed slot at rest; hover floats full text above/below without stacking. */
+const MonthMeetingChip = ({
+    layout,
+    tone,
+    draggable,
+    onDragStart,
+    pauseCellClick,
+    cancelled,
+    allowExpand,
+    children,
+}: {
+    layout: MonthChipLayout;
+    tone: { bg: string; fg: string };
+    draggable: boolean;
+    onDragStart?: (e: React.DragEvent<HTMLSpanElement>) => void;
+    pauseCellClick: boolean;
+    cancelled: boolean;
+    /** Desktop hover expand; off on phone — open the day dialog for full detail. */
+    allowExpand: boolean;
+    children: React.ReactNode;
+}) => {
+    const slotRef = useRef<HTMLSpanElement>(null);
+    const chipRef = useRef<HTMLSpanElement>(null);
+    const textRef = useRef<HTMLSpanElement>(null);
+    const [open, setOpen] = useState(false);
+    const [growUp, setGrowUp] = useState(false);
+    const clamped = layout.lines > 1;
+    const reduced = typeof window !== 'undefined'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    useLayoutEffect(() => {
+        if (!open) return;
+        const slot = slotRef.current;
+        const chip = chipRef.current;
+        const text = textRef.current;
+        const stack = slot?.parentElement;
+        if (!slot || !chip || !text || !stack) return;
+
+        const full = text.scrollHeight + 8;
+        const rest = layout.maxHeight;
+        const slotTop = slot.offsetTop;
+        const spaceBelow = stack.clientHeight - slotTop - rest;
+        const up = full - rest > spaceBelow && slotTop >= full - rest;
+        setGrowUp(up);
+
+        chip.style.transition = reduced ? 'none' : 'max-height 0.38s cubic-bezier(0.33, 1, 0.68, 1), box-shadow 0.22s ease';
+        chip.style.maxHeight = `${rest}px`;
+        void chip.offsetHeight;
+        requestAnimationFrame(() => {
+            chip.style.maxHeight = `${Math.max(full, rest)}px`;
+        });
+    }, [open, children, layout.maxHeight, layout.fontSize, reduced]);
+
+    const close = () => {
+        const chip = chipRef.current;
+        if (!chip || !open) {
+            setOpen(false);
+            setGrowUp(false);
+            return;
+        }
+        if (reduced) {
+            chip.style.maxHeight = `${layout.maxHeight}px`;
+            setOpen(false);
+            setGrowUp(false);
+            return;
+        }
+        chip.style.transition = 'max-height 0.26s ease, box-shadow 0.18s ease';
+        chip.style.maxHeight = `${layout.maxHeight}px`;
+        const onEnd = (e: TransitionEvent) => {
+            if (e.propertyName !== 'max-height') return;
+            chip.removeEventListener('transitionend', onEnd);
+            setOpen(false);
+            setGrowUp(false);
+        };
+        chip.addEventListener('transitionend', onEnd);
+    };
+
+    return (
+        <span
+            ref={slotRef}
+            style={{
+                position: 'relative',
+                display: 'block',
+                width: '100%',
+                height: layout.maxHeight,
+                flex: '0 0 auto',
+                flexShrink: 0,
+            }}
+        >
+            <span
+                ref={chipRef}
+                draggable={draggable}
+                onDragStart={onDragStart}
+                onMouseEnter={allowExpand ? (e) => { e.stopPropagation(); setOpen(true); } : undefined}
+                onMouseLeave={allowExpand ? (e) => { e.stopPropagation(); close(); } : undefined}
+                onTouchStart={allowExpand ? (e) => {
+                    if (pauseCellClick) e.stopPropagation();
+                    setOpen(true);
+                } : undefined}
+                onTouchEnd={allowExpand ? () => close() : undefined}
+                onTouchCancel={allowExpand ? () => close() : undefined}
+                onWheel={open ? (e) => e.stopPropagation() : undefined}
+                style={{
+                    display: 'block',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden',
+                    borderRadius: 4,
+                    background: tone.bg,
+                    cursor: draggable ? 'grab' : 'inherit',
+                    maxHeight: layout.maxHeight,
+                    ...(open ? {
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        ...(growUp ? { bottom: 0 } : { top: 0 }),
+                        zIndex: 6,
+                        boxShadow: '0 8px 18px rgba(15, 23, 42, 0.18)',
+                    } : {
+                        position: 'relative',
+                        height: '100%',
+                    }),
+                    ...(cancelled ? { textDecoration: 'line-through', opacity: 0.55 } : {}),
+                }}
+            >
+                <span
+                    ref={textRef}
+                    style={{
+                        display: open ? 'block' : (clamped ? '-webkit-box' : 'block'),
+                        padding: '3px 5px',
+                        fontSize: layout.fontSize,
+                        fontWeight: 600,
+                        lineHeight: 1.25,
+                        color: tone.fg,
+                        wordBreak: 'break-word',
+                        overflow: 'hidden',
+                        ...(open ? {
+                            whiteSpace: 'normal',
+                        } : clamped ? {
+                            WebkitLineClamp: layout.lines,
+                            WebkitBoxOrient: 'vertical' as const,
+                            whiteSpace: 'normal',
+                        } : {
+                            whiteSpace: 'nowrap',
+                            textOverflow: 'ellipsis',
+                        }),
+                    }}
+                >
+                    {children}
+                </span>
+            </span>
+        </span>
+    );
 };
 
 /**
@@ -565,7 +879,7 @@ export const rowTone = (color: string) => {
  * `rgba(…, 0)` for the last stop, never the keyword `transparent`: that keyword is
  * transparent BLACK, and interpolating a colour to it greys the middle of the gradient out.
  */
-const TODAY_COLOR = '#16A34A';
+export const MEETING_TODAY_DEFAULT = '#16A34A';
 
 /**
  * The cell's paint, given whatever background it would otherwise have had.
@@ -574,26 +888,24 @@ const TODAY_COLOR = '#16A34A';
  * laid over the wrong base is how today ends up the one cell that contradicts the "is this day
  * free" reading the background is there to give.
  */
-export const todayCellStyle = (base: string) => ({
-    background: [
-        `linear-gradient(180deg,`,
-        `${toneAlpha(TODAY_COLOR, 0.22)} 0%,`,
-        `${toneAlpha(TODAY_COLOR, 0.07)} 46%,`,
-        `${toneAlpha(TODAY_COLOR, 0)} 78%)`,
-        `, ${base}`,
-    ].join(' '),
-    boxShadow: `inset 0 0 0 1px ${toneAlpha(TODAY_COLOR, 0.45)}, 0 2px 10px -4px ${toneAlpha(TODAY_COLOR, 0.5)}`,
+export const todayCellStyle = (_base: string, color = MEETING_TODAY_DEFAULT) => ({
+    // Opaque pastel of the configured colour — a stacked rgba layer was reading as
+    // "outline only" once the brand colour was pastel. Free/busy still shows via chips.
+    background: lightOf(color, 0.82),
+    boxShadow: `inset 0 0 0 2px ${toneAlpha(color, 0.72)}, 0 2px 8px -3px ${toneAlpha(color, 0.28)}`,
 });
 
-/**
- * Today's date numeral.
- *
- * The wash is deliberately quiet, and a quiet marker on its own would make today HARDER to
- * find than the ring did — so the number it is attached to carries the colour too. Darkened
- * first: the green above is 3.3:1 on white, which is under AA for 12px text, and `darkOf`
- * brings it to about 7:1.
- */
-export const todayInk = darkOf(TODAY_COLOR, 0.42);
+/** Today's date numeral — darkened so it stays legible on the wash. */
+export const todayInkFor = (color: string) => darkOf(color, 0.42);
+
+/** @deprecated use todayInkFor(MEETING_TODAY_DEFAULT) */
+export const todayInk = todayInkFor(MEETING_TODAY_DEFAULT);
+
+/** Solid fill for a month-grid meeting chip (no left-edge stripe). */
+export const calendarChipTone = (color: string) => {
+    const bg = color;
+    return { bg, fg: readableOn(bg) };
+};
 
 const halfStyle = (
     half: 'am' | 'pm', count: number, colors: HalfColors = DEFAULT_HALF_COLORS,
@@ -692,6 +1004,18 @@ const useHalfConfig = (): { colors: HalfColors; labels: HalfLabels } => {
         return () => { cancelled = true; };
     }, []);
     return config;
+};
+
+const useTodayColor = () => {
+    const [color, setColor] = useState(MEETING_TODAY_DEFAULT);
+    useEffect(() => {
+        let cancelled = false;
+        readConfig(MEETING_TODAY_COLOR).then((cfg) => {
+            if (!cancelled) setColor(configuredColor(cfg, MEETING_TODAY_DEFAULT));
+        });
+        return () => { cancelled = true; };
+    }, []);
+    return color;
 };
 
 /** `AM` when free, `AM 2` when not — the count belongs on the block it describes. */
@@ -1175,7 +1499,7 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
         </div>
 
         <DialogContent sx={{ p: 0 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', fontFamily: 'Inter' }}>
+            <AutoGrid min={300} stretch sx={{ fontFamily: 'Inter' }}>
                 {/* ── by person ── */}
                 <div style={{ borderRight: '1px solid #EEF2F6' }}>
                     <div style={{ padding: '12px 16px', borderBottom: '1px solid #EEF2F6', fontSize: 13, fontWeight: 700, color: '#1E293B' }}>
@@ -1187,10 +1511,6 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
                         <div key={e.employeeId} style={{ display: 'flex', alignItems: 'baseline', gap: 12, padding: '11px 16px', borderBottom: '1px solid #F4F6F9' }}>
                             <div style={{ minWidth: 0, flex: 1 }}>
                                 <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>{e.name}</div>
-                                <div style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 2 }}>
-                                    {e.meetings} meeting{e.meetings === 1 ? '' : 's'}, {hm(e.minutes)} of their time
-                                    {e.rate > 0 && ` at ${money(e.rate)}/hr`}
-                                </div>
                                 {/* The arithmetic, spelled out. An hourly rate nobody can check is
                                     an hourly rate somebody has to raise a ticket about — this line
                                     turns "why is that 67?" into a salary or a working-hours setting
@@ -1225,7 +1545,7 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
                         </div>
                     ))}
                 </div>
-            </div>
+            </AutoGrid>
         </DialogContent>
     </Dialog>
 );
@@ -1323,7 +1643,7 @@ const DayDetail: React.FC<{
             {/* Two sections, always both shown — a free half has to be VISIBLE to be
                 bookable, so the empty one states itself rather than being left out.
                 A meeting straddling noon appears under both, because it blocks both. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+            <AutoGrid min={320} stretch gap={12}>
             {([
                 { key: 'am', label: 'First half', hint: 'before 12:00', list: halves.am },
                 { key: 'pm', label: 'Second half', hint: 'from 12:00', list: halves.pm },
@@ -1364,13 +1684,13 @@ const DayDetail: React.FC<{
                     {half.list.map((m) => (
                         <div
                             key={m.id}
-                            onClick={onEdit ? () => onEdit(m) : undefined}
-                            role={onEdit ? 'button' : undefined}
-                            tabIndex={onEdit ? 0 : undefined}
-                            onKeyDown={onEdit ? (e) => {
+                            onClick={onEdit && m.canManage ? () => onEdit(m) : undefined}
+                            role={onEdit && m.canManage ? 'button' : undefined}
+                            tabIndex={onEdit && m.canManage ? 0 : undefined}
+                            onKeyDown={onEdit && m.canManage ? (e) => {
                                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEdit(m); }
                             } : undefined}
-                            title={onEdit ? 'Open this meeting' : undefined}
+                            title={onEdit && m.canManage ? 'Open this meeting' : undefined}
                             style={{
                                 /**
                                  * A CARD: time on top, the meeting across the full width, and
@@ -1393,7 +1713,7 @@ const DayDetail: React.FC<{
                                 border: '1px solid #E2E8F0',
                                 borderLeft: `3px solid ${colors[half.key]}`,
                                 borderRadius: 10, overflow: 'hidden',
-                                cursor: onEdit ? 'pointer' : 'default',
+                                cursor: onEdit && m.canManage ? 'pointer' : 'default',
                             }}
                         >
                             <div style={{ padding: '10px 12px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1499,7 +1819,7 @@ const DayDetail: React.FC<{
                                 happened to be in — and the day modal is the view people are in
                                 when they want them. Rendered only when there is one to show. */}
                             {((onRemind && !isHeld(m) && !isCancelled(m)) || (onLogTime && isHeld(m) && !isCancelled(m))
-                                || (onEdit && !isCancelled(m)) || onCancel || onDelete) && (
+                                || (onEdit && !isCancelled(m) && m.canManage) || (onCancel && m.canManage) || onDelete) && (
                                 <div
                                     style={{
                                         display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 12px',
@@ -1519,10 +1839,10 @@ const DayDetail: React.FC<{
                                             onClick={() => onLogTime(m)}
                                         />
                                     )}
-                                    {onEdit && !isCancelled(m) && (
+                                    {onEdit && !isCancelled(m) && m.canManage && (
                                         <CardAction icon="bi-pencil" label="Edit" color="#1E3A8A" onClick={() => onEdit(m)} />
                                     )}
-                                    {onCancel && (
+                                    {onCancel && m.canManage && (
                                         <CardAction
                                             icon={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'}
                                             label={isCancelled(m) ? 'Restore' : 'Cancel'}
@@ -1559,7 +1879,7 @@ const DayDetail: React.FC<{
             )}
             </div>
             ))}
-            </div>
+            </AutoGrid>
             </DialogContent>
         </Dialog>
     );
@@ -1723,6 +2043,177 @@ const CardAction: React.FC<{
         : button;
 };
 
+/** Phone-only agenda under the month grid — full titles, same handlers as the day dialog. */
+const MobileDayAgenda = ({
+    dayKeyValue,
+    meetings,
+    timeRange,
+    modeCell,
+    stateColors,
+    chipColor,
+    sectionRef,
+    onCreate,
+    onEdit,
+    onCancel,
+    onDelete,
+    onLogTime,
+    onRemind,
+}: {
+    dayKeyValue: string;
+    meetings: MeetingRow[];
+    timeRange: (m: MeetingRow) => string;
+    modeCell: (m: MeetingRow) => React.ReactNode;
+    stateColors: LifecycleColors;
+    chipColor: (m: MeetingRow) => string;
+    sectionRef: React.Ref<HTMLElement>;
+    onCreate?: (startIso: string) => void;
+    onEdit?: (m: MeetingRow) => void;
+    onCancel?: (payload: { id: string; cancelled: boolean }) => void;
+    onDelete?: (id: string) => void;
+    onLogTime?: (m: MeetingRow) => void;
+    onRemind?: (m: MeetingRow) => void;
+}) => {
+    const openProject = useOpenProject();
+    const sorted = useMemo(
+        () => [...meetings].sort((a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()),
+        [meetings],
+    );
+    const startOfHalf = (half: 'am' | 'pm') =>
+        dayjs(dayKeyValue).startOf('day').hour(HALF_OPENING_HOUR[half]).toISOString();
+
+    return (
+        <section
+            ref={sectionRef}
+            aria-label={`Meetings on ${dayjs(dayKeyValue).format('dddd, D MMMM YYYY')}`}
+            style={{
+                marginTop: 12, padding: '12px 10px 16px', borderTop: '1px solid #E2E8F0',
+                fontFamily: 'Inter', background: '#F8FAFC',
+            }}
+        >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
+                        {dayjs(dayKeyValue).format('dddd, D MMM YYYY')}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                        {sorted.length
+                            ? `${sorted.length} meeting${sorted.length > 1 ? 's' : ''}`
+                            : 'Nothing booked'}
+                    </div>
+                </div>
+                {onCreate && (
+                    <button
+                        type="button"
+                        onClick={() => onCreate(startOfHalf('am'))}
+                        style={{
+                            border: '1px solid #CBD5E1', borderRadius: 8, background: '#fff',
+                            color: '#1E3A8A', padding: '8px 10px', fontSize: 12, fontWeight: 700,
+                            whiteSpace: 'nowrap', flexShrink: 0, minHeight: 44,
+                        }}
+                    >
+                        <AppIcon name="bi-plus" className="me-1" />
+                        New
+                    </button>
+                )}
+            </div>
+
+            {sorted.length === 0 ? (
+                <div style={{
+                    padding: '20px 12px', textAlign: 'center', borderRadius: 10,
+                    background: '#fff', border: '1px dashed #CBD5E1', color: '#64748B', fontSize: 13,
+                }}>
+                    No meetings this day. Tap a free slot on the calendar or create one above.
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {sorted.map((m) => {
+                        const tone = calendarChipTone(chipColor(m));
+                        const cancelBlocked = !isCancelled(m) && (m.loggedMinutes ?? 0) > 0;
+                        return (
+                            <article
+                                key={m.id}
+                                style={{
+                                    borderRadius: 10, overflow: 'hidden', background: '#fff',
+                                    border: '1px solid #E2E8F0',
+                                    borderLeft: `4px solid ${chipColor(m)}`,
+                                }}
+                            >
+                                <div style={{ padding: '12px 12px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                                        <span style={{ fontSize: 12, fontWeight: 700, color: tone.fg, background: tone.bg, padding: '2px 8px', borderRadius: 6 }}>
+                                            {timeRange(m)}
+                                        </span>
+                                        <span style={{ display: 'inline-flex', flexShrink: 0 }}>
+                                            {isCancelled(m) && <CancelledTag reason={m.cancelReason} color={stateColors.cancelled} />}
+                                            {isAwaitingTime(m) && <AwaitingTag color={stateColors.awaiting} />}
+                                        </span>
+                                    </div>
+                                    <h4 style={{
+                                        margin: 0, fontSize: 15, fontWeight: 800, lineHeight: 1.35,
+                                        color: isCancelled(m) ? '#94A3B8' : '#0F172A',
+                                        textDecoration: isCancelled(m) ? 'line-through' : 'none',
+                                        wordBreak: 'break-word',
+                                    }}>
+                                        {m.title}
+                                    </h4>
+                                    {m.projectName && (
+                                        <div style={{ fontSize: 12, fontWeight: 600, color: '#1E3A8A' }}>
+                                            <ProjectLink name={m.projectName} onOpen={() => openProject(m.projectId, m.isLead)} />
+                                            {m.isLead && <LeadTag />}
+                                        </div>
+                                    )}
+                                    <div style={{ fontSize: 12, color: '#64748B', lineHeight: 1.45 }}>
+                                        {modeCell(m)}
+                                        {m.organizerName && <span> · {m.organizerName}</span>}
+                                    </div>
+                                </div>
+                                {((onRemind && !isHeld(m) && !isCancelled(m))
+                                    || (onLogTime && isHeld(m) && !isCancelled(m))
+                                    || (onEdit && !isCancelled(m) && m.canManage)
+                                    || (onCancel && m.canManage) || onDelete) && (
+                                    <div style={{
+                                        display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 12px 10px',
+                                        borderTop: '1px dashed rgba(100,116,139,0.28)', background: '#F8FAFC',
+                                    }}>
+                                        {onRemind && !isHeld(m) && !isCancelled(m) && (
+                                            <CardAction icon="bi-bell" label="Remind" color="#1E3A8A" onClick={() => onRemind(m)} />
+                                        )}
+                                        {onLogTime && isHeld(m) && !isCancelled(m) && (
+                                            <CardAction
+                                                icon="bi-stopwatch"
+                                                label={m.loggedMinutes ? 'Edit time' : 'Log time'}
+                                                color={m.loggedMinutes ? '#16A34A' : '#B45309'}
+                                                onClick={() => onLogTime(m)}
+                                            />
+                                        )}
+                                        {onEdit && !isCancelled(m) && m.canManage && (
+                                            <CardAction icon="bi-pencil" label="Edit" color="#1E3A8A" onClick={() => onEdit(m)} />
+                                        )}
+                                        {onCancel && m.canManage && (
+                                            <CardAction
+                                                icon={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'}
+                                                label={isCancelled(m) ? 'Restore' : 'Cancel'}
+                                                color={isCancelled(m) ? '#16A34A' : '#B45309'}
+                                                onClick={() => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
+                                                disabledReason={cancelBlocked
+                                                    ? 'Time has been logged against this meeting, so it cannot be cancelled.'
+                                                    : undefined}
+                                            />
+                                        )}
+                                        {onDelete && (
+                                            <CardAction icon="bi-trash" label="Delete" color="#DC2626" onClick={() => onDelete(m.id)} pushRight />
+                                        )}
+                                    </div>
+                                )}
+                            </article>
+                        );
+                    })}
+                </div>
+            )}
+        </section>
+    );
+};
+
 export interface MeetingsListProps {
     mode: 'project' | 'contact' | 'employee';
     targetId: string;
@@ -1778,9 +2269,14 @@ export interface MeetingsListProps {
      * worse than no link.
      */
     focusDate?: string;
+    /** Who is reading the list — used to gate edit/cancel/drag when `canManage` is absent. */
+    viewerEmployeeId?: string;
 }
 
-const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, onDelete, onCancel, onEdit, onReschedule, onLogTime, onRemind, reloadToken, focusDate }) => {
+const MeetingsList: React.FC<MeetingsListProps> = ({
+    mode, targetId, onCreate, onDelete, onCancel, onEdit, onReschedule, onLogTime, onRemind,
+    reloadToken, focusDate, viewerEmployeeId,
+}) => {
     const [meetings, setMeetings] = useState<MeetingRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [layout, setLayout] = useState<'month' | 'table'>('month');
@@ -1809,6 +2305,8 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
     const [breakdownOpen, setBreakdownOpen] = useState(false);
     const [dayOpen, setDayOpen] = useState(false);
     const { colors: halfColors, labels: halfLabels } = useHalfConfig();
+    const todayColor = useTodayColor();
+    const todayInk = useMemo(() => todayInkFor(todayColor), [todayColor]);
     // What cancelled, unlogged and held look like — configured on Calendar Configuration →
     // Meetings, and applied identically to the badges and the table rows below.
     const stateColors = useLifecycleColors();
@@ -1830,8 +2328,48 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
      */
     const isPhone = useMediaQuery(PHONE);
     const chipH = isPhone ? CHIP_H_PHONE : CHIP_H;
-    const maxChips = isPhone ? 2 : 4;
+    const maxChipsDesktop = 4;
     const dragEnabled = !!onReschedule && !isPhone;
+    const mobileAgendaRef = useRef<HTMLElement>(null);
+    const selectDay = useCallback((k: string) => {
+        setPicked(k);
+        if (isPhone) {
+            requestAnimationFrame(() => {
+                const reduce = typeof window !== 'undefined'
+                    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                mobileAgendaRef.current?.scrollIntoView({
+                    behavior: reduce ? 'auto' : 'smooth',
+                    block: 'start',
+                });
+            });
+        } else {
+            setDayOpen(true);
+        }
+    }, [isPhone]);
+
+    const viewerCanManage = useCallback(
+        (m: MeetingRow) => canManageMeetingRow(m, viewerEmployeeId),
+        [viewerEmployeeId],
+    );
+
+    const requestEdit = useCallback((m: MeetingRow) => {
+        if (!onEdit) return;
+        if (!viewerCanManage(m)) {
+            void errorConfirmation(MEETING_MANAGE_DENIED);
+            return;
+        }
+        onEdit(m);
+    }, [onEdit, viewerCanManage]);
+
+    const requestCancel = useCallback((payload: { id: string; cancelled: boolean }) => {
+        if (!onCancel) return;
+        const m = meetings.find((row) => row.id === payload.id);
+        if (m && !viewerCanManage(m)) {
+            void errorConfirmation(MEETING_MANAGE_DENIED);
+            return;
+        }
+        onCancel(payload);
+    }, [onCancel, meetings, viewerCanManage]);
 
     /**
      * Move a meeting to another day, keeping its time of day and its duration.
@@ -1845,6 +2383,10 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
      * that legitimately runs past midnight stays the length it was.
      */
     const rescheduleTo = (m: MeetingRow, dayIso: string) => {
+        if (!viewerCanManage(m)) {
+            void errorConfirmation(MEETING_MANAGE_DENIED);
+            return;
+        }
         const from = dayjs(m.startDate);
         const to = dayjs(dayIso);
         if (!from.isValid() || !to.isValid()) return;
@@ -2151,17 +2693,17 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                 <AppIcon name="bi-stopwatch" className="fs-5" />
                             </button>
                         )}
-                        {onEdit && !isCancelled(m) && (
+                        {onEdit && !isCancelled(m) && viewerCanManage(m) && (
                             <button
                                 type="button"
-                                onClick={() => onEdit(m)}
+                                onClick={() => requestEdit(m)}
                                 title="Edit meeting"
                                 style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#1E3A8A' }}
                             >
                                 <AppIcon name="bi-pencil" className="fs-5" />
                             </button>
                         )}
-                        {onCancel && (() => {
+                        {onCancel && viewerCanManage(m) && (() => {
                             // The SAME rule the day card applies, because this is the same act
                             // through a different button. Leaving it only on the card would mean
                             // the table is where you go to do the thing the card refuses.
@@ -2170,7 +2712,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                 <button
                                     type="button"
                                     disabled={blocked}
-                                    onClick={blocked ? undefined : () => onCancel({ id: m.id, cancelled: !isCancelled(m) })}
+                                    onClick={blocked ? undefined : () => requestCancel({ id: m.id, cancelled: !isCancelled(m) })}
                                     title={blocked
                                         ? 'Time has been logged against this meeting, so it cannot be cancelled'
                                         : (isCancelled(m) ? 'Restore meeting' : 'Cancel meeting')}
@@ -2200,7 +2742,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
             },
         } as MRT_ColumnDef<MeetingRow>] : []),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [onDelete, onCancel, onEdit, onLogTime, onRemind, mode, openProject]);
+    ], [onDelete, onCancel, onEdit, onLogTime, onRemind, mode, openProject, requestEdit, viewerCanManage]);
 
     /**
      * A row that states its own outcome.
@@ -2349,7 +2891,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                         </button>
                         <button
                             type="button"
-                            onClick={() => { setCursor(dayjs().startOf('month')); setPicked(todayKey); }}
+                            onClick={() => { setCursor(dayjs().startOf('month')); selectDay(todayKey); }}
                             style={{ ...navBtn, width: 'auto', padding: '0 12px', fontSize: 12, fontWeight: 600 }}
                         >
                             Today
@@ -2388,13 +2930,30 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                             const outside = d.month() !== cursor.month();
                             const isToday = k === todayKey;
                             const isPicked = k === picked;
+                            const tsMarker = dayTimesheetMarker(list);
+                            // Today wins over timesheet wash; pending wins over filled.
+                            const washColor = isToday
+                                ? todayColor
+                                : tsMarker === 'pending'
+                                    ? stateColors.pending
+                                    : tsMarker === 'filled'
+                                        ? stateColors.filled
+                                        : null;
+                            const dateInk = washColor
+                                ? todayInkFor(washColor)
+                                : (clear ? '#94A3B8' : '#1E293B');
                             const halfWord = (n: number, label: string) =>
                                 n ? `${label}: ${n} meeting${n > 1 ? 's' : ''}` : `${label}: free`;
+                            const maxChips = isPhone ? phoneChipCap(list.length) : maxChipsDesktop;
+                            const hasMore = list.length > maxChips;
+                            const shown = list.slice(0, maxChips);
+                            const chipStack = shown.length;
+                            const chipLayout = monthChipLayout(chipStack, isPhone, hasMore);
                             return (
                                 <button
                                     key={k}
                                     type="button"
-                                    onClick={() => { setPicked(k); setDayOpen(true); }}
+                                    onClick={() => selectDay(k)}
                                     // Native HTML5 DnD: the gesture is "put this card on that
                                     // day", which is exactly what dragover/drop model. Guarded on
                                     // onReschedule so read-only surfaces stay read-only.
@@ -2425,24 +2984,19 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                         // round one: padding, the pill row, four chips with their
                                         // gaps, and the "+n more" line. Guessing it low is how the
                                         // fourth meeting ends up cropped by the overflow below.
-                                        height: isPhone ? 74 : 118,
-                                        padding: isPhone ? '4px 4px' : '6px 7px',
+                                        height: isPhone ? 76 : 118,
+                                        padding: isPhone ? '4px 3px' : '6px 7px',
                                         // THE fix for chips that stretched their column: a grid
                                         // item's default `min-width: auto` is its content, so one
                                         // long meeting title set the width of the whole column and
                                         // squeezed the other six. Zero lets the column be 1/7th and
                                         // makes the chips' own ellipsis actually reachable.
-                                        minWidth: 0, overflow: 'hidden',
+                                        minWidth: 0, overflow: isPhone ? 'hidden' : 'visible',
                                         borderRadius: 9,
-                                        // A wholly clear day still reads grey at a glance; once either
-                                        // half is taken the cell goes white and the two bars carry the
-                                        // detail, so the background never contradicts them.
-                                        //
-                                        // Today lays its wash OVER that base rather than replacing it —
-                                        // see `todayCellStyle`. A drag still wins: while one is in
-                                        // flight the only question is which cell the card lands on.
-                                        ...(isToday && dragOverDay !== k
-                                            ? todayCellStyle(clear ? '#F1F5F9' : '#FFFFFF')
+                                        // Today / timesheet washes share todayCellStyle. Drag still
+                                        // wins: while one is in flight the only question is landing.
+                                        ...(washColor && dragOverDay !== k
+                                            ? todayCellStyle(clear ? '#F1F5F9' : '#FFFFFF', washColor)
                                             : {
                                                 background: dragOverDay === k ? '#EFF4FF' : (clear ? '#F1F5F9' : '#FFFFFF'),
                                                 boxShadow: 'none',
@@ -2456,7 +3010,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                         // Days outside the month recede, so the month's own shape is
                                         // still the first thing read.
                                         opacity: outside ? 0.35 : 1,
-                                        display: 'flex', flexDirection: 'column', gap: 3,
+                                        display: 'flex', flexDirection: 'column', gap: isPhone ? 2 : 3,
                                     }}
                                 >
                                     {/* Date and halves on ONE line. They were stacked, and the row
@@ -2467,11 +3021,9 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                         lived in, so the pair reads without a key once seen. */}
                                     <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                                         <span style={{
-                                            fontSize: 12, fontWeight: 800, minWidth: 15,
-                                            // Today's number carries the colour as well, because the
-                                            // wash it replaced a ring with is deliberately quiet —
-                                            // see `todayInk` for why it is darkened first.
-                                            color: isToday ? todayInk : (clear ? '#94A3B8' : '#1E293B'),
+                                            fontSize: isPhone ? 10 : 12, fontWeight: 800, minWidth: isPhone ? 12 : 15,
+                                            lineHeight: 1.1, flexShrink: 0,
+                                            color: dateInk,
                                         }}>
                                             {d.format('D')}
                                         </span>
@@ -2487,102 +3039,98 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                                         )}
                                     </span>
 
-                                    {list.slice(0, maxChips).map((m) => (
-                                        <span
+                                    {isPhone ? (
+                                        <PhoneMonthCellMeetings
+                                            list={list}
+                                            chipColor={chipColor}
+                                            onShowAgenda={() => selectDay(k)}
+                                        />
+                                    ) : (
+                                    <div style={{
+                                        position: 'relative',
+                                        display: 'flex', flexDirection: 'column',
+                                        gap: 3,
+                                        flex: 1, minHeight: 0, overflow: 'visible',
+                                        justifyContent: 'flex-start',
+                                    }}>
+                                    {shown.map((m) => {
+                                        const tone = calendarChipTone(chipColor(m));
+                                        return (
+                                        <MonthMeetingChip
                                             key={m.id}
-                                            draggable={dragEnabled && !isCancelled(m)}
+                                            layout={chipLayout}
+                                            tone={tone}
+                                            allowExpand
+                                            draggable={dragEnabled && !isCancelled(m) && viewerCanManage(m)}
+                                            pauseCellClick={false}
+                                            cancelled={isCancelled(m)}
                                             onDragStart={dragEnabled ? (e) => {
                                                 e.stopPropagation();
                                                 e.dataTransfer.setData('text/meeting-id', m.id);
                                                 e.dataTransfer.effectAllowed = 'move';
                                             } : undefined}
-                                            // The whole line on hover: a month cell is too narrow to
-                                            // hold time, title AND project without clipping, and the
-                                            // clipped part is often the project. The time is named
-                                            // because dragging changes the DAY and never the clock.
-                                            // Cancelled wins the tooltip: the chip is too narrow for a
-                                            // tag, so this is where the reason can be read.
-                                            title={`${isCancelled(m)
-                                                ? `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}\nCancelled${m.cancelReason ? ` — ${m.cancelReason}` : ''}`
-                                                : dragEnabled
-                                                ? `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}\nDrag to another day — the time stays ${dayjs(m.startDate).format('h:mm A')}`
-                                                : `${dayjs(m.startDate).format('h:mm A')} ${m.title}${m.projectName ? ` — ${m.projectName}` : ''}`}${timesheetNote(m)}`}
-                                            style={{
-                                                // One fixed box per meeting, whatever it is
-                                                // called. Height and line-height are set rather
-                                                // than left to the text, so four chips stack to a
-                                                // known height and the cell never has to grow.
-                                                height: chipH, lineHeight: `${chipH - 2}px`, flexShrink: 0,
-                                                fontSize: isPhone ? 8.5 : 9.5, fontWeight: 600,
-                                                // Morning meetings and afternoon meetings are
-                                                // told apart in the LIST too, not only by the
-                                                // pills above it — the cell shows four rows in
-                                                // start order, and which side of lunch each one
-                                                // falls on was the thing you had to read the
-                                                // times to work out.
-                                                // Once it has happened, the chip says whether
-                                                // everyone has logged their time instead.
-                                                color: rowTone(chipColor(m)).fg,
-                                                background: rowTone(chipColor(m)).bg,
-                                                // 2px, not 3: a month cell is ~120px wide and
-                                                // every pixel of it is title.
-                                                borderLeft: `2px solid ${chipColor(m)}`,
-                                                borderRadius: 4, padding: isPhone ? '0 3px' : '0 4px',
-                                                // The three that make an ellipsis happen, and the
-                                                // display that makes it apply to a span.
-                                                display: 'block', minWidth: 0,
-                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                                cursor: dragEnabled && !isCancelled(m) ? 'grab' : 'inherit',
-                                                // A cancelled meeting stays in the month — the
-                                                // project's record is what was BOOKED — but it
-                                                // must not read as something still happening.
-                                                // Same treatment the table row already gives it.
-                                                ...(isCancelled(m) ? { textDecoration: 'line-through', opacity: 0.55 } : {}),
-                                            }}
                                         >
-                                            {/* Time, then what it is, then whose it is — and the
-                                                project is toned back so the title still wins the
-                                                glance. On a project's own tab it is dropped: every
-                                                meeting there belongs to that project. */}
-                                            {/* On a phone the clock goes. A 45px column shows
-                                                about eight characters, and spending them on
-                                                "9:00 AM" leaves the meeting itself as an
-                                                ellipsis — the time is one tap away in the day
-                                                dialog, the title is what has to be scannable. */}
-                                            {!isPhone && (
-                                                <>
-                                                    <span style={{ fontWeight: 800 }}>{dayjs(m.startDate).format('h:mm A')}</span>{' '}
-                                                </>
-                                            )}
+                                            <>
+                                                <span style={{ fontWeight: 800 }}>
+                                                    {dayjs(m.startDate).format('h:mm A')}
+                                                </span>
+                                                {' '}
+                                            </>
                                             {m.title}
-                                            {!isPhone && mode !== 'project' && m.projectName && (
-                                                <span style={{ opacity: 0.62, fontWeight: 600 }}> {m.projectName}</span>
+                                            {mode !== 'project' && m.projectName && (
+                                                <span style={{ opacity: 0.85, fontWeight: 600 }}>
+                                                    {' '}{m.projectName}
+                                                </span>
                                             )}
-                                        </span>
-                                    ))}
-                                    {list.length > maxChips && (
-                                        <span style={{ fontSize: isPhone ? 8.5 : 10, fontWeight: 700, color: '#64748B', flexShrink: 0 }}>
+                                        </MonthMeetingChip>
+                                    );})}
+                                    {hasMore && (
+                                        <span style={{
+                                            fontSize: 10, fontWeight: 700, color: '#64748B',
+                                            flexShrink: 0, lineHeight: 1.1, overflow: 'hidden',
+                                            whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                                        }}>
                                             +{list.length - maxChips} more
                                         </span>
+                                    )}
+                                    </div>
                                     )}
                                 </button>
                             );
                         })}
                     </div>
 
+                    {isPhone && (
+                        <MobileDayAgenda
+                            dayKeyValue={picked}
+                            meetings={pickedList}
+                            timeRange={timeRange}
+                            modeCell={modeCell}
+                            stateColors={stateColors}
+                            chipColor={chipColor}
+                            sectionRef={mobileAgendaRef}
+                            onCreate={onCreate}
+                            onEdit={onEdit ? requestEdit : undefined}
+                            onCancel={onCancel ? requestCancel : undefined}
+                            onDelete={onDelete}
+                            onLogTime={onLogTime}
+                            onRemind={onRemind}
+                        />
+                    )}
+
                     <DayDetail
                         dayKeyValue={picked}
                         halves={pickedHalves}
                         stateColors={stateColors}
-                        open={dayOpen}
+                        open={dayOpen && !isPhone}
                         onClose={() => setDayOpen(false)}
                         timeRange={timeRange}
                         modeCell={modeCell}
                         onDelete={onDelete}
-                        onCancel={onCancel}
                         onLogTime={onLogTime ? (m) => { setDayOpen(false); onLogTime(m); } : undefined}
                         onRemind={onRemind ? (m) => { setDayOpen(false); onRemind(m); } : undefined}
-                        onEdit={onEdit ? (m) => { setDayOpen(false); onEdit(m); } : undefined}
+                        onEdit={onEdit ? (m) => { setDayOpen(false); requestEdit(m); } : undefined}
+                        onCancel={onCancel ? requestCancel : undefined}
                         // Closes first: the create form is the thing being answered now, and two
                         // stacked dialogs leave the day sitting behind it saying the slot is free
                         // while the form is busy filling it.
@@ -2614,24 +3162,15 @@ const MeetingsList: React.FC<MeetingsListProps> = ({ mode, targetId, onCreate, o
                         ))}
                         {/* Past meetings trade their half colour for these two. */}
                         {([
-                            { key: 'filled', label: 'Timesheets filled' },
-                            { key: 'pending', label: 'Timesheets pending' },
-                        ] as const).map((sample) => (
-                            <span key={sample.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: '#64748B' }}>
-                                <span style={{
-                                    width: 22, height: 12, borderRadius: 3,
-                                    background: rowTone(stateColors[sample.key]).bg,
-                                    borderLeft: `2px solid ${stateColors[sample.key]}`,
-                                }} />
+                            { key: 'filled' as const, label: 'Timesheets filled', color: stateColors.filled },
+                            { key: 'pending' as const, label: 'Timesheets pending', color: stateColors.pending },
+                            { key: 'today' as const, label: 'Today', color: todayColor },
+                        ]).map((sample) => (
+                            <span key={sample.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#64748B' }}>
+                                <span style={{ width: 14, height: 14, borderRadius: 4, ...todayCellStyle('#FFFFFF', sample.color) }} />
                                 {sample.label}
                             </span>
                         ))}
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#64748B' }}>
-                            {/* The same paint the cell wears, so the key cannot describe a
-                                marker the grid no longer draws. */}
-                            <span style={{ width: 14, height: 14, borderRadius: 4, ...todayCellStyle('#FFFFFF') }} />
-                            Today
-                        </span>
                     </div>
 
                 </div>

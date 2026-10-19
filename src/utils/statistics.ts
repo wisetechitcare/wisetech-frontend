@@ -1059,16 +1059,24 @@ export function donutaDataLabel(
             .filter(Boolean)
     );
 
-    // Defensive fallback for historical overlaps: if a day has both a leave and
-    // a real check-in, attendance wins and that leave day is not counted here.
+    // Defensive fallback for historical overlaps: if a day has both a FULL leave
+    // and a real check-in, attendance wins and that leave day is not counted here.
+    // A half-day leave still counts 0.5 even when the other half was worked — same
+    // weighting Overview / KPI / salary use (isHalfDay → 0.5).
     const effectiveFilteredLeaves = filteredLeaves.filter((leave) => {
         const leaveDateKey = toDateKey(leave.date);
+        if (leave?.isHalfDay) return true;
         return !attendanceDateKeys.has(leaveDateKey);
     });
 
+    const onLeaveDays = effectiveFilteredLeaves.reduce(
+        (sum, leave) => sum + (leave?.isHalfDay ? 0.5 : 1),
+        0,
+    );
+
     statMap.set(PRESENT, 0);
     statMap.set(ABSENT, 0);
-    statMap.set(ON_LEAVE, effectiveFilteredLeaves.length);
+    statMap.set(ON_LEAVE, onLeaveDays);
     statMap.set(EXTRA_DAYS, 0);
     statMap.set(CHECK_OUT_MISSING, 0);
 
@@ -1135,9 +1143,12 @@ export function donutaDataLabel(
             }
         }
 
-        const isLeaveDay = effectiveFilteredLeaves.some((leave) => {
+        const leaveOnDay = effectiveFilteredLeaves.find((leave) => {
             return dayjs(leave.date).format('YYYY-MM-DD') === statDateFormatted;
         });
+        // Full leave day → already in ON_LEAVE; half-day leave still has a worked
+        // half that must be scored as present / checkout-missing / extra.
+        const isFullLeaveDay = !!leaveOnDay && !leaveOnDay.isHalfDay;
 
         // Check if this date is a public holiday
         const matchingHoliday = filteredPublicHolidays.find((holiday) => {
@@ -1149,8 +1160,8 @@ export function donutaDataLabel(
         const hasCheckIn = stat.checkIn && stat.checkIn !== '' && stat.checkIn !== null && stat.checkIn !== "-NA-";
         const hasCheckOut = stat.checkOut && stat.checkOut !== '' && stat.checkOut !== null && stat.checkOut !== "-NA-";
 
-        // Skip leave days (already counted in ON_LEAVE)
-        if (isLeaveDay) {
+        // Skip full leave days (already counted in ON_LEAVE)
+        if (isFullLeaveDay) {
             return;
         }
 

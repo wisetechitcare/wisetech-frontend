@@ -1,4 +1,4 @@
-import { Dayjs } from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import React, { useEffect, useState } from "react";
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
@@ -54,6 +54,9 @@ const ReimbursementPeriodBar = ({ alignment, date, onChange, actionSlot }: Props
             label={date.format("MMM YYYY")}
             onPrevious={() => onChange("monthly", date.subtract(1, "month"))}
             onNext={() => onChange("monthly", date.add(1, "month"))}
+            pickGranularity="month"
+            pickValue={date.startOf("month").format("YYYY-MM-DD")}
+            onPickDate={(v) => onChange("monthly", dayjs(v).startOf("month"))}
           />
         )}
 
@@ -62,6 +65,9 @@ const ReimbursementPeriodBar = ({ alignment, date, onChange, actionSlot }: Props
             label={formatFiscalYearLabel(fiscalYear)}
             onPrevious={() => onChange("yearly", date.subtract(1, "year"))}
             onNext={() => onChange("yearly", date.add(1, "year"))}
+            pickGranularity="year"
+            pickValue={date.startOf("year").format("YYYY-MM-DD")}
+            onPickDate={(v) => onChange("yearly", dayjs(v).startOf("year"))}
           />
         )}
       </div>

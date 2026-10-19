@@ -48,7 +48,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { formatCompactCurrency, getProjectPhase, isDelayedProject, projectNumberOf } from "../../entity/entityUtils";
-import { buildProjectColumns, projectTableProps } from "./ProjectListTable";
+import { buildProjectColumns, categoryIdsOf, serviceIdsOf, subCategoryIdsOf, projectTableProps } from "./ProjectListTable";
 import PeriodNavigationButtons from "@pages/employee/leads/table/PeriodNavigationButtons";
 import "./ProjectTablePage.css";
 
@@ -218,7 +218,7 @@ const ProjectTablePage = () => {
   );
 
   const handleAlignmentChange = async (
-    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<{}> | null,
+    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<HTMLElement> | null,
     newVal: string,
   ) => {
     if (!newVal) return;
@@ -303,10 +303,10 @@ const ProjectTablePage = () => {
           // dates live on the lead itself. lead.project is a transitional fallback.
           const project = lead?.project || null;
           const exec = lead?.execution || null;
-          // No explicit start date yet → the lead's received date IS the start
-          // date by definition, so fresh projects sort to the top instead of
-          // sinking to the bottom as "N/A".
-          const startVal = lead?.startDate || lead?.receivedDate || project?.startDate || null;
+          // The lead's received date IS the project's start date (the day it became
+          // a project). startDate was imported equal to inquiryDate on old rows, so
+          // it only stands in when there is no received date.
+          const startVal = lead?.receivedDate || lead?.startDate || project?.startDate || null;
           // actualEndDate is the REAL completion date set via the Project Status
           // control when a project is marked Completed; endDate is only the
           // planned/expected closure. Prefer the real date once it exists so
@@ -364,9 +364,12 @@ const ProjectTablePage = () => {
               lead?.leadTeams?.[0]?.company?.companyName ||
               "N/A",
             service: lead?.projectServiceId || lead?.services?.[0]?.serviceId || "N/A",
+            serviceIds: serviceIdsOf(lead),
             category: lead?.projectCategoryId || lead?.leadCategories?.[0]?.category?.id || "N/A",
+            categoryIds: categoryIdsOf(lead),
             subCategory:
               lead?.projectSubCategoryId || lead?.leadSubCategories?.[0]?.subcategory?.id || "N/A",
+            subCategoryIds: subCategoryIdsOf(lead),
             status: lead?.status || null,
             poStatus: lead?.poStatus || null,
             contact: lead?.contact?.fullName || lead?.leadTeams?.[0]?.contact?.fullName || "N/A",
@@ -636,6 +639,9 @@ const ProjectTablePage = () => {
                 onNext={() => navigateDay("next")}
                 displayText={day.format("DD MMM, YYYY")}
                 isMobile={isMobile}
+                pickGranularity="day"
+                pickValue={day.format("YYYY-MM-DD")}
+                onPickDate={(v) => setDay(dayjs(v))}
               />
             )}
             {alignment === "weekly" && (
@@ -644,6 +650,15 @@ const ProjectTablePage = () => {
                 onNext={() => navigateWeek("next")}
                 displayText={`${weekStart.format("DD MMM")} - ${weekEnd.format("DD MMM")}`}
                 isMobile={isMobile}
+                pickGranularity="day"
+                pickValue={weekStart.format("YYYY-MM-DD")}
+                onPickDate={(v) => {
+                  const picked = dayjs(v);
+                  const dow = picked.day();
+                  const ns = dow === 0 ? picked.subtract(6, "day") : picked.subtract(dow - 1, "day");
+                  setWeekStart(ns);
+                  setWeekEnd(ns.add(6, "day"));
+                }}
               />
             )}
             {alignment === "monthly" && (
@@ -652,6 +667,13 @@ const ProjectTablePage = () => {
                 onNext={() => navigateMonth("next")}
                 displayText={`${monthStart.format("MMMM YYYY")}`}
                 isMobile={isMobile}
+                pickGranularity="month"
+                pickValue={monthStart.format("YYYY-MM-DD")}
+                onPickDate={(v) => {
+                  const ns = dayjs(v).startOf("month");
+                  setMonthStart(ns);
+                  setMonthEnd(ns.endOf("month"));
+                }}
               />
             )}
             {alignment === "yearly" && yearStart && yearEnd && (
@@ -660,6 +682,26 @@ const ProjectTablePage = () => {
                 onNext={() => navigateYear("next")}
                 displayText={fiscalYearDisplay}
                 isMobile={isMobile}
+                pickGranularity="year"
+                pickValue={yearStart.format("YYYY-MM-DD")}
+                onPickDate={async (v) => {
+                  const base = dayjs(`${dayjs(v).year()}-04-01`);
+                  try {
+                    const { startDate: sd, endDate: ed } = await generateFiscalYearFromGivenYear(base);
+                    const fs = dayjs(sd);
+                    const fe = dayjs(ed);
+                    setYearStart(fs);
+                    setYearEnd(fe);
+                    setFiscalYearDisplay(`${fs.format("YYYY")} - ${fe.format("YYYY")}`);
+                  } catch {
+                    const year = base.year();
+                    const fs = dayjs(`${year}-04-01`);
+                    const fe = dayjs(`${year + 1}-03-31`);
+                    setYearStart(fs);
+                    setYearEnd(fe);
+                    setFiscalYearDisplay(`${fs.format("YYYY")} - ${fe.format("YYYY")}`);
+                  }
+                }}
               />
             )}
 

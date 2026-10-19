@@ -14,7 +14,8 @@ import {
     fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction,
 } from '@services/employee';
 import { fetchInboxTasks, acknowledgeInboxTask, type InboxTask } from '@services/inbox';
-import { ToneChip, WtButton, tonePair } from '@app/modules/common/components/ui';
+import { securityPinApi } from '@services/securityPin';
+import { ToneChip, WtButton, tonePair, InlineNotice } from '@app/modules/common/components/ui';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import type { SemanticTone } from '@app/theme/tokens';
 import { RejectReasonModal } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
@@ -103,10 +104,23 @@ const AWAITING_TASK_TYPES = new Set<string>([]);
 const TASK_STYLE: Record<string, { tone: SemanticTone; icon: string; cta: string; label: string; doneLabel: string }> = {
     QUERY_RECEIVED: { tone: 'warning', icon: 'message-text-2', cta: 'Answer', label: 'Question for You', doneLabel: 'You Answered' },
     REJECTION_RECEIVED: { tone: 'danger', icon: 'cross-circle', cta: 'Mark as Seen', label: 'Expense Rejected', doneLabel: 'You Have Seen This' },
-    ACTION_REQUIRED: { tone: 'warning', icon: 'information', cta: 'Open', label: 'Needs Your Attention', doneLabel: 'Sorted' },
+    ACTION_REQUIRED: { tone: 'warning', icon: 'shield-cross', cta: 'Mark as read', label: 'Needs Your Attention', doneLabel: 'Marked as read' },
     QUERY_RESPONSE_RECEIVED: { tone: 'cyan', icon: 'message-text-2', cta: 'Review', label: 'They Answered You', doneLabel: 'You Reviewed It' },
     // Added on this branch; worded to match main's rewrite of the copy above.
     TASK_ASSIGNED: { tone: 'brand', icon: 'abstract-26', cta: 'Open Task', label: 'Task Assigned to You', doneLabel: 'Task Closed' },
+};
+
+/** System PIN Support Access — approve/reject from Inbox (not the Support Access panel). */
+const isSystemPinSupportApproval = (task: InboxTask): boolean => {
+    if (task.entityType === 'system_pin_support_request') return true;
+    const kind = (task.payload as { kind?: string } | null)?.kind;
+    return kind === 'system_pin_support_approval';
+};
+
+const supportRequestId = (task: InboxTask): string | null => {
+    const fromPayload = (task.payload as { requestId?: string } | null)?.requestId;
+    if (typeof fromPayload === 'string' && fromPayload) return fromPayload;
+    return task.entityId || null;
 };
 
 export default function Approvals() {
@@ -143,8 +157,13 @@ export default function Approvals() {
     /** One segment's contents. Both the visible list and the tab badges go through this, so a
         tab's number is produced by exactly the rule that builds its list. */
     const fetchSegment = useCallback(async (seg: Segment) => {
+        // Approvals and inbox tasks are independent. A 403 on approvals must NOT wipe
+        // inbox cards (System PIN MFA removed, assigned tasks, etc.).
         const [approvals, myTasks] = await Promise.all([
-            seg === 'mine' ? fetchPendingApprovals() : fetchAllApprovalInstances(seg === 'done' ? 'completed' : 'awaiting'),
+            (seg === 'mine'
+                ? fetchPendingApprovals()
+                : fetchAllApprovalInstances(seg === 'done' ? 'completed' : 'awaiting')
+            ).catch(() => [] as ApprovalStep[]),
             // Your own items appear in two of the three tabs: open ones under "Waiting for
             // you", and closed ones under "Finished" — a question you answered IS
             // something you completed, and Completed listing only approval instances meant
@@ -156,7 +175,16 @@ export default function Approvals() {
                 : Promise.resolve([] as InboxTask[]),
         ]);
         const raw = (approvals as any)?.data ?? approvals ?? [];
+        /**
+         * The server bounds how many pending steps one queue scans (`meta.truncated`). Carried
+         * through so the banner below can say so: a list silently cut at 400 would tell the person
+         * accountable for the work that there was none left, which is worse than a slow screen.
+         * `pendingSteps` counts the raw steps naming them, not rendered cards, so the wording
+         * stays deliberately approximate.
+         */
+        const meta = (approvals as any)?.meta as { truncated?: boolean; limit?: number; pendingSteps?: number | null } | undefined;
         return {
+            meta,
             steps: (Array.isArray(raw) ? raw : []) as ApprovalStep[],
             tasks: (myTasks as InboxTask[]).filter((t) => {
                 const isMyType = MY_TASK_TYPES.has(t.type);
@@ -174,6 +202,8 @@ export default function Approvals() {
         appears only on the tab you are already looking at tells you nothing — the point of
         the number is to say what is waiting on the tabs you are NOT looking at. */
     const [counts, setCounts] = useState<Record<Segment, number>>({ mine: 0, awaiting: 0, done: 0 });
+    /** Set only when the server capped the scan — see the note in fetchSegment. */
+    const [queueBound, setQueueBound] = useState<{ limit: number; pendingSteps: number | null } | null>(null);
 
     const load = useCallback(async (seg: Segment = segment) => {
         setLoading(true);
@@ -181,7 +211,7 @@ export default function Approvals() {
             // All three segments on every refresh: one code path keeps the open list and the
             // badges from drifting apart, at the cost of two extra fetches.
             const results = await Promise.all(
-                SEGMENTS.map((s) => fetchSegment(s.key).catch(() => ({ steps: [] as ApprovalStep[], tasks: [] as InboxTask[] }))),
+                SEGMENTS.map((s) => fetchSegment(s.key).catch(() => ({ meta: undefined, steps: [] as ApprovalStep[], tasks: [] as InboxTask[] }))),
             );
             setCounts(
                 SEGMENTS.reduce((acc, s, i) => {
@@ -196,6 +226,7 @@ export default function Approvals() {
                 }, {} as Record<Segment, number>),
             );
             const active = results[SEGMENTS.findIndex((s) => s.key === seg)];
+            setQueueBound(active.meta?.truncated ? { limit: active.meta.limit ?? 0, pendingSteps: active.meta.pendingSteps ?? null } : null);
             setSteps(active.steps);
             setTasks(active.tasks);
         } catch {
@@ -327,6 +358,26 @@ export default function Approvals() {
         }
     };
 
+    /** First approve/reject finishes the support request; other approvers' cards clear on refresh. */
+    const decideSupport = async (task: InboxTask, approve: boolean) => {
+        const requestId = supportRequestId(task);
+        if (!requestId) {
+            errorConfirmation('This support request could not be identified');
+            return;
+        }
+        setBusyId(task.id);
+        try {
+            await securityPinApi.supportDecide(requestId, approve);
+            successConfirmation(approve ? 'Support request approved' : 'Support request rejected');
+            load();
+        } catch (err: any) {
+            errorConfirmation(apiErrorMessage(err, approve ? 'Could not approve support request' : 'Could not reject support request'));
+            load();
+        } finally {
+            setBusyId(null);
+        }
+    };
+
     const openStep = (step: ApprovalStep) => {
         if ((step.instance.workflowType || '').toLowerCase() === 'reimbursement') {
             setBatchDetail({ batchId: step.instance.requestId, instanceId: step.instance.id });
@@ -381,6 +432,29 @@ export default function Approvals() {
             acknowledgeInboxTask(task.id).then(() => load()).catch(() => {
                 errorConfirmation('Could not mark this as seen');
             });
+            return;
+        }
+
+        // System PIN support approvals are decided here (Approve / Reject on the card) — do not
+        // mark-as-read; that would clear the card without finishing the request.
+        if (task.type === 'ACTION_REQUIRED' && isSystemPinSupportApproval(task)) {
+            return;
+        }
+
+        // Generic "needs your attention" cards (e.g. System PIN MFA removed): mark as read.
+        // Optional deep link opens after acknowledge so setup is one click away.
+        if (task.type === 'ACTION_REQUIRED') {
+            const dest = task.path && task.path !== '/inbox' && task.path !== '/my-team/approvals'
+                ? task.path
+                : null;
+            acknowledgeInboxTask(task.id)
+                .then(() => {
+                    if (dest) navigate(dest);
+                    return load();
+                })
+                .catch(() => {
+                    errorConfirmation('Could not mark this as read');
+                });
             return;
         }
 
@@ -450,6 +524,19 @@ export default function Approvals() {
                 </Stack>
             )}
 
+            {/* Said out loud, because a queue quietly cut at its ceiling would read as an empty
+                one to the person accountable for the work in it. The number counts the steps
+                naming them rather than the cards below, so the wording stays approximate. */}
+            {!loading && queueBound && (
+                <Box sx={{ mb: 1.5 }}>
+                    <InlineNotice icon="information-5">
+                        Showing the {queueBound.limit} longest-waiting items
+                        {queueBound.pendingSteps ? ` of about ${queueBound.pendingSteps}` : ''}. Work through
+                        these and the rest will follow.
+                    </InlineNotice>
+                </Box>
+            )}
+
             {loading ? (
                 <Stack alignItems="center" sx={{ py: 10 }}><CircularProgress size={26} /></Stack>
             ) : total === 0 ? (
@@ -467,8 +554,18 @@ export default function Approvals() {
             ) : (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 1.5 }}>
                     {sortedTasks.map((task) => {
-                        const style = TASK_STYLE[task.type] ?? TASK_STYLE.ACTION_REQUIRED;
+                        const supportApproval = isSystemPinSupportApproval(task);
+                        const style = supportApproval
+                            ? {
+                                tone: 'warning' as SemanticTone,
+                                icon: 'shield-tick',
+                                cta: 'Approve',
+                                label: 'System PIN Support',
+                                doneLabel: 'Support decided',
+                            }
+                            : (TASK_STYLE[task.type] ?? TASK_STYLE.ACTION_REQUIRED);
                         const pair = tonePair(style.tone);
+                        const busy = busyId === task.id;
                         return (
                             <Box
                                 key={task.id}
@@ -476,7 +573,7 @@ export default function Approvals() {
                                 onClick={() => openTask(task)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') openTask(task); }}
                                 sx={{
-                                    position: 'relative', cursor: 'pointer', minWidth: 0,
+                                    position: 'relative', cursor: supportApproval && segment === 'mine' ? 'default' : 'pointer', minWidth: 0,
                                     borderRadius: '12px', overflow: 'hidden',
                                     border: `1px solid ${theme.palette.divider}`,
                                     bgcolor: 'background.paper',
@@ -537,31 +634,53 @@ export default function Approvals() {
                                         </Box>
                                     )}
 
-                                    {/* Action button - premium outline styled */}
+                                    {/* Action button(s) */}
                                     <Box sx={{ mt: 'auto', pt: 1 }}>
-                                        <WtButton size="small"
-                                            onClick={(e) => { e.stopPropagation(); openTask(task); }}
-                                            sx={{
-                                                width: '100%',
-                                                fontSize: '11px',
-                                                fontWeight: 650,
-                                                py: 0.5,
-                                                px: 1,
-                                                borderRadius: '8px',
-                                                border: `1px solid ${pair.fg}`,
-                                                color: pair.fg,
-                                                background: 'transparent !important',
-                                                boxShadow: 'none',
-                                                transition: 'all 160ms cubic-bezier(.22,.61,.36,1)',
-                                                '&:hover': {
-                                                    background: `${pair.fg}15 !important`,
-                                                    borderColor: pair.fg,
+                                        {supportApproval && segment === 'mine' ? (
+                                            <Stack direction="row" spacing={1}>
+                                                <WtButton
+                                                    size="small"
+                                                    disabled={busy}
+                                                    onClick={(e) => { e.stopPropagation(); void decideSupport(task, true); }}
+                                                    sx={{ flex: 1, fontSize: '11px', fontWeight: 650, py: 0.5, borderRadius: '8px' }}
+                                                >
+                                                    Approve
+                                                </WtButton>
+                                                <WtButton
+                                                    size="small"
+                                                    ghost
+                                                    disabled={busy}
+                                                    onClick={(e) => { e.stopPropagation(); void decideSupport(task, false); }}
+                                                    sx={{ flex: 1, fontSize: '11px', fontWeight: 650, py: 0.5, borderRadius: '8px' }}
+                                                >
+                                                    Reject
+                                                </WtButton>
+                                            </Stack>
+                                        ) : (
+                                            <WtButton size="small"
+                                                onClick={(e) => { e.stopPropagation(); openTask(task); }}
+                                                sx={{
+                                                    width: '100%',
+                                                    fontSize: '11px',
+                                                    fontWeight: 650,
+                                                    py: 0.5,
+                                                    px: 1,
+                                                    borderRadius: '8px',
+                                                    border: `1px solid ${pair.fg}`,
                                                     color: pair.fg,
-                                                    boxShadow: `0 2px 8px ${pair.fg}24`,
-                                                },
-                                            }}>
-                                            {segment === 'done' ? 'View' : style.cta}
-                                        </WtButton>
+                                                    background: 'transparent !important',
+                                                    boxShadow: 'none',
+                                                    transition: 'all 160ms cubic-bezier(.22,.61,.36,1)',
+                                                    '&:hover': {
+                                                        background: `${pair.fg}15 !important`,
+                                                        borderColor: pair.fg,
+                                                        color: pair.fg,
+                                                        boxShadow: `0 2px 8px ${pair.fg}24`,
+                                                    },
+                                                }}>
+                                                {segment === 'done' ? 'View' : style.cta}
+                                            </WtButton>
+                                        )}
                                     </Box>
                                 </Stack>
                             </Box>

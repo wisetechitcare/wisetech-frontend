@@ -14,10 +14,19 @@ import ReimbursementConfiguration from "./views/admin/ReimbursementConfiguration
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
 import { canSection } from "@utils/can";
-import { fetchReimbursementBatches } from "@services/employee";
+import { fetchReimbursementPaymentQueueCount } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import SensitiveDataProvider, { SensitiveDataHeaderToggle } from "@app/modules/common/components/SensitiveData";
+
+/**
+ * Tabs whose figures are wired for the eye — both render ReimbursementWorkspace, which
+ * carries the `sensitive-data-*` class on every amount. The remaining tabs are left
+ * exactly as they are: blurring a figure on a tab with no switch would hide it with no
+ * way to read it back.
+ */
+const EYE_TABS = ["My Reimbursements", "Search Employee"];
 
 
 function AdminAndEmployeeReimbursementViewer() {
@@ -42,12 +51,9 @@ function AdminAndEmployeeReimbursementViewer() {
   const loadBadgeCounts = useCallback(async () => {
     if (!canSection('finance.reimbursements', 'write')) return;
     try {
-      const res = await fetchReimbursementBatches();
-      const batches: any[] = res?.data?.batches || res?.batches || [];
-      // Approved batches that are not fully paid — the same population the Payment tab opens on.
-      setPendingPaymentCount(
-        batches.filter((b: any) => Number(b.status) === 1 && b.paidStatus !== 'PAID').length,
-      );
+      // Server COUNT — same eligibility as the Payment queue, without downloading every batch.
+      const res = await fetchReimbursementPaymentQueueCount();
+      setPendingPaymentCount(Number(res?.data?.count ?? res?.count ?? 0));
     } catch {
       setPendingPaymentCount(0);   // a badge is a hint; failing to load one must not break the page
     }
@@ -67,7 +73,8 @@ function AdminAndEmployeeReimbursementViewer() {
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Reimbursement Details",
       component: <AllEmployee />,
-      icon: 'bi-receipt-cutoff',
+      // Not bi-receipt-cutoff — that maps to the same glyph as bi-receipt (My Reimbursements).
+      icon: 'bi-clipboard-data',
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Search Employee",
@@ -120,7 +127,20 @@ function AdminAndEmployeeReimbursementViewer() {
         Reimbursements
       </PageTitle>
       
-      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} accessSection="finance.reimbursements" />
+      {/* Above the tabs, so the eye in the sticky bar governs every figure below it. The
+          workspace has a provider of its own; a nested one defers to this, so there is one
+          switch and it keeps its state while you move between the two tabs that offer it. */}
+      <SensitiveDataProvider disabled={!EYE_TABS.includes(tabItems[activeTab]?.title ?? "")}>
+        <MaterialHeaderTab
+          tabItems={tabItems}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          accessSection="finance.reimbursements"
+          headerAction={
+            EYE_TABS.includes(tabItems[activeTab]?.title ?? "") ? <SensitiveDataHeaderToggle /> : undefined
+          }
+        />
+      </SensitiveDataProvider>
     </>
   );
 }

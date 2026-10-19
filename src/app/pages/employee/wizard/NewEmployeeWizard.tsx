@@ -2,8 +2,8 @@ import { resolveActiveOrgId } from '@utils/activeOrg';
 import { safeJsonParse } from "@utils/safeJson";
 import { Fragment, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Modal } from "react-bootstrap";
 import { Form, Formik, FormikValues, useFormikContext } from "formik";
+import { FullscreenWizardModal } from "../forms/shared/FullscreenWizardModal";
 import * as Yup from "yup";
 import { StepperComponent } from "@metronic/assets/ts/components";
 import { KTIcon } from "@metronic/helpers";
@@ -21,6 +21,7 @@ import OnboardingWorkspace from "../forms/onboarding/OnboardingWorkspace";
 import { buildEducationPayload, createEducationRow, getActiveEducationRows, getEducationCompletionValues, hasStartedEducationInfo, normalizeEducationRows } from "../../../../utils/educationUtils";
 import "../glass.css";
 import "./steps/Step2.css";
+import { EMAIL_FORMAT, isUndeliverableEmail, undeliverableEmailMessage } from "@utils/emailDomain";
 import { createNewUser, updateUser, archiveUser } from "@services/users";
 import {
   createAddressDetails,
@@ -506,8 +507,9 @@ const newEmployeeWizardSchema = [
     dateOfBirth: Yup.string().required().label("Date Of Birth"),
     anniversary: optionalString().label("Anniversary Date"),
     bloodGroup: optionalString().label("Blood Group"),
-    personalEmailId: Yup.string().email().required().label("Personal Email Address")
-      .matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, "Invalid email address"),
+    personalEmailId: Yup.string().required().label("Personal Email Address")
+      .matches(EMAIL_FORMAT, "Invalid email address")
+      .test("mail-domain", undeliverableEmailMessage, (v) => !isUndeliverableEmail(v)),
     personalPhoneNumber: Yup.string().required().label("Personal Phone Number")
       .min(10, "Phone Number must be at least 10 characters")
       .max(20, "Phone Number must be at most 20 characters")
@@ -667,7 +669,8 @@ const newEmployeeWizardSchema = [
     // enforced when something IS entered — `optionalString` lets "" through, so the
     // rules below only ever run against a real value.
     companyEmailId: optionalString().label("Company Email Address")
-      .matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, { message: "Invalid email address", excludeEmptyString: true }),
+      .matches(EMAIL_FORMAT, { message: "Invalid email address", excludeEmptyString: true })
+      .test("mail-domain", undeliverableEmailMessage, (v) => !isUndeliverableEmail(v)),
     companyPhoneNumber: optionalString().label("Company Phone Number")
       .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
       .matches(employeeOnBardingFormRegexes["companyPhoneNumber"], { message: "Phone Number can only contain numeric characters", excludeEmptyString: true }),
@@ -1597,9 +1600,13 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
 
-    if (appRole) {
+    // Only a changed role goes to the (guarded) roles endpoint, and a refusal is said out loud:
+    // it used to be swallowed, so the form looked saved with a role the server had refused.
+    if (appRole && appRole !== values.roles?.[0]?.id) {
       try { await updateEmployeeRolesById(employeeId, { roleIds: [appRole] }); }
-      catch (error) { console.log("Error while updating employee roles", error); }
+      catch (error: any) {
+        errorConfirmation(error?.response?.data?.message || error?.response?.data?.detail || "The role was not changed.");
+      }
     }
 
     const aadharDocumentId = values?.documentFields?.find(
@@ -1862,7 +1869,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
         if (values.appRole) {
           try { await updateEmployeeRolesById(savedEmployeeId, { roleIds: [values.appRole] }); }
-          catch (roleError) { console.error("Error while updating employee roles:", roleError); }
+          catch (roleError: any) {
+            // Everything else saved; say plainly that the role did not (e.g. your own role, or Admin given by a non-admin).
+            errorConfirmation(roleError?.response?.data?.message || roleError?.response?.data?.detail || "The role was not changed.");
+          }
         }
 
         await saveApprovalChains(values.approvalChains, savedEmployeeId);
@@ -2125,36 +2135,13 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
   return (
     <>
-    <Modal
+    <FullscreenWizardModal
       show={show}
-      onHide={handleClose}
-      fullscreen
-      /**
-       * Nested MUI dialogs (the photo editor, confirm/alert dialogs, pickers) render
-       * in a portal on <body>, which this modal does not contain. With the default
-       * focus enforcement, react-bootstrap pulls focus back here as soon as anything
-       * inside one of those portals is focused — so a slider thumb never keeps focus
-       * and its arrow keys silently do nothing. The trap buys little on a fullscreen
-       * modal that already covers the app; correct keyboard control inside the
-       * dialogs it opens is worth more.
-       */
-      enforceFocus={false}
-      dialogClassName="responsive-modal"
-      className="responsive-modal wt-wizard-modal onboarding-wizard-modal"
+      onClose={handleClose}
+      closeLabel="Close onboarding"
+      bodyRef={modalBodyRef}
+      className="onboarding-wizard-modal"
     >
-      <div className="ob-wizard-shell">
-        {/* EnterpriseFormWizard reserves space at the right of its header for this
-            button but does not render it — the host modal owns it. */}
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label="Close onboarding"
-          className="ob-wizard-close"
-        >
-          <KTIcon iconName="cross" className="fs-2" />
-        </button>
-
-        <Modal.Body ref={modalBodyRef} style={{ padding: 0, height: "100%", overflow: "hidden" }}>
           <Formik
             initialValues={defaultState}
             validationSchema={onboardingSchema}
@@ -2211,9 +2198,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
               );
             }}
           </Formik>
-        </Modal.Body>
-      </div>
-    </Modal>
+    </FullscreenWizardModal>
     <ManagerHandoverDialog
       open={!!handover}
       employeeId={handover?.employeeId ?? ""}

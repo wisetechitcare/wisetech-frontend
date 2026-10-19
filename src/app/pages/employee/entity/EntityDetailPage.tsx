@@ -28,11 +28,16 @@ import DocumentsTab from './detail/sections/DocumentsTab';
 import AuditSection from './detail/sections/AuditSection';
 import TeamsSection from './detail/sections/TeamsSection';
 import BillingSection from './detail/sections/BillingSection';
+import DeliverablesSection from './detail/sections/DeliverablesSection';
 import ProjectMeetings from './detail/sections/ProjectMeetings';
 import ProjectStatusControl from './detail/ProjectStatusControl';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { UnderlineTabs, WtEmptyState } from '@app/modules/common/components/ui';
 import NoAccessPage from '@app/modules/common/components/NoAccessPage';
+import SensitiveDataProvider, { SensitiveDataBarToggle } from '@app/modules/common/components/SensitiveData';
+
+/** Tabs carrying money, and so the eye that blurs it. */
+const EYE_TABS = ['commercial'];
 
 const NOT_AUTHORIZED = 'not-authorized';
 
@@ -213,6 +218,8 @@ const EntityDetailPage: React.FC = () => {
         );
       case 'tasks':
         return <TasksTab lead={lead} projectId={projectId} />;
+      case 'deliverables':
+        return <DeliverablesSection lead={lead} />;
       case 'timesheet':
         return <TimesheetTab lead={lead} projectId={projectId} />;
       case 'reimbursement':
@@ -386,18 +393,24 @@ const EntityDetailPage: React.FC = () => {
           </div>
 
           {/* ── Sticky tab nav ── */}
-          <UnderlineTabs
-            sticky
-            tabs={tabs.map(t => ({ ...t, count: tabCounts[t.key] }))}
-            value={activeTab}
-            onChange={setActiveTab}
-            ariaLabel="Record sections"
-            sx={{ mt: 3 }}
-          />
+          {/* The provider wraps the bar AND the content so one eye governs both. Disabled
+              off the money tabs: blurring a figure on a tab with no switch would hide it
+              with no way to read it back. */}
+          <SensitiveDataProvider disabled={!EYE_TABS.includes(activeTab)}>
+            <UnderlineTabs
+              sticky
+              tabs={tabs.map(t => ({ ...t, count: tabCounts[t.key] }))}
+              value={activeTab}
+              onChange={setActiveTab}
+              ariaLabel="Record sections"
+              sx={{ mt: 3 }}
+              actions={EYE_TABS.includes(activeTab) ? <SensitiveDataBarToggle /> : undefined}
+            />
 
-          <div className="tab-content">
-            <DensityProvider mode="advanced">{renderTab()}</DensityProvider>
-          </div>
+            <div className="tab-content">
+              <DensityProvider mode="advanced">{renderTab()}</DensityProvider>
+            </div>
+          </SensitiveDataProvider>
         </div>
       </div>
 

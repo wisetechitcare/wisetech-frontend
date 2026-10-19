@@ -92,14 +92,57 @@ export const AvatarOption = (props: any) => (
   </components.Option>
 );
 
-export const AvatarSingleValue = (props: any) => (
-  <components.SingleValue {...props}>
-    <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", minHeight: "32px" }}>
-      <SmartAvatar name={props.data.label} id={props.data.value} imageUrl={props.data.avatar} size={22} imageFit="cover" />
-      <span>{props.data.label}</span>
-    </div>
-  </components.SingleValue>
-);
+export const AvatarSingleValue = (props: any) => {
+  const wrap = Boolean(props.selectProps?.allowValueWrap);
+
+  return (
+    <components.SingleValue {...props}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          width: "100%",
+          minHeight: "32px",
+          ...(wrap
+            ? { overflow: "visible", flexWrap: "wrap" as const }
+            : { minWidth: 0, overflow: "hidden" }),
+        }}
+      >
+        <span style={{ flexShrink: 0, display: "flex" }}>
+          <SmartAvatar
+            name={props.data.label}
+            id={props.data.value}
+            imageUrl={props.data.avatar}
+            size={22}
+            imageFit="cover"
+          />
+        </span>
+        <span
+          style={
+            wrap
+              ? {
+                  flex: 1,
+                  whiteSpace: "normal",
+                  overflow: "visible",
+                  lineHeight: 1.35,
+                  wordBreak: "break-word",
+                }
+              : {
+                  flex: 1,
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }
+          }
+        >
+          {props.data.label}
+        </span>
+      </div>
+    </components.SingleValue>
+  );
+};
 
 export const DropdownIndicator = (props: any) => {
   const selectedColor = props.selectProps.value?.color;

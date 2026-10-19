@@ -61,6 +61,7 @@ import {
 } from "./entityUtils";
 import { currencyPrefix } from '@utils/currency';
 import { canViewCommercial } from '@utils/can';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 // Money columns and the section whose commercial flag lets them show.
 const MONEY_COLUMN_SECTION: Record<string, 'crm.leads' | 'projects'> = {
@@ -460,7 +461,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   );
 
   const handleAlignmentChange = async (
-    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<{}> | null,
+    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<HTMLElement> | null,
     newVal: string,
   ) => {
     if (!newVal) return;
@@ -649,7 +650,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
               lead?.company?.companyName ||
               lead?.leadTeams?.[0]?.company?.companyName ||
               "",
-            // Display scalars — the table columns show ONE value, the primary field.
+            // Display scalars — primary field for sort/filter; columns render *Ids lists below.
             service: lead?.projectServiceId || "",
             category: lead?.projectCategoryId || "",
             subCategory: lead?.projectSubCategoryId || "",
@@ -923,28 +924,51 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         accessorKey: "service",
         header: "Service",
         size: 150,
-        Cell: ({ cell }: { cell: any }) =>
-          projectServices?.find((s: any) => s.id === cell.getValue())?.name || "N/A",
+        accessorFn: (row: any) => {
+          const ids: string[] = row.serviceIds?.length ? row.serviceIds : row.service ? [row.service] : [];
+          return ids.map((id) => projectServices?.find((s: any) => s.id === id)?.name).filter(Boolean).join(", ");
+        },
+        Cell: ({ row }: { row: any }) => {
+          const ids: string[] = row.original?.serviceIds?.length ? row.original.serviceIds : row.original?.service ? [row.original.service] : [];
+          const names = ids.map((id) => projectServices?.find((s: any) => s.id === id)?.name).filter(Boolean);
+          return names.length ? names.join(", ") : "N/A";
+        },
       },
       {
         accessorKey: "category",
         header: "Category",
         size: 150,
-        Cell: ({ cell }: { cell: any }) =>
-          projectCategories?.find((c: any) => c.id === cell.getValue())?.name || "N/A",
+        // All-Columns / Category search must match display names (e.g. "MOEF"), not UUIDs.
+        accessorFn: (row: any) => {
+          const ids: string[] = row.categoryIds?.length ? row.categoryIds : row.category ? [row.category] : [];
+          return ids.map((id) => projectCategories?.find((c: any) => c.id === id)?.name).filter(Boolean).join(", ");
+        },
+        Cell: ({ row }: { row: any }) => {
+          const ids: string[] = row.original?.categoryIds?.length ? row.original.categoryIds : row.original?.category ? [row.original.category] : [];
+          const names = ids.map((id) => projectCategories?.find((c: any) => c.id === id)?.name).filter(Boolean);
+          return names.length ? names.join(", ") : "N/A";
+        },
       },
       {
         accessorKey: "subCategory",
         header: "Sub Category",
         size: 150,
-        Cell: ({ cell }: { cell: any }) =>
-          projectSubcategories?.find((s: any) => s.id === cell.getValue())?.name || "N/A",
+        accessorFn: (row: any) => {
+          const ids: string[] = row.subCategoryIds?.length ? row.subCategoryIds : row.subCategory ? [row.subCategory] : [];
+          return ids.map((id) => projectSubcategories?.find((s: any) => s.id === id)?.name).filter(Boolean).join(", ");
+        },
+        Cell: ({ row }: { row: any }) => {
+          const ids: string[] = row.original?.subCategoryIds?.length ? row.original.subCategoryIds : row.original?.subCategory ? [row.original.subCategory] : [];
+          const names = ids.map((id) => projectSubcategories?.find((s: any) => s.id === id)?.name).filter(Boolean);
+          return names.length ? names.join(", ") : "N/A";
+        },
       },
       // Hide Lead Status column when viewing team projects (only show project details)
       ...(teamId ? [] : [{
         accessorKey: "status",
         header: "Lead Status",
         size: 130,
+        accessorFn: (row: any) => row?.status?.name || "",
         Cell: ({ row }: any) => {
           const st = row?.original?.status;
           return st?.name ? (
@@ -992,14 +1016,13 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           Cell: ({ row }: any) => {
             const poStatus = row?.original?.poStatus;
             if (!row?.original?.isProject || !poStatus) return <span>N/A</span>;
-            const color = poStatus === "Received" ? "#28A745" : "#FFC107";
             return (
-              <div
-                className="badge badge-light"
-                style={{ backgroundColor: color, color: poStatus === "Received" ? "white" : "#333" }}
-              >
-                {poStatus}
-              </div>
+              <ToneChip
+                dense
+                tone={poStatus === "Received" ? "success" : "warning"}
+                label={poStatus}
+                solid={poStatus === "Received"}
+              />
             );
           },
         },
@@ -1522,9 +1545,15 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       const q = searchText.toLowerCase();
       const employeeName = allemployees?.find((e: any) => e.employeeId === item.assignedTo)?.employeeName || "";
       const pmName = pmNames(item);
-      const serviceName = projectServices?.find((s: any) => s.id === item.service)?.name || "";
-      const categoryName = projectCategories?.find((c: any) => c.id === item.category)?.name || "";
-      const subCategoryName = projectSubcategories?.find((s: any) => s.id === item.subCategory)?.name || "";
+      const serviceName = (item.serviceIds?.length ? item.serviceIds : [item.service])
+        .map((id: string) => projectServices?.find((s: any) => s.id === id)?.name || "")
+        .join(" ");
+      const categoryName = (item.categoryIds?.length ? item.categoryIds : [item.category])
+        .map((id: string) => projectCategories?.find((c: any) => c.id === id)?.name || "")
+        .join(" ");
+      const subCategoryName = (item.subCategoryIds?.length ? item.subCategoryIds : [item.subCategory])
+        .map((id: string) => projectSubcategories?.find((s: any) => s.id === id)?.name || "")
+        .join(" ");
 
       searchMatch =
         String(item.projectName || "").toLowerCase().includes(q) ||

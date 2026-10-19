@@ -116,9 +116,9 @@ export function Eyebrow({ children, className }: { children: React.ReactNode; cl
 /** Section header: tinted IconBox + title + optional description. */
 export function SectionHead({ tone, icon, title, desc }: { tone: Trio; icon: string; title: string; desc?: string }) {
   return (
-    <div className="flex items-start gap-3">
-      <IconBox icon={icon} trio={tone} size={40} fs="fs-2" />
-      <div className="min-w-0">
+    <div className="flex items-center gap-3">
+      <IconBox icon={icon} trio={tone} size={36} fs="fs-3" />
+      <div className="min-w-0 flex flex-col justify-center">
         <p className="text-[15px] font-bold leading-[1.25] text-slate-900 dark:text-slate-100 m-0">{title}</p>
         {desc && <p className="text-[13px] leading-normal text-slate-500 dark:text-slate-400 mt-0.5 m-0">{desc}</p>}
       </div>

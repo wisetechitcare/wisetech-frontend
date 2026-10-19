@@ -20,7 +20,10 @@ const BirthdayCelebration = () => {
         const today = dayjs();
 
         const todayBirthdayUsers = usersList.filter((user: any) => {
-          if (!user.isActive) return false;
+          // Both flags, not just the first: `isActive` is the LOGIN ACCOUNT, which an
+          // exit does not touch. Someone who has left keeps an active account, so the
+          // account flag alone kept firing confetti for people who no longer work here.
+          if (!user.isActive || !user.hasActiveEmployee) return false;
           const dob = dayjs(user.dateOfBirth);
           return dob.date() === today.date() && dob.month() === today.month();
         });

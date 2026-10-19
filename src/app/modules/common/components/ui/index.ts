@@ -2,7 +2,8 @@
 // This barrel is the one import surface for the shared UI kit:
 //   - tokens: single source of truth for brand colors + glass tokens (also feeds the MUI theme)
 //   - buttons: WtButton / WtIconButton + sx helpers (calendar-derived CTA physics)
-//     plus WT_CONTROL_HEIGHT / controlHeightSx — the one height a control row shares
+//     plus WT_CONTROL_HEIGHT (40) / WT_CONTROL_HEIGHT_MD (44) / controlHeightSx —
+//     the one height a control row shares (fields + buttons)
 //   - glass: reusable glassmorphism primitives (GlassSurface / GlassDialog / GlassHeader / GlassCard)
 //   - feedback: branded Swal helpers (toast / alertDialog / confirmDialog)
 //   - safeHtml: tagged template that escapes interpolations for any html: string
@@ -13,9 +14,24 @@ export * from './buttons';
 // tintedSwitch sx, raw <Switch>, and Bootstrap form-switch).
 export { WtSwitch, WtSwitchField, wtSwitchSx } from './switch';
 export type { WtSwitchProps, WtSwitchFieldProps, WtSwitchSize } from './switch';
+// Canonical checkbox — same brand tint / size contract as WtSwitch.
+// Theme `MuiCheckbox` defaultProps also apply this look app-wide (see wisetechTheme).
+export {
+  WtCheckbox,
+  WtCheckboxField,
+  WtControlLabel,
+  wtCheckboxSx,
+  wtCheckboxIcons,
+  wtCheckboxThemeDefaultProps,
+  wtCheckboxThemeRootSx,
+} from './checkbox';
+export type { WtCheckboxProps, WtCheckboxFieldProps, WtCheckboxSize } from './checkbox';
 export { ToneChip, toneAlpha } from './chips';
+// Collection entity card — Roles / Adverts / Candidates / Projects. Composes GlassCard + ToneChip.
+export { EntityCard } from './EntityCard';
+export type { EntityCardProps, EntityCardTag } from './EntityCard';
 
-export { default as ActionIconButton } from './ActionIconButton';
+export { default as ActionIconButton, trioToActionTone } from './ActionIconButton';
 export type { ActionIconButtonProps, ActionTone } from './ActionIconButton';
 // Brand marks as inline SVG. The duotone icon font paints its first layer at 40%
 // opacity, which erases a logo's recognisable shape — these are solid single paths.
@@ -31,6 +47,15 @@ export { AppIcon, type AppIconProps } from './AppIcon';
 // the border line. That is the bug this control was rebuilt to end.
 // Reach for this before building an InputLabel + control pairing by hand.
 export { WtField } from './WtField';
+// Formik-bound WtField — default labelled select/text in Formik forms (Sandwich look).
+export { WtFieldFormik, type WtFieldFormikProps } from './WtFieldFormik';
+// Canonical “+ Add …” for labelled selects — pass as `addOption` on WtField / WtFieldFormik.
+export {
+    WtAddOptionButton,
+    resolveWtAddOption,
+    DEFAULT_ADD_OPTION_LABEL,
+} from './WtAddOption';
+export type { WtAddOption, WtAddOptionPlacement } from './WtAddOption';
 // An amount of money: WtField with the currency inside the frame and the number read back as
 // money in the hint as you type. Pass `currency` for a record's own currency (a requisition,
 // an offer); omit it for the viewer's. Salary rules go in `validate`, not in the field.
@@ -45,10 +70,14 @@ export { CurrencySymbol } from './CurrencySymbol';
 // new record, so it deliberately drops the create action.
 export { WtEmptyState } from './WtEmptyState';
 export type { WtEmptyStateProps, WtEmptyStateVariant } from './WtEmptyState';
-export type { WtFieldProps, WtFieldOption, WtFieldSize } from './WtField';
-// The rich select: react-select underneath, so it is the one to reach for when a control
-// needs search, multi-select, creatable or async options. DropdownInput / SelectInput
-// delegate to it.
+// Full-block page/section loading — MUI CircularProgress. Legacy path: utils/Loader.
+export { PageLoader, type PageLoaderProps } from './PageLoader';
+// Short master create/edit dialog shell for *ConfigureForm screens.
+export { ConfigureFormDialog, type ConfigureFormDialogProps } from './ConfigureFormDialog';
+export type { WtFieldProps, WtFieldOption, WtFieldSize, WtFieldChangeHandler } from './WtField';
+// The rich select ENGINE: react-select underneath. Features must not import react-select —
+// use WtField / WtFieldFormik / MultiSelectWithInlineCreate / ToolbarFilterSelect instead.
+// DropdownInput / SelectInput are legacy adapters that delegate here.
 //
 // ToolbarFilterSelect is a thin adapter over WtField (not over this) — a compact
 // labelled filter, where WtSelect is the engine for choosing from many. Two engines
@@ -63,11 +92,26 @@ export {
   glassSx, GlassSurface, GlassDialog, GlassHeader, PlainDialogHeader, GlassCard, GlassTransition,
 } from './glass';
 export type {
-  GlassSurfaceProps, GlassDialogProps, GlassHeaderProps, GlassCardProps,
+  GlassSurfaceProps, GlassDialogProps, GlassHeaderProps, GlassCardProps, GlassDialogPreset,
 } from './glass';
+// Shared Cancel/Save footer for GlassDialog — prefer over hand-rolled DialogActions sx.
+export { GlassDialogActions, type GlassDialogActionsProps } from './GlassDialogActions';
+// Alert-style confirm / delete dialog (Glass + WtButton). Prefer over window.confirm / raw MUI Dialog.
+export {
+  ConfirmDialog,
+  type ConfirmDialogProps,
+  type ConfirmDialogVariant,
+} from './ConfirmDialog';
+export {
+  useConfirmDialog,
+  type AskConfirmOptions,
+} from './useConfirmDialog';
+// Dialog form cards (Sandwich Add Rule shape) + spacing rhythm SSOT.
+export { FormSection, FORM_SPACE, type FormSectionProps } from './FormSection';
 // Shared UI pattern atoms — app-wide primitives (single source of truth; use across every feature).
 // AutoGrid + ListHeader are the standard responsive list-page layout — prefer them over per-feature
-// grid/toolbar breakpoints so every collection view fills wide screens and stacks cleanly on mobile.
+// grid/toolbar breakpoints. AutoGrid defaults to auto-fill + ~400px max (no full-bleed stretch);
+// pass stretch only when tiles must absorb leftover width.
 // hoverTileSx is THE hover for a tinted tile or card: the aside menu's language, which is the
 // surface everyone sees most — the wash and border warm, the IconBox lifts a pixel and deepens,
 // the caption sharpens, and the card itself stays put. Spread it instead of writing another
@@ -76,8 +120,17 @@ export {
   TRIO, EASE_200, SHADOW_REST, SHADOW_HOVER, IconBox, StatusBadge, StatTile, Eyebrow, SectionHead,
   AutoGrid, ListHeader, ViewModeSwitch, StatusCyclePill, UnderlineTabs,
   hoverTileSx, ICON_BOX_CLASS, TILE_LABEL_CLASS,
+  VIEW_MODE_ICONS,
+  CARDS_LIST_VIEW_OPTIONS, GRID_LIST_VIEW_OPTIONS, BOARD_LIST_VIEW_OPTIONS, CARDS_TABLE_VIEW_OPTIONS,
+  KANBAN_TABLE_VIEW_OPTIONS, DMS_VIEW_OPTIONS,
+  CardsListViewSwitch, GridListViewSwitch, BoardListViewSwitch, CardsTableViewSwitch, KanbanTableViewSwitch,
+  DmsViewSwitch,
+  viewModeSwitchTrackSx, viewModeSwitchButtonSx,
 } from './patterns';
-export type { Trio, ViewModeOption, StatusCycleOption, UnderlineTabItem } from './patterns';
+export type {
+  Trio, ViewModeOption, ViewModeSwitchProps, StatusCycleOption, UnderlineTabItem,
+  CardsListView, GridListView, BoardListView, CardsTableView, KanbanTableView, DmsViewMode,
+} from './patterns';
 // Choose-one-from-a-visual-set controls, for any feature that lets an admin
 // brand a record (section icon/colour, status colour, category icon).
 export { IconPicker, TONE_NAMES } from './SwatchPicker';
@@ -98,12 +151,36 @@ export { toTitleCase, HEADING_CASE_SX } from './text';
 // accent rule, icon tile, header, spacing — so those screens stop drifting apart.
 export { SettingsSection } from './SettingsSection';
 export type { SettingsSectionProps } from './SettingsSection';
+// Reorderable masters CRUD section (Recruitment Configure, future Gift/Leads lists).
+export { MasterListSection } from './MasterListSection';
+export type {
+  MasterListSectionProps, MasterListRow, MasterListFlagDef, MasterListExtraFieldsApi,
+} from './MasterListSection';
+export { WeightSliderList } from './WeightSliderList';
+export type { WeightSliderListProps, WeightSliderField } from './WeightSliderList';
+// Compact configure value row (colour rail + name + hover actions). Theme-token surfaces.
+export { ConfigColorChip, ConfigChipGrid } from './ConfigColorChip';
+export type { ConfigColorChipProps, ConfigChipAction } from './ConfigColorChip';
+// Drag-to-reorder list — neighbor living next to ui; re-exported so Rule zero finds it
+// on the kit barrel (README: Reorder → ReorderableGroup + DragHandle).
+export {
+  default as ReorderableGroup,
+  DragHandle,
+  type DragHandleProps,
+  type ReorderableGroupProps,
+} from '../ReorderableGroup';
+// Billing-style entity title block (icon + title + description + action).
+export { EntityPageHeader } from './EntityPageHeader';
+export type { EntityPageHeaderProps } from './EntityPageHeader';
 // The app-wide toolbar filter (SUB ORGANIZATION / BRANCH / STATUS). Previously
 // defined inside a payroll page that three other features imported across.
 export { NavCard } from './NavCard';
 export type { NavCardProps } from './NavCard';
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
+// MaterialTable `renderSelectionActions` strip — "{n} selected" + bulk CTAs (WtButton).
+export { TableSelectionBar } from './TableSelectionBar';
+export type { TableSelectionBarProps } from './TableSelectionBar';
 export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
 export type { ToolbarFilterSelectProps, FilterSelectTheme } from './ToolbarFilterSelect';
 export { OrgFilterToolbar, useOrgFilters } from './OrgFilterToolbar';
@@ -133,6 +210,17 @@ export type { OptionPickerDialogProps, PickerOption } from './pickers';
 // and unthemeable (so it stays light in dark mode). These render the company standard YYYY.MM.DD.
 export { WtDateField, WtDateTimeField } from './dates';
 export type { WtDateFieldBaseProps, WtDateTimeFieldProps } from './dates';
+// Org / prefix fiscal year range — two WtDateFields, ISO `"start to end"` wire.
+export { FiscalYearRangeField } from './FiscalYearRangeField';
+export type { FiscalYearRangeFieldProps } from './FiscalYearRangeField';
 // Canonical wizard/multi-step indicator — responsive (compact summary on phones) + theme-aware.
 export { WtStepper } from './stepper';
+// Single-digit boxes for a PIN or one-time code — NOT a password field, so browsers never save/autofill it.
+export { PinInput } from './PinInput';
+export type { PinInputProps } from './PinInput';
 export type { WtStepperProps, WtStep } from './stepper';
+// Long forms: a dialog shell with section nav + sticky footer, titled field groups, and an image uploader.
+export { WtFormDialog, WtFormSection, WtFormSpan } from './WtFormDialog';
+export type { WtFormDialogProps, WtFormSectionProps, WtFormNavItem } from './WtFormDialog';
+export { WtImageField } from './WtImageField';
+export type { WtImageFieldProps } from './WtImageField';

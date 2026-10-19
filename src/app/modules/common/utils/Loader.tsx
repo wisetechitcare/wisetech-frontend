@@ -1,17 +1,7 @@
-import { Container } from "react-bootstrap";
-
-const Loader = () => {
-  return (
-    <Container
-      fluid
-      className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
-      style={{ minHeight: "600px" }}
-    >
-      <div className="spinner-border text-primary" role="status">
-        <span className="visually-hidden">Loading...</span>
-      </div>
-    </Container>
-  );
-};
-
-export default Loader;
+/**
+ * Legacy import path for the page/section loading placeholder.
+ * Implementation lives in the kit as `PageLoader` — keep this re-export so
+ * existing `@app/modules/common/utils/Loader` imports stay stable.
+ */
+export { PageLoader as default, PageLoader } from '@app/modules/common/components/ui/PageLoader';
+export type { PageLoaderProps } from '@app/modules/common/components/ui/PageLoader';

@@ -123,6 +123,14 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
                             toggleItemsActions?.monthly(month.add(1, 'month'));
                         }}
                         label={month.format('MMM YYYY')}
+                        pickGranularity="month"
+                        pickValue={month.startOf('month').format('YYYY-MM-DD')}
+                        onPickDate={(v) => {
+                            const next = dayjs(v).startOf('month');
+                            if (disableFutureDates && isMonthInFuture(next)) return;
+                            setMonth(next);
+                            toggleItemsActions?.monthly(next);
+                        }}
                     />
                 )}
 
@@ -138,6 +146,14 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
                             toggleItemsActions?.yearly(year.add(1, 'year'));
                         }}
                         label={formatFiscalYearLabel(fiscalYear)}
+                        pickGranularity="year"
+                        pickValue={year.startOf('year').format('YYYY-MM-DD')}
+                        onPickDate={(v) => {
+                            const next = dayjs(v).startOf('year');
+                            if (disableFutureDates && isYearInFuture(next)) return;
+                            setYear(next);
+                            toggleItemsActions?.yearly(next);
+                        }}
                     />
                 )}
             </Stack>

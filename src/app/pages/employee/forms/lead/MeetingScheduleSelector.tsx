@@ -3,6 +3,7 @@ import { useFormikContext } from "formik";
 import { Table } from "react-bootstrap";
 import { getAllMeetingSchedules } from "@services/meetingSchedule";
 import type { MeetingScheduleType, MeetingScheduleBracket } from "@models/leads";
+import { ToneChip } from "@app/modules/common/components/ui";
 
 /**
  * Lead meeting-schedule step.
@@ -146,23 +147,24 @@ export const MeetingScheduleSelector: React.FC = () => {
       {selectedType && matchedBracket && (
         <>
           <div className="d-flex flex-wrap gap-3 mt-3 mb-3">
-            <div className="badge badge-light-primary fs-8 fw-bold px-3 py-2">
-              Bracket: {fmtArea(Number(matchedBracket.minArea) || 0)}–{fmtArea(Number(matchedBracket.maxArea) || 0)} sqft
-            </div>
+            <ToneChip
+              dense
+              tone="brand"
+              label={`Bracket: ${fmtArea(Number(matchedBracket.minArea) || 0)}–${fmtArea(Number(matchedBracket.maxArea) || 0)} sqft`}
+            />
             {expected && (
-              <div className="badge badge-light-success fs-8 fw-bold px-3 py-2">
-                Expected Completion: {expected.date.getFullYear()}
-                {(expected.years || expected.months) ? (
-                  <span className="text-muted ms-1">
-                    ({expected.years ? `${expected.years}y` : ""}{expected.months ? ` ${expected.months}m` : ""} from inquiry)
-                  </span>
-                ) : null}
-              </div>
+              <ToneChip
+                dense
+                tone="success"
+                label={`Expected Completion: ${expected.date.getFullYear()}${(expected.years || expected.months) ? ` (${expected.years ? `${expected.years}y` : ""}${expected.months ? ` ${expected.months}m` : ""} from inquiry)` : ""}`}
+              />
             )}
             {!inquiryDate && (
-              <div className="badge badge-light-warning fs-8 fw-bold px-3 py-2">
-                Set the inquiry date to compute expected completion
-              </div>
+              <ToneChip
+                dense
+                tone="warning"
+                label="Set the inquiry date to compute expected completion"
+              />
             )}
           </div>
 

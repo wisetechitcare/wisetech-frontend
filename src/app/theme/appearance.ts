@@ -68,7 +68,7 @@ export const DEFAULT_BRAND: BrandPalette = {
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   preference: 'light',
   brand: DEFAULT_BRAND,
-  surface: 'glass',
+  surface: 'material',
 };
 
 /** Starting points, so nobody has to invent four coordinated colours from nothing. */
@@ -175,9 +175,11 @@ export function shade(hex: string, amount: number): string {
  */
 export function currentSurface(): SurfaceStyle {
   try {
-    return document.documentElement.getAttribute('data-surface') === 'material' ? 'material' : 'glass';
+    // Absent / unknown → Material (the product default). Only an explicit
+    // `glass` attribute opts into frost + blur.
+    return document.documentElement.getAttribute('data-surface') === 'glass' ? 'glass' : 'material';
   } catch {
-    return 'glass';
+    return 'material';
   }
 }
 
@@ -218,5 +220,5 @@ export function subscribeSurface(onChange: () => void): () => void {
  * kits share one subscription rather than each growing their own.
  */
 export function useSurfaceStyle(): SurfaceStyle {
-  return useSyncExternalStore(subscribeSurface, currentSurface, () => 'glass' as SurfaceStyle);
+  return useSyncExternalStore(subscribeSurface, currentSurface, () => 'material' as SurfaceStyle);
 }

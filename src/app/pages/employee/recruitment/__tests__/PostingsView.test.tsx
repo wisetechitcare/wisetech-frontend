@@ -12,6 +12,12 @@ import { configureStore } from '@reduxjs/toolkit';
 
 vi.mock('@redux/store', () => ({ store: { getState: () => ({ appSettings: {}, authz: { tier: 'SUPER_ADMIN' } }) } }));
 
+const navigate = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('react-router-dom')>()),
+    useNavigate: () => navigate,
+}));
+
 const api = vi.hoisted(() => ({
     getPostings: vi.fn(),
     getRequisitions: vi.fn(),
@@ -72,6 +78,7 @@ beforeEach(() => {
     api.updatePosting.mockResolvedValue({});
     api.deletePosting.mockResolvedValue({});
     written.length = 0;
+    navigate.mockClear();
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -95,44 +102,28 @@ describe('PostingsView', () => {
         await waitFor(() => expect(written).toEqual(['https://careers.example.com/careers/site-engineer-ab12cd34']));
     });
 
-    test('with no careers site configured, Copy is disabled and says why', async () => {
+    test('with no careers site configured, Copy is not offered', async () => {
         api.getPostings.mockResolvedValue([{ ...posting, publicUrl: null }]);
         renderView();
         await screen.findByText('Site Engineer');
-        const copy = screen.getByRole('button', { name: /no careers site is configured/i });
-        expect((copy as HTMLButtonElement).disabled).toBe(true);
+        expect(screen.queryByRole('button', { name: /copy public link/i })).toBeNull();
         expect(written).toEqual([]);
     });
 
-    test('only approved, open roles can be advertised', async () => {
+    test('New Advert opens the attach wizard once an open role exists', async () => {
         api.getPostings.mockResolvedValue([]);
         renderView();
-        await waitFor(() => expect(api.getRequisitions).toHaveBeenCalled());
-        await userEvent.click(screen.getByRole('button', { name: /new job advert/i }));
-        await userEvent.click(await screen.findByRole('combobox', { name: /^role/i }));
-        const names = (await screen.findAllByRole('option')).map((o) => o.textContent);
-        // Not the draft, and not the archived role whose adverts the server takes down anyway.
-        expect(names).toEqual(['Site Engineer']);
+        const [headerNew] = await screen.findAllByRole('button', { name: /^new advert$/i });
+        await userEvent.click(headerNew);
+        expect(navigate).toHaveBeenCalledWith('/recruitment/jobs/adverts/new');
     });
 
-    test('an advert can be edited after creation, and its role stays fixed', async () => {
+    test('clicking an advert card opens the edit wizard (no pencil button)', async () => {
         renderView();
-        await userEvent.click(await screen.findByRole('button', { name: /edit advert/i }));
-        expect(await screen.findByText('Edit Job Advert')).toBeTruthy();
-        // The public link was minted for this role, so the server ignores a change of role —
-        // the field says so instead of pretending to offer it.
-        expect(screen.getByRole('combobox', { name: /^role/i }).getAttribute('aria-disabled')).toBe('true');
-
-        const title = screen.getByLabelText(/public title/i);
-        await userEvent.clear(title);
-        await userEvent.type(title, 'Senior Site Engineer');
-        await userEvent.click(screen.getByRole('button', { name: /save changes/i }));
-
-        await waitFor(() => expect(api.updatePosting).toHaveBeenCalledTimes(1));
-        const [id, payload] = api.updatePosting.mock.calls[0];
-        expect(id).toBe('p-1');
-        expect(payload.title).toBe('Senior Site Engineer');
-        expect('requisitionId' in payload).toBe(false);
+        await screen.findByText('Site Engineer');
+        expect(screen.queryByRole('button', { name: /edit advert/i })).toBeNull();
+        await userEvent.click(screen.getByText('Site Engineer'));
+        expect(navigate).toHaveBeenCalledWith('/recruitment/jobs/adverts/p-1/edit');
     });
 
     test('taking an advert down says what happened, in the server\'s words when it fails', async () => {

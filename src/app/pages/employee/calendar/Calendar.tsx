@@ -24,7 +24,7 @@ function Calendar() {
       component: <Meetings />,
       icon: 'bi-people',
     }]:[]),
-    ...(hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.editOthers) ? [
+    ...(hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.readOwn) ? [
     {
       title: "Holidays",
       component: <Holidays />,

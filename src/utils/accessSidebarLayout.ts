@@ -96,6 +96,7 @@ export const ACCESS_SIDEBAR_LAYOUT: AccessLayoutGroup[] = [
       { module: "crm.leads", label: "Leads", icon: "bi-megaphone" },
       { module: "crm.companies", label: "Companies", icon: "bi-building" },
       { module: "crm.contacts", label: "Contacts", icon: "bi-person-lines-fill" },
+      { module: "gift-management", label: "Gift Management", icon: "bi-gift" },
     ],
   },
   {
@@ -127,7 +128,6 @@ export const ACCESS_SIDEBAR_LAYOUT: AccessLayoutGroup[] = [
       { module: "settings.media", label: "Media", icon: "bi-images" },
       { module: "settings.teams", label: "Teams", icon: "bi-people" },
       { module: "settings.employeeLevel", label: "Employee-Level", icon: "bi-diagram-3" },
-      { module: "settings.onboarding", label: "Onboarding Docs", icon: "bi-file-earmark-text" },
     ],
   },
   {
@@ -136,6 +136,8 @@ export const ACCESS_SIDEBAR_LAYOUT: AccessLayoutGroup[] = [
     items: [
       // Managing roles and access is a tier, never a checkbox — shown so the picture is complete.
       { module: "app.roles-permissions", label: "Roles & Permissions", icon: "bi-shield-lock", fixed: "Admin and above" },
+      // Grantable: enroll MFA + use System PIN Support Access (matches sidebar under App Settings).
+      { module: "settings.developerMfa", label: "System PIN MFA", icon: "bi-shield-check" },
     ],
   },
 ];

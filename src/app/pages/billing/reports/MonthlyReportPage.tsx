@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Box, Stack, Typography } from "@mui/material";
-import { TRIO } from "@app/modules/common/components/ui";
+import { AutoGrid, TRIO } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { getMonthlyReport, type MonthlyRow } from "@services/billingReports";
 import { BillingPageHeader, BillingStatsCard, BillingTable, type BillingColumn } from "../components";
@@ -64,13 +64,13 @@ const MonthlyReportPage: React.FC = () => {
         }
       />
 
-      <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+      <AutoGrid min={160} stretch sx={{ mb: 2, gap: 1.25 }}>
         <BillingStatsCard label="Billing Requests" icon="document" trio={TRIO.blue} value={totals?.billingRequests ?? 0} />
         <BillingStatsCard label="Proformas" icon="send" trio={TRIO.purple} value={totals?.proformas ?? 0} />
         <BillingStatsCard label="Payments" icon="wallet" trio={TRIO.amber} value={totals?.payments ?? 0} />
         <BillingStatsCard label="Invoices" icon="receipt-cutoff" trio={TRIO.cyan} value={totals?.invoices ?? 0} />
         <BillingStatsCard label="Revenue" icon="wallet" trio={TRIO.green} value={formatCurrencyDecimal(totals?.revenue ?? 0)} />
-      </Box>
+      </AutoGrid>
 
       <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" } }}>
         <ReportChart

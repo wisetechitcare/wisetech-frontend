@@ -39,6 +39,7 @@ import {
     Badge, Box, Button, Chip, CircularProgress, IconButton, Stack, Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
+import { KanbanTableViewSwitch, type KanbanTableView } from '@app/modules/common/components/ui';
 import { useFillViewport } from '@app/hooks/useFillViewport';
 import { TaskFilterState, TaskRow, filtersToQuery, apiErrorMessage, activeFilterCount } from './taskDomain';
 import {
@@ -73,7 +74,7 @@ import { useMeetingLanePosition, moveTo } from './useMeetingLanePosition';
 const MEETINGS_LANE = '__meetings__';
 import { TaskStateBlock, TeamAvatars } from './components/primitives';
 
-type ViewMode = 'kanban' | 'table';
+type ViewMode = KanbanTableView;
 const VIEW_KEY = 'wt.tasks.view';
 /**
  * The board's selection, in the URL.
@@ -96,51 +97,6 @@ const readPanels = (): Record<WorkspacePanel, boolean> => {
     } catch {
         return { projects: false, board: true };
     }
-};
-
-/** Icon-only view switch — the two layouts are shapes, and a shape reads faster than a word. */
-const ViewToggle = ({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) => {
-    const theme = useTheme();
-    const options: Array<{ v: ViewMode; icon: string; label: string }> = [
-        { v: 'kanban', icon: 'element-11', label: 'Board' },
-        { v: 'table', icon: 'burger-menu-1', label: 'Table' },
-    ];
-    return (
-        <Stack
-            direction="row" role="tablist" aria-label="Task view" spacing={0.25}
-            sx={{
-                p: '3px', borderRadius: 1.5, border: '1px solid', borderColor: 'divider',
-                bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.06 : 0.04),
-            }}
-        >
-            {options.map((o) => {
-                const active = value === o.v;
-                return (
-                    <Tooltip key={o.v} title={o.label}>
-                        <Box
-                            component="button" type="button" role="tab" aria-selected={active}
-                            aria-label={o.label}
-                            onClick={() => onChange(o.v)}
-                            sx={{
-                                border: 0, cursor: 'pointer', borderRadius: 1,
-                                px: 1.15, py: 0.6, lineHeight: 0,
-                                bgcolor: active ? 'background.paper' : 'transparent',
-                                color: active ? 'primary.main' : 'text.secondary',
-                                boxShadow: active
-                                    ? `0 1px 3px ${alpha(theme.palette.common.black, theme.palette.mode === 'dark' ? 0.5 : 0.12)}`
-                                    : 'none',
-                                transition: 'background-color .15s, color .15s',
-                                '&:hover': { color: active ? 'primary.main' : 'text.primary' },
-                                '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 1 },
-                            }}
-                        >
-                            <KTIcon iconName={o.icon} className="fs-4" />
-                        </Box>
-                    </Tooltip>
-                );
-            })}
-        </Stack>
-    );
 };
 
 /**
@@ -408,7 +364,9 @@ export const TasksWorkspace = () => {
      */
     const selectScope = (id: string) => {
         if (id === scopeSel && projects.some((p) => p.id === id)) {
-            navigate(`/leads/${id}?tab=projects`, { state: { leadData: id, isProject: true } });
+            // The PROJECT view (/project/:id), not the lead view: the path is what decides which
+            // one the detail page shows, and /leads/… hides every project tab.
+            navigate(`/project/${id}/projects`);
             return;
         }
         setScopeSel(id); setPage(0);
@@ -532,7 +490,11 @@ export const TasksWorkspace = () => {
                             {/* Board vs Table stays on top, where it has always been: it chooses
                                 how THIS pane draws its data, which is a different question from
                                 the bottom bar's "which panes am I looking at". */}
-                            <ViewToggle value={view} onChange={changeView} />
+                            <KanbanTableViewSwitch
+                                ariaLabel="Task view"
+                                value={view}
+                                onChange={changeView}
+                            />
 
                             {/* Filtering is a burst activity — narrow, look, clear — so it lives
                                 in a panel that opens over the board and closes again, instead of
@@ -776,7 +738,7 @@ export const TasksWorkspace = () => {
                                         now={now}
                                         isLoading={listQuery.isLoading}
                                         isError={listQuery.isError}
-                                        errorMessage={apiErrorMessage(listQuery.error)}
+                                        errorMessage={apiErrorMessage(listQuery.error, 'Could not load tasks.')}
                                         canViewCost={canViewCost}
                                         onOpenTask={(id) => navigate(`/tasks/${id}`)}
                                         onPageChange={setPage}

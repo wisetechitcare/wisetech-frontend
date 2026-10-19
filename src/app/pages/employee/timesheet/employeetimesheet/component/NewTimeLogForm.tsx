@@ -54,8 +54,17 @@ interface NewTimeLogForm {
 // Recomputes logTime whenever start/end change. A real component (not code
 // inside Formik's render prop) so the hook obeys the Rules of Hooks.
 function LogTimeAutoCalc({ editTimeSheetData }: { editTimeSheetData: any }) {
-  const { values, setFieldValue } = useFormikContext<any>();
+  const { values, setFieldValue, initialValues } = useFormikContext<any>();
   useEffect(() => {
+    // An entry opened as it was saved keeps its logged time. A timer entry's start/end are its
+    // LAST session (a resume restarts them) while its logged time is every session added up,
+    // so recomputing end − start on open would silently shrink the total. Only an actual edit
+    // of the start or end recomputes it.
+    if (
+      editTimeSheetData
+      && values.startTime === initialValues.startTime
+      && values.endTime === initialValues.endTime
+    ) return;
     if (values.startTime && values.endTime) {
       let start, end;
       let isEndTimeDefault = false;
@@ -121,7 +130,9 @@ function LogTimeAutoCalc({ editTimeSheetData }: { editTimeSheetData: any }) {
     values.startTime,
     values.endTime,
     setFieldValue,
-    editTimeSheetData?.endTime,
+    editTimeSheetData,
+    initialValues.startTime,
+    initialValues.endTime,
   ]);
   return null;
 }

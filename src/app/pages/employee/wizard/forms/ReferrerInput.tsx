@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import CreatableSelect from "react-select/creatable";
-import DropdownChevron from "@app/modules/common/inputs/DropdownChevron";
+import { WtField } from "@app/modules/common/components/ui";
+import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
 
 interface ReferrerOption {
   value: string;
@@ -27,12 +27,14 @@ interface ReferrerInputProps {
  * Keeping them separate (rather than overloading one column) means an internal
  * referral stays a real relation — joinable, renameable, and safe if the referrer's
  * own name changes later.
+ *
+ * Engine: kit `WtSelect` (`isCreatable`) inside `WtField` — not raw `react-select/creatable`.
  */
 const ReferrerInput: React.FC<ReferrerInputProps> = ({ formikProps, options }) => {
   const { values, setFieldValue } = formikProps;
 
   // Whichever of the two is set. A typed name has no id, so it is represented as an
-  // option whose value IS the name — react-select needs a value to render a label.
+  // option whose value IS the name — the select needs a value to render a label.
   const selected = useMemo(() => {
     if (values?.referredById) {
       return options.find((option) => option.value === values.referredById) ?? null;
@@ -43,15 +45,15 @@ const ReferrerInput: React.FC<ReferrerInputProps> = ({ formikProps, options }) =
     return null;
   }, [options, values?.referredById, values?.referredByName]);
 
-  const handleChange = (option: any, meta: any) => {
+  const handleChange = (option: any) => {
     if (!option) {
       setFieldValue("referredById", "");
       setFieldValue("referredByName", "");
       return;
     }
 
-    // `create-option` is react-select telling us this is typed text, not a pick.
-    const isNew = meta?.action === "create-option" || !options.some((o) => o.value === option.value);
+    // Creatable options carry `__isNew__`; anything not in the colleague list is external too.
+    const isNew = Boolean(option.__isNew__) || !options.some((o) => o.value === option.value);
     if (isNew) {
       setFieldValue("referredByName", String(option.label ?? option.value).trim());
       setFieldValue("referredById", "");
@@ -62,26 +64,21 @@ const ReferrerInput: React.FC<ReferrerInputProps> = ({ formikProps, options }) =
   };
 
   return (
-    <div className="d-flex flex-column fv-row">
-      <div className="d-flex flex-row justify-content-between align-items-center mb-2">
-        <label className="d-flex align-items-center fs-6 form-label mb-0">Referred By</label>
-      </div>
-      <CreatableSelect
+    <WtField label="Referred By">
+      <WtSelect
         name="referredBy"
         options={options}
         value={selected}
         onChange={handleChange}
         placeholder="Select a colleague, or type any other name"
         formatCreateLabel={(input: string) => `Use "${input}" (outside the company)`}
+        isCreatable
         isClearable
         isSearchable
-        classNamePrefix="react-select"
-        className="react-select-styled"
-        components={{ DropdownIndicator: DropdownChevron }}
-        menuPortalTarget={document.body}
-        styles={{ menuPortal: (base: any) => ({ ...base, zIndex: 9999 }) }}
+        size="sm"
+        ariaLabel="Referred By"
       />
-    </div>
+    </WtField>
   );
 };
 

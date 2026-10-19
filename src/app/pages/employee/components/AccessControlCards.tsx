@@ -1,83 +1,54 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Box } from "@mui/material";
 import type { SvgIconComponent } from "@mui/icons-material";
-import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
 import TravelExploreOutlined from "@mui/icons-material/TravelExploreOutlined";
-import EditOutlined from "@mui/icons-material/EditOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import RestartAltRounded from "@mui/icons-material/RestartAltRounded";
 import { ACCESS_SIDEBAR_LAYOUT, AccessLayoutGroup, AccessLayoutNode, layoutLeaves } from "@utils/accessSidebarLayout";
 import { SECTION_ICON } from "@hooks/useNavContainers";
 import { sectionAccent } from "@components/navigation/NavContainers/navTheme";
 import { navIcon } from "@components/navigation/NavContainers/navIcons";
-import { AppIcon, T, WtTooltip } from "@app/modules/common/components/ui";
+import { AppIcon, WtTooltip } from "@app/modules/common/components/ui";
 
 import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
 import type { EffLevel } from "./accessControlTypes";
 import { SECTION_TABS } from "@utils/sectionTabs";
+import { SecurityPinRowChip, SECURITY_PIN_ROW_AREAS, SupportAccessPolicyChip } from "@app/modules/common/components/SecurityPin";
+import { coloredActionBtn } from "@app/modules/configuration";
 
-// Each permission has one icon and one colour — the kit's own (T.color): navy Read, indigo Read all,
-// green Write, bronze Commercials. Icon-only squares in the app's tinted-button style (see
-// ActionIconButton); the tooltip says what each one does.
+// The configure screens' own icon buttons (Project Points): tinted in the permission's colour when on,
+// slate when off. Read is that screen's show/hide eye — green when on, red and slashed when off.
 const KINDS = {
-  read: { name: "Read", Icon: VisibilityOutlined, tone: T.color.brand },
-  readAll: { name: "Read all", Icon: TravelExploreOutlined, tone: T.color.indigo },
-  write: { name: "Write", Icon: EditOutlined, tone: T.color.success },
-  commercial: { name: "Commercials", Icon: PaymentsOutlined, tone: T.color.warning },
+  read: { name: "Read", color: "#059669" },
+  readAll: { name: "Read all", color: "#4f46e5" },
+  write: { name: "Write", color: "#2563eb" },
+  commercial: { name: "Commercials", color: "#d97706" },
 } as const;
+const OFF = "#94a3b8";
 
-const EASE = "cubic-bezier(.22,.61,.36,1)";
-const OFF = "#64748B"; // slate: an off toggle, tinted like the kit's action buttons
+const ToggleIcon: React.FC<{ kind: keyof typeof KINDS; on: boolean }> = ({ kind, on }) => {
+  if (kind === "read") return <AppIcon name={on ? "bi-eye" : "bi-eye-slash"} className="fs-6" />;
+  if (kind === "write") return <AppIcon name="bi-pencil" className="fs-6" />;
+  const Icon = kind === "readAll" ? TravelExploreOutlined : PaymentsOutlined;
+  return <Icon sx={{ fontSize: 16 }} />;
+};
 
 const Toggle: React.FC<{ kind: keyof typeof KINDS; on: boolean; onClick: () => void; disabled?: boolean; tip: string }> = ({ kind, on, onClick, disabled, tip }) => {
-  const { name, Icon, tone } = KINDS[kind];
+  const { name, color } = KINDS[kind];
   return (
     <WtTooltip title={<><b>{name}</b> · {on ? "on" : "off"}<br />{tip}</>}>
-      <Box
-        component="button"
+      <button
         type="button"
         role="switch"
         aria-checked={on}
         aria-label={`${name}: ${tip}`}
         disabled={disabled}
         onClick={onClick}
-        sx={{
-          position: "relative",
-          overflow: "hidden",
-          width: 32,
-          height: 32,
-          flexShrink: 0,
-          display: "grid",
-          placeItems: "center",
-          borderRadius: "9px",
-          border: "1px solid",
-          // Off reads as clearly as the app's other action buttons — the same tinted square, in slate.
-          borderColor: on ? `${tone}5C` : `${OFF}3D`,
-          bgcolor: `${OFF}12`,
-          color: on ? tone : OFF,
-          cursor: disabled ? "not-allowed" : "pointer",
-          opacity: disabled ? 0.45 : 1,
-          transition: `border-color .5s ${EASE}, color .5s ${EASE}`,
-          // The tint spreads out from the centre until it fills the square — slowly, once.
-          "&::before": {
-            content: '""',
-            position: "absolute",
-            inset: 0,
-            borderRadius: "inherit",
-            bgcolor: `${tone}26`,
-            transform: on ? "scale(1)" : "scale(0)",
-            opacity: on ? 1 : 0,
-            transition: `transform .5s ${EASE}, opacity .4s ${EASE}`,
-          },
-          "& > svg": { position: "relative" },
-          "&:hover:not(:disabled)": { borderColor: `${tone}66`, color: tone },
-          "&:focus-visible": { outline: `2px solid ${tone}66`, outlineOffset: 2 },
-          "@media (prefers-reduced-motion: reduce)": { transition: "none", "&::before": { transition: "none" } },
-        }}
+        style={coloredActionBtn(kind === "read" && !on ? "#ef4444" : on ? color : OFF, disabled)}
       >
-        <Icon sx={{ fontSize: 17 }} />
-      </Box>
+        <ToggleIcon kind={kind} on={on} />
+      </button>
     </WtTooltip>
   );
 };
@@ -93,7 +64,7 @@ interface Block {
  * page a card with its sidebar icon and name, and its permissions as toggles — Read, Read all,
  * Write, Commercials — grey while off, in their own gradient once on.
  */
-const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModules, dirtyModules, onSetLevel, onResetToRole, variant = "employee", readOnly = false, recordCells, tabs }) => {
+const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModules, dirtyModules, onSetLevel, onResetToRole, variant = "employee", readOnly = false, recordCells, tabs, pinSubject }) => {
   const allKeys = useMemo(() => {
     const keys = new Set<string>();
     ACCESS_SIDEBAR_LAYOUT.forEach((g) => {
@@ -128,7 +99,12 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
     return out;
   }, [open, q, nodeMatches]);
 
-  const toggle = (key: string) => setOpen((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const toggle = (key: string) => setOpen((prev) => {
+    const n = new Set(prev);
+    if (n.has(key)) n.delete(key);
+    else n.add(key);
+    return n;
+  });
   const allExpanded = Array.from(allKeys).every((k) => open.has(k));
   const allCollapsed = open.size === 0;
   const isOpenLevel = (m: string) => (levels[m] || "none") !== "none";
@@ -148,15 +124,25 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
   const card = (group: AccessLayoutGroup, node: AccessLayoutNode, icon: string, tabOf?: string) => {
     const accent = sectionAccent(group.id);
     const Icon: SvgIconComponent = navIcon(icon);
-    // Not a section: who has it is fixed (Roles & Permissions — Admin and above). Shown, never ticked.
+    // Not a section: who has it is fixed (Roles & Permissions — Admin and above). Shown, never
+    // ticked — but it still carries the PIN chip, same as Salary / Increment.
     if (node.fixed) {
+      const pinAreas = pinSubject ? SECURITY_PIN_ROW_AREAS[node.module] : undefined;
       return (
         <Box key={node.module} sx={{ display: "flex", flexDirection: "column", gap: 1.25, p: 1.25, borderRadius: "14px", border: "1px dashed", borderColor: "divider", bgcolor: "background.paper" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
             <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${accent.iconWrap}`}>
               <Icon sx={{ fontSize: 18 }} />
             </span>
-            <Box sx={{ fontSize: 13, fontWeight: 600, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{node.label}</Box>
+            <Box sx={{ fontSize: 13, fontWeight: 600, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{node.label}</Box>
+            {pinAreas && (
+              <Box sx={{ display: "flex", gap: 0.5, alignSelf: "flex-start", flexShrink: 0 }}>
+                <SecurityPinRowChip subject={pinSubject!} label={node.label} areas={pinAreas} />
+                {node.module === "settings.developerMfa" && (
+                  <SupportAccessPolicyChip subject={pinSubject!} />
+                )}
+              </Box>
+            )}
           </Box>
           <WtTooltip title="Set by role tier, not by checkboxes: every Admin and Super Admin has it, nobody else does.">
             <Box component="span" sx={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 0.5, height: 32, px: 1.25, borderRadius: "9px", fontSize: 12, fontWeight: 600, color: "text.secondary", bgcolor: "action.hover", border: "1px solid", borderColor: "divider" }}>
@@ -211,22 +197,18 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
           <Box sx={{ display: "flex", gap: 0.5, alignSelf: "flex-start", flexShrink: 0 }}>
             {isCustom && !readOnly && (
               <WtTooltip title="Reset to role">
-                <Box
-                  component="button"
+                <button
                   type="button"
                   aria-label={`Reset ${node.label} to role`}
                   onClick={() => onResetToRole?.(node.module)}
-                  sx={{
-                    width: 28, height: 28, display: "grid", placeItems: "center", borderRadius: "8px", cursor: "pointer",
-                    border: `1px solid ${OFF}3D`, bgcolor: `${OFF}12`, color: OFF,
-                    transition: "border-color .2s ease, color .2s ease",
-                    "&:hover": { borderColor: `${T.color.brand}66`, color: T.color.brand },
-                  }}
+                  style={coloredActionBtn("#64748B")}
                 >
                   <RestartAltRounded sx={{ fontSize: 16 }} />
-                </Box>
+                </button>
               </WtTooltip>
             )}
+            {pinSubject && SECURITY_PIN_ROW_AREAS[node.module] && <SecurityPinRowChip subject={pinSubject} label={node.label} areas={SECURITY_PIN_ROW_AREAS[node.module]} />}
+            {pinSubject && node.module === "settings.developerMfa" && <SupportAccessPolicyChip subject={pinSubject} />}
             {((tabs && SECTION_TABS[node.module]) || kids) && (
               <AdvancedTabsButton
                 compact section={node.module} label={node.label} icon={icon} level={level} readOnly={readOnly}

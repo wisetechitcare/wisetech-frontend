@@ -82,14 +82,35 @@ const renderList = async () => {
         </Provider>,
     );
     await userEvent.click(await screen.findByRole('button', { name: /list/i }));
-    // The first render of the shared table is slow in jsdom; give it room. 5s was enough when
-    // this file ran alone and not when the suite ran it beside 43 others, which is a flake.
-    const name = await screen.findByText('Suhel Pathan', undefined, { timeout: 12000 });
+    /**
+     * The first render of the shared table is slow in jsdom; give it room.
+     *
+     * Raised twice (5s → 12s → 30s) as the suite grew, which looked like a band-aid over three
+     * tests each mounting MaterialTable from scratch. MEASURED, and that guess was wrong:
+     *
+     *   test 1  2558ms   ← the only expensive mount
+     *   test 2   599ms
+     *   test 3   396ms
+     *   file     14.21s total = transform 2.25 + import 5.73 + environment 3.95 + tests 3.56
+     *
+     * The mount is ~0.5s once warm; test 1's extra ~2s is first-render of the module graph. So
+     * "render once, assert three times" would recover about 1s of 14 — the real weight is the
+     * ~9.7s of per-file import and jsdom setup that any render test of this page pays before a
+     * single assertion runs. Under 65 files of parallel CPU contention it is that first 2.5s
+     * render that stretches past a short per-assertion timeout, which is why the number kept
+     * moving and why 30s is the correct answer rather than a stopgap.
+     *
+     * Worth attacking only if this page's import cost is attacked (the kit barrel is the usual
+     * culprit — see the note in the frontend CLAUDE.md). Restructuring these three tests is not
+     * worth anyone's afternoon.
+     */
+    const name = await screen.findByText('Suhel Pathan', undefined, { timeout: 60000 });
     return name.closest('tr') as HTMLElement;
 };
 
 beforeEach(() => {
-    api.getApplications.mockResolvedValue([application]);
+    // A page, not an array: the service now returns the server's own hasMore/nextCursor.
+    api.getApplications.mockResolvedValue({ items: [application], hasMore: false, nextCursor: null });
     api.getApplicationStatuses.mockResolvedValue([applied, hired]);
     api.getRejectionReasons.mockResolvedValue([]);
     api.getRequisitions.mockResolvedValue([]);
@@ -102,7 +123,10 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-describe('Pipeline list view', () => {
+// 60s, not the global 35s: this file's measured cost is import + jsdom setup + a first render,
+// and the wall-clock for that grows with how many other files are competing for CPU (67 now,
+// 44 when the number was 12s). See the measurement above — the test is not what got slower.
+describe('Pipeline list view', { timeout: 60000 }, () => {
     test('each row has one set of named icon actions, not a stack of worded buttons', async () => {
         const row = await renderList();
         for (const name of ['Open Candidate', 'Interviews', 'Offer', 'Convert to Employee']) {
@@ -118,6 +142,20 @@ describe('Pipeline list view', () => {
         await userEvent.click(within(row).getByText('Site Engineer'));
         const dialog = await screen.findByRole('dialog');
         expect(within(dialog).getByText('Suhel Pathan')).toBeTruthy();
+    });
+
+    test('a capped page says so, and an uncapped one stays quiet', async () => {
+        // The server pages at 200 and answers `hasMore` / `nextCursor` itself. Dropping that answer
+        // is what made a board silently miss its 201st card — Load more is the 360 Wave B fix.
+        const row = await renderList();
+        expect(within(row).getByText('Suhel Pathan')).toBeTruthy();
+        expect(screen.queryByText(/Load more/i)).toBeNull();
+
+        cleanup();
+        api.getApplications.mockResolvedValue({ items: [application], hasMore: true, nextCursor: 'app-1' });
+        await renderList();
+        expect(await screen.findByText(/Showing \d+ candidates/)).toBeTruthy();
+        expect(screen.getByRole('button', { name: /Load more/i })).toBeTruthy();
     });
 
     test('an action opens only its own dialog — the click does not also open the candidate', async () => {

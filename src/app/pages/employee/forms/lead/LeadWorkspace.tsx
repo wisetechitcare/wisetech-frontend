@@ -1,4 +1,5 @@
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { ToneChip } from '@app/modules/common/components/ui';
 import React from "react";
 import { useFormikContext } from "formik";
 import dayjs from "dayjs";
@@ -81,16 +82,16 @@ interface LeadWorkspaceProps {
   // ── Address cascade ────────────────────────────────────────────────────────
   addressStatesOptions: any[];
   addressCitiesOptions: any[];
-  handleAddressCountryChange: (index: number, countryId: string, setFieldValue: Function) => void;
-  handleAddressStateChange: (index: number, stateId: string, countryId: string, setFieldValue: Function) => void;
+  handleAddressCountryChange: (index: number, countryId: string, setFieldValue: L.LeadSetFieldValue) => void;
+  handleAddressStateChange: (index: number, stateId: string, countryId: string, setFieldValue: L.LeadSetFieldValue) => void;
 
   // ── Company / team cascade ─────────────────────────────────────────────────
   teamFilteredCompanies: any;
   teamFilteredSubCompanies: any;
-  handleCompanyTypeChange: (index: number, typeId: string, setFieldValue: Function) => void;
-  handleCompanyChange: (index: number, companyId: string, setFieldValue: Function) => void;
-  handleSubCompanyChange: (index: number, subCompanyId: string, companyId: string, setFieldValue: Function) => void;
-  handleContactChange: (index: number, contactId: string, setFieldValue: Function) => void;
+  handleCompanyTypeChange: (index: number, typeId: string, setFieldValue: L.LeadSetFieldValue) => void;
+  handleCompanyChange: (index: number, companyId: string, setFieldValue: L.LeadSetFieldValue) => void;
+  handleSubCompanyChange: (index: number, subCompanyId: string, companyId: string, setFieldValue: L.LeadSetFieldValue) => void;
+  handleContactChange: (index: number, contactId: string, setFieldValue: L.LeadSetFieldValue) => void;
   teamFilteredContacts: any;
 
   // ── Misc ───────────────────────────────────────────────────────────────────
@@ -99,7 +100,7 @@ interface LeadWorkspaceProps {
   /** Organizations the user may file a lead under, as `{ value, label }`. */
   organizationOptions?: { value: string; label: string }[];
   /** Switch the lead's organization; also re-numbers it (see LeadWizardModal). */
-  onOrganizationChange?: (organizationId: string, setFieldValue: Function) => void;
+  onOrganizationChange?: (organizationId: string, setFieldValue: L.LeadSetFieldValue) => void;
   /** Why no inquiry number could be generated, if that happened. */
   prefixError?: string | null;
   /** Called when the number is edited by hand, so re-numbering can ask first. */
@@ -402,30 +403,30 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       {
         label: "Lead Status",
         value: (
-          <span
-            className={`badge px-2 py-1 fs-8 fw-bold ${
+          <ToneChip
+            dense
+            tone={
               currentStatusName === "Received"
-                ? "bg-light-success text-success"
+                ? "success"
                 : currentStatusName === "Canceled"
-                ? "bg-light-danger text-danger"
-                : "bg-light-primary text-primary"
-            }`}
-            style={{ textTransform: "capitalize" }}
-          >
-            {statusObj?.name || "Pending"}
-          </span>
+                  ? "danger"
+                  : "brand"
+            }
+            label={statusObj?.name || "Pending"}
+            sx={{ textTransform: "capitalize" }}
+          />
         ),
         stepId: "lead-status",
       },
       ...(isReceivedStatus ? [{
         label: "Project Status",
         value: (
-          <span
-            className="badge px-2 py-1 fs-8 fw-bold bg-light-primary text-primary"
-            style={{ textTransform: "capitalize" }}
-          >
-            {projectStatusObj?.name || "—"}
-          </span>
+          <ToneChip
+            dense
+            tone="brand"
+            label={projectStatusObj?.name || "—"}
+            sx={{ textTransform: "capitalize" }}
+          />
         ),
         stepId: "lead-status",
       }] : []),

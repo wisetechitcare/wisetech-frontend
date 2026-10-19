@@ -18,7 +18,9 @@ const RESOURCE_SECTION: Record<string, string> = {
   // Screen-level resources
   attendancerequest: "attendance",
   attendancerequestlimit: "attendance",
-  attendancereport: "attendance.employees",
+  // The Report table shows your own days (Personal) and, from Employees, other people's — so it
+  // follows SPLIT. Pinned to "attendance.employees" it hid every check-in row from an employee.
+  attendancereport: "attendance",
   leave: "attendance",
   leavecashtransfer: "attendance",
   attendanceconfig: "attendance.employees",
@@ -34,7 +36,8 @@ const RESOURCE_SECTION: Record<string, string> = {
   designation: "settings",
   branch: "settings",
   holiday: "calendar",
-  onboardingdocument: "settings.onboarding",
+  // Managed under People → Employees → Configure (not Organization).
+  onboardingdocument: "users",
   announcement: "settings.announcements",
   organisationprofile: "settings.profile",
   meeting: "calendar",
@@ -52,7 +55,7 @@ const RESOURCE_SECTION: Record<string, string> = {
   "company->departments": "settings",
   "company->designation": "settings",
   "company->media": "settings.media",
-  "company->onboardingdocument": "settings.onboarding",
+  "company->onboardingdocument": "users",
   "reports->holidays": "reports",
   "finance->reimbursements": "finance.reimbursements",
   "finance->salary": "finance.salary",

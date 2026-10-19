@@ -1,5 +1,6 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { useCallback, useEffect, useState, useMemo, memo } from "react";
+import { Avatar, Box, CircularProgress } from "@mui/material";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
 import { RootState } from "@redux/store";
 import { parseWorkingDays } from "@utils/workingDays";
@@ -16,9 +17,6 @@ import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 // import { multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
 import { toAbsoluteUrl } from "@metronic/helpers";
-// Modal / Button / Form / Dropdown / Row / Col are gone — the stat modal and its card
-// grid now come from the shared kit. The rest are still-legacy usages on this page.
-import { Image, OverlayTrigger, Tooltip, Alert, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { canSection } from "@utils/can";
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
@@ -45,7 +43,7 @@ function isAttendanceDurationShort(checkIn: string | undefined, checkOut: string
 // Overview - see the two components below, not a local copy.
 import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
 import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
-import { ToneChip, AppIcon } from '@app/modules/common/components/ui';
+import { ToneChip, AppIcon, WtTooltip, InlineNotice, TRIO } from '@app/modules/common/components/ui';
 import { getTimeTokens } from '@utils/timeFormat';
 import { useStoredState } from '@app/hooks/useStoredState';
 
@@ -86,16 +84,15 @@ const LEAVE_COLUMNS = [
     header: 'Employee',
     Cell: ({ row }: any) => (
       <div className="d-flex align-items-center">
-        <Image
+        <Avatar
           src={row.original.avatarSrc}
-          roundedCircle
-          width="40"
-          height="40"
-          className="me-3"
           alt={row.original.employeeName}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+          sx={{ width: 40, height: 40, mr: 1.5 }}
+          imgProps={{
+            onError: (e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+            },
           }}
         />
         <div>
@@ -109,7 +106,7 @@ const LEAVE_COLUMNS = [
   {
     accessorKey: 'leaveType',
     header: 'Leave Type',
-    Cell: ({ cell }: any) => <span className="badge bg-warning text-dark">{cell.getValue()}</span>,
+    Cell: ({ cell }: any) => <ToneChip dense tone="warning" label={String(cell.getValue() ?? '')} />,
   },
   {
     accessorKey: 'duration',
@@ -887,14 +884,7 @@ const DashboardDailyAttendanceOverview = () => {
                         >
                           {emp.attendance.workingMethod.type}
                           {emp.attendance.workingMethod.type === 'On-site' && emp.attendance.checkInLocation && emp.attendance.latitude && emp.attendance.longitude && (
-                            <OverlayTrigger
-                              placement="top"
-                              overlay={
-                                <Tooltip id={`tooltip-${emp._id}`}>
-                                  {emp.attendance.checkInLocation}
-                                </Tooltip>
-                              }
-                            >
+                            <WtTooltip title={emp.attendance.checkInLocation}>
                               <a
                                 href={`https://www.google.com/maps?q=${emp.attendance.latitude},${emp.attendance.longitude}`}
                                 target="_blank"
@@ -920,7 +910,7 @@ const DashboardDailyAttendanceOverview = () => {
                                   }}
                                 />
                               </a>
-                            </OverlayTrigger>
+                            </WtTooltip>
                           )}
                         </span>
                       )}
@@ -1087,9 +1077,7 @@ const DashboardDailyAttendanceOverview = () => {
       <div className="card border-0 rounded-3 mb-5" style={{ boxShadow: '8px 8px 16px 0px rgba(0,0,0,0.04)' }}>
         <div className="card-body p-3 p-md-4">
           <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
-            <Spinner animation="border" role="status">
-              <span className="visually-hidden">Loading...</span>
-            </Spinner>
+            <CircularProgress size={36} aria-label="Loading" />
           </div>
         </div>
       </div>
@@ -1100,9 +1088,9 @@ const DashboardDailyAttendanceOverview = () => {
     return (
       <div className="card border-0 rounded-3 mb-5" style={{ boxShadow: '8px 8px 16px 0px rgba(0,0,0,0.04)' }}>
         <div className="card-body p-3 p-md-4">
-          <Alert variant="danger" className="mt-3">
-            {error}
-          </Alert>
+          <Box sx={{ mt: 1.5 }}>
+            <InlineNotice trio={TRIO.rose} icon="information-5" role="alert">{error}</InlineNotice>
+          </Box>
         </div>
       </div>
     );
@@ -1237,17 +1225,17 @@ const DashboardDailyAttendanceOverview = () => {
 
                       return (
                         <div key={emp.id || index} className="d-flex align-items-center gap-2">
-                          <Image
-                            src={avatarSrc}
-                            roundedCircle
-                            width="24"
-                            height="24"
-                            alt={fullName}
-                            onError={(e) => {
+                          <Avatar
+                          src={avatarSrc}
+                          alt={fullName}
+                          sx={{ width: 24, height: 24 }}
+                          imgProps={{
+                            onError: (e) => {
                               const target = e.target as HTMLImageElement;
                               target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                            }}
-                          />
+                            },
+                          }}
+                        />
                           <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{fullName || 'Unnamed Employee'}</span>
                         </div>
                       );
@@ -1284,15 +1272,15 @@ const DashboardDailyAttendanceOverview = () => {
                   {absentEmployees.length > 0 ? (
                     absentEmployees.map((emp, index) => (
                       <div key={emp._id || index} className="d-flex align-items-center gap-2">
-                        <Image
+                        <Avatar
                           src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
-                          roundedCircle
-                          width="24"
-                          height="24"
                           alt={`${emp.firstName} ${emp.lastName}`}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                          sx={{ width: 24, height: 24 }}
+                          imgProps={{
+                            onError: (e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                            },
                           }}
                         />
                         <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{emp.firstName} {emp.lastName}</span>
@@ -1330,15 +1318,15 @@ const DashboardDailyAttendanceOverview = () => {
                   {extraDayEmployees.length > 0 ? (
                     extraDayEmployees.map((emp, index) => (
                       <div key={emp._id || index} className="d-flex align-items-center gap-2">
-                        <Image
+                        <Avatar
                           src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
-                          roundedCircle
-                          width="24"
-                          height="24"
                           alt={`${emp.firstName} ${emp.lastName}`}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                          sx={{ width: 24, height: 24 }}
+                          imgProps={{
+                            onError: (e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                            },
                           }}
                         />
                         <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{emp.firstName} {emp.lastName}</span>
@@ -1376,15 +1364,15 @@ const DashboardDailyAttendanceOverview = () => {
                   {lateCheckInEmployees.length > 0 ? (
                     lateCheckInEmployees.map((emp, index) => (
                       <div key={emp._id || index} className="d-flex align-items-center gap-2">
-                        <Image
+                        <Avatar
                           src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
-                          roundedCircle
-                          width="24"
-                          height="24"
                           alt={`${emp.firstName} ${emp.lastName}`}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                          sx={{ width: 24, height: 24 }}
+                          imgProps={{
+                            onError: (e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                            },
                           }}
                         />
                         <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{emp.firstName} {emp.lastName}</span>
@@ -1422,15 +1410,15 @@ const DashboardDailyAttendanceOverview = () => {
                   {earlyCheckOutEmployees.length > 0 ? (
                     earlyCheckOutEmployees.map((emp, index) => (
                       <div key={emp._id || index} className="d-flex align-items-center gap-2">
-                        <Image
+                        <Avatar
                           src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
-                          roundedCircle
-                          width="24"
-                          height="24"
                           alt={`${emp.firstName} ${emp.lastName}`}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                          sx={{ width: 24, height: 24 }}
+                          imgProps={{
+                            onError: (e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                            },
                           }}
                         />
                         <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{emp.firstName} {emp.lastName}</span>

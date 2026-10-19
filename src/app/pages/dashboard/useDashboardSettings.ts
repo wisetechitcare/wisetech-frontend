@@ -5,7 +5,8 @@ import { RootState } from "@redux/store";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { can, canSection } from "@utils/can";
-import { useState, useEffect, useCallback } from "react";
+import { isPackEnabled } from "@utils/tenantPacks";
+import { useState, useEffect } from "react";
 
 export type DashboardSection = {
   key: string;
@@ -30,20 +31,25 @@ const DEFAULT_SECTIONS: DashboardSection[] = [
 const TABLE_NAME = "dashboardSettings";
 
 // Each widget shows data from one part of the app, so it follows that part's access: a widget
-// is visible only with Read on its source section (on top of Read on the Dashboard itself).
+// is visible only with Read on its source section (on top of Read on the Dashboard itself)
+// AND the matching tenant pack (allow = pack ∩ RBAC — same as nav).
 // Widgets not listed are personal (the todo card) and need only the Dashboard.
 const WIDGET_ACCESS: Record<string, () => boolean> = {
   announcements: () => canSection("settings.announcements"),
-  attendance: () => canSection("attendance.personal"),
-  dailyAttendanceOverview: () => canSection("attendance.employees"),
-  tasks: () => canSection("tasks"),
+  attendance: () => isPackEnabled("workforce") && canSection("attendance.personal"),
+  dailyAttendanceOverview: () =>
+    isPackEnabled("workforce") && canSection("attendance.employees"),
+  tasks: () => isPackEnabled("psa") && canSection("tasks"),
+  // Holidays / birthdays / personal calendar stay Core; CRM meetings only load
+  // when PSA is on (see UpcomingThings). Widget itself needs calendar section.
   upcomingEvents: () => canSection("calendar"),
   // A queue of requests waiting on YOUR approval: approvers are granted it by the workflow setup.
   pendingRequests: () => can("approvals.approve.team"),
-  leaderboard: () => canSection("kpi.leaderboard"),
-  analyticsGraphs: () => canSection("projects") || canSection("crm.leads"),
-  ongoingLoans: () => canSection("finance.loans"),
-  kpiSection: () => canSection("kpi.my"),
+  leaderboard: () => isPackEnabled("workforce") && canSection("kpi.leaderboard"),
+  analyticsGraphs: () =>
+    isPackEnabled("psa") && (canSection("projects") || canSection("crm.leads")),
+  ongoingLoans: () => isPackEnabled("pay") && canSection("finance.loans"),
+  kpiSection: () => isPackEnabled("workforce") && canSection("kpi.my"),
 };
 
 /** Whether the signed-in employee may see a dashboard widget at all (their own toggle aside). */

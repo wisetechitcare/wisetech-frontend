@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Select, { components as RS } from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import { FixedSizeList as List } from 'react-window';
@@ -8,6 +8,7 @@ import {
     FLOATING_MENU_BEHAVIOUR,
     MENU_PORTAL_STYLE,
 } from '@app/modules/common/inputs/selectMenuProps';
+import { menuGeometryInBoundary, useDropdownBoundary } from './dropdownBoundary';
 
 /**
  * WtSelect — the single select ENGINE for the app.
@@ -16,8 +17,8 @@ import {
  * It is the engine those wrappers delegate to, so behaviour is fixed once:
  *
  *   • menu portalled to <body>            — escapes every `overflow: hidden` ancestor
- *   • `menuPlacement: auto`               — flips up when there is no room below
- *   • bounded, self-scrolling menu        — never runs off the viewport
+ *   • menuPlacement + maxMenuHeight       — flip/cap inside the dialog scroll port (same
+ *     contract as `useDropdownBoundary` on WtField Autocomplete / plain Select)
  *   • z-index above MUI's dialog layer    — never paints behind its own modal
  *   • windowed rendering past a threshold — a 2,000-option list opens instantly
  *   • theme-aware, light and dark         — colours come from tokens, never hardcoded
@@ -67,6 +68,8 @@ export interface WtSelectProps {
     isLoading?: boolean;
     /** Allows typing a value that is not in the list (returns `{ value, label, __isNew__ }`). */
     isCreatable?: boolean;
+    /** Label for the create row when `isCreatable` (defaults to react-select's "Create …"). */
+    formatCreateLabel?: (inputValue: string) => string;
 
     /** Red border + `aria-invalid`, for a failed field validation. */
     error?: boolean;
@@ -100,10 +103,26 @@ export interface WtSelectProps {
      * construction — use this for short, wordy lists, not for long ones.
      */
     allowOptionWrap?: boolean;
+    /**
+     * Show the full selected label in the control (wrap / grow) instead of
+     * react-select's default single-line ellipsis.
+     */
+    allowValueWrap?: boolean;
     /** Above this many options the menu switches to windowed rendering. */
     virtualizeThreshold?: number;
     filterOption?: any;
     menuPortalTarget?: HTMLElement | null;
+    /** Cap dropdown list height (scroll inside menu). Defaults to boundary geometry or FLOATING_MENU_BEHAVIOUR. */
+    maxMenuHeight?: number;
+    /** Controlled menu open state — e.g. close before opening a create dialog above the portal. */
+    menuIsOpen?: boolean;
+    onMenuOpen?: () => void;
+    onMenuClose?: () => void;
+    /**
+     * Optional scroll-port for menu flip/cap. When omitted, the engine finds the nearest
+     * scrolling ancestor (dialog body) — same SSOT as WtField Autocomplete.
+     */
+    menuBoundary?: HTMLElement | null;
     className?: string;
     classNamePrefix?: string;
 }
@@ -200,6 +219,7 @@ export function WtSelect({
     isDisabled = false,
     isLoading = false,
     isCreatable = false,
+    formatCreateLabel,
     error = false,
     size = 'md',
     optionVariant = 'plain',
@@ -208,20 +228,56 @@ export function WtSelect({
     defaultInputValue,
     formatOptionLabel,
     allowOptionWrap = false,
+    allowValueWrap = false,
     components: componentOverrides,
     virtualizeThreshold = DEFAULT_VIRTUALIZE_THRESHOLD,
     filterOption,
     menuPortalTarget,
+    maxMenuHeight: maxMenuHeightProp,
+    menuIsOpen,
+    onMenuOpen,
+    onMenuClose,
+    menuBoundary: menuBoundaryProp,
     className = 'react-select-styled',
     classNamePrefix = 'react-select',
 }: WtSelectProps) {
     const dark = useTheme().palette.mode === 'dark';
+    const rootRef = useRef<HTMLDivElement | null>(null);
+    const { ref: autoBoundaryRef, boundary: autoBoundary } = useDropdownBoundary();
+    const setRootRef = useCallback(
+        (node: HTMLDivElement | null) => {
+            rootRef.current = node;
+            autoBoundaryRef(node);
+        },
+        [autoBoundaryRef],
+    );
+    const boundary = menuBoundaryProp !== undefined ? menuBoundaryProp : autoBoundary;
+    const [menuGeom, setMenuGeom] = useState<{
+        menuPlacement: 'bottom' | 'top' | 'auto';
+        maxMenuHeight: number;
+    }>({
+        menuPlacement: FLOATING_MENU_BEHAVIOUR.menuPlacement,
+        maxMenuHeight: FLOATING_MENU_BEHAVIOUR.maxMenuHeight,
+    });
 
     // Flatten only to count — grouped options nest their rows one level down.
     const flatCount = useMemo(
         () => options.reduce((n, o: any) => n + (Array.isArray(o?.options) ? o.options.length : 1), 0),
         [options],
     );
+
+    const handleMenuOpen = useCallback(() => {
+        const control = rootRef.current?.querySelector('.react-select__control') as HTMLElement | null;
+        if (control) {
+            const geo = menuGeometryInBoundary(
+                control.getBoundingClientRect(),
+                boundary?.getBoundingClientRect() ?? null,
+                FLOATING_MENU_BEHAVIOUR.maxMenuHeight,
+            );
+            setMenuGeom(geo);
+        }
+        onMenuOpen?.();
+    }, [boundary, onMenuOpen]);
 
     const styles = useMemo(() => {
         const surface = dark ? '#161B22' : T.color.surface;
@@ -236,6 +292,7 @@ export function WtSelect({
             control: (base: any, state: any) => ({
                 ...base,
                 minHeight,
+                ...(allowValueWrap ? { height: 'auto', alignItems: 'flex-start' } : null),
                 backgroundColor: state.isDisabled
                     ? (dark ? '#0D1117' : T.color.panelAlt)
                     : accentColor && !error
@@ -274,7 +331,37 @@ export function WtSelect({
                 // Selected rows read as selected without relying on colour alone.
                 fontWeight: state.isSelected ? 600 : 400,
             }),
-            singleValue: (base: any) => ({ ...base, color: accentColor || ink }),
+            valueContainer: (base: any) => ({
+                ...base,
+                ...(allowValueWrap
+                    ? {
+                        height: 'auto',
+                        flexWrap: 'wrap' as const,
+                        alignItems: 'center',
+                        paddingTop: 4,
+                        paddingBottom: 4,
+                    }
+                    : null),
+            }),
+            singleValue: (base: any) => ({
+                ...base,
+                color: accentColor || ink,
+                ...(allowValueWrap
+                    ? {
+                        position: 'relative' as const,
+                        transform: 'none',
+                        top: undefined,
+                        maxWidth: '100%',
+                        whiteSpace: 'normal' as const,
+                        overflow: 'visible',
+                        textOverflow: 'clip',
+                    }
+                    : null),
+            }),
+            indicatorsContainer: (base: any) => ({
+                ...base,
+                ...(allowValueWrap ? { alignSelf: 'center' as const } : null),
+            }),
             dropdownIndicator: (base: any) => ({ ...base, color: accentColor || base.color }),
             input: (base: any) => ({ ...base, color: ink }),
             placeholder: (base: any) => ({ ...base, color: T.color.inkFaint }),
@@ -286,49 +373,58 @@ export function WtSelect({
                 textTransform: 'uppercase', color: T.color.inkFaint,
             }),
         };
-    }, [dark, error, size, accentColor, allowOptionWrap]);
+    }, [dark, error, size, accentColor, allowOptionWrap, allowValueWrap]);
 
     const Cmp: any = isCreatable ? CreatableSelect : Select;
 
     return (
-        <Cmp
-            {...FLOATING_MENU_BEHAVIOUR}
-            {...(menuPortalTarget !== undefined ? { menuPortalTarget } : {})}
-            name={name}
-            aria-label={ariaLabel}
-            aria-invalid={error || undefined}
-            options={options}
-            value={value ?? null}
-            onChange={onChange}
-            onBlur={onBlur}
-            onInputChange={onInputChange}
-            defaultInputValue={defaultInputValue}
-            placeholder={placeholder}
-            isMulti={isMulti}
-            isClearable={isClearable}
-            isSearchable={isSearchable}
-            isDisabled={isDisabled || isLoading}
-            isLoading={isLoading}
-            filterOption={filterOption}
-            formatOptionLabel={formatOptionLabel}
-            className={className}
-            classNamePrefix={classNamePrefix}
-            styles={styles}
-            components={{
-                // Windowing is skipped when wrapping is on — see allowOptionWrap.
-                ...(!allowOptionWrap && flatCount > virtualizeThreshold ? { MenuList: VirtualizedMenuList } : {}),
-                ...(optionVariant !== 'plain'
-                    ? { Option: RichOption, ...(isMulti ? {} : { SingleValue: RichSingleValue }) }
-                    : {}),
-                // Last, so a call site can replace a renderer the engine chose.
-                ...(componentOverrides ?? {}),
-            }}
-            // Tell the user WHY the list is empty. A bare "No options" reads as broken when
-            // the real cause is a filter that matched nothing.
-            noOptionsMessage={({ inputValue }: { inputValue: string }) =>
-                inputValue ? `No matches for "${inputValue}"` : 'No options available'}
-            loadingMessage={() => 'Loading…'}
-        />
+        <div ref={setRootRef} style={{ width: '100%', minWidth: 0 }}>
+            <Cmp
+                {...FLOATING_MENU_BEHAVIOUR}
+                menuPlacement={menuGeom.menuPlacement}
+                maxMenuHeight={maxMenuHeightProp ?? menuGeom.maxMenuHeight}
+                {...(menuPortalTarget !== undefined ? { menuPortalTarget } : {})}
+                allowValueWrap={allowValueWrap}
+                name={name}
+                aria-label={ariaLabel}
+                aria-invalid={error || undefined}
+                options={options}
+                value={value ?? null}
+                onChange={onChange}
+                onBlur={onBlur}
+                onInputChange={onInputChange}
+                defaultInputValue={defaultInputValue}
+                placeholder={placeholder}
+                isMulti={isMulti}
+                isClearable={isClearable}
+                isSearchable={isSearchable}
+                isDisabled={isDisabled || isLoading}
+                isLoading={isLoading}
+                filterOption={filterOption}
+                formatOptionLabel={formatOptionLabel}
+                {...(isCreatable && formatCreateLabel ? { formatCreateLabel } : {})}
+                {...(menuIsOpen !== undefined ? { menuIsOpen } : {})}
+                onMenuOpen={handleMenuOpen}
+                onMenuClose={onMenuClose}
+                className={className}
+                classNamePrefix={classNamePrefix}
+                styles={styles}
+                components={{
+                    // Windowing is skipped when wrapping is on — see allowOptionWrap.
+                    ...(!allowOptionWrap && flatCount > virtualizeThreshold ? { MenuList: VirtualizedMenuList } : {}),
+                    ...(optionVariant !== 'plain'
+                        ? { Option: RichOption, ...(isMulti ? {} : { SingleValue: RichSingleValue }) }
+                        : {}),
+                    // Last, so a call site can replace a renderer the engine chose.
+                    ...(componentOverrides ?? {}),
+                }}
+                // Tell the user WHY the list is empty. A bare "No options" reads as broken when
+                // the real cause is a filter that matched nothing.
+                noOptionsMessage={({ inputValue }: { inputValue: string }) =>
+                    inputValue ? `No matches for "${inputValue}"` : 'No options available'}
+                loadingMessage={() => 'Loading…'}
+            />
+        </div>
     );
 }
 

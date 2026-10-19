@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Box, Stack, Typography, CircularProgress, LinearProgress, DialogContent, Link as MuiLink } from "@mui/material";
@@ -13,9 +14,10 @@ import { COPY } from "./terms";
 import { formatCurrency } from "@utils/currency";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
 import { apiErrorMessage } from "@utils/apiError";
-import { canSection } from "@utils/can";
+import { can, canSection } from "@utils/can";
 import {
     getApplicationById, getApplicationNotes, createApplicationNote, deleteApplicationNote,
+    exportApplicantSubjectAccess,
     SCORE_FACTORS,
     type Application, type ApplicationDetail, type ApplicationStatus, type StageHistoryEntry,
 } from "@services/recruitment";
@@ -23,6 +25,7 @@ import { ScoreChip } from "./applicationColumns";
 import { AddToRoleDialog } from "./AddToRoleDialog";
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
+import { VersionHistory } from "@modules/audit/VersionHistory";
 
 /** The server's limit on a note body; the field says so before the API has to. */
 const NOTE_MAX = 4000;
@@ -44,6 +47,8 @@ interface Props {
     moving?: boolean;
     /** Hand a hired candidate to onboarding. */
     onConvert?: (application: Application) => void;
+    /** Recruitment shell org filter — passed through to Offer Branch options. */
+    companyId?: string;
 }
 
 const fullName = (a: Application) =>
@@ -65,7 +70,18 @@ const Fact = ({ label, value, href }: { label: string; value?: string | number |
         <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ fontSize: 11.5, color: "text.secondary", lineHeight: 1.4 }}>{label}</Typography>
             <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: "text.primary", overflowWrap: "anywhere" }}>
-                {href ? <MuiLink href={href} underline="hover" color="inherit">{value}</MuiLink> : value}
+                {href ? (
+                    <MuiLink
+                        href={href}
+                        underline="hover"
+                        color="inherit"
+                        {...(href.startsWith("http")
+                            ? { target: "_blank", rel: "noopener noreferrer" }
+                            : {})}
+                    >
+                        {value}
+                    </MuiLink>
+                ) : value}
             </Typography>
         </Box>
     );
@@ -78,13 +94,25 @@ const Fact = ({ label, value, href }: { label: string; value?: string | number |
  * composes them. Every block is a kit `SettingsSection`, so each one has the same frame, heading
  * and action slot, and the panels no longer print a second heading under the modal's own.
  */
-const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onConvert }: Props) => {
+const downloadJson = (payload: unknown, fileName: string) => {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+};
+
+const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onConvert, companyId }: Props) => {
     const canWrite = canSection("recruitment", "write");
+    /** Same gate as DELETE …/erase and GET …/export — full PII dump. */
+    const canManage = can("recruitment.manage.all");
+    const navigate = useNavigate();
     const qc = useQueryClient();
     const [draft, setDraft] = useState("");
     const [addingToRole, setAddingToRole] = useState(false);
     const viewerId = useSelector((st: RootState) => st.employee?.currentEmployee?.id as string | undefined);
-
     // The board row paints the modal instantly as a placeholder — never as cached data, because
     // it has no stage history, no currency and an unsigned resume key. Until the record arrives
     // those parts show that they are loading instead of an empty history and a dead Resume link.
@@ -103,7 +131,6 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
     const loaded = !detailQuery.isPlaceholderData && !!detailQuery.data;
     const statusName = (id?: string | null) => statuses.find((s) => s.id === id)?.name;
     const currentStatus = statuses.find((s) => s.id === a.statusId) ?? a.status ?? null;
-
     const invalidateNotes = () => qc.invalidateQueries({ queryKey: queryKeys.recruitment.notes(application.id) });
 
     const noteTooLong = draft.length > NOTE_MAX;
@@ -119,6 +146,16 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
         mutationFn: (id: string) => deleteApplicationNote(id),
         onSuccess: () => { invalidateNotes(); toast({ icon: "success", title: "Note removed" }); },
         onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not remove the note") }),
+    });
+
+    const exportMut = useMutation({
+        mutationFn: (applicantId: string) => exportApplicantSubjectAccess(applicantId),
+        onSuccess: (payload, applicantId) => {
+            const stamp = new Date().toISOString().slice(0, 10);
+            downloadJson(payload, `applicant-${applicantId.slice(0, 8)}-${stamp}.json`);
+            toast({ icon: "success", title: "Subject-access export downloaded" });
+        },
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not export candidate data") }),
     });
 
     const submitNote = () => { if (canAddNote && !addNote.isPending) addNote.mutate(); };
@@ -162,10 +199,36 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                         </Stack>
                         {/* The same person can be considered for more than one role. */}
                         {canWrite && <ActionIconButton iconName="briefcase" tone="brand" title="Add to Another Role" onClick={() => setAddingToRole(true)} />}
+                        {canWrite && a.applicantId && (
+                            <WtButton
+                                size="small"
+                                ghost
+                                startIcon={<KTIcon iconName="pencil" className="fs-6" />}
+                                onClick={() => {
+                                    onClose();
+                                    navigate(`/recruitment/candidates/${a.applicantId}/edit`);
+                                }}
+                                sx={{ flexShrink: 0, whiteSpace: "nowrap" }}
+                            >
+                                Edit profile
+                            </WtButton>
+                        )}
                         {canWrite && onConvert && currentStatus?.isHiredOutcome && !a.convertedEmployeeId && (
                             <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => onConvert(a)}
                                 sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>
                                 Convert to Employee
+                            </WtButton>
+                        )}
+                        {canManage && a.applicantId && (
+                            <WtButton
+                                size="small"
+                                ghost
+                                disabled={!loaded || exportMut.isPending}
+                                startIcon={<KTIcon iconName="file-down" className="fs-6" />}
+                                onClick={() => exportMut.mutate(a.applicantId!)}
+                                sx={{ flexShrink: 0, whiteSpace: "nowrap" }}
+                            >
+                                {exportMut.isPending ? "Exporting…" : "Export data"}
                             </WtButton>
                         )}
                         {canWrite && onMove && statuses.length > 0 ? (
@@ -176,10 +239,8 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                                 options={statuses.map((s) => ({ value: s.id, label: s.name }))}
                                 disabled={moving || !loaded}
                                 icon="abstract-26"
-                                // A fixed width beside the chips. Full width, it took the whole row and crushed
-                                // the chips to a sliver.
                                 fullWidth={false}
-                                sx={{ width: { xs: "100%", sm: 240 }, flexShrink: 0 }}
+                                sx={{ width: { xs: "100%" }, flexShrink: 0 }}
                             />
                         ) : (
                             currentStatus && <ToneChip tone="brand" color={currentStatus.color ?? undefined} label={currentStatus.name} dense />
@@ -207,8 +268,24 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                             {loaded && <Fact label="Current CTC" value={salary(a.applicant?.currentCtc)} />}
                             {loaded && <Fact label="Expected CTC" value={salary(a.applicant?.expectedCtc)} />}
                             <Fact label="Source" value={a.applicant?.source?.name} />
+                            <Fact
+                                label="Referred by"
+                                value={
+                                    a.applicant?.referredByName
+                                        ?? (a.applicant?.referredById ? "Employee (name unavailable)" : null)
+                                }
+                            />
                             {/* A date, not a time: applied dates are stored at midnight, which a time-of-day turned into "5:30 AM". */}
                             <Fact label="Applied" value={formatDate(a.appliedDate ?? a.createdAt)} />
+                            <Fact label="Consent" value={a.consentAt ? formatDate(a.consentAt) : null} />
+                            <Fact
+                                label="Applied via posting"
+                                value={
+                                    a.appliedPosting?.title
+                                        ?? (a.appliedPostingId ? "Careers posting (title unavailable)" : null)
+                                }
+                                href={a.appliedPosting?.publicUrl ?? undefined}
+                            />
                         </Box>
 
                         {(a.applicant?.resumeS3Url || a.applicant?.linkedInUrl) && (
@@ -355,8 +432,17 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                         )}
                     </SettingsSection>
 
+                    <SettingsSection tone={TRIO.slate} icon="abstract-26" title="Change History"
+                        description="Notes, stage moves, and other edits on this application.">
+                        <VersionHistory type="APPLICATION" id={a.id} isAdmin={false} />
+                    </SettingsSection>
+
                     <InterviewsPanel applicationId={a.id} applicantName={fullName(a)} />
-                    <OfferPanel applicationId={a.id} applicantName={fullName(a)} />
+                    <OfferPanel
+                        applicationId={a.id}
+                        applicantName={fullName(a)}
+                        companyId={companyId ?? a.applicant?.companyId ?? undefined}
+                    />
                 </Stack>
                 {addingToRole && (
                     <AddToRoleDialog open onClose={() => setAddingToRole(false)} applicantId={a.applicantId} applicantName={fullName(a)} />

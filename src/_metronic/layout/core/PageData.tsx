@@ -19,18 +19,29 @@ export interface PageDataContextModel {
   setPageDescription: (_description: string) => void
   pageBreadcrumbs?: Array<PageLink>
   setPageBreadcrumbs: (_breadcrumbs: Array<PageLink>) => void
+  /** Crumbs BELOW the module in the shell breadcrumb (e.g. a project › a task). See PageTrail. */
+  pageTrail?: Array<PageTrailItem>
+  setPageTrail: (_trail: Array<PageTrailItem>) => void
+}
+
+export interface PageTrailItem {
+  title: string
+  /** Omit for the current page — the last crumb is never a link. */
+  path?: string
 }
 
 const PageDataContext = createContext<PageDataContextModel>({
   setPageTitle: (_title: string) => {},
   setPageBreadcrumbs: (_breadcrumbs: Array<PageLink>) => {},
   setPageDescription: (_description: string) => {},
+  setPageTrail: (_trail: Array<PageTrailItem>) => {},
 })
 
 const PageDataProvider: FC<WithChildren> = ({children}) => {
   const [pageTitle, setPageTitle] = useState<string>('')
   const [pageDescription, setPageDescription] = useState<string>('')
   const [pageBreadcrumbs, setPageBreadcrumbs] = useState<Array<PageLink>>([])
+  const [pageTrail, setPageTrail] = useState<Array<PageTrailItem>>([])
   const value: PageDataContextModel = {
     pageTitle,
     setPageTitle,
@@ -38,6 +49,8 @@ const PageDataProvider: FC<WithChildren> = ({children}) => {
     setPageDescription,
     pageBreadcrumbs,
     setPageBreadcrumbs,
+    pageTrail,
+    setPageTrail,
   }
   return <PageDataContext.Provider value={value}>{children}</PageDataContext.Provider>
 }
@@ -96,4 +109,19 @@ const PageDescription: FC<WithChildren> = ({children}) => {
   return <></>
 }
 
-export {PageDescription, PageTitle, PageDataProvider, usePageData}
+/**
+ * Deeper crumbs for a page INSIDE a module — `Home › Project Department › Tasks › Wisetech @ R&D
+ * › Load Sheet`. The shell derives everything down to the module from the nav tree; only a page
+ * that sits below a module adds this, so every other page's breadcrumb is untouched.
+ */
+const PageTrail: FC<{items: Array<PageTrailItem>}> = ({items}) => {
+  const {setPageTrail} = usePageData()
+  const key = JSON.stringify(items)
+  useEffect(() => {
+    setPageTrail(items)
+    return () => setPageTrail([])
+  }, [key])
+  return <></>
+}
+
+export {PageDescription, PageTitle, PageTrail, PageDataProvider, usePageData}

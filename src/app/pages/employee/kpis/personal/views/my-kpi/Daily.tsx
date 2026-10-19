@@ -8,7 +8,8 @@ import KpiStatisticsTable from "../../components/KpiStatisticsTable";
 import AttendanceIcon from "@metronic/assets/miscellaneousicons/attendance.svg";
 import LeavesIcon from "@metronic/assets/miscellaneousicons/leaves.svg";
 import ScoreOverview from "../../components/ScoreOverview";
-import { Container, Spinner } from "react-bootstrap";
+import { Box } from "@mui/material";
+import Loader from "@app/modules/common/utils/Loader";
 import PerformanceBadge from "../../components/PerformanceBadge";
 import { canSection } from "@utils/can";
 
@@ -118,15 +119,7 @@ const Daily = ({
   }));
 
   if (loading) {
-    return (
-      <Container
-        fluid
-        className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
-        style={{ minHeight: "300px" }}
-      >
-        <Spinner animation="border" variant="primary" />
-      </Container>
-    );
+    return <Loader minHeight={300} />;
   }
 
   if (!showData)
@@ -151,9 +144,9 @@ const Daily = ({
 
       {/* 🔥 REPORT */}
       {dashboardView && (
-        <Container fluid className="my-4 px-0">
+        <Box sx={{ my: 2, px: 0 }}>
           <KpiStatisticsTable data={modules} />
-        </Container>
+        </Box>
       )}
     </>
   );

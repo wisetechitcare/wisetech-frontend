@@ -1,8 +1,10 @@
 import type { ComponentType } from 'react';
 import type { Trio } from '@app/modules/common/components/ui/patterns';
 import { TRIO } from '@app/modules/common/components/ui/patterns';
-import { AppearancePanel } from './AppearancePanel';
+import { AppearanceHeaderActions, AppearancePanel } from './AppearancePanel';
 import { DateTimePanel } from './DateTimePanel';
+import { TenantModulesPanel } from './TenantModulesPanel';
+import { DeveloperMfaHeaderActions, DeveloperMfaPanel } from './DeveloperMfaPanel';
 
 /**
  * The Settings areas, declared once.
@@ -25,10 +27,24 @@ export interface SettingsArea {
   tone: Trio;
   /** Rendered when the area is opened. */
   Panel: ComponentType;
+  /**
+   * Optional controls beside “All Settings” in the entity header
+   * (e.g. Appearance’s Reset to Defaults).
+   */
+  HeaderActions?: ComponentType;
   /** Short live value for the hub tile — answers the obvious question unopened. */
   useMeta?: () => string;
   /** Declared but not built yet: the tile shows, dimmed and inert. */
   comingSoon?: boolean;
+  /** Hidden from the hub unless the signed-in user is Admin / Super Admin. */
+  adminTierOnly?: boolean;
+  /** Hidden unless Super Admin — commercial / platform ops (subscription packs). */
+  superAdminOnly?: boolean;
+  /**
+   * Section access key (e.g. settings.developerMfa). When set, the hub tile and
+   * detail view require Read on that section (Super Admin always passes).
+   */
+  sectionKey?: string;
 }
 
 export const SETTINGS_AREAS: readonly SettingsArea[] = [
@@ -39,6 +55,7 @@ export const SETTINGS_AREAS: readonly SettingsArea[] = [
     icon: 'color-swatch',
     tone: TRIO.purple,
     Panel: AppearancePanel,
+    HeaderActions: AppearanceHeaderActions,
   },
   {
     id: 'date-time',
@@ -47,6 +64,25 @@ export const SETTINGS_AREAS: readonly SettingsArea[] = [
     icon: 'time',
     tone: TRIO.blue,
     Panel: DateTimePanel,
+  },
+  {
+    id: 'developer-mfa',
+    title: 'System PIN MFA',
+    description: 'Authenticator app for System PIN support access. Enroll here; use a code on any System PIN unlock screen.',
+    icon: 'shield-tick',
+    tone: TRIO.rose,
+    Panel: DeveloperMfaPanel,
+    HeaderActions: DeveloperMfaHeaderActions,
+    sectionKey: 'settings.developerMfa',
+  },
+  {
+    id: 'tenant-modules',
+    title: 'tenant modules',
+    description: 'Platform ops: which packs this org family purchased (not customer self-serve).',
+    icon: 'element-11',
+    tone: TRIO.cyan,
+    Panel: TenantModulesPanel,
+    superAdminOnly: true,
   },
 ];
 

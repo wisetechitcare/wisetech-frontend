@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import dayjs from "dayjs";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { KTIcon, PAGE_SIZE_OPTIONS } from "@metronic/helpers";
@@ -23,7 +24,8 @@ import { getEmployeeStatusString, calculateTotalExperience } from "@utils/employ
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import {
   ActionIconButton, AppIcon, AutoGrid, GlassSurface, Pager,
-  StatusCyclePill, ViewModeSwitch, WhatsAppIcon, riseInSx,
+  StatusCyclePill, CardsTableViewSwitch, type CardsTableView,
+  WhatsAppIcon, riseInSx,
 } from "@app/modules/common/components/ui";
 import { Box, InputAdornment, Stack, TextField, Typography } from "@mui/material";
 import { useDebounce } from "@metronic/helpers";
@@ -33,7 +35,8 @@ import EmployeeCard from "./components/EmployeeCard";
 import { useStoredState } from "@app/hooks/useStoredState";
 
 type StatusType = "all" | "active" | "inactive";
-type ViewMode = "table" | "cards";
+const VIEW_MODES = ["table", "cards"] as const satisfies ReadonlyArray<CardsTableView>;
+type ViewMode = CardsTableView;
 
 /** Remembered across visits: a view preference that resets on every navigation is
  *  one the user has to keep re-picking. Guarded because storage THROWS, not just
@@ -41,13 +44,10 @@ type ViewMode = "table" | "cards";
  *  vault's. */
 const VIEW_MODE_KEY = "employeeListView";
 
-const readStoredViewMode = (): ViewMode => {
-  try {
-    return localStorage.getItem(VIEW_MODE_KEY) === "cards" ? "cards" : "table";
-  } catch {
-    return "table";
-  }
-};
+// The reader and writer that used to live here are `useRememberedChoice` — the same pair existed
+// in the document vault and was about to be written a third time for the recruitment pipeline. The
+// hook also validates the stored value, which this did not: a key left by an older build put the
+// view into a mode that no longer rendered, with no way back through the UI.
 
 /** Cycles Active → Inactive → All, carrying that tab's count. Same control and the
  *  same three hues as the documents directory. */
@@ -70,10 +70,6 @@ const STATUS_OPTIONS: ReadonlyArray<{ value: StatusType; label: string; color: s
  */
 const CARD_PAGE_SIZES = PAGE_SIZE_OPTIONS.filter((size) => size <= 100);
 
-const VIEW_OPTIONS = [
-  { value: "cards" as const, icon: "bi-grid-3x3-gap-fill", label: "Card view" },
-  { value: "table" as const, icon: "bi-list-ul", label: "Table view" },
-];
 
 interface StatusCounts {
   all: number;
@@ -142,7 +138,7 @@ const EmployeeListContent = () => {
   // Which employee's ID card is on screen. Held as {id, name} rather than a boolean
   // so the dialog can title itself before its own fetch resolves.
   const [idCardTarget, setIdCardTarget] = useState<{ id: string; name: string } | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>(readStoredViewMode);
+  const [viewMode, setViewMode] = useRememberedChoice<ViewMode>(VIEW_MODE_KEY, VIEW_MODES, "table");
   // Card mode has no table, so it carries its own search box. Debounced before it
   // reaches `search`, exactly as MaterialTable debounces its own — otherwise every
   // keystroke would be a request.
@@ -566,13 +562,6 @@ const EmployeeListContent = () => {
     sessionStorage.setItem("employeeListPage", String(pagination.pageIndex));
   }, [pagination.pageIndex]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(VIEW_MODE_KEY, viewMode);
-    } catch {
-      // Storage blocked — the choice just does not survive the visit.
-    }
-  }, [viewMode]);
 
   /**
    * Remount key for the card grid, so the slide-up entrance REPLAYS on every fresh
@@ -661,8 +650,7 @@ const EmployeeListContent = () => {
             value={selectedStatus}
             onChange={setSelectedStatus}
           />
-          <ViewModeSwitch<ViewMode>
-            options={VIEW_OPTIONS}
+          <CardsTableViewSwitch
             value={viewMode}
             onChange={setViewMode}
             ariaLabel="Employee list layout"

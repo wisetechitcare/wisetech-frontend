@@ -51,9 +51,6 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
     setCounts((prev) => (prev[stageId] === n ? prev : { ...prev, [stageId]: n }));
   }, []);
 
-  const total = stageTotal(stages);
-  const isValid = total === 100;
-
   const patch = (uid: string, changes: Partial<PlanStage>) =>
     onChange(stages.map((s) => (s.uid === uid ? { ...s, ...changes } : s)));
 
@@ -70,11 +67,6 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
     const next = stages.slice();
     [next[index], next[to]] = [next[to], next[index]];
     onChange(next);
-  };
-
-  const autoFix = () => {
-    const fixed = autoFixPercentages(stages.map((s) => pct(s.percentage)));
-    onChange(stages.map((s, i) => ({ ...s, percentage: fixed[i] })));
   };
 
   const toggle = (stage: PlanStage) => {
@@ -245,8 +237,8 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
           <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>Payment Stages</Typography>
           <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
             {showDeliverables
-              ? "Each stage is a % of the total commercial cost. Open one to configure its deliverables."
-              : "Each stage is a % of the total commercial cost."}
+              ? "Open a stage to configure its deliverables."
+              : "The stages a project is billed in."}
           </Typography>
         </Box>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ flexShrink: 0 }}>
@@ -278,15 +270,6 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
               ))}
             </TextField>
           )}
-          {!isValid && stages.length > 0 && (
-            <WtButton
-              tone="primary" size="small" ghost onClick={autoFix}
-              startIcon={<KTIcon iconName="wrench" className="fs-6" />}
-              sx={{ flexShrink: 0, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
-            >
-              Auto-fix to 100%
-            </WtButton>
-          )}
         </Stack>
       </Stack>
 
@@ -315,31 +298,13 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
         />
       )}
 
-      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mt: 1.25 }}>
-        <WtButton
-          tone="primary" size="small" ghost onClick={addStage}
-          startIcon={<KTIcon iconName="plus" className="fs-6" />}
-          sx={{ minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
-        >
-          Add Stage
-        </WtButton>
-        <Stack
-          direction="row" alignItems="center" spacing={1}
-          sx={{
-            px: 1.5, py: 0.75, borderRadius: "10px", border: "1px solid",
-            borderColor: isValid ? "success.main" : "error.main",
-            bgcolor: (t) => alpha(isValid ? t.palette.success.main : t.palette.error.main, 0.08),
-          }}
-        >
-          <Typography sx={{ fontSize: 12, fontWeight: 600, color: "text.secondary" }}>Total</Typography>
-          <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: isValid ? "success.main" : "error.main" }}>
-            {total}%
-          </Typography>
-          <Typography sx={{ fontSize: 12, fontWeight: 600, color: isValid ? "success.main" : "error.main" }}>
-            {isValid ? "✓" : "must equal 100%"}
-          </Typography>
-        </Stack>
-      </Stack>
+      <WtButton
+        tone="primary" size="small" ghost onClick={addStage}
+        startIcon={<KTIcon iconName="plus" className="fs-6" />}
+        sx={{ mt: 1.25, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
+      >
+        Add Stage
+      </WtButton>
     </Box>
   );
 };

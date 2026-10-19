@@ -19,6 +19,7 @@ import EventAvailableRounded from '@mui/icons-material/EventAvailableRounded';
 import EventRounded from '@mui/icons-material/EventRounded';
 import FolderOpenRounded from '@mui/icons-material/FolderOpenRounded';
 import FolderRounded from '@mui/icons-material/FolderRounded';
+import CardGiftcardRounded from '@mui/icons-material/CardGiftcardRounded';
 import GroupsRounded from '@mui/icons-material/GroupsRounded';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import InboxRounded from '@mui/icons-material/InboxRounded';
@@ -70,6 +71,7 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-graph-up-arrow': TrendingUpRounded,
   'bi-building': ApartmentRounded,
   'bi-person-lines-fill': ContactPageRounded,
+  'bi-gift': CardGiftcardRounded,
   'bi-briefcase': WorkRounded,
   'bi-check2-square': TaskAltRounded,
   'bi-clock-history': HistoryRounded,

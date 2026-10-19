@@ -19,14 +19,18 @@ interface DocumentPreviewModalProps {
     /** Presigned URL. Receipts are private objects, so this expires — fetch it at open time. */
     url: string;
     onClose: () => void;
+    /** The file's own name; otherwise the last part of the URL (a storage key) is shown. */
+    title?: string;
+    /** Keep the reader in the page: no "Open in tab" button and no new-tab fallback link. */
+    inPageOnly?: boolean;
 }
 
-export default function DocumentPreviewModal({ url, onClose }: DocumentPreviewModalProps) {
+export default function DocumentPreviewModal({ url, onClose, title, inPageOnly = false }: DocumentPreviewModalProps) {
     // Query strings on presigned URLs would otherwise defeat the extension test.
     const cleanUrl = url.split('?')[0].toLowerCase();
     const isImage = /\.(png|jpe?g|gif|webp|bmp)$/.test(cleanUrl);
     const isPdf = cleanUrl.endsWith('.pdf');
-    const filename = url.split('/').pop()?.split('?')[0] ?? 'Document';
+    const filename = title || (url.split('/').pop()?.split('?')[0] ?? 'Document');
 
     useEffect(() => {
         const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -66,16 +70,18 @@ export default function DocumentPreviewModal({ url, onClose }: DocumentPreviewMo
                         <span className="text-truncate">{filename}</span>
                     </div>
                     <div className="d-flex align-items-center gap-2 flex-shrink-0">
-                        <WtButton
-                            ghost
-                            size="small"
-                            // window.open rather than `component="a"`: WtButton is typed as a
-                            // button, and an anchor's props do not fit through it.
-                            onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
-                            startIcon={<KTIcon iconName="exit-right-corner" className="fs-5" />}
-                        >
-                            Open in tab
-                        </WtButton>
+                        {!inPageOnly && (
+                            <WtButton
+                                ghost
+                                size="small"
+                                // window.open rather than `component="a"`: WtButton is typed as a
+                                // button, and an anchor's props do not fit through it.
+                                onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+                                startIcon={<KTIcon iconName="exit-right-corner" className="fs-5" />}
+                            >
+                                Open in tab
+                            </WtButton>
+                        )}
                         <WtIconButton
                             color="#dc2626"
                             onClick={onClose}
@@ -105,12 +111,14 @@ export default function DocumentPreviewModal({ url, onClose }: DocumentPreviewMo
                                 title={`Preview: ${filename}`}
                                 style={{ width: '100%', flex: 1, border: 'none', borderRadius: 8, minHeight: 0 }}
                             />
-                            <p className="text-muted fs-7 mb-0">
-                                If the document does not display,{' '}
-                                <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary">
-                                    open it in a new tab
-                                </a>.
-                            </p>
+                            {!inPageOnly && (
+                                <p className="text-muted fs-7 mb-0">
+                                    If the document does not display,{' '}
+                                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary">
+                                        open it in a new tab
+                                    </a>.
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>

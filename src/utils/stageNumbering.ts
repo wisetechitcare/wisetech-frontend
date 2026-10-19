@@ -91,6 +91,13 @@ export const formatStageNo = (
   return prefix ? `${prefix}${format.separator ?? ""}${number}` : number;
 };
 
+/**
+ * Sr No already rendered for a deliverables board: `labels[i]` numbers stage i.
+ * A missing list (no plan, or no format) prints the bare position.
+ */
+export const stageSrNo = (index: number, labels: readonly string[] | null | undefined): string =>
+  labels?.[index] ?? String(index + 1);
+
 /** The format a plan prints with: its own choice if it still exists, else the default. */
 export const resolveStageFormat = (
   formats: StageNumberingFormat[],

@@ -4,6 +4,14 @@ if (typeof globalThis.Buffer === 'undefined') {
   globalThis.Buffer = Buffer
 }
 
+// Ensure MUI's styled() is initialized before any component chunk (e.g. Popper)
+// evaluates — Vite's dep prebundle can otherwise leave styled_default undefined.
+import '@mui/material/styles'
+
+// Calendars / dayjs weeks start Monday everywhere (before any picker mounts).
+import { configureWeekStart } from '@utils/configureWeekStart'
+configureWeekStart()
+
 import { createRoot } from 'react-dom/client'
 // Axios
 import axios from 'axios'
