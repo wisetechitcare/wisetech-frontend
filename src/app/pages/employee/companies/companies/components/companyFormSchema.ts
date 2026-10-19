@@ -9,22 +9,22 @@ interface BuiltinField { id: string; label: string; type?: FormFieldType }
 interface BuiltinSection { id: string; title: string; fields: BuiltinField[] }
 
 export const COMPANY_BUILTIN_SECTIONS: BuiltinSection[] = [
-  { id: "project_details", title: "PROJECT DETAILS", fields: [
+  { id: "project_details", title: "Company Profile", fields: [
     { id: "companyName", label: "Company Name" },
     { id: "companyTypes", label: "Company Type" },
     { id: "services", label: "Sub-services" },
   ]},
-  { id: "references", title: "REFERENCES", fields: [
+  { id: "references", title: "References", fields: [
     { id: "references", label: "References" },
   ]},
-  { id: "contact_details", title: "CONTACT DETAILS", fields: [
+  { id: "contact_details", title: "Contact Details", fields: [
     { id: "phone", label: "Phone" },
     { id: "phone2", label: "Phone 2" },
     { id: "fax", label: "FAX" },
     { id: "email", label: "Email" },
     { id: "website", label: "Website" },
   ]},
-  { id: "address", title: "ADDRESS", fields: [
+  { id: "address", title: "Address", fields: [
     { id: "addressLine1", label: "Address" },
     { id: "country", label: "Country" },
     { id: "state", label: "State" },
@@ -36,14 +36,14 @@ export const COMPANY_BUILTIN_SECTIONS: BuiltinSection[] = [
     { id: "latitude", label: "Latitude" },
     { id: "longitude", label: "Longitude" },
   ]},
-  { id: "gst", title: "GST & STATUTORY DETAILS", fields: [
+  { id: "gst", title: "GST & Statutory", fields: [
     { id: "gstNumber", label: "GST Number" },
     { id: "gstDocument", label: "GST Document", type: "file" },
     { id: "panNumber", label: "PAN Number" },
     { id: "panDocument", label: "PAN Document", type: "file" },
     { id: "gstAddress", label: "GST Address" },
   ]},
-  { id: "others", title: "OTHERS", fields: [
+  { id: "others", title: "Status & Notes", fields: [
     { id: "status", label: "Status" },
     { id: "note", label: "Note" },
   ]},

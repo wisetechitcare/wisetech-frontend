@@ -20,6 +20,7 @@ import GoogleContactsImportDialog from "./components/GoogleContactsImportDialog"
 import { toContactFormPrefill, type ContactFormPrefill, type GoogleContactCandidate } from "./components/googleContactPrefill";
 import { useServerPagination } from "@hooks/useServerPagination";
 import { fetchAllPages } from "@utils/fetchAllPages";
+import { crmListRowSx } from "../crmListRowSx";
 
 /**
  * "A2O Realty", or "A&O Realty (Vashi)" for a contact filed under a sub-company. Read off the
@@ -552,59 +553,9 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
         muiTableProps={{
 
           muiTableBodyRowProps: ({ row }) => ({
-            // sx: {
-            //     cursor: 'pointer',
-            //     backgroundColor: `${row.original?.status?.color}`,
-            //     // borderRadius: '8px',
-            //     // margin:"20px !important"
-            // },
-            sx: {
-              cursor: "pointer",
-              backgroundColor: `${row.original?.status?.color}30`,
-              // The gap between rows: a transparent border, because a virtualized table (CSS
-              // grid, not table layout) ignores `border-spacing`, and a border is measured into
-              // the row's height so the virtualizer spaces for it. No row padding — a <tr>
-              // ignored it in table layout, but in grid layout it pads every row.
-              borderBottom: "6px solid transparent",
-              backgroundClip: "padding-box",
-
-              "& .MuiTableCell-root": {
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                fontSize: "14px",
-                fontFamily: "Inter",
-                fontWeight: "400",
-                padding: "8px 16px !important",
-                borderBottom: "2px solid white",
-                borderTop: "2px solid white",
-                // borderLeft:"5px solid white"
-                // margin:"20px !important"
-              },
-              "& .MuiTableCell-root:first-of-type": {
-                borderTopLeftRadius: "12px",
-                borderBottomLeftRadius: "12px",
-                // marginTop:"40px !important"
-                borderLeft: "3px solid white",
-              },
-              "& .MuiTableCell-root:last-of-type": {
-                borderTopRightRadius: "12px",
-                borderBottomRightRadius: "12px",
-                borderRight: "3px solid white",
-              },
-              "&:hover": {
-                backgroundColor: `${row.original?.status?.color}99`,
-                "& td": {
-                  color: "black",
-                },
-              },
-            },
-
-            // onClick: () => {
-            //     navigate(`/leads/${row.original.id}`, {
-            //         state: { leadData: row.original.id },
-            //     });
-            // },
+            // Active (default) → soft green; Inactive → soft slate. Driven by
+            // isContactActive (set from Contact Status name on save), same as the avatar dot.
+            sx: crmListRowSx(row.original.isContactActive !== false),
           }),
         }}
       />
