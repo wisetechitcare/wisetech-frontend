@@ -15,6 +15,7 @@ import {
   generateServiceInsights,
 } from "./leadAnalyticsUtils";
 import { getCurrencySymbol } from '@utils/currency';
+import { AutoGrid } from '@app/modules/common/components/ui';
 
 /**
  * Period-specific sections the wrapper pages (Monthly / Yearly / All Time) inject
@@ -172,17 +173,11 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
         icon="bi-speedometer2"
         accent="#6366F1"
       />
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-          gap: 16,
-        }}
-      >
+      <AutoGrid min={160} stretch gap={16}>
         {kpiCards.map((c, i) => (
           <KpiStatCard key={c.label} {...c} index={i} />
         ))}
-      </div>
+      </AutoGrid>
     </section>
   ) : null;
 

@@ -76,7 +76,7 @@ const ProjectsTab = () => {
           {projects.map((p) => (
             <Link
               key={p.link}
-              to='/crafted/pages/profile/projects'
+              to='/employee/profile/overview'
               className='custom-list d-flex align-items-center px-5 py-4'
             >
               {/*begin::Symbol*/}

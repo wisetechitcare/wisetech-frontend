@@ -14,6 +14,7 @@ import Loader from "@app/modules/common/utils/Loader";
 import ApprovalSettings, { emptyApprovalChains, persistApprovalChains } from "@app/components/ApprovalSettings";
 import { useSalaryMaster } from "@/modules/payroll/hooks/useSalaryComponentNames";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { ToneChip } from '@app/modules/common/components/ui';
 // Leave Settings section removed — no longer needed
 // import LeaveAllocationStep from "@app/pages/employee/wizard/forms/LeaveAllocationStep";
 
@@ -379,9 +380,9 @@ function PrivacySection() {
                         style={{ width: "3rem", height: "1.5rem", cursor: "pointer" }}
                     />
                 </div>
-                <span className={`badge mt-1 ${isHidden ? "badge-light-danger" : "badge-light-success"} fs-8 fw-bold`}>
-                    {isHidden ? "Hidden" : "Visible"}
-                </span>
+                <div className="mt-1">
+                    <ToneChip dense tone={isHidden ? "danger" : "success"} label={isHidden ? "Hidden" : "Visible"} />
+                </div>
             </div>
         </div>
     );

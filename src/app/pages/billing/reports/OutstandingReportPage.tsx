@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Box, Pagination, Stack, Typography } from "@mui/material";
-import { TRIO, ToneChip } from "@app/modules/common/components/ui";
+import { AutoGrid, TRIO, ToneChip } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import { getOutstandingReport, type OutstandingTableRow } from "@services/billingReports";
@@ -109,12 +109,12 @@ const OutstandingReportPage: React.FC = () => {
         description="Issued and unpaid, aged into buckets."
       />
 
-      <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+      <AutoGrid min={180} stretch sx={{ mb: 2, gap: 1.25 }}>
         <BillingStatsCard label="Outstanding Amount" icon="wallet" trio={TRIO.rose} value={formatCurrencyDecimal(stats?.outstandingAmount ?? 0)} />
         <BillingStatsCard label="Overdue Amount" icon="information-5" trio={TRIO.rose} value={formatCurrencyDecimal(stats?.overdueAmount ?? 0)} />
         <BillingStatsCard label="Avg Due Days" icon="calendar" trio={TRIO.amber} value={stats?.averageDueDays ?? 0} />
         <BillingStatsCard label="Overdue Clients" icon="profile-user" trio={TRIO.purple} value={stats?.overdueClientCount ?? 0} />
-      </Box>
+      </AutoGrid>
 
       <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" } }}>
         <ReportChart title="Outstanding Aging" subtitle="Days overdue" type="bar" data={data?.charts.aging ?? []} height={280} />

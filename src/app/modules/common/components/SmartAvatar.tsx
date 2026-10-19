@@ -62,8 +62,9 @@ const getInitials = (name?: string | null): string => {
 };
 
 const STATUS_COLORS: Record<AvatarStatus, string> = {
-  active:   "#10b981", // Emerald 500
-  inactive: "#64748b", // Slate 500
+  // Match CRM Active (`#50cd89` on company/contact forms) + lead/project greens.
+  active:   "#50cd89",
+  inactive: "#64748b", // Slate 500 — CRM Inactive
   verified: "#3b82f6", // Blue 500
   premium:  "#8b5cf6", // Violet 500
 };

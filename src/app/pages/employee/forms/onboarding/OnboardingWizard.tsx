@@ -11,8 +11,7 @@ import type { OnboardingSectionsProps } from "./OnboardingSections";
 // the flat EnterpriseFormWizard can't express: a two-level tree in the sidebar.
 import "@app/pages/employee/forms/shared/Workspace.css";
 import "./OnboardingModal.css";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { IconBox, TRIO } from '@app/modules/common/components/ui';
+import { AppIcon, IconBox, TRIO, WtButton } from '@app/modules/common/components/ui';
 
 /** A leaf = one editable section, the unit the canvas renders and Continue walks. */
 export interface OnboardingLeaf {
@@ -735,70 +734,61 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         )}
       </div>
 
-      {/* ═══ STICKY FOOTER ═══════════════════════════════════════════════ */}
+      {/* ═══ STICKY FOOTER — kit WtButton (not legacy .wt-btn CSS) ════════ */}
       <div className="wizard-footer-bar">
         <div className="wizard-footer-left" style={{ display: "flex", gap: "0.625rem" }}>
-          <button type="button" className="wt-btn wt-btn-ghost" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
+          <WtButton
             type="button"
-            className="wt-btn wt-btn-primary"
-            style={{ minWidth: "120px" }}
+            ghost
+            className="wizard-footer-cancel"
+            onClick={onCancel}
+          >
+            Cancel
+          </WtButton>
+          <WtButton
+            type="button"
+            tone="primary"
+            flat
+            className="wizard-footer-direct-save"
+            sx={{ minWidth: 120 }}
             onClick={() => (onDirectSave ? onDirectSave() : handleDirectSave())}
             disabled={isSubmitting}
           >
-            {isSubmitting ? (
-              <>
-                Saving
-                <span className="spinner-border spinner-border-sm align-middle ms-1" />
-              </>
-            ) : (
-              <>
-                {onDirectSave
-                  ? (directSaveLabel ?? "Save draft")
-                  : isEditMode
-                    ? "Save Changes"
-                    : "Save Employee"}
-              </>
-            )}
-          </button>
+            {isSubmitting
+              ? "Saving…"
+              : onDirectSave
+                ? (directSaveLabel ?? "Save draft")
+                : isEditMode
+                  ? "Save Changes"
+                  : "Save Employee"}
+          </WtButton>
         </div>
 
         <div className="wizard-footer-right">
-          <button
+          <WtButton
             type="button"
-            className="wt-btn wt-btn-ghost"
+            ghost
+            startIcon={<ChevronLeft fontSize="small" />}
             onClick={handleBack}
             disabled={isFirst || isSubmitting}
           >
-            <ChevronLeft fontSize="small" />
             Back
-          </button>
+          </WtButton>
 
-          <button
+          <WtButton
             type="button"
-            className="wt-btn wt-btn-primary wt-btn-lg"
+            tone="primary"
+            size="medium"
+            endIcon={
+              isSubmitting ? undefined : isLast
+                ? <AppIcon name="bi-check-lg" />
+                : <ChevronRight fontSize="small" />
+            }
             onClick={handleNext}
             disabled={isSubmitting}
           >
-            {isSubmitting ? (
-              <>
-                Saving
-                <span className="spinner-border spinner-border-sm align-middle ms-1" />
-              </>
-            ) : isLast ? (
-              <>
-                {submitText}
-                <AppIcon name="bi-check-lg" />
-              </>
-            ) : (
-              <>
-                Save &amp; Continue
-                <ChevronRight fontSize="small" />
-              </>
-            )}
-          </button>
+            {isSubmitting ? "Saving…" : isLast ? submitText : "Save & Continue"}
+          </WtButton>
         </div>
       </div>
     </div>

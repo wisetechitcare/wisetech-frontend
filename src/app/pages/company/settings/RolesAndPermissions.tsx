@@ -6,7 +6,7 @@ import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { useEffect, useState } from 'react'
 import { Box, Stack, Typography } from '@mui/material';
 import {
-  ActionIconButton, GlassDialog, GlassHeader, InlineHint, SettingsSection, TRIO, WtButton, WtEmptyState, WtField, toast,
+  ActionIconButton, GlassDialog, GlassHeader, InlineHint, SettingsSection, ToneChip, TRIO, WtButton, WtEmptyState, WtField, toast,
 } from '@app/modules/common/components/ui';
 import { EmployeeSelectionDialog, type EmployeeOption } from '@app/modules/common/components/EmployeeSelectionDialog';
 import RoleAccessEditor from './RoleAccessEditor';
@@ -313,7 +313,7 @@ function RolesAndPermissions({ editingRole, onEditRole }: { editingRole: any, on
             <div className='col-4 col-md-4'>
               {role.name}
               {role?.isSystem && (
-                <span className='badge badge-light-primary fs-8 ms-2'>System</span>
+                <ToneChip dense tone="brand" label="System" sx={{ ml: 1 }} />
               )}
             </div>
             <div className='col-4 col-md-3'>{role?.employees?.length}</div>

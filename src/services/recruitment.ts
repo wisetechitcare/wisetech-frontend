@@ -108,8 +108,17 @@ export const getRecruitmentBranches = async (): Promise<RecruitmentBranch[]> => 
     return data?.branches ?? [];
 };
 
-export const getRequisitions = async (companyId?: string): Promise<JobRequisition[]> => {
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_REQUISITIONS}${listQuery({ companyId })}`);
+export const getRequisitions = async (
+    companyId?: string,
+    opts: { includeInactive?: boolean; archivedOnly?: boolean } = {},
+): Promise<JobRequisition[]> => {
+    const { data } = await axios.get(
+        `${API_BASE_URL}/${RECRUITMENT.GET_ALL_REQUISITIONS}${listQuery({
+            companyId,
+            includeInactive: opts.includeInactive ? "true" : undefined,
+            archivedOnly: opts.archivedOnly ? "true" : undefined,
+        })}`,
+    );
     return data?.requisitions ?? [];
 };
 
@@ -139,6 +148,17 @@ export const updateRequisition = async (id: string, payload: RequisitionPayload)
 
 export const archiveRequisition = async (id: string) => {
     const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.ARCHIVE_REQUISITION.replace(":id", id)}`);
+    return data;
+};
+
+export const restoreRequisition = async (id: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.RESTORE_REQUISITION.replace(":id", id)}`);
+    return data;
+};
+
+/** Cascade hard-delete from Archive — applications, interviews, offers, and adverts go with it. */
+export const permanentlyDeleteRequisition = async (id: string) => {
+    const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.PERMANENTLY_DELETE_REQUISITION.replace(":id", id)}`);
     return data;
 };
 
@@ -195,6 +215,8 @@ export interface Applicant {
     resumeFileName?: string | null;
     photoS3Url?: string | null; photoFileName?: string | null;
     linkedInUrl?: string | null; sourceId?: string | null; referredById?: string | null;
+    /** Resolved on application detail — display name of the referring employee. */
+    referredByName?: string | null;
     source?: ApplicantSource | null;
     /** Candidate wizard nested profile (API alias for preHireProfileJson). */
     preHireProfile?: Record<string, unknown> | null;
@@ -215,6 +237,8 @@ export interface Application {
     consentAt?: string | null;
     /** Posting they applied through, when known. */
     appliedPostingId?: string | null;
+    /** Resolved on detail fetch — title of the careers advert they applied via. */
+    appliedPosting?: { id: string; title: string; publicSlug?: string | null; publicUrl?: string | null } | null;
     isActive: boolean; revisionCount: number; createdAt: string;
     /**
      * How long this application has sat in its CURRENT stage. Server-computed, because the
@@ -337,10 +361,18 @@ export const getApplications = async (
         from?: string;
         to?: string;
         cursor?: string;
+        includeInactive?: boolean | string;
+        archivedOnly?: boolean | string;
     } = {},
     companyId?: string,
 ): Promise<PagedList<Application>> => {
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${listQuery({ ...filters, companyId })}`);
+    const { includeInactive, archivedOnly, ...rest } = filters;
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICATIONS}${listQuery({
+        ...rest,
+        companyId,
+        includeInactive: includeInactive === true || includeInactive === "true" ? "true" : undefined,
+        archivedOnly: archivedOnly === true || archivedOnly === "true" ? "true" : undefined,
+    })}`);
     return pagedList<Application>(data?.applications, data);
 };
 
@@ -356,6 +388,16 @@ export const moveApplicationStage = async (id: string, payload: StageMovePayload
 
 export const archiveApplication = async (id: string) => {
     const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.ARCHIVE_APPLICATION.replace(":id", id)}`);
+    return data;
+};
+
+export const restoreApplication = async (id: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.RESTORE_APPLICATION.replace(":id", id)}`);
+    return data;
+};
+
+export const permanentlyDeleteApplication = async (id: string) => {
+    const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.PERMANENTLY_DELETE_APPLICATION.replace(":id", id)}`);
     return data;
 };
 
@@ -474,8 +516,15 @@ export const getApplicants = async (
     search?: string,
     companyId?: string,
     cursor?: string,
+    opts: { includeInactive?: boolean; archivedOnly?: boolean } = {},
 ): Promise<PagedList<Applicant>> => {
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICANTS}${listQuery({ search, companyId, cursor })}`);
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_ALL_APPLICANTS}${listQuery({
+        search,
+        companyId,
+        cursor,
+        includeInactive: opts.includeInactive ? "true" : undefined,
+        archivedOnly: opts.archivedOnly ? "true" : undefined,
+    })}`);
     return pagedList<Applicant>(data?.applicants, data);
 };
 
@@ -489,11 +538,35 @@ export const getApplicantById = async (id: string): Promise<Applicant | null> =>
     return data?.applicant ?? null;
 };
 
-// There is deliberately no deleteApplicant: candidate records are never hard-deleted (audit +
-// data-retention). Deactivating/blacklisting flows through this update instead.
 export const updateApplicant = async (id: string, payload: Partial<ApplicantPayload> & { isBlacklisted?: boolean; isActive?: boolean; expectedRevisionCount?: number }) => {
     const { data } = await axios.put(`${API_BASE_URL}/${RECRUITMENT.UPDATE_APPLICANT.replace(":id", id)}`, payload);
     return data;
+};
+
+/** Soft-archive a candidate (and their active applications). Not DPDP erase. */
+export const archiveApplicant = async (id: string) => {
+    const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.ARCHIVE_APPLICANT.replace(":id", id)}`);
+    return data;
+};
+
+export const restoreApplicant = async (id: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.RESTORE_APPLICANT.replace(":id", id)}`);
+    return data;
+};
+
+/** Cascade hard-delete — applications, interviews, and offers go with the candidate. */
+export const permanentlyDeleteApplicant = async (id: string) => {
+    const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.PERMANENTLY_DELETE_APPLICANT.replace(":id", id)}`);
+    return data;
+};
+
+/**
+ * Subject-access / portability JSON for one applicant (GDPR Art. 15/20).
+ * Requires recruitment manage permission on the API.
+ */
+export const exportApplicantSubjectAccess = async (id: string): Promise<unknown> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.EXPORT_APPLICANT.replace(":id", id)}`);
+    return data?.export ?? data;
 };
 
 /** Candidate wizard photo — authenticated recruiters only. */
@@ -595,13 +668,18 @@ export const reorderConfig = async (type: string, orderedIds: string[]) => {
 // ─── Tenant settings (scoring weights + automation rules) ────────────────────
 export interface ScoringWeights { ctcFit: number; experience: number; noticePeriod: number; keywordMatch: number }
 export interface AutoRules { autoAdvanceEnabled: boolean; autoRejectEnabled: boolean; aiScreeningEnabled: boolean }
+/** Where the 0–100 rule score becomes Excellent / Good / Fair (below fair = Weak). */
+export interface ScoreBandThresholds { excellent: number; good: number; fair: number }
+/** Days in stage before a card ages (amber) then stalls (red). */
+export interface StageAgeingThresholds { amberDays: number; redDays: number }
 export interface RecruitmentSettings {
     weights: ScoringWeights;
     autoRules: AutoRules;
+    scoreBands?: ScoreBandThresholds;
+    stageAgeing?: StageAgeingThresholds;
     /**
-     * Who a new requisition names as recruiter before anyone edits it — normally whoever in
-     * HR runs hiring. A setting rather than a constant: which person that is differs per
-     * customer. Null when unset, and the field is then simply left empty.
+     * Legacy — role form no longer stamps a default recruiter (approval workflow retired).
+     * Still returned by the API; Configure no longer edits it.
      */
     defaultRecruiterId?: string | null;
 }
@@ -907,6 +985,22 @@ export const respondToOffer = async (id: string, acceptanceStatus: "ACCEPTED" | 
 };
 
 // ─── Job postings (Phase 6, admin) ───────────────────────────────────────────
+/** Careers apply-form field types — must match backend `APPLY_FORM_FIELD_TYPES`. */
+export type ApplyFormFieldType = "text" | "number" | "select" | "boolean" | "date";
+
+export interface ApplyFormField {
+    id: string;
+    type: ApplyFormFieldType;
+    label: string;
+    required?: boolean;
+    options?: string[];
+    knockout?: { value: string | number | boolean } | null;
+}
+
+export interface ApplyFormConfig {
+    fields: ApplyFormField[];
+}
+
 export interface JobPosting {
     id: string; requisitionId: string; publicSlug: string; title: string;
     descriptionHtml?: string | null; location?: string | null; isRemote: boolean;
@@ -914,6 +1008,8 @@ export interface JobPosting {
     /** Publish this role's CTC band publicly. Off by default; the server redacts the
      *  numbers entirely when it is false, so they never reach the careers site. */
     showSalary?: boolean;
+    /** Extra questions on the public apply form (null = none). */
+    applyFormConfig?: ApplyFormConfig | null;
     /**
      * The link a recruiter shares, built by the server from `CAREERS_SITE_BASE_URL`.
      * `null` when no careers site is configured for this deployment — offer no link at all
@@ -927,11 +1023,23 @@ export interface PostingPayload {
     requisitionId?: string; title?: string; descriptionHtml?: string | null; location?: string | null;
     isRemote?: boolean; employmentType?: string | null; expiresAt?: string | null; isPublished?: boolean; isActive?: boolean;
     showSalary?: boolean;
+    applyFormConfig?: ApplyFormConfig | null;
 }
 
-export const getPostings = async (companyId?: string): Promise<JobPosting[]> => {
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_POSTINGS}${listQuery({ companyId })}`);
+export const getPostings = async (
+    companyId?: string,
+    opts: { includeInactive?: boolean; archivedOnly?: boolean } = {},
+): Promise<JobPosting[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_POSTINGS}${listQuery({
+        companyId,
+        includeInactive: opts.includeInactive ? "true" : undefined,
+        archivedOnly: opts.archivedOnly ? "true" : undefined,
+    })}`);
     return data?.postings ?? [];
+};
+export const getPostingById = async (id: string): Promise<JobPosting | null> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_POSTING_BY_ID.replace(":id", id)}`);
+    return data?.posting ?? null;
 };
 export const createPosting = async (payload: PostingPayload, companyId?: string) => {
     const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_POSTING}${listQuery({ companyId })}`, payload);
@@ -943,6 +1051,16 @@ export const updatePosting = async (id: string, payload: PostingPayload) => {
 };
 export const deletePosting = async (id: string) => {
     const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.DELETE_POSTING.replace(":id", id)}`);
+    return data;
+};
+
+export const restorePosting = async (id: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.RESTORE_POSTING.replace(":id", id)}`);
+    return data;
+};
+
+export const permanentlyDeletePosting = async (id: string) => {
+    const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.PERMANENTLY_DELETE_POSTING.replace(":id", id)}`);
     return data;
 };
 
@@ -976,6 +1094,8 @@ export interface RecruitmentOverview {
     timeToHire: { count: number; avgDays: number | null; medianDays: number | null; p90Days: number | null };
     requisitionsByStatus: { pending: number; approved: number; rejected: number };
     candidatesBySource: Array<{ id: string; name: string; color?: string | null; count: number; hires: number; hireRatePct: number | null }>;
+    /** Employee referral leaderboard — applications with applicant.referredById set. */
+    referralsByEmployee?: Array<{ id: string; name: string; count: number; hires: number; hireRatePct: number | null }>;
     offersByAcceptance: Array<{ status: string; count: number }>;
     /** The window the server actually applied, echoed so the UI cannot mislabel it. */
     range: { from: string | null; to: string | null };

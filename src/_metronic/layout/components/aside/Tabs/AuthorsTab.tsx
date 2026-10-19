@@ -1,4 +1,4 @@
-﻿import {Link} from 'react-router-dom'
+import {Link} from 'react-router-dom'
 import {toAbsoluteUrl} from '../../../../helpers'
 
 const authors: ReadonlyArray<{
@@ -68,7 +68,7 @@ const AuthorsTab = () => (
           {/*begin::Text*/}
           <div className='flex-grow-1'>
             <Link
-              to='/crafted/account/overview'
+              to='/employee/profile/overview'
               className='text-gray-900 fw-bolder text-hover-primary fs-6'
             >
               {a.name}

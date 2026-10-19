@@ -5,6 +5,7 @@ import type { RootState } from '@redux/store';
 import { AdminFolder } from '@models/media';
 import Loader from '@app/modules/common/utils/Loader';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { ToneChip } from '@app/modules/common/components/ui';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 
 interface AdminFolderListProps {
@@ -63,9 +64,7 @@ const AdminFolderList: React.FC<AdminFolderListProps> = ({ admins }) => {
       {/* Header */}
       <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-4 gap-3">
         <h4 className="fw-bold text-gray-800 mb-0 fs-5 fs-md-4">Admin Folders</h4>
-        <span className="badge bg-light-primary fs-7 fs-sm-6 px-3 py-2">
-          Total: {admins?.length || 0}
-        </span>
+        <ToneChip dense tone="brand" label={`Total: ${admins?.length || 0}`} />
       </div>
 
       {/* Empty State */}

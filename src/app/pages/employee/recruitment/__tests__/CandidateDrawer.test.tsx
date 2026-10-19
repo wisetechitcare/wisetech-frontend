@@ -45,6 +45,10 @@ vi.mock('@services/company', async (importOriginal) => ({
     getDepartmentDesignations: vi.fn(async () => ({ links: [], suggestions: [] })),
 }));
 vi.mock('@app/modules/common/components/EmployeePickerField', () => ({ EmployeePickerField: () => null }));
+vi.mock('@modules/audit/VersionHistory', () => ({
+    VersionHistory: () => <div data-testid="version-history" />,
+    default: () => <div data-testid="version-history" />,
+}));
 
 import CandidateDrawer from '../CandidateDrawer';
 import type { Application, ApplicationStatus } from '@services/recruitment';
@@ -125,7 +129,7 @@ describe('CandidateDrawer', () => {
         renderDrawer();
         const dialog = await screen.findByRole('dialog');
         expect(within(dialog).getAllByText('Aisha Rahman')).toHaveLength(1);
-        for (const heading of ['Profile', 'Notes', 'Stage History', 'Interviews', 'Offer']) {
+        for (const heading of ['Profile', 'Notes', 'Stage History', 'Change History', 'Interviews', 'Offer']) {
             expect(within(dialog).getAllByText(heading)).toHaveLength(1);
         }
         expect(within(dialog).queryByText(/Interviews —/)).toBeNull();

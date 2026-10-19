@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Box, Pagination, Stack, Typography } from "@mui/material";
-import { TRIO } from "@app/modules/common/components/ui";
+import { AutoGrid, TRIO } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { getReceivableReport, type ReceivableTableRow } from "@services/billingReports";
 import { BillingPageHeader, BillingStatsCard, BillingStatusBadge, BillingTable, type BillingColumn } from "../components";
@@ -83,13 +83,13 @@ const ReceivableReportPage: React.FC = () => {
         description="Approved and proforma'd work not yet invoiced."
       />
 
-      <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+      <AutoGrid min={180} stretch sx={{ mb: 2, gap: 1.25 }}>
         <BillingStatsCard label="Receivable Amount" icon="wallet" trio={TRIO.amber} value={formatCurrencyDecimal(stats?.receivableAmount ?? 0)} />
         <BillingStatsCard label="Pending Billing" icon="document" trio={TRIO.blue} value={stats?.pendingBillingCount ?? 0} />
         <BillingStatsCard label="Pending Proformas" icon="send" trio={TRIO.purple} value={stats?.pendingProformaCount ?? 0} />
         <BillingStatsCard label="Pending Payments" icon="wallet" trio={TRIO.rose} value={stats?.pendingPaymentCount ?? 0} />
         <BillingStatsCard label="Ready for Invoice" icon="receipt-cutoff" trio={TRIO.cyan} value={stats?.readyForInvoiceCount ?? 0} />
-      </Box>
+      </AutoGrid>
 
       <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" } }}>
         <ReportChart title="Receivable Pipeline" subtitle="By workflow stage" type="bar" data={data?.charts.pipeline ?? []} height={280} />

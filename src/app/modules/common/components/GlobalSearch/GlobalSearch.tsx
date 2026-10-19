@@ -21,6 +21,7 @@ import ExploreIcon from '@mui/icons-material/Explore';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import KeyboardReturnIcon from '@mui/icons-material/KeyboardReturn';
 import './GlobalSearch.css';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 interface GlobalSearchProps {
   restrictType?: 'Project' | 'Company' | 'Contact' | 'Lead' | 'Employee' | 'Task' | 'Navigation' | 'KPI';
@@ -516,7 +517,7 @@ const renderResultItem = (result: UnifiedSearchResult, query: string) => {
         </div>
       </div>
       {(result as any).score > 100 && (
-        <span className="badge badge-light-success fs-10 py-0 px-2 ms-2 rounded-pill">High Match</span>
+        <ToneChip dense tone="success" label="High Match" sx={{ ml: 1, flexShrink: 0 }} />
       )}
     </>
   );

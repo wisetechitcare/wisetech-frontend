@@ -10,6 +10,8 @@ import {
   SearchResultType,
 } from "@app/utils/search";
 import { isPackEnabled } from "@utils/tenantPacks";
+import { ToneChip } from "@app/modules/common/components/ui";
+import type { SemanticTone } from "@app/theme/tokens";
 
 const ALL_RESULT_TABS: Array<"All" | SearchResultType> = [
   "All",
@@ -153,11 +155,11 @@ const SearchResultsPage: React.FC = () => {
                                   query={query}
                                 />
                               </div>
-                              <span
-                                className={`badge badge-light-${getTypeColor(result.type)} fw-bold fs-8 px-2 py-1`}
-                              >
-                                {result.type}
-                              </span>
+                              <ToneChip
+                                dense
+                                tone={getTypeTone(result.type)}
+                                label={result.type}
+                              />
                             </div>
                             <div className="text-muted fw-semibold fs-7">
                               {result.subtitle}
@@ -185,9 +187,7 @@ const SearchResultsPage: React.FC = () => {
                                   />
                                 </span>
                                 {match.isMatch && (
-                                  <span className="badge badge-warning fs-9 px-2 ms-2">
-                                    Matched
-                                  </span>
+                                  <ToneChip dense tone="warning" label="Matched" sx={{ ml: 1 }} />
                                 )}
                               </div>
                             ),
@@ -250,6 +250,26 @@ const getTypeColor = (type: string) => {
       return "dark";
     default:
       return "primary";
+  }
+};
+
+const getTypeTone = (type: string): SemanticTone => {
+  switch (type) {
+    case "Contact":
+      return "success";
+    case "Lead":
+      return "warning";
+    case "Employee":
+      return "danger";
+    case "KPI":
+    case "Project":
+      return "cyan";
+    case "Task":
+      return "neutral";
+    case "Navigation":
+    case "Company":
+    default:
+      return "brand";
   }
 };
 

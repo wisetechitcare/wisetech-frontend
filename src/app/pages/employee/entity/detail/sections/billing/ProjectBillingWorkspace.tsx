@@ -8,7 +8,7 @@ import {
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
-    GlassCard, TRIO, WtButton, CurrencySymbol, toast,
+    AutoGrid, GlassCard, TRIO, WtButton, CurrencySymbol, toast,
 } from "@app/modules/common/components/ui";
 import { confirmDialog } from "@app/modules/common/components/ui/feedback";
 import {
@@ -871,18 +871,16 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                 compact ones — see `MiniCard` for why they are not the same card
                 as the three totals above.
             */}
-            <Box
+            <AutoGrid
+                min={172}
+                stretch
+                gap={1.25}
                 sx={{
-                    display: "grid",
-                    // auto-fit, because the row carries between three and six
-                    // figures depending on whether the project has TDS, GST or
-                    // legacy billing — a fixed column count would leave a hole on
-                    // the projects that have none of them.
+                    // Two-up on phones; auto-fit from sm so optional TDS/GST/legacy tiles
+                    // do not leave a hole when a project has fewer of them.
                     gridTemplateColumns: {
                         xs: "repeat(2, minmax(0, 1fr))",
-                        sm: "repeat(auto-fit, minmax(172px, 1fr))",
                     },
-                    gap: 1.25,
                 }}
             >
                 <MiniCard
@@ -931,7 +929,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                         hint="GST charged on issued bills — collected from the client and paid over."
                     />
                 )}
-            </Box>
+            </AutoGrid>
 
             {rows.length === 0 ? (
                 <BillingEmptyState

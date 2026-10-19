@@ -1,29 +1,33 @@
 import React, { useState } from "react";
-import { Modal, Button } from "react-bootstrap";
-import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
+import { Formik } from "formik";
 import * as Yup from "yup";
-import { createLeadStatus, updateLeadStatus, createLeadReferralType, updateLeadReferralType, updateLeadDirectSource, createLeadDirectSource, createLeadCancellationReason, updateLeadCancellationReason, createLeadPoStatus, updateLeadPoStatus} from "@services/lead";
+import { Stack } from "@mui/material";
+import {
+  createLeadStatus, updateLeadStatus, createLeadReferralType, updateLeadReferralType,
+  updateLeadDirectSource, createLeadDirectSource, createLeadCancellationReason,
+  updateLeadCancellationReason, createLeadPoStatus, updateLeadPoStatus,
+} from "@services/lead";
 import { successConfirmation } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import Swal from "sweetalert2";
-
-
-declare module 'react' {
-  interface StyleHTMLAttributes<T> extends React.HTMLAttributes<T> {
-    jsx?: boolean;
-    global?: boolean;
-  }
-}
+import {
+  ConfigureFormDialog,
+  KIT_HEX_SWATCHES,
+  WtCheckboxField,
+  WtColorPicker,
+  WtField,
+  WtFieldFormik,
+} from "@app/modules/common/components/ui";
 
 export interface ConfigItem {
   id?: string;
   name: string;
   color: string;
-  isDefault?: boolean; // Added: Field to mark default status
-  isInternal?: boolean; // Added: Field to distinguish internal vs external referral types
-  isProjectTrigger?: boolean; // Leads in this status are treated as Projects (unified entity)
-  isLostOutcome?: boolean; // Leads in this status are a terminal "lost" closure (require a reason)
+  isDefault?: boolean;
+  isInternal?: boolean;
+  isProjectTrigger?: boolean;
+  isLostOutcome?: boolean;
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -39,13 +43,8 @@ interface ConfigFormProps {
   title: string;
 }
 
-// PO Status names are stored on the lead itself (`leads.po_status`, VARCHAR(20)) rather
-// than as an FK, so a longer name would be silently truncated on save. Enforced here as
-// well as in the API's yup schema.
 const PO_STATUS_MAX = 20;
 
-// One row per list this modal edits. Replaces three parallel ternary chains (create fn,
-// update fn, event key) that a new list had to be threaded through in all three places.
 const SERVICES: Record<ConfigFormProps["type"], {
   create: (payload: any) => Promise<any>;
   update: (id: string, payload: any) => Promise<any>;
@@ -58,92 +57,76 @@ const SERVICES: Record<ConfigFormProps["type"], {
   "po-status": { create: createLeadPoStatus, update: updateLeadPoStatus, event: EVENT_KEYS.leadPoStatusCreated },
 };
 
-const validationSchema = Yup.object().shape({
-  name: Yup.string().required('Category Name is required'),
-  color: Yup.string().required('Color is required'),
-  isInternal: Yup.boolean().optional(), // Only for referral types
-  isDefault: Yup.boolean().optional(), // Only for status types
-  isProjectTrigger: Yup.boolean().optional(), // Only for status types
-  isLostOutcome: Yup.boolean().optional(), // Only for status types
-  isActive: Yup.boolean().required()
-});
-
-const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, initialData, isEditing = false, type, title }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const LeadsConfigForm: React.FC<ConfigFormProps> = ({
+  show, onClose, onSuccess, initialData, isEditing = false, type, title,
+}) => {
   const [error, setError] = useState<string | null>(null);
 
+  const validationSchema = Yup.object().shape({
+    name: Yup.string()
+      .required("Category Name is required")
+      .max(
+        type === "po-status" ? PO_STATUS_MAX : 200,
+        type === "po-status" ? `Max ${PO_STATUS_MAX} characters` : undefined,
+      ),
+    color: Yup.string().required("Color is required"),
+    isInternal: Yup.boolean().optional(),
+    isDefault: Yup.boolean().optional(),
+    isProjectTrigger: Yup.boolean().optional(),
+    isLostOutcome: Yup.boolean().optional(),
+    isActive: Yup.boolean().required(),
+  });
 
   const initialValues = {
     name: initialData?.name || "",
     color: initialData?.color || "#1E3A8A",
-    ...(type === "referral" && { isInternal: initialData?.isInternal ?? false }), // Only for referral types
-    ...(type === "status" && { isDefault: initialData?.isDefault ?? false }), // Only for status types
+    ...(type === "referral" && { isInternal: initialData?.isInternal ?? false }),
+    ...(type === "status" && { isDefault: initialData?.isDefault ?? false }),
     ...(type === "status" && { isProjectTrigger: initialData?.isProjectTrigger ?? false }),
     ...(type === "status" && { isLostOutcome: initialData?.isLostOutcome ?? false }),
     isActive: initialData?.isActive ?? true,
   };
 
   const handleSubmit = async (values: typeof initialValues) => {
-    setError("");
+    setError(null);
 
-    // Check if user is trying to set a status as default
     if (type === "status" && "isDefault" in values && values.isDefault) {
       const result = await Swal.fire({
-        title: 'Set as Default Status?',
-        text: 'There can be only 1 default status. If any previous status is set as default, it will be overwritten and this status will be set as default.',
-        icon: 'warning',
+        title: "Set as Default Status?",
+        text: "There can be only 1 default status. If any previous status is set as default, it will be overwritten and this status will be set as default.",
+        icon: "warning",
         showCancelButton: true,
-        confirmButtonColor: '#1E3A8A',
-        cancelButtonColor: '#6c757d',
-        confirmButtonText: 'Yes, Set as Default',
-        cancelButtonText: 'Cancel'
+        confirmButtonColor: "#1E3A8A",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Yes, Set as Default",
+        cancelButtonText: "Cancel",
       });
-
-      if (!result.isConfirmed) {
-        return; // User cancelled, don't proceed with submission
-      }
+      if (!result.isConfirmed) return;
     }
 
-    setIsSubmitting(true);
-
     try {
-      // Transform values for cancellation-reason type
-      let submitValues: any = values;
+      let submitValues: any;
       if (type === "cancellation-reason") {
         submitValues = {
           reason: values.name,
           color: values.color,
-          isActive: values.isActive
+          isActive: values.isActive,
         };
       } else {
-        // Filter out fields that don't belong to this type
         submitValues = {
           name: values.name,
           color: values.color,
-          isActive: values.isActive
+          isActive: values.isActive,
         };
-
-        // Add color for types that support it
-        if (type !== "cancellation-reason" as any) {
-          submitValues.color = values.color;
-        }
-
-        // Add isInternal only for referral types
         if (type === "referral" && "isInternal" in values) {
           submitValues.isInternal = values.isInternal;
         }
-
-        // Add isDefault only for status types
         if (type === "status" && "isDefault" in values) {
           submitValues.isDefault = values.isDefault;
         }
-
-        // Add isProjectTrigger only for status types (unified Lead = Project rule)
         if (type === "status" && "isProjectTrigger" in values) {
           submitValues.isProjectTrigger = values.isProjectTrigger;
         }
-
-        // Add isLostOutcome only for status types (terminal "lost" closure rule)
         if (type === "status" && "isLostOutcome" in values) {
           submitValues.isLostOutcome = (values as any).isLostOutcome;
         }
@@ -160,330 +143,91 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
       }
 
       eventBus.emit(event, { id: isEditing ? "updated" : "created" });
-      if (onSuccess) onSuccess();
+      onSuccess?.();
       onClose();
     } catch (err: any) {
       const action = isEditing ? "update" : "create";
       setError(err.response?.data?.message || `Failed to ${action} ${title.toLowerCase()}`);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
-  if (!show) return null;
-
   return (
-    <Modal show={show} onHide={onClose} centered>
-      <Modal.Header closeButton style={{ borderBottom: 'none', paddingBottom: '8px' }}>
-        <Modal.Title style={{ fontWeight: '600', fontSize: '18px', color: '#1a1a1a' }}>
-          {isEditing ? "Edit" : "New"} {title}
-        </Modal.Title>
-      </Modal.Header>
-      <Formik
-        initialValues={initialValues}
-        validationSchema={validationSchema}
-        onSubmit={handleSubmit}
-        enableReinitialize
-      >
-        {({ values, setFieldValue }) => (
-          <FormikForm>
-            <Modal.Body style={{ paddingTop: '16px' }}>
-              {error && <div className="alert alert-danger mb-3">{error}</div>}
+    <Formik
+      initialValues={initialValues}
+      validationSchema={validationSchema}
+      onSubmit={handleSubmit}
+      enableReinitialize
+    >
+      {(fk) => (
+        <ConfigureFormDialog
+          open={show}
+          onClose={onClose}
+          title={`${isEditing ? "Edit" : "New"} ${title}`}
+          saving={fk.isSubmitting}
+          error={error}
+          onSubmit={fk.handleSubmit}
+          submitLabel={isEditing ? "Update" : "Save"}
+        >
+          <Stack spacing={2.5}>
+            <WtFieldFormik
+              name="name"
+              label="Category Name"
+              required
+              fullWidth
+              placeholder="Enter category name"
+              hint={type === "po-status" ? `Max ${PO_STATUS_MAX} characters (stored on the lead row).` : undefined}
+            />
 
-              {/* Category Name Input */}
-              <div className="mb-4">
-                <label
-                  className="form-label"
-                  style={{
-                    fontWeight: '500',
-                    color: '#1a1a1a',
-                    fontSize: '14px',
-                    marginBottom: '8px'
-                  }}
-                >
-                  Category Name
-                  <span
-                    style={{
-                      color: '#dc3545',
-                      marginLeft: '4px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    *
-                  </span>
-                </label>
-                <Field
-                  name="name"
-                  type="text"
-                  placeholder="Enter category name"
-                  maxLength={type === "po-status" ? PO_STATUS_MAX : undefined}
-                  className="form-control mb-5 required"
-                  style={{
-                    backgroundColor: '#f8f9fa',
-                    border: '1px solid #e9ecef',
-                    borderRadius: '8px',
-                    padding: '12px 16px',
-                    fontSize: '14px',
-                    color: '#6c757d',
-                    fontFamily: 'Inter, sans-serif',
-                  }}
-                />
-                <ErrorMessage name="name" component="div" className="text-danger mt-1" />
-              </div>
+            {type === "referral" && (
+              <WtField
+                label="Type"
+                fullWidth
+                options={[
+                  { value: "false", label: "External" },
+                  { value: "true", label: "Internal" },
+                ]}
+                value={String(fk.values.isInternal ?? false)}
+                onChange={(v) => fk.setFieldValue("isInternal", v === "true" || v === true)}
+              />
+            )}
 
-              {/* Internal/External Radio Buttons - Show only for referral type */}
-              {type === "referral" && (
-                <div className="mb-4">
-                  <label
-                    className="form-label"
-                    style={{
-                      fontWeight: '500',
-                      color: '#1a1a1a',
-                      fontSize: '14px',
-                      marginBottom: '8px'
-                    }}
-                  >
-                    Type
-                  </label>
-                  <div className="d-flex flex-column flex-md-row gap-2">
-                    {[
-                      { value: false, label: "External" },
-                      { value: true, label: "Internal" }
-                    ].map((option) => (
-                      <div
-                        key={option.value.toString()}
-                        className="form-check form-check-inline"
-                      >
-                        <input
-                          type="radio"
-                          id={`isInternal-${option.value}`}
-                          name="isInternal"
-                          className="form-check-input"
-                          checked={values.isInternal === option.value}
-                          onChange={() => setFieldValue("isInternal", option.value)}
-                        />
-                        <label
-                          className="form-check-label"
-                          htmlFor={`isInternal-${option.value}`}
-                          style={{
-                            fontSize: '14px',
-                            color: '#6c757d',
-                            fontFamily: 'Inter, sans-serif',
-                          }}
-                        >
-                          {option.label}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                  <ErrorMessage name="isInternal" component="div" className="text-danger mt-1" />
-                </div>
-              )}
+            {type === "status" && (
+              <WtCheckboxField
+                size="sm"
+                checked={Boolean(fk.values.isDefault)}
+                onChange={(e) => fk.setFieldValue("isDefault", e.target.checked)}
+                label="Set as Default Status"
+              />
+            )}
 
-              {/* Default Status Checkbox - Show only for status type */}
-              {type === "status" && (
-                <div className="mb-4">
-                  <div className="form-check">
-                    <input
-                      type="checkbox"
-                      id="isDefault"
-                      name="isDefault"
-                      className="form-check-input"
-                      checked={values.isDefault}
-                      onChange={(e) => setFieldValue("isDefault", e.target.checked)}
-                    />
-                    <label
-                      className="form-check-label"
-                      htmlFor="isDefault"
-                      style={{
-                        fontWeight: '500',
-                        color: '#1a1a1a',
-                        fontSize: '14px',
-                        fontFamily: 'Inter, sans-serif',
-                      }}
-                    >
-                      Set as Default Status
-                    </label>
-                  </div>
-                  <ErrorMessage name="isDefault" component="div" className="text-danger mt-1" />
-                </div>
-              )}
+            {type === "status" && (
+              <WtCheckboxField
+                size="sm"
+                checked={Boolean((fk.values as any).isLostOutcome)}
+                onChange={(e) => fk.setFieldValue("isLostOutcome", e.target.checked)}
+                label="Treat leads in this status as Lost"
+                description="Marks the lead as a terminal negative outcome. The lead form will require a closure reason and note."
+              />
+            )}
 
+            <WtColorPicker
+              label="Category colour"
+              variant="row"
+              palette={KIT_HEX_SWATCHES}
+              value={fk.values.color}
+              onChange={(c) => fk.setFieldValue("color", c)}
+            />
 
-              {/* Lost Outcome Checkbox - Show only for status type */}
-              {type === "status" && (
-                <div className="mb-4">
-                  <div className="form-check">
-                    <input
-                      type="checkbox"
-                      id="isLostOutcome"
-                      name="isLostOutcome"
-                      className="form-check-input"
-                      checked={(values as any).isLostOutcome}
-                      onChange={(e) => setFieldValue("isLostOutcome", e.target.checked)}
-                    />
-                    <label
-                      className="form-check-label"
-                      htmlFor="isLostOutcome"
-                      style={{
-                        fontWeight: '500',
-                        color: '#1a1a1a',
-                        fontSize: '14px',
-                        fontFamily: 'Inter, sans-serif',
-                      }}
-                    >
-                      Treat leads in this status as Lost
-                    </label>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px', fontFamily: 'Inter, sans-serif' }}>
-                    Marks the lead as a terminal negative outcome (lost to competitor, no
-                    budget, etc.). The lead form will require a closure reason and note, and
-                    the lead is flagged as cancelled. Use this for "Lost" / "Canceled" statuses.
-                  </div>
-                  <ErrorMessage name="isLostOutcome" component="div" className="text-danger mt-1" />
-                </div>
-              )}
-
-              {/* Color Picker - Hide for cancellation-reason type */}
-              {/* {type !== "cancellation-reason" && ( */}
-              <div className="mb-4">
-                <label
-                  className="form-label"
-                  style={{
-                    fontWeight: '500',
-                    color: '#1a1a1a',
-                    fontSize: '14px',
-                    marginBottom: '8px'
-                  }}
-                >
-                  Choose Category Color
-                </label>
-                <div className="position-relative">
-                  <div
-                    className="d-flex align-items-center justify-content-between"
-                    style={{
-                      backgroundColor: '#f8f9fa',
-                      border: '1px solid #e9ecef',
-                      borderRadius: '8px',
-                      padding: '12px 16px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      color: '#6c757d'
-                    }}
-                    onClick={() => document.getElementById("colorInput")?.click()}
-                  >
-                    <div className="d-flex align-items-center">
-                      <div
-                        className="rounded-circle me-3"
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          backgroundColor: values.color,
-                          border: '2px solid #fff',
-                          boxShadow: '0 0 0 1px rgba(0,0,0,0.1)'
-                        }}
-                      />
-                      <span>Choose Color</span>
-                    </div>
-                    <span
-                      className="text-uppercase fw-medium"
-                      style={{ fontSize: '12px', color: '#6c757d' }}
-                    >
-                      {values.color}
-                    </span>
-                  </div>
-                  <input
-                    id="colorInput"
-                    type="color"
-                    name="color"
-                    value={values.color || '#1E3A8A'}
-                    onChange={(e) => {
-                      setFieldValue("color", e.target.value, true);
-                    }}
-                    onBlur={() => {
-                      if (!values.color) {
-                        setFieldValue("color", "#1E3A8A", true);
-                      }
-                    }}
-                    style={{
-                      opacity: 0,
-                      position: 'absolute',
-                      width: '1px',
-                      height: '1px',
-                      overflow: 'hidden',
-                      padding: 0,
-                      border: 'none',
-                      pointerEvents: 'none'
-                    }}
-                  />
-                </div>
-              </div>
-              {/* )}  */}
-            </Modal.Body>
-
-            <Modal.Footer style={{ borderTop: 'none', paddingTop: '0' }}>
-              <Button
-                variant="primary"
-                type="submit"
-                disabled={isSubmitting}
-                style={{
-                  backgroundColor: '#1E3A8A',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '10px 24px',
-                  fontWeight: '500',
-                  fontSize: '14px'
-                }}
-              >
-                {isSubmitting ? "Saving..." : isEditing ? "Update" : "Save"}
-              </Button>
-            </Modal.Footer>
-          </FormikForm>
-        )}
-      </Formik>
-
-      <style jsx>{`
-        .form-control:focus {
-          background-color: #fff !important;
-          border-color: #1E3A8A !important;
-          box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.1) !important;
-          color: #495057 !important;
-        }
-
-        .form-control::placeholder {
-          color: #adb5bd !important;
-        }
-
-        .modal-content {
-          border-radius: 12px !important;
-          border: none !important;
-          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1) !important;
-        }
-
-        .btn-close {
-          font-size: 12px !important;
-          opacity: 0.6 !important;
-        }
-
-        .btn-primary:hover {
-          background-color: #172554 !important;
-        }
-
-        .btn-primary:disabled {
-          background-color: #ccc !important;
-        }
-
-        .form-check-input:checked {
-          background-color: #1E3A8A !important;
-          border-color: #1E3A8A !important;
-        }
-
-        .form-check-input:focus {
-          border-color: #1E3A8A !important;
-          box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.25) !important;
-        }
-      `}</style>
-    </Modal>
+            <WtCheckboxField
+              size="sm"
+              checked={Boolean(fk.values.isActive)}
+              onChange={(e) => fk.setFieldValue("isActive", e.target.checked)}
+              label="Active"
+            />
+          </Stack>
+        </ConfigureFormDialog>
+      )}
+    </Formik>
   );
 };
 

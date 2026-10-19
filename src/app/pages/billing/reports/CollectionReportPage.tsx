@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Box, Pagination, Stack, Typography } from "@mui/material";
-import { TRIO, ToneChip } from "@app/modules/common/components/ui";
+import { AutoGrid, TRIO, ToneChip } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import { getCollectionReport, type CollectionTableRow } from "@services/billingReports";
@@ -117,13 +117,13 @@ const CollectionReportPage: React.FC = () => {
         description="What was invoiced against what was actually received."
       />
 
-      <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+      <AutoGrid min={180} stretch sx={{ mb: 2, gap: 1.25 }}>
         <BillingStatsCard label="Collected" icon="check-square" trio={TRIO.green} value={formatCurrencyDecimal(stats?.collectedAmount ?? 0)} />
         <BillingStatsCard label="Outstanding" icon="wallet" trio={TRIO.rose} value={formatCurrencyDecimal(stats?.outstandingAmount ?? 0)} />
         <BillingStatsCard label="Collection %" icon="chart-pie-simple" trio={TRIO.blue} value={`${(stats?.collectionPercentage ?? 0).toFixed(1)}%`} />
         <BillingStatsCard label="Avg Collection Days" icon="calendar" trio={TRIO.purple} value={stats?.averageCollectionDays ?? "—"} />
         <BillingStatsCard label="Pending Collections" icon="information-5" trio={TRIO.amber} value={stats?.pendingCollectionCount ?? 0} />
-      </Box>
+      </AutoGrid>
 
       <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" } }}>
         <ReportChart title="Collection Trend" subtitle="Last 12 months" type="line" data={data?.charts.trend ?? []} height={280} />

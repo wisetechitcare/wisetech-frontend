@@ -3,10 +3,11 @@ import { Button, IconButton } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { T } from './tokens';
 import { TRIO, type Trio } from './patterns';
+import { tintedIconSurfaceSx } from './buttons';
+import { useIsDark } from './tw/useIsDark';
 import WtTooltip from './WtTooltip';
 
 export type ActionTone = 'brand' | 'indigo' | 'danger' | 'success' | 'onBrand';
-
 
 /**
  * Map a kit `Trio` accent onto an `ActionIconButton` tone.
@@ -80,15 +81,10 @@ const SIZE_PX: Record<'sm' | 'md', number> = { sm: 30, md: 40 };
 const SIZE_ICON_CLASS: Record<'sm' | 'md', string> = { sm: 'fs-6', md: 'fs-4' };
 
 /**
- * Row/card action button: a tinted ~40px square holding a KTIcon.
+ * Row/card action button: tinted square + KTIcon (optional `label`).
  *
- * Lifted verbatim out of BranchCard, which had this styling inline. It is the look
- * every list action is expected to have, so it lives in the kit and BranchCard consumes
- * it too — a second copy is exactly how the Towns table ended up with a Bootstrap
- * `btn btn-icon` pencil that looked nothing like the branch cards.
- *
- * 40px is deliberate: these were cramped micro-icons before, below a comfortable
- * touch target.
+ * Surface / hover come from kit SSOT `tintedIconSurfaceSx` in `buttons.tsx`
+ * (aside-menu darken-to-icon-colour) — same recipe as `WtIconButton`.
  */
 export default function ActionIconButton({
   iconName,
@@ -101,17 +97,12 @@ export default function ActionIconButton({
   label,
   fullWidth = false,
 }: ActionIconButtonProps) {
+  const dark = useIsDark();
   const color = TONE_COLOR[tone];
   const px = SIZE_PX[size];
+  const radius = size === 'sm' ? '8px' : '12px';
   const glyph = icon ?? <KTIcon iconName={iconName ?? ''} className={SIZE_ICON_CLASS[size]} />;
-
-  const toneSx = {
-    color,
-    bgcolor: `${color}1A`,
-    border: `1px solid ${color}3D`,
-    transition: 'background-color .15s, border-color .15s',
-    '&:hover': { bgcolor: `${color}30`, borderColor: `${color}66` },
-  } as const;
+  const surface = tintedIconSurfaceSx(color, { dark, radius });
 
   if (label) {
     return (
@@ -121,17 +112,14 @@ export default function ActionIconButton({
         startIcon={glyph}
         fullWidth={fullWidth}
         sx={{
-          ...toneSx,
+          ...surface,
           height: px,
           minWidth: 0,
           px: 1.25,
-          borderRadius: '10px',
           textTransform: 'none',
           fontSize: 12.5,
           fontWeight: 600,
           whiteSpace: 'nowrap',
-          // The kit's icon font sets its own margins; without this the glyph and
-          // the word drift apart at small sizes.
           '& .MuiButton-startIcon': { mr: 0.625, ml: 0 },
         }}
       >
@@ -146,7 +134,7 @@ export default function ActionIconButton({
         onClick={onClick}
         disabled={disabled}
         aria-label={title}
-        sx={{ ...toneSx, width: px, height: px, borderRadius: size === 'sm' ? '8px' : '10px' }}
+        sx={{ ...surface, width: px, height: px }}
       >
         {glyph}
       </IconButton>

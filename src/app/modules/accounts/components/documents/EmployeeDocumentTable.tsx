@@ -8,6 +8,7 @@ import { fetchCurrentEmployeeByEmpId, fetchEmployeeMediaByUserId } from '@servic
 import dayjs from 'dayjs';
 import { useParams } from 'react-router-dom';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 function EmployeeDocumentTable({message1='No Documents Uploaded By User', message2='Documents Uploaded By User'}:{message1?: string, message2?: string}) {
     const { employeeId } = useParams();
@@ -259,11 +260,11 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                 </div>
 
                 <div className="d-flex flex-stack my-2">
-                    <div className="badge badge-lg badge-light-primary">
-                        <div className="d-flex align-items-center flex-wrap p-1">
-                            <div>{currentFolder ? currentFolderData?.label : message2}</div>
-                        </div>
-                    </div>
+                    <ToneChip
+                        dense
+                        tone="brand"
+                        label={currentFolder ? currentFolderData?.label : message2}
+                    />
                     <div className="badge badge-lg badge-primary">
                         <span id="kt_file_manager_items_counter">
                             {currentFolder ? displayItems.length : folders.length} {currentFolder ? 'files' : 'folders'}

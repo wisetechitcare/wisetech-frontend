@@ -8,6 +8,8 @@ import { fetchReimbursementsByProjectId } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { Box, Paper, Stack, Typography } from "@mui/material";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { ToneChip } from '@app/modules/common/components/ui';
+import type { SemanticTone } from '@app/theme/tokens';
 import { getCurrencyLocale } from '@utils/currency';
 
 // ---------------------------------------------------------------------------
@@ -283,16 +285,14 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
         enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => {
-          const colorMap: Record<string, string> = {
+          const toneMap: Record<string, SemanticTone> = {
             Approved: "success",
             Rejected: "danger",
             Pending: "warning",
           };
-          const color = colorMap[renderedCellValue as string] ?? "secondary";
+          const tone = toneMap[renderedCellValue as string] ?? "neutral";
           return (
-            <span className={`badge badge-light-${color} fs-7 fw-bold`}>
-              {renderedCellValue}
-            </span>
+            <ToneChip dense tone={tone} label={String(renderedCellValue ?? "")} />
           );
         },
       },

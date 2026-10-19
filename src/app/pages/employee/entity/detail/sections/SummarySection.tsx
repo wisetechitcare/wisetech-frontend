@@ -24,6 +24,7 @@ import {
 } from '../entityViewModel';
 import { getTimelineProgress, isDelayedProject, projectNumberOf } from '../../entityUtils';
 import FileLocationCard, { hasFileLocation } from './FileLocationCard';
+import { AutoGrid } from '@app/modules/common/components/ui';
 
 interface Stat {
   label: string;
@@ -38,7 +39,7 @@ interface Stat {
  * no chunky card boxes. Used inside the unified summary panel.
  */
 export const StatGrid: React.FC<{ items: Stat[] }> = ({ items }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 1, backgroundColor: C.border }}>
+  <AutoGrid min={170} stretch gap={1} sx={{ backgroundColor: C.border }}>
     {items.map((it, i) => {
       const { bg, color } = ICON_COLORS[it.accent] ?? ICON_COLORS.primary;
       return (
@@ -53,7 +54,7 @@ export const StatGrid: React.FC<{ items: Stat[] }> = ({ items }) => (
         </div>
       );
     })}
-  </div>
+  </AutoGrid>
 );
 
 /**

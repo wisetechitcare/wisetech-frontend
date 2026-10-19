@@ -60,7 +60,7 @@ const ActivityDrawer: FC = () => (
         </div>
       </div>
       <div className='card-footer py-5 text-center' id='kt_activities_footer'>
-        <Link to='/crafted/pages/profile' className='btn btn-bg-body text-primary'>
+        <Link to='/employee/profile/overview' className='btn btn-bg-body text-primary'>
           View All Activities
           <KTIcon iconName='arrow-right' className='fs-3 text-primary' />
         </Link>

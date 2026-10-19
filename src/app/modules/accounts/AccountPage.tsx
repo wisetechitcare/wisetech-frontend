@@ -4,13 +4,12 @@ import {PageLink, PageTitle} from '../../../_metronic/layout/core'
 import {Overview} from './components/Overview'
 import {Settings} from './components/settings/Settings'
 import {AccountHeader} from './AccountHeader'
-import { Documents } from '../profile/components/Documents'
 import EmployeeDocumentTable from './components/documents/EmployeeDocumentTable'
 
 const accountBreadCrumbs: Array<PageLink> = [
   {
-    title: 'Account',
-    path: '/crafted/account/overview',
+    title: 'Profile',
+    path: '/employee/profile/overview',
     isSeparator: false,
     isActive: false,
   },
@@ -56,11 +55,14 @@ const AccountPage: React.FC = () => {
           element={
             <>
               <PageTitle breadcrumbs={accountBreadCrumbs}>Documents</PageTitle>
-              <EmployeeDocumentTable message1='No Documents Uploaded By You' message2='Documents Uploaded By You' />
+              <EmployeeDocumentTable
+                message1='No Documents Uploaded By You'
+                message2='Documents Uploaded By You'
+              />
             </>
           }
         />
-        <Route index element={<Navigate to='/crafted/account/overview' />} />
+        <Route index element={<Navigate to='/employee/profile/overview' replace />} />
       </Route>
     </Routes>
   )

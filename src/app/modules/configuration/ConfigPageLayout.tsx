@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@mui/material/styles';
 import { C, FONT, SP, RADIUS, KEYFRAMES } from './ConfigDesignSystem';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
@@ -38,23 +39,27 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
   children,
   className = '',
 }) => {
+  const theme = useTheme();
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
   const hasTabs = !!tabs && tabs.length > 0;
   const hasHeader = hasTabs || !!actions || !!statsBar;
+  const paper = theme.palette.background.paper;
+  const pageBg = theme.palette.background.default;
+  const divider = theme.palette.divider;
 
   return (
-    <div className={`cfg-layout ${className}`} style={{ backgroundColor: C.bgPage, minHeight: '100vh' }}>
+    <div className={`cfg-layout ${className}`} style={{ backgroundColor: pageBg, minHeight: '100vh' }}>
       <style>{KEYFRAMES}</style>
 
       {/* ── Header: only what a page actually passes (actions, stats, tabs) ── */}
       {hasHeader && (
       <div
         style={{
-          backgroundColor: '#fff',
+          backgroundColor: paper,
           borderRadius: hasTabs ? `${RADIUS.xl} ${RADIUS.xl} 0 0` : RADIUS.xl,
-          border: `1px solid ${C.border}`,
-          borderBottom: hasTabs ? 'none' : `1px solid ${C.border}`,
-          boxShadow: '0 1px 0 #e8eaf0, 0 4px 24px rgba(24,28,50,0.06)',
+          border: `1px solid ${divider}`,
+          borderBottom: hasTabs ? 'none' : `1px solid ${divider}`,
+          boxShadow: theme.shadows[1],
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -83,7 +88,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
             display: 'flex',
             gap: '4px',
             padding: `${SP.md} ${SP.xl} 0 ${SP.xl}`,
-            borderBottom: `2px solid ${C.border}`,
+            borderBottom: `2px solid ${divider}`,
             overflowX: 'auto',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none' as any,
@@ -104,13 +109,13 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
                     background: isActive
                       ? C.primaryLight
                       : isHovered
-                      ? '#f5f6f8'
+                      ? theme.palette.action.hover
                       : 'transparent',
                     border: 'none',
                     borderRadius: `${RADIUS.md} ${RADIUS.md} 0 0`,
                     padding: '9px 16px 11px 16px',
                     margin: 0,
-                    color: isActive ? C.primary : isHovered ? C.textPrimary : C.textSecondary,
+                    color: isActive ? C.primary : isHovered ? theme.palette.text.primary : theme.palette.text.secondary,
                     fontFamily: FONT.body,
                     fontWeight: isActive ? 600 : 500,
                     fontSize: '13.5px',
@@ -129,8 +134,8 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
                   {tab.label}
                   {tab.badge !== undefined && (
                     <span style={{
-                      backgroundColor: isActive ? C.primary : '#e8eaf0',
-                      color: isActive ? '#fff' : C.textSecondary,
+                      backgroundColor: isActive ? C.primary : theme.palette.action.selected,
+                      color: isActive ? theme.palette.primary.contrastText : theme.palette.text.secondary,
                       borderRadius: RADIUS.full,
                       fontSize: '10px',
                       fontWeight: 700,
@@ -163,11 +168,11 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
       <div
         className="cfg-fade-in cfg-body-wrap"
         style={{
-          backgroundColor: hasTabs ? '#fff' : 'transparent',
+          backgroundColor: hasTabs ? paper : 'transparent',
           borderRadius: hasTabs ? `0 0 ${RADIUS.xl} ${RADIUS.xl}` : 0,
-          border: hasTabs ? `1px solid ${C.border}` : 'none',
+          border: hasTabs ? `1px solid ${divider}` : 'none',
           borderTop: 'none',
-          boxShadow: hasTabs ? '0 4px 24px rgba(24,28,50,0.05)' : 'none',
+          boxShadow: hasTabs ? theme.shadows[1] : 'none',
           // With no header above, the body starts flush — the gap was only ever there to
           // separate it from the title band.
           padding: hasTabs ? `${SP.xl} ${SP.xl}` : `${hasHeader ? SP.lg : 0} 0 ${SP.lg}`,

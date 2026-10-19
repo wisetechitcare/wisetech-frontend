@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import AnalyticsTab from "@app/modules/common/components/AnalyticsTab";
+import { ToneChip } from "@app/modules/common/components/ui";
 
 // A row = a company this company referred (this company is their referral company).
 interface ReferredCompanyReference {
@@ -42,11 +43,11 @@ const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference
       accessorKey: "referenceType",
       header: "Type",
       Cell: ({ row }: any) => (
-        <span
-          className={`badge ${row.original.referenceType === "INTERNAL" ? "badge-light-primary" : "badge-light-success"}`}
-        >
-          {row.original.referenceType === "INTERNAL" ? "Internal" : "External"}
-        </span>
+        <ToneChip
+          dense
+          tone={row.original.referenceType === "INTERNAL" ? "brand" : "success"}
+          label={row.original.referenceType === "INTERNAL" ? "Internal" : "External"}
+        />
       ),
     },
     {
@@ -97,9 +98,11 @@ const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference
         const status = (row.original as ReferredCompanyReference).company?.status;
         const active = status === "ACTIVE";
         return (
-          <span className={`badge ${active ? "badge-light-success" : "badge-light-danger"}`}>
-            {active ? "Active" : status === "CLOSED" ? "Inactive" : (status || "—")}
-          </span>
+          <ToneChip
+            dense
+            tone={active ? "success" : "danger"}
+            label={active ? "Active" : status === "CLOSED" ? "Inactive" : (status || "—")}
+          />
         );
       },
     },

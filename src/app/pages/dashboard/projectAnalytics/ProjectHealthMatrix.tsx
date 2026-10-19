@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import { calculateProjectHealthMetrics, ProjectStatus } from "./projectAnalyticsUtils";
+import { AutoGrid } from '@app/modules/common/components/ui';
 
 interface Props {
   statusData: ProjectStatus[];
@@ -76,13 +77,7 @@ const ProjectHealthMatrix: React.FC<Props> = ({ statusData }) => {
       </section>
 
       {/* 4-Column Health Matrix */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-          gap: 16,
-        }}
-      >
+      <AutoGrid min={240} stretch gap={16}>
         {(Object.entries(statusGroups) as Array<[string, typeof metrics]>).map(
           ([statusKey, statusMetrics]) => {
             const config = statusCardConfig[statusKey];
@@ -205,7 +200,7 @@ const ProjectHealthMatrix: React.FC<Props> = ({ statusData }) => {
             );
           }
         )}
-      </div>
+      </AutoGrid>
 
       {/* Analysis Footer */}
       <div

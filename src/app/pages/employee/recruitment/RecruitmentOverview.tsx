@@ -208,9 +208,10 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
         );
     }
 
-    const { kpis, funnel, candidatesBySource, requisitionsByStatus, offersByAcceptance, stageDurations, timeToHire } = data;
+    const { kpis, funnel, candidatesBySource, referralsByEmployee = [], requisitionsByStatus, offersByAcceptance, stageDurations, timeToHire } = data;
     const funnelMax = Math.max(1, ...funnel.map((f) => f.count));
     const sourceMax = Math.max(1, ...candidatesBySource.map((s) => s.count));
+    const referralMax = Math.max(1, ...referralsByEmployee.map((r) => r.count));
     const conversion = kpis.totalApplications > 0 ? Math.round((kpis.hires / kpis.totalApplications) * 100) : 0;
 
     const kpiTiles: Array<{ label: string; value: number | string; trio: Trio; icon: React.ReactNode }> = [
@@ -243,16 +244,8 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                 </Typography>
             )}
 
-            <AutoGrid
-                min={200}
-                sx={{
-                    mb: 2,
-                    gridTemplateColumns: {
-                        xs: "repeat(2, minmax(0, 1fr))",
-                        sm: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))",
-                    },
-                }}
-            >
+            {/* KPI strip: stretch so tiles share the row; xs stays two-up via min. */}
+            <AutoGrid min={160} max={220} stretch sx={{ mb: 2 }}>
                 {kpiTiles.map((t) => <StatTile key={t.label} label={t.label} value={t.value} trio={t.trio} icon={t.icon} />)}
             </AutoGrid>
 
@@ -351,6 +344,36 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
 
                 <GlassCard preset="section">
                     <CardTitle
+                        tone={TRIO.cyan}
+                        icon="people"
+                        title="Employee referrals"
+                        hint="Who referred candidates — from the referrer named on the applicant record. Hire rate is applications that reached hired."
+                    />
+                    {referralsByEmployee.length === 0 ? (
+                        <EmptyHint text="No employee referrals recorded in this period." />
+                    ) : (
+                        <Stack spacing={1}>
+                            {referralsByEmployee.map((r) => (
+                                <Box key={r.id}>
+                                    <BarRow
+                                        label={r.name}
+                                        count={r.count}
+                                        max={referralMax}
+                                        color={null}
+                                    />
+                                    {r.hires > 0 && (
+                                        <Typography sx={{ fontSize: 11.5, color: "text.secondary", pl: { xs: 12.5, sm: 17 }, mt: -0.25 }}>
+                                            {r.hires} hired — {r.hireRatePct} in every 100 referred applications
+                                        </Typography>
+                                    )}
+                                </Box>
+                            ))}
+                        </Stack>
+                    )}
+                </GlassCard>
+
+                <GlassCard preset="section">
+                    <CardTitle
                         tone={TRIO.green}
                         icon="check-circle"
                         title="Approvals & Offers"
@@ -361,7 +384,7 @@ const RecruitmentOverview = ({ companyId }: OrgScoped) => {
                             <Eyebrow sx={{ mb: 0.75 }}>Role Requests</Eyebrow>
                             <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                                 <ToneChip tone="warning" label={`Waiting for Approval ${requisitionsByStatus.pending}`} />
-                                <ToneChip tone="success" label={`Approved ${requisitionsByStatus.approved}`} />
+                                <ToneChip tone="success" label={`Open ${requisitionsByStatus.approved}`} />
                                 <ToneChip tone="danger" label={`Turned Down ${requisitionsByStatus.rejected}`} />
                             </Stack>
                         </Box>

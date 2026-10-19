@@ -1,32 +1,27 @@
+/**
+ * Payroll payment status — thin wrapper over kit `ToneChip`.
+ * Prefer importing `ToneChip` directly in new code.
+ */
 import React from 'react';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 interface StatusBadgeProps {
-    status: 'Paid' | 'Partial' | 'No Payment';
+  status: 'Paid' | 'Partial' | 'No Payment';
 }
 
-const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
-    const getBadgeClass = () => {
-        switch (status) {
-            case 'Paid': return 'status-badge-paid';
-            case 'Partial': return 'status-badge-partial';
-            default: return 'status-badge-none';
-        }
-    };
-
-    const getDotClass = () => {
-        switch (status) {
-            case 'Paid': return 'status-dot-paid';
-            case 'Partial': return 'status-dot-partial';
-            default: return 'status-dot-none';
-        }
-    };
-
-    return (
-        <span className={`status-badge ${getBadgeClass()}`}>
-            <span className={`status-dot ${getDotClass()}`} />
-            {status}
-        </span>
-    );
+const toneFor = (status: StatusBadgeProps['status']) => {
+  switch (status) {
+    case 'Paid':
+      return 'success' as const;
+    case 'Partial':
+      return 'cyan' as const;
+    default:
+      return 'neutral' as const;
+  }
 };
+
+const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => (
+  <ToneChip dense tone={toneFor(status)} label={status} />
+);
 
 export default React.memo(StatusBadge);

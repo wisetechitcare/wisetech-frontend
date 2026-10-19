@@ -1,5 +1,6 @@
 import React from 'react';
 import type { LeaveBreakdown } from '@utils/leaveCalcEngine';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 interface RangeStatBarProps {
   breakdown: LeaveBreakdown | null;
@@ -55,9 +56,7 @@ const RangeStatBar: React.FC<RangeStatBarProps> = ({ breakdown, isPreview }) => 
       )}
 
       {chargeable === 0 && totalCalendarDays > 0 && (
-        <span className="lrc-stat-bar__badge" aria-label="No leave days will be deducted">
-          No leave needed
-        </span>
+        <ToneChip dense tone="success" label="No leave needed" aria-label="No leave days will be deducted" />
       )}
     </div>
   );

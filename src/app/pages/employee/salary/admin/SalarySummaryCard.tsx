@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Paper, Skeleton, Stack, Typography } from '@mui/material';
+import { AutoGrid } from '@app/modules/common/components/ui';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 interface SalarySummaryCardProps {
@@ -197,9 +198,9 @@ const SalarySummaryCard: React.FC<SalarySummaryCardProps> = ({
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+      <AutoGrid min={180} stretch gap={14}>
         {Array.from({ length: count }).map((_, i) => <KpiSkeleton key={i} />)}
-      </Box>
+      </AutoGrid>
     );
   }
 
