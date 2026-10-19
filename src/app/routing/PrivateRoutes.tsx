@@ -95,7 +95,6 @@ const MyTeamLayout = lazy(() => import('@pages/my-team/MyTeamLayout'))
 const MyTeamOverview = lazy(() => import('@pages/my-team/Overview'))
 const MyTeamApprovals = lazy(() => import('@pages/my-team/Approvals'))
 const MyTeamDelegations = lazy(() => import('@pages/my-team/Delegations'))
-const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
 const WizardsPage = lazy(() => import('../modules/wizards/WizardsPage'))
 const AccountPage = lazy(() => import('../modules/accounts/AccountPage'))
 const WidgetsPage = lazy(() => import('../modules/widgets/WidgetsPage'))
@@ -223,13 +222,26 @@ const PrivateRoutes = () => {
             </SuspensedView>}
         />
         {/* Lazy Modules */}
+        {/* Legacy Metronic demo profile/account → real employee profile */}
+        <Route
+          path='crafted/pages/profile/documents'
+          element={<Navigate to='/employee/profile/documents' replace />}
+        />
         <Route
           path='crafted/pages/profile/*'
-          element={
-            <SuspensedView>
-              <ProfilePage />
-            </SuspensedView>
-          }
+          element={<Navigate to='/employee/profile/overview' replace />}
+        />
+        <Route
+          path='crafted/account/settings'
+          element={<Navigate to='/employee/profile/edit' replace />}
+        />
+        <Route
+          path='crafted/account/*'
+          element={<Navigate to='/employee/profile/overview' replace />}
+        />
+        <Route
+          path='crafted/accounts'
+          element={<Navigate to='/employee/profile/overview' replace />}
         />
         <Route
           path='crafted/pages/wizards/*'
