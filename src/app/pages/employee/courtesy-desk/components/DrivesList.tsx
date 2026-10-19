@@ -21,7 +21,9 @@ import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { actionsColumn } from "@app/modules/common/components/table/columns";
 import {
   ActionIconButton,
+  AppIcon,
   useConfirmDialog,
+  usePromptDialog,
 } from "@app/modules/common/components/ui";
 import { SolidChip } from "@app/pages/billing/operations/TrackerCells";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
@@ -56,10 +58,12 @@ export default function DrivesList() {
   const navigate = useNavigate();
   const sensitive = useSensitiveData();
   const { ask, dialog: confirmDialog } = useConfirmDialog();
+  const { askText, dialog: promptDialog } = usePromptDialog();
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
   const [editDrive, setEditDrive] = useState<CourtesyDrive | null>(null);
   const [presetGroupId, setPresetGroupId] = useState<string | undefined>();
+  const [fromDrive, setFromDrive] = useState<CourtesyDrive | null>(null);
   const [occasionFilter, setOccasionFilter] = useState<"ALL" | string>("ALL");
   const [giftRunStatusFilter, setGiftRunStatusFilter] = useState<
     "ALL" | string
@@ -70,6 +74,7 @@ export default function DrivesList() {
 
   useEffect(() => {
     if (searchParams.get("new") !== "1") return;
+    setFromDrive(null);
     setPresetGroupId(searchParams.get("groupId") || undefined);
     setCreateOpen(true);
     const next = new URLSearchParams(searchParams);
@@ -79,13 +84,21 @@ export default function DrivesList() {
   }, [searchParams, setSearchParams]);
 
   const openCreate = (groupId?: string) => {
+    setFromDrive(null);
     setPresetGroupId(groupId);
+    setCreateOpen(true);
+  };
+
+  const openCreateFromDrive = (drive: CourtesyDrive) => {
+    setPresetGroupId(undefined);
+    setFromDrive(drive);
     setCreateOpen(true);
   };
 
   const closeCreate = () => {
     setCreateOpen(false);
     setPresetGroupId(undefined);
+    setFromDrive(null);
   };
   // Always include archived so the status filter can surface them.
   const drives = listDrives(true);
@@ -189,13 +202,15 @@ export default function DrivesList() {
           return (
             <SolidChip
               label={s?.name || row.original.status}
-              color={s?.color || giftRunStatusColor(desk.config, row.original.status)}
+              color={
+                s?.color || giftRunStatusColor(desk.config, row.original.status)
+              }
             />
           );
         },
       },
       actionsColumn({
-        size: 160,
+        size: 200,
         Cell: ({ row }) => {
           const d = row.original;
           const archived = d.status === "ARCHIVED";
@@ -216,28 +231,38 @@ export default function DrivesList() {
                 />
               ) : null}
               <ActionIconButton
+                icon={<AppIcon name="bi-gift" className="fs-6" />}
+                title={`Add ${GIFT_RUN_LABEL} (people from this run)`}
+                size="sm"
+                tone="brand"
+                onClick={() => openCreateFromDrive(d)}
+              />
+              <ActionIconButton
                 iconName="copy"
                 title={`Clone ${GIFT_RUN_LABEL}`}
                 size="sm"
                 tone="brand"
                 onClick={() => {
-                  const title = window.prompt(
-                    `New ${GIFT_RUN_LABEL} title`,
-                    `${d.title} (copy)`,
-                  );
-                  if (!title) return;
-                  void cloneDriveToApi(d.id, title)
-                    .then((cloned) => {
-                      toast.success(`${GIFT_RUN_LABEL} cloned.`);
-                      navigate(
-                        `${GIFT_MANAGEMENT_BASE}/drives/${cloned.id}`,
+                  void askText({
+                    title: `Clone ${GIFT_RUN_LABEL}`,
+                    message: `This will create a copy of the ${GIFT_RUN_LABEL} with the same Assignees, modes, and quantities.`,
+                    label: `${GIFT_RUN_LABEL} title`,
+                    defaultValue: `${d.title} (copy)`,
+                    confirmLabel: "Clone",
+                    icon: "bi-copy",
+                  }).then((title) => {
+                    if (!title) return;
+                    void cloneDriveToApi(d.id, title)
+                      .then((cloned) => {
+                        toast.success(`${GIFT_RUN_LABEL} cloned.`);
+                        navigate(`${GIFT_MANAGEMENT_BASE}/drives/${cloned.id}`);
+                      })
+                      .catch((err: unknown) =>
+                        toast.error(
+                          apiErrorMessage(err, "Something went wrong"),
+                        ),
                       );
-                    })
-                    .catch((err: unknown) =>
-                      toast.error(
-                        apiErrorMessage(err, "Something went wrong"),
-                      ),
-                    );
+                  });
                 }}
               />
               {archived ? (
@@ -330,6 +355,7 @@ export default function DrivesList() {
     ],
     [
       ask,
+      askText,
       desk.config,
       filteredAmountTotal,
       giftRunStatuses,
@@ -387,6 +413,7 @@ export default function DrivesList() {
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       {confirmDialog}
+      {promptDialog}
       <Stack
         direction={{ xs: "column", md: "row" }}
         justifyContent="space-between"
@@ -453,6 +480,7 @@ export default function DrivesList() {
         open={createOpen}
         onClose={closeCreate}
         presetGroupId={presetGroupId}
+        fromDrive={fromDrive}
       />
       <DriveEditModal
         open={!!editDrive}
