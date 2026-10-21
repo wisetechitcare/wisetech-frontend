@@ -1,7 +1,10 @@
 import React from "react";
 import { motion } from "framer-motion";
-import CountUp from "react-countup";
+import CountUpModule from "react-countup";
 import { ProjectKpi } from "./projectAnalyticsUtils";
+import { resolveReactComponent } from "@utils/resolveReactComponent";
+
+const CountUp = resolveReactComponent<typeof CountUpModule>(CountUpModule);
 
 interface Props extends ProjectKpi {
   index?: number;

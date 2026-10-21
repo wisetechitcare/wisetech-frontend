@@ -223,6 +223,7 @@ export async function fetchEmpYearlyStatistics(
         return {
             startDate,
             endDate,
+            yearlyStats: empAttendanceStatistics,
             attendanceRequests,
             pagination: {
                 totalRecords: total || pagination?.totalRecords || attendanceRequests?.length || 0

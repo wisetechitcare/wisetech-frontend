@@ -80,13 +80,14 @@ export function StatusBadge({ trio, label, pulse, title, className }: { trio: Tr
  * The tone is a runtime hex and a utility class cannot express one, so the wash and border
  * arrive as custom properties off the same `toneSurface` the IconBox uses.
  */
-export function StatTile({ label, value, trio, icon }: { label: string; value: React.ReactNode; trio: Trio; icon: React.ReactNode }) {
+export function StatTile({ label, value, trio, icon, compact = false }: { label: string; value: React.ReactNode; trio: Trio; icon: React.ReactNode; compact?: boolean }) {
   const t = toneSurface(trio, useIsDark());
   return (
     <div
       style={{ '--wt-wash': t.bg, '--wt-bd': t.bd } as React.CSSProperties}
       className={cn(
-        'min-w-0 p-3 rounded-[14px] flex items-center gap-3 border transition-all duration-200',
+        'min-w-0 rounded-[14px] flex items-center border transition-all duration-200',
+        compact ? 'gap-1.5 p-2' : 'gap-3 p-3',
         'bg-white/95 border-[#E6E9EE] dark:bg-[#161b22] dark:border-[#30363d]',
         'shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_16px_rgba(15,23,42,0.035)]',
         'hover:shadow-[0_2px_4px_rgba(15,23,42,0.04),0_14px_22px_rgba(15,23,42,0.055)]',
@@ -97,10 +98,10 @@ export function StatTile({ label, value, trio, icon }: { label: string; value: R
         `[&:hover_.${TILE_LABEL_CLASS}]:text-slate-900 dark:[&:hover_.${TILE_LABEL_CLASS}]:text-slate-100`,
       )}
     >
-      <IconBox icon={icon} trio={trio} size={40} fs="fs-2" />
+      <IconBox icon={icon} trio={trio} size={compact ? 28 : 40} fs={compact ? 'fs-3' : 'fs-2'} />
       <div className="min-w-0">
-        <p className={cn(TILE_LABEL_CLASS, 'text-[10.5px] text-slate-500 dark:text-slate-400 uppercase tracking-[0.04em] font-bold truncate m-0 transition-colors duration-200')}>{label}</p>
-        <p className="text-[16px] sm:text-[19px] font-extrabold leading-tight text-slate-900 dark:text-slate-100 truncate m-0">{value}</p>
+        <p className={cn(TILE_LABEL_CLASS, compact ? 'text-[9.5px]' : 'text-[10.5px]', 'text-slate-500 dark:text-slate-400 uppercase tracking-[0.04em] font-bold truncate m-0 transition-colors duration-200')}>{label}</p>
+        <p className={cn(compact ? 'text-[14px]' : 'text-[16px] sm:text-[19px]', 'font-extrabold leading-tight text-slate-900 dark:text-slate-100 truncate m-0')}>{value}</p>
       </div>
     </div>
   );
