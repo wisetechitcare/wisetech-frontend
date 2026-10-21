@@ -164,7 +164,7 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
     return (
         <>
             <Card elevation={0} className="p-4 mt-4">
-                <h5>Overview for {fiscalYearDisplay}</h5>
+                <h2 className="fs-5 fw-bold">Attendance Summary <span className="text-muted fs-6">{fiscalYearDisplay}</span></h2>
                 <Grid container className="text-center mt-3">
                     <Grid item xs className='mb-2'>
                         <Card elevation={0} className="border p-4">
@@ -173,8 +173,8 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
                                     <AppIcon name="bi-calendar-check" className="fs-2" />
                                 </div>
                                 <div className="text-start">
-                                    <div className="fs-4 fw-bold">{!Number.isNaN(presentDay! + extraDay!) ? presentDay! + extraDay! : 0}/{totalWorkingDay}</div>
                                     <div className="text-muted">Working Days</div>
+                                    <div className="fs-4 fw-bold">{!Number.isNaN(presentDay! + extraDay!) ? presentDay! + extraDay! : 0}/{totalWorkingDay}</div>
                                 </div>
                             </div>
                         </Card>
@@ -186,8 +186,8 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
                                     <AppIcon name="bi-clock" className="fs-2" />
                                 </div>
                                 <div className="text-start">
-                                    <div className="fs-4 fw-bold">{totalWorkedTime}</div>
                                     <div className="text-muted">Working Time</div>
+                                    <div className="fs-4 fw-bold">{totalWorkedTime}</div>
                                 </div>
                             </div>
                         </Card>
@@ -199,8 +199,8 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
                                     <AppIcon name="bi-calendar2-event" className="fs-2" />
                                 </div>
                                 <div className="text-start">
-                                    <div className="fs-4 fw-bold">{lateCheckIns} Days</div>
                                     <div className="text-muted">Late Check-Ins</div>
+                                    <div className="fs-4 fw-bold">{lateCheckIns} Days</div>
                                 </div>
                             </div>
                         </Card>
@@ -212,8 +212,8 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
                                     <AppIcon name="bi-calendar-event" className="fs-2" />
                                 </div>
                                 <div className="text-start">
-                                    <div className="fs-4 fw-bold">{leavesTaken}/{leaveBalances}</div>
                                     <div className="text-muted">Leaves Taken</div>
+                                    <div className="fs-4 fw-bold">{leavesTaken}/{leaveBalances}</div>
                                 </div>
                             </div>
                         </Card>

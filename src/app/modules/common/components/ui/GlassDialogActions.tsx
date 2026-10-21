@@ -7,7 +7,8 @@ import { FORM_SPACE } from './FormSection';
 /**
  * Shared Cancel / Save (or custom) footer for GlassDialog — **dialog footer SSOT**.
  *
- * Renders brand CTA: `WtButton ghost` Cancel (white) + `WtButton` Submit (navy primary).
+ * Renders `WtButton ghost` Cancel (white) + `WtButton` Submit. The built-in submit
+ * explicitly defaults to navy primary; its density and flat treatment follow WtButton defaults.
  * Sandwich Add Rule is the visual benchmark. Prefer this over hand-rolled
  * `DialogActions sx={{ px, py, borderTop }}` so every form dialog agrees on footer
  * rhythm (FORM_SPACE) and button look.

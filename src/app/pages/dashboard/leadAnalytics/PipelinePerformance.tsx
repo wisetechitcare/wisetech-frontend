@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import CountUp from "react-countup";
+import CountUpModule from "react-countup";
+import { resolveReactComponent } from "@utils/resolveReactComponent";
 import AnalyticsHeader from "./AnalyticsHeader";
 import AnalyticsCard from "./AnalyticsCard";
 import PipelineDistribution from "./PipelineDistribution";
@@ -16,6 +17,8 @@ import {
   summarizeStatusGroups,
   toneColor,
 } from "./leadAnalyticsUtils";
+
+const CountUp = resolveReactComponent<typeof CountUpModule>(CountUpModule);
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface PipelinePerformanceProps {

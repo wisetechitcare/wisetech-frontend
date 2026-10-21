@@ -234,7 +234,11 @@ export function MonthGrid({
       {showNav && (
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1">
-            {showYearNav && <NavBtn label="Previous year" icon="double-left" onClick={() => shiftMonth(-1, 'year')} />}
+            {showYearNav && (
+              <span className="hidden sm:block">
+                <NavBtn label="Previous year" icon="double-left" onClick={() => shiftMonth(-1, 'year')} />
+              </span>
+            )}
             <NavBtn label="Previous month" icon="left" onClick={() => shiftMonth(-1, 'month')} />
           </div>
 
@@ -256,7 +260,11 @@ export function MonthGrid({
 
           <div className="flex items-center gap-1">
             <NavBtn label="Next month" icon="right" onClick={() => shiftMonth(1, 'month')} />
-            {showYearNav && <NavBtn label="Next year" icon="double-right" onClick={() => shiftMonth(1, 'year')} />}
+            {showYearNav && (
+              <span className="hidden sm:block">
+                <NavBtn label="Next year" icon="double-right" onClick={() => shiftMonth(1, 'year')} />
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -336,9 +344,9 @@ function NavBtn({ label, icon, onClick }: { label: string; icon: string; onClick
       type="button"
       aria-label={label}
       onClick={onClick}
-      style={{ borderRadius: 8 }}
+      style={{ width: 40, height: 40, minWidth: 40, minHeight: 40, borderRadius: 8 }}
       className={cn(
-        'grid size-8 place-items-center text-slate-500 dark:text-slate-400',
+      'grid place-items-center text-slate-500 dark:text-slate-400',
         'transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/[0.06] dark:hover:text-slate-100',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A8A] dark:focus-visible:ring-[#8AA3EC]',
       )}

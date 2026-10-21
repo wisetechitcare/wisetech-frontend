@@ -1,7 +1,10 @@
 import { Dialog, DialogContent, DialogTitle, IconButton } from "@mui/material";
 import type { Breakpoint } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import CloseIconModule from "@mui/icons-material/Close";
 import type { ReactNode } from "react";
+import { resolveReactComponent } from "@utils/resolveReactComponent";
+
+const CloseIcon = resolveReactComponent<typeof CloseIconModule>(CloseIconModule);
 
 export interface DrillDownDialogProps {
   open: boolean;

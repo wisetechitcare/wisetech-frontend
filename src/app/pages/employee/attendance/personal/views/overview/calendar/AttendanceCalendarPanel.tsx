@@ -60,7 +60,11 @@ export function AttendanceCalendarPanel({
   const toggle = useCallback((key: LegendKey) => {
     setFilters((prev) => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
       return next;
     });
   }, []);
@@ -117,15 +121,6 @@ export function AttendanceCalendarPanel({
 
   return (
     <GlassCard preset="section" className="flex flex-col gap-4 p-3 sm:p-4">
-      {/* Summary first: the month's answer, before the month's detail. */}
-      {tiles.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {tiles.map((t) => (
-            <StatTile key={t.key} label={t.label} value={t.value} trio={t.trio} icon={t.icon} />
-          ))}
-        </div>
-      )}
-
       <div className="relative">
         {/* The shared engine owns the grid, the keyboard model and the ARIA;
             this supplies only what an attendance day looks like. */}
@@ -177,6 +172,14 @@ export function AttendanceCalendarPanel({
           </div>
         )}
       </div>
+
+      {tiles.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          {tiles.map((t) => (
+            <StatTile key={t.key} label={t.label} value={t.value} trio={t.trio} icon={t.icon} compact />
+          ))}
+        </div>
+      )}
 
       {data?.legend?.length ? (
         <CalendarLegend

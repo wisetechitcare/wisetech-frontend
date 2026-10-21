@@ -96,19 +96,22 @@ are built from.
 
 ## Buttons — one public API (`WtButton`)
 
-**Brand CTA (locked):** navy primary + white Cancel (`ghost`). Sandwich Add Rule
-(`GlassDialogActions`) is the visual benchmark. Do **not** invent a second global
-button, gold Cancel, or yellow-on-navy primary. Appearance may theme other chrome;
-these recipes stay.
+**Global default:** compact, flat accent (`tone="accent"`, `size="small"`,
+`flat`). This is the shared default for labelled actions. Opt into a larger,
+high-emphasis navy CTA with `tone="primary" flat={false} size="medium"`; Cancel
+remains white `ghost`. Sandwich Add Rule (`GlassDialogActions`) is the visual
+benchmark. Do **not** invent a second global button, gold Cancel, or
+yellow-on-navy primary. Appearance may theme other chrome; these recipes stay.
 
 | Need | Use |
 |------|-----|
-| Create / Save / Submit / Add | `WtButton` (default `tone="primary"`) |
+| Standard action | `WtButton` (default compact, flat accent) |
+| High-emphasis Create / Save / Submit | `WtButton tone="primary" flat={false} size="medium"` |
 | Cancel / Close secondary | `WtButton ghost` |
 | Header Add on gradient | `WtButton inverted` |
 | Delete / destructive | `WtButton tone="danger"` |
 | Success confirm | `WtButton tone="success"` |
-| Adjacent toolbar CTAs | `WtButton flat` (or `size="small"`) |
+| Adjacent toolbar CTAs | `WtButton` defaults already use the compact, flat recipe |
 | Icon-only circle/square | `WtIconButton` / `ActionIconButton` / `WtCloseButton` |
 | Dialog Cancel + Submit | **`GlassDialogActions`** (not hand-rolled `DialogActions`) |
 
@@ -281,8 +284,9 @@ app's reference for a labelled input. There is no second look to choose between.
 **Density (SSOT):** `WT_CONTROL_HEIGHT` = **40** (default / shared rows),
 `WT_CONTROL_HEIGHT_MD` = **44** (spacious). `WtField` / `WtDateField` default
 `size="sm"` (40px via `controlHeightSx`). Pass `size="md"` only for spacious
-dialog forms. `WtButton size="small"` drops to 40px and a flatter CTA glow so
-search + Add in a `ListHeader` stay aligned — do **not** invent per-page heights.
+dialog forms. `WtButton` defaults to `size="small"` (40px), flat accent styling.
+Use `size="medium"` for a spacious 44px CTA; opt into the colored glow with
+`flat={false}` — do **not** invent per-page heights.
 `ToolbarFilterSelect` already pins `sm`. Do not invent per-page `fontSize`
 on labels or inputs — change the kit/theme instead.
 

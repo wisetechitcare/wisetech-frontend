@@ -17,8 +17,7 @@ import { ACCESS_AREAS, AccessArea } from "@utils/accessAreas";
 import Loader from "@app/modules/common/utils/Loader";
 import AccessControlTree, { EffLevel, RecordCells } from "./components/AccessControlTree";
 import AccessActivity from "./components/AccessActivity";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { InlineNotice, TRIO } from '@app/modules/common/components/ui';
+import { AppIcon, InlineNotice, TRIO, WtButton } from '@app/modules/common/components/ui';
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
 import { enrollAttendancePasskey, getAttendanceIdentityStatus, type AttendanceIdentityStatus } from '@services/attendanceIdentity';
@@ -285,10 +284,13 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
                 </div>
               </div>
               <div className="d-flex gap-2">
-                <button className="btn btn-light-primary" disabled={enrollingIdentity} onClick={enrollPasskey}>
-                  <AppIcon name="bi-fingerprint" className="me-2" />
+                <WtButton
+                  disabled={enrollingIdentity}
+                  onClick={enrollPasskey}
+                  startIcon={<AppIcon name="bi-fingerprint" />}
+                >
                   {enrollingIdentity ? 'Enrolling…' : 'Enroll passkey'}
-                </button>
+                </WtButton>
                 <AttendanceFaceEnrollmentButton employeeId={employeeId} onEnrolled={setIdentity} />
               </div>
             </div>
@@ -348,10 +350,9 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
           <div className="text-muted fs-8 fw-bold" style={{ letterSpacing: 1 }}>CURRENT ACCESS WEIGHT</div>
           <div className="fs-5"><span className="fw-bolder">{activeModuleCount}</span> <span className="text-muted">Modules Active</span></div>
         </div>
-        <button className="btn btn-primary px-6" disabled={!dirty || saving} onClick={onSaveClick}>
-          <AppIcon name="bi-save" className="me-2" />
+        <WtButton disabled={!dirty || saving} onClick={onSaveClick} startIcon={<AppIcon name="bi-save" />}>
           {saving ? "Saving…" : "Save Changes"}
-        </button>
+        </WtButton>
       </div>
 
       {/* Save confirmation */}
@@ -395,8 +396,8 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <button className="btn btn-light" onClick={() => setShowConfirm(false)}>Cancel</button>
-          <button className="btn btn-primary" onClick={saveAll}>Yes, Save</button>
+          <WtButton ghost onClick={() => setShowConfirm(false)}>Cancel</WtButton>
+          <WtButton onClick={saveAll}>Yes, Save</WtButton>
         </Modal.Footer>
       </Modal>
     </div>

@@ -37,6 +37,7 @@ import SwapHorizRounded from '@mui/icons-material/SwapHorizRounded';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import ViewKanbanRounded from '@mui/icons-material/ViewKanbanRounded';
 import WorkRounded from '@mui/icons-material/WorkRounded';
+import { resolveReactComponent } from '@utils/resolveReactComponent';
 
 /**
  * Bootstrap Icons class → Material icon component.
@@ -46,8 +47,8 @@ import WorkRounded from '@mui/icons-material/WorkRounded';
  * icons instead, so the mapping lives here rather than being duplicated at each call
  * site — and the nav tree stays the single source of truth for WHICH icon an item has.
  *
- * Deep imports (not `import { X } from '@mui/icons-material'`) so the barrel's ~2,000
- * modules never enter the graph; this matches how the rest of the app imports icons.
+ * Although written as deep imports, Vite maps these to MUI's named ESM exports so the
+ * CommonJS subpath wrappers never reach React.
  */
 const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-inbox': InboxRounded,
@@ -99,5 +100,7 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
  * add its icon here.
  */
 export function navIcon(fontIcon?: string): SvgIconComponent {
-  return (fontIcon && ICON_BY_BI[fontIcon]) || FolderRounded;
+  const icon = (fontIcon && ICON_BY_BI[fontIcon]) || FolderRounded;
+
+  return resolveReactComponent<SvgIconComponent>(icon);
 }
