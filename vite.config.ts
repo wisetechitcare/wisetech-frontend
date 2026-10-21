@@ -5,10 +5,28 @@ import tailwindcss from '@tailwindcss/vite'
 import { visualizer } from 'rollup-plugin-visualizer'
 import path from 'path'
 
+function muiIconDeepImportPlugin() {
+  return {
+    name: 'mui-icon-deep-import-interop',
+    enforce: 'pre' as const,
+    // MUI's deep icon files are CommonJS; route them through the package's ESM barrel
+    // so React receives the icon component instead of an optimized module namespace.
+    resolveId(source: string) {
+      const iconName = /^@mui\/icons-material\/([A-Za-z0-9_]+)$/.exec(source)?.[1]
+      return iconName ? `\0mui-icon:${iconName}` : null
+    },
+    load(id: string) {
+      const iconName = /^\0mui-icon:([A-Za-z0-9_]+)$/.exec(id)?.[1]
+      return iconName ? `export { ${iconName} as default } from '@mui/icons-material'` : null
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    muiIconDeepImportPlugin(),
     tsconfigPaths(),
     tailwindcss(),
     // Opt-in bundle analysis: `ANALYZE=1 pnpm run build` writes dist/stats.json.
@@ -63,6 +81,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
+    needsInterop: ['react-countup'],
     include: [
       '@emotion/react',
       '@emotion/styled',

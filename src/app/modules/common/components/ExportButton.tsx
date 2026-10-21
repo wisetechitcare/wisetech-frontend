@@ -3,14 +3,20 @@ import {
     Box, Button, ButtonGroup, IconButton, Menu, MenuItem, ListItemIcon, ListItemText,
     Divider, CircularProgress,
 } from '@mui/material';
-import DownloadIcon from '@mui/icons-material/Download';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import TableChartIcon from '@mui/icons-material/TableChart';
-import GridOnIcon from '@mui/icons-material/GridOn';
+import DownloadIconModule from '@mui/icons-material/Download';
+import ArrowDropDownIconModule from '@mui/icons-material/ArrowDropDown';
+import TableChartIconModule from '@mui/icons-material/TableChart';
+import GridOnIconModule from '@mui/icons-material/GridOn';
 import { saveAs } from 'file-saver';
 import { DRILLDOWN_Z_INDEX } from '@app/modules/common/components/DrillDownDialog';
 import { formatCurrencyDecimal, usesIndianGrouping, currencyPrefix } from '@utils/currency';
 import { toast } from '@app/modules/common/components/ui/feedback';
+import { resolveReactComponent } from '@utils/resolveReactComponent';
+
+const DownloadIcon = resolveReactComponent<typeof DownloadIconModule>(DownloadIconModule);
+const ArrowDropDownIcon = resolveReactComponent<typeof ArrowDropDownIconModule>(ArrowDropDownIconModule);
+const TableChartIcon = resolveReactComponent<typeof TableChartIconModule>(TableChartIconModule);
+const GridOnIcon = resolveReactComponent<typeof GridOnIconModule>(GridOnIconModule);
 
 // ─── Column definition ─────────────────────────────────────────────────────────
 

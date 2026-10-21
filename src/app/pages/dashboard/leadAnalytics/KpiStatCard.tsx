@@ -1,7 +1,10 @@
 import React, { useId, useMemo } from "react";
 import { motion } from "framer-motion";
-import CountUp from "react-countup";
+import CountUpModule from "react-countup";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { resolveReactComponent } from '@utils/resolveReactComponent';
+
+const CountUp = resolveReactComponent<typeof CountUpModule>(CountUpModule);
 
 export interface KpiStatCardProps {
   label: string;
