@@ -81,6 +81,9 @@ interface ImportMetaEnv {
 
     /** Feature flag for the new My Team information architecture. Defaults to on. */
     readonly VITE_NEW_MY_TEAM_IA: string | undefined;
+
+    /** Cognito identity pool granting the browser only Rekognition liveness-stream access. */
+    readonly VITE_ATTENDANCE_COGNITO_IDENTITY_POOL_ID: string | undefined;
 }
 
 interface ImportMeta {

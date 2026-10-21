@@ -8,7 +8,7 @@
  */
 
 /** Today's attendance as the SERVER reports it. 'unknown' means the status fetch has not answered. */
-export type DayState = 'unknown' | 'not-in' | 'in' | 'done';
+export type DayState = 'unknown' | 'not-in' | 'in';
 
 export interface CheckButtonInput {
     dayState: DayState;
@@ -35,9 +35,6 @@ export interface CheckButtonInput {
  */
 export function isCheckButtonDisabled(input: CheckButtonInput): boolean {
     const { dayState, isOfficeMethod, distanceFromBranch, allowedRadius } = input;
-
-    // The day is closed; there is nothing left to record.
-    if (dayState === 'done') return true;
 
     // Checked in and still out there — checking out must always be possible, from anywhere.
     if (dayState === 'in') return false;
