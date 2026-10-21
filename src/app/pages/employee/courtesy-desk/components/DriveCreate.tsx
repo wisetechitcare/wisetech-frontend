@@ -50,18 +50,23 @@ type DriveCreateModalProps = {
   open: boolean;
   onClose: () => void;
   presetGroupId?: string;
+  /** When set, recipients come from this run; group picker is hidden. */
+  fromDrive?: CourtesyDrive | null;
 };
 
 export function DriveCreateModal({
   open,
   onClose,
   presetGroupId,
+  fromDrive = null,
 }: DriveCreateModalProps) {
   const theme = useTheme();
   const desk = useCourtesyDesk();
   const navigate = useNavigate();
   const groups = listGroups();
   const occasions = desk.config.occasions;
+  const fromRun = !!fromDrive;
+  const fromRunPeopleCount = fromDrive?.recipients?.length ?? 0;
 
   const [groupId, setGroupId] = useState("");
   const [title, setTitle] = useState("");
@@ -76,24 +81,29 @@ export function DriveCreateModal({
   useEffect(() => {
     if (!open) return;
     const gs = listGroups();
-    setGroupId(presetGroupId || gs[0]?.id || "");
+    setGroupId(
+      fromDrive?.sourceGroupId || presetGroupId || gs[0]?.id || "",
+    );
     setTitle("");
     setOccasionType("");
     setGiftItem("");
     setDriveDate(new Date().toISOString().slice(0, 10));
     setDefaultQuantity(1);
     setCostPerGift("");
-  }, [open, presetGroupId]);
+  }, [open, presetGroupId, fromDrive]);
 
   const previewQty = useMemo(() => {
+    const fallback = Math.max(1, defaultQuantity || 1);
+    if (fromDrive) {
+      return (fromDrive.recipients?.length ?? 0) * fallback;
+    }
     const g = groups.find((x) => x.id === groupId);
     if (!g?.members.length) return 0;
-    const fallback = Math.max(1, defaultQuantity || 1);
     return g.members.reduce(
       (sum, m) => sum + Math.max(1, m.giftQuantity || fallback),
       0,
     );
-  }, [groups, groupId, defaultQuantity]);
+  }, [fromDrive, groups, groupId, defaultQuantity]);
 
   const previewCost = Number(costPerGift);
   const previewTotal =
@@ -101,11 +111,21 @@ export function DriveCreateModal({
       ? previewCost * previewQty
       : 0;
 
+  const canSubmit = fromRun
+    ? fromRunPeopleCount > 0
+    : groups.length > 0;
+
   const onCreate = (e: FormEvent) => {
     e.preventDefault();
     try {
-      if (!groups.length) throw new Error("Create a People Group first.");
-      if (!groupId) throw new Error("Choose a People Group.");
+      if (fromRun) {
+        if (!fromDrive?.id) throw new Error("Source Gift Run is required.");
+        if (!fromRunPeopleCount)
+          throw new Error("Source Gift Run has no people.");
+      } else {
+        if (!groups.length) throw new Error("Create a People Group first.");
+        if (!groupId) throw new Error("Choose a People Group.");
+      }
       if (!title.trim())
         throw new Error(`${GIFT_RUN_LABEL} title is required.`);
       if (!giftItem.trim()) throw new Error("Gift item is required.");
@@ -123,7 +143,9 @@ export function DriveCreateModal({
         occasionType,
         giftItem,
         driveDate,
-        sourceGroupId: groupId,
+        ...(fromRun && fromDrive
+          ? { fromRunId: fromDrive.id }
+          : { sourceGroupId: groupId }),
         defaultQuantity: Math.max(1, defaultQuantity || 1),
         costPerGift: cost,
       })
@@ -147,7 +169,11 @@ export function DriveCreateModal({
       <GlassHeader
         icon={<KTIcon iconName="gift" className="fs-1" />}
         title={`New ${GIFT_RUN_LABEL}`}
-        subtitle="Recipients come from the group. Occasions are managed under Configure."
+        subtitle={
+          fromRun
+            ? `Recipients come from “${fromDrive?.title ?? "this Gift Run"}” (${fromRunPeopleCount}). Everything else starts fresh.`
+            : "Recipients come from the group. Occasions are managed under Configure."
+        }
         onClose={close}
       />
       <Box
@@ -155,7 +181,7 @@ export function DriveCreateModal({
         onSubmit={onCreate}
         sx={{ px: { xs: 2, md: 3 }, pb: 3, pt: 2.5 }}
       >
-        {!groups.length ? (
+        {!fromRun && !groups.length ? (
           <Alert severity="info" sx={{ mb: 2 }}>
             Create a People Group first, then start a {GIFT_RUN_LABEL}.
             <Box sx={{ mt: 1 }}>
@@ -169,26 +195,39 @@ export function DriveCreateModal({
               </PremiumButton>
             </Box>
           </Alert>
+        ) : fromRun && !fromRunPeopleCount ? (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            This {GIFT_RUN_LABEL} has no people to copy.
+          </Alert>
         ) : (
           <Stack spacing={2.5}>
-            <TextField
-              select
-              label="People Group"
-              value={groupId}
-              onChange={(e) => setGroupId(e.target.value)}
-              fullWidth
-              required
-              sx={selectFieldSx}
-              SelectProps={{
-                MenuProps: { PaperProps: { sx: menuOptionSx(theme) } },
-              }}
-            >
-              {groups.map((g) => (
-                <MenuItem key={g.id} value={g.id}>
-                  {g.name} ({g.members.length})
-                </MenuItem>
-              ))}
-            </TextField>
+            {fromRun ? (
+              <Alert severity="info">
+                {fromRunPeopleCount} people from “{fromDrive?.title}”
+                {fromDrive?.sourceGroupName
+                  ? ` · Group: ${fromDrive.sourceGroupName}`
+                  : ""}
+              </Alert>
+            ) : (
+              <TextField
+                select
+                label="People Group"
+                value={groupId}
+                onChange={(e) => setGroupId(e.target.value)}
+                fullWidth
+                required
+                sx={selectFieldSx}
+                SelectProps={{
+                  MenuProps: { PaperProps: { sx: menuOptionSx(theme) } },
+                }}
+              >
+                {groups.map((g) => (
+                  <MenuItem key={g.id} value={g.id}>
+                    {g.name} ({g.members.length})
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
             <TextField
               label={`${GIFT_RUN_LABEL} title`}
               value={title}
@@ -286,7 +325,7 @@ export function DriveCreateModal({
           <WtButton ghost={true} type="button" onClick={close}>
             Cancel
           </WtButton>
-          <WtButton type="submit" disabled={!groups.length}>
+          <WtButton type="submit" disabled={!canSubmit}>
             Create {GIFT_RUN_LABEL}
           </WtButton>
         </Stack>

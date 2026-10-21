@@ -21,6 +21,7 @@ import {
   ActionIconButton,
   AppIcon,
   useConfirmDialog,
+  usePromptDialog,
 } from "@app/modules/common/components/ui";
 import { T } from "@app/modules/common/components/ui/tokens";
 import { toast } from "react-toastify";
@@ -30,6 +31,8 @@ import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import {
   archiveGroupToApi,
   cloneGroupToApi,
+  deleteGroupToApi,
+  listDrives,
   listGroups,
   unarchiveGroupToApi,
 } from "../store/courtesyDeskStore";
@@ -43,12 +46,21 @@ export default function PeopleGroupsList() {
   useCourtesyDesk();
   const navigate = useNavigate();
   const { ask, dialog: confirmDialog } = useConfirmDialog();
+  const { askText, dialog: promptDialog } = usePromptDialog();
   const employeeId = useSelector(
     (s: RootState) => s.employee.currentEmployee?.id,
   );
   const [statusScope, setStatusScope] = useState<GroupStatusScope>("ACTIVE");
   // Re-read on every store-driven render (useCourtesyDesk above).
   const allGroups = listGroups(true);
+  const drives = listDrives(true);
+  const runCountByGroup = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const d of drives) {
+      map.set(d.sourceGroupId, (map.get(d.sourceGroupId) || 0) + 1);
+    }
+    return map;
+  }, [drives]);
   const groups =
     statusScope === "ALL"
       ? allGroups
@@ -132,19 +144,26 @@ export default function PeopleGroupsList() {
                 size="sm"
                 tone="brand"
                 onClick={() => {
-                  const name = window.prompt(
-                    "New group name",
-                    `${g.name} (copy)`,
-                  );
-                  if (!name) return;
-                  void cloneGroupToApi(g.id, name)
-                    .then((cloned) => {
-                      toast.success("Group cloned.");
-                      navigate(`${GIFT_MANAGEMENT_BASE}/groups/${cloned.id}`);
-                    })
-                    .catch((err: unknown) =>
-                      toast.error(apiErrorMessage(err, "Something went wrong")),
-                    );
+                  void askText({
+                    title: "Clone group",
+                    message: `This will create a copy of the group with the same members.`,
+                    label: "Group name",
+                    defaultValue: `${g.name} (copy)`,
+                    confirmLabel: "Clone",
+                    icon: "bi-copy",
+                  }).then((name) => {
+                    if (!name) return;
+                    void cloneGroupToApi(g.id, name)
+                      .then((cloned) => {
+                        toast.success("Group cloned.");
+                        navigate(`${GIFT_MANAGEMENT_BASE}/groups/${cloned.id}`);
+                      })
+                      .catch((err: unknown) =>
+                        toast.error(
+                          apiErrorMessage(err, "Something went wrong"),
+                        ),
+                      );
+                  });
                 }}
               />
               {g.status === "ACTIVE" ? (
@@ -173,26 +192,57 @@ export default function PeopleGroupsList() {
                   }}
                 />
               ) : (
-                <ActionIconButton
-                  icon={
-                    <AppIcon
-                      name="bi-arrow-counterclockwise"
-                      className="fs-6"
-                    />
-                  }
-                  title="Restore group"
-                  size="sm"
-                  tone="success"
-                  onClick={() =>
-                    void unarchiveGroupToApi(g.id)
-                      .then(() => toast.success("Group restored."))
-                      .catch((err: unknown) =>
-                        toast.error(
-                          apiErrorMessage(err, "Something went wrong"),
-                        ),
-                      )
-                  }
-                />
+                <>
+                  <ActionIconButton
+                    icon={
+                      <AppIcon
+                        name="bi-arrow-counterclockwise"
+                        className="fs-6"
+                      />
+                    }
+                    title="Restore group"
+                    size="sm"
+                    tone="success"
+                    onClick={() =>
+                      void unarchiveGroupToApi(g.id)
+                        .then(() => toast.success("Group restored."))
+                        .catch((err: unknown) =>
+                          toast.error(
+                            apiErrorMessage(err, "Something went wrong"),
+                          ),
+                        )
+                    }
+                  />
+                  <ActionIconButton
+                    iconName="trash"
+                    title={
+                      (runCountByGroup.get(g.id) || 0) > 0
+                        ? `Delete ${runCountByGroup.get(g.id)} linked Gift Run(s) first`
+                        : "Delete group permanently"
+                    }
+                    size="sm"
+                    tone="danger"
+                    disabled={(runCountByGroup.get(g.id) || 0) > 0}
+                    onClick={() => {
+                      void ask({
+                        variant: "delete",
+                        title: "Delete group",
+                        message: `Permanently delete “${g.name}”? This cannot be undone.`,
+                        confirmLabel: "Delete permanently",
+                        icon: "trash",
+                      }).then((ok) => {
+                        if (!ok) return;
+                        void deleteGroupToApi(g.id)
+                          .then(() => toast.success("Group deleted."))
+                          .catch((err: unknown) =>
+                            toast.error(
+                              apiErrorMessage(err, "Something went wrong"),
+                            ),
+                          );
+                      });
+                    }}
+                  />
+                </>
               )}
               <ActionIconButton
                 icon={<AppIcon name="bi-gift" className="fs-6" />}
@@ -210,12 +260,13 @@ export default function PeopleGroupsList() {
         },
       }),
     ],
-    [ask, navigate],
+    [ask, askText, navigate, runCountByGroup],
   );
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       {confirmDialog}
+      {promptDialog}
       <Stack
         direction={{ xs: "column", md: "row" }}
         justifyContent="space-between"
@@ -231,7 +282,23 @@ export default function PeopleGroupsList() {
             Reusable lists — use Update Group to edit
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <PremiumButton
+          icon="bi-plus-lg"
+          onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/groups/new`)}
+        >
+          New Group
+        </PremiumButton>
+      </Stack>
+
+      <MaterialTable
+        tableName="Gift-Management-People-Groups"
+        columns={columns}
+        data={groups}
+        employeeId={employeeId}
+        enableFilters={false}
+        enableGrouping={false}
+        enableStatusColorCoding={false}
+        renderTopToolbarRightActions={() => (
           <TextField
             select
             size="small"
@@ -244,23 +311,7 @@ export default function PeopleGroupsList() {
             <MenuItem value="ACTIVE">Active</MenuItem>
             <MenuItem value="ARCHIVED">Archive</MenuItem>
           </TextField>
-          <PremiumButton
-            icon="bi-plus-lg"
-            onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/groups/new`)}
-          >
-            New Group
-          </PremiumButton>
-        </Stack>
-      </Stack>
-
-      <MaterialTable
-        tableName="Gift-Management-People-Groups"
-        columns={columns}
-        data={groups}
-        employeeId={employeeId}
-        enableFilters={false}
-        enableGrouping={false}
-        enableStatusColorCoding={false}
+        )}
         muiTablePaperStyle={{
           borderRadius: `${T.radius.lg}px`,
           border: `1px solid ${T.color.line}`,

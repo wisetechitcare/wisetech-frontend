@@ -21,6 +21,8 @@ import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { InlineNotice, TRIO } from '@app/modules/common/components/ui';
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
+import { enrollAttendancePasskey, getAttendanceIdentityStatus, type AttendanceIdentityStatus } from '@services/attendanceIdentity';
+import { AttendanceFaceEnrollmentButton } from './components/AttendanceFaceEnrollmentButton';
 
 interface Props {
   employeeId: string;
@@ -50,6 +52,8 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
   const [saving, setSaving] = useState(false);
   const [summary, setSummary] = useState<EmployeeAccessSummary | null>(null);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [identity, setIdentity] = useState<AttendanceIdentityStatus | null>(null);
+  const [enrollingIdentity, setEnrollingIdentity] = useState(false);
 
   // Staged (unsaved) edits.
   const [levels, setLevels] = useState<Record<string, EffLevel>>({});
@@ -119,6 +123,22 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
     if (employeeId) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId]);
+
+  useEffect(() => {
+    if (employeeId) getAttendanceIdentityStatus(employeeId).then(setIdentity).catch(() => setIdentity(null));
+  }, [employeeId]);
+
+  const enrollPasskey = async () => {
+    try {
+      setEnrollingIdentity(true);
+      setIdentity(await enrollAttendancePasskey(employeeId));
+      toast.success('Attendance passkey enrolled');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || error?.message || 'Could not enroll attendance passkey');
+    } finally {
+      setEnrollingIdentity(false);
+    }
+  };
 
   const customModules = useMemo(() => new Set(Object.keys(summary?.overrides || {})), [summary]);
 
@@ -255,6 +275,24 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
       <div className="row g-5">
         {/* LEFT: Module specific access — most of the width, so a row holds 4–5 cards */}
         <div className="col-12 col-xl-9">
+          <div className="card border shadow-sm mb-6" style={{ borderRadius: 14 }}>
+            <div className="card-body d-flex flex-wrap align-items-center justify-content-between gap-4">
+              <div>
+                <div className="fw-bold fs-5">Attendance identity</div>
+                <div className="text-muted fs-7 mt-1">
+                  {identity?.passkeys.length || 0} passkey{identity?.passkeys.length === 1 ? '' : 's'} enrolled
+                  {identity?.faceEnrolled ? ' · Face enrolled' : ''}. Enrollment must be completed with HR present.
+                </div>
+              </div>
+              <div className="d-flex gap-2">
+                <button className="btn btn-light-primary" disabled={enrollingIdentity} onClick={enrollPasskey}>
+                  <AppIcon name="bi-fingerprint" className="me-2" />
+                  {enrollingIdentity ? 'Enrolling…' : 'Enroll passkey'}
+                </button>
+                <AttendanceFaceEnrollmentButton employeeId={employeeId} onEnrolled={setIdentity} />
+              </div>
+            </div>
+          </div>
           <div className="text-muted fw-bold fs-7 mb-3" style={{ letterSpacing: 1 }}>MODULE SPECIFIC ACCESS</div>
           <div className="card border shadow-sm mb-8" style={{ borderRadius: 14 }}>
             <div className="card-body">

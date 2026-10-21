@@ -147,6 +147,10 @@ export async function unarchiveGroupApi(id: string) {
   return res.group;
 }
 
+export async function deleteGroupApi(id: string) {
+  await del<{ message?: string }>(path(GIFTS.GROUP_BY_ID, { id }));
+}
+
 export async function fetchDrives(includeArchived = false) {
   const qs = includeArchived ? "?includeArchived=1" : "";
   const res = await get<{ drives: CourtesyDrive[] }>(`${GIFTS.DRIVES}${qs}`);
@@ -163,7 +167,8 @@ export async function createDriveApi(input: {
   occasionType: string;
   giftItem: string;
   driveDate?: string;
-  sourceGroupId: string;
+  sourceGroupId?: string;
+  fromRunId?: string;
   defaultQuantity?: number;
   costPerGift?: number | null;
 }) {

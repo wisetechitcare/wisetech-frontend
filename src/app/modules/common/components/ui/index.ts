@@ -106,6 +106,10 @@ export {
   useConfirmDialog,
   type AskConfirmOptions,
 } from './useConfirmDialog';
+export {
+  usePromptDialog,
+  type AskPromptOptions,
+} from './usePromptDialog';
 // Dialog form cards (Sandwich Add Rule shape) + spacing rhythm SSOT.
 export { FormSection, FORM_SPACE, type FormSectionProps } from './FormSection';
 // Shared UI pattern atoms — app-wide primitives (single source of truth; use across every feature).

@@ -50,6 +50,13 @@ const SELECTED_LIST_MAX_HEIGHT = { xs: "min(62vh, 520px)", md: 520 };
 const CONTACT_PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 250;
 
+function isContactCrmActive(c: {
+  isActive?: boolean | null;
+  isContactActive?: boolean | null;
+}) {
+  return c.isActive !== false && c.isContactActive !== false;
+}
+
 function contactToPersonRef(c: any): PersonRef {
   return {
     memberType: "CONTACT",
@@ -606,7 +613,7 @@ export default function PersonPicker({
       .then((res: any) => {
         if (cancelled) return;
         const body = res?.data ?? res ?? {};
-        const rows = (body.contacts || []) as any[];
+        const rows = ((body.contacts || []) as any[]).filter(isContactCrmActive);
         setContacts(rows.map(contactToPersonRef));
         setContactTotal(Number(body.total ?? rows.length));
       })
@@ -639,7 +646,7 @@ export default function PersonPicker({
     )
       .then((res: any) => {
         const body = res?.data ?? res ?? {};
-        const rows = (body.contacts || []) as any[];
+        const rows = ((body.contacts || []) as any[]).filter(isContactCrmActive);
         setContacts((prev) => {
           const seen = new Set(prev.map((p) => p.personId));
           const added = rows

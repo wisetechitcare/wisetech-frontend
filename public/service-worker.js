@@ -5,6 +5,12 @@
    ========================================================================== */
 
 const APP_NAME = 'WiseTech HR';
+const OFFLINE_CACHE = 'wisetech-offline-v1';
+const OFFLINE_ASSETS = [
+  '/offline.html',
+  '/icons/pwa-192.png',
+  '/icons/pwa-512.png',
+];
 
 // ── Push event: browser/OS receives a push from the backend ──────────────────
 self.addEventListener('push', (event) => {
@@ -74,5 +80,25 @@ self.addEventListener('notificationclose', (_event) => {
 });
 
 // ── Install / Activate: skip waiting so the new SW activates immediately ─────
-self.addEventListener('install',  (event) => { event.waitUntil(self.skipWaiting()); });
-self.addEventListener('activate', (event) => { event.waitUntil(clients.claim()); });
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(OFFLINE_CACHE)
+      .then((cache) => cache.addAll(OFFLINE_ASSETS))
+      .then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((key) => key.startsWith('wisetech-offline-') && key !== OFFLINE_CACHE).map((key) => caches.delete(key))))
+      .then(() => clients.claim()),
+  );
+});
+
+// Network-only for normal app navigation; the cache is a fallback document only.
+// API requests, authenticated pages, tokens and mutation payloads are never cached.
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode !== 'navigate' || event.request.method !== 'GET') return;
+  event.respondWith(fetch(event.request).catch(() => caches.match('/offline.html')));
+});

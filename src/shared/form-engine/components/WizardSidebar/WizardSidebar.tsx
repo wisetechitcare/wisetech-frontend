@@ -47,19 +47,25 @@ export const WizardSidebar: React.FC<WizardSidebarProps> = ({
     const requiredFilled = required.every((f) => hasValue(values[f]));
     if (!requiredFilled) return "pending";
 
-    // Requirements satisfied. Count the step done once the user has engaged with
-    // it: a hard-required step is done outright; an optional step is done once
-    // any tracked field is filled, it has nothing to track, or it's been passed.
+    // Requirements satisfied. Required steps count as done once filled.
+    // Optional steps only count as done after the user has passed them — otherwise
+    // edit-mode prefill marks Contact/Notes complete while still on Profile.
     if (required.length > 0) return "completed";
-    const sectionFields = Array.from(new Set(section.fields || []));
-    const anyFilled = sectionFields.some((f) => hasValue(values[f]));
-    if (anyFilled || sectionFields.length === 0 || sectionIndex < currentStep) return "completed";
+    if (sectionIndex < currentStep) return "completed";
     return "pending";
   };
 
-  // Overall progress: share of steps fully completed across the whole wizard, so
-  // the headline percentage and the "X of N steps completed" line always agree.
-  const completedCount = sections.filter((s, index) => getSectionStatus(s, index) === "completed").length;
+  // Overall progress: completed steps + the active step once its required fields
+  // are filled (so a single-step form and the current page both move the bar).
+  const isDoneForProgress = (section: EnterpriseWizardStep<any>, index: number) => {
+    const status = getSectionStatus(section, index);
+    if (status === "completed") return true;
+    if (status !== "active") return false;
+    const required = section.requiredFields ?? [];
+    if (required.length > 0) return required.every((f) => hasValue(values[f]));
+    return (section.fields || []).some((f) => hasValue(values[f]));
+  };
+  const completedCount = sections.filter((s, index) => isDoneForProgress(s, index)).length;
   const progressPercent = sections.length > 0 ? Math.round((completedCount / sections.length) * 100) : 0;
 
   return (

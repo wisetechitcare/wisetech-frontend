@@ -1,0 +1,222 @@
+/**
+ * Contact / Company wizard — profile layout, avatar, pills, date containment.
+ * Palette follows EnterpriseFormWizard navy (#1e3a8a) + slate neutrals.
+ * Section chrome: `.wt-section-card` from Workspace.css (via CrmSection).
+ */
+
+/*
+ * Profile step — person-first: photo rail left, fields right.
+ *   [  photo  ]  Full name     | DOB
+ *   [  128px  ]  Gender        | Anniversary
+ */
+.enterprise-wizard[data-form-module="contact"] .crm-profile-layout {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 1.75rem 2rem;
+  align-items: start;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-profile-photo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-profile-fields {
+  min-width: 0;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-actions--stack {
+  align-items: center;
+  width: 100%;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-actions--stack .wt-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .enterprise-wizard[data-form-module="contact"] .crm-profile-layout {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .enterprise-wizard[data-form-module="contact"] .crm-profile-photo {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .enterprise-wizard[data-form-module="contact"] .crm-avatar-actions--stack {
+    align-items: flex-start;
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .enterprise-wizard[data-form-module="contact"] .crm-avatar-actions--stack .wt-btn {
+    width: auto;
+  }
+}
+
+/* Avatar — use shared wt-avatar-* tokens; keep crm-* aliases for both modules */
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-wrap,
+.enterprise-wizard[data-form-module="company"] .crm-avatar-wrap,
+.enterprise-wizard[data-form-module="contact"] .wt-avatar-uploader,
+.enterprise-wizard[data-form-module="company"] .wt-avatar-uploader {
+  display: flex;
+  align-items: center;
+  gap: 1.125rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-circle,
+.enterprise-wizard[data-form-module="company"] .crm-avatar-circle {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  min-width: 104px;
+  min-height: 104px;
+  border-radius: 50%;
+  border: 2.5px dashed #94a3b8;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+  color: #64748b;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-circle--lg {
+  width: 128px;
+  height: 128px;
+  min-width: 128px;
+  min-height: 128px;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-circle:hover,
+.enterprise-wizard[data-form-module="company"] .crm-avatar-circle:hover {
+  border-color: #1e3a8a;
+  background: #eff6ff;
+  box-shadow: 0 4px 16px rgba(30, 58, 138, 0.16);
+  color: #1e3a8a;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-circle.has-image,
+.enterprise-wizard[data-form-module="company"] .crm-avatar-circle.has-image {
+  border-style: solid;
+  border-color: #1e3a8a;
+  background: #fff;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-circle img,
+.enterprise-wizard[data-form-module="company"] .crm-avatar-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.enterprise-wizard[data-form-module="company"] .crm-avatar-circle img {
+  object-fit: contain;
+  width: 82%;
+  height: 82%;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-circle .crm-avatar-placeholder,
+.enterprise-wizard[data-form-module="company"] .crm-avatar-circle .crm-avatar-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  pointer-events: none;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-circle .crm-avatar-placeholder .app-icon,
+.enterprise-wizard[data-form-module="company"] .crm-avatar-circle .crm-avatar-placeholder .app-icon,
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-circle .crm-avatar-placeholder i,
+.enterprise-wizard[data-form-module="company"] .crm-avatar-circle .crm-avatar-placeholder i {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-actions,
+.enterprise-wizard[data-form-module="company"] .crm-avatar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-avatar-actions .crm-avatar-hint,
+.enterprise-wizard[data-form-module="company"] .crm-avatar-actions .crm-avatar-hint {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+/* Keep MUI date pickers inside the grid cell (avoids nested white boxes overflowing) */
+.enterprise-wizard[data-form-module="contact"] .crm-date-field,
+.enterprise-wizard[data-form-module="company"] .crm-date-field {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-date-field .MuiFormControl-root,
+.enterprise-wizard[data-form-module="company"] .crm-date-field .MuiFormControl-root,
+.enterprise-wizard[data-form-module="contact"] .crm-date-field .MuiOutlinedInput-root,
+.enterprise-wizard[data-form-module="company"] .crm-date-field .MuiOutlinedInput-root {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Gender / status pill toggles — navy selected like Onboarding */
+.enterprise-wizard[data-form-module="contact"] .crm-pill-group,
+.enterprise-wizard[data-form-module="company"] .crm-pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-pill-group label,
+.enterprise-wizard[data-form-module="company"] .crm-pill-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-pill-group input,
+.enterprise-wizard[data-form-module="company"] .crm-pill-group input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.enterprise-wizard[data-form-module="contact"] .crm-pill-group label:has(input:checked),
+.enterprise-wizard[data-form-module="company"] .crm-pill-group label:has(input:checked) {
+  background: #1e3a8a;
+  border-color: #1e3a8a;
+  color: #fff;
+}

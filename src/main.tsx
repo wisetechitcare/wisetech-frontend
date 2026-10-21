@@ -43,6 +43,7 @@ import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { fetchCurrentUser } from '@services/users'
 import { saveCurrentUser } from '@redux/slices/auth'
 import { jwtDecode } from "jwt-decode"
+import { registerServiceWorker } from '@app/pwa/serviceWorker'
 // import Notification from "../src/app/pages/employee/tasks/components/notification/Notifications"
 // import { useState } from 'react'
 /**
@@ -58,6 +59,7 @@ import { jwtDecode } from "jwt-decode"
  */
 setupAxios(axios)
 Chart.register(...registerables)
+void registerServiceWorker()
 
 // Sensible defaults so React Query caches/dedupes instead of refetching on every mount
 // or window focus (the previous default of staleTime:0 made cached data instantly stale).

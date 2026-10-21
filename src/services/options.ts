@@ -5,7 +5,7 @@ import { ICompanyDesignation, ICompanyEmployeeTypeUpdate } from "@models/company
 import { RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import { saveCountries } from "@redux/slices/locations";
-import { IReimbursementType, IReimbursementTypeCreate, IReimbursementTypeFetch } from "@models/employee";
+import { IReimbursementTypeCreate, IReimbursementTypeFetch } from "@models/employee";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 

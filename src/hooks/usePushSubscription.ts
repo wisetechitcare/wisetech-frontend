@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import axios from 'axios';
+import { getServiceWorkerRegistration } from '@app/pwa/serviceWorker';
 
 const API_BASE = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
 
@@ -36,7 +37,7 @@ async function saveSubscription(employeeId: string, subscription: PushSubscripti
 }
 
 /**
- * Registers the Service Worker, requests notification permission, subscribes
+ * Reuses the app's Service Worker, requests notification permission, subscribes
  * to Web Push and syncs the subscription with the backend.
  *
  * Call once when the user is authenticated. Idempotent — safe to re-run.
@@ -52,10 +53,9 @@ export function usePushSubscription(employeeId: string | null | undefined): void
 
     async function register() {
       try {
-        // 1. Register the service worker
-        const registration = await navigator.serviceWorker.register('/service-worker.js', {
-          scope: '/',
-        });
+        // 1. Reuse the globally-owned service worker registration.
+        const registration = await getServiceWorkerRegistration();
+        if (!registration) return;
 
         // 2. Ask for notification permission (browser shows the allow/block prompt)
         const permission = await Notification.requestPermission();

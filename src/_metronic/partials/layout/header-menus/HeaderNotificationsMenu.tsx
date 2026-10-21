@@ -88,7 +88,7 @@ const HeaderNotificationsMenu: FC<Props> = ({backgrounUrl}) => (
 
         <div className='py-3 text-center border-top'>
           <Link
-            to='/crafted/pages/profile'
+            to='/employee/profile/overview'
             className='btn btn-color-gray-600 btn-active-color-primary'
           >
             View All <KTIcon iconName='arrow-right' className='fs-5' />
@@ -143,7 +143,7 @@ const HeaderNotificationsMenu: FC<Props> = ({backgrounUrl}) => (
         </div>
         <div className='py-3 text-center border-top'>
           <Link
-            to='/crafted/pages/profile'
+            to='/employee/profile/overview'
             className='btn btn-color-gray-600 btn-active-color-primary'
           >
             View All <KTIcon iconName='arrow-right' className='fs-5' />
