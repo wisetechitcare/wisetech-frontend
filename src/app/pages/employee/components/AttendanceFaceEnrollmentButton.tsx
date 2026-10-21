@@ -57,7 +57,7 @@ export function AttendanceFaceEnrollmentButton({ employeeId, onEnrolled }: {
       onClick={start}
       startIcon={<AppIcon name="bi-person-bounding-box" />}
     >
-      Enroll face
+      Enroll Face
     </WtButton>
     <Modal show={Boolean(session)} onHide={() => setSession(null)} centered size="lg">
       <Modal.Header closeButton><Modal.Title>Enroll attendance face</Modal.Title></Modal.Header>
