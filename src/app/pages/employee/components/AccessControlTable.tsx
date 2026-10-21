@@ -3,7 +3,7 @@ import { ACCESS_SIDEBAR_LAYOUT, AccessLayoutGroup, AccessLayoutNode, layoutLeave
 import { SECTION_ICON } from "@hooks/useNavContainers";
 import { sectionAccent } from "@components/navigation/NavContainers/navTheme";
 import { navIcon } from "@components/navigation/NavContainers/navIcons";
-import { AppIcon, WtTooltip } from "@app/modules/common/components/ui";
+import { AppIcon, WtButton, WtIconButton, WtTooltip } from "@app/modules/common/components/ui";
 import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
 import type { EffLevel } from "./accessControlTypes";
@@ -95,12 +95,6 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
   const allCollapsed = open.size === 0;
   const isOpenLevel = (m: string) => (levels[m] || "none") !== "none";
 
-  const toolBtn = (disabled: boolean): React.CSSProperties => ({
-    display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
-    border: "1px solid rgba(100,116,139,0.28)", background: "transparent", color: "inherit", fontWeight: 500, fontSize: 12,
-    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.55 : 1, whiteSpace: "nowrap",
-  });
-
   const columns = employee ? ["Read", "Read all", "Write", "Commercials"] : ["Read", "Write"];
   const rowPad = (depth: number): React.CSSProperties => ({ padding: "7px 10px", paddingLeft: 10 + depth * 22 });
   const chevron = (isOpen: boolean, visible = true) => (
@@ -127,16 +121,14 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
         {employee && (
           <Cell width={ACTION}>
             {isCustom && !readOnly && (
-              <WtTooltip title="Reset to role">
-                <button
-                  type="button"
-                  aria-label={`Reset ${label} to role`}
-                  onClick={() => onResetToRole?.(module)}
-                  style={{ border: "none", background: "transparent", color: "#8893a0", cursor: "pointer", padding: 4, borderRadius: 6, display: "inline-flex" }}
-                >
-                  <AppIcon name="bi-arrow-counterclockwise" className="fs-7" />
-                </button>
-              </WtTooltip>
+              <WtIconButton
+                title={`Reset ${label} to role`}
+                color="#8893a0"
+                onClick={() => onResetToRole?.(module)}
+                sx={{ width: 28, height: 28, p: 0.25 }}
+              >
+                <AppIcon name="bi-arrow-counterclockwise" className="fs-7" />
+              </WtIconButton>
             )}
           </Cell>
         )}
@@ -157,17 +149,22 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
             style={{ width: "100%", height: 36, border: "1px solid rgba(100,116,139,0.28)", borderRadius: 8, padding: "0 30px 0 32px", fontSize: 13, outline: "none", color: "inherit", background: "transparent", boxSizing: "border-box" }}
           />
           {query && (
-            <button type="button" onClick={() => setQuery("")} aria-label="Clear search" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aab2bd" }}>
+            <WtIconButton
+              title="Clear search"
+              color="#aab2bd"
+              onClick={() => setQuery("")}
+              sx={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, p: 0.25 }}
+            >
               <AppIcon name="bi-x-lg" className="fs-8" />
-            </button>
+            </WtIconButton>
           )}
         </div>
-        <button type="button" onClick={() => setOpen(new Set(allKeys))} disabled={allExpanded || !!q} style={toolBtn(allExpanded || !!q)}>
-          <AppIcon name="bi-arrows-expand" /> Expand all
-        </button>
-        <button type="button" onClick={() => setOpen(new Set())} disabled={allCollapsed || !!q} style={toolBtn(allCollapsed || !!q)}>
-          <AppIcon name="bi-arrows-collapse" /> Collapse all
-        </button>
+        <WtButton ghost size="small" onClick={() => setOpen(new Set(allKeys))} disabled={allExpanded || !!q} startIcon={<AppIcon name="bi-arrows-expand" />}>
+          Expand all
+        </WtButton>
+        <WtButton ghost size="small" onClick={() => setOpen(new Set())} disabled={allCollapsed || !!q} startIcon={<AppIcon name="bi-arrows-collapse" />}>
+          Collapse all
+        </WtButton>
       </div>
 
       {/* Column headings — the checkboxes below carry no labels of their own. */}
