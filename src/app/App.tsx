@@ -18,6 +18,7 @@ import { ColorModeProvider } from '@app/theme/ColorMode';
 import { GlassToastProvider } from '@app/modules/common/components/ui';
 import { useTimeFormat } from '@hooks/useTimeFormat';
 import { useCurrencyCode } from '@hooks/useCurrency';
+import { PwaHost } from './pwa/PwaHost';
 // import { MaintenancePage } from './modules/errors/MaintenancePage';
 // import { NoInternetPage } from './modules/errors/NoInternetPage';
 
@@ -211,6 +212,7 @@ const App = () => {
                   <Outlet key={`${timeFormat}:${currency}`} />
                   <MasterInit />
                   <Toaster richColors position="top-right" />
+                  <PwaHost />
 
                   {/* Global Timer Modal - only render when authenticated */}
                   {isAuthenticated && <GlobalTimerModal />}

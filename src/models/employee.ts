@@ -286,6 +286,7 @@ export interface ICheckInPayload {
   latitude: number;
   longitude: number;
   checkIn: Date;
+  verificationId?: string;
 }
 
 export interface ICheckOutPayload {
@@ -294,6 +295,7 @@ export interface ICheckOutPayload {
   longitude: number;
   checkOut: Date;
   checkOutLocation?: string;
+  verificationId?: string;
 }
 
 export interface IValidateTokenInOut {
@@ -347,9 +349,6 @@ export interface IReimbursementsCreate {
   amount: number | undefined,
   document?: string,
   description: string,
-}
-
-export interface IReimbursementType {
 }
 
 export interface IReimbursementTypeFetch {
@@ -590,6 +589,5 @@ export interface IUpdateEmployeeLevel {
   order?: number;
   isActive?: boolean;
 }
-
 
 

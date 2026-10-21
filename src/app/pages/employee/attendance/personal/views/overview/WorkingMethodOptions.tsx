@@ -1113,6 +1113,7 @@ import isSameOrAfter    from 'dayjs/plugin/isSameOrAfter';
 import { AnythingStatus, LoanStatus } from '@constants/statistics';
 import { IAttendanceRequests } from '@models/employee';
 import { KPITestPanel } from './KPITestPanel';
+import { usePunchIdentity } from './PunchIdentityDialog';
 // import { KPITestPanel } from './KPITestPanel';
 dayjs.extend(customParseFormat);
 dayjs.extend(isSameOrBefore);
@@ -1159,7 +1160,8 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
      * Today's attendance as the server reports it, and the single input that decides what the
      * button may do. It starts 'unknown', which must never be treated as "blocked".
      */
-    const [dayState, setDayState] = useState<'unknown' | 'not-in' | 'in' | 'done'>('unknown');
+    const [dayState, setDayState] = useState<'unknown' | 'not-in' | 'in'>('unknown');
+    const { verify: verifyPunchIdentity, dialog: identityDialog } = usePunchIdentity();
     const [graceTimeOnSite, setGraceTimeOnSite] = useState<string>('');
     const allEmpDetails = useSelector((state: RootState) => state.employee.currentEmployee);
     const branchLatitude = allEmpDetails.branches?.latitude;
@@ -1306,7 +1308,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
         };
     }
 
-    const handleCheckIn = async (values: any) => {
+    const handleCheckIn = async (values: any, verificationId?: string) => {
         try {
             // Get today's shift for KPI calculations ONLY (with fallback to app settings)
             const todaysShift = getShiftForDate(new Date());
@@ -1336,6 +1338,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
                 longitude,
                 checkInLocation: currentAddress,
                 workingMethodId: values.workingMethod,
+                verificationId,
             }
 
             // calculation for Late Attendance Days
@@ -1602,7 +1605,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
         }
     }
 
-    const handleCheckOut = async (values: any) => {
+    const handleCheckOut = async (values: any, verificationId?: string) => {
         try {
             // Get today's shift for KPI calculations ONLY (with fallback to app settings)
             const todaysShift = getShiftForDate(new Date());
@@ -1648,7 +1651,8 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
                 checkOut: checkoutTimeToUse,
                 employeeId,
                 checkOutLocation: currentAddress,
-                checkoutWorkingMethodId:values.workingMethod
+                checkoutWorkingMethodId:values.workingMethod,
+                verificationId,
             }
 
             // Check if today's check-in exists before proceeding
@@ -1894,9 +1898,16 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
         setLastSubmitTime(now);
 
         setIsSubmitting(true);
-        if (btnText.toLowerCase() === 'check in') await handleCheckIn(values);
-        else if (btnText.toLowerCase() === 'check out') await handleCheckOut(values);
-        setIsSubmitting(false);
+        try {
+            const isCheckIn = btnText.toLowerCase() === 'check in';
+            const verificationId = await verifyPunchIdentity(isCheckIn ? 'CHECK_IN' : 'CHECK_OUT');
+            if (isCheckIn) await handleCheckIn(values, verificationId);
+            else if (btnText.toLowerCase() === 'check out') await handleCheckOut(values, verificationId);
+        } catch (err: any) {
+            errorConfirmation(err?.response?.data?.detail || err?.message || 'Identity verification failed. Please raise an attendance request.');
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     useEffect(() => {
@@ -1976,9 +1987,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
             try {
                 const res = await checkAttendanceMarked(date, employeeId);
                 const { checkIn, checkOut } = res.data?.attendance ?? {};
-                if (checkOut) {
-                    setDayState('done');
-                } else if (checkIn) {
+                if (checkIn) {
                     // Checked in and still out there. Whatever the punch came from — the face
                     // reader, another device, the app — the only thing left to do is check out.
                     setDayState('in');
@@ -2029,6 +2038,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     }
     return (
         <>
+            {identityDialog}
             <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={attendanceSchema}>
                 <Form>
                     <div className="row">

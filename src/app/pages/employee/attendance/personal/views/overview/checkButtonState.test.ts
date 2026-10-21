@@ -53,11 +53,6 @@ describe('an unknown radius is not a radius of zero', () => {
 });
 
 describe('the day state decides first', () => {
-    it('closes a finished day', () => {
-        expect(at({ dayState: 'done', distanceFromBranch: 0 })).toBe(true);
-        expect(at({ dayState: 'done', isOfficeMethod: false })).toBe(true);
-    });
-
     /**
      * A failed status fetch leaves the day unknown. That must keep the button usable — the
      * server is what decides whether a punch is valid, not a fetch that did not answer.
@@ -79,7 +74,7 @@ describe('the day state decides first', () => {
     });
 
     it('covers every day state without throwing', () => {
-        const states: DayState[] = ['unknown', 'not-in', 'in', 'done'];
+        const states: DayState[] = ['unknown', 'not-in', 'in'];
         for (const dayState of states) {
             expect(typeof at({ dayState })).toBe('boolean');
         }
