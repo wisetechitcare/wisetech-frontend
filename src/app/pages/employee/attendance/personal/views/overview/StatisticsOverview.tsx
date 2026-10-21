@@ -1,7 +1,7 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { convertToTimeZone, formatTime, formatTimeString, MUMBAI_TZ as mumbaiTz } from '@utils/date';
 import { parseWorkingDays } from '@utils/workingDays';
-import { allStreaksIndicator, donutaDataLabel, getWorkingDaysInYear, handleDatesChange, todayProgressPercent, totalProgressPercent,currentDayWorkingHours, fetchEmpYearlyStatistics, getWorkingDaysInRange, formatDisplay } from '@utils/statistics';
+import { allStreaksIndicator, donutaDataLabel, handleDatesChange, todayProgressPercent, currentDayWorkingHours, fetchEmpYearlyStatistics, getWorkingDaysInRange, formatDisplay } from '@utils/statistics';
 import { Card, Grid } from '@mui/material';
 import React, { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
@@ -19,6 +19,7 @@ import { DATE_SETTINGS_KEY, DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT 
 import { calculateTotalDuration } from '@utils/calculateTotalDuration';
 import { countTotalWeekends } from '@utils/countTotalWeekend';
 import { setFeatureConfiguration } from '@redux/slices/featureConfiguration';
+import { ErrorState, Spinner } from '@app/modules/common/components/ui/tw';
 
 interface StatisticsOverviewProps {
     yearlyStats: Attendance[];
@@ -28,7 +29,6 @@ interface StatisticsOverviewProps {
 }
 
 const StatisticsOverview: React.FC<StatisticsOverviewProps> = ({ yearlyStats, startDates, endDates, workingTime }) => {
-    const year = dayjs();
     const holidays = useSelector((state: RootState) => state.attendanceStats.filteredPublicHolidays); 
     const weekends = store.getState().employee.currentEmployee.branches?.workingAndOffDays; 
     const allWeekends = parseWorkingDays(weekends);
@@ -41,7 +41,7 @@ const StatisticsOverview: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
                 <Grid container className='mt-4' style={{ alignItems: 'stretch' }}>
                     <OverviewProgessBar  />
                     <OverviewAttendance yearlyStats={yearlyStats} startDates={startDates} endDates={endDates} />
-                    <StreakIndicator currentStreak={allStreaksIndicator(yearlyStats)[0].toString()} lastStreak={allStreaksIndicator(yearlyStats)[1].toString()} totalDays={totalWorkingDay} />
+                    <StreakIndicator currentStreak={allStreaksIndicator(yearlyStats)[0].toString()} lastStreak={allStreaksIndicator(yearlyStats)[1].toString()} totalDays={totalWorkingDay} layout="mui" />
                 </Grid>
             </div>
         </>
@@ -55,9 +55,13 @@ const OverviewProgessBar: React.FC = React.memo(() => {
     const checkInCheckOut = useSelector((state: RootState) => state.attendance.openModal);
 
     const [day, setDay] = useState(dayjs());
+    const [now, setNow] = useState(dayjs());
     const [workingTime, setWorkingTime] = useState("");
 
     const [dailyStats, setDailyStats] = useState<any[]>([]);
+    const [isStatsLoading, setIsStatsLoading] = useState(true);
+    const [statsError, setStatsError] = useState(false);
+    const [retryKey, setRetryKey] = useState(0);
 
     const progessBarSeries: number[] = [todayProgressPercent(dailyStats)];
 
@@ -92,7 +96,13 @@ const OverviewProgessBar: React.FC = React.memo(() => {
 
     
     
-    const totalWorkingTime = calculateTotalDuration([dailyStats[0]]);
+    const currentAttendance = dailyStats[0];
+    const hasNoCheckOut = !currentAttendance?.checkOut || currentAttendance.checkOut === "-NA-" || currentAttendance.checkOut === "-";
+    const hasActiveSession = day.isSame(now, "day") && Boolean(currentAttendance?.checkIn) && hasNoCheckOut;
+    const durationStats = hasActiveSession
+        ? [{ ...currentAttendance, checkOut: now.toISOString() }]
+        : dailyStats;
+    const totalWorkingTime = calculateTotalDuration(durationStats);
     const totalAllowedTime = formatDisplay(workingTime); 
 
     const gaugePct = progessBarSeries[0] || 0;
@@ -101,30 +111,71 @@ const OverviewProgessBar: React.FC = React.memo(() => {
     const gaugeFilled = (gaugePct / 100) * gaugeCirc;
 
     useEffect(() => {
+        let cancelled = false;
         async function fetchStats() {
-            const startEnddate = day.format('YYYY-MM-DD');
-            const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(employeeId, startEnddate, startEnddate);
-            setDailyStats(empAttendanceStatistics);
-        };
+            setIsStatsLoading(true);
+            setStatsError(false);
+            try {
+                const startEnddate = day.format('YYYY-MM-DD');
+                const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(employeeId, startEnddate, startEnddate);
+                if (!cancelled) setDailyStats(empAttendanceStatistics ?? []);
+            } catch (error) {
+                console.error('Error fetching daily attendance progress:', error);
+                if (!cancelled) setStatsError(true);
+            } finally {
+                if (!cancelled) setIsStatsLoading(false);
+            }
+        }
 
         fetchStats();
-    }, [day, checkInCheckOut, employeeId]);
+        return () => {
+            cancelled = true;
+        };
+    }, [day, checkInCheckOut, employeeId, retryKey]);
+
+    useEffect(() => {
+        if (!day.isSame(dayjs(), "day") || !currentAttendance?.checkIn || !hasNoCheckOut) return;
+
+        const interval = window.setInterval(() => setNow(dayjs()), 60_000);
+        return () => window.clearInterval(interval);
+    }, [day, currentAttendance, hasNoCheckOut]);
 
     return (
         <Grid item xs={12} md={4} className="mb-4" style={{ display: 'flex' }}>
             <Card elevation={0} sx={{ border: '1px solid #f0f0f0', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', display: 'flex', flexDirection: 'column' }}>
                 {/* Header */}
                 <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: 15, color: '#1a1a2e', letterSpacing: '-0.01em' }}>Working Time</span>
+                    <h3 style={{ margin: 0, fontWeight: 700, fontSize: 15, color: '#1a1a2e', letterSpacing: '-0.01em' }}>Working Time</h3>
                     <DateSelector
                         onPrevious={() => handleDatesChange('decrement', 'day', setDay)}
                         onNext={() => handleDatesChange('increment', 'day', setDay)}
                         displayValue={day.format('DD MMM YYYY')}
                     />
                 </div>
+                {statsError ? (
+                    <div style={{ padding: 16 }}>
+                        <ErrorState
+                            compact
+                            title="Couldn’t load working time"
+                            onRetry={() => setRetryKey((key) => key + 1)}
+                        />
+                    </div>
+                ) : isStatsLoading ? (
+                    <div className="d-flex align-items-center justify-content-center" role="status" aria-label="Loading working time" style={{ minHeight: 220 }}>
+                        <Spinner size={32} />
+                    </div>
+                ) : (
+                    <>
                 {/* Custom SVG gauge */}
                 <div style={{ display: 'flex', justifyContent: 'center', flexGrow: 1, alignItems: 'center', padding: '12px 0 4px' }}>
-                    <div style={{ position: 'relative', width: 152, height: 152 }}>
+                    <div
+                        role="progressbar"
+                        aria-label="Today's working time progress"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={gaugePct}
+                        style={{ position: 'relative', width: 152, height: 152 }}
+                    >
                         <svg width="152" height="152" viewBox="0 0 152 152">
                             <defs>
                                 <linearGradient id="wtGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -158,7 +209,7 @@ const OverviewProgessBar: React.FC = React.memo(() => {
                         {/* Center content */}
                         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
                             <span style={{ fontSize: 30, fontWeight: 900, color: '#312e81', lineHeight: 1, letterSpacing: '-0.04em' }}>{gaugePct}<span style={{ fontSize: 16, fontWeight: 700, color: '#6366f1' }}>%</span></span>
-                            <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>of workday</span>
+                            <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>of workday</span>
                             <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginTop: 2 }}>{totalWorkingTime}</span>
                         </div>
                     </div>
@@ -174,7 +225,7 @@ const OverviewProgessBar: React.FC = React.memo(() => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', flexShrink: 0, display: 'inline-block' }} />
                         <div>
-                            <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Check In</div>
+                            <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Check In</div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{checkIn}</div>
                         </div>
                     </div>
@@ -182,11 +233,13 @@ const OverviewProgessBar: React.FC = React.memo(() => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: checkOut === 'N/A' ? '#e5e7eb' : '#ef4444', flexShrink: 0, display: 'inline-block' }} />
                         <div>
-                            <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Check Out</div>
+                            <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Check Out</div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{checkOut}</div>
                         </div>
                     </div>
                 </div>
+                    </>
+                )}
             </Card>
         </Grid>
     );
@@ -206,7 +259,9 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
     const [displayStartDate, setDisplayStartDate] = useState('');
     const [displayEndDate, setDisplayEndDate] = useState('');
     const [dateSettings, setDateSettings] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [yearlyError, setYearlyError] = useState(false);
+    const [retryKey, setRetryKey] = useState(0);
     const weekends = store.getState().employee.currentEmployee.branches?.workingAndOffDays;
     const allWeekends = parseWorkingDays(weekends);
 
@@ -244,6 +299,7 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
         const fetchFiscalYear = async () => {
             try {
                 setLoading(true);
+                setYearlyError(false);
                 const generateFiscalYear = await generateFiscalYearFromGivenYear(dayjs(year));
 
                 // Format dates for display
@@ -257,19 +313,23 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
                 setStartDate(generateFiscalYear.startDate);
                 setEndDate(fiscalEndDate);
 
-                // Fetch statistics for the selected year
-                await fetchEmpYearlyStatistics(dayjs(year), false, {
-                    startDate: dayjs(generateFiscalYear.startDate),
-                    endDate: dayjs(fiscalEndDate)
-                });
+                // The current fiscal year is loaded by AttendanceGraphicalOverview
+                // and already stored in the shared attendance table.
+                if (year !== dayjs().format('YYYY')) {
+                    await fetchEmpYearlyStatistics(dayjs(year), false, {
+                        startDate: dayjs(generateFiscalYear.startDate),
+                        endDate: dayjs(fiscalEndDate)
+                    });
+                }
             } catch (error) {
                 console.warn("Error fetching fiscal year data", error);
+                setYearlyError(true);
             } finally {
                 setLoading(false);
             }
         };
         fetchFiscalYear();
-    }, [year, dateSettings]);
+    }, [year, dateSettings, retryKey]);
 
     const filteredAttendance = useMemo(() => {
         if (!attendance?.length) return [];
@@ -315,8 +375,17 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
     const donutData = useMemo(() => donutaDataLabel(filteredAttendance, filteredLeaves, filteredPublicHolidays, false, totalWeekendCount), 
         [filteredAttendance, filteredLeaves, filteredPublicHolidays, totalWeekendCount]);
     
-    const totalWorkingDay = getWorkingDaysInYear(year) - donutData.get(HOLIDAYS)!;
-    const attendancePercentage: any = [totalProgressPercent(filteredAttendance, totalWorkingDay, donutData.get(ON_LEAVE) || 0)];
+    const totalWorkingDay = getWorkingDaysInRange(
+        dayjs(startDate || startDates),
+        dayjs(endDate || endDates),
+        true,
+        allWeekends,
+        filteredPublicHolidays,
+    );
+    const attendanceDays = (donutData.get(PRESENT) || 0) + (donutData.get(EXTRA_DAYS) || 0);
+    const attendancePercentage = totalWorkingDay > 0
+        ? Math.floor(Math.min(100, (attendanceDays / totalWorkingDay) * 100))
+        : 0;
 
     const statRows = [
         { label: PRESENT,    value: donutData.get(PRESENT),    color: '#22c55e', bg: '#f0fdf4' },
@@ -327,12 +396,26 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
         { label: WEEKEND,    value: donutData.get(WEEKEND),    color: '#8b5cf6', bg: '#f5f3ff' },
     ];
 
+    if (yearlyError) {
+        return (
+            <Grid item xs={12} md={4} className="mb-4" style={{ display: 'flex' }}>
+                <Card elevation={0} sx={{ width: '100%', border: '1px solid #f0f0f0', borderRadius: '16px', p: 2 }}>
+                    <ErrorState
+                        compact
+                        title="Couldn’t load yearly attendance"
+                        onRetry={() => setRetryKey((key) => key + 1)}
+                    />
+                </Card>
+            </Grid>
+        );
+    }
+
     return (
         <Grid item xs={12} md={4} className="mb-4" style={{ display: 'flex' }}>
             <Card elevation={0} sx={{ border: '1px solid #f0f0f0', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%' }}>
                 {/* Header */}
                 <div style={{ padding: '16px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: 15, color: '#1a1a2e', letterSpacing: '-0.01em' }}>Yearly Stats</span>
+                    <h3 style={{ margin: 0, fontWeight: 700, fontSize: 15, color: '#1a1a2e', letterSpacing: '-0.01em' }}>Yearly Stats</h3>
                     <DateSelector
                         onPrevious={() => handleYearChange('decrement')}
                         onNext={() => handleYearChange('increment')}
@@ -341,14 +424,25 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
                 </div>
                 {/* Date range + progress */}
                 <div style={{ padding: '0 20px 14px' }}>
-                    <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10, textAlign: 'center' }}>
+                    <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10, textAlign: 'center' }}>
                         {displayStartDate} — {displayEndDate}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                        <div style={{ flex: 1, height: 8, background: '#f3f4f6', borderRadius: 99, overflow: 'hidden' }}>
+                        <div
+                            role="progressbar"
+                            aria-label="Attendance progress for the displayed year"
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={loading ? 0 : attendancePercentage}
+                            style={{ flex: 1, height: 8, background: '#f3f4f6', borderRadius: 99, overflow: 'hidden' }}
+                        >
                             <div style={{ height: '100%', width: `${loading ? 0 : attendancePercentage}%`, background: 'linear-gradient(90deg, #22c55e, #16a34a)', borderRadius: 99, transition: 'width 0.5s ease' }} />
                         </div>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a', minWidth: 38, textAlign: 'right' }}>
+                        <span
+                            style={{ fontSize: 13, fontWeight: 700, color: '#16a34a', minWidth: 38, textAlign: 'right' }}
+                            role={loading ? 'status' : undefined}
+                            aria-label={loading ? 'Loading yearly attendance' : undefined}
+                        >
                             {loading ? <span className="spinner-border spinner-border-sm" style={{ width: 14, height: 14, borderWidth: 2 }} /> : `${attendancePercentage}%`}
                         </span>
                     </div>
@@ -362,7 +456,7 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
                                 <span style={{ fontSize: 12.5, color: '#4b5563', fontWeight: 500 }}>{label}</span>
                             </div>
                             <span style={{ fontSize: 13, fontWeight: 700, color, background: bg, padding: '1px 10px', borderRadius: 20, minWidth: 32, textAlign: 'center' }}>
-                                {value ?? 0}
+                                {loading ? '—' : value ?? 0}
                             </span>
                         </div>
                     ))}

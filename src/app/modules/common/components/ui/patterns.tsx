@@ -684,6 +684,28 @@ export function UnderlineTabs<K extends string>({
    */
   actions?: React.ReactNode;
 }) {
+  const tabListRef = React.useRef<HTMLDivElement>(null);
+  const tabRefs = React.useRef(new Map<K, HTMLButtonElement>());
+
+  React.useEffect(() => {
+    const keepActiveTabVisible = () => {
+      const tabList = tabListRef.current;
+      const activeTab = tabRefs.current.get(value);
+      if (!tabList || !activeTab) return;
+
+      const listRect = tabList.getBoundingClientRect();
+      const tabRect = activeTab.getBoundingClientRect();
+      if (tabRect.left < listRect.left) {
+        tabList.scrollLeft -= listRect.left - tabRect.left;
+      } else if (tabRect.right > listRect.right) {
+        tabList.scrollLeft += tabRect.right - listRect.right;
+      }
+    };
+    keepActiveTabVisible();
+    window.addEventListener("resize", keepActiveTabVisible);
+    return () => window.removeEventListener("resize", keepActiveTabVisible);
+  }, [value]);
+
   return (
     <Box
       sx={
@@ -717,6 +739,7 @@ export function UnderlineTabs<K extends string>({
         <Box
           role="tablist"
           aria-label={ariaLabel}
+          ref={tabListRef}
           sx={{
             display: "flex",
             flexWrap: "nowrap",
@@ -737,6 +760,10 @@ export function UnderlineTabs<K extends string>({
               <Box
                 key={tab.key}
                 component="button"
+                ref={(node: HTMLButtonElement | null) => {
+                  if (node) tabRefs.current.set(tab.key, node);
+                  else tabRefs.current.delete(tab.key);
+                }}
                 type="button"
                 role="tab"
                 aria-selected={isActive}

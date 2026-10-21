@@ -4,7 +4,7 @@ import CurrentYearOverview from "./CurrentYearOverview";
 import StatisticsOverview from "./StatisticsOverview";
 import AllTimeRecords from "./AllTimeRecords";
 import dayjs, { Dayjs } from "dayjs";
-import { fetchEmpAttendanceStatistics } from "@services/employee";
+import { fetchEmpYearlyStatistics } from "@utils/statistics";
 import { RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import { Attendance } from "@models/employee";
@@ -13,6 +13,7 @@ import { fetchConfiguration } from "@services/company";
 import { DATE_SETTINGS_KEY, DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { setFeatureConfiguration } from "@redux/slices/featureConfiguration";
+import { ErrorState, Spinner } from "@app/modules/common/components/ui/tw";
 
 const AttendanceGraphicalOverview: React.FC = () => {
     const year = useMemo(() => dayjs(), []);
@@ -30,6 +31,9 @@ const AttendanceGraphicalOverview: React.FC = () => {
     const [yearEnd, setYearEnd] = useState<Dayjs | null>(null);
     const [fiscalYearDisplay, setFiscalYearDisplay] = useState("");
     const [isConfigLoading, setIsConfigLoading] = useState(true);
+    const [isStatsLoading, setIsStatsLoading] = useState(true);
+    const [statsError, setStatsError] = useState(false);
+    const [statsRetryKey, setStatsRetryKey] = useState(0);
     const dispatch = useDispatch();
 
     
@@ -126,9 +130,8 @@ const AttendanceGraphicalOverview: React.FC = () => {
                 ? dayjs().format("YYYY") // Today's date if date settings enabled
                 : originalFiscalEnd.format("YYYY"); // Otherwise use fiscal year end
                 
-              setFiscalYearDisplay(
-                `${originalFiscalStart.format("YYYY")} - ${displayEndDate}`
-              );
+              const startYear = originalFiscalStart.format("YYYY");
+              setFiscalYearDisplay(startYear === displayEndDate ? startYear : `${startYear} - ${displayEndDate}`);
         
             }
         
@@ -138,27 +141,57 @@ const AttendanceGraphicalOverview: React.FC = () => {
           
 
     useEffect(() => {
-        if (!yearStart || !yearEnd) return;
+        if (!employeeId || !yearStart || !yearEnd) return;
+
+        const start = yearStart;
+        const end = yearEnd;
+        let cancelled = false;
         async function fetchStats() {
-            const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(
-                employeeId, 
-                yearStart!.format("YYYY-MM-DD"), 
-                yearEnd!.format("YYYY-MM-DD")
-            );
-            setYearlyStats(empAttendanceStatistics);
-        };
+            setIsStatsLoading(true);
+            setStatsError(false);
+            try {
+                const result = await fetchEmpYearlyStatistics(year, false, {
+                    startDate: start,
+                    endDate: end,
+                });
+                if (!result) {
+                    throw new Error('Yearly attendance data could not be resolved for the current employee.');
+                }
+                if (!cancelled) setYearlyStats(result.yearlyStats ?? []);
+            } catch (error) {
+                console.error("Error fetching fiscal-year attendance", error);
+                if (!cancelled) setStatsError(true);
+            } finally {
+                if (!cancelled) setIsStatsLoading(false);
+            }
+        }
 
         fetchStats();
-    }, [ employeeId, yearStart, yearEnd]);
+        return () => {
+            cancelled = true;
+        };
+    }, [employeeId, yearStart, yearEnd, statsRetryKey]);
 
     // console.log("yearlyStats:: ",yearlyStats);
     // console.log("yearStart:: ",yearStart);
     // console.log("yearEnd:: ",yearEnd);
     // console.log("fiscalYearDisplay:: ",fiscalYearDisplay);
 
-    // Don't render until configuration is loaded
-    if (isConfigLoading) {
-        return <div>Loading...</div>;
+    if (isConfigLoading || !yearStart || !yearEnd || isStatsLoading) {
+        return (
+            <div className="d-flex justify-content-center py-10" role="status" aria-label="Loading attendance summary">
+                <Spinner size={32} />
+            </div>
+        );
+    }
+
+    if (statsError) {
+        return (
+            <ErrorState
+                title="Couldn’t load your attendance summary"
+                onRetry={() => setStatsRetryKey((key) => key + 1)}
+            />
+        );
     }
 
     return (
