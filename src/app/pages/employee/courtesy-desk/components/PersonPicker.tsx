@@ -99,6 +99,10 @@ export function courtesyDeskAssigneeOptions(
     employeeName: string;
     avatar: string;
     isActive?: boolean;
+    phone?: string;
+    email?: string;
+    area?: string;
+    address?: string;
   }>,
 ) {
   return employees
@@ -107,6 +111,10 @@ export function courtesyDeskAssigneeOptions(
       id: String(e.employeeId),
       name: e.employeeName || "Unnamed",
       avatarUrl: e.avatar || "",
+      phone: e.phone || "",
+      email: e.email || "",
+      area: e.area || "",
+      address: e.address || "",
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -667,8 +675,10 @@ export default function PersonPicker({
         personId: e.id,
         fullName: e.name,
         companyName: "Wisetech",
-        area: "Office",
-        address: "",
+        area: e.area,
+        address: e.address,
+        phone: e.phone,
+        email: e.email,
         avatarUrl: e.avatarUrl,
       })),
     [employees],
