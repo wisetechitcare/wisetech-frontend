@@ -7,6 +7,11 @@ import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { Box, Chip, CircularProgress, IconButton, InputAdornment, TextField, Typography, Paper, List, ListItemButton, ListItemText } from "@mui/material";
 import { LocationOn, MyLocation } from "@mui/icons-material";
+// import { resolveReactComponent } from "../../../../utils/resolveReactComponent";
+// import { LocationOn as RawLocationOn, MyLocation as RawMyLocation } from "@mui/icons-material";
+
+// const LocationOn = resolveReactComponent(RawLocationOn);
+// const MyLocation = resolveReactComponent(RawMyLocation);
 
 // Leaflet ships its marker images as separate assets that the bundler rewrites;
 // without this the default icon 404s and the pin renders invisible.

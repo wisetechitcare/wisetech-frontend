@@ -1,4 +1,4 @@
-import { Children, forwardRef, isValidElement } from 'react';
+import { Children, cloneElement, forwardRef, isValidElement } from 'react';
 import {
   Box, BoxProps, Dialog, DialogActions, DialogContent, DialogProps, Fade, Grow, IconButton,
   Stack, Typography, useMediaQuery,
@@ -14,6 +14,8 @@ import { GH_DARK } from '@app/theme/githubDark';
 import { MRD_EASE } from './buttons';
 import { WtCloseButton } from './tw/WtCloseButton';
 import { useIsDark } from './tw/useIsDark';
+import { useDialogUnsavedChangesBoundary } from './useDialogUnsavedChangesBoundary';
+import { DialogCloseContext, DialogDirtyContext } from './UnsavedChangesContext';
 
 /** Resolve a keenicon name string or a ready-made node into the header glyph. */
 function resolveHeaderIcon(icon: React.ReactNode | string | undefined): React.ReactNode {
@@ -351,10 +353,13 @@ export interface GlassDialogProps extends Omit<DialogProps, 'title'> {
    * `maxHeight` in PaperProps per screen unless you have a one-off reason.
    */
   preset?: GlassDialogPreset;
+  /** Disable automatic dirty-field close protection when a form shell owns its own guard. */
+  disableUnsavedChangesGuard?: boolean;
 }
 
 export function GlassDialog({
   header, mobileFullScreen = true, disableBlur, plain = false, preset = 'default', children,
+  disableUnsavedChangesGuard = false,
   /**
    * `disableEnforceFocus` defaults to FALSE — the dialog keeps focus.
    *
@@ -371,14 +376,38 @@ export function GlassDialog({
    * react-select family needs the opt-out.)
    */
   PaperProps, slotProps, disableEnforceFocus = false, maxWidth = 'md', fullWidth = true,
+  fullScreen: fullScreenProp = false,
   TransitionComponent, ...rest
 }: GlassDialogProps) {
+  const {
+    dirtyContext: dialogDirtyContext,
+    closeContext: dialogCloseContext,
+    requestClose,
+    discardDialog,
+  } = useDialogUnsavedChangesBoundary(disableUnsavedChangesGuard);
+  const guardedHeader = isValidElement(header)
+    && typeof (header.props as { onClose?: unknown }).onClose === 'function'
+    ? cloneElement(
+        header as React.ReactElement<{ onClose?: () => void }>,
+        {
+          onClose: () => requestClose(
+            (header.props as { onClose: () => void }).onClose,
+          ),
+        },
+      )
+    : header;
+  const guardedOnClose: DialogProps['onClose'] = (event, reason) => {
+    if (!rest.onClose) return;
+    requestClose(() => rest.onClose?.(event, reason));
+  };
   const mode = useMode();
   // Subscribed, not read: a plain read would keep painting whichever treatment
   // was current when the dialog mounted.
   const surface = useSurfaceStyle();
   const isPhone = useMediaQuery('(max-width:600px)');
-  const fullScreen = mobileFullScreen && isPhone;
+  // A caller can request a true workspace sheet on every viewport. Keep the
+  // existing mobile default, but do not silently downgrade explicit fullScreen.
+  const fullScreen = fullScreenProp || (mobileFullScreen && isPhone);
   const scrim = T.glass[mode].scrim;
   const scrimBlur = `blur(${T.glass[mode].scrimBlur}px)`;
   /**
@@ -413,16 +442,18 @@ export function GlassDialog({
   );
 
   return (
-    <Dialog
-      {...rest}
-      maxWidth={maxWidth}
-      fullWidth={fullWidth}
-      fullScreen={fullScreen}
-      disableEnforceFocus={disableEnforceFocus}
-      TransitionComponent={TransitionComponent ?? GlassTransition}
-      PaperProps={{
-        ...PaperProps,
-        sx: [
+    <>
+      <Dialog
+        {...rest}
+        onClose={guardedOnClose}
+        maxWidth={maxWidth}
+        fullWidth={fullWidth}
+        fullScreen={fullScreen}
+        disableEnforceFocus={disableEnforceFocus}
+        TransitionComponent={TransitionComponent ?? GlassTransition}
+        PaperProps={{
+          ...PaperProps,
+          sx: [
           // `flat`, not `plain`: Material is an app-wide choice, so it has to
           // reach every kit dialog, not only the ones whose author happened to
           // pass the prop. `glassSx` alone would have turned the frost off and
@@ -452,13 +483,13 @@ export function GlassDialog({
               : PRESET_MAX_HEIGHT[preset]),
           },
           ...(PaperProps?.sx ? (Array.isArray(PaperProps.sx) ? PaperProps.sx : [PaperProps.sx]) : []),
-        ] as SxProps<Theme>,
-      }}
-      slotProps={{
-        ...slotProps,
-        backdrop: {
-          ...(slotProps?.backdrop as object),
-          sx: {
+          ] as SxProps<Theme>,
+        }}
+        slotProps={{
+          ...slotProps,
+          backdrop: {
+            ...(slotProps?.backdrop as object),
+            sx: {
             backgroundColor: scrim,
             // Dimmed but not smeared in plain mode — the blur is half of what reads as "glass",
             // and leaving it on made the Paper override look like it had not worked.
@@ -469,30 +500,36 @@ export function GlassDialog({
             // gave a flat sheet over a smeared page, half of each treatment.
             backdropFilter: flat ? 'none' : scrimBlur,
             WebkitBackdropFilter: flat ? 'none' : scrimBlur,
+            },
           },
-        },
-      }}
-    >
+        }}
+      >
       {/* flexShrink:0 — the header is chrome; it must not be squeezed to make room
           for a tall body, which is what a default flex item would do. */}
-      {header ? <Box sx={{ flexShrink: 0 }}>{header}</Box> : null}
-      {managesOwnScrolling ? children : (
-        <Box
-          sx={{
-            flex: '1 1 auto',
-            // Required: without it this flex item keeps `min-height: auto` and will not
-            // shrink below its content, so overflowY never has anything to scroll.
-            minHeight: 0,
-            overflowY: 'auto',
-            // Keep a wheel/trackpad gesture that reaches the end of the dialog from
-            // continuing on to scroll the page behind the scrim.
-            overscrollBehavior: 'contain',
-          }}
-        >
-          {children}
-        </Box>
-      )}
-    </Dialog>
+      <DialogDirtyContext.Provider value={dialogDirtyContext}>
+        <DialogCloseContext.Provider value={dialogCloseContext}>
+          {guardedHeader ? <Box sx={{ flexShrink: 0 }}>{guardedHeader}</Box> : null}
+          {managesOwnScrolling ? children : (
+            <Box
+              sx={{
+                flex: '1 1 auto',
+                // Required: without it this flex item keeps `min-height: auto` and will not
+                // shrink below its content, so overflowY never has anything to scroll.
+                minHeight: 0,
+                overflowY: 'auto',
+                // Keep a wheel/trackpad gesture that reaches the end of the dialog from
+                // continuing on to scroll the page behind the scrim.
+                overscrollBehavior: 'contain',
+              }}
+            >
+              {children}
+            </Box>
+          )}
+        </DialogCloseContext.Provider>
+      </DialogDirtyContext.Provider>
+      </Dialog>
+      {discardDialog}
+    </>
   );
 }
 

@@ -1,14 +1,13 @@
-import DateInput from "@app/modules/common/inputs/DateInput";
-import TextInput from "@app/modules/common/inputs/TextInput";
-import { IconButton } from '@mui/material';
+import { Box, IconButton } from '@mui/material';
 import { Close } from '@mui/icons-material';
+import { WtDateField, WtFieldFormik } from '@app/modules/common/components/ui';
 
 function RejoinHistory({ formikProps, index, onRemove }: any) {
     const element = `rejoinHistory[${index}]`;
  
     return (
         <>
-        <div className=" mb-4 d-flex align-items-end justify-content-end">
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
                     {index > 0 && (
                         <IconButton className="flex-end"
                             onClick={() => onRemove(index)}
@@ -23,37 +22,25 @@ function RejoinHistory({ formikProps, index, onRemove }: any) {
                             <Close />
                         </IconButton>
                     )}
-                </div>
-            <div className={`row ${index !== 0 ? '' : ''}`}>
-                <div className="col-lg-4 mb-4">
-                    <DateInput
-                        formikField={`${element}.dateOfReJoining`}
-                        isRequired={false}
-                        formikProps={formikProps}
-                        inputLabel="Date Of Re-Joining (optional)"
-                        placeHolder="Date Of Re-Joining"
-                        maxDate={true}/>
-                </div>
+        </Box>
+            <Box className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <WtDateField
+                    label="Date Of Re-Joining (optional)"
+                    value={formikProps.values?.rejoinHistory?.[index]?.dateOfReJoining ?? ''}
+                    onChange={(value) => formikProps.setFieldValue(`${element}.dateOfReJoining`, value)}
+                    maxDate={new Date().toISOString().slice(0, 10)}
+                    placeholder="Date Of Re-Joining"
+                />
 
-                <div className="col-lg-4 mb-4">
-                    <DateInput
-                        formikField={`${element}.dateOfReExit`}
-                        isRequired={false}
-                        formikProps={formikProps}
-                        inputLabel="Date Of Re-Exit (optional)"
-                        placeHolder="Date Of Re-Exit" />
-                </div>
+                <WtDateField
+                    label="Date Of Re-Exit (optional)"
+                    value={formikProps.values?.rejoinHistory?.[index]?.dateOfReExit ?? ''}
+                    onChange={(value) => formikProps.setFieldValue(`${element}.dateOfReExit`, value)}
+                    placeholder="Date Of Re-Exit"
+                />
 
-                <div className="col-lg-4 mb-4">
-                    <TextInput
-                        isRequired={false}
-                        label="Reason (optional)"
-                        margin="mb-4"
-                        formikField={`${element}.reason`} />
-                </div>
-
-                
-            </div>
+                <WtFieldFormik name={`${element}.reason`} label="Reason (optional)" />
+            </Box>
         </>
     );
 }

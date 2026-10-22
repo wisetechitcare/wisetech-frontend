@@ -105,7 +105,7 @@ const AccessActivity: React.FC<{ logs: any[] }> = ({ logs }) => (
                 </Box>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.4, fontSize: 11.5, color: "text.secondary", minWidth: 0 }}>
                   {actor !== "System" && (
-                    <img src={getAvatar(log.actorAvatar, (log.actorGender ?? 0) as 0 | 1 | 2)} alt="" style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover" }} />
+                    <img src={getAvatar(log.actorAvatar, log.actorGender)} alt="" style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover" }} />
                   )}
                   <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{actor}</Box>
                   <span>·</span>

@@ -200,16 +200,32 @@ const PendingRequestsTable = () => {
       const reimbBatchSteps = approvalSteps.filter((s: any) => s.instance?.requestModel === 'ReimbursementBatch');
 
       const instanceMap: Record<string, string> = {};
+      const approvalDetailsMap = new Map<string, { totalAmount: number; totalRequests: number }>();
       for (const step of reimbBatchSteps) {
-        if (step.instance?.requestId) instanceMap[step.instance.requestId] = step.instance.id;
+        if (step.instance?.requestId) {
+          const batchId = step.instance.requestId;
+          instanceMap[batchId] = step.instance.id;
+          const previous = approvalDetailsMap.get(batchId) ?? { totalAmount: 0, totalRequests: 0 };
+          approvalDetailsMap.set(batchId, {
+            totalAmount: previous.totalAmount
+              + Number(step.requestDetails?.totalAmount ?? step.requestDetails?.readyAmount ?? 0),
+            totalRequests: previous.totalRequests
+              + Number(step.requestDetails?.totalRequests ?? step.requestDetails?.readyCount ?? 0),
+          });
+        }
       }
       const pendingBatchIds = new Set(reimbBatchSteps.map((s: any) => s.instance.requestId));
-      const filtered = allBatches.filter((b: any) => b.status === 0 || pendingBatchIds.has(b.id));
-      const built: BatchRow[] = filtered.map((b: any) => ({
-        ...b,
-        approvalInstanceId: instanceMap[b.id] ?? null,
-        rejectionReason: b.rejectReason ?? null,
-      }));
+      const filtered = allBatches.filter((b: any) => pendingBatchIds.has(b.id));
+      const built: BatchRow[] = filtered.map((b: any) => {
+        const assignedSummary = approvalDetailsMap.get(b.id);
+        return {
+          ...b,
+          totalAmount: assignedSummary?.totalAmount ?? 0,
+          totalRequests: assignedSummary?.totalRequests ?? 0,
+          approvalInstanceId: instanceMap[b.id] ?? null,
+          rejectionReason: b.rejectReason ?? null,
+        };
+      });
       setReimbursementBatches(built);
     } catch {
       setReimbursementBatches([]);
@@ -272,7 +288,7 @@ const PendingRequestsTable = () => {
       if (row.approvalInstanceId) {
         await processApprovalAction(row.approvalInstanceId, 'approve');
       } else {
-        const res = await fetchReimbursementBatchById(row.id);
+        const res = await fetchReimbursementBatchById(row.id, true);
         const batch = res?.data?.batch || res?.batch;
         const pending = batch?.reimbursements?.filter((r: any) => r.status === 0) || [];
         for (const r of pending) {
@@ -294,7 +310,7 @@ const PendingRequestsTable = () => {
       if (batchRejectTarget.approvalInstanceId) {
         await processApprovalAction(batchRejectTarget.approvalInstanceId, 'reject', reason);
       } else {
-        const res = await fetchReimbursementBatchById(batchRejectTarget.id);
+        const res = await fetchReimbursementBatchById(batchRejectTarget.id, true);
         const batch = res?.data?.batch || res?.batch;
         const pending = batch?.reimbursements?.filter((r: any) => r.status === 0) || [];
         for (const r of pending) {
@@ -1001,6 +1017,7 @@ const PendingRequestsTable = () => {
       onClose={() => { setBatchDetailId(null); setBatchDetailInstanceId(null); }}
       onBatchActionDone={fetchPendingReimbursementBatches}
       approvalInstanceId={batchDetailInstanceId}
+      approverOnly
     />
 
     {/* Batch rejection modal */}

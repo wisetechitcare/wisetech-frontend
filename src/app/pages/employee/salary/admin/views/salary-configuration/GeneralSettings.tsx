@@ -32,7 +32,7 @@ interface IEmployee {
   name: string;
   designation: string;
   avatar: string;
-  gender: number;
+  gender: string | number | null;
 }
 
 // Transform API response to IEmployee format
@@ -50,8 +50,8 @@ const transformEmployeeData = (apiData: any): IEmployee[] => {
         ? `${emp.users.firstName || ''} ${emp.users.lastName || ''}`.trim()
         : 'Unknown',
       designation: emp.designations?.role || 'N/A',
-      avatar: getAvatar(emp.avatar || null, emp.gender ?? 0),
-      gender: emp.gender ?? 0,
+      avatar: getAvatar(emp.avatar || null, emp.gender ?? null),
+      gender: emp.gender ?? null,
     }));
 };
 

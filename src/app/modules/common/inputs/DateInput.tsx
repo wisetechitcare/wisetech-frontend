@@ -6,6 +6,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker, MobileDatePicker } from "@mui/x-date-pickers";
 import dayjs, { Dayjs } from "dayjs";
 import { useMediaQuery } from "@mui/material";
+import { useUnsavedChangesRegistration } from "../components/ui/UnsavedChangesProvider";
 
 // One source of truth for the date format so the input mask and the placeholder always match.
 const DATE_FORMAT = "DD/MM/YYYY";
@@ -24,6 +25,7 @@ interface DateInputProps{
 
 function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, minDateField, minDate }: DateInputProps) {
   const { values, setFieldValue, setFieldTouched, setFieldError, errors, touched } = formikProps;
+  useUnsavedChangesRegistration(Boolean(formikProps?.dirty));
   const [validationError, setValidationError] = React.useState<string>('');
 
   // Checking if the screen is small (mobile)

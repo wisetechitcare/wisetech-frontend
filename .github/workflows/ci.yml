@@ -134,6 +134,24 @@ jobs:
         if: github.event_name == 'pull_request'
         run: pnpm run build
 
+      - name: 🌐 Preview employee-create route (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          pnpm run preview -- --host 127.0.0.1 > preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          curl --fail --silent --show-error --retry 10 --retry-delay 1 \
+            http://127.0.0.1:4173/employees/create-new | grep -q '<div id="root">'
+
+      - name: 🌐 Preview employee-create route (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          pnpm run preview -- --host 127.0.0.1 > preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          curl --fail --silent --show-error --retry 10 --retry-delay 1 \
+            http://127.0.0.1:4173/employees/create-new | grep -q '<div id="root">'
+
       # Mirrors the backend gate. Blocks on high/critical only; moderate and low are
       # reported without blocking a merge. When a fix isn't published yet, pin the floor
       # in pnpm-workspace.yaml `overrides` rather than deleting this step.

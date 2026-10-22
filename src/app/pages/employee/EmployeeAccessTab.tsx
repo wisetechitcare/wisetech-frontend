@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { SecurityPinResetButton } from "@app/modules/common/components/SecurityPin";
-import { Modal } from "react-bootstrap";
+
 import { toast } from "react-toastify";
 import {
   getEmployeeAccessSummary,
@@ -17,7 +17,7 @@ import { ACCESS_AREAS, AccessArea } from "@utils/accessAreas";
 import Loader from "@app/modules/common/utils/Loader";
 import AccessControlTree, { EffLevel, RecordCells } from "./components/AccessControlTree";
 import AccessActivity from "./components/AccessActivity";
-import { AppIcon, InlineNotice, TRIO, WtButton } from '@app/modules/common/components/ui';
+import { AppIcon, InlineNotice, TRIO, WtButton, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
 import { enrollAttendancePasskey, getAttendanceIdentityStatus, type AttendanceIdentityStatus } from '@services/attendanceIdentity';

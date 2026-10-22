@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useFormikContext } from "formik";
-import { toast } from "react-toastify";
+import { toast } from "@app/modules/common/components/ui";
 import { ChevronRight, ChevronLeft, ExpandMore } from "@mui/icons-material";
-import dayjs from "dayjs";
 
 import type { OnboardingSectionsProps } from "./OnboardingSections";
 
@@ -219,8 +218,6 @@ type LeafStatus = "completed" | "active" | "error" | "pending";
 export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   groups,
   sectionProps,
-  headerTitle,
-  headerSub,
   isSubmitting,
   isEditMode,
   onCancel,
@@ -380,7 +377,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const handleDirectSave = async () => {
     const formErrors = await validateForm();
     if (Object.keys(formErrors).length > 0) {
-      toast.error("Please fill in all required fields before submitting.");
+      toast({ icon: 'error', title: "Please fill in all required fields before submitting." });
       Object.keys(formErrors).forEach((k) => setFieldTouched(k, true));
       return;
     }
@@ -411,7 +408,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       // preceding sections" left the user hunting through 19 entries for the
       // one that was actually incomplete.
       const blocker = leaves[blockerIdx];
-      toast.warning(`Complete the required fields in "${blocker.label}" first.`);
+      toast({ icon: 'warning', title: `Complete the required fields in "${blocker.label}" first.` });
       goToLeaf(blocker.id);
     },
     [activeIndex, goToLeaf, leaves, isBlocking]
@@ -444,7 +441,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
     if (blocked || incomplete) {
       ownFields.forEach((f) => setFieldTouched(f, true));
-      toast.error("Please complete the required fields in this section before continuing.");
+      toast({ icon: 'error', title: "Please complete the required fields in this section before continuing." });
 
       // Then take them to it. Touching the fields above is what renders the inline
       // errors, so this runs on the next frame — the element to scroll to does not
@@ -458,7 +455,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
     if (isLast) {
       if (Object.keys(formErrors).length > 0) {
-        toast.error("Please fill in all required fields before submitting.");
+      toast({ icon: 'error', title: "Please fill in all required fields before submitting." });
         Object.keys(formErrors).forEach((k) => setFieldTouched(k, true));
         return;
       }
@@ -471,54 +468,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
   const rows = summaryRows ? summaryRows(values) : [];
 
-  // Same precedence the Personal Details section uses: a just-picked photo shows
-  // from the host's object URL immediately, before any upload round-trip, and
-  // `values.avatar` (the saved URL) takes over once there is no pending file.
-  // Reading `values.avatar` alone left the header on the placeholder icon until
-  // the whole employee was saved and refetched.
-  const headerAvatar = sectionProps?.profilePhotoPreview || values.avatar;
-
   return (
     <div className="enterprise-wizard ob-wizard-root" data-form-module="onboarding">
       {/* ═══ STICKY HEADER ═══════════════════════════════════════════════ */}
-      <div className="wizard-header">
-        <div className="wizard-header-left">
-          <div className="wizard-title-row">
-            <div className={`wizard-header-avatar${headerAvatar ? " wizard-header-avatar--photo" : ""}`}>
-              {headerAvatar ? (
-                <img src={headerAvatar} alt="Profile" className="ob-header-avatar-img" />
-              ) : (
-                <AppIcon name="bi-person-badge" />
-              )}
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <h1 className="wizard-title">
-                {values.firstName || values.lastName
-                  ? `${values.firstName || ""} ${values.lastName || ""}`.trim()
-                  : headerTitle}
-              </h1>
-              {values.firstName && values.lastName ? (
-                <div className="wizard-subtitle">
-                  {values.dateOfBirth && (
-                    <span className="ob-header-chip">
-                      <AppIcon name="bi-calendar" /> {dayjs(values.dateOfBirth).isValid() ? dayjs(values.dateOfBirth).format("DD MMM YYYY") : values.dateOfBirth}
-                    </span>
-                  )}
-                  {values.gender && (
-                    <span className="ob-header-chip">
-                      <i className={`bi bi-${values.gender === "0" ? "person" : "person-fill"}`} />{" "}
-                      {values.gender === "0" ? "Male" : values.gender === "1" ? "Female" : values.gender === "2" ? "Others" : values.gender}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                headerSub && <div className="wizard-subtitle">{headerSub}</div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* ═══ THREE-COLUMN LAYOUT ═════════════════════════════════════════ */}
       <div className="wizard-layout">
         {/* ── MOBILE: position summary + disclosure ─────────────────────────

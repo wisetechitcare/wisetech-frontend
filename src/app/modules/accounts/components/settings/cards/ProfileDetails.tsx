@@ -8,7 +8,7 @@ import { useSelector } from 'react-redux'
 import { RootState } from '@redux/store'
 import FileInput from '@app/modules/common/inputs/FileInput'
 import TextInput from '@app/modules/common/inputs/TextInput'
-import RadioInput, { RadioButton } from '@app/modules/common/inputs/RadioInput'
+import { WtChoiceField } from '@app/modules/common/components/ui';
 import SignatureInput from '@app/modules/common/inputs/SignatureInput';
 import dayjs from 'dayjs';
 import { uploadUserAsset } from '@services/uploader';
@@ -17,7 +17,7 @@ import { getAvatar } from '@utils/avatar';
 import { MAX_FILE_SIZE } from '@constants/statistics';
 import Swal from 'sweetalert2';
 
-const mealPreferencesRadioBtns: RadioButton[] = [
+const mealPreferences = [
   {
     label: "Vegetarian",
     value: "0",
@@ -234,7 +234,7 @@ const ProfileDetails: React.FC = () => {
                   <div className="row mb-6">
                     <label className='col-lg-4 col-form-label fw-bold fs-6'>Meal Preference</label>
                     <div className='col-lg-8'>
-                      <RadioInput isRequired={false} formikField='meal' radioBtns={mealPreferencesRadioBtns} />
+                      <WtChoiceField name="meal" label="Meal Preference" variant="segmented" options={mealPreferences} />
                     </div>
                   </div>
 

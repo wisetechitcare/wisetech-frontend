@@ -3,8 +3,7 @@ import { deleteMember, getAllTeamsMember, updateMemberRole, deleteTeam, createTe
 import { deleteConfirmation, removeConfirmation, successConfirmation } from '@utils/modal'
 import { canSection } from '@utils/can'
 import React, { useState, useEffect } from 'react'
-import { Modal } from 'react-bootstrap'
-import { ToneChip } from '@app/modules/common/components/ui'
+import { ToneChip, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui'
 
 // Types
 interface TeamMember {
@@ -455,6 +454,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                         <button
                             type="button"
                             className="btn-close"
+                            data-unsaved-changes-close
                             onClick={onHide}
                             aria-label="Close"
                         />
@@ -786,6 +786,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                         <button
                                             type="button"
                                             className="btn-close"
+                                            data-unsaved-changes-close
                                             onClick={() => setShowAddMemberModal(false)}
                                             aria-label="Close"
                                         />

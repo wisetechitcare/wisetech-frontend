@@ -67,7 +67,7 @@ export default function ConvertForEmployeeButton() {
                 id: e.id,
                 name: e.users ? `${e.users.firstName ?? ''} ${e.users.lastName ?? ''}`.trim() : 'Unknown',
                 designation: e.designations?.role || e.designation || '',
-                avatar: getAvatar(e.avatar ?? e.users?.avatar ?? null, e.gender ?? 0),
+                avatar: getAvatar(e.avatar ?? e.users?.avatar ?? null, e.gender ?? null),
             }));
     }, [allEmployees]);
 

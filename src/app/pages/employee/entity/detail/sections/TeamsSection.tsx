@@ -1,5 +1,6 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useMemo, useState, useEffect } from 'react';
-import { Modal } from 'react-bootstrap';
+
 import Swal from 'sweetalert2';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';

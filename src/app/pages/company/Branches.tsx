@@ -30,7 +30,7 @@ import BranchCard from '@app/modules/common/components/BranchCard'
 import {
   Box, Stack, Typography, Paper, CircularProgress, IconButton,
 } from '@mui/material'
-import { GlassDialog, GlassHeader, WtButton, AutoGrid, ListHeader, Eyebrow } from '@app/modules/common/components/ui'
+import { GlassDialog, GlassHeader, WtButton, WtChoiceField, AutoGrid, ListHeader, Eyebrow } from '@app/modules/common/components/ui'
 import Swal from 'sweetalert2'
 import { safeHtml } from '@app/modules/common/components/ui/safeHtml'
 import TextInput from '@app/modules/common/inputs/TextInput'
@@ -45,7 +45,6 @@ import { useCountryDirectory } from '@hooks/useCurrency'
 import { getCurrencySymbol } from '@utils/currency'
 import LocationDropdown from '@app/modules/common/inputs/LocationDropdown'
 import DropDownInput from '@app/modules/common/inputs/DropdownInput'
-import RadioInput from '@app/modules/common/inputs/RadioInput'
 import { Option } from '@models/dropdown'
 import { UAParser } from 'ua-parser-js'
 import { hasPermission } from '@utils/authAbac'
@@ -1206,15 +1205,15 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                         the one above it has no opinion. A Yes/No control cannot say "no
                         opinion", so every save asserted one and the branch permanently
                         shadowed the organisation. See utils/timeFormat.ts. */}
-                    <RadioInput
-                      isRequired={false}
-                      inputLabel='Time Format'
-                      radioBtns={[
+                    <WtChoiceField
+                      name="showDateIn12HourFormat"
+                      label="Time Format"
+                      variant="segmented"
+                      options={[
                         { label: 'Organisation default', value: 'inherit' },
                         { label: '12-hour', value: '1' },
                         { label: '24-hour', value: '0' },
                       ]}
-                      formikField='showDateIn12HourFormat'
                     />
                   </FormSection>
 

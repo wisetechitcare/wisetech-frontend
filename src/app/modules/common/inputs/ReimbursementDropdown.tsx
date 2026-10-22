@@ -1,8 +1,9 @@
-import { useField } from 'formik';
+import { useField, useFormikContext, type FormikValues } from 'formik';
 import { useMemo } from 'react';
 import { Box } from '@mui/material';
 import { sortOptionsAlphabetically } from '@utils/sortUtils';
 import { WtField, WtSelect } from '@app/modules/common/components/ui';
+import { useUnsavedChangesRegistration } from '../components/ui/UnsavedChangesProvider';
 
 interface DropDownInputProps {
     isRequired: boolean;
@@ -27,6 +28,8 @@ function ReimbursementDropdown({
     value,
 }: DropDownInputProps) {
     const [, meta] = useField(formikField);
+    const { dirty } = useFormikContext<FormikValues>();
+    useUnsavedChangesRegistration(dirty);
     const hasError = !!(meta.touched && meta.error);
     const errorMessage = hasError ? String(meta.error) : undefined;
 

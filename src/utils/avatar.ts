@@ -4,7 +4,13 @@
  * Others 2
  */
 
-type Gender = 0 | 1 | 2;
+type Gender = number | string | null | undefined;
+
+const genderBucket = (key: Gender): 0 | 1 | 2 => {
+    if (key === 0 || key === '0' || key === 'MALE') return 0;
+    if (key === 1 || key === '1' || key === 'FEMALE') return 1;
+    return 2;
+};
 
 export const getAvatar = (avatar: string, key: Gender) => {
     const baseS3Url = 'https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com';
@@ -15,8 +21,9 @@ export const getAvatar = (avatar: string, key: Gender) => {
 
     // key === 2 ("Others") has no dedicated silhouette — fall back to the male
     // placeholder rather than indexing past the array into `undefined`.
+    const bucket = genderBucket(key);
     if (!avatar) {
-        if (key === 0 || key === 1) avatar = defaultAvatar[key];
+        if (bucket === 0 || bucket === 1) avatar = defaultAvatar[bucket];
         else avatar = defaultAvatar[0];
     }
 

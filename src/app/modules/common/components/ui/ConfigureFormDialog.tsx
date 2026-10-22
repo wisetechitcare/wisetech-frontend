@@ -4,6 +4,7 @@ import { GlassDialog, PlainDialogHeader } from './glass';
 import { WtButton } from './buttons';
 import { InlineNotice } from './InlineNotice';
 import { TRIO } from './tw/tokens';
+import { useUnsavedChangesGuard } from './useUnsavedChangesGuard';
 
 export interface ConfigureFormDialogProps {
     open: boolean;
@@ -15,6 +16,8 @@ export interface ConfigureFormDialogProps {
     children: React.ReactNode;
     /** Disables close + Cancel, and shows busy copy on Save. */
     saving?: boolean;
+    /** Whether the form has unsaved changes. */
+    dirty: boolean;
     submitLabel?: string;
     cancelLabel?: string;
     /** Inline server/API error above the fields. */
@@ -53,57 +56,63 @@ export function ConfigureFormDialog({
     onSubmit,
     children,
     saving = false,
+    dirty,
     submitLabel = 'Save',
     cancelLabel = 'Cancel',
     error,
     maxWidth = 'sm',
 }: ConfigureFormDialogProps) {
+    const { requestClose, dialog } = useUnsavedChangesGuard(open && dirty, onClose);
     const close = () => {
-        if (!saving) onClose();
+        if (!saving) requestClose();
     };
 
     return (
-        <GlassDialog
-            open={open}
-            onClose={close}
-            maxWidth={maxWidth}
-            plain
-            preset="form"
-            disableEscapeKeyDown={saving}
-            header={
-                <PlainDialogHeader
-                    title={title}
-                    subtitle={subtitle}
-                    onClose={saving ? undefined : onClose}
-                />
-            }
-        >
-            <Box
-                component="form"
-                noValidate
-                onSubmit={onSubmit}
-                sx={{ px: { xs: 2, sm: 3 }, py: 2 }}
+        <>
+            <GlassDialog
+                open={open}
+                onClose={close}
+                disableUnsavedChangesGuard
+                maxWidth={maxWidth}
+                plain
+                preset="form"
+                disableEscapeKeyDown={saving}
+                header={
+                    <PlainDialogHeader
+                        title={title}
+                        subtitle={subtitle}
+                        onClose={saving ? undefined : close}
+                    />
+                }
             >
-                <Stack spacing={2.5}>
-                    {error ? (
-                        <InlineNotice trio={TRIO.rose} icon="information-5" role="alert">
-                            {error}
-                        </InlineNotice>
-                    ) : null}
+                <Box
+                    component="form"
+                    noValidate
+                    onSubmit={onSubmit}
+                    sx={{ px: { xs: 2, sm: 3 }, py: 2 }}
+                >
+                    <Stack spacing={2.5}>
+                        {error ? (
+                            <InlineNotice trio={TRIO.rose} icon="information-5" role="alert">
+                                {error}
+                            </InlineNotice>
+                        ) : null}
 
-                    {children}
+                        {children}
 
-                    <Stack direction="row" justifyContent="flex-end" spacing={1.25}>
-                        <WtButton type="button" inverted onClick={close} disabled={saving}>
-                            {cancelLabel}
-                        </WtButton>
-                        <WtButton type="submit" disabled={saving}>
-                            {saving ? 'Saving…' : submitLabel}
-                        </WtButton>
+                        <Stack direction="row" justifyContent="flex-end" spacing={1.25}>
+                            <WtButton type="button" inverted onClick={close} disabled={saving}>
+                                {cancelLabel}
+                            </WtButton>
+                            <WtButton type="submit" disabled={saving}>
+                                {saving ? 'Saving…' : submitLabel}
+                            </WtButton>
+                        </Stack>
                     </Stack>
-                </Stack>
-            </Box>
-        </GlassDialog>
+                </Box>
+            </GlassDialog>
+            {dialog}
+        </>
     );
 }
 

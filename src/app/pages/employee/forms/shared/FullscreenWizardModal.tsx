@@ -1,25 +1,19 @@
-import type { ReactNode, Ref } from "react";
-import { Modal } from "react-bootstrap";
-import { KTIcon } from "@metronic/helpers";
-import "./Workspace.css";
-import "../onboarding/OnboardingModal.css";
+import { Box } from '@mui/material';
+import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
+import type { ReactNode, Ref } from 'react';
+import './Workspace.css';
+import '../onboarding/OnboardingModal.css';
 
-/**
- * Fullscreen wizard host — same shell Employee Onboarding / Leads use.
- *
- * Workspace.css only applies enterprise-wizard height rules under
- * `.wt-wizard-modal`. Mounting a wizard in the page content area skips that
- * chrome. One host, reused by every full-page wizard.
- */
 export interface FullscreenWizardModalProps {
   show: boolean;
   onClose: () => void;
-  /** Accessible name for the header X. */
   closeLabel: string;
   children: ReactNode;
   bodyRef?: Ref<HTMLDivElement>;
-  /** Extra modal class (e.g. `onboarding-wizard-modal` for draft-notice CSS). */
   className?: string;
+  showHeader?: boolean;
+  headerTitle?: string;
+  headerSubtitle?: string;
 }
 
 export function FullscreenWizardModal({
@@ -29,25 +23,28 @@ export function FullscreenWizardModal({
   children,
   bodyRef,
   className,
+  showHeader = true,
+  headerTitle = 'Employee onboarding',
+  headerSubtitle,
 }: FullscreenWizardModalProps) {
   return (
-    <Modal
-      show={show}
-      onHide={onClose}
-      fullscreen
-      enforceFocus={false}
-      dialogClassName="responsive-modal"
-      className={["responsive-modal", "wt-wizard-modal", className].filter(Boolean).join(" ")}
+    <GlassDialog
+      open={show}
+      onClose={onClose}
+      fullScreen
+      fullWidth
+      maxWidth={false}
+      preset="workspace"
+      plain
+      disableEnforceFocus
+      className={['responsive-modal', 'wt-wizard-modal', className].filter(Boolean).join(' ')}
+      header={showHeader ? <GlassHeader title={headerTitle} subtitle={headerSubtitle} variant="plain" onClose={onClose} /> : undefined}
+      aria-labelledby="employee-onboarding-title"
     >
-      <div className="ob-wizard-shell">
-        <button type="button" onClick={onClose} aria-label={closeLabel} className="ob-wizard-close">
-          <KTIcon iconName="cross" className="fs-2" />
-        </button>
-        <Modal.Body ref={bodyRef} style={{ padding: 0, height: "100%", overflow: "hidden" }}>
-          {children}
-        </Modal.Body>
-      </div>
-    </Modal>
+      <Box ref={bodyRef} sx={{ height: '100%', minHeight: 0, overflow: 'hidden', p: 0 }}>
+        {children}
+      </Box>
+    </GlassDialog>
   );
 }
 

@@ -83,6 +83,7 @@ const QualificationConfigureForm: React.FC<QualificationFormProps> = ({
           onClose={onClose}
           title={`${isEditing ? "Edit" : "New"} Qualification`}
           saving={isSubmitting}
+          dirty={fk.dirty}
           error={error}
           onSubmit={fk.handleSubmit}
           submitLabel={isEditing ? "Update" : "Create"}

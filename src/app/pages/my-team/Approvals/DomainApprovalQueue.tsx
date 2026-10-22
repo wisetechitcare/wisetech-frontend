@@ -1,3 +1,4 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import apiErrorMessage from '@utils/apiError';
 import { MRT_ColumnDef, MRT_Row } from 'material-react-table';
@@ -10,7 +11,7 @@ import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
-import { Modal } from 'react-bootstrap';
+
 import { getSocket } from '@utils/socketClient';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { BatchDetailModal, fmtAmount } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
@@ -236,7 +237,7 @@ function RejectModal({ step, onClose, onConfirm, submitting, variant = 'reject' 
         )}
       </Modal.Body>
       <Modal.Footer style={{ gap: 8 }}>
-        <button className='btn btn-sm btn-light' onClick={onClose} disabled={submitting}>
+        <button className='btn btn-sm btn-light' data-unsaved-changes-close onClick={onClose} disabled={submitting}>
           Cancel
         </button>
         <button
@@ -530,7 +531,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     setInfoSubmitting(true);
     try {
       const batchId = step.instance.requestId;
-      const res = await fetchReimbursementBatchById(batchId);
+      const res = await fetchReimbursementBatchById(batchId, true);
       const batch = res?.data?.batch || res?.batch;
       const pendingLines: any[] = (batch?.reimbursements ?? []).filter((r: any) => Number(r.status) === 0);
 
@@ -1155,6 +1156,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         onClose={() => { setBatchDetailId(null); setBatchDetailInstanceId(null); }}
         onBatchActionDone={() => load(activeTab)}
         approvalInstanceId={batchDetailInstanceId}
+        approverOnly
       />
     </>
   );

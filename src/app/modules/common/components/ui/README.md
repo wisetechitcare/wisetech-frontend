@@ -63,6 +63,7 @@ are built from.
 | Toggle | `WtSwitch` / `WtSwitchField` | raw `<Switch>`, `.form-switch` |
 | Checkbox | `WtCheckbox` / `WtCheckboxField` (`WtControlLabel` for switch+label rows). Look is also themed on `MuiCheckbox` app-wide. | inventing a second checkbox style per screen |
 | Dialog | `GlassDialog` + `GlassHeader` (`preset="form"` / `"workspace"` for height) | react-bootstrap `<Modal>`; hand-rolled `maxHeight` vh |
+| Unsaved form exits | `ConfigureFormDialog` / `WtFormDialog` with explicit `dirty`; `useUnsavedChangesGuard` for custom shells; `UnsavedChangesModal` only as a compatibility wrapper for legacy Bootstrap forms | Calling `onClose` directly for a dirty form |
 | Dialog footer (Cancel + Submit) | **`GlassDialogActions`** (SSOT; or leave `ConfigureFormDialog` / `WtFormDialog`) | hand-rolled `DialogActions sx={{ px, py, borderTop }}`; Bootstrap Cancel/`btn-light` pairs |
 | Dialog form card | `FormSection` + `FORM_SPACE` | local `GlassSurface` + `SectionHead` stacks with magic gaps |
 | Surface / card | `GlassSurface` / `GlassCard` | `<div className="card">` |
@@ -74,6 +75,10 @@ are built from.
 | Summary stat | `StatTile` | a bespoke number-in-a-box |
 | Chip / badge (status **and** meta) | **`ToneChip`** / `StatusBadge` — see chip recipe below | Private `MetaPill`, Bootstrap `badge`, hand-rolled muted pills |
 | Exclusive 2–5 way **named** choice (status, period) | `SegmentedControl` | a row of outlined pills / `ToggleButtonGroup` |
+| Boolean setting | `WtChoiceField variant="switch"` | Yes/No segmented controls |
+| Short exclusive choice | `WtChoiceField variant="segmented"` | bespoke radio/pill groups |
+| Consequential exclusive choice | `WtChoiceField variant="cards"` | cards without native radio semantics |
+| More than four options | `WtFieldFormik` select/picker | a crowded segmented row |
 | Same data, different **layout** (cards / list / board) | **Typed wrappers** — `CardsListViewSwitch`, `BoardListViewSwitch`, `GridListViewSwitch`, `CardsTableViewSwitch`, `KanbanTableViewSwitch`, `DmsViewSwitch`. Glyphs **only** from `VIEW_MODE_ICONS` (same purpose → same icon). Track/cell: `viewModeSwitchTrackSx` / `viewModeSwitchButtonSx` | hand-rolled `bi-grid` / `element-11` / `btn-group` List/Cards / private `ViewToggle` |
 | Icon tile | `IconBox` | a styled `<div>` around a `KTIcon` |
 | List / collection cards | **`EntityCard`** (title / subtitle / status / tags / actions) inside capped **`AutoGrid`**; raw **`GlassCard`** only when the layout is not an entity | Bootstrap `card`; hand-rolled title+chip stacks; unbounded `auto-fit`+`1fr` stretch; per-page grid forks |
@@ -257,6 +262,10 @@ row cannot disagree about height, radius, focus ring or error colour.
 ```
 
 **`addOption`** is the reusable create affordance (`WtAddOption`): `{ onAdd, label?, placement? }`.
+
+**Phone:** use `WtPhoneField` for E.164 phone values. It is ESM-safe and returns the
+selected country metadata so Formik adapters can split the national number and dial code
+without importing `react-phone-input-2`.
 Default `placement: 'menu'` puts `+ Add New` as the first list row; `'label'` puts a text button on the label row (legacy adapters). Formik forms use the same prop on `WtFieldFormik`.
 
 **Toolbar / filter selects:** use `fullWidth={false}` on a plain (non-searchable) select — the kit sizes the closed field and its menu to the widest option label (including icon/prefix chrome) so values are not ellipsized. Override with `fitContent={false}` if you need a fixed width. Full-width form selects still lock the menu to the field width inside dialogs.

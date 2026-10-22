@@ -16,6 +16,7 @@ import { usePushSubscription } from '../hooks/usePushSubscription';
 import { Toaster } from 'sonner';
 import { ColorModeProvider } from '@app/theme/ColorMode';
 import { GlassToastProvider } from '@app/modules/common/components/ui';
+import { UnsavedChangesProvider } from '@app/modules/common/components/ui/UnsavedChangesProvider';
 import { useTimeFormat } from '@hooks/useTimeFormat';
 import { useCurrencyCode } from '@hooks/useCurrency';
 import { PwaHost } from './pwa/PwaHost';
@@ -209,7 +210,9 @@ const App = () => {
                   No CssBaseline so Metronic/Bootstrap global styles stay intact. */}
               <ColorModeProvider>
                 <GlassToastProvider>
-                  <Outlet key={`${timeFormat}:${currency}`} />
+                  <UnsavedChangesProvider>
+                    <Outlet key={`${timeFormat}:${currency}`} />
+                  </UnsavedChangesProvider>
                   <MasterInit />
                   <Toaster richColors position="top-right" />
                   <PwaHost />

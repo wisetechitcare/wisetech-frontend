@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import Swal from 'sweetalert2';
 import { Box, InputBase, Stack, Typography, alpha, keyframes } from '@mui/material';
 import { safeHtml } from '@app/modules/common/components/ui/safeHtml';
@@ -12,6 +13,7 @@ import OrganizationFormModal from './OrganizationFormModal';
 import BranchEmployeesModal from '@app/modules/common/components/BranchEmployeesModal';
 import { IconSearch, IconPlus, IconChevron, IconBuilding, IconHierarchy, IconBranch, IconUsers } from '@app/modules/common/components/icons/OrgIcons';
 import { WtButton } from '@app/modules/common/components/ui';
+import type { RootState } from '@redux/store';
 
 interface Props {
   /** Called when an organization is opened — the shell switches to its profile. */
@@ -78,6 +80,8 @@ function StatTile({ label, value, tone, icon, index }: { label: string; value: n
  */
 export default function OrganizationsPage({ onOpenOrg }: Props) {
   const navigate = useNavigate();
+  const tier = useSelector((state: RootState) => state.authz.tier);
+  const canProvisionOrganizations = tier === 'SUPER_ADMIN';
   const [tree, setTree] = useState<IOrgNode[]>([]);
   const [stats, setStats] = useState<IOrgStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -189,9 +193,11 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
             >
               {willOpen ? 'Expand all' : 'Collapse all'}
             </WtButton>
-            <WtButton size="small" onClick={() => setModal({ show: true, parent: null })} startIcon={<IconPlus size={15} />} sx={{ whiteSpace: 'nowrap' }}>
-              New organization
-            </WtButton>
+            {canProvisionOrganizations && (
+              <WtButton size="small" onClick={() => setModal({ show: true, parent: null })} startIcon={<IconPlus size={15} />} sx={{ whiteSpace: 'nowrap' }}>
+                New organization
+              </WtButton>
+            )}
           </Stack>
         </Stack>
   
@@ -212,7 +218,11 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
               onSelectOrg={onOpenOrg}
               onEditOrg={onOpenOrg}
               onSelectBranch={openBranch}
-              onAddSubOrg={(parent) => setModal({ show: true, parent: { id: parent.id, name: parent.name } })}
+              onAddSubOrg={
+                canProvisionOrganizations
+                  ? (parent) => setModal({ show: true, parent: { id: parent.id, name: parent.name } })
+                  : undefined
+              }
               onDeleteOrg={handleDelete}
               onViewBranchEmployees={(branch) => setEmpModal({ show: true, branch })}
             />

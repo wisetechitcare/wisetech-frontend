@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { useFormikContext } from "formik";
 import { fetchAllEmployees } from "@services/employee";
-import { ToneChip, WtFieldFormik } from "@app/modules/common/components/ui";
+import { ToneChip, WtChoiceField, WtFieldFormik } from "@app/modules/common/components/ui";
 import TextInput from "@app/modules/common/inputs/TextInput";
-import RadioInput from "@app/modules/common/inputs/RadioInput";
 import MonthYearInput from "@app/modules/common/inputs/MonthYearInput";
 // Leave Settings section removed — no longer needed
 // import LeaveAllocationStep from "../forms/LeaveAllocationStep";
@@ -115,29 +114,19 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
             {/* Professional Fees (TDS1) */}
             <div className="row">
                 <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-                    <RadioInput
-                        formikField="professionalFeesEnabled"
-                        inputLabel="Employee Type"
-                        radioBtns={[
-                            { label: "Contract Based", value: "true" },
-                            { label: "Salary Based", value: "false" },
-                        ]}
-                        isRequired={true}
-                    />
+                    <WtChoiceField name="professionalFeesEnabled" label="Employee Type" variant="cards" required options={[
+                        { label: "Contract Based", value: "true" },
+                        { label: "Salary Based", value: "false" },
+                    ]} />
                 </div>
 
                 {pfEnabled && (
                     <>
                         <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-                            <RadioInput
-                                    formikField="professionalFeesType"
-                                    inputLabel="Type"
-                                    radioBtns={[
-                                        { label: "Fixed", value: "FIXED" },
-                                        { label: "Percentage", value: "PERCENTAGE" },
-                                    ]}
-                                    isRequired={true}
-                                />
+                            <WtChoiceField name="professionalFeesType" label="Type" variant="segmented" required options={[
+                                { label: "Fixed", value: "FIXED" },
+                                { label: "Percentage", value: "PERCENTAGE" },
+                            ]} />
                             </div>
 
                             <div className="col-lg-4 col-md-4 col-sm-12">
@@ -165,29 +154,16 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
             <div className="separator separator-dashed my-6" />
             <div className="row">
                 <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-                    <RadioInput
-                        formikField="tds2Enabled"
-                        inputLabel={`${tds2Name} (Additional)`}
-                        radioBtns={[
-                            { label: "Enabled", value: "true" },
-                            { label: "Disabled", value: "false" },
-                        ]}
-                        isRequired={true}
-                    />
+                    <WtChoiceField name="tds2Enabled" label={`${tds2Name} (Additional)`} variant="switch" required clearOnDisable={["tds2Type", "tds2Amount", "tds2Percentage"]} />
                 </div>
 
                 {tds2Enabled && (
                     <>
                         <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-                            <RadioInput
-                                formikField="tds2Type"
-                                inputLabel={`${tds2Name} Type`}
-                                radioBtns={[
-                                    { label: "Fixed", value: "FIXED" },
-                                    { label: "Percentage", value: "PERCENTAGE" },
-                                ]}
-                                isRequired={true}
-                            />
+                            <WtChoiceField name="tds2Type" label={`${tds2Name} Type`} variant="segmented" required options={[
+                                { label: "Fixed", value: "FIXED" },
+                                { label: "Percentage", value: "PERCENTAGE" },
+                            ]} />
                         </div>
                         <div className="col-lg-4 col-md-4 col-sm-12">
                             {tds2Type === "PERCENTAGE" ? (
@@ -214,15 +190,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
             <div className="separator separator-dashed my-6" />
             <div className="row">
                 <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-                    <RadioInput
-                        formikField="retentionEnabled"
-                        inputLabel="Retention (Fresher Bond)"
-                        radioBtns={[
-                            { label: "Enabled", value: "true" },
-                            { label: "Disabled", value: "false" },
-                        ]}
-                        isRequired={true}
-                    />
+                    <WtChoiceField name="retentionEnabled" label="Retention (Fresher Bond)" variant="switch" required clearOnDisable={["retentionType", "retentionAmount", "retentionPercentage", "retentionStartDate", "retentionEndDate"]} />
                 </div>
 
                 {retentionEnabled && (
@@ -253,15 +221,10 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
             {retentionEnabled && (
                 <div className="row mt-4">
                     <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-                        <RadioInput
-                            formikField="retentionType"
-                            inputLabel="Retention Type"
-                            radioBtns={[
-                                { label: "Fixed", value: "FIXED" },
-                                { label: "Percentage", value: "PERCENTAGE" },
-                            ]}
-                            isRequired={true}
-                        />
+                        <WtChoiceField name="retentionType" label="Retention Type" variant="segmented" required options={[
+                            { label: "Fixed", value: "FIXED" },
+                            { label: "Percentage", value: "PERCENTAGE" },
+                        ]} />
                     </div>
                     <div className="col-lg-4 col-md-4 col-sm-12">
                         {retentionType === "PERCENTAGE" ? (
@@ -303,9 +266,8 @@ function ReimbursementConfig() {
 
 // ── 5. Privacy Controls ───────────────────────────────────────────────────────
 function PrivacyControls() {
-    const { values, setFieldValue } = useFormikContext<any>();
+    const { values } = useFormikContext<any>();
     const isHidden: boolean = values.isHiddenFromStaff === true;
-    const toggle = () => setFieldValue("isHiddenFromStaff", !isHidden);
 
     return (
         <div className="d-flex align-items-start justify-content-between gap-4">
@@ -320,16 +282,7 @@ function PrivacyControls() {
                 </div>
             </div>
             <div className="flex-shrink-0 pt-1">
-                <div className="form-check form-switch form-check-custom form-check-solid">
-                    <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id="isHiddenFromStaff"
-                        checked={isHidden}
-                        onChange={toggle}
-                        style={{ width: "3rem", height: "1.5rem", cursor: "pointer" }}
-                    />
-                </div>
+                <WtChoiceField name="isHiddenFromStaff" label="Hide From Staff Directory" variant="switch" />
                 <div className="text-center mt-1">
                     <ToneChip dense tone={isHidden ? "danger" : "success"} label={isHidden ? "Hidden" : "Visible"} />
                 </div>
@@ -355,7 +308,7 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile, activeSection,
             onSectionChange("access");
             return;
         }
-    }, [formikProps.submitCount, formikProps.errors]);
+    }, [formikProps.submitCount, formikProps.errors, onSectionChange]);
 
     const sections = [
         { id: "reporting", title: "Reporting Config", icon: "profile-user" },

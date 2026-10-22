@@ -1,7 +1,8 @@
-import { Field } from "formik";
-import HighlightErrors from "../../errors/components/HighlightErrors";
+import { useField, useFormikContext, type FormikValues } from "formik";
+import { useState, type ChangeEvent } from "react";
 import { employeeOnBardingFormRegexes } from "@constants/regex";
-import { useState } from "react";
+import { WtField } from "../components/ui";
+import { useUnsavedChangesRegistration } from "../components/ui/UnsavedChangesProvider";
 
 type SimpleInputType =
   | "numbers"
@@ -40,31 +41,26 @@ interface TextInputProps {
   label?: string;
   placeholder?: string;
   inputTypeNumber?: boolean;
-  defaultValue?: any;
+  defaultValue?: unknown;
   prefix?: string;
   suffix?: string;
-  formatter?: (value: any) => string;
-  parser?: (value: string) => any;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  formatter?: (value: unknown) => string;
+  parser?: (value: string) => unknown;
+  onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
   inputValidation?: SimpleInputType;
-  type?: string;
+  type?: "text" | "number" | "email" | "tel" | "password";
   maxLength?: number;
-  /** Caps input to this many words, truncating extra words as the user types (not just
-   *  characters) — e.g. "30 to 40 words" style limits. */
   maxWords?: number;
 }
 
 function TextInput({
-  margin,
   isRequired,
   label,
   formikField,
   readonly,
   placeholder,
-  inputTypeNumber: _inputTypeNumber = false,
-  defaultValue,
   prefix,
-  suffix,
+  suffix: _suffix,
   formatter,
   parser,
   inputValidation,
@@ -73,120 +69,63 @@ function TextInput({
   maxLength,
   maxWords,
 }: TextInputProps) {
-  const [validationError, setValidationError] = useState<string>("");
+  const [validationError, setValidationError] = useState<string>();
+  const { dirty } = useFormikContext<FormikValues>();
+  const [field, meta, helpers] = useField(formikField);
+  useUnsavedChangesRegistration(dirty);
 
-  // DOM-safe id derived from the Formik path (which may contain dots/brackets like
-  // "familyInfo[0].mobileNumber") so the <label> can be programmatically linked to the input.
-  const fieldId = `field-${formikField.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const fieldBaseName = field.name.replace(/\[\d+\]/g, "");
+  const dynamicRegex = employeeOnBardingFormRegexes[fieldBaseName] || /.*/;
+  const displayValue = formatter ? formatter(field.value) : field.value;
+  const invalid = Boolean(meta.touched && meta.error);
+
+  const handleChange = (value: string) => {
+    let raw = value.replace(/[\n\r\t]/g, " ").replace(/[<>]/g, "");
+    if (maxWords) {
+      const words = raw.split(/\s+/).filter(Boolean);
+      if (words.length > maxWords) raw = words.slice(0, maxWords).join(" ") + (/\s$/.test(raw) ? " " : "");
+    }
+
+    const parsedValue = parser ? parser(raw) : raw;
+    if (type === "number" && parsedValue !== "" && !Number.isNaN(Number(parsedValue)) && Number(parsedValue) < 0) return;
+
+    if (inputValidation) {
+      const pattern = SIMPLE_PATTERNS[inputValidation];
+      if (raw && !pattern.test(raw)) {
+        setValidationError(ERROR_MESSAGES[inputValidation]);
+        return;
+      }
+      setValidationError(undefined);
+    }
+
+    if (!parsedValue || dynamicRegex.test(String(parsedValue))) {
+      void helpers.setValue(parsedValue);
+      onChange?.({ target: { value: raw, name: field.name } } as ChangeEvent<HTMLInputElement>);
+    }
+  };
+
+  const handleBlur = () => {
+    void helpers.setTouched(true);
+    const current = typeof field.value === "string" ? field.value : "";
+    const cleaned = current.replace(/\s+/g, " ").trim();
+    if (cleaned !== current) void helpers.setValue(parser ? parser(cleaned) : cleaned);
+  };
 
   return (
-    <div className={`d-flex flex-column fv-row ${margin ?? ""}`}>
-      {label && (
-        <label htmlFor={fieldId} className="d-flex align-items-center fs-6 form-label mb-2">
-          <span className={isRequired ? "required" : ""}>{label}</span>
-        </label>
-      )}
-
-      <div className={prefix || suffix ? "input-group" : ""}>
-        {prefix && <span className="input-group-text">{prefix}</span>}
-
-        <Field name={formikField}>
-          {({ field, form, meta }: { field: any; form: any; meta: any }) => {
-            const fieldBaseName = field.name.replace(/\[\d+\]/g, "");
-            const dynamicRegex = employeeOnBardingFormRegexes[fieldBaseName] || /.*/;
-            const displayValue = formatter ? formatter(field.value) : field.value;
-            const isInvalid = !!(meta.touched && meta.error);
-
-            const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-              // Neutralize newlines/tabs (e.g. pasted content) only. Trimming and
-              // space-collapsing are deferred to blur so spaces can be typed
-              // normally — trimming on every keystroke eats trailing spaces.
-              // `<`/`>` are stripped unconditionally (not just for fields with a specific
-              // regex) so no field — typed or pasted — can ever form an HTML/script tag.
-              let raw = e.target.value.replace(/[\n\r\t]/g, ' ').replace(/[<>]/g, '');
-
-              if (maxWords) {
-                const words = raw.split(/\s+/).filter(Boolean);
-                if (words.length > maxWords) {
-                  raw = words.slice(0, maxWords).join(' ') + (/\s$/.test(raw) ? ' ' : '');
-                }
-              }
-
-              const parsedValue = parser ? parser(raw) : raw;
-
-              // Prevent negative values for number type inputs
-              if (type === "number" && parsedValue !== "" && !isNaN(parsedValue)) {
-                const numValue = parseFloat(parsedValue);
-                if (numValue < 0) {
-                  return;
-                }
-              }
-
-              if (inputValidation) {
-                const pattern = SIMPLE_PATTERNS[inputValidation];
-                if (raw && !pattern.test(raw)) {
-                  setValidationError(ERROR_MESSAGES[inputValidation]);
-                  return;
-                }
-                setValidationError("");
-              }
-
-              if (!parsedValue || dynamicRegex.test(parsedValue)) {
-                form.setFieldValue(field.name, parsedValue);
-                onChange?.(e);
-              }
-            };
-
-            // On blur: collapse runs of whitespace and trim the edges, then commit
-            // the cleaned value. Keeps Formik's own onBlur (touched) intact.
-            const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-              field.onBlur(e);
-              const current = typeof field.value === "string" ? field.value : "";
-              const cleaned = current.replace(/\s+/g, " ").trim();
-
-              // Reset negative values to empty for number type inputs
-              if (type === "number" && cleaned !== "" && !isNaN(cleaned)) {
-                const numValue = parseFloat(cleaned);
-                if (numValue < 0) {
-                  form.setFieldValue(field.name, "");
-                  return;
-                }
-              }
-
-              if (cleaned !== current) {
-                form.setFieldValue(field.name, parser ? parser(cleaned) : cleaned);
-              }
-            };
-
-            return (
-              <input
-                {...field}
-                id={fieldId}
-                type={type}
-                value={displayValue ?? ""}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder={placeholder ?? ""}
-                readOnly={readonly}
-                disabled={readonly}
-                maxLength={maxLength}
-                defaultValue={defaultValue}
-                className={`form-control${isInvalid ? " is-invalid" : ""}`}
-                style={{ height: 44 }}
-              />
-            );
-          }}
-        </Field>
-
-        {suffix && <span className="input-group-text">{suffix}</span>}
-      </div>
-
-      {validationError && (
-        <div className="text-danger mt-1 fs-7">{validationError}</div>
-      )}
-
-      <HighlightErrors isRequired={isRequired} formikField={formikField} />
-    </div>
+    <WtField
+      name={field.name}
+      label={label}
+      value={displayValue ?? ""}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      required={isRequired}
+      disabled={readonly}
+      placeholder={placeholder}
+      type={type}
+      prefix={prefix}
+      maxLength={maxLength}
+      error={invalid ? String(meta.error) : validationError}
+    />
   );
 }
 

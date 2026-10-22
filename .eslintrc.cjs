@@ -101,6 +101,10 @@ module.exports = {
             name: 'react-select/creatable',
             message: 'Use WtSelect (isCreatable) via a kit adapter — not react-select/creatable from a feature file.',
           },
+          {
+            name: '@app/modules/common/inputs/RadioInput',
+            message: 'Use WtChoiceField from @app/modules/common/components/ui. RadioInput is deprecated for new feature work.',
+          },
         ],
       },
     ],
@@ -346,6 +350,23 @@ module.exports = {
         'src/utils/modal.ts',
       ],
       rules: { 'no-restricted-imports': 'warn' },
+    },
+    {
+      /* These legacy surfaces now use WtChoiceField; their unrelated Bootstrap chrome remains a separate debt wave. */
+      files: [
+        'src/app/modules/accounts/components/settings/cards/ProfileDetails.tsx',
+        'src/app/pages/employee/loans/admin/views/KPISettings.tsx',
+        'src/app/pages/employee/loans/personal/components/LoanApplicationForm.tsx',
+      ],
+      rules: { 'no-restricted-syntax': 'warn' },
+    },
+    {
+      /* These choice migrations are complete; the remaining modal chrome is a separate UI debt. */
+      files: [
+        'src/app/pages/employee/components/AppSettingsModal.tsx',
+        'src/app/pages/employee/wizard/steps/StepAppSettings.tsx',
+      ],
+      rules: { 'no-restricted-syntax': 'warn' },
     },
     {
       /* India's professional-tax slabs. These rupee amounts are set by statute — they do

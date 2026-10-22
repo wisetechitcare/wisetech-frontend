@@ -102,6 +102,10 @@ export {
   type ConfirmDialogProps,
   type ConfirmDialogVariant,
 } from './ConfirmDialog';
+export { ConfirmDiscardDialog, type ConfirmDiscardDialogProps } from './ConfirmDiscardDialog';
+export { UnsavedChangesProvider } from './UnsavedChangesProvider';
+export { useUnsavedChangesGuard } from './useUnsavedChangesGuard';
+export { UnsavedChangesModal, type UnsavedChangesModalProps } from './UnsavedChangesModal';
 export {
   useConfirmDialog,
   type AskConfirmOptions,
@@ -182,6 +186,10 @@ export { NavCard } from './NavCard';
 export type { NavCardProps } from './NavCard';
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
+export { choiceIsOn, WtChoice } from './WtChoice';
+export { WtChoiceField } from './WtChoiceField';
+export type { ChoiceVariant, WtChoiceOption, WtChoiceProps } from './WtChoice';
+export type { WtChoiceFieldProps } from './WtChoiceField';
 // MaterialTable `renderSelectionActions` strip — "{n} selected" + bulk CTAs (WtButton).
 export { TableSelectionBar } from './TableSelectionBar';
 export type { TableSelectionBarProps } from './TableSelectionBar';
@@ -228,3 +236,6 @@ export { WtFormDialog, WtFormSection, WtFormSpan } from './WtFormDialog';
 export type { WtFormDialogProps, WtFormSectionProps, WtFormNavItem } from './WtFormDialog';
 export { WtImageField } from './WtImageField';
 export type { WtImageFieldProps } from './WtImageField';
+export { WtPhoneField } from './WtPhoneField';
+export { WtPhoneFieldFormik, type WtPhoneFieldFormikProps } from './WtPhoneFieldFormik';
+export type { WtPhoneFieldProps } from './WtPhoneField';
