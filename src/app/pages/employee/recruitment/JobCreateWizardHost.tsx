@@ -3,8 +3,8 @@ import { useMatch, useNavigate, useParams, useSearchParams } from "react-router-
 import { Formik, Form, useFormikContext, type FormikProps } from "formik";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, CircularProgress, Stack } from "@mui/material";
+import { History } from "@mui/icons-material";
 import { toast, confirmDialog, WtButton } from "@app/modules/common/components/ui";
-import { KTIcon } from "@metronic/helpers";
 import RecruitmentVersionHistoryDialog from "./RecruitmentVersionHistoryDialog";
 import type { AuditEntityType } from "@modules/audit/audit.service";
 import { queryKeys } from "@/lib/queryKeys";
@@ -27,9 +27,9 @@ import {
     type JobPosting,
     type JobRequisition,
 } from "@services/recruitment";
-import OnboardingWizard from "../forms/onboarding/OnboardingWizard";
+import { EnterpriseFormWizard } from '@/shared/form-engine';
 import type { OnboardingSectionsProps } from "../forms/onboarding/OnboardingSections";
-import { FullscreenWizardModal } from "../forms/shared/FullscreenWizardModal";
+import { WtWizardDialog } from '@app/modules/common/components/ui';
 import { buildJobCreateWizardGroups } from "./buildJobCreateWizardGroups";
 import { isEditable } from "./requisitionColumns";
 import {
@@ -364,17 +364,19 @@ export default function JobCreateWizardHost() {
 
     if (isEdit && !loadingEdit && !requisition) {
         return (
-            <FullscreenWizardModal show onClose={goBack} closeLabel="Close" className="onboarding-wizard-modal">
+            <WtWizardDialog title="Role and advert" open onClose={goBack} closeLabel="Close" className="onboarding-wizard-modal">
                 <Box sx={{ p: 4, textAlign: "center" }}>
                     Could not load this role. It may have been removed.
                 </Box>
-            </FullscreenWizardModal>
+            </WtWizardDialog>
         );
     }
 
     return (
-        <FullscreenWizardModal
-            show={show}
+        <WtWizardDialog title={isAttach ? "New Advert" : isEdit ? "Edit Role" : "Create Role"}
+            subtitle={isAttach ? "Publish an advert for this approved role" : "Define the role, advert and screening requirements"}
+            icon="briefcase" closeGuard="host"
+            open={show}
             onClose={handleCancel}
             closeLabel={isEdit ? "Close edit role wizard" : "Close create role wizard"}
             className="onboarding-wizard-modal"
@@ -440,7 +442,7 @@ export default function JobCreateWizardHost() {
                                     type="button"
                                     size="small"
                                     ghost
-                                    startIcon={<KTIcon iconName="time" className="fs-6" />}
+                                    startIcon={<History fontSize="small" />}
                                     onClick={() =>
                                         setHistoryTarget({
                                             type: "REQUISITION",
@@ -457,7 +459,7 @@ export default function JobCreateWizardHost() {
                                     type="button"
                                     size="small"
                                     ghost
-                                    startIcon={<KTIcon iconName="time" className="fs-6" />}
+                                    startIcon={<History fontSize="small" />}
                                     onClick={() =>
                                         setHistoryTarget({
                                             type: "POSTING",
@@ -476,7 +478,7 @@ export default function JobCreateWizardHost() {
                     return (
                         <Form noValidate style={{ height: "100%", display: "flex", flexDirection: "column" }}>
                             {!isEdit && !isAttach && <BranchDefaultSync defaultBranchId={defaultBranchId} />}
-                            <OnboardingWizard
+                            <EnterpriseFormWizard layout="sections"
                                 groups={groups}
                                 sectionProps={sectionProps}
                                 headerTitle={headerTitle}
@@ -505,7 +507,7 @@ export default function JobCreateWizardHost() {
                 id={historyTarget?.id ?? ""}
                 title={historyTarget?.title}
             />
-        </FullscreenWizardModal>
+        </WtWizardDialog>
     );
 }
 

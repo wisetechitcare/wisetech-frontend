@@ -1,14 +1,15 @@
 import React from "react";
-import { useFormikContext } from "formik";
-import { Check } from "@mui/icons-material";
+import { getIn, useFormikContext } from "formik";
 import { EnterpriseWizardStep } from "../../types/formEngine.types";
-import "@app/pages/employee/forms/shared/Workspace.css";
+import { Box, LinearProgress, Typography } from '@mui/material';
+import { WtStepper } from "@app/modules/common/components/ui";
 
 interface WizardSidebarProps {
   sections: EnterpriseWizardStep<any>[];
   currentStep: number;
   onStepClick?: (index: number) => void;
   title?: string;
+  completedSections?: Record<string, boolean>;
 }
 
 const hasValue = (value: any): boolean => {
@@ -32,19 +33,20 @@ export const WizardSidebar: React.FC<WizardSidebarProps> = ({
   currentStep,
   onStepClick,
   title = "Form Progress",
+  completedSections,
 }) => {
   const { values, errors, touched } = useFormikContext<any>();
 
   // Per-section status: completed | error | active | pending
   const getSectionStatus = (section: EnterpriseWizardStep<any>, sectionIndex: number) => {
-    const hasError = section.fields.some((f) => errors[f] && touched[f]);
+    const hasError = section.fields.some((f) => getIn(errors, f) && getIn(touched, f));
     if (hasError) return "error";
     if (sectionIndex === currentStep) return "active";
 
     // A step is gated only by its REQUIRED fields. Optional blanks must never
     // hold a step at "pending" — that was why fully-handled steps stayed grey.
     const required = section.requiredFields ?? [];
-    const requiredFilled = required.every((f) => hasValue(values[f]));
+    const requiredFilled = required.every((f) => hasValue(getIn(values, f)));
     if (!requiredFilled) return "pending";
 
     // Requirements satisfied. Required steps count as done once filled.
@@ -58,97 +60,43 @@ export const WizardSidebar: React.FC<WizardSidebarProps> = ({
   // Overall progress: completed steps + the active step once its required fields
   // are filled (so a single-step form and the current page both move the bar).
   const isDoneForProgress = (section: EnterpriseWizardStep<any>, index: number) => {
+    if (completedSections) return Boolean(completedSections[section.id]) &&
+      !section.fields.some((field) => getIn(errors, field));
     const status = getSectionStatus(section, index);
     if (status === "completed") return true;
     if (status !== "active") return false;
     const required = section.requiredFields ?? [];
-    if (required.length > 0) return required.every((f) => hasValue(values[f]));
-    return (section.fields || []).some((f) => hasValue(values[f]));
+    if (required.length > 0) return required.every((f) => hasValue(getIn(values, f)));
+    return (section.fields || []).some((f) => hasValue(getIn(values, f)));
   };
   const completedCount = sections.filter((s, index) => isDoneForProgress(s, index)).length;
   const progressPercent = sections.length > 0 ? Math.round((completedCount / sections.length) * 100) : 0;
+  const completed = Object.fromEntries(
+    sections.map((section, index) => [index, isDoneForProgress(section, index)]),
+  );
 
   return (
-    <nav className="wizard-nav-sidebar" aria-label="Wizard step navigation">
-
-      {/* ── Progress Card ─────────────────────────────────────────────── */}
-      <div className="wt-progress-card" role="status" aria-live="polite">
-        <div className="wt-progress-label">{title}</div>
-        <div className="wt-progress-percent">{progressPercent}%</div>
-        <div className="wt-progress-sub">
-          {completedCount} of {sections.length} steps completed
-        </div>
-        <div className="wt-progress-track" aria-hidden="true">
-          <div
-            className="wt-progress-fill"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-      </div>
-
-      {/* ── Step Navigation List ──────────────────────────────────────── */}
-      <ol className="wt-steps-nav" style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {sections.map((section, index) => {
-          const status   = getSectionStatus(section, index);
-          const isActive = status === "active";
-          const isDone   = status === "completed";
-          const isErr    = status === "error";
-          const isClickable = true;  // can go back or forward to any step
-
-          return (
-            <React.Fragment key={section.id}>
-              <li
-                className={[
-                  "wt-step-item",
-                  isActive    ? "wt-step-active"    : "",
-                  isDone      ? "wt-step-completed"  : "",
-                  isErr       ? "wt-step-error"      : "",
-                  !isClickable && !isActive ? "wt-step-disabled" : "",
-                ].filter(Boolean).join(" ")}
-                onClick={() => isClickable && onStepClick?.(index)}
-                role="listitem"
-                aria-current={isActive ? "step" : undefined}
-                aria-label={`Step ${index + 1}: ${section.label}${isDone ? " (completed)" : isErr ? " (has errors)" : ""}`}
-                tabIndex={isClickable ? 0 : -1}
-                onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === " ") && isClickable) {
-                    e.preventDefault();
-                    onStepClick?.(index);
-                  }
-                }}
-              >
-                {/* Number / status badge */}
-                <div className="wt-step-badge" aria-hidden="true">
-                  {isDone ? (
-                    <Check style={{ fontSize: 13 }} />
-                  ) : isErr ? (
-                    "!"
-                  ) : (
-                    index + 1
-                  )}
-                </div>
-
-                {/* Label */}
-                <div className="wt-step-text">
-                  <span className="wt-step-label">{section.label}</span>
-                  {section.subtitle && (
-                    <span className="wt-step-sublabel">{section.subtitle}</span>
-                  )}
-                </div>
-              </li>
-
-              {/* Connector line between steps */}
-              {index < sections.length - 1 && (
-                <div
-                  className={`wt-step-connector ${isDone ? "completed" : ""}`}
-                  aria-hidden="true"
-                />
-              )}
-            </React.Fragment>
-          );
-        })}
-      </ol>
-    </nav>
+    <Box component="nav" aria-label="Wizard step navigation" sx={{ width: { xs: '100%', md: 250 }, maxHeight: { xs: 180, md: 'none' }, flexShrink: 0, overflowY: 'auto', bgcolor: 'background.paper', borderRight: { md: '1px solid' }, borderBottom: { xs: '1px solid', md: 0 }, borderColor: 'divider', p: 1.5 }}>
+      <Box role="status" aria-live="polite" sx={{ mb: 1.5 }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{title}</Typography>
+        <Typography variant="caption" color="text.secondary">{completedCount} of {sections.length} steps completed</Typography>
+        <LinearProgress variant="determinate" value={progressPercent} sx={{ mt: 1, height: 4, borderRadius: 1 }} />
+      </Box>
+      <WtStepper
+        steps={sections.map((section, index) => ({
+          label: section.label,
+          description: section.subtitle,
+          error: getSectionStatus(section, index) === "error",
+          errorText: "Fix the highlighted fields",
+        }))}
+        activeStep={currentStep}
+        completed={completed}
+        onStepClick={onStepClick}
+        allowFutureNavigation
+        orientation="vertical"
+        sx={{ px: 1, '& .MuiStepLabel-root': { py: 0.5 } }}
+      />
+    </Box>
   );
 };
 

@@ -121,6 +121,10 @@ export interface WtFieldProps {
     disabled?: boolean;
     readOnly?: boolean;
     placeholder?: string;
+    /** Optional display transform for formatted values such as INR amounts. */
+    formatValue?: (value: string) => string;
+    /** Optional wire-value transform paired with `formatValue`. */
+    parseValue?: (value: string) => string;
 
     /**
      * `'sm'` (default) = mid-density (40px) — toolbars, lists, most forms.
@@ -279,7 +283,7 @@ const ADD_OPTION_VALUE = '__wt_add__';
 export const WtField: React.FC<WtFieldProps> = ({
     label, ariaLabel, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, readOnly, placeholder,
     size = 'sm', fullWidth = true, fitContent, minWidth, icon, prefix, tone,
-    type = 'text', multiline, minRows = 3, maxRows, inputMode, min, max, maxLength, step, onBlur,
+    type = 'text', multiline, minRows = 3, maxRows, inputMode, min, max, maxLength, step, onBlur, formatValue, parseValue,
     searchable, multiple, limitTags, addOption, onAddOption, addOptionLabel, clearable, id, name, autoFocus, sx, children,
 }) => {
     const reactId = useId();
@@ -287,6 +291,7 @@ export const WtField: React.FC<WtFieldProps> = ({
     const messageId = `${fieldId}-msg`;
     const invalid = Boolean(error);
     const message = error || hint;
+    const displayValue = !options && formatValue ? formatValue(String(value ?? '')) : value ?? '';
     const hasValue = Array.isArray(value)
         ? value.length > 0
         : String(value ?? '').length > 0;
@@ -628,8 +633,8 @@ export const WtField: React.FC<WtFieldProps> = ({
                     <TextField
                         id={fieldId}
                         name={name}
-                        value={value ?? ''}
-                        onChange={(e) => onChange(e.target.value)}
+                        value={displayValue}
+                        onChange={(e) => onChange(parseValue ? parseValue(e.target.value) : e.target.value)}
                         onBlur={onBlur}
                         placeholder={placeholder}
                         disabled={disabled}
@@ -680,8 +685,8 @@ export const WtField: React.FC<WtFieldProps> = ({
                 label={label}
                 required={required}
                 select={isSelect}
-                value={isSelect ? String(value ?? '') : (value ?? '')}
-                onChange={(e) => onChange(e.target.value)}
+                value={isSelect ? String(value ?? '') : displayValue}
+                onChange={(e) => onChange(parseValue && !isSelect ? parseValue(e.target.value) : e.target.value)}
                 onBlur={onBlur}
                 placeholder={placeholder}
                 disabled={disabled}

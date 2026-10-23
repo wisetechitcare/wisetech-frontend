@@ -32,4 +32,11 @@ describe('WtChoice', () => {
     expect(group.getAttribute('aria-describedby')).toContain('choice-error');
     expect(screen.getByRole('alert')).toBeTruthy();
   });
+
+  it('keeps segmented choices compact instead of stretching them across the row', () => {
+    render(<WtChoice name="meal" label="Meal" variant="segmented" value="veg" options={[{ value: 'veg', label: 'Vegetarian' }, { value: 'nonveg', label: 'Non-vegetarian' }]} onChange={() => {}} />);
+    const group = screen.getByRole('radiogroup');
+    expect(window.getComputedStyle(group).display).toBe('flex');
+    expect(window.getComputedStyle(group).gridTemplateColumns).toBe('none');
+  });
 });

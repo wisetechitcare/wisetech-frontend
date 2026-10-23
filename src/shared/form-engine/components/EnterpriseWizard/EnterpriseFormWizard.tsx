@@ -1,14 +1,16 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useRef } from "react";
+import { Box, Typography } from '@mui/material';
 import { useFormikContext } from "formik";
-import { toast } from "react-toastify";
 import { PictureAsPdf, Description, ChevronRight, ChevronLeft } from "@mui/icons-material";
 import { EnterpriseWizardStep, WizardActionConfig, WizardSummaryConfig } from "../../types/formEngine.types";
 import { SummarySidebar } from "../SummarySidebar/SummarySidebar";
 import { WizardSidebar } from "../WizardSidebar/WizardSidebar";
-import "@app/pages/employee/forms/shared/Workspace.css";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { GroupedWizard, type GroupedWizardProps } from './GroupedWizard';
+import { hasStepErrors, stepValueSignature } from '../../utils/stepValidation';
+import { AppIcon, FormSection, GlassDialogActions, TRIO, toast, useUnsavedChangesGuard, WtButton, WtIconButton } from '@app/modules/common/components/ui';
 
 interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
+  layout?: 'steps';
   module: string;
   steps: EnterpriseWizardStep<TStepProps>[];
   stepProps?: TStepProps;
@@ -17,7 +19,9 @@ interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
   headerTitle?: string;
   headerSub?: React.ReactNode;
   headerActions?: React.ReactNode;
-  /** Bootstrap-icon class for the header avatar. Defaults per `module`. */
+  /** AppIcon name for the header avatar. Defaults per `module`. */
+  icon?: string;
+  /** @deprecated Use `icon`; retained while existing hosts migrate. */
   moduleIcon?: string;
   sidebarTitle?: string;
   breadcrumb?: string[];
@@ -25,7 +29,15 @@ interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
   initialStep?: number;
 }
 
-export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
+export function EnterpriseFormWizard<TValues = any, TStepProps = any>(
+  props: EnterpriseFormWizardProps<TValues, TStepProps> | (GroupedWizardProps<TStepProps> & { layout: 'sections' }),
+) {
+  return props.layout === 'sections'
+    ? <GroupedWizard {...props} />
+    : <StepWizard {...props} />;
+}
+
+function StepWizard<TValues = any, TStepProps = any>({
   module,
   steps,
   stepProps,
@@ -34,17 +46,25 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
   headerTitle,
   headerSub,
   headerActions,
+  icon,
   moduleIcon,
   sidebarTitle,
   breadcrumb,
   onStepChange,
   initialStep = 0,
 }: EnterpriseFormWizardProps<TValues, TStepProps>) {
-  const { values, submitForm, validateForm, setFieldTouched } = useFormikContext<TValues>();
+  const { dirty, values, submitForm, validateForm, setFieldTouched } = useFormikContext<TValues>();
+  const { requestClose, dialog: unsavedChangesDialog } = useUnsavedChangesGuard(dirty, actions.onCancel);
   const visibleSteps = useMemo(() => steps.filter((step) => !step.hidden), [steps]);
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [animKey, setAnimKey] = useState(0);
+  const canvasRef = useRef<HTMLElement>(null);
   const [summaryCollapsed, setSummaryCollapsed] = useState(false);
+  const [validatedSections, setValidatedSections] = useState<Record<string, string>>({});
+  const completedSections = Object.fromEntries(visibleSteps.map((step) => [
+    step.id,
+    validatedSections[step.id] === stepValueSignature(values, step.fields),
+  ]));
 
   const isLastStep = currentStep === visibleSteps.length - 1;
   const isFirstStep = currentStep === 0;
@@ -54,7 +74,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
   const StepComponent = currentStepDef?.component;
 
   const scrollCanvasTop = useCallback(() => {
-    document.querySelector(".wizard-step-canvas")?.scrollTo({ top: 0, behavior: "smooth" });
+    canvasRef.current?.scrollTo({ top: 0, behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }, []);
 
   const goToStep = useCallback((idx: number) => {
@@ -71,19 +91,22 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
     const currentFields = visibleSteps[currentStep]?.fields || [];
     
     // Check if there are any errors in the current step's fields
-    const hasErrorInCurrentStep = currentFields.some((field: string) => {
-      return Object.keys(errors).some(errKey => errKey === field || errKey.startsWith(field + '[') || errKey.startsWith(field + '.'));
-    });
+    const hasErrorInCurrentStep = hasStepErrors(errors, currentFields);
 
     if (hasErrorInCurrentStep) {
-      toast.error("Please fill in all required fields in this step before proceeding.");
+      toast({ icon: 'error', title: "Please fill in all required fields in this step before proceeding." });
       currentFields.forEach((field: string) => setFieldTouched(field, true));
       return;
     }
 
+    const step = visibleSteps[currentStep];
+    if (step) setValidatedSections((previous) => ({
+      ...previous, [step.id]: stepValueSignature(values, currentFields),
+    }));
+
     if (isSaveStep) {
       if (Object.keys(errors).length > 0) {
-        toast.error("Please fill in all required fields before submitting.");
+        toast({ icon: 'error', title: "Please fill in all required fields before submitting." });
         Object.keys(errors).forEach(key => setFieldTouched(key, true));
         return;
       }
@@ -95,7 +118,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
     } else {
       goToStep(currentStep + 1);
     }
-  }, [isLastStep, currentStep, goToStep, submitForm, actions, validateForm, setFieldTouched, visibleSteps]);
+  }, [isSaveStep, currentStep, goToStep, submitForm, actions, validateForm, setFieldTouched, visibleSteps, values]);
 
   const handleBack = useCallback(() => {
     if (!isFirstStep) {
@@ -105,341 +128,70 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
 
   void breadcrumb; // breadcrumb intentionally not rendered (kept in API for callers)
 
+  const save = async (callback?: () => void) => {
+    const errors = await validateForm();
+    if (Object.keys(errors).length) {
+      Object.keys(errors).forEach((key) => setFieldTouched(key, true));
+      toast({ icon: 'error', title: 'Please fill in all required fields before submitting.' });
+      return;
+    }
+    if (callback) callback();
+    else await submitForm();
+  };
+
   return (
-    <div className="enterprise-wizard" data-form-module={module}>
-
-      {/* ═══ STICKY HEADER ══════════════════════════════════════════════════ */}
-      <div className="wizard-header">
-        <div className="wizard-header-left">
-          {/* Title with module avatar */}
-          <div className="wizard-title-row">
-            <div className="wizard-header-avatar" aria-hidden>
-              <AppIcon name={moduleIcon || (module === "project" ? "bi-buildings-fill" : "bi-building")} />
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <h1 className="wizard-title">{headerTitle}</h1>
-              {headerSub && <div className="wizard-subtitle">{headerSub}</div>}
-            </div>
-          </div>
-        </div>
-
-        {/* Header action buttons. Export lives in the Summary sidebar; this slot is
-            for module-level actions (e.g. the Company form's schema manager). The
-            close button is absolutely positioned by the host modal, so leave room. */}
-        <div
-          className="wizard-header-actions"
-          style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginRight: "2.5rem" }}
-        >
-          {headerActions}
-        </div>
-      </div>
-
-      {/* ═══ THREE-COLUMN LAYOUT ════════════════════════════════════════════ */}
-      <div className="wizard-layout">
-
-        {/* ── LEFT: Step Navigation Sidebar ─────────────────────────────── */}
-        <WizardSidebar
-          sections={visibleSteps}
-          currentStep={currentStep}
-          onStepClick={goToStep}
-          title={sidebarTitle}
-        />
-
-        {/* ── CENTER: Step Canvas ───────────────────────────────────────── */}
-        <main className="wizard-step-canvas" role="main">
-
-          {/* Step page sticky sub-header */}
-          <div className="wt-step-page-header">
-            <div className="wt-step-page-meta">
-              <span className="wt-step-badge-pill">
-                Step {currentStep + 1} of {visibleSteps.length}
-              </span>
-              <span className="wt-mandatory-note">
-                <span>*</span> Required fields
-              </span>
-            </div>
-            <h2 className="wt-step-page-title">{currentStepDef?.title}</h2>
-            {currentStepDef?.subtitle && (
-              <p className="wt-step-page-subtitle">{currentStepDef.subtitle}</p>
-            )}
-          </div>
-
-          {/* Step content body */}
-          <div className="wt-step-body wt-step-animate" key={animKey}>
-            {currentStepDef?.render
-              ? currentStepDef.render(stepProps as TStepProps)
-              : StepComponent
-              ? React.createElement(StepComponent as React.ComponentType<any>, stepProps || {})
-              : null}
-          </div>
-        </main>
-
-        {/* ── RIGHT: Summary Panel (collapsible to the right, like a sidebar) ─ */}
-        {summaryCollapsed ? (
-          <aside
-            className="wizard-summary-panel"
-            aria-label="Lead summary (collapsed)"
-            style={{
-              width: 40,
-              minWidth: 40,
-              flexShrink: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              paddingTop: 12,
-              gap: 12,
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setSummaryCollapsed(false)}
-              aria-label="Expand summary"
-              title="Expand summary"
-              style={{
-                background: 'transparent',
-                border: '1px solid #e2e8f0',
-                borderRadius: 8,
-                width: 28,
-                height: 28,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#64748B',
-                cursor: 'pointer',
-              }}
-            >
-              <ChevronLeft style={{ fontSize: '1.2rem' }} />
-            </button>
-            <div
-              style={{
-                writingMode: 'vertical-rl',
-                transform: 'rotate(180deg)',
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: 1,
-                color: '#64748B',
-                textTransform: 'uppercase',
-                userSelect: 'none',
-              }}
-            >
-              {summary.title}
-            </div>
-          </aside>
-        ) : (
-        <aside className="wizard-summary-panel" aria-label="Lead summary" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 8px 0' }}>
-            <button
-              type="button"
-              onClick={() => setSummaryCollapsed(true)}
-              aria-label="Collapse summary"
-              title="Collapse summary"
-              style={{
-                background: 'transparent',
-                border: '1px solid #e2e8f0',
-                borderRadius: 8,
-                width: 28,
-                height: 28,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#64748B',
-                cursor: 'pointer',
-              }}
-            >
-              <ChevronRight style={{ fontSize: '1.2rem' }} />
-            </button>
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto' }}>
-            <SummarySidebar
-              title={summary.title}
-              rows={summaryRows}
-              warningMessage={summary.warningMessage}
-              {...actions}
-              hideSubmitButton
-            />
-          </div>
-
-          {/* Export Buttons at Bottom of Summary (Last Step Only) */}
-          {isSaveStep && (actions.exportPdf || actions.exportDocx) && (
-            <div className="mt-4 p-4 bg-white rounded-3 shadow-sm border border-gray-100 d-flex gap-3 justify-content-center flex-wrap">
-              {actions.exportPdf && (
-                <button
-                  type="button"
-                  className="wt-btn wt-btn-outline-primary"
-                  onClick={actions.exportPdf}
-                  title="Export to PDF"
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem' }}
-                >
-                  <PictureAsPdf style={{ fontSize: "1.1rem", color: '#e2445c' }} />
-                  <span className="fw-bold">Export PDF</span>
-                </button>
-              )}
-              {actions.exportDocx && (
-                <button
-                  type="button"
-                  className="wt-btn wt-btn-outline-primary"
-                  onClick={actions.exportDocx}
-                  title="Export to Word Document"
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem' }}
-                >
-                  <Description style={{ fontSize: "1.1rem", color: '#2563eb' }} />
-                  <span className="fw-bold">Export DOCX</span>
-                </button>
-              )}
-            </div>
-          )}
-        </aside>
-        )}
-      </div>
-
-      {/* ═══ BOTTOM STICKY FOOTER BAR ═══════════════════════════════════════ */}
-      <div className="wizard-footer-bar" role="navigation" aria-label="Step navigation" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-
-        <div className="wizard-footer-left" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          {/* Cancel button */}
-          <button
-            type="button"
-            className="wt-btn wt-btn-ghost"
-            onClick={actions.onCancel}
-            disabled={actions.isSubmitting}
-            aria-label="Cancel"
-          >
-            Cancel
-          </button>
-
-          {/* Save Draft button */}
-          {actions.onSaveDraft && (
-            <button
-              type="button"
-              className="wt-btn wt-btn-ghost"
-              onClick={actions.onSaveDraft}
-              disabled={actions.isSubmitting || actions.isSavingDraft}
-              title="Save your progress as a draft (no validation required)"
-              style={{ borderStyle: 'dashed' }}
-            >
-              {actions.isSavingDraft ? 'Saving…' : '💾 Save Draft'}
-            </button>
-          )}
-
-          {/* Persistent Save — lets the user submit from any step (not only the
-              final/review step). Hidden on the save step to avoid a duplicate. */}
-          {actions.onFinalSave && !isSaveStep && (
-            <button
-              type="button"
-              className="wt-btn wt-btn-primary"
-              disabled={actions.isSubmitting || actions.submitDisabled}
-              onClick={async () => {
-                const errors = await validateForm();
-                if (Object.keys(errors).length > 0) {
-                  toast.error("Please fill in all required fields before submitting.");
-                  Object.keys(errors).forEach((key) => setFieldTouched(key, true));
-                  return;
-                }
-                actions.onFinalSave && actions.onFinalSave();
-              }}
-              title="Save changes now"
-            >
-              {actions.isSubmitting ? "Saving…" : (actions.submitText || "Save")}
-            </button>
-          )}
-        </div>
-
-        <div className="wizard-footer-right" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          {/* Back button */}
-          <button
-            type="button"
-            className="wt-btn wt-btn-ghost"
-            onClick={handleBack}
-            disabled={isFirstStep || actions.isSubmitting}
-            aria-label="Go to previous step"
-          >
-            ← Back
-          </button>
-
-          {/* Forward actions */}
-          {isSaveStep ? (
-            actions.onFinalSave ? (
-              <button
-                type="button"
-                className="wt-btn wt-btn-primary wt-btn-lg"
-                disabled={actions.isSubmitting || actions.submitDisabled}
-                onClick={async () => {
-                  const errors = await validateForm();
-                  if (Object.keys(errors).length > 0) {
-                    toast.error("Please fill in all required fields before submitting.");
-                    Object.keys(errors).forEach(key => setFieldTouched(key, true));
-                    return;
-                  }
-                  actions.onFinalSave && actions.onFinalSave();
-                }}
-              >
-                {actions.isSubmitting ? "Saving…" : "Save"}
-              </button>
-            ) : actions.onSaveUpdate && actions.onSaveRevision ? (
-              <div className="d-flex gap-2">
-                <button
-                  type="button"
-                  className="wt-btn wt-btn-secondary wt-btn-lg"
-                  disabled={actions.isSubmitting || actions.submitDisabled}
-                  onClick={async () => {
-                    const errors = await validateForm();
-                    if (Object.keys(errors).length > 0) {
-                      toast.error("Please fill in all required fields before submitting.");
-                      Object.keys(errors).forEach(key => setFieldTouched(key, true));
-                      return;
-                    }
-                    actions.onSaveUpdate && actions.onSaveUpdate();
-                  }}
-                >
-                  {actions.isSubmitting ? "Saving…" : "Save as Update"}
-                </button>
-                <button
-                  type="button"
-                  className="wt-btn wt-btn-primary wt-btn-lg"
-                  disabled={actions.isSubmitting || actions.submitDisabled}
-                  onClick={async () => {
-                    const errors = await validateForm();
-                    if (Object.keys(errors).length > 0) {
-                      toast.error("Please fill in all required fields before submitting.");
-                      Object.keys(errors).forEach(key => setFieldTouched(key, true));
-                      return;
-                    }
-                    actions.onSaveRevision && actions.onSaveRevision();
-                  }}
-                >
-                  {actions.isSubmitting ? "Saving…" : "Save as Revision"}
-                </button>
-              </div>
-            ) : (
-              <button
-                type="submit"
-                className="wt-btn wt-btn-primary wt-btn-lg"
-                disabled={actions.isSubmitting || actions.submitDisabled}
-                onClick={async (e) => {
-                  const errors = await validateForm();
-                  if (Object.keys(errors).length > 0) {
-                    toast.error("Please fill in all required fields before submitting.");
-                  }
-                }}
-              >
-                {actions.isSubmitting
-                  ? "Saving…"
-                  : actions.submitText || (actions.isEditMode ? "Save Changes" : "Create")}
-              </button>
-            )
-          ) : (
-            <button
-              type="button"
-              className="wt-btn wt-btn-primary wt-btn-lg"
-              onClick={handleNext}
-              disabled={actions.isSubmitting}
-            >
-              Save &amp; Continue →
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <Box data-form-module={module} sx={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', bgcolor: 'background.default', color: 'text.primary' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 2, pr: 6, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+        <AppIcon name={icon || moduleIcon || 'bi-building'} />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography component="h1" sx={{ fontSize: 18, fontWeight: 700 }}>{headerTitle}</Typography>
+          {headerSub && <Box sx={{ fontSize: 13, color: 'text.secondary' }}>{headerSub}</Box>}
+        </Box>
+        {headerActions}
+      </Box>
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, overflow: 'hidden' }}>
+        <WizardSidebar sections={visibleSteps} currentStep={currentStep} onStepClick={goToStep} title={sidebarTitle} completedSections={completedSections} />
+        <Box component="main" ref={canvasRef} sx={{ flex: 1, minWidth: 0, overflowY: 'auto', p: { xs: 1.5, sm: 2 } }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>Step {currentStep + 1} of {visibleSteps.length}</Typography>
+          <FormSection key={animKey} tone={TRIO.blue} icon={currentStepDef?.icon ?? 'abstract-26'} title={currentStepDef?.title ?? ''} desc={currentStepDef?.subtitle}>
+            {currentStepDef?.render ? currentStepDef.render(stepProps as TStepProps) : StepComponent ? React.createElement(StepComponent as React.ComponentType<any>, stepProps || {}) : null}
+          </FormSection>
+        </Box>
+        <Box component="aside" aria-label={summary.title} sx={{ display: { xs: 'none', lg: 'block' }, width: summaryCollapsed ? 44 : 260, flexShrink: 0, overflowY: 'auto', p: 1.5, borderLeft: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+          <WtIconButton title={summaryCollapsed ? 'Expand summary' : 'Collapse summary'} onClick={() => setSummaryCollapsed((previous) => !previous)}>
+            {summaryCollapsed ? <ChevronLeft /> : <ChevronRight />}
+          </WtIconButton>
+          {!summaryCollapsed && <>
+            <SummarySidebar title={summary.title} rows={summaryRows} warningMessage={summary.warningMessage} {...actions} hideSubmitButton />
+            {isSaveStep && <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
+              {actions.exportPdf && <WtButton onClick={actions.exportPdf} startIcon={<PictureAsPdf />}>Export PDF</WtButton>}
+              {actions.exportDocx && <WtButton onClick={actions.exportDocx} startIcon={<Description />}>Export DOCX</WtButton>}
+            </Box>}
+          </>}
+        </Box>
+      </Box>
+      <GlassDialogActions sx={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, bgcolor: 'background.paper', '& > :not(style) ~ :not(style)': { ml: 0 } }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          <WtButton ghost onClick={requestClose} disabled={actions.isSubmitting}>Cancel</WtButton>
+          {actions.onSaveDraft && <WtButton ghost onClick={actions.onSaveDraft} disabled={actions.isSubmitting || actions.isSavingDraft}>{actions.isSavingDraft ? 'Saving…' : 'Save Draft'}</WtButton>}
+          {actions.onFinalSave && !isSaveStep && <WtButton tone="primary" onClick={() => save(actions.onFinalSave)} disabled={actions.isSubmitting || actions.submitDisabled}>{actions.isSubmitting ? 'Saving…' : actions.submitText || 'Save'}</WtButton>}
+        </Box>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, ml: 'auto' }}>
+          <WtButton ghost startIcon={<ChevronLeft />} onClick={handleBack} disabled={isFirstStep || actions.isSubmitting}>Back</WtButton>
+          {isSaveStep
+            ? actions.onFinalSave
+              ? <WtButton tone="primary" onClick={() => save(actions.onFinalSave)} disabled={actions.isSubmitting || actions.submitDisabled}>{actions.isSubmitting ? 'Saving…' : actions.submitText || 'Save'}</WtButton>
+              : actions.onSaveUpdate && actions.onSaveRevision
+                ? <>
+                  <WtButton onClick={() => save(actions.onSaveUpdate)} disabled={actions.isSubmitting || actions.submitDisabled}>Save as Update</WtButton>
+                  <WtButton tone="primary" onClick={() => save(actions.onSaveRevision)} disabled={actions.isSubmitting || actions.submitDisabled}>Save as Revision</WtButton>
+                </>
+                : <WtButton tone="primary" onClick={() => save()} disabled={actions.isSubmitting || actions.submitDisabled}>{actions.isSubmitting ? 'Saving…' : actions.submitText || (actions.isEditMode ? 'Save Changes' : 'Create')}</WtButton>
+            : <WtButton tone="primary" onClick={handleNext} disabled={actions.isSubmitting}>Save &amp; Continue</WtButton>}
+        </Box>
+      </GlassDialogActions>
+      {unsavedChangesDialog}
+    </Box>
   );
 }
 

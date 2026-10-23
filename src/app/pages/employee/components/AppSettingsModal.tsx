@@ -207,7 +207,7 @@ function FinancialSection() {
             <div className="separator separator-dashed my-6" />
             <div className="row g-4">
                 <div className="col-sm-6 col-md-4">
-                    <WtChoiceField name="tds2Enabled" label={tds2Label} variant="switch" clearOnDisable={["tds2Type", "tds2Amount", "tds2Percentage"]} />
+                    <WtChoiceField name="tds2Enabled" label={tds2Label} variant="switch" clearRevealOnDisable clearOnDisable={["tds2Type", "tds2Amount", "tds2Percentage"]} />
                 </div>
                 {tds2Enabled && (
                     <>
@@ -232,7 +232,7 @@ function FinancialSection() {
             <div className="separator separator-dashed my-6" />
             <div className="row g-4">
                 <div className="col-sm-6 col-md-4">
-                    <WtChoiceField name="retentionEnabled" label="Retention (Fresher Bond)" variant="switch" clearOnDisable={["retentionType", "retentionAmount", "retentionPercentage", "retentionStartDate", "retentionEndDate"]} />
+                    <WtChoiceField name="retentionEnabled" label="Retention (Fresher Bond)" variant="switch" clearRevealOnDisable clearOnDisable={["retentionType", "retentionAmount", "retentionPercentage", "retentionStartDate", "retentionEndDate"]} />
                 </div>
                 {retentionEnabled && (
                     <>

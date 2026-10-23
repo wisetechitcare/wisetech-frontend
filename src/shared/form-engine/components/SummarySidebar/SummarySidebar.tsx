@@ -1,7 +1,6 @@
 import React from "react";
-import { PictureAsPdf, Description, InfoOutlined } from "@mui/icons-material";
+import { Box, Typography } from '@mui/material';
 import { SummaryRow } from "../../types/formEngine.types";
-import "@app/pages/employee/forms/shared/Workspace.css";
 
 interface SummarySidebarProps {
   title: string;
@@ -28,47 +27,18 @@ export const SummarySidebar: React.FC<SummarySidebarProps> = ({
   hideSubmitButton = false,
 }) => {
   return (
-    <div className="wt-summary-inner">
-
-      {/* ── Section Title ────────────────────────────────────────────── */}
-      <div className="wt-summary-title">{title}</div>
-
-      <div className="wt-summary-divider" />
-
-      {/* ── Summary Rows ─────────────────────────────────────────────── */}
-      {rows.length > 0 ? (
-        <div className="wt-summary-rows">
-          {rows.map((row, index) => (
-            <div key={`${row.label}-${index}`} className="wt-summary-row">
-              <span className="wt-summary-row-label">{row.label}</span>
-              <span className={`wt-summary-row-value ${row.isStrong ? "wt-val-strong" : ""}`}>
-                {row.value || <span style={{ color: "var(--wt-gray-400)", fontStyle: "italic", fontWeight: 400 }}>—</span>}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div style={{ textAlign: "center", padding: "1.5rem 0", color: "var(--wt-gray-400)" }}>
-          <InfoOutlined style={{ fontSize: "1.5rem", marginBottom: "0.375rem", display: "block", margin: "0 auto 0.375rem" }} />
-          <span style={{ fontSize: "0.72rem", fontWeight: 500 }}>Fill in the form to see a summary</span>
-        </div>
-      )}
-
-      {/* ── Warning Message ───────────────────────────────────────────── */}
-      {warningMessage && (
-        <div className="wt-summary-warning">
-          {warningMessage}
-        </div>
-      )}
-
-      {/* ── Preservation Note ─────────────────────────────────────────── */}
-      {!hideSubmitButton && (
-        <div className="wt-preserve-notice">
-          <InfoOutlined style={{ fontSize: "0.9rem", flexShrink: 0, marginTop: "1px" }} />
-          All data is saved securely and encrypted as per company policy.
-        </div>
-      )}
-    </div>
+    <Box>
+      <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 1 }}>{title}</Typography>
+      {rows.length ? rows.map((row, index) => (
+        <Box key={row.label + index} sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="caption" color="text.secondary">{row.label}</Typography>
+          <Box sx={{ fontSize: 13, fontWeight: row.isStrong ? 700 : 400, overflowWrap: 'anywhere' }}>
+            {row.value ?? '—'}
+          </Box>
+        </Box>
+      )) : <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>Fill in the form to see a summary</Typography>}
+      {warningMessage && <Box role="status" sx={{ mt: 1.5, p: 1, bgcolor: 'action.hover', color: 'warning.main', borderRadius: 1, fontSize: 13 }}>{warningMessage}</Box>}
+    </Box>
   );
 };
 

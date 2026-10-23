@@ -13,6 +13,8 @@ export interface WtChoiceFieldProps<T extends string | boolean> {
   required?: boolean;
   reveal?: ReactNode | ((value: T) => ReactNode);
   disabled?: boolean;
+  /** Set for edit forms; create forms intentionally never render changed markers. */
+  editMode?: boolean;
   showChangedMarker?: boolean;
   clearRevealOnDisable?: boolean;
   clearOnDisable?: readonly string[];
@@ -26,26 +28,30 @@ export function WtChoiceField<T extends string | boolean>({
   variant,
   options,
   onValueChange,
+  clearRevealOnDisable = true,
   clearOnDisable,
+  editMode = false,
   orientation,
-  showChangedMarker = true,
+  showChangedMarker = false,
   ...rest
 }: WtChoiceFieldProps<T>) {
   const [field, meta, helpers] = useField<T>(name);
-  const { dirty, initialValues, setFieldTouched, setFieldValue } = useFormikContext<FormikValues>();
+  const { dirty, initialValues, setFieldError, setFieldTouched, setFieldValue } = useFormikContext<FormikValues>();
   useUnsavedChangesRegistration(dirty);
 
   const value = field.value ?? (variant === 'switch' ? false : '') as T;
-  const changed = dirty && JSON.stringify(value) !== JSON.stringify(getIn(initialValues, name));
+  const changed = editMode && dirty && JSON.stringify(value) !== JSON.stringify(getIn(initialValues, name));
   const error = meta.touched && meta.error ? String(meta.error) : undefined;
 
   const handleChange = (next: T) => {
     const wasEnabled = choiceIsOn(value);
     const isEnabled = choiceIsOn(next);
-    if (variant === 'switch' && wasEnabled && !isEnabled && clearOnDisable?.length) {
-      clearOnDisable.forEach((path) => {
+    const revealPaths = clearOnDisable ?? [];
+    if (variant === 'switch' && wasEnabled && !isEnabled && clearRevealOnDisable !== false && revealPaths.length) {
+      revealPaths.forEach((path) => {
         void setFieldValue(path, '', false);
         void setFieldTouched(path, false, false);
+        setFieldError(path, undefined);
       });
     }
     const storedValue = variant === 'switch' && typeof value === 'string'
@@ -56,7 +62,7 @@ export function WtChoiceField<T extends string | boolean>({
     onValueChange?.(storedValue);
   };
 
-  return <WtChoice {...rest} name={name} variant={variant} options={options} value={value} error={error} changed={changed} showChangedMarker={showChangedMarker} orientation={orientation} onChange={handleChange} />;
+  return <WtChoice {...rest} name={name} variant={variant} options={options} value={value} error={error} changed={changed} showChangedMarker={showChangedMarker} orientation={orientation} clearRevealOnDisable={clearRevealOnDisable} onChange={handleChange} />;
 }
 
 export type { ChoiceVariant, WtChoiceOption } from './WtChoice';

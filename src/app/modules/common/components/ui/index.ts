@@ -239,3 +239,4 @@ export type { WtImageFieldProps } from './WtImageField';
 export { WtPhoneField } from './WtPhoneField';
 export { WtPhoneFieldFormik, type WtPhoneFieldFormikProps } from './WtPhoneFieldFormik';
 export type { WtPhoneFieldProps } from './WtPhoneField';
+export { WtWizardDialog, type WtWizardDialogProps } from './WtWizardDialog';

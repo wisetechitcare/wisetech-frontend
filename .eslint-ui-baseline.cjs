@@ -394,7 +394,6 @@ module.exports = [
   "src/modules/payroll/pages/SalaryReport.tsx",
   "src/modules/projects/pages/ProjectFormPage.tsx",
   "src/modules/projects/workspace/ProjectWorkspacePage.tsx",
-  "src/shared/form-engine/components/EnterpriseWizard/EnterpriseFormWizard.tsx",
   "src/utils/search.tsx",
   "src/utils/statistics.ts"
 ];

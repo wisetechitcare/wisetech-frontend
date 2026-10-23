@@ -14,7 +14,7 @@ import {
   FolderOutlined,
   BadgeOutlined,
 } from "@mui/icons-material";
-import type { OnboardingGroup } from "../forms/onboarding/OnboardingWizard";
+import type { WizardGroup } from '@/shared/form-engine';
 import * as S from "../forms/onboarding/OnboardingSections";
 import type { OnboardingSectionsProps } from "../forms/onboarding/OnboardingSections";
 import { CandidateApplicationStrip } from "./CandidateApplicationStrip";
@@ -39,7 +39,7 @@ interface BuildArgs {
  * Candidate-mode group tree — same shell as employee onboarding, filtered to
  * pre-hire sections only. Rail order: Personal → Background → Application → Documents.
  */
-export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
+export function buildCandidateWizardGroups(args: BuildArgs): WizardGroup<OnboardingSectionsProps>[] {
   const stripRender = () => (
     <CandidateApplicationStrip
       roleRequired={args.roleRequired}

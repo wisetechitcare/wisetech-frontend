@@ -20,9 +20,9 @@ import {
   uploadApplicantPhoto,
   uploadApplicantResume,
 } from "@services/recruitment";
-import OnboardingWizard from "../forms/onboarding/OnboardingWizard";
+import { EnterpriseFormWizard } from '@/shared/form-engine';
 import type { OnboardingSectionsProps } from "../forms/onboarding/OnboardingSections";
-import { FullscreenWizardModal } from "../forms/shared/FullscreenWizardModal";
+import { WtWizardDialog } from '@app/modules/common/components/ui';
 import { buildCandidateWizardGroups } from "./buildCandidateWizardGroups";
 import {
   applicantToFormikValues,
@@ -55,7 +55,7 @@ const buildCandidateSchema = (roleRequired: boolean) =>
 
 /**
  * Full-page Add/Edit Candidate wizard — same fullscreen shell as Employee
- * Onboarding (`FullscreenWizardModal` + `OnboardingWizard`). Never creates an employee.
+ * Onboarding (`WtWizardDialog` + `OnboardingWizard`). Never creates an employee.
  */
 export default function CandidateWizardHost() {
   const navigate = useNavigate();
@@ -379,8 +379,9 @@ export default function CandidateWizardHost() {
   }
 
   return (
-    <FullscreenWizardModal
-      show={show}
+    <WtWizardDialog title={isEdit || applicantId ? "Edit Candidate" : "Add Candidate"}
+      subtitle="Capture identity, hiring facts and documents" icon="profile-user" closeGuard="host"
+      open={show}
       onClose={handleCancel}
       closeLabel="Close candidate wizard"
       className="onboarding-wizard-modal"
@@ -395,7 +396,7 @@ export default function CandidateWizardHost() {
           formikRef.current = formikProps;
           return (
             <Form noValidate style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-              <OnboardingWizard
+              <EnterpriseFormWizard layout="sections"
                 groups={groups}
                 sectionProps={{ ...sectionProps, formikProps }}
                 headerTitle={isEdit || applicantId ? "Edit Candidate" : "Add Candidate"}
@@ -433,6 +434,6 @@ export default function CandidateWizardHost() {
           );
         }}
       </Formik>
-    </FullscreenWizardModal>
+    </WtWizardDialog>
   );
 }

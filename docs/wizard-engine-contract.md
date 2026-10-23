@@ -9,6 +9,22 @@
 
 ## 1. Architecture responsibilities
 
+Implementation progress (2026-10-23): `EnterpriseFormWizard` now accepts
+`layout="sections"` with generic `WizardGroup<TProps>` / `WizardLeaf<TProps>`
+definitions. Employee onboarding, candidate, and job hosts call that shared entry
+point directly. `OnboardingWizard` remains a deprecated compatibility adapter.
+The grouped runtime lives in `src/shared/form-engine/components/EnterpriseWizard/GroupedWizard.tsx`.
+Both grouped and flat-step runtimes now use MUI responsive layout, kit `WtStepper`
+navigation, `FormSection`, and `GlassDialogActions`. Neither runtime, nor its
+navigation/summary sidebar, imports the legacy workspace or onboarding stylesheets.
+The form engine's deprecated accordion adapter also uses MUI; the shared engine
+has no Bootstrap or CSS imports. Its baseline lint exemption has been removed.
+Active fullscreen hosts now use kit `WtWizardDialog` directly with explicit flow
+labels; `FullscreenWizardModal` is a deprecated compatibility adapter without CSS
+imports. The restored employee draft notice uses kit components. Feature content
+still has legacy CSS dependencies.
+Server draft persistence and the other proposed contracts below are not yet implemented.
+
 ```mermaid
 flowchart TB
   CFG["Feature wizard config · IDs, step order, titles, groups"]

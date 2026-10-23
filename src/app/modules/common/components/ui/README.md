@@ -79,6 +79,40 @@ are built from.
 | Short exclusive choice | `WtChoiceField variant="segmented"` | bespoke radio/pill groups |
 | Consequential exclusive choice | `WtChoiceField variant="cards"` | cards without native radio semantics |
 | More than four options | `WtFieldFormik` select/picker | a crowded segmented row |
+
+### Choice-field recipe
+
+`WtChoiceField` is the Formik adapter for the shared native choice primitive. Use
+`switch` for booleans, `segmented` for short exclusive values, and `cards` when
+the choice needs descriptions or stronger visual separation. Every option remains
+a native checkbox/radio input, so keyboard navigation and screen-reader semantics
+do not depend on the visual treatment.
+
+```tsx
+<WtChoiceField
+  name="gender"
+  label="Gender"
+  variant="segmented"
+  required
+  editMode={isEditMode}
+  options={genderOptions}
+  orientation="column"
+/>
+
+<WtChoiceField
+  name="tdsEnabled"
+  label="Additional TDS"
+  variant="switch"
+  clearRevealOnDisable
+  clearOnDisable={["tdsType", "tdsAmount"]}
+  reveal={<TdsFields />}
+/>
+```
+
+`clearOnDisable` is the dependent Formik path list; `clearRevealOnDisable`
+controls whether the list is applied when a switch changes from on to off.
+Changed markers are opt-in through `editMode` and disappear after Formik
+`resetForm`; create forms do not show them.
 | Same data, different **layout** (cards / list / board) | **Typed wrappers** — `CardsListViewSwitch`, `BoardListViewSwitch`, `GridListViewSwitch`, `CardsTableViewSwitch`, `KanbanTableViewSwitch`, `DmsViewSwitch`. Glyphs **only** from `VIEW_MODE_ICONS` (same purpose → same icon). Track/cell: `viewModeSwitchTrackSx` / `viewModeSwitchButtonSx` | hand-rolled `bi-grid` / `element-11` / `btn-group` List/Cards / private `ViewToggle` |
 | Icon tile | `IconBox` | a styled `<div>` around a `KTIcon` |
 | List / collection cards | **`EntityCard`** (title / subtitle / status / tags / actions) inside capped **`AutoGrid`**; raw **`GlassCard`** only when the layout is not an entity | Bootstrap `card`; hand-rolled title+chip stacks; unbounded `auto-fit`+`1fr` stretch; per-page grid forks |
@@ -88,6 +122,8 @@ are built from.
 | Single-select modal | `OptionPickerDialog` | a bespoke option list |
 | Date / time | `WtDateField` / `WtDateTimeField` / `TimeWheelField` | `<input type="date">` |
 | Wizard | `WtStepper` | hand-rolled circles |
+| Full-window wizard host | `WtWizardDialog` with an explicit `title` and `EnterpriseFormWizard` content | feature-local fullscreen shells or missing dialog labels |
+
 | Short master create/edit dialog | **`ConfigureFormDialog`** + `WtFieldFormik` | Bootstrap `Modal` + hand-rolled C/FONT/SP fields |
 | Long multi-section form dialog | **`WtFormDialog`** | a private modal layout per feature |
 | Page / section loading block | **`PageLoader`** (also `@app/modules/common/utils/Loader`) | Bootstrap `spinner-border` / `react-bootstrap` Spinner |
@@ -100,6 +136,17 @@ are built from.
 | Org filter data | `useOrgScope` | re-deriving an org list per feature |
 
 ## Buttons — one public API (`WtButton`)
+
+Wizard close ownership: `WtWizardDialog` confirms dirty closes by default.
+Use `closeGuard="host"` only when `onClose` already confirms unsaved values or
+pending uploads. Employee, candidate, and job hosts use this mode; company and
+contact keep the dialog guard. Browser-route blocking remains a separate guard.
+
+Fullscreen wizard identity is progressive, not replaceable chrome:
+`WtWizardDialog` defaults to the WiseTech gradient entity header, and grouped
+flows retain the navy progress card, compact timeline rail, and branded section
+keyline. Use `headerVariant="plain"` or `showHeader={false}` only for an
+intentionally quiet editor—not as a migration shortcut.
 
 **Global default:** compact, flat accent (`tone="accent"`, `size="small"`,
 `flat`). This is the shared default for labelled actions. Opt into a larger,

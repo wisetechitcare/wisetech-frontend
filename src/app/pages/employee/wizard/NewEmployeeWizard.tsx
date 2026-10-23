@@ -3,7 +3,8 @@ import { safeJsonParse } from "@utils/safeJson";
 import { Fragment, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Form, Formik, FormikValues, useFormikContext } from "formik";
-import { FullscreenWizardModal } from "../forms/shared/FullscreenWizardModal";
+import { Box } from '@mui/material';
+import { InlineNotice, WtButton, WtIconButton, WtWizardDialog } from '@app/modules/common/components/ui';
 import * as Yup from "yup";
 import { uploadUserAsset } from "@services/uploader";
 import dayjs from "dayjs";
@@ -1122,6 +1123,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
    * still filling it in, so autosave must keep working.
    */
   const draftFinalizedRef = useRef(false);
+  const closeAfterSuccessfulSaveRef = useRef(false);
   const [defaultState, setDefaultState] = useState(() =>
     initialDraftRef.current ? { ...initialState, ...initialDraftRef.current } : initialState
   );
@@ -1623,6 +1625,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       await successConfirmation("Employee data updated successfully.");
       // Same destination as Cancel — a save and an abandon from the same screen
       // should not land in two different places.
+      closeAfterSuccessfulSaveRef.current = true;
       handleClose();
     } catch (error: any) {
       let errMessage = "Something went wrong. Please try again with required fields filled with correct values.";
@@ -1800,6 +1803,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         actions.resetForm();
         // Onboarding is done — return to the list rather than leaving a reset
         // form parked on the last step with no indication anything happened.
+        closeAfterSuccessfulSaveRef.current = true;
         handleClose();
       } catch (error) {
         console.error("Submission error:", error);
@@ -1957,7 +1961,18 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
    * entry (deep link, refresh in a fresh tab) so there is nothing to step back to, and the
    * return path replaces the wizard entry rather than stacking on top of it.
    */
-  const handleClose = () => {
+  const handleClose = async () => {
+    if (!closeAfterSuccessfulSaveRef.current && formikRef.current?.dirty) {
+      const shouldDiscard = await confirmDialog({
+        icon: "warning",
+        title: editMode ? "Discard employee changes?" : "Leave onboarding?",
+        text: "Your unsaved changes will be lost.",
+        confirmText: "Discard",
+        danger: true,
+      });
+      if (!shouldDiscard) return;
+    }
+    closeAfterSuccessfulSaveRef.current = false;
     setShow(false);
     if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
     else navigate(returnPath, { replace: true });
@@ -1965,13 +1980,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
   return (
     <>
-    <FullscreenWizardModal
-      show={show}
+    <WtWizardDialog title={editMode ? "Edit Employee" : "Employee Onboarding"} subtitle="Capture the new joiner's profile, employment terms and documents" icon="profile-circle" closeGuard="host"
+      open={show}
       onClose={handleClose}
       closeLabel="Close onboarding"
       bodyRef={modalBodyRef}
       className="onboarding-wizard-modal"
-      showHeader={false}
     >
           <Formik
             initialValues={defaultState}
@@ -2004,32 +2018,24 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                   {/* Draft-restored notice (create mode only). Floated over the
                       wizard so it never disturbs the sticky header/footer layout. */}
                   {!editMode && showDraftNotice && (
-                    <div className="ob-draft-notice" role="status">
-                      <AppIcon name="bi-clock-history" className="ob-draft-notice-icon" aria-hidden />
-                      <span className="ob-draft-notice-text">
-                        Restored your unsaved draft — pick up where you left off.
-                        <span className="ob-draft-notice-sub">
-                          Your profile photo was kept. Document uploads aren&apos;t saved and may need re-attaching.
-                        </span>
-                      </span>
-                      <button type="button" className="ob-draft-notice-discard" onClick={discardDraft}>
-                        Discard &amp; start fresh
-                      </button>
-                      <button
-                        type="button"
-                        className="ob-draft-notice-close"
-                        aria-label="Dismiss"
-                        onClick={() => setShowDraftNotice(false)}
-                      >
-                        <AppIcon name="cross" className="fs-5" aria-hidden />
-                      </button>
-                    </div>
+                    <Box sx={{ position: 'absolute', bottom: { xs: 112, sm: 88 }, left: 16, right: 16, maxWidth: 780, mx: 'auto', zIndex: 4 }}>
+                      <InlineNotice role="status">
+                        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <Box sx={{ flex: 1, minWidth: 180 }}>
+                            Restored your unsaved draft — pick up where you left off.
+                            <Box sx={{ fontSize: 12, mt: 0.5 }}>Your profile photo was kept. Document uploads may need re-attaching.</Box>
+                          </Box>
+                          <WtButton ghost onClick={discardDraft}>Discard &amp; start fresh</WtButton>
+                          <WtIconButton title="Dismiss draft notice" onClick={() => setShowDraftNotice(false)}><AppIcon name="cross" /></WtIconButton>
+                        </Box>
+                      </InlineNotice>
+                    </Box>
                   )}
                 </Form>
               );
             }}
           </Formik>
-    </FullscreenWizardModal>
+    </WtWizardDialog>
     <ManagerHandoverDialog
       open={!!handover}
       employeeId={handover?.employeeId ?? ""}

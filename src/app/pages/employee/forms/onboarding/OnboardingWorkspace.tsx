@@ -42,11 +42,12 @@ import { fetchRoles } from "@services/roles";
 import { cachedRequest } from "@services/_requestCache";
 import { resolveActiveOrgId } from "@utils/activeOrg";
 import { WORKFLOW_TYPES } from "@app/components/ApprovalSettings";
-import OnboardingWizard, { OnboardingGroup } from "./OnboardingWizard";
+import { EnterpriseFormWizard, type WizardGroup } from '@/shared/form-engine';
 import * as S from "./OnboardingSections";
 import type { OnboardingSectionsProps } from "./OnboardingSections";
 import { formatBloodGroup } from "@utils/employeeFormat";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { employeeGenderLabel } from "@utils/employeeGender";
+import { AppIcon, ToneChip } from '@app/modules/common/components/ui';
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 /**
@@ -205,7 +206,6 @@ function useSummaryLookups(): SummaryLookups {
   return lookups;
 }
 
-const GENDER_LABELS: LabelMap = { "0": "Male", "1": "Female", "2": "Others" };
 const MARITAL_LABELS: LabelMap = { "0": "Married", "1": "Unmarried" };
 
 export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) => {
@@ -367,7 +367,7 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.editMode, values.branchId, values.companyId]);
 
-  const groups: OnboardingGroup[] = useMemo(
+  const groups: WizardGroup<OnboardingSectionsProps>[] = useMemo(
     () => [
       {
         id: "personal",
@@ -682,7 +682,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
     const fullName = `${v.firstName || ""} ${v.lastName || ""}`.trim();
     push("Name", fullName, true);
     push("DOB", fmtDate(v.dateOfBirth));
-    push("Gender", named(GENDER_LABELS, v.gender));
+    const genderLabel = employeeGenderLabel(v.gender);
+    push("Gender", genderLabel === "N/A" ? "" : genderLabel);
     push("Marital Status", named(MARITAL_LABELS, v.maritalStatus));
     if (String(v.maritalStatus) === "0") push("Anniversary", fmtDate(v.anniversary));
     // The form stores the enum TOKEN ("A_POS"); the summary must show the notation.
@@ -765,22 +766,14 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
     // Privacy
     rows.push({
       label: "Directory",
-      value: (
-        <span
-          className={`badge px-2 py-1 fs-8 fw-bold ${
-            v.isHiddenFromStaff ? "bg-light-danger text-danger" : "bg-light-success text-success"
-          }`}
-        >
-          {v.isHiddenFromStaff ? "Hidden" : "Visible"}
-        </span>
-      ),
+      value: <ToneChip dense tone={v.isHiddenFromStaff ? 'danger' : 'success'} label={v.isHiddenFromStaff ? "Hidden" : "Visible"} />,
     });
 
     return rows;
   };
 
   return (
-    <OnboardingWizard
+    <EnterpriseFormWizard layout="sections"
       groups={groups}
       sectionProps={props}
       defaultValues={props.defaultValues}
@@ -791,6 +784,7 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
       submitText={props.editMode ? "Save Employee" : "Complete Onboarding"}
       summaryTitle="Employee Summary"
       summaryRows={(v) => summaryRows(v)}
+      progressLabel="Onboarding"
       headerTitle={
         props.editMode
           ? `Edit Employee: ${

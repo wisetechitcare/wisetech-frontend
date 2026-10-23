@@ -40,7 +40,7 @@ import DragDropFileField from "@app/modules/common/components/DragDropFileField"
 import { IFormField, IFormSection } from "@models/company";
 import { cloneCompanyDefaults, mergeCompanySchema } from "./companyFormSchema";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
-import { FullscreenWizardModal } from "@app/pages/employee/forms/shared/FullscreenWizardModal";
+import { WtWizardDialog } from '@app/modules/common/components/ui';
 import { CompanyWorkspace } from "../../forms/CompanyWorkspace";
 import { CrmSection } from "../../forms/CrmSection";
 import {
@@ -967,8 +967,9 @@ const NewCompanyForm: React.FC<Props> = ({
 
   return (
     <>
-      <FullscreenWizardModal
-        show={show}
+      <WtWizardDialog title={isEditMode ? "Edit Company" : "Add New Company"}
+        subtitle="Capture company identity, commercial details and contacts" icon="building"
+        open={show}
         onClose={onClose}
         closeLabel="Close company form"
       >
@@ -1828,7 +1829,7 @@ const NewCompanyForm: React.FC<Props> = ({
             );
           }}
         </Formik>
-      </FullscreenWizardModal>
+      </WtWizardDialog>
 
       <CompanyConfigForm
         show={showCompanyTypeModal}

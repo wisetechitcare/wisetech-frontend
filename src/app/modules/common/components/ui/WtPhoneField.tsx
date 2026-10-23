@@ -31,6 +31,7 @@ export function WtPhoneField({
 }: WtPhoneFieldProps) {
   const theme = useTheme();
   const borderColor = error ? theme.palette.error.main : theme.palette.divider;
+  const errorId = name ? `${name}-error` : undefined;
   return (
     <Box sx={{ minWidth: 0, width: '100%' }}>
       {label && (
@@ -52,8 +53,21 @@ export function WtPhoneField({
             borderColor: error ? 'error.main' : 'primary.main',
             boxShadow: `0 0 0 2px ${theme.palette.primary.main}33`,
           },
-          '& .react-international-phone-input-container': { width: '100%', height: '100%' },
-          '& .react-international-phone-input-container .react-international-phone-country-selector-button': { border: '0 !important', borderRight: `1px solid ${borderColor} !important`, borderRadius: '0 !important' },
+          '& .react-international-phone-input-container': { width: '100%', height: '100%', alignItems: 'stretch' },
+          '& .react-international-phone-input-container .react-international-phone-country-selector-button': {
+            border: '0 !important',
+            borderRight: `1px solid ${borderColor} !important`,
+            borderRadius: '0 !important',
+            boxShadow: 'none !important',
+            outline: 'none',
+            '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 },
+          },
+          '& .react-international-phone-input-container .react-international-phone-dial-code-preview': {
+            border: '0 !important',
+            borderRight: `1px solid ${borderColor} !important`,
+            marginRight: '0 !important',
+            boxShadow: 'none !important',
+          },
           '& .react-international-phone-input-container .react-international-phone-input, & .react-international-phone-input-container .react-international-phone-input:hover, & .react-international-phone-input-container .react-international-phone-input:focus': {
             height: '40px !important',
             boxSizing: 'border-box',
@@ -89,8 +103,8 @@ export function WtPhoneField({
           required={required}
           disableDialCodeAndPrefix
           showDisabledDialCodeAndPrefix
-          inputProps={{ id: name, 'aria-invalid': error ? true : undefined }}
-          inputStyle={{ width: '100%', height: 40, boxSizing: 'border-box', padding: '0 12px', border: 0, background: 'transparent', color: theme.palette.text.primary, fontFamily: 'inherit', fontSize: 13, lineHeight: '40px', textAlign: 'left', verticalAlign: 'middle', outline: 'none' }}
+          inputProps={{ id: name, 'aria-invalid': error ? true : undefined, 'aria-describedby': errorId }}
+          inputStyle={{ flex: '1 1 auto', minWidth: 0, width: '100%', height: 40, boxSizing: 'border-box', padding: '0 12px', margin: 0, border: 0, background: 'transparent', color: theme.palette.text.primary, fontFamily: 'inherit', fontSize: 13, lineHeight: '40px', textAlign: 'left', verticalAlign: 'middle', outline: 'none' }}
           countrySelectorStyleProps={{
             buttonStyle: { width: 48, height: 40, boxSizing: 'border-box', border: 0, borderRight: `1px solid ${borderColor}`, borderRadius: 0, backgroundColor: 'transparent', color: theme.palette.text.primary, lineHeight: '40px' },
             buttonContentWrapperStyle: { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
@@ -101,7 +115,7 @@ export function WtPhoneField({
           style={{ width: '100%', height: 40, '--react-international-phone-height': '40px', '--react-international-phone-border-color': borderColor, '--react-international-phone-font-size': '13px', '--react-international-phone-text-color': theme.palette.text.primary, '--react-international-phone-background-color': 'transparent' } as CSSProperties}
         />
       </Box>
-      {error && <Typography role="alert" sx={{ mt: 0.5, fontSize: 12, color: 'error.main' }}>{error}</Typography>}
+      {error && <Typography id={errorId} role="alert" sx={{ mt: 0.5, fontSize: 12, color: 'error.main' }}>{error}</Typography>}
     </Box>
   );
 }

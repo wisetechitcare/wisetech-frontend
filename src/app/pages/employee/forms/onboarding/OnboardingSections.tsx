@@ -450,7 +450,7 @@ export const FinancialSection: React.FC<OnboardingSectionsProps> = ({ formikProp
       <div className="separator separator-dashed my-6" />
       <div className="row">
         <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-          <WtChoiceField name="tds2Enabled" label={`${tds2Name} (Additional)`} variant="switch" required clearOnDisable={["tds2Type", "tds2Amount", "tds2Percentage"]} options={[
+          <WtChoiceField name="tds2Enabled" label={`${tds2Name} (Additional)`} variant="switch" required clearRevealOnDisable clearOnDisable={["tds2Type", "tds2Amount", "tds2Percentage"]} options={[
               { label: "Enabled", value: "true" },
               { label: "Disabled", value: "false" },
             ]} />
@@ -479,7 +479,7 @@ export const FinancialSection: React.FC<OnboardingSectionsProps> = ({ formikProp
       <div className="separator separator-dashed my-6" />
       <div className="row">
         <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-          <WtChoiceField name="retentionEnabled" label="Retention (Fresher Bond)" variant="switch" required clearOnDisable={["retentionType", "retentionAmount", "retentionPercentage", "retentionStartDate", "retentionEndDate"]} options={[
+          <WtChoiceField name="retentionEnabled" label="Retention (Fresher Bond)" variant="switch" required clearRevealOnDisable clearOnDisable={["retentionType", "retentionAmount", "retentionPercentage", "retentionStartDate", "retentionEndDate"]} options={[
               { label: "Enabled", value: "true" },
               { label: "Disabled", value: "false" },
             ]} />

@@ -11,7 +11,7 @@ import { FormSection, TRIO, FORM_SPACE, WtField } from "@app/modules/common/comp
 import { queryKeys } from "@/lib/queryKeys";
 import { getRequisitionById } from "@services/recruitment";
 import { SEARCHABLE_FROM } from "@utils/requisitions";
-import type { OnboardingGroup } from "../forms/onboarding/OnboardingWizard";
+import type { WizardGroup } from '@/shared/form-engine';
 import type { OnboardingSectionsProps } from "../forms/onboarding/OnboardingSections";
 import { RequisitionFormFields } from "./RequisitionFormFields";
 import { PostingFormFields, type PostingRoleOption } from "./PostingFormFields";
@@ -189,7 +189,7 @@ const attachRoleChosen = (v: JobCreateFormValues) => Boolean(v.advert?.requisiti
  * Create / Edit / Attach Advert wizard rail — Role · Advert · Screening.
  * Attach reuses Advert + Screening; Role step is a picker (no new requisition).
  */
-export function buildJobCreateWizardGroups(args: BuildJobCreateArgs): OnboardingGroup[] {
+export function buildJobCreateWizardGroups(args: BuildJobCreateArgs): WizardGroup<OnboardingSectionsProps>[] {
     const attach = Boolean(args.attachMode);
     return [
         {

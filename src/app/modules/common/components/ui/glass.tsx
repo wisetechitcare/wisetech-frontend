@@ -155,6 +155,8 @@ export interface GlassHeaderProps {
    */
   icon?: React.ReactNode | string;
   onClose?: () => void;
+  /** Accessible label for the close action. */
+  closeLabel?: string;
   action?: React.ReactNode;
   /**
    * Drill-in navigation: when set, a back control replaces the icon tile and the
@@ -172,11 +174,13 @@ export interface GlassHeaderProps {
    *  'plain' = title + bare close on the Paper itself — no band, no accent rule,
    *  no icon tile. For quiet single-purpose editors (Leads / Billing Configure). */
   variant?: 'gradient' | 'frost' | 'plain';
+  /** Full-window workflows use a taller entity band than compact dialogs. */
+  size?: 'default' | 'workspace';
 }
 
 export function GlassHeader({
   title, subtitle, icon, onClose, action,
-  onBack, backLabel = 'Back', backIcon, variant = 'gradient',
+  onBack, backLabel = 'Back', backIcon, closeLabel = 'Close', variant = 'gradient', size = 'default',
 }: GlassHeaderProps) {
   const gradient = variant === 'gradient';
   const plain = variant === 'plain';
@@ -186,9 +190,10 @@ export function GlassHeader({
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5,
-      px: { xs: 2, sm: 3 }, py: plain ? { xs: 2, sm: 2.25 } : { xs: 1.5, sm: 1.75 },
+      px: { xs: 2, sm: 3 },
+      py: plain ? { xs: 2, sm: 2.25 } : size === 'workspace' ? { xs: 1.75, sm: 2.25 } : { xs: 1.5, sm: 1.75 },
       ...(gradient
-        ? { background: `linear-gradient(135deg, ${T.color.brandHover} 0%, ${T.color.brand} 100%)`, color: '#fff' }
+        ? { background: T.color.brandGradientLeftToRight, color: T.color.onBrand }
         : plain
           ? { color: label(mode, 'primary') }
           : { ...frostSx, borderRadius: 0, color: label(mode, 'primary') }),
@@ -225,7 +230,7 @@ export function GlassHeader({
           <Typography sx={{
             fontWeight: plain ? 600 : 700,
             fontSize: plain ? 17 : { xs: 15.5, sm: 16.5 },
-            lineHeight: 1.25, color: gradient ? '#fff' : label(mode, 'primary'),
+            lineHeight: 1.25, color: gradient ? T.color.onBrand : label(mode, 'primary'),
             ...HEADING_CASE_SX,
           }}>
             {toTitleCase(title)}
@@ -251,7 +256,7 @@ export function GlassHeader({
           // its neighbours got a button. All nine callers passed the SAME cross
           // this component already draws, so the prop bought a regression and
           // nothing else. It is gone; this is the close control, everywhere.
-          <WtCloseButton variant={gradient ? 'dark' : plain ? 'plain' : 'light'} onClick={onClose} size={plain ? 34 : 38} />
+          <WtCloseButton aria-label={closeLabel} variant={gradient ? 'dark' : plain ? 'plain' : 'light'} onClick={onClose} size={plain ? 34 : 38} />
         )}
       </Stack>
     </Box>

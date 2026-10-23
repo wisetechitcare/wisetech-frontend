@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useFormikContext } from "formik";
 import { fetchAllEmployees } from "@services/employee";
 import { ToneChip, WtChoiceField, WtFieldFormik } from "@app/modules/common/components/ui";
-import TextInput from "@app/modules/common/inputs/TextInput";
 import MonthYearInput from "@app/modules/common/inputs/MonthYearInput";
 // Leave Settings section removed — no longer needed
 // import LeaveAllocationStep from "../forms/LeaveAllocationStep";
@@ -91,13 +90,14 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                         onMouseEnter={() => isCTCReadonly && setShowTooltip(true)}
                         onMouseLeave={() => setShowTooltip(false)}
                     >
-                        <TextInput
-                            isRequired={true}
+                        <WtFieldFormik
+                            required
                             label="CTC"
-                            formikField="ctcInLpa"
-                            formatter={formatINNumber}
-                            parser={parseINNumber}
-                            readonly={isCTCReadonly}
+                            name="ctcInLpa"
+                            formatValue={formatINNumber}
+                            parseValue={parseINNumber}
+                            readOnly={isCTCReadonly}
+                            inputMode="decimal"
                         />
                         {isCTCReadonly && showTooltip && (
                             <div className="tooltip bs-tooltip-top show position-absolute">
@@ -131,19 +131,9 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
 
                             <div className="col-lg-4 col-md-4 col-sm-12">
                                 {pfType === "PERCENTAGE" ? (
-                                    <TextInput
-                                        isRequired={true}
-                                        label={`${tds1Name} %`}
-                                        formikField="professionalFeesPercentage"
-                                    />
+                                    <WtFieldFormik required label={`${tds1Name} %`} name="professionalFeesPercentage" inputMode="decimal" />
                                 ) : (
-                                    <TextInput
-                                        isRequired={true}
-                                        label={`${tds1Name} Amount`}
-                                        formikField="professionalFeesAmount"
-                                        formatter={formatINNumber}
-                                        parser={parseINNumber}
-                                    />
+                                    <WtFieldFormik required label={`${tds1Name} Amount`} name="professionalFeesAmount" formatValue={formatINNumber} parseValue={parseINNumber} inputMode="decimal" />
                                 )}
                             </div>
                         </>
@@ -154,7 +144,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
             <div className="separator separator-dashed my-6" />
             <div className="row">
                 <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-                    <WtChoiceField name="tds2Enabled" label={`${tds2Name} (Additional)`} variant="switch" required clearOnDisable={["tds2Type", "tds2Amount", "tds2Percentage"]} />
+                    <WtChoiceField name="tds2Enabled" label={`${tds2Name} (Additional)`} variant="switch" required clearRevealOnDisable clearOnDisable={["tds2Type", "tds2Amount", "tds2Percentage"]} />
                 </div>
 
                 {tds2Enabled && (
@@ -167,19 +157,9 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                         </div>
                         <div className="col-lg-4 col-md-4 col-sm-12">
                             {tds2Type === "PERCENTAGE" ? (
-                                <TextInput
-                                    isRequired={true}
-                                    label={`${tds2Name} %`}
-                                    formikField="tds2Percentage"
-                                />
+                                <WtFieldFormik required label={`${tds2Name} %`} name="tds2Percentage" inputMode="decimal" />
                             ) : (
-                                <TextInput
-                                    isRequired={true}
-                                    label={`${tds2Name} Amount`}
-                                    formikField="tds2Amount"
-                                    formatter={formatINNumber}
-                                    parser={parseINNumber}
-                                />
+                                <WtFieldFormik required label={`${tds2Name} Amount`} name="tds2Amount" formatValue={formatINNumber} parseValue={parseINNumber} inputMode="decimal" />
                             )}
                         </div>
                     </>
@@ -190,7 +170,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
             <div className="separator separator-dashed my-6" />
             <div className="row">
                 <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-                    <WtChoiceField name="retentionEnabled" label="Retention (Fresher Bond)" variant="switch" required clearOnDisable={["retentionType", "retentionAmount", "retentionPercentage", "retentionStartDate", "retentionEndDate"]} />
+                    <WtChoiceField name="retentionEnabled" label="Retention (Fresher Bond)" variant="switch" required clearRevealOnDisable clearOnDisable={["retentionType", "retentionAmount", "retentionPercentage", "retentionStartDate", "retentionEndDate"]} />
                 </div>
 
                 {retentionEnabled && (
@@ -228,19 +208,9 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                     </div>
                     <div className="col-lg-4 col-md-4 col-sm-12">
                         {retentionType === "PERCENTAGE" ? (
-                            <TextInput
-                                isRequired={true}
-                                label="Retention % (per month)"
-                                formikField="retentionPercentage"
-                            />
+                            <WtFieldFormik required label="Retention % (per month)" name="retentionPercentage" inputMode="decimal" />
                         ) : (
-                            <TextInput
-                                isRequired={true}
-                                label="Retention Amount (per month)"
-                                formikField="retentionAmount"
-                                formatter={formatINNumber}
-                                parser={parseINNumber}
-                            />
+                            <WtFieldFormik required label="Retention Amount (per month)" name="retentionAmount" formatValue={formatINNumber} parseValue={parseINNumber} inputMode="decimal" />
                         )}
                     </div>
                 </div>
@@ -254,11 +224,7 @@ function ReimbursementConfig() {
     return (
         <div className="row">
             <div className="col-lg-6 col-md-6 col-sm-12">
-                <TextInput
-                    isRequired={false}
-                    label="Reimbursement Limit Per Request"
-                    formikField="reimbursementLimitPerRequest"
-                />
+                <WtFieldFormik label="Reimbursement Limit Per Request" name="reimbursementLimitPerRequest" inputMode="decimal" />
             </div>
         </div>
     );
