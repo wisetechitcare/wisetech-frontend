@@ -1,5 +1,6 @@
 import { getIn, useField, useFormikContext, type FormikValues } from 'formik';
 import type { ReactNode } from 'react';
+import type { SxProps, Theme } from '@mui/material';
 import { choiceIsOn, WtChoice, type ChoiceVariant, type WtChoiceOption } from './WtChoice';
 import { useUnsavedChangesRegistration } from './UnsavedChangesProvider';
 
@@ -15,6 +16,8 @@ export interface WtChoiceFieldProps<T extends string | boolean> {
   showChangedMarker?: boolean;
   clearRevealOnDisable?: boolean;
   clearOnDisable?: readonly string[];
+  orientation?: 'row' | 'column';
+  sx?: SxProps<Theme>;
   onValueChange?: (value: T) => void;
 }
 
@@ -24,6 +27,7 @@ export function WtChoiceField<T extends string | boolean>({
   options,
   onValueChange,
   clearOnDisable,
+  orientation,
   showChangedMarker = true,
   ...rest
 }: WtChoiceFieldProps<T>) {
@@ -52,7 +56,7 @@ export function WtChoiceField<T extends string | boolean>({
     onValueChange?.(storedValue);
   };
 
-  return <WtChoice {...rest} name={name} variant={variant} options={options} value={value} error={error} changed={changed} showChangedMarker={showChangedMarker} onChange={handleChange} />;
+  return <WtChoice {...rest} name={name} variant={variant} options={options} value={value} error={error} changed={changed} showChangedMarker={showChangedMarker} orientation={orientation} onChange={handleChange} />;
 }
 
 export type { ChoiceVariant, WtChoiceOption } from './WtChoice';

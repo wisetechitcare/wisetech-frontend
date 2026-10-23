@@ -27,6 +27,7 @@ export interface WtChoiceProps<T extends string | boolean> {
   changed?: boolean;
   clearRevealOnDisable?: boolean;
   clearOnDisable?: readonly string[];
+  orientation?: 'row' | 'column';
   onDisable?: () => void;
   sx?: SxProps<Theme>;
 }
@@ -61,6 +62,7 @@ export function WtChoice<T extends string | boolean>({
   changed,
   clearRevealOnDisable = false,
   clearOnDisable,
+  orientation = 'row',
   onDisable,
   sx,
 }: WtChoiceProps<T>) {
@@ -117,22 +119,32 @@ export function WtChoice<T extends string | boolean>({
   }
 
   const groupId = name ?? `wt-choice-${label.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}`;
+  const plainRadioList = variant === 'segmented' && orientation === 'column';
   return (
     <Box component="fieldset" sx={[{ minWidth: 0, m: 0, p: 0, border: 0 }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}>
-      <Box component="legend" sx={{ p: 0, mb: 0.75, color: 'text.primary', fontSize: 14, fontWeight: 700 }}>
+      <Box component="legend" sx={{ p: 0, mb: 0.5, color: 'text.primary', fontSize: 13, fontWeight: 600, lineHeight: 1.3 }}>
         {label}{required && <Box component="span" aria-hidden sx={{ color: 'error.main', ml: 0.25 }}>*</Box>}
         {showChangedMarker && changed && <Box component="span" aria-label="Changed" sx={{ display: 'inline-block', width: 6, height: 6, ml: 0.75, borderRadius: '50%', bgcolor: 'warning.main', verticalAlign: 'middle' }} />}
       </Box>
       {helperText && <Typography id={helperId} sx={{ mb: 0.75, color: 'text.secondary', fontSize: 12.5 }}>{helperText}</Typography>}
-      <Box role="radiogroup" aria-label={label} aria-required={required || undefined} aria-invalid={Boolean(error)} aria-describedby={describedBy} sx={{ display: 'grid', gridTemplateColumns: variant === 'cards' ? { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } : 'repeat(auto-fit, minmax(0, 1fr))', gap: 1 }}>
+      <Box
+        role="radiogroup"
+        aria-label={label}
+        aria-required={required || undefined}
+        aria-invalid={Boolean(error)}
+        aria-describedby={describedBy}
+        sx={plainRadioList
+          ? { display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap', columnGap: { xs: 1.5, sm: 3 }, rowGap: 0.25 }
+          : { display: 'grid', gridTemplateColumns: variant === 'cards' ? { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } : 'repeat(auto-fit, minmax(0, 1fr))', gap: 1 }}
+      >
         {options.map((option, index) => {
           const active = selected === option.value;
           const inputId = `${groupId}-${index}`;
           return (
-            <Box component="label" key={option.value} htmlFor={inputId} title={option.disabled ? option.disabledReason : undefined} sx={{ position: 'relative', display: 'flex', alignItems: 'center', minHeight: 44, px: 1.25, py: variant === 'cards' ? 1 : 0.75, border: '1px solid', borderColor: error ? 'error.main' : active ? 'primary.main' : 'divider', borderRadius: 1.5, bgcolor: active ? 'action.selected' : 'background.paper', cursor: option.disabled || disabled ? 'not-allowed' : 'pointer', opacity: option.disabled || disabled ? 0.5 : 1, transition: 'background-color 150ms ease, border-color 150ms ease', '&:focus-within': { boxShadow: '0 0 0 3px', color: 'primary.main' }, '@media (prefers-reduced-motion: reduce)': { transition: 'none' } }}>
-              <Box component="input" ref={(node: HTMLInputElement | null) => { radioRefs.current[index] = node; }} id={inputId} name={groupId} type="radio" value={option.value} checked={active} disabled={option.disabled || disabled} onChange={() => onChange(option.value as T)} onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => { if (event.key === 'ArrowRight' || event.key === 'ArrowDown') { event.preventDefault(); moveRadio(index, 1); } if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') { event.preventDefault(); moveRadio(index, -1); } if (event.key === 'Enter') { event.preventDefault(); onChange(option.value as T); } }} tabIndex={active || (!options.some((item) => item.value === selected) && index === enabledIndexes[0]) ? 0 : -1} aria-describedby={describedBy} sx={visuallyHidden} />
+            <Box component="label" key={option.value} htmlFor={inputId} title={option.disabled ? option.disabledReason : undefined} sx={plainRadioList ? { display: 'flex', alignItems: 'center', gap: 0.75, minHeight: 40, cursor: option.disabled || disabled ? 'not-allowed' : 'pointer', opacity: option.disabled || disabled ? 0.5 : 1, color: 'text.primary' } : { position: 'relative', display: 'flex', alignItems: 'center', minHeight: 44, px: 1.25, py: variant === 'cards' ? 1 : 0.75, border: '1px solid', borderColor: error ? 'error.main' : active ? 'primary.main' : 'divider', borderRadius: 1.5, bgcolor: active ? 'action.selected' : 'background.paper', cursor: option.disabled || disabled ? 'not-allowed' : 'pointer', opacity: option.disabled || disabled ? 0.5 : 1, transition: 'background-color 150ms ease, border-color 150ms ease', '&:focus-within': { boxShadow: '0 0 0 3px', color: 'primary.main' }, '@media (prefers-reduced-motion: reduce)': { transition: 'none' } }}>
+              <Box component="input" ref={(node: HTMLInputElement | null) => { radioRefs.current[index] = node; }} id={inputId} name={groupId} type="radio" value={option.value} checked={active} disabled={option.disabled || disabled} onChange={() => onChange(option.value as T)} onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => { if (event.key === 'ArrowRight' || event.key === 'ArrowDown') { event.preventDefault(); moveRadio(index, 1); } if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') { event.preventDefault(); moveRadio(index, -1); } if (event.key === 'Enter') { event.preventDefault(); onChange(option.value as T); } }} tabIndex={active || (!options.some((item) => item.value === selected) && index === enabledIndexes[0]) ? 0 : -1} aria-describedby={describedBy} sx={plainRadioList ? { width: 20, height: 20, m: 0, flexShrink: 0, accentColor: 'primary.main', cursor: 'inherit', '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 } } : visuallyHidden} />
               <Box sx={{ minWidth: 0 }}>
-                <Typography component="span" sx={{ display: 'block', fontWeight: active ? 700 : 600, color: 'inherit' }}>{option.label}{active && variant === 'cards' && <Box component="span" aria-hidden sx={{ ml: 0.75, color: 'success.main' }}>✓</Box>}</Typography>
+                <Typography component="span" sx={{ display: 'block', fontSize: plainRadioList ? 13.5 : undefined, fontWeight: plainRadioList ? (active ? 600 : 400) : (active ? 700 : 600), lineHeight: 1.35, color: 'inherit' }}>{option.label}{active && variant === 'cards' && <Box component="span" aria-hidden sx={{ ml: 0.75, color: 'success.main' }}>✓</Box>}</Typography>
                 {variant === 'cards' && option.description && <Typography component="span" sx={{ display: 'block', mt: 0.25, color: 'text.secondary', fontSize: 12.5 }}>{option.description}</Typography>}
               </Box>
             </Box>
