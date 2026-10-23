@@ -226,6 +226,8 @@ export function EntityIdentityHeader({
         <Stack direction="row" alignItems="center" gap={1} sx={{ minWidth: 0, flexWrap: 'wrap' }}>
           <Typography
             variant="h5"
+            // h5 is the visual scale only: on a detail page this follows the page h1.
+            component="h2"
             noWrap
             title={titleText}
             sx={{ fontWeight: 700, lineHeight: 1.2, color: 'text.primary', minWidth: 0, maxWidth: '100%' }}

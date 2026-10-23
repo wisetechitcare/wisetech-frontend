@@ -2,7 +2,7 @@ import React, { useId } from 'react';
 import { Box, Typography } from '@mui/material';
 import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 import { IconBox, SHADOW_REST, type Trio } from './patterns';
-import { HEADING_CASE_SX } from './text';
+import { HEADING_CASE_SX, titleCaseNode } from './text';
 
 /**
  * Read-only detail building blocks — the look of the employee details page,
@@ -35,7 +35,10 @@ export interface DetailCardProps {
     tone: Trio;
     /** KTIcon (keenicons) name. */
     icon: string;
-    /** Card title. Rendered as written (Title Case, never uppercased). */
+    /**
+     * Card title — a structural heading (a step or region name), so it is title-cased
+     * and renders through `HEADING_CASE_SX` like every other kit section header.
+     */
     title: React.ReactNode;
     subtitle?: React.ReactNode;
     /** Top-right slot — an Edit button, a ToneChip. */
@@ -95,9 +98,10 @@ export function DetailCard({ tone, icon, title, subtitle, action, children, sx }
                             lineHeight: 1.25,
                             color: 'text.primary',
                             overflowWrap: 'anywhere',
+                            ...HEADING_CASE_SX,
                         }}
                     >
-                        {title}
+                        {titleCaseNode(title)}
                     </Typography>
                     {subtitle != null && subtitle !== '' && (
                         <Typography
@@ -120,8 +124,8 @@ export function DetailCard({ tone, icon, title, subtitle, action, children, sx }
 
 // ── KeyValueRow / KeyValueList ───────────────────────────────────────────────
 
-/** The one "no value" mark for read-only rows. */
-const EM_DASH = String.fromCharCode(0x2014);
+/** What an empty read-only value reads as (contract §4): explicit text, never a bare dash. */
+const DEFAULT_EMPTY_TEXT = 'Not provided';
 
 const isEmptyValue = (value: React.ReactNode): boolean =>
     value === null ||
@@ -136,9 +140,11 @@ export interface KeyValueRowProps {
     emphasis?: boolean;
     /** Drops the hairline under the row (the last row of a card). */
     last?: boolean;
+    /** Shown when `value` is empty. Defaults to 'Not provided'; use e.g. 'Not set' for a setting. */
+    emptyText?: string;
 }
 
-export function KeyValueRow({ label, value, emphasis = false, last = false }: KeyValueRowProps) {
+export function KeyValueRow({ label, value, emphasis = false, last = false, emptyText = DEFAULT_EMPTY_TEXT }: KeyValueRowProps) {
     const empty = isEmptyValue(value);
     return (
         <Box
@@ -167,7 +173,7 @@ export function KeyValueRow({ label, value, emphasis = false, last = false }: Ke
                     color: empty ? 'text.disabled' : 'text.primary',
                 }}
             >
-                {empty ? EM_DASH : value}
+                {empty ? emptyText : value}
             </Box>
         </Box>
     );
@@ -182,9 +188,11 @@ export interface KeyValueListRow {
 export interface KeyValueListProps {
     /** Same shape as the form engine's SummaryRow, so a summary can be passed straight in. */
     rows: ReadonlyArray<KeyValueListRow>;
+    /** Passed to every row; see `KeyValueRow.emptyText`. */
+    emptyText?: string;
 }
 
-export function KeyValueList({ rows }: KeyValueListProps) {
+export function KeyValueList({ rows, emptyText }: KeyValueListProps) {
     return (
         <Box>
             {rows.map((row, i) => (
@@ -194,6 +202,7 @@ export function KeyValueList({ rows }: KeyValueListProps) {
                     value={row.value}
                     emphasis={row.isStrong}
                     last={i === rows.length - 1}
+                    emptyText={emptyText}
                 />
             ))}
         </Box>

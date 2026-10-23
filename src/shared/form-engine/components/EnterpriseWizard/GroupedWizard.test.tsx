@@ -99,9 +99,27 @@ describe('shared grouped wizard', () => {
     expect(screen.getByText('0 of 2 sections completed')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Create' })).toBeTruthy();
 
+    // An empty row list leaves the card body out.
+    expect(screen.getByRole('article', { name: 'Identity' }).querySelector('dl')).toBeNull();
+
     fireEvent.click(screen.getByRole('button', { name: 'Edit Identity' }));
     expect(screen.getByText('Identity editor')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Create' })).toBeNull();
+    // Focus follows the jump to the section heading instead of dropping to <body>.
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: 'Identity' })));
+  });
+
+  it('refuses to submit from the review while a section still misses a requirement', async () => {
+    const onFinalSave = vi.fn();
+    render(<Formik initialValues={{ name: '', email: '', notes: '' }} onSubmit={() => {}}>
+      <GroupedWizard {...baseProps} groups={twoLeafGroups({ requiredFields: ['name'] })} onFinalSave={onFinalSave} review={{}} />
+    </Formik>);
+    // Standing on Identity (exempt from the rail gate), jump straight to Review.
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(screen.getByText('Identity editor')).toBeTruthy());
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ icon: 'error', title: 'Complete the required fields in "Identity" first.' }));
+    expect(onFinalSave).not.toHaveBeenCalled();
   });
 
   it('turns the last leaf into Continue when a review is configured, and submits from the review', async () => {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import React, { useMemo, useState, useCallback, useEffect, useId, useRef } from "react";
 import { Box, Typography } from '@mui/material';
 import { getIn, useFormikContext } from "formik";
 import { PictureAsPdf, Description, ChevronRight, ChevronLeft } from "@mui/icons-material";
@@ -10,8 +10,8 @@ import {
   firstErrorPath, firstErrorPathIn, firstErroredStepIndex, focusFieldOrError, hasFilledValue, hasStepErrors, stepValueSignature,
 } from '../../utils/stepValidation';
 import {
-  DEFAULT_REVIEW_TITLE, REVIEW_ICON, REVIEW_STEP_ID, WizardDraftStatusText, WizardReview, resolveDraftStatus, reviewStatusOf,
-  type WizardReviewItem,
+  DEFAULT_REVIEW_TITLE, REVIEW_ICON, REVIEW_STEP_ID, SR_ONLY_SX, WizardDraftStatusText, WizardReview, focusStepHeading,
+  resolveDraftStatus, reviewStatusOf, type PendingStepFocus, type WizardReviewItem,
 } from './WizardReview';
 import { AppIcon, FormSection, GlassDialogActions, TRIO, toast, useUnsavedChangesGuard, WtButton, WtIconButton } from '@app/modules/common/components/ui';
 
@@ -93,6 +93,9 @@ function StepWizard<TValues = any, TStepProps = any>({
   const summaryRows = typeof summary.rows === "function" ? summary.rows(values, currentStepDef) : summary.rows;
   const isSaveStep = isLastStep || (!!currentStepDef?.isSubmitStep && !(hasReview && isLastRealStep));
   const StepComponent = currentStepDef?.component;
+  // A host may drive the draft through `draftStatus` alone, without `isSavingDraft`.
+  const draftStatus = resolveDraftStatus(actions.draftStatus, actions.isSavingDraft);
+  const draftSaving = draftStatus === 'saving';
 
   const scrollCanvasTop = useCallback(() => {
     canvasRef.current?.scrollTo({ top: 0, behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
@@ -112,13 +115,16 @@ function StepWizard<TValues = any, TStepProps = any>({
    * move and consumed by the effect below: focusing in the same tick would look for an
    * input the new step has not painted yet.
    */
-  const pendingFocusRef = useRef<{ path: string | null } | null>(null);
+  const pendingFocusRef = useRef<PendingStepFocus | null>(null);
+  const stepHeadingId = useId();
   useEffect(() => {
     const pending = pendingFocusRef.current;
     if (!pending) return;
     pendingFocusRef.current = null;
-    window.requestAnimationFrame(() => focusFieldOrError(pending.path));
-  }, [currentStep]);
+    window.requestAnimationFrame(() => {
+      if (!focusFieldOrError(pending.path) && pending.heading) focusStepHeading(stepHeadingId);
+    });
+  }, [currentStep, stepHeadingId]);
 
   /** Submit-time failure: open the first visible step that owns an error and focus the field. */
   const routeToFirstError = useCallback((formErrors: any) => {
@@ -231,11 +237,21 @@ function StepWizard<TValues = any, TStepProps = any>({
               title={reviewTitle}
               identity={review?.identity}
               items={reviewItems}
-              onEdit={(id) => goToStep(visibleSteps.findIndex((step) => step.id === id))}
+              onEdit={(id) => {
+                const index = visibleSteps.findIndex((step) => step.id === id);
+                // Land on the step's first error, else its heading — the Edit button
+                // that had focus unmounts with the review.
+                if (index !== -1 && index !== currentStep) {
+                  pendingFocusRef.current = { path: firstErrorPathIn(errors, visibleSteps[index].fields), heading: true };
+                }
+                goToStep(index);
+              }}
               disabled={actions.isSubmitting}
             />
           ) : <>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>Step {currentStep + 1} of {visibleSteps.length}</Typography>
+            {/* The section card below shows the title; this is the one heading that names the step. */}
+            <Typography component="h2" id={stepHeadingId} tabIndex={-1} sx={SR_ONLY_SX}>{currentStepDef?.title}</Typography>
             <FormSection key={animKey} tone={currentStepDef?.tone ?? TRIO.blue} icon={currentStepDef?.icon ?? 'abstract-26'} title={currentStepDef?.title ?? ''} desc={currentStepDef?.subtitle}>
               {currentStepDef?.render ? currentStepDef.render(stepProps as TStepProps) : StepComponent ? React.createElement(StepComponent as React.ComponentType<any>, stepProps || {}) : null}
             </FormSection>
@@ -257,8 +273,9 @@ function StepWizard<TValues = any, TStepProps = any>({
       <GlassDialogActions sx={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, bgcolor: 'background.paper', '& > :not(style) ~ :not(style)': { ml: 0 } }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           <WtButton ghost onClick={requestClose} disabled={actions.isSubmitting}>Cancel</WtButton>
-          {actions.onSaveDraft && <WtButton ghost onClick={actions.onSaveDraft} disabled={actions.isSubmitting || actions.isSavingDraft}>{actions.isSavingDraft ? 'Saving…' : 'Save Draft'}</WtButton>}
-          <WizardDraftStatusText status={resolveDraftStatus(actions.draftStatus, actions.isSavingDraft)} quietWhileSaving={Boolean(actions.onSaveDraft)} />
+          {actions.onSaveDraft && <WtButton ghost onClick={actions.onSaveDraft} disabled={actions.isSubmitting || draftSaving}>{draftSaving ? 'Saving…' : 'Save Draft'}</WtButton>}
+          {/* The draft button reads "Saving…" whenever draftSaving, so the line stays SR-only then. */}
+          <WizardDraftStatusText status={draftStatus} quietWhileSaving={Boolean(actions.onSaveDraft)} />
           {actions.onFinalSave && !isSaveStep && <WtButton tone="primary" onClick={() => save(actions.onFinalSave)} disabled={actions.isSubmitting || actions.submitDisabled}>{actions.isSubmitting ? 'Saving…' : actions.submitText || 'Save'}</WtButton>}
         </Box>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, ml: 'auto' }}>

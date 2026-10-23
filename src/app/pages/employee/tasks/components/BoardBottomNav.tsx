@@ -62,6 +62,7 @@ export const BoardBottomNav = ({ active, onToggle }: BoardBottomNavProps) => {
                     border: '1px solid',
                     borderColor: 'divider',
                     bgcolor: alpha(theme.palette.background.paper, dark ? 0.92 : 0.96),
+                    // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
                     backdropFilter: 'blur(12px)',
                     boxShadow: `0 10px 30px ${alpha(theme.palette.common.black, dark ? 0.55 : 0.18)}`,
                     scrollbarWidth: 'none',

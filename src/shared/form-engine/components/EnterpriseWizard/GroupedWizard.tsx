@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Box, CircularProgress, LinearProgress, Typography } from '@mui/material';
 import { getIn, useFormikContext } from "formik";
 import {
@@ -11,8 +11,8 @@ import { ChevronRight, ChevronLeft, ExpandMore } from "@mui/icons-material";
 import { AppIcon, FormSection, GlassDialogActions, T, TRIO, WtButton, WtIconButton, WtStepper, type Trio } from '@app/modules/common/components/ui';
 import type { WizardDraftStatus, WizardReviewConfig } from '../../types/formEngine.types';
 import {
-  DEFAULT_REVIEW_TITLE, REVIEW_STEP_ID, SR_ONLY_SX, WizardDraftStatusText, WizardReview, reviewStatusOf,
-  type WizardReviewItem,
+  DEFAULT_REVIEW_TITLE, REVIEW_STEP_ID, SR_ONLY_SX, WizardDraftStatusText, WizardReview, focusStepHeading, reviewStatusOf,
+  type PendingStepFocus, type WizardReviewItem,
 } from './WizardReview';
 
 /** A leaf = one editable section, the unit the canvas renders and Continue walks. */
@@ -279,13 +279,16 @@ export function GroupedWizard<TProps>({
    * a move and consumed by the effect below: focusing in the same tick would look for
    * an input the new section has not painted yet.
    */
-  const pendingFocusRef = useRef<{ path: string | null } | null>(null);
+  const pendingFocusRef = useRef<PendingStepFocus | null>(null);
+  const stepHeadingId = useId();
   useEffect(() => {
     const pending = pendingFocusRef.current;
     if (!pending) return;
     pendingFocusRef.current = null;
-    window.requestAnimationFrame(() => focusFieldOrError(pending.path));
-  }, [activeLeafId]);
+    window.requestAnimationFrame(() => {
+      if (!focusFieldOrError(pending.path) && pending.heading) focusStepHeading(stepHeadingId);
+    });
+  }, [activeLeafId, stepHeadingId]);
 
   /**
    * Submit-time failure: land on the first section (in rail order) that owns an
@@ -391,6 +394,18 @@ export function GroupedWizard<TProps>({
       toast({ icon: 'error', title: "Please fill in all required fields before submitting." });
         Object.keys(formErrors).forEach((k) => setFieldTouched(k, true));
         routeToFirstError(formErrors);
+        return;
+      }
+      // The same requirement gate Continue and the rail use. Submitting from the Review
+      // step (or past a section left mid-edit) must not skip what its own cards report.
+      const blocker = leaves.find(isBlocking);
+      if (blocker) {
+        toast({ icon: 'error', title: `Complete the required fields in "${blocker.label}" first.` });
+        blocker.fields.forEach((f) => setFieldTouched(f, true));
+        if (blocker.id !== activeLeafId) {
+          pendingFocusRef.current = { path: null, heading: true };
+          goToLeaf(blocker.id);
+        }
         return;
       }
       onFinalSave();
@@ -526,7 +541,7 @@ export function GroupedWizard<TProps>({
               )}
             </Box>
             {/* The section card below shows the title; this is the one heading that names the step. */}
-            {!isOnReview && <Typography component="h2" sx={SR_ONLY_SX}>{activeLeaf?.title}</Typography>}
+            {!isOnReview && <Typography component="h2" id={stepHeadingId} tabIndex={-1} sx={SR_ONLY_SX}>{activeLeaf?.title}</Typography>}
           </Box>
           <Box sx={{ p: { xs: 1.5, sm: 2.5 } }}>
             {isOnReview ? (
@@ -534,7 +549,13 @@ export function GroupedWizard<TProps>({
                 title={reviewTitle}
                 identity={review?.identity}
                 items={reviewItems}
-                onEdit={(id) => goToLeaf(id)}
+                onEdit={(id) => {
+                  const leaf = leaves.find((item) => item.id === id);
+                  // Land on the section's first error, else its heading — the Edit button
+                  // that had focus unmounts with the review.
+                  if (leaf) pendingFocusRef.current = { path: firstErrorPathIn(errors, leaf.fields), heading: true };
+                  goToLeaf(id);
+                }}
                 disabled={isSubmitting}
               />
             ) : (

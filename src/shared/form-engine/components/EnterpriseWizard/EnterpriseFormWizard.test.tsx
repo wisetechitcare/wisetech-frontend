@@ -101,8 +101,20 @@ describe('flat wizard review step', () => {
     expect(screen.getByText(/of 2 steps completed/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Create Company' })).toBeTruthy();
 
+    // An empty row list leaves the card body out.
+    expect(screen.getByRole('article', { name: 'Contact' }).querySelector('dl')).toBeNull();
+
     fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
     expect(screen.getByText('Profile editor')).toBeTruthy();
+    // Focus follows the jump to the step heading instead of dropping to <body>.
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: 'Profile' })));
+  });
+
+  it('gives every real step one h2 naming it', () => {
+    render(<Formik initialValues={{ name: '', email: '' }} onSubmit={vi.fn()}>
+      <EnterpriseFormWizard module="company" steps={twoSteps()} summary={{ title: 'Summary', rows: [] }} actions={{ onCancel: vi.fn() }} />
+    </Formik>);
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Profile']);
   });
 
   it('submits from the review step', async () => {
@@ -135,6 +147,13 @@ describe('flat wizard draft status and tone', () => {
     expect(document.querySelector('[data-draft-status]')?.getAttribute('data-draft-status')).toBe('saving');
     rerender(view({ draftStatus: 'saved' }));
     expect(screen.getByText('Saved')).toBeTruthy();
+  });
+
+  it('locks the draft button while draftStatus alone says saving', () => {
+    render(view({ draftStatus: 'saving' }));
+    const button = screen.getByRole('button', { name: 'Saving…' }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Save Draft' })).toBeNull();
   });
 
   it('falls back to TRIO.blue and honours a step tone', () => {

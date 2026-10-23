@@ -221,6 +221,7 @@ const DashboardAnnouncements = () => {
             background: top.buttonBg,
             color: top.text,
             border: `1px solid ${top.hairline}`,
+            // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
             backdropFilter: "blur(6px)",
             boxShadow: "none",
             "&:hover": { background: top.controlHover, color: top.text, boxShadow: "none" },
@@ -356,7 +357,9 @@ const DashboardAnnouncements = () => {
                 pt: 2.25,
                 pb: 2.5,
                 bgcolor: bottom.panel,
+                // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
                 backdropFilter: "blur(16px) saturate(140%)",
+                // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
                 WebkitBackdropFilter: "blur(16px) saturate(140%)",
                 borderTop: `1px solid ${bottom.hairline}`,
                 transform: expanded ? "translateY(0)" : "translateY(101%)",
@@ -441,6 +444,7 @@ const DashboardAnnouncements = () => {
                       color: top.text,
                       bgcolor: top.control,
                       border: `1px solid ${top.hairline}`,
+                      // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
                       backdropFilter: "blur(8px)",
                       opacity: expanded ? 1 : 0,
                       transition: `opacity 220ms ${EASE}`,

@@ -36,6 +36,20 @@ const SECRET_RULES = [
   ['connection string with password', /\b(mysql|postgres(?:ql)?|mongodb(?:\+srv)?|redis|amqp):\/\/[^\s:@/]+:[^\s:@/]{3,}@/i],
 ]
 
+/** Stylesheets that already held a raw blur when the rule landed — the CSS half of the
+ * ESLint ratchet baseline. The rule scans whole files, so without this list an unrelated
+ * edit to one of them would block the commit. This list can only shrink: delete a path
+ * once its blur moves to the kit. */
+const LEGACY_BLUR_CSS = [
+  'src/main.css',
+  'src/app/pages/employee/forms/shared/Workspace.css',
+  'src/app/pages/employee/glass.css',
+  'src/app/pages/employee/forms/onboarding/OnboardingModal.css',
+  'src/app/pages/employee/leads/template-builder/TemplateDocumentationBuilderPage.css',
+  'src/app/pages/employee/wizard/steps/Step2.css',
+  'src/components/navigation/BottomNavigation/BottomNav.css',
+]
+
 /** Code smells that should never reach a shared branch.
  *
  * Entries are [rule, regex] or [rule, regex, appliesTo]. The optional third element is a
@@ -52,7 +66,8 @@ const CODE_RULES = [
    * `: none`. Vendored Metronic, the UI kit and the theme implement surfaces — exempt. */
   ['raw backdrop-filter', /backdrop-filter\s*:(?!\s*none\b)/, (path) =>
     /\.(css|scss|sass)$/i.test(path) &&
-    !/(^|\/)src\/(_metronic|app\/modules\/common\/components\/ui|app\/theme)\//.test(path)],
+    !/(^|\/)src\/(_metronic|app\/modules\/common\/components\/ui|app\/theme)\//.test(path) &&
+    !LEGACY_BLUR_CSS.some((legacy) => path === legacy || path.endsWith(`/${legacy}`))],
 ]
 
 /**
@@ -153,15 +168,19 @@ function selfTest() {
   assert.deepEqual(hit('const example = "AKIA1234567890ABCDEF" // guard:allow docs sample'), [])
   // raw backdrop-filter: stylesheets only, outside the kit / theme / Metronic
   const css = (s, path) => scanText(s, path).map((h) => h.rule)
-  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/pages/employee/glass.css'), ['raw backdrop-filter'])
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/pages/employee/new-feature.css'), ['raw backdrop-filter'])
   assert.deepEqual(css('  -webkit-backdrop-filter:blur(8px);', 'C:\\repo\\src\\app\\x.scss'), ['raw backdrop-filter'])
-  assert.deepEqual(css('  backdrop-filter: none;', 'src/app/pages/employee/glass.css'), [])
-  assert.deepEqual(css('  backdrop-filter:none;', 'src/main.css'), [])
+  assert.deepEqual(css('  backdrop-filter: none;', 'src/app/pages/employee/new-feature.css'), [])
+  assert.deepEqual(css('  backdrop-filter:none;', 'src/app/x.scss'), [])
   assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/modules/common/components/ui/tw/glass.css'), [])
   assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/theme/toast.css'), [])
   assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/_metronic/assets/sass/_x.scss'), [])
   assert.deepEqual(css('  `backdrop-filter: blur(8px);`', 'src/app/pages/X.tsx'), []) // ESLint owns TSX
-  assert.deepEqual(css('  backdrop-filter: blur(8px); /* guard:allow legacy */', 'src/main.css'), [])
+  assert.deepEqual(css('  backdrop-filter: blur(8px); /* guard:allow legacy */', 'src/app/x.scss'), [])
+  // legacy stylesheets (LEGACY_BLUR_CSS) stay committable, relative or absolute; a lookalike name does not
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/pages/employee/glass.css'), [])
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'C:\\repo\\src\\main.css'), [])
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/pages/employee/xglass.css'), ['raw backdrop-filter'])
   assert.deepEqual(hit('  backdrop-filter: blur(8px);'), []) // no path: path-scoped rules stay off
 
   const ok = (m) => assert.equal(validateCommitMsg(m), null, m)

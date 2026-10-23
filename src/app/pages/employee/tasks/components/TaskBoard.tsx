@@ -929,6 +929,7 @@ export const TaskBoard = ({
                                     cursor: 'pointer',
                                     // Sits under the composer's shadow when it opens, and lifts on
                                     // hover so the slot reads as pressable rather than painted on.
+                                    // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
                                     backdropFilter: 'blur(2px)',
                                     transition: 'background-color .18s, border-color .18s, transform .18s, box-shadow .18s',
                                     '&:hover': {

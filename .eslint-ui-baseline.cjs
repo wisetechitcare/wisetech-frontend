@@ -5,7 +5,7 @@
  * warnings so the build stays green — while ANY file NOT listed here fails hard on the same
  * violation. New code therefore cannot regress, and this list can only shrink.
  *
- * Burn-down: 396 files at baseline. Delete a path once its violations are fixed.
+ * Burn-down: 388 files at baseline. Delete a path once its violations are fixed.
  */
 module.exports = [
   "src/app/components/ErrorBoundary.tsx",
@@ -74,7 +74,6 @@ module.exports = [
   "src/app/modules/wizards/components/steps/Step4.tsx",
   "src/app/pages/MenuTestPage.tsx",
   "src/app/pages/approvals/ApprovalStatusTracker.tsx",
-  "src/app/pages/billing/payments/PaymentCollectionPage.tsx",
   "src/app/pages/company/Branches.tsx",
   "src/app/pages/company/Departments.tsx",
   "src/app/pages/company/Designation.tsx",
@@ -107,7 +106,6 @@ module.exports = [
   "src/app/pages/company/settings/RolesAndPermissions.tsx",
   "src/app/pages/company/settings/SandwhichLeave.tsx",
   "src/app/pages/dashboard/CustomizeDashboard.tsx",
-  "src/app/pages/dashboard/DashboardAnnouncements.tsx",
   "src/app/pages/dashboard/DashboardDailyAttendanceOverview.tsx",
   "src/app/pages/dashboard/DashboardKpi.tsx",
   "src/app/pages/dashboard/DashboardLeaderboard.tsx",
@@ -162,7 +160,6 @@ module.exports = [
   "src/app/pages/employee/attendance/personal/views/overview/RaiseRequestForEmployee.tsx",
   "src/app/pages/employee/attendance/personal/views/overview/StatisticsOverview.tsx",
   "src/app/pages/employee/attendance/personal/views/overview/WorkingMethodOptions.tsx",
-  "src/app/pages/employee/attendance/personal/views/overview/calendar/DayTooltip.tsx",
   "src/app/pages/employee/calendar/admin/Holidays.tsx",
   "src/app/pages/employee/calendar/views/CalendarConfigForm.tsx",
   "src/app/pages/employee/calendar/views/Meetings.tsx",
@@ -343,12 +340,8 @@ module.exports = [
   "src/app/pages/employee/salary/personal/views/my-salary/Toggle/components/salary/SalaryBreakdownTable.tsx",
   "src/app/pages/employee/salary/personal/views/my-salary/Toggle/components/salary/YearlyKpiCard.tsx",
   "src/app/pages/employee/search/SearchResultsPage.tsx",
-  "src/app/pages/employee/tasks/TasksWorkspace.tsx",
   "src/app/pages/employee/tasks/calender/TasksMainCalenderPage.tsx",
   "src/app/pages/employee/tasks/calender/component/TeamForm.tsx",
-  "src/app/pages/employee/tasks/components/BoardBackgroundDialog.tsx",
-  "src/app/pages/employee/tasks/components/BoardBottomNav.tsx",
-  "src/app/pages/employee/tasks/components/TaskBoard.tsx",
   "src/app/pages/employee/tasks/configure/TasksConfigure.tsx",
   "src/app/pages/employee/tasks/configure/components/TaskConfigForm.tsx",
   "src/app/pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain.simplified.tsx",
@@ -384,7 +377,6 @@ module.exports = [
   "src/components/navigation/NavContainers/NavTile.tsx",
   "src/components/notifications/components/NotificationCard.tsx",
   "src/components/notifications/components/NotificationPanel.tsx",
-  "src/main.tsx",
   "src/modules/audit/AuditTimeline.tsx",
   "src/modules/audit/ChangeSetCard.tsx",
   "src/modules/audit/ComparePanel.tsx",

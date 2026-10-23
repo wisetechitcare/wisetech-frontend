@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import type { SxProps, Theme } from '@mui/material/styles';
+import { lighten, type SxProps, type Theme } from '@mui/material/styles';
 import {
   AppIcon, DetailCard, DetailGrid, KeyValueList, SectionDivider, TRIO, WtButton, type Trio,
 } from '@app/modules/common/components/ui';
@@ -30,6 +30,25 @@ export const SR_ONLY_SX = {
   whiteSpace: 'nowrap',
   border: 0,
 } as const;
+
+/**
+ * Focus a step's heading (rendered with `tabIndex={-1}`) without scrolling. The fallback
+ * when a jump lands on a step with no field to focus — so keyboard focus never drops to
+ * <body> when the control that had it unmounts.
+ */
+export function focusStepHeading(id: string): void {
+  if (typeof document === 'undefined') return;
+  document.getElementById(id)?.focus({ preventScroll: true });
+}
+
+/**
+ * Where to put focus once the step we just moved to has rendered: a field path (or null
+ * for "first inline error"), and whether to fall back to the step heading.
+ */
+export interface PendingStepFocus {
+  path: string | null;
+  heading?: boolean;
+}
 
 // ── Review status ─────────────────────────────────────────────────────────────
 
@@ -66,9 +85,15 @@ export function reviewStatusOf({
 
 type PaletteKey = 'success' | 'warning' | 'error';
 
-/** Readable on paper in both modes: the darker shade on light, the lighter on dark. */
-const toneInk = (key: PaletteKey) => (theme: Theme) =>
-  theme.palette.mode === 'dark' ? theme.palette[key].light : theme.palette[key].dark;
+/**
+ * Readable on paper in both modes: the darker shade on light, the lighter on dark.
+ * Dark error is lifted further than the derived `error.light` (~4.2:1 on dark paper)
+ * so 12px status text clears AA 4.5:1.
+ */
+const toneInk = (key: PaletteKey) => (theme: Theme) => {
+  if (theme.palette.mode !== 'dark') return theme.palette[key].dark;
+  return key === 'error' ? lighten(theme.palette.error.main, 0.3) : theme.palette[key].light;
+};
 
 const STATUS_LOOK: Record<ReviewStatusKind, { icon: string; color: (theme: Theme) => string; strong: boolean }> = {
   complete: { icon: 'check-circle', color: toneInk('success'), strong: false },
@@ -140,7 +165,7 @@ export function WizardReview({ title, identity, items, onEdit, disabled }: Wizar
               </WtButton>
             )}
           >
-            {item.rows ? <KeyValueList rows={item.rows} /> : undefined}
+            {item.rows?.length ? <KeyValueList rows={item.rows} /> : undefined}
           </DetailCard>
         ))}
       </DetailGrid>

@@ -41,6 +41,7 @@ export const DayTooltip = memo(function DayTooltip({ day, overrides, modifierOve
       className={cn(
         'w-[268px] rounded-[14px] border p-3.5 shadow-[0_24px_64px_-12px_rgba(16,24,40,0.28),0_8px_20px_-8px_rgba(16,24,40,0.18)]',
         'bg-white/98 border-[#E6E9EE] dark:bg-[#161b22] dark:border-[#30363d]',
+        // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
         'backdrop-blur-sm',
       )}
     >

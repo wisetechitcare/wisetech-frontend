@@ -92,9 +92,12 @@ export function firstErroredStepIndex(errors: unknown, steps: ReadonlyArray<{ fi
  * indexed (`familyInfo.0.name`), so several selectors are tried before giving up.
  * The last resort is the section's own inline error text — that is what catches a
  * structural requirement like Approval Settings, which has no single input to blame.
+ *
+ * Returns true only when an element actually took focus (an error message is scrolled
+ * to, not focused), so a caller can fall back to focusing something else.
  */
-export function focusFieldOrError(fieldPath: string | null): void {
-  if (typeof document === 'undefined') return;
+export function focusFieldOrError(fieldPath: string | null): boolean {
+  if (typeof document === 'undefined') return false;
   const candidates: string[] = [];
   if (fieldPath) {
     candidates.push(`[name="${fieldPath}"]`);
@@ -117,11 +120,15 @@ export function focusFieldOrError(fieldPath: string | null): void {
     }
     if (!element) continue;
 
-    element.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    const reduceMotion = typeof window !== 'undefined' &&
+      Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    element.scrollIntoView?.({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
     // Only inputs take focus; scrolling an error message into view is enough.
     if (typeof (element as HTMLInputElement).focus === 'function' && element.tagName !== 'DIV') {
       element.focus({ preventScroll: true });
+      return true;
     }
-    return;
+    return false;
   }
+  return false;
 }

@@ -9,6 +9,7 @@ import { TRIO } from './patterns';
 afterEach(cleanup);
 
 const DASH = String.fromCharCode(0x2014);
+const EMPTY = 'Not provided';
 
 const renderIn = (ui: ReactElement, mode: 'light' | 'dark' = 'light') =>
     render(<ThemeProvider theme={createTheme({ palette: { mode } })}>{ui}</ThemeProvider>);
@@ -30,9 +31,10 @@ describe('DetailCard', () => {
         expect(region.textContent).toContain('Who they are');
         expect(region.textContent).toContain('Body content');
         expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
-        // Card titles stay Title Case — the heading must not be uppercased.
+        // Card titles are structural headings: title-cased text, uppercased by HEADING_CASE_SX.
         const heading = screen.getByRole('heading', { name: 'Personal Details' });
-        expect(getComputedStyle(heading).textTransform).not.toBe('uppercase');
+        expect(heading.textContent).toBe('Personal Details');
+        expect(getComputedStyle(heading).textTransform).toBe('uppercase');
     });
 
     test('omits the subtitle and action slots when not given', () => {
@@ -58,15 +60,21 @@ describe('KeyValueRow', () => {
         ['undefined', undefined],
         ['empty string', ''],
         ['whitespace', '   '],
-    ])('renders an em dash for a %s value', (_name, value) => {
+    ])('renders explicit empty text, not a dash, for a %s value', (_name, value) => {
         renderIn(<KeyValueRow label="Anniversary" value={value} />);
-        expect(screen.getByText(DASH)).toBeTruthy();
+        expect(screen.getByText(EMPTY)).toBeTruthy();
+        expect(screen.queryByText(DASH)).toBeNull();
+    });
+
+    test('takes a custom empty text', () => {
+        renderIn(<KeyValueRow label="Notice period" value={null} emptyText="Not set" />);
+        expect(screen.getByText('Not set')).toBeTruthy();
     });
 
     test('keeps zero as a real value', () => {
         renderIn(<KeyValueRow label="Balance" value={0} />);
         expect(screen.getByText('0')).toBeTruthy();
-        expect(screen.queryByText(DASH)).toBeNull();
+        expect(screen.queryByText(EMPTY)).toBeNull();
     });
 });
 
@@ -82,7 +90,7 @@ describe('KeyValueList', () => {
             />,
         );
         expect(screen.getByText('Basic')).toBeTruthy();
-        expect(screen.getByText(DASH)).toBeTruthy();
+        expect(screen.getByText(EMPTY)).toBeTruthy();
         const rows = Array.from(container.firstElementChild?.children ?? []) as HTMLElement[];
         expect(rows).toHaveLength(3);
         expect(getComputedStyle(rows[0]).borderBottomStyle).toBe('solid');
