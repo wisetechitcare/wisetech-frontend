@@ -20,6 +20,7 @@ overrides:
   source-map-js: '>=1.2.2'    # event-loop DoS via indexed source-map section offsets
   follow-redirects: '>=1.16.1'
   vite: '>=7.3.7'
+  dompurify: '>=3.4.17'       # SAFE_FOR_TEMPLATES bypass (critical) + IN_PLACE hook XSS (high); direct + via jspdf
 
 # pnpm blocks dependency install scripts by default. These need theirs:
 #   esbuild, @swc/core   -> Vite's bundler + the React SWC plugin (build breaks without)

@@ -62,7 +62,7 @@
     "chart.js": "4.3.0",
     "clsx": "2.1.0",
     "dayjs": "^1.11.11",
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.17",
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",
     "events": "^3.3.0",
