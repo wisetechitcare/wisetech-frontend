@@ -8,14 +8,13 @@ import { useSelector } from 'react-redux'
 import { RootState } from '@redux/store'
 import FileInput from '@app/modules/common/inputs/FileInput'
 import TextInput from '@app/modules/common/inputs/TextInput'
-import { WtChoiceField } from '@app/modules/common/components/ui';
+import { WtChoiceField, alertDialog } from '@app/modules/common/components/ui';
 import SignatureInput from '@app/modules/common/inputs/SignatureInput';
 import dayjs from 'dayjs';
 import { uploadUserAsset } from '@services/uploader';
 import { successConfirmation } from '@utils/modal';
 import { getAvatar } from '@utils/avatar';
 import { MAX_FILE_SIZE } from '@constants/statistics';
-import Swal from 'sweetalert2';
 
 const mealPreferences = [
   {
@@ -95,7 +94,7 @@ const ProfileDetails: React.FC = () => {
       
       // Check file type
       if (!fileData.type.startsWith("image/")) {
-        Swal.fire({
+        alertDialog({
           icon: 'error',
           title: 'Invalid file type',
           text: `File "${fileData.name}" is not an image file.`,
@@ -105,7 +104,7 @@ const ProfileDetails: React.FC = () => {
 
       // Check file size
       if (fileData.size > MAX_FILE_SIZE) {
-        Swal.fire({
+        alertDialog({
           icon: 'error',
           title: 'File size exceeds the limit',
           text: `File "${fileData.name}" exceeds the ${MAX_FILE_SIZE / 1024 / 1024} MB size limit.`,

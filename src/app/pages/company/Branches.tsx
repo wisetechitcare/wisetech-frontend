@@ -30,8 +30,7 @@ import BranchCard from '@app/modules/common/components/BranchCard'
 import {
   Box, Stack, Typography, Paper, CircularProgress, IconButton,
 } from '@mui/material'
-import { GlassDialog, GlassHeader, WtButton, WtChoiceField, AutoGrid, ListHeader, Eyebrow } from '@app/modules/common/components/ui'
-import Swal from 'sweetalert2'
+import { GlassDialog, GlassHeader, WtButton, WtChoiceField, AutoGrid, ListHeader, Eyebrow, confirmDialog } from '@app/modules/common/components/ui'
 import { safeHtml } from '@app/modules/common/components/ui/safeHtml'
 import TextInput from '@app/modules/common/inputs/TextInput'
 import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle'
@@ -254,19 +253,16 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
 
   const handlePromoteBranch = async (branch: any) => {
     const empCount = branch._count?.Employees ?? 0
-    const result = await Swal.fire({
+    const confirmed = await confirmDialog({
       title: 'Promote to Sub-Organization?',
-      // safeHtml: `branch.name` is user-entered and SweetAlert parses `html` as
-      // markup, so a name containing tags would otherwise become elements.
+      // safeHtml: `branch.name` is user-entered and `html` renders as markup, so a name
+      // containing tags would otherwise become elements (the dialog also DOMPurifies it).
       html: safeHtml`This will create a sub-organization <b>"${branch.name}"</b> under the current organization and move this branch${empCount ? ` and its ${empCount} employee(s)` : ''} into it. Employees stay in this branch.`,
       icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Promote',
-      cancelButtonText: 'Cancel',
-      customClass: { confirmButton: 'btn btn-primary fw-bold px-6', cancelButton: 'btn btn-light fw-bold px-6 ms-3' },
-      buttonsStyling: false,
+      confirmText: 'Promote',
+      cancelText: 'Cancel',
     })
-    if (!result.isConfirmed) return
+    if (!confirmed) return
     try {
       const res = await promoteBranchToSubOrg(branch.id)
       if (res && !res.hasError) {
