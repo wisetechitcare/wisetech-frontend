@@ -9,7 +9,22 @@ interface IAllEmployees {
   gender: string;
   roles: string[];
   isActive: boolean;
+  phone: string;
+  email: string;
+  area: string;
+  address: string;
 }
+
+const employeeAddress = (emp: any) => {
+  const a = emp.EmployeeAddressDetails?.[0] ?? {};
+  const present = [a.presentAddressLine1, a.presentAddressLine2, a.presentState, a.presentPostalCode, a.presentCountry];
+  const permanent = [a.permanentAddressLine1, a.permanentAddressLine2, a.permanentState, a.permanentPostalCode, a.permanentCountry];
+  const usePresent = present.some(Boolean) || Boolean(a.presentCity);
+  return {
+    area: (usePresent ? a.presentCity : a.permanentCity) || "",
+    address: (usePresent ? present : permanent).filter(Boolean).join(", "),
+  };
+};
 
 interface AllEmployeesState {
   list: IAllEmployees[];
@@ -40,6 +55,9 @@ export const fetchAllEmployeesAsync = createAsyncThunk(
       gender: emp?.gender,
       roles: emp?.roles?.map((role: any) => role?.name).filter(Boolean) || [],
       isActive: emp?.isActive ?? true,
+      phone: emp.users?.personalPhoneNumber || emp.companyPhoneNumber || "",
+      email: emp.users?.personalEmailId || "",
+      ...employeeAddress(emp),
     }));
   }
 );

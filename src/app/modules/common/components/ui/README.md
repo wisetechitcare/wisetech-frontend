@@ -66,6 +66,8 @@ are built from.
 | Dialog footer (Cancel + Submit) | **`GlassDialogActions`** (SSOT; or leave `ConfigureFormDialog` / `WtFormDialog`) | hand-rolled `DialogActions sx={{ px, py, borderTop }}`; Bootstrap Cancel/`btn-light` pairs |
 | Dialog form card | `FormSection` + `FORM_SPACE` | local `GlassSurface` + `SectionHead` stacks with magic gaps |
 | Surface / card | `GlassSurface` / `GlassCard` | `<div className="card">` |
+| Right-side supporting workspace | `WtSheet` | Feature-local `Drawer` shells for filters/history |
+| **Table filters** | **`FilterSheetButton`** (via MaterialTable `renderToolbarIconActions`) + **`FilterSheet`** (draft state, Reset-applies, Apply). Set `enableFilters={false}` on the table. Reference: courtesy-desk `DrivesList.tsx` | selects in `renderTopToolbarRightActions`, a filter bar above the table, MRT head filters |
 | Config section | `SettingsSection` (optional `count` chip) | a `GlassSurface` with your own accent + header |
 | Config masters (CRUD lists) | **`MasterListSection`** — `ConfigSectionCard` + **`ConfigColorChip`** grid (+ injected fetch/create/update/delete) | per-feature GlassCard masters grids; vertical drag-row forks |
 | Compact configure value row (colour + name + actions) | **`ConfigColorChip`** + **`ConfigChipGrid`** | hand-rolled `#f7f8fa` / `#ffffff` chip tiles; forked NameChip/ColorChip |

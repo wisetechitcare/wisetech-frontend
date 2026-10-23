@@ -46,10 +46,18 @@ export interface PeopleGroup {
 export type GroupActivityType =
   | 'GROUP_CREATED'
   | 'GROUP_UPDATED'
+  | 'GROUP_MEMBER_ADDED'
+  | 'GROUP_MEMBER_REMOVED'
+  | 'GROUP_MEMBER_UPDATED'
   | 'GROUP_ARCHIVED'
   | 'GROUP_UNARCHIVED'
   | 'DRIVE_STARTED'
-  | 'DRIVE_STATUS_CHANGED';
+  | 'DRIVE_UPDATED'
+  | 'DRIVE_STATUS_CHANGED'
+  | 'RECIPIENT_ADDED'
+  | 'RECIPIENT_REMOVED'
+  | 'RECIPIENT_UPDATED'
+  | 'RECIPIENT_DEFAULTS_APPLIED';
 
 export interface GroupActivity {
   id: string;

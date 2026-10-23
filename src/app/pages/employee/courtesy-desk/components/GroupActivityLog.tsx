@@ -3,12 +3,17 @@ import {
   Avatar,
   Box,
   Button,
-  Drawer,
-  IconButton,
+  CircularProgress,
   Stack,
   Typography,
 } from "@mui/material";
-import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
+import {
+  AppIcon,
+  TRIO,
+  WtButton,
+  WtEmptyState,
+  WtSheet,
+} from "@app/modules/common/components/ui";
 import { formatDateTime } from "@utils/dateFormats";
 import { fetchDriveActivity, fetchGroupActivity } from "@services/gifts";
 import type { GroupActivity } from "../types";
@@ -23,16 +28,8 @@ function initials(name: string) {
 }
 
 function HistoryTimeline({ activity }: { activity: GroupActivity[] }) {
-  if (!activity.length) {
-    return (
-      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-        No activity yet.
-      </Typography>
-    );
-  }
-
   return (
-    <Stack spacing={0}>
+    <Stack spacing={0} role="list">
       {activity.map((entry, index) => {
         const who = entry.actorName?.trim() || "Someone";
         const isLast = index === activity.length - 1;
@@ -41,15 +38,16 @@ function HistoryTimeline({ activity }: { activity: GroupActivity[] }) {
             key={entry.id}
             direction="row"
             spacing={1.25}
-            sx={{ minHeight: 56 }}
+            role="listitem"
+            sx={{ minHeight: 64 }}
           >
             <Stack alignItems="center" sx={{ width: 36, flexShrink: 0 }}>
               <Avatar
                 src={entry.actorAvatar || undefined}
                 alt={who}
                 sx={{
-                  width: 32,
-                  height: 32,
+                  width: 34,
+                  height: 34,
                   fontSize: 12,
                   fontWeight: 700,
                   bgcolor: "primary.main",
@@ -57,7 +55,7 @@ function HistoryTimeline({ activity }: { activity: GroupActivity[] }) {
               >
                 {initials(who)}
               </Avatar>
-              {!isLast && (
+              {!isLast ? (
                 <Box
                   sx={{
                     flex: 1,
@@ -67,13 +65,13 @@ function HistoryTimeline({ activity }: { activity: GroupActivity[] }) {
                     borderRadius: 1,
                   }}
                 />
-              )}
+              ) : null}
             </Stack>
-            <Box sx={{ flex: 1, minWidth: 0, pb: isLast ? 0 : 1.5 }}>
+            <Box sx={{ flex: 1, minWidth: 0, pb: isLast ? 0 : 1.75 }}>
               <Typography
                 sx={{
                   fontSize: 13.5,
-                  fontWeight: 700,
+                  fontWeight: 750,
                   lineHeight: 1.3,
                   color: "text.primary",
                 }}
@@ -83,16 +81,16 @@ function HistoryTimeline({ activity }: { activity: GroupActivity[] }) {
               <Typography
                 sx={{
                   fontSize: 13,
-                  lineHeight: 1.4,
+                  lineHeight: 1.45,
                   color: "text.secondary",
                   wordBreak: "break-word",
-                  mt: 0.15,
+                  mt: 0.2,
                 }}
               >
                 {entry.message}
               </Typography>
               <Typography
-                sx={{ fontSize: 11.5, color: "text.disabled", mt: 0.35 }}
+                sx={{ fontSize: 11.5, color: "text.disabled", mt: 0.4 }}
               >
                 {formatDateTime(entry.createdAt)}
               </Typography>
@@ -104,7 +102,6 @@ function HistoryTimeline({ activity }: { activity: GroupActivity[] }) {
   );
 }
 
-/** History opens on demand (drawer) — not always on the page. */
 export default function GiftHistoryButton({
   kind,
   id,
@@ -120,21 +117,23 @@ export default function GiftHistoryButton({
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const loadPage = useCallback(
     async (nextPage: number, append: boolean) => {
       setLoading(true);
+      setLoadError(false);
       try {
-        const fetch =
-          kind === "group" ? fetchGroupActivity : fetchDriveActivity;
+        const fetch = kind === "group" ? fetchGroupActivity : fetchDriveActivity;
         const res = await fetch(id, nextPage, PAGE_SIZE);
-        setRows((prev) =>
-          append ? [...prev, ...res.activity] : res.activity,
+        setRows((previous) =>
+          append ? [...previous, ...res.activity] : res.activity,
         );
         setPage(res.page);
         setTotal(res.total);
         setHasMore(res.hasMore);
       } catch {
+        setLoadError(true);
         if (!append) {
           setRows([]);
           setTotal(0);
@@ -148,8 +147,7 @@ export default function GiftHistoryButton({
   );
 
   useEffect(() => {
-    if (!open) return;
-    void loadPage(1, false);
+    if (open) void loadPage(1, false);
   }, [open, loadPage]);
 
   return (
@@ -163,77 +161,54 @@ export default function GiftHistoryButton({
         {label}
       </Button>
 
-      <Drawer
-        anchor="right"
+      <WtSheet
         open={open}
         onClose={() => setOpen(false)}
-        PaperProps={{
-          sx: {
-            width: { xs: "100%", sm: 380 },
-            p: 0,
-            display: "flex",
-            flexDirection: "column",
-          },
-        }}
-      >
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{
-            px: 2,
-            py: 1.5,
-            borderBottom: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <Box>
-            <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
-              History
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {total} {total === 1 ? "event" : "events"}
-            </Typography>
-          </Box>
-          <IconButton
-            aria-label="Close history"
-            onClick={() => setOpen(false)}
-            size="small"
-          >
-            <AppIcon name="bi-x-lg" />
-          </IconButton>
-        </Stack>
-
-        <Box sx={{ flex: 1, overflow: "auto", px: 2, py: 2 }}>
-          {loading && !rows.length ? (
-            <Typography variant="body2" color="text.secondary">
-              Loading…
-            </Typography>
-          ) : (
-            <HistoryTimeline activity={rows} />
-          )}
-        </Box>
-
-        {hasMore ? (
-          <Box
-            sx={{
-              px: 2,
-              py: 1.5,
-              borderTop: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            <Button
+        title="Activity history"
+        description={
+          loading && !rows.length
+            ? "Loading activity…"
+            : `${total.toLocaleString()} ${total === 1 ? "event" : "events"}`
+        }
+        icon="time"
+        tone={TRIO.blue}
+        footer={
+          hasMore ? (
+            <WtButton
+              ghost
               fullWidth
-              variant="outlined"
               disabled={loading}
               onClick={() => void loadPage(page + 1, true)}
             >
-              {loading ? "Loading…" : "Load older"}
-            </Button>
-          </Box>
-        ) : null}
-      </Drawer>
+              {loading ? "Loading…" : "Load older activity"}
+            </WtButton>
+          ) : undefined
+        }
+      >
+        {loading && !rows.length ? (
+          <Stack alignItems="center" justifyContent="center" sx={{ py: 8 }}>
+            <CircularProgress size={28} />
+          </Stack>
+        ) : loadError && !rows.length ? (
+          <WtEmptyState
+            dense
+            variant="error"
+            title="History could not be loaded"
+            hint="Check your connection and try again."
+            actionLabel="Try again"
+            onAction={() => void loadPage(1, false)}
+          />
+        ) : rows.length ? (
+          <HistoryTimeline activity={rows} />
+        ) : (
+          <WtEmptyState
+            dense
+            title="No activity yet"
+            hint="Updates to this item will appear here."
+            icon="time"
+          />
+        )}
+      </WtSheet>
     </>
   );
 }
