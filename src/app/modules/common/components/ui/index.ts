@@ -5,7 +5,7 @@
 //     plus WT_CONTROL_HEIGHT (40) / WT_CONTROL_HEIGHT_MD (44) / controlHeightSx —
 //     the one height a control row shares (fields + buttons)
 //   - glass: reusable glassmorphism primitives (GlassSurface / GlassDialog / GlassHeader / GlassCard)
-//   - feedback: branded Swal helpers (toast / alertDialog / confirmDialog)
+//   - feedback: toast (react-toastify) + alertDialog / confirmDialog (ConfirmDialog via dialogService)
 //   - safeHtml: tagged template that escapes interpolations for any html: string
 export { T, tonePair, label, glassTokens } from './tokens';
 export type { SemanticTone, VividTone, GlassVariant, ThemeMode, LabelTier } from './tokens';
@@ -101,7 +101,12 @@ export {
   ConfirmDialog,
   type ConfirmDialogProps,
   type ConfirmDialogVariant,
+  type ConfirmDialogDismissReason,
 } from './ConfirmDialog';
+// THE imperative dialog: `await showDialog({...})` from anywhere (plain .ts included) renders
+// ConfirmDialog via <DialogServiceHost/> (mounted once in App.tsx). Replaces SweetAlert2.
+export { showDialog, closeDialog, updateDialog, DialogServiceHost } from './dialogService';
+export type { DialogResult, DialogOptions, DialogInputOptions, DialogDismissReason } from './dialogService';
 export { ConfirmDiscardDialog, type ConfirmDiscardDialogProps } from './ConfirmDiscardDialog';
 export { UnsavedChangesProvider } from './UnsavedChangesProvider';
 export { useUnsavedChangesGuard } from './useUnsavedChangesGuard';
@@ -214,7 +219,7 @@ export { safeHtml, escapeHtml } from './safeHtml';
 // A line of explanation INSIDE a form or panel: toned notice, or a quiet info hint.
 export { InlineNotice, InlineHint } from './InlineNotice';
 export type { InlineNoticeProps } from './InlineNotice';
-export type { FeedbackOptions } from './feedback';
+export type { FeedbackOptions, FeedbackIcon } from './feedback';
 // App-wide single-select picker modal (glass kit, theme-aware) — use instead of bootstrap <Modal>.
 export { OptionPickerDialog, OptionRow, OptionCard } from './pickers';
 export type { OptionPickerDialogProps, PickerOption } from './pickers';

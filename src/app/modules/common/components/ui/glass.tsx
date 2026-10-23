@@ -176,11 +176,13 @@ export interface GlassHeaderProps {
   variant?: 'gradient' | 'frost' | 'plain';
   /** Full-window workflows use a taller entity band than compact dialogs. */
   size?: 'default' | 'workspace';
+  /** Rule under a gradient/frost band: the brand accent (default) or the neutral divider. */
+  rule?: 'accent' | 'divider';
 }
 
 export function GlassHeader({
   title, subtitle, icon, onClose, action,
-  onBack, backLabel = 'Back', backIcon, closeLabel = 'Close', variant = 'gradient', size = 'default',
+  onBack, backLabel = 'Back', backIcon, closeLabel = 'Close', variant = 'gradient', size = 'default', rule = 'accent',
 }: GlassHeaderProps) {
   const gradient = variant === 'gradient';
   const plain = variant === 'plain';
@@ -199,7 +201,12 @@ export function GlassHeader({
           : { ...frostSx, borderRadius: 0, color: label(mode, 'primary') }),
       // The accent rule separates a coloured band from the body. A plain header
       // sits ON the body, so a rule there would be drawing a line for nothing.
-      borderBottom: plain ? 'none' : `3px solid ${T.color.accent}`, flexShrink: 0,
+      ...(plain
+        ? { borderBottom: 'none' }
+        : rule === 'divider'
+          ? { borderBottom: '1px solid', borderColor: 'divider' }
+          : { borderBottom: `3px solid ${T.color.accent}` }),
+      flexShrink: 0,
     }}>
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
         {/* Back replaces the icon tile rather than sitting next to it: on a 360px header

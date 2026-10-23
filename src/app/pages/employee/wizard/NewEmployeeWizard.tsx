@@ -1980,7 +1980,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
   return (
     <>
-    <WtWizardDialog title={editMode ? "Edit Employee" : "Employee Onboarding"} subtitle="Capture the new joiner's profile, employment terms and documents" icon="profile-circle" closeGuard="host"
+    <WtWizardDialog title={editMode ? "Edit Employee" : "Employee Onboarding"} subtitle={editMode ? "Update this employee's profile, employment terms and documents" : "Capture the new joiner's profile, employment terms and documents"} icon="profile-circle" closeGuard="host"
       open={show}
       onClose={handleClose}
       closeLabel="Close onboarding"

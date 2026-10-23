@@ -32,7 +32,7 @@ function BasicInfo({ formikProps, softRequired = false }: { formikProps: any; so
         <WtFieldFormik name="lastName" label="Last Name" required={hard} fullWidth />
         <WtDateField label="Date of Birth" required={hard} value={values?.dateOfBirth || null} onChange={(value) => setFieldValue('dateOfBirth', value)} maxDate={dayjs().format('YYYY-MM-DD')} />
         <WtFieldFormik name="maritalStatus" label="Marital Status" options={MARITAL_OPTIONS} />
-        <WtChoiceField name="gender" label="Gender" required={hard} variant="segmented" orientation="column" options={GENDER_OPTIONS} sx={{ gridColumn: { xs: 'auto', md: '1 / -1' } }} />
+        <WtChoiceField name="gender" label="Gender" required={hard} variant="segmented" orientation="row" options={GENDER_OPTIONS} sx={{ gridColumn: { xs: 'auto', md: '1 / -1' } }} />
         {isMarried && <WtDateField label="Anniversary Date" value={values?.anniversary || null} onChange={(value) => setFieldValue('anniversary', value)} />}
       </Box>
     </Box>

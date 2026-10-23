@@ -21,6 +21,12 @@ describe('WtWizardDialog', () => {
     await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
   });
 
+  it('draws a neutral 1px rule under the header, not the 3px brand accent', () => {
+    render(<WtWizardDialog open onClose={vi.fn()} title="Employee"><input aria-label="First name" /></WtWizardDialog>);
+    const header = screen.getByText('Employee').closest('div')?.parentElement?.parentElement as HTMLElement;
+    expect(getComputedStyle(header).borderBottomWidth).toBe('1px');
+  });
+
   it('routes Escape through the dialog close boundary', async () => {
     const close = vi.fn();
     render(<WtWizardDialog open onClose={close} title="Company"><input aria-label="Company name" /></WtWizardDialog>);

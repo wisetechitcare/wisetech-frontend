@@ -48,7 +48,7 @@ export function WtWizardDialog({
     <GlassDialog open={open} onClose={onClose} fullScreen fullWidth maxWidth={false} preset="workspace" plain
       disableEnforceFocus={disableEnforceFocus} disableUnsavedChangesGuard={closeGuard === 'host'} className={className} PaperProps={{ 'aria-label': title }}
       header={showHeader
-        ? <GlassHeader title={title} subtitle={subtitle} icon={icon} variant={headerVariant} size="workspace" onClose={onClose} closeLabel={closeLabel} />
+        ? <GlassHeader title={title} subtitle={subtitle} icon={icon} variant={headerVariant} size="workspace" rule="divider" onClose={onClose} closeLabel={closeLabel} />
         : <WizardClose onClose={onClose} label={closeLabel} />}>
       <Box ref={bodyRef} sx={{ height: '100%', minHeight: 0, overflow: 'hidden', p: 0, '& > form': { height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' } }}>
         {children}

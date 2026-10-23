@@ -137,14 +137,19 @@ export interface WizardReviewProps {
   items: WizardReviewItem[];
   onEdit: (id: string) => void;
   disabled?: boolean;
+  /**
+   * Leave out the review's own section heading. For a host whose canvas header already
+   * renders the step heading, so the step is named once. Default false.
+   */
+  hideHeading?: boolean;
 }
 
 /** Read-only recap: one DetailCard per real step, each with its status and an Edit jump. */
-export function WizardReview({ title, identity, items, onEdit, disabled }: WizardReviewProps) {
+export function WizardReview({ title, identity, items, onEdit, disabled, hideHeading = false }: WizardReviewProps) {
   const attention = items.filter((item) => item.status.kind === 'error' || item.status.kind === 'missing').length;
   return (
     <Box data-wizard-review>
-      <SectionDivider tone={REVIEW_TONE} icon={REVIEW_ICON} label={title} sx={{ mt: 0 }} />
+      {!hideHeading && <SectionDivider tone={REVIEW_TONE} icon={REVIEW_ICON} label={title} sx={{ mt: 0 }} />}
       {identity != null && <Box sx={{ mb: 2 }}>{identity}</Box>}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
         {attention > 0

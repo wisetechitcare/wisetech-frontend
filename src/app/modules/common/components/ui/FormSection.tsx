@@ -39,6 +39,11 @@ export interface FormSectionProps {
   sx?: SxProps<Theme>;
   /** Branded top rule used by primary wizard canvases. */
   accentTop?: boolean;
+  /**
+   * Leave out the icon + title head. For a host that already names the section in its
+   * own heading (a wizard canvas header), so the title is not shown twice. Default false.
+   */
+  hideHead?: boolean;
 }
 
 /**
@@ -54,7 +59,7 @@ export interface FormSectionProps {
  *   <WtField label="Name" … />
  * </FormSection>
  */
-export function FormSection({ tone, icon, title, desc, children, sx, accentTop = false }: FormSectionProps) {
+export function FormSection({ tone, icon, title, desc, children, sx, accentTop = false, hideHead = false }: FormSectionProps) {
   return (
     <GlassSurface
       variant="thin"
@@ -69,7 +74,7 @@ export function FormSection({ tone, icon, title, desc, children, sx, accentTop =
       ] as SxProps<Theme>}
     >
       <Stack spacing={FORM_SPACE.fieldGap}>
-        <SectionHead tone={tone} icon={icon} title={title} desc={desc} />
+        {!hideHead && <SectionHead tone={tone} icon={icon} title={title} desc={desc} />}
         {children}
       </Stack>
     </GlassSurface>

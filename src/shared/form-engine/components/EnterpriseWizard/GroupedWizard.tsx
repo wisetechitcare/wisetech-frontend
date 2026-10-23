@@ -1,17 +1,19 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Box, CircularProgress, LinearProgress, Typography } from '@mui/material';
+import { Box, ButtonBase, LinearProgress, Typography } from '@mui/material';
+import { alpha, type Theme } from '@mui/material/styles';
+import { LEGACY_CONFIG_FONT } from '@app/theme/tokens';
 import { getIn, useFormikContext } from "formik";
 import {
   firstErrorPath, firstErrorPathIn, firstErroredStepIndex, focusFieldOrError, hasFilledValue as hasValue, hasStepErrors,
   stepValueSignature,
 } from '@/shared/form-engine/utils/stepValidation';
 import { toast } from "@app/modules/common/components/ui";
-import { ChevronRight, ChevronLeft, ExpandMore } from "@mui/icons-material";
+import { Check, ChevronRight, ChevronLeft, ExpandMore } from "@mui/icons-material";
 
-import { AppIcon, FormSection, GlassDialogActions, T, TRIO, WtButton, WtIconButton, WtStepper, type Trio } from '@app/modules/common/components/ui';
+import { FormSection, GlassDialogActions, HEADING_CASE_SX, T, TRIO, WtButton, WtIconButton, type Trio } from '@app/modules/common/components/ui';
 import type { WizardDraftStatus, WizardReviewConfig } from '../../types/formEngine.types';
 import {
-  DEFAULT_REVIEW_TITLE, REVIEW_STEP_ID, SR_ONLY_SX, WizardDraftStatusText, WizardReview, focusStepHeading, reviewStatusOf,
+  DEFAULT_REVIEW_TITLE, REVIEW_STEP_ID, WizardDraftStatusText, WizardReview, focusStepHeading, reviewStatusOf,
   type PendingStepFocus, type WizardReviewItem,
 } from './WizardReview';
 
@@ -43,7 +45,8 @@ export interface WizardLeaf<TProps> {
 export interface WizardGroup<TProps> {
   id: string;
   label: string;
-  icon: React.ReactNode;
+  /** @deprecated No longer rendered; the rail shows a numbered badge. */
+  icon?: React.ReactNode;
   children: WizardLeaf<TProps>[];
 }
 
@@ -94,24 +97,84 @@ export interface GroupedWizardProps<TProps> {
   identity?: React.ReactNode;
 }
 
-const ParentProgressBadge = ({ completed, total, active, complete, error, index }: {
-  completed: number; total: number; active: boolean; complete: boolean; error: boolean; index: number;
-}) => {
-  const percentage = total > 0 ? (completed / total) * 100 : 0;
-  const color = error ? 'error.main' : complete ? 'success.main' : active ? 'primary.main' : 'text.secondary';
-
-  return (
-    <Box aria-hidden sx={{ position: 'relative', width: 28, height: 28, flexShrink: 0, display: 'grid', placeItems: 'center', color }}>
-      <CircularProgress variant="determinate" value={100} size={28} thickness={3} sx={{ position: 'absolute', color: 'divider' }} />
-      <CircularProgress variant="determinate" value={percentage} size={28} thickness={3} sx={{ position: 'absolute', color, '@media (prefers-reduced-motion: reduce)': { '& .MuiCircularProgress-circle': { transition: 'none' } } }} />
-      <Box component="span" sx={{ fontSize: 12, fontWeight: 600, display: 'flex' }}>
-        {complete ? <AppIcon name="bi-check-lg" /> : index}
-      </Box>
-    </Box>
-  );
-};
-
 type LeafStatus = "completed" | "active" | "error" | "pending";
+type RailState = "current" | "complete" | "error" | "pending";
+
+/*
+ * Rail geometry — the production steps rail (WizardSidebar): 12px row padding and a
+ * 28px badge put every badge centre 26px in. The leaf connector and leaf dots are
+ * centred on that same x; the leaf list's line reaches up under the group badge and
+ * the connector below it continues flush, so one line runs from a group badge through
+ * its sections and on to the next group.
+ */
+const RAIL_ROW_PX = 12;
+const RAIL_BADGE = 28;
+const RAIL_AXIS = RAIL_ROW_PX + RAIL_BADGE / 2;
+const RAIL_LINE = 2;
+const LEAF_DOT = 10;
+/** Leaf rows start this far in, so the current row's tint sits clear of the rail edge. */
+const LEAF_ROW_INSET = RAIL_ROW_PX;
+
+const railLineColor = (theme: Theme) => alpha(theme.palette.text.primary, 0.12);
+const pendingRingColor = (theme: Theme) => alpha(theme.palette.text.primary, 0.22);
+const railFill = (theme: Theme, state: RailState) =>
+  state === "current" ? theme.palette.primary : state === "complete" ? theme.palette.success : state === "error" ? theme.palette.error : null;
+
+/** Numbered rail badge: filled brand when current, green check when complete, outlined when pending. */
+const RailBadge = ({ state, children }: { state: RailState; children: React.ReactNode }) => (
+  <Box component="span" aria-hidden sx={(theme) => {
+    const fill = railFill(theme, state);
+    return {
+      position: 'relative', zIndex: 1, // paints over the leaf line that tucks under it
+      width: RAIL_BADGE, height: RAIL_BADGE, borderRadius: '50%', flexShrink: 0, boxSizing: 'border-box',
+      display: 'grid', placeItems: 'center', fontSize: 11.5, fontWeight: 700, lineHeight: 1,
+      border: `2px solid ${fill ? fill.main : pendingRingColor(theme)}`,
+      bgcolor: fill ? fill.main : 'background.paper',
+      color: fill ? fill.contrastText : 'text.secondary',
+      boxShadow: state === 'current' ? `0 0 0 4px ${alpha(theme.palette.primary.main, 0.14)}` : 'none',
+      transition: 'background-color .15s, border-color .15s, box-shadow .15s',
+      '& svg': { fontSize: 14 },
+    };
+  }}>
+    {children}
+  </Box>
+);
+
+/** Connector between two rail rows, under the badge centre. Green once the row above is complete. */
+const RailConnector = ({ complete, flush = false }: { complete: boolean; flush?: boolean }) => (
+  <Box aria-hidden sx={(theme) => ({
+    width: RAIL_LINE, height: 10, my: flush ? 0 : '2px', ml: `${RAIL_AXIS - RAIL_LINE / 2}px`, borderRadius: 1,
+    bgcolor: complete ? theme.palette.success.main : railLineColor(theme),
+  })} />
+);
+
+/** A group / Review row: badge + one-line label, soft brand tint while current. */
+const railRowSx = (current: boolean) => (theme: Theme) => ({
+  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1.25,
+  px: `${RAIL_ROW_PX - 1}px`, py: '9px', minHeight: 48, borderRadius: '8px', textAlign: 'left',
+  border: '1px solid', borderColor: current ? alpha(theme.palette.primary.main, 0.18) : 'transparent',
+  bgcolor: current ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.16 : 0.07) : 'transparent',
+  transition: 'background-color .15s, border-color .15s',
+  '&:hover': current ? {} : { bgcolor: 'action.hover', borderColor: 'divider' },
+  '&.Mui-focusVisible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 1 },
+});
+
+const railLabelSx = (current: boolean) => ({
+  flex: 1, minWidth: 0, fontSize: 13, lineHeight: 1.3, fontWeight: current ? 700 : 600,
+  color: current ? 'primary.main' : 'text.secondary',
+  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+});
+
+/** The summary's collapse toggle: a small ghost square (32px), not the 44px tinted tile. */
+const summaryToggleSx = {
+  width: 32, height: 32, borderRadius: '8px', flexShrink: 0,
+  bgcolor: 'transparent', borderColor: 'divider', color: 'text.secondary', '& svg': { fontSize: 18 },
+  // Stay ghost on hover/press: the kit tile's tinted fill, glow and lift are not wanted here.
+  '&:hover': { bgcolor: 'action.hover', borderColor: 'divider', boxShadow: 'none', transform: 'none' },
+  '&:active': { transform: 'none' },
+} as const;
+
+const hasSummaryValue =(value: React.ReactNode) => value !== undefined && value !== null && value !== '' && value !== false;
 
 export function GroupedWizard<TProps>({
   groups,
@@ -281,6 +344,7 @@ export function GroupedWizard<TProps>({
    */
   const pendingFocusRef = useRef<PendingStepFocus | null>(null);
   const stepHeadingId = useId();
+  const railId = useId();
   useEffect(() => {
     const pending = pendingFocusRef.current;
     if (!pending) return;
@@ -439,6 +503,10 @@ export function GroupedWizard<TProps>({
   }, [review, leaves, values, errors]);
 
   const rows = summaryRows ? summaryRows(values) : [];
+  const leafIndexOf = (id: string) => leaves.findIndex((item) => item.id === id);
+  const stepTitle = isOnReview ? reviewTitle : activeLeaf?.title;
+  const stepSubtitle = isOnReview ? undefined : activeLeaf?.subtitle;
+  const positionText = isOnReview ? 'Final step' : <>{activeGroup?.label} · {activeIndex + 1} of {leaves.length}</>;
 
   return (
     <Box data-form-module="sections" sx={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', bgcolor: 'background.default', color: 'text.primary' }}>
@@ -452,7 +520,7 @@ export function GroupedWizard<TProps>({
         <Box component="nav" id="wizard-section-navigation" aria-label="Wizard sections" sx={{
           display: { xs: mobileNavOpen ? 'block' : 'none', md: 'block' },
           position: { xs: 'absolute', md: 'relative' }, inset: { xs: 0, md: 'auto' },
-          zIndex: 2, width: { xs: '100%', md: 250 }, flexShrink: 0, overflowY: 'auto',
+          zIndex: 2, width: { xs: '100%', md: 250 }, flexShrink: 0, overflowY: 'auto', overflowX: 'hidden',
           p: 1.5, bgcolor: 'background.paper', borderRight: '1px solid', borderColor: 'divider',
         }}>
           {identity != null && <Box sx={{ mb: 1.5, minWidth: 0 }}>{identity}</Box>}
@@ -470,82 +538,149 @@ export function GroupedWizard<TProps>({
               bgcolor: 'rgba(255,255,255,.22)', '& .MuiLinearProgress-bar': { bgcolor: T.color.onBrand },
             }} />
           </Box>
-          {groups.map((group, groupIndex) => {
-            const expanded = isGroupExpanded(group.id);
-            const groupCompleted = group.children.filter((leaf) => isLeafFilled(leaf)).length;
-            const groupHasError = group.children.some((leaf) => statuses[leaves.findIndex((item) => item.id === leaf.id)] === 'error');
-            const groupActive = group.id === activeGroup?.id;
-            return (
-              <Box key={group.id} sx={{ mb: 1 }}>
-                <WtButton ghost fullWidth onClick={() => setManualExpanded((previous) => ({ ...previous, [group.id]: !expanded }))}
-                  aria-expanded={expanded} startIcon={<ParentProgressBadge completed={groupCompleted} total={group.children.length} active={groupActive} complete={groupCompleted === group.children.length} error={groupHasError} index={groupIndex + 1} />}
-                  endIcon={<ExpandMore sx={{ transform: expanded ? 'rotate(180deg)' : undefined }} />}
-                  sx={{
-                    justifyContent: 'flex-start', minHeight: 44, textAlign: 'left', borderRadius: 1.25,
-                    bgcolor: groupActive ? 'background.paper' : 'transparent',
-                    border: '1px solid', borderColor: groupActive ? 'divider' : 'transparent',
-                    boxShadow: groupActive ? 1 : 'none',
-                  }}>
-                  {group.icon != null && group.icon !== false && (
-                    <Box component="span" aria-hidden data-group-icon sx={{
-                      display: 'inline-flex', alignItems: 'center', flexShrink: 0, mr: .75,
-                      color: groupActive ? 'primary.main' : 'text.secondary', '& svg': { fontSize: 18 },
-                    }}>
-                      {typeof group.icon === 'string' ? <AppIcon name={group.icon} fallbackSize={16} /> : group.icon}
+          <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0 }}>
+            {groups.map((group, groupIndex) => {
+              const expanded = isGroupExpanded(group.id);
+              const groupCompleted = group.children.filter((leaf) => isLeafFilled(leaf)).length;
+              const groupComplete = group.children.length > 0 && groupCompleted === group.children.length;
+              const groupHasError = group.children.some((leaf) => statuses[leafIndexOf(leaf.id)] === 'error');
+              const groupActive = group.id === activeGroup?.id;
+              const groupState: RailState = groupHasError ? 'error' : groupActive ? 'current' : groupComplete ? 'complete' : 'pending';
+              const listId = `${railId}-group-${group.id}`;
+              const hasNext = groupIndex < groups.length - 1 || hasReview;
+              return (
+                <Box component="li" key={group.id}>
+                  <ButtonBase onClick={() => setManualExpanded((previous) => ({ ...previous, [group.id]: !expanded }))}
+                    aria-expanded={expanded} aria-controls={expanded ? listId : undefined} sx={railRowSx(groupActive && !expanded)}>
+                    <RailBadge state={groupState}>
+                      {groupState === 'complete' ? <Check /> : groupState === 'error' ? '!' : groupIndex + 1}
+                    </RailBadge>
+                    <Box component="span" title={group.label} sx={railLabelSx(groupActive)}>{group.label}</Box>
+                    <Box component="span" sx={{ flexShrink: 0, fontSize: 11.5, fontWeight: 600, color: 'text.secondary' }}>
+                      {groupCompleted}/{group.children.length}
+                    </Box>
+                    <ExpandMore aria-hidden sx={{
+                      flexShrink: 0, fontSize: 18, color: 'text.secondary', ml: -.5,
+                      transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform .15s',
+                    }} />
+                  </ButtonBase>
+                  {expanded && (
+                    <Box component="ul" id={listId} sx={(theme) => ({
+                      listStyle: 'none', m: 0, mt: '2px', p: 0, py: .5, position: 'relative',
+                      // One continuous connector under the group badge; the dots sit on it.
+                      '&::before': {
+                        content: '""', position: 'absolute', top: -(RAIL_ROW_PX + 2), bottom: 0, width: RAIL_LINE, borderRadius: 1,
+                        left: RAIL_AXIS - RAIL_LINE / 2, bgcolor: groupComplete ? theme.palette.success.main : railLineColor(theme),
+                      },
+                    })}>
+                      {group.children.map((leaf) => {
+                        const leafIndex = leafIndexOf(leaf.id);
+                        const status = statuses[leafIndex];
+                        const current = leaf.id === activeLeaf?.id;
+                        const filled = isLeafFilled(leaf);
+                        const dotState: RailState = status === 'error' ? 'error' : current ? 'current' : filled ? 'complete' : 'pending';
+                        const errorId = `${railId}-error-${leaf.id}`;
+                        return (
+                          <Box component="li" key={leaf.id}>
+                            <ButtonBase
+                              onClick={() => handleSidebarClick(leaf.id, leafIndex)}
+                              aria-label={leaf.label}
+                              aria-current={current ? 'step' : undefined}
+                              aria-describedby={status === 'error' ? errorId : undefined}
+                              sx={(theme) => ({
+                                width: `calc(100% - ${LEAF_ROW_INSET}px)`, ml: `${LEAF_ROW_INSET}px`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'flex-start', textAlign: 'left',
+                                minHeight: 34, py: .5, pr: 1, pl: `${RAIL_AXIS - LEAF_DOT / 2 - LEAF_ROW_INSET}px`,
+                                borderRadius: '8px',
+                                bgcolor: current ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.18 : 0.08) : 'transparent',
+                                transition: 'background-color .15s',
+                                '&:hover': current ? {} : { bgcolor: 'action.hover' },
+                                '&.Mui-focusVisible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 1 },
+                              })}
+                            >
+                              <Box component="span" aria-hidden sx={(theme) => {
+                                const fill = railFill(theme, dotState);
+                                return {
+                                  position: 'relative', zIndex: 1, flexShrink: 0, boxSizing: 'border-box',
+                                  width: LEAF_DOT, height: LEAF_DOT, borderRadius: '50%', mr: 1.25,
+                                  bgcolor: fill ? fill.main : 'background.paper',
+                                  border: `2px solid ${fill ? fill.main : pendingRingColor(theme)}`,
+                                  boxShadow: dotState === 'current' ? `0 0 0 3px ${alpha(theme.palette.primary.main, 0.2)}` : 'none',
+                                };
+                              }} />
+                              <Box component="span" sx={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                <Box component="span" title={leaf.label} sx={{
+                                  fontSize: 12.5, lineHeight: 1.35, fontWeight: current ? 700 : 500,
+                                  color: current ? 'primary.main' : 'text.secondary',
+                                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                }}>
+                                  {leaf.label}
+                                </Box>
+                                {status === 'error' && (
+                                  <Box component="span" id={errorId} sx={{ fontSize: 11, lineHeight: 1.3, fontWeight: 600, color: 'error.main' }}>
+                                    Check this section
+                                  </Box>
+                                )}
+                              </Box>
+                            </ButtonBase>
+                          </Box>
+                        );
+                      })}
                     </Box>
                   )}
-                  <Box component="span" sx={{ flex: 1 }}>{group.label}</Box>
-                  <Box component="span" sx={{ color: 'text.secondary', ml: 1 }}>{groupCompleted}/{group.children.length}</Box>
-                </WtButton>
-                {expanded && <WtStepper
-                  orientation="vertical" variant="timeline" allowFutureNavigation
-                  steps={group.children.map((leaf) => ({
-                    label: leaf.label,
-                    optional: !leaf.requiredFields?.length && !leaf.isComplete,
-                    error: statuses[leaves.findIndex((item) => item.id === leaf.id)] === 'error',
-                    errorText: 'Check this section',
-                  }))}
-                  activeStep={group.children.findIndex((leaf) => leaf.id === activeLeaf?.id)}
-                  completed={Object.fromEntries(group.children.map((leaf, index) => [index, isLeafFilled(leaf)]))}
-                  onStepClick={(index) => {
-                    const leaf = group.children[index];
-                    handleSidebarClick(leaf.id, leaves.findIndex((item) => item.id === leaf.id));
-                  }}
-                  sx={{ pl: 1, py: 1 }}
-                />}
+                  {hasNext && <RailConnector complete={groupComplete} flush={expanded} />}
+                </Box>
+              );
+            })}
+            {hasReview && (
+              <Box component="li">
+                <ButtonBase onClick={() => handleSidebarClick(REVIEW_STEP_ID, leaves.length)}
+                  aria-current={isOnReview ? 'step' : undefined} sx={railRowSx(isOnReview)}>
+                  <RailBadge state={isOnReview ? 'current' : 'pending'}>{groups.length + 1}</RailBadge>
+                  <Box component="span" title={reviewTitle} sx={railLabelSx(isOnReview)}>{reviewTitle}</Box>
+                </ButtonBase>
               </Box>
-            );
-          })}
-          {hasReview && (
-            <WtButton ghost fullWidth onClick={() => handleSidebarClick(REVIEW_STEP_ID, leaves.length)}
-              aria-current={isOnReview ? 'step' : undefined}
-              startIcon={<AppIcon name="eye" fallbackSize={16} />}
-              sx={{
-                justifyContent: 'flex-start', minHeight: 44, textAlign: 'left', borderRadius: 1.25,
-                bgcolor: isOnReview ? 'background.paper' : 'transparent',
-                border: '1px solid', borderColor: isOnReview ? 'divider' : 'transparent',
-                boxShadow: isOnReview ? 1 : 'none',
-              }}>
-              <Box component="span" sx={{ flex: 1 }}>{reviewTitle}</Box>
-            </WtButton>
-          )}
+            )}
+          </Box>
         </Box>
-        <Box component="main" ref={canvasRef} aria-label={isOnReview ? reviewTitle : activeLeaf?.title} sx={{ flex: 1, minWidth: 0, overflowY: 'auto', bgcolor: 'background.default' }}>
-          <Box sx={{ position: 'sticky', top: 0, zIndex: 2, px: { xs: 1.5, sm: 2.5 }, py: 1.5, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', borderRadius: 10, px: 1, py: .25, bgcolor: T.color.brandSoft, color: T.color.brand, border: '1px solid', borderColor: T.color.line, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase' }}>
-                {isOnReview ? reviewTitle : <>{activeGroup?.label} · {activeIndex + 1} of {leaves.length}</>}
+        <Box component="main" ref={canvasRef} aria-label={stepTitle} sx={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', bgcolor: 'background.default' }}>
+          <Box sx={{
+            position: 'sticky', top: 0, zIndex: 2, px: { xs: 2, sm: 4 }, pt: { xs: 2, sm: 2.5 }, pb: 2,
+            bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider',
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1 }}>
+              <Box component="span" sx={(theme) => ({
+                display: 'inline-block', minWidth: 0, maxWidth: '100%', px: 1.5, py: '3px', borderRadius: 999,
+                bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.18 : 0.08),
+                border: '1px solid', borderColor: alpha(theme.palette.primary.main, 0.18), color: 'primary.main',
+                fontSize: 11, lineHeight: 1.4, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              })}>
+                {positionText}
               </Box>
               {(activeLeaf?.requiredFields?.length || activeLeaf?.isComplete) && (
-                <Typography variant="caption" color="text.secondary"><Box component="span" sx={{ color: 'error.main' }}>*</Box> Required fields</Typography>
+                <Typography component="span" sx={{ flexShrink: 0, fontSize: 11, fontWeight: 500, color: 'text.secondary' }}>
+                  <Box component="span" sx={{ color: 'error.main', fontWeight: 700 }}>*</Box> Required fields
+                </Typography>
               )}
             </Box>
-            {/* The section card below shows the title; this is the one heading that names the step. */}
-            {!isOnReview && <Typography component="h2" id={stepHeadingId} tabIndex={-1} sx={SR_ONLY_SX}>{activeLeaf?.title}</Typography>}
+            {/* The one heading that names the step; the card below carries no title of its own. */}
+            <Typography component="h2" id={stepHeadingId} tabIndex={-1} sx={{
+              m: 0, fontFamily: LEGACY_CONFIG_FONT.heading, fontSize: { xs: 18.4, md: 22 }, fontWeight: 700, lineHeight: 1.2,
+              letterSpacing: '-0.3px', color: 'text.primary', overflowWrap: 'anywhere', '&:focus': { outline: 'none' },
+            }}>
+              {stepTitle}
+            </Typography>
+            {stepSubtitle && (
+              <Typography sx={{ mt: .25, mb: 0, fontSize: 12.5, fontWeight: 500, lineHeight: 1.45, color: 'text.secondary' }}>
+                {stepSubtitle}
+              </Typography>
+            )}
           </Box>
-          <Box sx={{ p: { xs: 1.5, sm: 2.5 } }}>
+          <Box sx={{ px: { xs: 2, sm: 4 }, py: { xs: 2, sm: 3.5 } }}>
             {isOnReview ? (
               <WizardReview
+                hideHeading
                 title={reviewTitle}
                 identity={review?.identity}
                 items={reviewItems}
@@ -559,37 +694,73 @@ export function GroupedWizard<TProps>({
                 disabled={isSubmitting}
               />
             ) : (
-              <FormSection accentTop key={activeLeaf?.id} tone={activeLeaf?.tone ?? TRIO.blue} icon={activeLeaf?.icon ?? 'abstract-26'} title={activeLeaf?.title ?? ''} desc={activeLeaf?.subtitle}>
+              <FormSection hideHead key={activeLeaf?.id} tone={activeLeaf?.tone ?? TRIO.blue} icon={activeLeaf?.icon ?? 'abstract-26'}
+                title={activeLeaf?.title ?? ''} sx={{ p: { xs: 2, sm: 3 } }}>
                 {activeLeaf?.render(sectionProps)}
               </FormSection>
             )}
           </Box>
         </Box>
         {rows.length > 0 && <Box component="aside" aria-label={summaryTitle} sx={{
-          width: summaryCollapsed ? 44 : 260, flexShrink: 0, display: { xs: 'none', lg: 'block' },
-          overflowY: 'auto', bgcolor: 'background.paper', borderLeft: '1px solid', borderColor: 'divider', p: summaryCollapsed ? 0.5 : 1.5,
+          width: summaryCollapsed ? 40 : 260, flexShrink: 0, display: { xs: 'none', lg: 'flex' }, flexDirection: 'column',
+          overflowY: 'auto', overflowX: 'hidden', bgcolor: 'background.paper', borderLeft: '1px solid', borderColor: 'divider',
+          transition: 'width .25s ease',
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            {!summaryCollapsed && <Typography sx={{ fontWeight: 600, flex: 1 }}>{summaryTitle}</Typography>}
-            <WtIconButton title={summaryCollapsed ? 'Expand summary' : 'Collapse summary'} onClick={() => setSummaryCollapsed((value) => !value)}>
-              {summaryCollapsed ? <ChevronLeft /> : <ChevronRight />}
-            </WtIconButton>
-          </Box>
-          {!summaryCollapsed && rows.map((row, index) => <Box key={row.label + index} sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="caption" color="text.secondary">{row.label}</Typography>
-            <Box sx={{ fontSize: 13, fontWeight: row.isStrong ? 700 : 400, overflowWrap: 'anywhere' }}>{row.value}</Box>
-          </Box>)}
+          {summaryCollapsed ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, pt: 1.5 }}>
+              <WtIconButton title="Expand summary" onClick={() => setSummaryCollapsed(false)} sx={summaryToggleSx}>
+                <ChevronLeft />
+              </WtIconButton>
+              <Box component="span" aria-hidden sx={{
+                writingMode: 'vertical-rl', transform: 'rotate(180deg)', userSelect: 'none',
+                fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'text.secondary',
+              }}>
+                {summaryTitle}
+              </Box>
+            </Box>
+          ) : (
+            <Box sx={{ px: 2, pt: 1, pb: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1, mb: .5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Typography sx={{ ...HEADING_CASE_SX, flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 700, letterSpacing: '.06em', color: 'text.primary' }}>
+                  {summaryTitle}
+                </Typography>
+                <WtIconButton title="Collapse summary" onClick={() => setSummaryCollapsed(true)} sx={summaryToggleSx}>
+                  <ChevronRight />
+                </WtIconButton>
+              </Box>
+              <Box component="dl" sx={{ m: 0 }}>
+                {rows.map((row, index) => (
+                  <Box key={row.label + index} sx={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, py: 1,
+                    borderBottom: '1px solid', borderColor: 'divider', '&:last-of-type': { borderBottom: 'none' },
+                  }}>
+                    <Box component="dt" sx={{ m: 0, minWidth: 0, fontSize: 12, lineHeight: 1.4, fontWeight: 500, color: 'text.secondary', overflowWrap: 'anywhere' }}>
+                      {row.label}
+                    </Box>
+                    <Box component="dd" sx={{
+                      m: 0, minWidth: 0, maxWidth: '62%', flexShrink: 0, textAlign: 'right', overflowWrap: 'anywhere',
+                      fontSize: 12, lineHeight: 1.4, fontWeight: row.isStrong ? 700 : 500, color: 'text.primary',
+                    }}>
+                      {hasSummaryValue(row.value) ? row.value : <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400 }}>—</Box>}
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
         </Box>}
       </Box>
       <GlassDialogActions sx={{ justifyContent: 'space-between', flexWrap: 'wrap', bgcolor: 'background.paper', gap: 1, px: { xs: 1.5, sm: 2 }, '& > :not(style) ~ :not(style)': { ml: 0 } }}>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
           <WtButton ghost onClick={onCancel} disabled={isSubmitting}>Cancel</WtButton>
-          <WtButton tone="primary" onClick={() => onDirectSave ? onDirectSave() : handleDirectSave()} disabled={isSubmitting}>
+          {/* Secondary save — outlined, so the footer has exactly one filled primary action. */}
+          <WtButton inverted onClick={() => onDirectSave ? onDirectSave() : handleDirectSave()} disabled={isSubmitting}
+            sx={(theme) => (theme.palette.mode === 'dark' ? {} : { borderColor: alpha(theme.palette.primary.main, 0.45), boxShadow: 'none' })}>
             {isSubmitting ? 'Saving…' : onDirectSave ? directSaveLabel ?? 'Save draft' : isEditMode ? 'Save Changes' : 'Save'}
           </WtButton>
           <WizardDraftStatusText status={draftStatus ?? 'idle'} />
         </Box>
-        <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
+        <Box sx={{ display: 'flex', gap: 1, flex: '1 1 auto', justifyContent: 'flex-end' }}>
           <WtButton ghost startIcon={<ChevronLeft />} onClick={handleBack} disabled={isFirst || isSubmitting}>Back</WtButton>
           <WtButton tone="primary" endIcon={<ChevronRight />} onClick={handleNext} disabled={isSubmitting}>
             {isSubmitting ? 'Saving…' : isLast ? submitText : 'Save & Continue'}

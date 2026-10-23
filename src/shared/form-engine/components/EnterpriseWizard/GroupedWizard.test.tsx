@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Formik, useFormikContext } from 'formik';
 import { toast } from '@app/modules/common/components/ui';
 import { GroupedWizard, type WizardGroup } from './GroupedWizard';
@@ -9,11 +9,12 @@ vi.mock('@app/modules/common/components/ui', () => ({
   toast: vi.fn(),
   TRIO: { blue: { c: 'tone-blue' }, green: { c: 'tone-green' }, purple: { c: 'tone-purple' }, amber: { c: 'tone-amber' }, rose: { c: 'tone-rose' }, cyan: { c: 'tone-cyan' }, slate: { c: 'tone-slate' } },
   T: { color: { brandGradientLeftToRight: 'linear-gradient(90deg, navy, blue)', onBrand: '#fff', brandSoft: '#eef2ff', brand: '#1e3a8a', line: '#e5e7eb' } },
-  AppIcon: () => null, IconBox: () => null,
-  FormSection: ({ children, title, desc, tone }: any) => <section data-testid="form-section" data-title={title} data-desc={desc} data-tone={tone?.c}>{children}</section>,
+  AppIcon: () => null, IconBox: () => null, HEADING_CASE_SX: { textTransform: 'uppercase' },
+  // Mirrors the real head: rendered unless the host hides it.
+  FormSection: ({ children, title, desc, tone, hideHead }: any) => <section data-testid="form-section" data-tone={tone?.c}>{!hideHead && <h3>{title}{desc}</h3>}{children}</section>,
   GlassDialogActions: ({ children }: any) => <footer>{children}</footer>,
   WtStepper: ({ steps, onStepClick }: any) => <div>{steps.map((step: any, index: number) => <button key={step.label} type="button" onClick={() => onStepClick(index)}>{step.label}</button>)}</div>,
-  WtButton: ({ children, onClick, disabled, 'aria-label': ariaLabel }: any) => <button type="button" aria-label={ariaLabel} onClick={onClick} disabled={disabled}>{children}</button>,
+  WtButton: ({ children, onClick, disabled, ghost, inverted, 'aria-label': ariaLabel }: any) => <button type="button" data-look={ghost ? 'ghost' : inverted ? 'outlined' : 'filled'} aria-label={ariaLabel} onClick={onClick} disabled={disabled}>{children}</button>,
   WtIconButton: ({ children, onClick, title }: any) => <button type="button" aria-label={title} onClick={onClick}>{children}</button>,
   DetailGrid: ({ children }: any) => <div>{children}</div>,
   DetailCard: ({ title, subtitle, action, children, tone }: any) => <article aria-label={title} data-tone={tone?.c}><div>{subtitle}</div>{action}{children}</article>,
@@ -149,21 +150,54 @@ describe('shared grouped wizard', () => {
     expect(screen.getByText('Saved')).toBeTruthy();
   });
 
-  it('falls back to TRIO.blue, passes the subtitle as the section description and keeps one heading', () => {
+  it('falls back to TRIO.blue, names the step once in the header and keeps the card untitled', () => {
     const { unmount } = render(<Formik initialValues={{ name: '', email: '', notes: '' }} onSubmit={() => {}}>
       <GroupedWizard {...baseProps} groups={twoLeafGroups()} onFinalSave={() => {}} />
     </Formik>);
     const section = screen.getByTestId('form-section');
     expect(section.getAttribute('data-tone')).toBe('tone-blue');
-    expect(section.getAttribute('data-desc')).toBe('Who they are');
-    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Identity']);
-    expect(document.querySelector('[data-group-icon]')).not.toBeNull();
+    // Exactly one heading names the step, and it is the canvas header's h2.
+    expect(screen.getAllByRole('heading').map((h) => h.textContent)).toEqual(['Identity']);
+    const main = screen.getByRole('main', { name: 'Identity' });
+    expect(within(main).getByRole('heading', { level: 2, name: 'Identity' })).toBeTruthy();
+    // The subtitle sits under the header title, not inside the card.
+    expect(screen.getByText('Who they are')).toBeTruthy();
+    expect(within(section).queryByText('Who they are')).toBeNull();
+    expect(within(section).queryByText('Identity')).toBeNull();
+    expect(within(main).getByText('Profile · 1 of 2')).toBeTruthy();
+    // Group rows carry a number badge + label, no extra icon.
+    const nav = screen.getByRole('navigation', { name: 'Wizard sections' });
+    expect(within(nav).getByRole('button', { name: /Profile/, expanded: true })).toBeTruthy();
+    expect(within(nav).getByRole('button', { name: 'Identity' }).getAttribute('aria-current')).toBe('step');
     unmount();
 
     render(<Formik initialValues={{ name: '', email: '', notes: '' }} onSubmit={() => {}}>
       <GroupedWizard {...baseProps} groups={twoLeafGroups({ tone: { c: 'tone-custom', bg: '', bd: '' } })} onFinalSave={() => {}} />
     </Formik>);
     expect(screen.getByTestId('form-section').getAttribute('data-tone')).toBe('tone-custom');
+  });
+
+  it('has one filled primary in the footer; the secondary save is outlined', () => {
+    render(<Formik initialValues={{ name: '', email: '', notes: '' }} onSubmit={() => {}}>
+      <GroupedWizard {...baseProps} isEditMode groups={twoLeafGroups()} onFinalSave={() => {}} />
+    </Formik>);
+    const footer = document.querySelector('footer') as HTMLElement;
+    expect(Array.from(footer.querySelectorAll('[data-look="filled"]')).map((b) => b.textContent)).toEqual(['Save & Continue']);
+    expect(within(footer).getByRole('button', { name: 'Save Changes' }).getAttribute('data-look')).toBe('outlined');
+    expect(within(footer).getByRole('button', { name: 'Back' }).getAttribute('data-look')).toBe('ghost');
+  });
+
+  it('summary lists label/value rows, shows a dash for empty values and collapses', () => {
+    render(<Formik initialValues={{ name: 'Asha', email: '', notes: '' }} onSubmit={() => {}}>
+      <GroupedWizard {...baseProps} groups={twoLeafGroups()} onFinalSave={() => {}} summaryTitle="Employee Summary"
+        summaryRows={(v) => [{ label: 'Name', value: v.name, isStrong: true }, { label: 'Email', value: v.email }]} />
+    </Formik>);
+    const aside = screen.getByRole('complementary', { name: 'Employee Summary' });
+    expect(within(aside).getByText('Asha')).toBeTruthy();
+    expect(within(aside).getByText('—')).toBeTruthy();
+    fireEvent.click(within(aside).getByRole('button', { name: 'Collapse summary' }));
+    expect(within(aside).queryByText('Asha')).toBeNull();
+    expect(within(aside).getByRole('button', { name: 'Expand summary' })).toBeTruthy();
   });
 
   it('renders the identity slot at the top of the rail', () => {
