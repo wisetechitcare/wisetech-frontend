@@ -7,7 +7,7 @@ import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import Select from "react-select";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
-import { WtWizardDialog } from '@app/modules/common/components/ui';
+import { FullscreenWizardModal } from "@app/pages/employee/forms/shared/FullscreenWizardModal";
 import { ContactWorkspace } from "../../forms/ContactWorkspace";
 import { CrmSection } from "../../forms/CrmSection";
 import { ContactAddressSection } from "../../forms/ContactAddressSection";
@@ -633,9 +633,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
   return (
     <>
-      <WtWizardDialog title={contactId ? "Edit Contact" : "Add New Contact"}
-        subtitle="Capture identity, contact details and company relationship" icon="profile-user"
-        open={show}
+      <FullscreenWizardModal
+        show={show}
         onClose={onClose}
         closeLabel="Close contact form"
       >
@@ -1209,7 +1208,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
             );
           }}
         </Formik>
-      </WtWizardDialog>
+      </FullscreenWizardModal>
       <CompanyConfigForm
         show={showModal}
         onClose={() => setShowModal(false)}

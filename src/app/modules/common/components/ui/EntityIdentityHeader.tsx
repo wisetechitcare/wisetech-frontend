@@ -17,8 +17,10 @@ import { GlassSurface } from './glass';
  *
  * - `variant="full"` (default): thin `GlassSurface`, radius 16, 84px rounded avatar
  *   (64px on xs). Actions wrap under the name below `md`.
- * - `variant="compact"`: a plain transparent single-line row with a 40px avatar and no
- *   links — for a wizard rail or a review summary.
+ * - `variant="compact"`: a plain transparent row with a 36px avatar and no links, laid
+ *   out on TWO lines — the name (with chips) on line 1, the muted meta on line 2 — so
+ *   a narrow wizard rail (~230px) never squeezes the name down to a few characters.
+ *   Both lines ellipsize; a string name is exposed in full via `title`.
  *
  * The name is a CONTENT title (a record's own name), so it keeps its case — it is not a
  * structural heading and does not take `HEADING_CASE_SX`.
@@ -84,7 +86,7 @@ function MetaLine({ items, compact }: { items: ReactNode[]; compact: boolean }) 
       color="text.secondary"
       noWrap={compact}
       sx={compact
-        ? { flex: '1 1 auto', minWidth: 0 }
+        ? { fontSize: 12, lineHeight: 1.35, minWidth: 0, maxWidth: '100%' }
         : { display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 0.75, rowGap: 0.25 }}
     >
       {items.map((item, i) => (
@@ -133,7 +135,7 @@ export function EntityIdentityHeader({
   const metaItems = (meta ?? []).filter(hasContent);
   const visibleLinks = compact ? [] : (links ?? []).filter((l) => l && l.label);
   const titleText = typeof title === 'string' ? title : undefined;
-  const avatarSize = compact ? 40 : isXs ? 64 : 84;
+  const avatarSize = compact ? 36 : isXs ? 64 : 84;
 
   const avatarNode = isAvatarDescriptor(avatar) ? (
     <SmartAvatar
@@ -184,16 +186,21 @@ export function EntityIdentityHeader({
       >
         {backButton}
         {avatarNode && <Box sx={{ flexShrink: 0, display: 'flex' }}>{avatarNode}</Box>}
-        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
-          <Typography
-            component="div"
-            noWrap
-            title={titleText}
-            sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3, color: 'text.primary', minWidth: 0, flex: '0 1 auto' }}
-          >
-            {title}
-          </Typography>
-          {chips && <Box sx={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>{chips}</Box>}
+        <Box
+          data-testid="entity-identity-text"
+          sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.125, overflow: 'hidden' }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+            <Typography
+              component="div"
+              noWrap
+              title={titleText}
+              sx={{ fontWeight: 600, fontSize: 14, lineHeight: 1.35, color: 'text.primary', minWidth: 0, flex: '1 1 auto' }}
+            >
+              {title}
+            </Typography>
+            {chips && <Box sx={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>{chips}</Box>}
+          </Box>
           {metaItems.length > 0 && <MetaLine items={metaItems} compact />}
         </Box>
         {actions && (

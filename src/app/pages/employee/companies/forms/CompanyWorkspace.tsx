@@ -102,7 +102,7 @@ export function CompanyWorkspace({
   return (
     <EnterpriseFormWizard
       module="company"
-        icon="bi-building"
+      moduleIcon="bi-building"
       headerTitle={isEdit ? "Edit Company" : "Add New Company"}
       headerSub={
         headerMeta ||

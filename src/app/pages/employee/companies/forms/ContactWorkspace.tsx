@@ -67,7 +67,7 @@ export function ContactWorkspace({ isEdit, onCancel, isSubmitting, sections }: P
   return (
     <EnterpriseFormWizard
       module="contact"
-        icon="bi-person-lines-fill"
+      moduleIcon="bi-person-lines-fill"
       headerTitle={isEdit ? "Edit Contact" : "Add New Contact"}
       headerSub={
         isEdit

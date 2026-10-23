@@ -1,6 +1,7 @@
-import React from 'react';
-import { Accordion, AccordionSummary, AccordionDetails, Box, Typography } from '@mui/material';
-import { ExpandMore } from '@mui/icons-material';
+import React from "react";
+import { Collapse } from "react-bootstrap";
+import { ExpandLess, ExpandMore } from "@mui/icons-material";
+import "@app/pages/employee/forms/shared/Workspace.css";
 
 interface FormSectionProps {
   id: string;
@@ -12,22 +13,54 @@ interface FormSectionProps {
   children: React.ReactNode;
 }
 
-/** @deprecated New forms use FormSection from the UI kit. */
-export function FormSection({ id, title, subtitle, isOpen, onToggle, icon, children }: FormSectionProps) {
+export const FormSection: React.FC<FormSectionProps> = ({
+  id,
+  title,
+  subtitle,
+  isOpen,
+  onToggle,
+  icon,
+  children,
+}) => {
   return (
-    <Accordion id={id} expanded={isOpen} onChange={onToggle} disableGutters elevation={0} sx={{ mb: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1.5, '&::before': { display: 'none' } }}>
-      <AccordionSummary expandIcon={<ExpandMore />} aria-controls={id + '-content'} id={id + '-header'}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-          {icon && <Box sx={{ color: 'primary.main', display: 'flex' }}>{icon}</Box>}
-          <Box>
-            <Typography sx={{ fontSize: 15, fontWeight: 700 }}>{title}</Typography>
-            {subtitle && <Typography variant="body2" color="text.secondary">{subtitle}</Typography>}
-          </Box>
-        </Box>
-      </AccordionSummary>
-      <AccordionDetails id={id + '-content'}>{children}</AccordionDetails>
-    </Accordion>
+    <section className="workspace-accordion-section mb-6" id={id}>
+      <button
+        type="button"
+        className="workspace-accordion-header d-flex justify-content-between align-items-center px-6 py-4 w-100 border-0 text-start"
+        onClick={onToggle}
+        style={{
+          borderLeft: isOpen
+            ? "4px solid hsl(var(--workspace-primary-hsl))"
+            : "4px solid transparent",
+        }}
+      >
+        <span className="workspace-accordion-title d-flex align-items-center gap-2">
+          {icon ? (
+            <span className="text-primary d-flex align-items-center">{icon}</span>
+          ) : (
+            <span className="step-status-dot" />
+          )}
+          <span>
+            <span
+              className="fw-bold fs-5 text-gray-800 d-block"
+              style={{ fontFamily: "Barlow, sans-serif" }}
+            >
+              {title}
+            </span>
+            {subtitle && <span className="fs-8 text-gray-500 fw-semibold">{subtitle}</span>}
+          </span>
+        </span>
+        <span className="workspace-accordion-indicator text-muted">
+          {isOpen ? <ExpandLess /> : <ExpandMore />}
+        </span>
+      </button>
+      <Collapse in={isOpen}>
+        <div>
+          <div className="workspace-accordion-body p-6">{children}</div>
+        </div>
+      </Collapse>
+    </section>
   );
-}
+};
 
 export default FormSection;
