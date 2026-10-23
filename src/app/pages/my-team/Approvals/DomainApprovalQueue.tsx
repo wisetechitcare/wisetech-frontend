@@ -16,10 +16,9 @@ import { getSocket } from '@utils/socketClient';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { BatchDetailModal, fmtAmount } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
 import dayjs from 'dayjs';
-import Swal from 'sweetalert2';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
 import { getApprovalDomain, getApprovalDetail } from './domains/registry';
-// Direct module import (not the ui/ barrel) — the barrel drags Swal/glass/notifications into this
+// Direct module import (not the ui/ barrel) — the barrel drags glass/notifications into this
 // file's type+bundle graph for one chip.
 import { ToneChip } from '@app/modules/common/components/ui/chips';
 import { WtIconButton } from '@app/modules/common/components/ui/buttons';

@@ -1,7 +1,6 @@
-import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { UnsavedChangesModal as Modal, confirmDialog, safeHtml, showDialog } from '@app/modules/common/components/ui';
 import React, { useMemo, useState, useEffect } from 'react';
 
-import Swal from 'sweetalert2';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import eventBus from '@utils/EventBus';
@@ -387,29 +386,24 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
     }
 
     // There's an existing End date — confirm before touching it.
-    const confirm = await Swal.fire({
+    const proceed = await confirmDialog({
+      icon: 'warning',
       title: 'This will change the End date',
-      html: `This member already has an End date of <b>${fmtDate(row.endDate)}</b>. ${
+      html: safeHtml`This member already has an End date of <b>${fmtDate(row.endDate)}</b>. ${
         newActive ? 'Reactivating' : 'Marking inactive'
       } will affect it. Do you want to continue?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Continue',
-      cancelButtonText: 'Cancel',
-      confirmButtonColor: '#1E3A8A',
+      confirmText: 'Continue',
+      cancelText: 'Cancel',
     });
-    if (!confirm.isConfirmed) return; // leave status + end date untouched
+    if (!proceed) return; // leave status + end date untouched
 
     // Let the user choose which End date to keep.
-    const choice = await Swal.fire({
+    const choice = await showDialog({
+      variant: 'info',
       title: 'Which End date should apply?',
-      icon: 'question',
-      showDenyButton: true,
-      showCancelButton: true,
-      confirmButtonText: newActive ? 'Clear end date' : `Use today (${fmtDate(today)})`,
-      denyButtonText: `Keep existing (${fmtDate(row.endDate)})`,
-      cancelButtonText: 'Cancel',
-      confirmButtonColor: '#1E3A8A',
+      confirmLabel: newActive ? 'Clear end date' : `Use today (${fmtDate(today)})`,
+      denyLabel: `Keep existing (${fmtDate(row.endDate)})`,
+      cancelLabel: 'Cancel',
     });
     if (choice.isDismissed) return; // cancelled → no change at all
 
