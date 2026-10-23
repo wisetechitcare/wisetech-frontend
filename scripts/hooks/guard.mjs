@@ -36,21 +36,39 @@ const SECRET_RULES = [
   ['connection string with password', /\b(mysql|postgres(?:ql)?|mongodb(?:\+srv)?|redis|amqp):\/\/[^\s:@/]+:[^\s:@/]{3,}@/i],
 ]
 
-/** Code smells that should never reach a shared branch. */
+/** Code smells that should never reach a shared branch.
+ *
+ * Entries are [rule, regex] or [rule, regex, appliesTo]. The optional third element is a
+ * predicate over the file path (forward slashes); a rule that has one runs only on the
+ * paths it accepts. Rules without it run on every file, exactly as before. */
 const CODE_RULES = [
   ['merge conflict marker', /^(<{7}|>{7}|\|{7})[ \t]/],
   ['leftover debugger', /(^|[\s;{])debugger\s*(;|$)/],
   ['focused test (.only)', /\b(describe|it|test|suite)\.only\s*\(/],
+  /* Stylesheet half of the blur ratchet (ESLint covers TS/TSX). A hand-written blur ignores
+   * the Interface Style (Glass/Material) setting; the kit's glassSx / GlassSurface /
+   * GlassDialog read it. Turning blur OFF (`none`) is fine. The lookahead sits AFTER the
+   * colon on purpose: `:\s*(?!none)` lets `\s*` backtrack to zero and still match
+   * `: none`. Vendored Metronic, the UI kit and the theme implement surfaces — exempt. */
+  ['raw backdrop-filter', /backdrop-filter\s*:(?!\s*none\b)/, (path) =>
+    /\.(css|scss|sass)$/i.test(path) &&
+    !/(^|\/)src\/(_metronic|app\/modules\/common\/components\/ui|app\/theme)\//.test(path)],
 ]
 
-/** @returns {{line:number, rule:string, text:string}[]} */
-export function scanText(text) {
+/**
+ * @param {string} text
+ * @param {string} [path] the file being scanned; path-scoped rules are skipped without it
+ * @returns {{line:number, rule:string, text:string}[]}
+ */
+export function scanText(text, path = '') {
   const hits = []
+  const p = path.split('\\').join('/')
+  const rules = [...SECRET_RULES, ...CODE_RULES].filter(([, , appliesTo]) => !appliesTo || appliesTo(p))
   const lines = text.split('\n')
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     if (line.includes(ALLOW)) continue
-    for (const [rule, re] of [...SECRET_RULES, ...CODE_RULES]) {
+    for (const [rule, re] of rules) {
       if (re.test(line)) hits.push({ line: i + 1, rule, text: line.trim().slice(0, 120) })
     }
   }
@@ -104,11 +122,12 @@ function scanFiles(files) {
 
     const buf = readFileSync(file)
     if (buf.subarray(0, 8000).includes(0)) continue // binary
-    for (const h of scanText(buf.toString('utf8'))) {
+    for (const h of scanText(buf.toString('utf8'), file)) {
       const tip =
         h.rule === 'leftover debugger' ? 'Remove debugger before committing.'
           : h.rule.startsWith('focused test') ? 'Remove .only so the full test suite runs.'
             : h.rule === 'merge conflict marker' ? 'Finish the merge conflict, then stage again.'
+            : h.rule === 'raw backdrop-filter' ? 'Raw backdrop-filter ignores the Interface Style (Glass/Material) setting. Use glassSx / GlassSurface / GlassDialog from the UI kit.'
               : h.rule.includes('secret') || h.rule.includes('key') || h.rule.includes('token') || h.rule.includes('password') || h.rule.includes('JWT') || h.rule.includes('PRIVATE KEY')
                 ? 'This looks like a secret — remove it before committing.'
                 : h.rule
@@ -132,6 +151,18 @@ function selfTest() {
   assert.deepEqual(hit('await it.only'), []) // needs a call
   // the allow marker suppresses
   assert.deepEqual(hit('const example = "AKIA1234567890ABCDEF" // guard:allow docs sample'), [])
+  // raw backdrop-filter: stylesheets only, outside the kit / theme / Metronic
+  const css = (s, path) => scanText(s, path).map((h) => h.rule)
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/pages/employee/glass.css'), ['raw backdrop-filter'])
+  assert.deepEqual(css('  -webkit-backdrop-filter:blur(8px);', 'C:\\repo\\src\\app\\x.scss'), ['raw backdrop-filter'])
+  assert.deepEqual(css('  backdrop-filter: none;', 'src/app/pages/employee/glass.css'), [])
+  assert.deepEqual(css('  backdrop-filter:none;', 'src/main.css'), [])
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/modules/common/components/ui/tw/glass.css'), [])
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/theme/toast.css'), [])
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/_metronic/assets/sass/_x.scss'), [])
+  assert.deepEqual(css('  `backdrop-filter: blur(8px);`', 'src/app/pages/X.tsx'), []) // ESLint owns TSX
+  assert.deepEqual(css('  backdrop-filter: blur(8px); /* guard:allow legacy */', 'src/main.css'), [])
+  assert.deepEqual(hit('  backdrop-filter: blur(8px);'), []) // no path: path-scoped rules stay off
 
   const ok = (m) => assert.equal(validateCommitMsg(m), null, m)
   const bad = (m) => assert.ok(validateCommitMsg(m), m)

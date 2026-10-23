@@ -73,6 +73,7 @@ are built from.
 | Reorder list engine | **`ReorderableGroup` + `DragHandle`** (also on this barrel) | up/down buttons; deep import only from `components/ReorderableGroup` |
 | Row action tone from Trio | `trioToActionTone(TRIO.rose)` → `ActionIconButton` | mapping accents per screen |
 | Summary stat | `StatTile` | a bespoke number-in-a-box |
+| Entity detail / Review card (identity, header band, label/value rows) | `EntityIdentityHeader`, `DetailCard`, `KeyValueRow`/`KeyValueList`, `SectionDivider`, `DetailGrid` — see Entity detail below | `DetailPageComponents.tsx` in new work; a second identity header row |
 | Chip / badge (status **and** meta) | **`ToneChip`** / `StatusBadge` — see chip recipe below | Private `MetaPill`, Bootstrap `badge`, hand-rolled muted pills |
 | Exclusive 2–5 way **named** choice (status, period) | `SegmentedControl` | a row of outlined pills / `ToggleButtonGroup` |
 | Boolean setting | `WtChoiceField variant="switch"` | Yes/No segmented controls |
@@ -225,6 +226,31 @@ entity (settings tiles, ad-hoc chrome).
 
 **Never:** Bootstrap `card`, a feature-local `gridTemplateColumns` fork, or a
 second chip/pill next to `ToneChip` on the same card.
+
+## Entity detail — the Employee Details look, rebuilt here
+
+Detail screens and the wizard Review step share one look: per-section tone
+(`TRIO`) + KT icon in an `IconBox`, a card header band, and label/value rows.
+Rules: [`docs/wizard-ux-contract.md` §15](../../../../../../docs/wizard-ux-contract.md).
+
+| Need | Use | Never |
+|------|-----|-------|
+| Entity identity (avatar + name + meta) | **`EntityIdentityHeader`** — `variant="full"` on a detail page; `variant="compact"` in a wizard rail / Review step | a second header row under the dialog header; a per-screen avatar+name block |
+| Titled section card with a header band | **`DetailCard`** (tone + KT icon + heading in `HEADING_CASE_SX`) | `GlassSurface` + hand-rolled title row |
+| One label/value line | **`KeyValueRow`** | `Typography` pairs with magic widths |
+| A stack of label/value lines | **`KeyValueList`** | a bespoke `<dl>` / `Grid` per screen |
+| Divider between groups inside a card | **`SectionDivider`** | raw `<hr>`, Bootstrap `separator` |
+| Responsive grid of `DetailCard`s | **`DetailGrid`** (single column at 360px) | a feature-local `gridTemplateColumns` |
+
+Empty values render explicit **Not provided** / **Not set** (contract §4), not `—`.
+
+**Legacy:** `@app/modules/detail-page/DetailPageComponents.tsx` (its own
+`DetailCard`, `DetailRow`, `DetailInfoGrid`, `DetailProfileBlock`, …) is
+**superseded for new work**. Existing callers keep working; its 4
+identity-header copies migrate to `EntityIdentityHeader` later. Do not import
+it from new files, and do not confuse its `DetailCard` with the barrel's.
+
+**No raw `backdrop-filter` outside the kit** — `glassSx` / `GlassSurface` / `GlassDialog` follow Interface Style (`data-surface` glass | material); form canvas, fields, review and tables stay opaque.
 
 ## Dialog / form shell
 

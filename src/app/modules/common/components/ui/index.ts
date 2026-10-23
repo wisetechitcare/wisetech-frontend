@@ -240,3 +240,12 @@ export { WtPhoneField } from './WtPhoneField';
 export { WtPhoneFieldFormik, type WtPhoneFieldFormikProps } from './WtPhoneFieldFormik';
 export type { WtPhoneFieldProps } from './WtPhoneField';
 export { WtWizardDialog, type WtWizardDialogProps } from './WtWizardDialog';
+// Read-only record view: accent-topped opaque card + label/value rows + section divider + 2-up grid.
+// The employee-details look rebuilt on the kit; KeyValueList rows match the form engine's SummaryRow.
+export { DetailCard, KeyValueRow, KeyValueList, SectionDivider, DetailGrid } from './DetailCard';
+export type {
+  DetailCardProps, KeyValueRowProps, KeyValueListProps, KeyValueListRow, SectionDividerProps, DetailGridProps,
+} from './DetailCard';
+// Record identity header (avatar + name + meta + contact links + actions) for detail pages and wizards.
+export { EntityIdentityHeader } from './EntityIdentityHeader';
+export type { EntityIdentityHeaderProps } from './EntityIdentityHeader';

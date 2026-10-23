@@ -2,31 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useFormikContext } from "formik";
 import dayjs from "dayjs";
 
-import {
-  PersonOutlined,
-  ContactPhoneOutlined,
-  SchoolOutlined,
-  GroupsOutlined,
-  HealthAndSafetyOutlined,
-  AccountBalanceOutlined,
-  PlaceOutlined,
-  RestaurantOutlined,
-  BadgeOutlined,
-  BusinessCenterOutlined,
-  WorkHistoryOutlined,
-  EventAvailableOutlined,
-  SupervisorAccountOutlined,
-  PaymentsOutlined,
-  ReceiptLongOutlined,
-  AdminPanelSettingsOutlined,
-  VisibilityOffOutlined,
-  UploadFileOutlined,
-  PersonOutlineOutlined,
-  ApartmentOutlined,
-  TuneOutlined,
-  FolderOutlined,
-} from "@mui/icons-material";
-
 import { fetchAllEmployees, fetchDocumentsField, getAllEmployeeLevels } from "@services/employee";
 import { fetchCompanyOverview, fetchOrganizationTree } from "@services/company";
 import {
@@ -47,7 +22,7 @@ import * as S from "./OnboardingSections";
 import type { OnboardingSectionsProps } from "./OnboardingSections";
 import { formatBloodGroup } from "@utils/employeeFormat";
 import { employeeGenderLabel } from "@utils/employeeGender";
-import { AppIcon, ToneChip } from '@app/modules/common/components/ui';
+import { AppIcon, EntityIdentityHeader, ToneChip, TRIO } from '@app/modules/common/components/ui';
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 
 /**
@@ -372,14 +347,15 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
       {
         id: "personal",
         label: "Personal Details",
-        icon: <PersonOutlineOutlined />,
+        icon: "profile-circle",
         children: [
           {
             id: "personal-info",
             label: "Personal Information",
             title: "Personal Information",
             subtitle: "Photo, legal name and key dates",
-            icon: <PersonOutlined />,
+            icon: "profile-circle",
+            tone: TRIO.blue,
             fields: [
               "avatar",
               "firstName",
@@ -398,7 +374,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Contact Information",
             title: "Contact Information",
             subtitle: "Personal email, phone and social profiles",
-            icon: <ContactPhoneOutlined />,
+            icon: "phone",
+            tone: TRIO.blue,
             fields: [
               "personalEmailId",
               "personalPhoneNumber",
@@ -416,7 +393,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Education Details",
             title: "Education Details",
             subtitle: "Qualifications, institutes and certificates",
-            icon: <SchoolOutlined />,
+            icon: "teacher",
+            tone: TRIO.cyan,
             fields: ["educationalInfo"],
             render: (p) => <S.EducationSection {...p} />,
           },
@@ -425,7 +403,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Family Details",
             title: "Family Details",
             subtitle: "Dependants and relatives on record",
-            icon: <GroupsOutlined />,
+            icon: "people",
+            tone: TRIO.purple,
             fields: ["familyInfo"],
             requiredFields: ["familyInfo"],
             render: (p) => <S.FamilySection {...p} />,
@@ -435,7 +414,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Health & Emergency Info",
             title: "Health & Emergency Info",
             subtitle: "Blood group, allergies and who to call",
-            icon: <HealthAndSafetyOutlined />,
+            icon: "heart",
+            tone: TRIO.rose,
             fields: ["emergencyDetails"],
             render: (p) => <S.EmergencySection {...p} />,
           },
@@ -444,7 +424,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Bank Details",
             title: "Bank Details",
             subtitle: "Salary account and supporting proof",
-            icon: <AccountBalanceOutlined />,
+            icon: "bank",
+            tone: TRIO.green,
             fields: ["bankInfo"],
             render: (p) => <S.BankSection {...p} />,
           },
@@ -453,7 +434,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Address Details",
             title: "Address Details",
             subtitle: "Present and permanent address",
-            icon: <PlaceOutlined />,
+            icon: "geolocation",
+            tone: TRIO.cyan,
             fields: ["addressInfo"],
             requiredFields: ["addressInfo"],
             render: (p) => <S.AddressSection {...p} />,
@@ -463,7 +445,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Additional Details",
             title: "Additional Details",
             subtitle: "Dietary preference",
-            icon: <RestaurantOutlined />,
+            icon: "cup",
+            tone: TRIO.amber,
             fields: ["meal"],
             render: (p) => <S.AdditionalDetailsSection {...p} />,
           },
@@ -472,14 +455,15 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
       {
         id: "company",
         label: "Company Details",
-        icon: <ApartmentOutlined />,
+        icon: "entity",
         children: [
           {
             id: "employee_info",
             label: "Employee Information",
             title: "Employee Information",
             subtitle: "Organization, designation, department and team",
-            icon: <BadgeOutlined />,
+            icon: "briefcase",
+            tone: TRIO.blue,
             fields: [
               "organizationId",
               "subOrganizationId",
@@ -505,7 +489,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Work Contact Details",
             title: "Work Contact Details",
             subtitle: "Company email and phone",
-            icon: <ContactPhoneOutlined />,
+            icon: "sms",
+            tone: TRIO.blue,
             fields: ["companyEmailId", "companyPhoneNumber", "companyPhoneExtension"],
             render: (p) => <S.WorkContactSection {...p} />,
           },
@@ -514,7 +499,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Hiring Information",
             title: "Hiring Information",
             subtitle: "Source of hire, joining date and rejoin history",
-            icon: <BusinessCenterOutlined />,
+            icon: "user-tick",
+            tone: TRIO.green,
             fields: [
               "sourceOfHireId",
               "referredById",
@@ -532,7 +518,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Work Experience",
             title: "Work Experience",
             subtitle: "Prior employers — optional",
-            icon: <WorkHistoryOutlined />,
+            icon: "time",
+            tone: TRIO.amber,
             fields: ["workExpInfo"],
             render: (p) => <S.WorkExperienceSection {...p} />,
           },
@@ -541,7 +528,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Leave Settings",
             title: "Leave Settings",
             subtitle: "Allocations for the selected branch",
-            icon: <EventAvailableOutlined />,
+            icon: "calendar",
+            tone: TRIO.cyan,
             fields: ["leaveAllocations"],
             render: (p) => <S.LeaveSettingsSection {...p} />,
           },
@@ -550,14 +538,15 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
       {
         id: "app-settings",
         label: "App Settings",
-        icon: <TuneOutlined />,
+        icon: "setting-2",
         children: [
           {
             id: "reporting",
             label: "Reporting",
             title: "Reporting",
             subtitle: "Who this employee reports to",
-            icon: <SupervisorAccountOutlined />,
+            icon: "profile-user",
+            tone: TRIO.blue,
             fields: ["reportsToId"],
             render: (p) => <S.ReportingSection {...p} />,
           },
@@ -566,7 +555,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Financial Config",
             title: "Financial Configuration",
             subtitle: "CTC, professional fees, TDS and retention",
-            icon: <PaymentsOutlined />,
+            icon: "wallet",
+            tone: TRIO.green,
             fields: [
               "ctcInLpa",
               "professionalFeesEnabled",
@@ -596,7 +586,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Reimbursement",
             title: "Reimbursement",
             subtitle: "Per-request claim ceiling",
-            icon: <ReceiptLongOutlined />,
+            icon: "bill",
+            tone: TRIO.amber,
             fields: ["reimbursementLimitPerRequest"],
             render: (p) => <S.ReimbursementSection {...p} />,
           },
@@ -605,7 +596,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "System Access",
             title: "System Access",
             subtitle: "App role and account state",
-            icon: <AdminPanelSettingsOutlined />,
+            icon: "shield-tick",
+            tone: TRIO.purple,
             fields: ["appRole", "isEmployeeActive", "approvalChains"],
             requiredFields: ["appRole"],
             // Approval Settings carries a required mark, so it has to hold Continue the
@@ -629,7 +621,8 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
             label: "Privacy Controls",
             title: "Privacy Controls",
             subtitle: "Directory discoverability",
-            icon: <VisibilityOffOutlined />,
+            icon: "eye-slash",
+            tone: TRIO.slate,
             fields: ["isHiddenFromStaff"],
             render: (p) => <S.PrivacySection {...p} />,
           },
@@ -638,14 +631,15 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
       {
         id: "documents",
         label: "Documents",
-        icon: <FolderOutlined />,
+        icon: "folder",
         children: [
           {
             id: "upload_docs",
             label: "Upload Documents",
             title: "Upload Documents",
             subtitle: "Identity and statutory documents on file",
-            icon: <UploadFileOutlined />,
+            icon: "document",
+            tone: TRIO.slate,
             fields: ["documentInfo"],
             render: (p) => <S.DocumentsSection {...p} />,
           },
@@ -772,9 +766,26 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
     return rows;
   };
 
+  // Edit mode only: who is being edited, from values the form already holds (no fetch).
+  const identityName =
+    `${values.firstName || ""} ${values.lastName || ""}`.trim() || (props.headerName || "").trim();
+  const identity = props.editMode && identityName ? (
+    <EntityIdentityHeader
+      variant="compact"
+      title={identityName}
+      avatar={{ src: props.profilePhotoPreview || values.avatar || null, name: identityName }}
+      meta={[
+        lookups.designation[String(values.designationId ?? "")] || "",
+        lookups.department[String(values.departmentId ?? "")] || "",
+        hasValue(values.employeeCode) ? `#${String(values.employeeCode).trim()}` : "",
+      ]}
+    />
+  ) : undefined;
+
   return (
     <EnterpriseFormWizard layout="sections"
       groups={groups}
+      identity={identity}
       sectionProps={props}
       defaultValues={props.defaultValues}
       isSubmitting={props.isSubmitting}

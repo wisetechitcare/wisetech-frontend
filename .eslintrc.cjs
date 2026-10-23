@@ -233,6 +233,29 @@ module.exports = {
         selector: "Property[key.name=/^(icon|iconName)$/] > Literal[value='dollar']",
         message: 'The `dollar` keenicon is a currency-specific glyph. For a category icon use `wallet`; for an AMOUNT use <CurrencySymbol />.',
       },
+      /* Raw backdrop-filter. A hand-written blur ignores the Interface Style setting
+       * (Glass / Material): a Material user still gets frosted glass, and the GPU cost of a
+       * blur behind every card lands on the low-end machines Material exists for. The kit
+       * (glassSx / GlassSurface / GlassDialog) reads the setting, so blur belongs there.
+       * Four shapes: sx/style keys (camelCase and quoted CSS name), a template-literal CSS
+       * string, and the Tailwind `backdrop-blur*` utility. Turning blur OFF (`'none'`,
+       * `backdrop-blur-none`) is not the bug and is left alone. */
+      {
+        selector: "Property[key.name=/^(backdropFilter|WebkitBackdropFilter)$/]:not([value.value='none'])",
+        message: 'Raw backdrop-filter. Use glassSx / GlassSurface / GlassDialog from the UI kit — they follow the Interface Style (Glass/Material) setting.',
+      },
+      {
+        selector: "Property[key.value=/^(-webkit-)?backdrop-filter$/]:not([value.value='none'])",
+        message: 'Raw backdrop-filter. Use glassSx / GlassSurface / GlassDialog from the UI kit — they follow the Interface Style (Glass/Material) setting.',
+      },
+      {
+        selector: "TemplateElement[value.raw=/backdrop-filter\\s*:(?!\\s*none\\b)/]",
+        message: 'Raw backdrop-filter. Use glassSx / GlassSurface / GlassDialog from the UI kit — they follow the Interface Style (Glass/Material) setting.',
+      },
+      {
+        selector: "JSXAttribute[name.name='className'] Literal[value=/(^|\\s)backdrop-blur(?!-none\\b)/]",
+        message: 'Raw backdrop-filter. Use glassSx / GlassSurface / GlassDialog from the UI kit — they follow the Interface Style (Glass/Material) setting.',
+      },
     ],
   },
   overrides: [

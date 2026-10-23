@@ -268,3 +268,18 @@ Accessibility verification must run axe against switch, segmented, cards, and ea
 - Baseline entries are removed only after the corresponding wave passes.
 - The audit script returns zero violations.
 - Frontend/backend typechecks, lint, focused tests, axe, migration checks, payroll checks, and available E2E checks pass, or an explicit release-blocking exception is recorded.
+
+## Delta 2026-10-23
+
+Scope note: the phase and gate labels below (Phase 1, Phase 2b, G0, G3, G5) refer to the wizard engine track in [`wizard-engine-unification.md`](./wizard-engine-unification.md) and [`wizard-migration-acceptance.md`](./wizard-migration-acceptance.md), not to sections 8.1-8.5 of this plan. The normative UX rules are in [`wizard-ux-contract.md` section 15](./wizard-ux-contract.md#15-addendum--2026-10-23). Nothing here changes payloads, Formik values or permissions.
+
+| Area | Change |
+|---|---|
+| Phase 1 (engine) | Adds: opt-in final **Review step** (per-step `DetailCard`, status, host rows, Edit link); **submit-time error routing** to the first step/leaf with an error, field focused, toast kept; **draft status** `idle \| saving \| saved \| failed \| conflict` (`isSavingDraft` maps to `saving`; never "Saved" after a failure). |
+| Phase 1 (kit) | Adds entity primitives to `@app/modules/common/components/ui`: `EntityIdentityHeader` (`full` \| `compact`), `DetailCard`, `KeyValueRow` / `KeyValueList`, `SectionDivider`, `DetailGrid`. The Employee Details look is rebuilt here, not copied. |
+| Phase 1 (guard) | **Blur guard**: no raw `backdrop-filter` outside the kit (ESLint for TSX, `scripts/hooks/guard.mjs` for CSS). Glass goes through `glassSx` / `GlassSurface` / `GlassDialog`. |
+| Phase 2b (new, not built) | Candidate -> employee **prefill** extending Convert-to-Employee (`PipelineView` `convertToEmployee`, `NewEmployeeWizard` draft seam, `services/recruitment` stash/take/link); one family-scoped backend mapping endpoint returning `{ values, sources }`; sources outside Formik; per-field `ToneChip` neutral marker; link stays `Application.convertedEmployeeId`. |
+| G0 evidence | Adds a **legacy blur inventory**: `wizard/steps/Step2.css`, `employee/glass.css`, `forms/shared/Workspace.css` and the other legacy files. Measured 2026-10-23: 30 files under `src/` (excluding `_metronic`) use `backdrop-filter`/`backdropFilter`; 3 are kit files, so 27 legacy files are in the inventory. The inventory is recorded, not cleaned up, in this wave. |
+| G3 | Adds the **light/dark x glass/material** matrix (4 combinations) to the existing 360px and 200% zoom checks. |
+| Interface Style | Organisation default + user override, resolved through `src/preferences/core.ts` (user -> org -> `material` fallback); drives `data-surface`. Form canvas, fields, review and tables stay opaque on every surface. |
+| Later / out of scope | Joining / document checklist component after G5 (not a wizard mode). Public careers apply form and focused/Typeform mode are out of scope. |

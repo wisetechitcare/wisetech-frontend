@@ -1,12 +1,18 @@
-import React, { useMemo, useState, useCallback, useRef } from "react";
+import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { Box, Typography } from '@mui/material';
-import { useFormikContext } from "formik";
+import { getIn, useFormikContext } from "formik";
 import { PictureAsPdf, Description, ChevronRight, ChevronLeft } from "@mui/icons-material";
-import { EnterpriseWizardStep, WizardActionConfig, WizardSummaryConfig } from "../../types/formEngine.types";
+import { EnterpriseWizardStep, WizardActionConfig, WizardReviewConfig, WizardSummaryConfig } from "../../types/formEngine.types";
 import { SummarySidebar } from "../SummarySidebar/SummarySidebar";
 import { WizardSidebar } from "../WizardSidebar/WizardSidebar";
 import { GroupedWizard, type GroupedWizardProps } from './GroupedWizard';
-import { hasStepErrors, stepValueSignature } from '../../utils/stepValidation';
+import {
+  firstErrorPath, firstErrorPathIn, firstErroredStepIndex, focusFieldOrError, hasFilledValue, hasStepErrors, stepValueSignature,
+} from '../../utils/stepValidation';
+import {
+  DEFAULT_REVIEW_TITLE, REVIEW_ICON, REVIEW_STEP_ID, WizardDraftStatusText, WizardReview, resolveDraftStatus, reviewStatusOf,
+  type WizardReviewItem,
+} from './WizardReview';
 import { AppIcon, FormSection, GlassDialogActions, TRIO, toast, useUnsavedChangesGuard, WtButton, WtIconButton } from '@app/modules/common/components/ui';
 
 interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
@@ -27,6 +33,11 @@ interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
   breadcrumb?: string[];
   onStepChange?: (step: number) => void;
   initialStep?: number;
+  /**
+   * Optional final Review step, appended after the visible steps. The last step's
+   * primary button becomes Save & Continue and the submit buttons move onto the review.
+   */
+  review?: WizardReviewConfig;
 }
 
 export function EnterpriseFormWizard<TValues = any, TStepProps = any>(
@@ -52,8 +63,9 @@ function StepWizard<TValues = any, TStepProps = any>({
   breadcrumb,
   onStepChange,
   initialStep = 0,
+  review,
 }: EnterpriseFormWizardProps<TValues, TStepProps>) {
-  const { dirty, values, submitForm, validateForm, setFieldTouched } = useFormikContext<TValues>();
+  const { dirty, values, errors, submitForm, validateForm, setFieldTouched } = useFormikContext<TValues>();
   const { requestClose, dialog: unsavedChangesDialog } = useUnsavedChangesGuard(dirty, actions.onCancel);
   const visibleSteps = useMemo(() => steps.filter((step) => !step.hidden), [steps]);
   const [currentStep, setCurrentStep] = useState(initialStep);
@@ -66,11 +78,20 @@ function StepWizard<TValues = any, TStepProps = any>({
     validatedSections[step.id] === stepValueSignature(values, step.fields),
   ]));
 
-  const isLastStep = currentStep === visibleSteps.length - 1;
+  // The optional Review step is one extra position after the visible steps. It is
+  // never a step to complete: the rail shows it, the progress count leaves it out.
+  const hasReview = Boolean(review);
+  const reviewTitle = review?.title ?? DEFAULT_REVIEW_TITLE;
+  const totalSteps = visibleSteps.length + (hasReview ? 1 : 0);
+  const isOnReview = hasReview && currentStep === visibleSteps.length;
+  const isLastRealStep = currentStep === visibleSteps.length - 1;
+
+  // With a review, it is the review that submits; the last real step only continues.
+  const isLastStep = hasReview ? isOnReview : isLastRealStep;
   const isFirstStep = currentStep === 0;
-  const currentStepDef = visibleSteps[currentStep];
+  const currentStepDef = isOnReview ? undefined : visibleSteps[currentStep];
   const summaryRows = typeof summary.rows === "function" ? summary.rows(values, currentStepDef) : summary.rows;
-  const isSaveStep = isLastStep || !!currentStepDef?.isSubmitStep;
+  const isSaveStep = isLastStep || (!!currentStepDef?.isSubmitStep && !(hasReview && isLastRealStep));
   const StepComponent = currentStepDef?.component;
 
   const scrollCanvasTop = useCallback(() => {
@@ -78,13 +99,38 @@ function StepWizard<TValues = any, TStepProps = any>({
   }, []);
 
   const goToStep = useCallback((idx: number) => {
-    if (idx >= 0 && idx < visibleSteps.length && idx !== currentStep) {
+    if (idx >= 0 && idx < totalSteps && idx !== currentStep) {
       setCurrentStep(idx);
       setAnimKey((k) => k + 1);
       scrollCanvasTop();
       onStepChange?.(idx);
     }
-  }, [currentStep, visibleSteps.length, scrollCanvasTop, onStepChange]);
+  }, [currentStep, totalSteps, scrollCanvasTop, onStepChange]);
+
+  /**
+   * A field to focus once the step we just navigated to has rendered. Set before a
+   * move and consumed by the effect below: focusing in the same tick would look for an
+   * input the new step has not painted yet.
+   */
+  const pendingFocusRef = useRef<{ path: string | null } | null>(null);
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending) return;
+    pendingFocusRef.current = null;
+    window.requestAnimationFrame(() => focusFieldOrError(pending.path));
+  }, [currentStep]);
+
+  /** Submit-time failure: open the first visible step that owns an error and focus the field. */
+  const routeToFirstError = useCallback((formErrors: any) => {
+    const index = firstErroredStepIndex(formErrors, visibleSteps);
+    const path = index === -1 ? firstErrorPath(formErrors) : firstErrorPathIn(formErrors, visibleSteps[index].fields);
+    if (index !== -1 && index !== currentStep) {
+      pendingFocusRef.current = { path };
+      goToStep(index);
+      return;
+    }
+    window.requestAnimationFrame(() => focusFieldOrError(path));
+  }, [visibleSteps, currentStep, goToStep]);
 
   const handleNext = useCallback(async () => {
     const errors = await validateForm();
@@ -108,6 +154,7 @@ function StepWizard<TValues = any, TStepProps = any>({
       if (Object.keys(errors).length > 0) {
         toast({ icon: 'error', title: "Please fill in all required fields before submitting." });
         Object.keys(errors).forEach(key => setFieldTouched(key, true));
+        routeToFirstError(errors);
         return;
       }
       if (actions.onFinalSave) {
@@ -118,7 +165,7 @@ function StepWizard<TValues = any, TStepProps = any>({
     } else {
       goToStep(currentStep + 1);
     }
-  }, [isSaveStep, currentStep, goToStep, submitForm, actions, validateForm, setFieldTouched, visibleSteps, values]);
+  }, [isSaveStep, currentStep, goToStep, submitForm, actions, validateForm, setFieldTouched, visibleSteps, values, routeToFirstError]);
 
   const handleBack = useCallback(() => {
     if (!isFirstStep) {
@@ -133,11 +180,38 @@ function StepWizard<TValues = any, TStepProps = any>({
     if (Object.keys(errors).length) {
       Object.keys(errors).forEach((key) => setFieldTouched(key, true));
       toast({ icon: 'error', title: 'Please fill in all required fields before submitting.' });
+      routeToFirstError(errors);
       return;
     }
     if (callback) callback();
     else await submitForm();
   };
+
+  // The rail lists the Review step after the real ones; WizardSidebar leaves it out of the count.
+  const railSteps = useMemo<EnterpriseWizardStep<any>[]>(() => (hasReview
+    ? [...visibleSteps, { id: REVIEW_STEP_ID, label: reviewTitle, title: reviewTitle, fields: [], icon: REVIEW_ICON }]
+    : visibleSteps), [hasReview, visibleSteps, reviewTitle]);
+
+  // One card per visible step, in order, for the optional Review step.
+  const reviewItems: WizardReviewItem[] = useMemo(() => {
+    if (!review) return [];
+    return visibleSteps.map((step) => {
+      const required = step.requiredFields ?? [];
+      return {
+        id: step.id,
+        title: step.title,
+        tone: step.tone ?? TRIO.blue,
+        icon: step.icon,
+        status: reviewStatusOf({
+          hasErrors: hasStepErrors(errors, step.fields),
+          missingRequired: required.filter((f) => !hasFilledValue(getIn(values, f))).length,
+          hasRequirement: required.length > 0,
+          hasAnyValue: step.fields.some((f) => hasFilledValue(getIn(values, f))),
+        }),
+        rows: review.rows ? review.rows(step.id, values) : undefined,
+      };
+    });
+  }, [review, visibleSteps, values, errors]);
 
   return (
     <Box data-form-module={module} sx={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', bgcolor: 'background.default', color: 'text.primary' }}>
@@ -150,12 +224,22 @@ function StepWizard<TValues = any, TStepProps = any>({
         {headerActions}
       </Box>
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, overflow: 'hidden' }}>
-        <WizardSidebar sections={visibleSteps} currentStep={currentStep} onStepClick={goToStep} title={sidebarTitle} completedSections={completedSections} />
+        <WizardSidebar sections={railSteps} currentStep={currentStep} onStepClick={goToStep} title={sidebarTitle} completedSections={completedSections} uncountedIds={hasReview ? [REVIEW_STEP_ID] : undefined} />
         <Box component="main" ref={canvasRef} sx={{ flex: 1, minWidth: 0, overflowY: 'auto', p: { xs: 1.5, sm: 2 } }}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>Step {currentStep + 1} of {visibleSteps.length}</Typography>
-          <FormSection key={animKey} tone={TRIO.blue} icon={currentStepDef?.icon ?? 'abstract-26'} title={currentStepDef?.title ?? ''} desc={currentStepDef?.subtitle}>
-            {currentStepDef?.render ? currentStepDef.render(stepProps as TStepProps) : StepComponent ? React.createElement(StepComponent as React.ComponentType<any>, stepProps || {}) : null}
-          </FormSection>
+          {isOnReview ? (
+            <WizardReview
+              title={reviewTitle}
+              identity={review?.identity}
+              items={reviewItems}
+              onEdit={(id) => goToStep(visibleSteps.findIndex((step) => step.id === id))}
+              disabled={actions.isSubmitting}
+            />
+          ) : <>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>Step {currentStep + 1} of {visibleSteps.length}</Typography>
+            <FormSection key={animKey} tone={currentStepDef?.tone ?? TRIO.blue} icon={currentStepDef?.icon ?? 'abstract-26'} title={currentStepDef?.title ?? ''} desc={currentStepDef?.subtitle}>
+              {currentStepDef?.render ? currentStepDef.render(stepProps as TStepProps) : StepComponent ? React.createElement(StepComponent as React.ComponentType<any>, stepProps || {}) : null}
+            </FormSection>
+          </>}
         </Box>
         <Box component="aside" aria-label={summary.title} sx={{ display: { xs: 'none', lg: 'block' }, width: summaryCollapsed ? 44 : 260, flexShrink: 0, overflowY: 'auto', p: 1.5, borderLeft: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
           <WtIconButton title={summaryCollapsed ? 'Expand summary' : 'Collapse summary'} onClick={() => setSummaryCollapsed((previous) => !previous)}>
@@ -174,6 +258,7 @@ function StepWizard<TValues = any, TStepProps = any>({
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           <WtButton ghost onClick={requestClose} disabled={actions.isSubmitting}>Cancel</WtButton>
           {actions.onSaveDraft && <WtButton ghost onClick={actions.onSaveDraft} disabled={actions.isSubmitting || actions.isSavingDraft}>{actions.isSavingDraft ? 'Saving…' : 'Save Draft'}</WtButton>}
+          <WizardDraftStatusText status={resolveDraftStatus(actions.draftStatus, actions.isSavingDraft)} quietWhileSaving={Boolean(actions.onSaveDraft)} />
           {actions.onFinalSave && !isSaveStep && <WtButton tone="primary" onClick={() => save(actions.onFinalSave)} disabled={actions.isSubmitting || actions.submitDisabled}>{actions.isSubmitting ? 'Saving…' : actions.submitText || 'Save'}</WtButton>}
         </Box>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, ml: 'auto' }}>

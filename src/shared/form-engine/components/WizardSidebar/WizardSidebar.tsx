@@ -10,6 +10,8 @@ interface WizardSidebarProps {
   onStepClick?: (index: number) => void;
   title?: string;
   completedSections?: Record<string, boolean>;
+  /** Section ids shown in the rail but left out of the progress count (e.g. a Review step). */
+  uncountedIds?: readonly string[];
 }
 
 const hasValue = (value: any): boolean => {
@@ -34,6 +36,7 @@ export const WizardSidebar: React.FC<WizardSidebarProps> = ({
   onStepClick,
   title = "Form Progress",
   completedSections,
+  uncountedIds,
 }) => {
   const { values, errors, touched } = useFormikContext<any>();
 
@@ -69,8 +72,10 @@ export const WizardSidebar: React.FC<WizardSidebarProps> = ({
     if (required.length > 0) return required.every((f) => hasValue(getIn(values, f)));
     return (section.fields || []).some((f) => hasValue(getIn(values, f)));
   };
-  const completedCount = sections.filter((s, index) => isDoneForProgress(s, index)).length;
-  const progressPercent = sections.length > 0 ? Math.round((completedCount / sections.length) * 100) : 0;
+  const isCounted = (section: EnterpriseWizardStep<any>) => !uncountedIds?.includes(section.id);
+  const countedTotal = sections.filter(isCounted).length;
+  const completedCount = sections.filter((s, index) => isCounted(s) && isDoneForProgress(s, index)).length;
+  const progressPercent = countedTotal > 0 ? Math.round((completedCount / countedTotal) * 100) : 0;
   const completed = Object.fromEntries(
     sections.map((section, index) => [index, isDoneForProgress(section, index)]),
   );
@@ -79,7 +84,7 @@ export const WizardSidebar: React.FC<WizardSidebarProps> = ({
     <Box component="nav" aria-label="Wizard step navigation" sx={{ width: { xs: '100%', md: 250 }, maxHeight: { xs: 180, md: 'none' }, flexShrink: 0, overflowY: 'auto', bgcolor: 'background.paper', borderRight: { md: '1px solid' }, borderBottom: { xs: '1px solid', md: 0 }, borderColor: 'divider', p: 1.5 }}>
       <Box role="status" aria-live="polite" sx={{ mb: 1.5 }}>
         <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{title}</Typography>
-        <Typography variant="caption" color="text.secondary">{completedCount} of {sections.length} steps completed</Typography>
+        <Typography variant="caption" color="text.secondary">{completedCount} of {countedTotal} steps completed</Typography>
         <LinearProgress variant="determinate" value={progressPercent} sx={{ mt: 1, height: 4, borderRadius: 1 }} />
       </Box>
       <WtStepper

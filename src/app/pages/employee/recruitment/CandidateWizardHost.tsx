@@ -4,7 +4,7 @@ import { Formik, Form, type FormikProps } from "formik";
 import * as Yup from "yup";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, CircularProgress } from "@mui/material";
-import { AppIcon, toast, confirmDialog } from "@app/modules/common/components/ui";
+import { AppIcon, EntityIdentityHeader, toast, confirmDialog } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { useOrgScope, toCompanyIdParam } from "@/hooks/useOrgScope";
 import { apiErrorMessage } from "@utils/apiError";
@@ -358,17 +358,29 @@ export default function CandidateWizardHost() {
     softRequired: true,
   };
 
-  const summaryRows = (v: CandidateFormValues) => {
+  /**
+   * Rows for one wizard leaf — the single source for both the Summary aside (all
+   * leaves, rail order) and that leaf's Review card. Leaves with no rows here show
+   * only their completion status on the Review step.
+   */
+  const leafRows = (leafId: string, v: CandidateFormValues) => {
     const rows: Array<{ label: string; value: ReactNode; isStrong?: boolean }> = [];
-    const name = `${v.firstName || ""} ${v.lastName || ""}`.trim();
-    if (name) rows.push({ label: "Name", value: name, isStrong: true });
-    if (v.personalEmailId) rows.push({ label: "Email", value: v.personalEmailId });
-    if (v.personalPhoneNumber) rows.push({ label: "Phone", value: v.personalPhoneNumber });
-    if (v.requisitionId) rows.push({ label: "Role", value: "Selected" });
-    if (v.currentCtc != null) rows.push({ label: "Current CTC", value: String(v.currentCtc) });
-    if (v.expectedCtc != null) rows.push({ label: "Expected CTC", value: String(v.expectedCtc) });
+    if (leafId === "personal-info") {
+      const name = `${v.firstName || ""} ${v.lastName || ""}`.trim();
+      if (name) rows.push({ label: "Name", value: name, isStrong: true });
+    } else if (leafId === "contact-info") {
+      if (v.personalEmailId) rows.push({ label: "Email", value: v.personalEmailId });
+      if (v.personalPhoneNumber) rows.push({ label: "Phone", value: v.personalPhoneNumber });
+    } else if (leafId === "application-strip") {
+      if (v.requisitionId) rows.push({ label: "Role", value: "Selected" });
+      if (v.currentCtc != null) rows.push({ label: "Current CTC", value: String(v.currentCtc) });
+      if (v.expectedCtc != null) rows.push({ label: "Expected CTC", value: String(v.expectedCtc) });
+    }
     return rows;
   };
+
+  const leafIds = groups.flatMap((g) => g.children.map((leaf) => leaf.id));
+  const summaryRows = (v: CandidateFormValues) => leafIds.flatMap((leafId) => leafRows(leafId, v));
 
   if (routeApplicantId && loadingApplicant) {
     return (
@@ -394,6 +406,20 @@ export default function CandidateWizardHost() {
       >
         {(formikProps) => {
           formikRef.current = formikProps;
+          const cv = formikProps.values;
+          const candidateName = `${cv.firstName || ""} ${cv.lastName || ""}`.trim();
+          const identity = candidateName ? (
+            <EntityIdentityHeader
+              variant="compact"
+              title={candidateName}
+              avatar={{
+                src: profilePhotoPreview || cv.avatar || null,
+                name: candidateName,
+                id: applicantId ?? null,
+              }}
+              meta={[(cv.currentTitle || "").trim(), (cv.currentLocation || "").trim()]}
+            />
+          ) : undefined;
           return (
             <Form noValidate style={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <EnterpriseFormWizard layout="sections"
@@ -428,6 +454,11 @@ export default function CandidateWizardHost() {
                 submitText={isEdit || applicantId ? "Done" : "Add Candidate"}
                 summaryTitle="Candidate Summary"
                 summaryRows={(v) => summaryRows(v as CandidateFormValues)}
+                identity={identity}
+                review={{
+                  rows: (leafId, values) => leafRows(leafId, values as CandidateFormValues),
+                  identity,
+                }}
                 initialLeafId={roleRequired ? "application-strip" : undefined}
               />
             </Form>

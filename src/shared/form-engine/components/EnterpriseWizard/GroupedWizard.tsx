@@ -1,11 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, CircularProgress, LinearProgress, Typography } from '@mui/material';
 import { getIn, useFormikContext } from "formik";
-import { hasStepErrors, stepValueSignature } from '@/shared/form-engine/utils/stepValidation';
+import {
+  firstErrorPath, firstErrorPathIn, firstErroredStepIndex, focusFieldOrError, hasFilledValue as hasValue, hasStepErrors,
+  stepValueSignature,
+} from '@/shared/form-engine/utils/stepValidation';
 import { toast } from "@app/modules/common/components/ui";
 import { ChevronRight, ChevronLeft, ExpandMore } from "@mui/icons-material";
 
-import { AppIcon, FormSection, GlassDialogActions, T, TRIO, WtButton, WtIconButton, WtStepper } from '@app/modules/common/components/ui';
+import { AppIcon, FormSection, GlassDialogActions, T, TRIO, WtButton, WtIconButton, WtStepper, type Trio } from '@app/modules/common/components/ui';
+import type { WizardDraftStatus, WizardReviewConfig } from '../../types/formEngine.types';
+import {
+  DEFAULT_REVIEW_TITLE, REVIEW_STEP_ID, SR_ONLY_SX, WizardDraftStatusText, WizardReview, reviewStatusOf,
+  type WizardReviewItem,
+} from './WizardReview';
 
 /** A leaf = one editable section, the unit the canvas renders and Continue walks. */
 export interface WizardLeaf<TProps> {
@@ -14,6 +22,8 @@ export interface WizardLeaf<TProps> {
   title: string;
   subtitle?: string;
   icon: React.ReactNode;
+  /** Accent tone for the section card and its review card. Defaults to TRIO.blue. */
+  tone?: Trio;
   /** Top-level Formik keys this leaf owns — drives completion + error state. */
   fields: string[];
   /** Subset of `fields` that must have a value for the leaf to count complete. */
@@ -73,96 +83,16 @@ export interface GroupedWizardProps<TProps> {
    * Falls back to the first leaf when omitted or unknown.
    */
   initialLeafId?: string;
+  /**
+   * Optional final Review step, appended after the last leaf. The last leaf's primary
+   * button becomes Continue and the submit button moves onto the review.
+   */
+  review?: WizardReviewConfig;
+  /** Outcome of the last draft save, announced beside the left-footer save button. */
+  draftStatus?: WizardDraftStatus;
+  /** Compact identity (e.g. EntityIdentityHeader variant="compact") shown at the top of the rail. */
+  identity?: React.ReactNode;
 }
-
-/**
- * Identity and foreign-key fields the wizard fills in itself. A seeded-but-empty
- * education row still carries a `rowId`, and every document row is created with the
- * `documentId` of the type it stands for — so scanning every cell reported those rows
- * as "real content", and Education Details and Upload Documents went green before the
- * user had typed a character or attached a file. A machine key is never evidence that
- * a human filled something in.
- */
-const IDENTITY_KEYS = new Set([
-  "rowId", "id", "_id", "key", "uuid", "documentId", "employeeId",
-]);
-
-/** Does a Formik value count as "filled"? Mirrors WizardSidebar's `hasValue`. */
-const hasValue = (v: any): boolean => {
-  if (v === undefined || v === null) return false;
-  if (typeof v === "string") return v.trim() !== "";
-  if (Array.isArray(v)) {
-    if (v.length === 0) return false;
-    // An array of objects counts only when at least one row has real content —
-    // the wizard seeds blank rows, which must not read as completed.
-    return v.some((row) => hasValue(row));
-  }
-  if (typeof v === "object") {
-    return Object.entries(v).some(([key, cell]) => !IDENTITY_KEYS.has(key) && hasValue(cell));
-  }
-  return true;
-};
-
-/**
- * Take the user to the thing that is blocking them.
- *
- * Telling someone "complete the required fields in this section" and leaving them to
- * find it is the difference between a form that guides and one that scolds — on a
- * long section the offending field is often off-screen entirely. This resolves the
- * first error to a real DOM node, scrolls it into view and focuses it.
- *
- * `fieldPath` is a Formik path, which may be nested (`addressInfo.presentCity`) or
- * indexed (`familyInfo.0.name`), so several selectors are tried before giving up.
- * The last resort is the section's own inline error text — that is what catches a
- * structural requirement like Approval Settings, which has no single input to blame.
- */
-const focusFieldOrError = (fieldPath: string | null) => {
-  const candidates: string[] = [];
-  if (fieldPath) {
-    candidates.push(`[name="${fieldPath}"]`);
-    // Formik's dotted path vs the bracketed name an array field may render with.
-    candidates.push(`[name="${fieldPath.replace(/\.(\d+)\./g, "[$1].")}"]`);
-    candidates.push(`#${CSS.escape(fieldPath)}`);
-    candidates.push(`[name^="${fieldPath}"]`);
-  }
-  // Any inline error currently on screen, in document order.
-  candidates.push("[data-required-error]", ".text-danger", "[aria-invalid='true']");
-
-  for (const selector of candidates) {
-    let element: HTMLElement | null = null;
-    try {
-      element = document.querySelector(selector) as HTMLElement | null;
-    } catch {
-      continue; // A malformed selector must not stop the remaining attempts.
-    }
-    if (!element) continue;
-
-    element.scrollIntoView({ behavior: "smooth", block: "center" });
-    // Only inputs take focus; scrolling an error message into view is enough.
-    if (typeof (element as HTMLInputElement).focus === "function" && element.tagName !== "DIV") {
-      element.focus({ preventScroll: true });
-    }
-    return;
-  }
-};
-
-/** First error path inside a Formik error tree, as a dotted path. */
-const firstErrorPath = (errors: any, prefix = ""): string | null => {
-  if (!errors) return null;
-  if (typeof errors === "string") return prefix || null;
-  if (Array.isArray(errors)) {
-    for (let i = 0; i < errors.length; i += 1) {
-      if (errors[i]) return firstErrorPath(errors[i], `${prefix}.${i}`);
-    }
-    return null;
-  }
-  if (typeof errors === "object") {
-    const keys = Object.keys(errors);
-    if (!keys.length) return null;
-    return firstErrorPath(errors[keys[0]], prefix ? `${prefix}.${keys[0]}` : keys[0]);
-  }
-  return prefix || null;
-};
 
 const ParentProgressBadge = ({ completed, total, active, complete, error, index }: {
   completed: number; total: number; active: boolean; complete: boolean; error: boolean; index: number;
@@ -199,6 +129,9 @@ export function GroupedWizard<TProps>({
   summaryTitle = "Summary",
   summaryRows,
   initialLeafId,
+  review,
+  draftStatus,
+  identity,
 }: GroupedWizardProps<TProps>) {
   const { values, errors, touched, validateForm, setFieldTouched } = useFormikContext<any>();
   const canvasRef = useRef<HTMLElement>(null);
@@ -212,15 +145,27 @@ export function GroupedWizard<TProps>({
     if (initialLeafId && leaves.some((l) => l.id === initialLeafId)) return initialLeafId;
     return leaves[0]?.id ?? "";
   });
-  const activeIndex = Math.max(
+
+  // The optional Review step sits after the last leaf. It is a position on the
+  // Back/Continue path, never a leaf: progress, groups and statuses ignore it.
+  const hasReview = Boolean(review);
+  const reviewTitle = review?.title ?? DEFAULT_REVIEW_TITLE;
+  const isOnReview = hasReview && activeLeafId === REVIEW_STEP_ID;
+  const navIds = useMemo(
+    () => (hasReview ? [...leaves.map((l) => l.id), REVIEW_STEP_ID] : leaves.map((l) => l.id)),
+    [leaves, hasReview],
+  );
+
+  const activeIndex = isOnReview ? leaves.length : Math.max(
     0,
     leaves.findIndex((l) => l.id === activeLeafId)
   );
-  const activeLeaf = leaves[activeIndex];
+  const activeLeaf = isOnReview ? undefined : leaves[activeIndex];
   const activeGroup = groups.find((g) => g.children.some((c) => c.id === activeLeaf?.id));
 
   const isFirst = activeIndex === 0;
-  const isLast = activeIndex === leaves.length - 1;
+  // The submit position: the Review step when there is one, else the last leaf.
+  const isLast = hasReview ? isOnReview : activeIndex === leaves.length - 1;
 
   // Groups start collapsed except the one holding the active leaf, so the rail
   // stays scannable instead of showing all 19 sections at once.
@@ -329,6 +274,39 @@ export function GroupedWizard<TProps>({
     [activeLeafId, scrollCanvasTop]
   );
 
+  /**
+   * A field to focus once the section we just navigated to has rendered. Set before
+   * a move and consumed by the effect below: focusing in the same tick would look for
+   * an input the new section has not painted yet.
+   */
+  const pendingFocusRef = useRef<{ path: string | null } | null>(null);
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending) return;
+    pendingFocusRef.current = null;
+    window.requestAnimationFrame(() => focusFieldOrError(pending.path));
+  }, [activeLeafId]);
+
+  /**
+   * Submit-time failure: land on the first section (in rail order) that owns an
+   * error and focus the offending field, instead of leaving the user on the last
+   * section with a toast about a field they cannot see.
+   */
+  const routeToFirstError = useCallback(
+    (formErrors: any) => {
+      const index = firstErroredStepIndex(formErrors, leaves);
+      const target = index === -1 ? undefined : leaves[index];
+      const path = target ? firstErrorPathIn(formErrors, target.fields) : firstErrorPath(formErrors);
+      if (target && target.id !== activeLeafId) {
+        pendingFocusRef.current = { path };
+        goToLeaf(target.id);
+        return;
+      }
+      window.requestAnimationFrame(() => focusFieldOrError(path));
+    },
+    [leaves, activeLeafId, goToLeaf]
+  );
+
   const handleDirectSave = async () => {
     const formErrors = await validateForm();
     if (Object.keys(formErrors).length > 0) {
@@ -371,7 +349,7 @@ export function GroupedWizard<TProps>({
 
   const handleBack = () => {
     if (isFirst) return;
-    goToLeaf(leaves[activeIndex - 1].id);
+    goToLeaf(navIds[activeIndex - 1]);
   };
 
   const handleNext = async () => {
@@ -412,14 +390,38 @@ export function GroupedWizard<TProps>({
       if (Object.keys(formErrors).length > 0) {
       toast({ icon: 'error', title: "Please fill in all required fields before submitting." });
         Object.keys(formErrors).forEach((k) => setFieldTouched(k, true));
+        routeToFirstError(formErrors);
         return;
       }
       onFinalSave();
       return;
     }
 
-    goToLeaf(leaves[activeIndex + 1].id);
+    goToLeaf(navIds[activeIndex + 1]);
   };
+
+  // One card per real leaf, in rail order, for the optional Review step.
+  const reviewItems: WizardReviewItem[] = useMemo(() => {
+    if (!review) return [];
+    return leaves.map((leaf) => {
+      const required = leaf.requiredFields ?? [];
+      const missingRequired = leaf.isComplete ? 0 : required.filter((f) => !hasValue(getIn(values, f))).length;
+      return {
+        id: leaf.id,
+        title: leaf.title,
+        tone: leaf.tone ?? TRIO.blue,
+        icon: leaf.icon,
+        status: reviewStatusOf({
+          hasErrors: hasStepErrors(errors, leaf.fields),
+          missingRequired,
+          structuralIncomplete: leaf.isComplete ? !leaf.isComplete(values) : false,
+          hasRequirement: Boolean(leaf.isComplete) || required.length > 0,
+          hasAnyValue: leaf.fields.some((f) => hasValue(getIn(values, f))),
+        }),
+        rows: review.rows ? review.rows(leaf.id, values) : undefined,
+      };
+    });
+  }, [review, leaves, values, errors]);
 
   const rows = summaryRows ? summaryRows(values) : [];
 
@@ -427,7 +429,7 @@ export function GroupedWizard<TProps>({
     <Box data-form-module="sections" sx={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', bgcolor: 'background.default', color: 'text.primary' }}>
       <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1, p: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
         <WtButton ghost onClick={() => setMobileNavOpen((open) => !open)} aria-expanded={mobileNavOpen} aria-controls="wizard-section-navigation" endIcon={<ExpandMore />}>
-          {activeGroup?.label} · {activeIndex + 1} of {leaves.length}
+          {isOnReview ? reviewTitle : <>{activeGroup?.label} · {activeIndex + 1} of {leaves.length}</>}
         </WtButton>
         <Typography variant="body2" sx={{ ml: 'auto' }}>{progressPct}%</Typography>
       </Box>
@@ -438,6 +440,7 @@ export function GroupedWizard<TProps>({
           zIndex: 2, width: { xs: '100%', md: 250 }, flexShrink: 0, overflowY: 'auto',
           p: 1.5, bgcolor: 'background.paper', borderRight: '1px solid', borderColor: 'divider',
         }}>
+          {identity != null && <Box sx={{ mb: 1.5, minWidth: 0 }}>{identity}</Box>}
           <Box role="status" sx={{
             position: 'relative', overflow: 'hidden', mb: 2, p: 1.75, borderRadius: 1.5,
             background: T.color.brandGradientLeftToRight, color: T.color.onBrand,
@@ -468,6 +471,14 @@ export function GroupedWizard<TProps>({
                     border: '1px solid', borderColor: groupActive ? 'divider' : 'transparent',
                     boxShadow: groupActive ? 1 : 'none',
                   }}>
+                  {group.icon != null && group.icon !== false && (
+                    <Box component="span" aria-hidden data-group-icon sx={{
+                      display: 'inline-flex', alignItems: 'center', flexShrink: 0, mr: .75,
+                      color: groupActive ? 'primary.main' : 'text.secondary', '& svg': { fontSize: 18 },
+                    }}>
+                      {typeof group.icon === 'string' ? <AppIcon name={group.icon} fallbackSize={16} /> : group.icon}
+                    </Box>
+                  )}
                   <Box component="span" sx={{ flex: 1 }}>{group.label}</Box>
                   <Box component="span" sx={{ color: 'text.secondary', ml: 1 }}>{groupCompleted}/{group.children.length}</Box>
                 </WtButton>
@@ -490,24 +501,47 @@ export function GroupedWizard<TProps>({
               </Box>
             );
           })}
+          {hasReview && (
+            <WtButton ghost fullWidth onClick={() => handleSidebarClick(REVIEW_STEP_ID, leaves.length)}
+              aria-current={isOnReview ? 'step' : undefined}
+              startIcon={<AppIcon name="eye" fallbackSize={16} />}
+              sx={{
+                justifyContent: 'flex-start', minHeight: 44, textAlign: 'left', borderRadius: 1.25,
+                bgcolor: isOnReview ? 'background.paper' : 'transparent',
+                border: '1px solid', borderColor: isOnReview ? 'divider' : 'transparent',
+                boxShadow: isOnReview ? 1 : 'none',
+              }}>
+              <Box component="span" sx={{ flex: 1 }}>{reviewTitle}</Box>
+            </WtButton>
+          )}
         </Box>
-        <Box component="main" ref={canvasRef} aria-label={activeLeaf?.title} sx={{ flex: 1, minWidth: 0, overflowY: 'auto', bgcolor: 'background.default' }}>
+        <Box component="main" ref={canvasRef} aria-label={isOnReview ? reviewTitle : activeLeaf?.title} sx={{ flex: 1, minWidth: 0, overflowY: 'auto', bgcolor: 'background.default' }}>
           <Box sx={{ position: 'sticky', top: 0, zIndex: 2, px: { xs: 1.5, sm: 2.5 }, py: 1.5, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: .5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
               <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', borderRadius: 10, px: 1, py: .25, bgcolor: T.color.brandSoft, color: T.color.brand, border: '1px solid', borderColor: T.color.line, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase' }}>
-                {activeGroup?.label} · {activeIndex + 1} of {leaves.length}
+                {isOnReview ? reviewTitle : <>{activeGroup?.label} · {activeIndex + 1} of {leaves.length}</>}
               </Box>
               {(activeLeaf?.requiredFields?.length || activeLeaf?.isComplete) && (
                 <Typography variant="caption" color="text.secondary"><Box component="span" sx={{ color: 'error.main' }}>*</Box> Required fields</Typography>
               )}
             </Box>
-            <Typography component="h2" sx={{ fontSize: { xs: 17, sm: 18 }, lineHeight: 1.3, fontWeight: 700 }}>{activeLeaf?.title}</Typography>
-            {activeLeaf?.subtitle && <Typography variant="body2" color="text.secondary" sx={{ mt: .25 }}>{activeLeaf.subtitle}</Typography>}
+            {/* The section card below shows the title; this is the one heading that names the step. */}
+            {!isOnReview && <Typography component="h2" sx={SR_ONLY_SX}>{activeLeaf?.title}</Typography>}
           </Box>
           <Box sx={{ p: { xs: 1.5, sm: 2.5 } }}>
-            <FormSection accentTop key={activeLeaf?.id} tone={TRIO.blue} icon={activeLeaf?.icon ?? 'abstract-26'} title={activeLeaf?.title ?? ''}>
-              {activeLeaf?.render(sectionProps)}
-            </FormSection>
+            {isOnReview ? (
+              <WizardReview
+                title={reviewTitle}
+                identity={review?.identity}
+                items={reviewItems}
+                onEdit={(id) => goToLeaf(id)}
+                disabled={isSubmitting}
+              />
+            ) : (
+              <FormSection accentTop key={activeLeaf?.id} tone={activeLeaf?.tone ?? TRIO.blue} icon={activeLeaf?.icon ?? 'abstract-26'} title={activeLeaf?.title ?? ''} desc={activeLeaf?.subtitle}>
+                {activeLeaf?.render(sectionProps)}
+              </FormSection>
+            )}
           </Box>
         </Box>
         {rows.length > 0 && <Box component="aside" aria-label={summaryTitle} sx={{
@@ -532,6 +566,7 @@ export function GroupedWizard<TProps>({
           <WtButton tone="primary" onClick={() => onDirectSave ? onDirectSave() : handleDirectSave()} disabled={isSubmitting}>
             {isSubmitting ? 'Saving…' : onDirectSave ? directSaveLabel ?? 'Save draft' : isEditMode ? 'Save Changes' : 'Save'}
           </WtButton>
+          <WizardDraftStatusText status={draftStatus ?? 'idle'} />
         </Box>
         <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
           <WtButton ghost startIcon={<ChevronLeft />} onClick={handleBack} disabled={isFirst || isSubmitting}>Back</WtButton>

@@ -243,3 +243,63 @@ Target **WCAG 2.2 AA** as an acceptance goal, verified with automation **and man
 7. What is the agreed focus landing point on step transition for both form and screen-reader users?
 
 **Change control:** No one-off design exceptions without an issue documenting need, accessibility consequences, owner, and a planned reusable extension or explicitly temporary waiver.
+
+## 15. Addendum — 2026-10-23
+
+**Status:** Normative. Where this addendum and §§1–14 disagree, this addendum wins. It does not change payloads, Formik values, permissions or the six-workflow scope in §1.
+
+### 15.1 Workspace shell and entity look
+
+1. The **full-window workspace stays** for Employee, Candidate and Job. It is not replaced by a modal, a focused mode or a copy of another screen.
+2. **One header row.** Workflow title, draft status and Close live in a single row (§4). No second banner, hero or identity row beneath it.
+3. The **entity look is borrowed from Employee Details** and rebuilt inside the shared kit (`@app/modules/common/components/ui`); feature code never copies the Employee Details implementation.
+   - Each step has its own **tone** (a `TRIO` entry) and **KT icon name** (`AppIcon`/`KTIcon` inside `IconBox`). Never `bi-*` classes or MUI icon components.
+   - A step's content card carries a **card header band** (tone icon + heading using `HEADING_CASE_SX`).
+   - Read-only data uses **label/value rows** (`KeyValueRow` / `KeyValueList`), not ad-hoc grids.
+   - A **compact identity** (avatar + name, `EntityIdentityHeader variant="compact"`) may appear in the navigation rail and on the Review step only — **never as a second header row**.
+
+### 15.2 Review step (host opt-in)
+
+1. A host may opt in to a **final synthetic Review step**. It is appended by the engine, is not a business step, and is excluded from the §6.2 progress denominator.
+2. Review renders one **`DetailCard` per step** with that step's tone, icon and a status: **Complete**, **N required missing**, or **Has errors**.
+3. Rows on each card are **supplied by the host** (label/value pairs). The engine never infers rows from Formik values.
+4. Each card has an **Edit** link that navigates to its step (or leaf) without losing data and without triggering the exit guard.
+5. Submitting from Review follows §15.3: on failure, route to the first error rather than leaving the user on Review.
+
+### 15.3 Submit-time error routing
+
+1. **Any failed submit** — client validation or server field errors — navigates to the **first step/leaf containing an error**, in step order, and **focuses that field**.
+2. The existing error **toast is kept**; routing is in addition to it, not a replacement.
+3. Stepper error markers (§6.1) update on the same render as the navigation.
+
+### 15.4 Draft status vocabulary
+
+1. Draft status is exactly one of: `idle` | `saving` | `saved` | `failed` | `conflict`.
+2. **Never show "Saved" after a failure.** `saved` is only shown for the most recent attempt succeeding; a later failure moves the status to `failed` (or `conflict` for stale data, §10).
+3. Hosts that only expose `isSavingDraft` map `true` to `saving`; they do not synthesize `saved`.
+
+### 15.5 Surface, blur and motion
+
+1. **Chrome follows `data-surface`** (`glass` | `material`). The value comes from **Interface Style**, resolved user preference → organisation default → `material` fallback (`src/preferences/core.ts`).
+2. The **form canvas, fields, Review step and tables are always opaque**, whatever the surface. Glass applies to chrome only (header, rail, footer, dialogs).
+3. **No raw `backdrop-filter` outside the kit.** Use `glassSx` / `GlassSurface` / `GlassDialog`, which follow Interface Style. Enforced by ESLint for TSX and `scripts/hooks/guard.mjs` for CSS.
+4. **Step transitions** are 150–200 ms, ease-out. Spring easing only for small affordances (chips, checkmarks, toggles). `prefers-reduced-motion: reduce` disables non-essential motion.
+
+### 15.6 Test matrix
+
+Every migrated workflow is verified in **light/dark × glass/material** (four combinations), at **360px** width and at **200% zoom**. This extends the §13 checklist and the G3 gate in [`wizard-migration-acceptance.md`](./wizard-migration-acceptance.md).
+
+### 15.7 Phase 2b — candidate → employee prefill (not built)
+
+Design record only; no code exists yet.
+
+1. Prefill **extends the existing Convert-to-Employee path**: `PipelineView` `convertToEmployee`, the `NewEmployeeWizard` draft seam, and `src/services/recruitment.ts` `stashConversion` / `takeConversion` / `linkConvertedEmployee`. No parallel conversion flow.
+2. The backend exposes **one family-scoped mapping endpoint** returning `{ values, sources }`. Tenancy is the org family boundary (`docs/multi-tenancy.md`).
+3. `sources` are kept **outside Formik values**; the submit payload is unchanged.
+4. A **per-field source marker** is modelled on the `WtChoiceField` changed-marker and rendered as `ToneChip tone="neutral" dense`.
+5. The link between records stays **`Application.convertedEmployeeId`**.
+
+### 15.8 Later and out of scope
+
+- **Later:** a **checklist component** for joining / document collection, after G5. It is a separate component, **not a wizard mode**.
+- **Out of scope:** the public careers apply form, and any focused / Typeform-style one-question-per-screen mode.
