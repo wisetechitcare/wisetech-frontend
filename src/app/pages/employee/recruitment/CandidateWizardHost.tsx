@@ -4,7 +4,7 @@ import { Formik, Form, type FormikProps } from "formik";
 import * as Yup from "yup";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, CircularProgress } from "@mui/material";
-import { AppIcon, EntityIdentityHeader, toast, confirmDialog } from "@app/modules/common/components/ui";
+import { AppIcon, EntityIdentityHeader, toast, useDiscardConfirm } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { useOrgScope, toCompanyIdParam } from "@/hooks/useOrgScope";
 import { apiErrorMessage } from "@utils/apiError";
@@ -187,22 +187,14 @@ export default function CandidateWizardHost() {
     navigate(leaveTarget());
   };
 
-  const handleCancel = async () => {
-    const f = formikRef.current;
-    const pendingUploads =
-      Boolean(resumeFile) || Boolean(photoFile) || Object.keys(pendingDocFiles).length > 0;
-    if (f?.dirty || pendingUploads) {
-      const ok = await confirmDialog({
-        title: "Discard unsaved changes?",
-        text: "Changes on this candidate will be lost.",
-        confirmText: "Discard",
-        cancelText: "Keep editing",
-        danger: true,
-      });
-      if (!ok) return;
-    }
-    goBack();
-  };
+  const discard = useDiscardConfirm(
+    () =>
+      Boolean(formikRef.current?.dirty) ||
+      Boolean(resumeFile) || Boolean(photoFile) || Object.keys(pendingDocFiles).length > 0,
+    goBack,
+    { message: "Changes on this candidate will be lost." },
+  );
+  const handleCancel = discard.requestClose;
 
   const uploadPending = async (id: string, values: CandidateFormValues) => {
     if (resumeFile) {
@@ -465,6 +457,7 @@ export default function CandidateWizardHost() {
           );
         }}
       </Formik>
+      {discard.dialog}
     </WtWizardDialog>
   );
 }

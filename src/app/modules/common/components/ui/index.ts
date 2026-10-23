@@ -105,6 +105,7 @@ export {
 export { ConfirmDiscardDialog, type ConfirmDiscardDialogProps } from './ConfirmDiscardDialog';
 export { UnsavedChangesProvider } from './UnsavedChangesProvider';
 export { useUnsavedChangesGuard } from './useUnsavedChangesGuard';
+export { useDiscardConfirm, type DiscardConfirmOptions } from './useDiscardConfirm';
 export { UnsavedChangesModal, type UnsavedChangesModalProps } from './UnsavedChangesModal';
 export {
   useConfirmDialog,

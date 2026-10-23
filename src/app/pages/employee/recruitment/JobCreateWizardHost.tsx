@@ -4,7 +4,7 @@ import { Formik, Form, useFormikContext, type FormikProps } from "formik";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, CircularProgress, Stack } from "@mui/material";
 import { History } from "@mui/icons-material";
-import { toast, confirmDialog, WtButton } from "@app/modules/common/components/ui";
+import { toast, WtButton, useDiscardConfirm } from "@app/modules/common/components/ui";
 import RecruitmentVersionHistoryDialog from "./RecruitmentVersionHistoryDialog";
 import type { AuditEntityType } from "@modules/audit/audit.service";
 import { queryKeys } from "@/lib/queryKeys";
@@ -147,20 +147,11 @@ export default function JobCreateWizardHost() {
         navigate(leavePath());
     };
 
-    const handleCancel = async () => {
-        const dirty = formikRef.current?.dirty;
-        if (dirty) {
-            const ok = await confirmDialog({
-                icon: "warning",
-                title: isEdit ? "Discard changes?" : isAttach ? "Discard this advert?" : "Discard this role?",
-                text: isEdit ? "Unsaved edits will be lost." : "Nothing has been saved yet.",
-                confirmText: "Discard",
-                danger: true,
-            });
-            if (!ok) return;
-        }
-        goBack();
-    };
+    const discard = useDiscardConfirm(() => Boolean(formikRef.current?.dirty), goBack, {
+        title: isEdit ? "Discard changes?" : isAttach ? "Discard this advert?" : "Discard this role?",
+        message: isEdit ? "Unsaved edits will be lost." : "Nothing has been saved yet.",
+    });
+    const handleCancel = discard.requestClose;
 
     const createMut = useMutation({
         mutationFn: async ({ values, publish }: { values: JobCreateFormValues; publish: boolean }) => {
@@ -519,6 +510,7 @@ export default function JobCreateWizardHost() {
                 id={historyTarget?.id ?? ""}
                 title={historyTarget?.title}
             />
+            {discard.dialog}
         </WtWizardDialog>
     );
 }
