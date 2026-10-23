@@ -20,11 +20,7 @@ import {
 import { RootState,
   store } from '@redux/store';
 import ReactApexChart from 'react-apexcharts';
-import { Image,
-  Card,
-  Col,
-  OverlayTrigger
-} from 'react-bootstrap';
+import { Image, Card, Col, OverlayTrigger } from 'react-bootstrap';
 import MuiGrid from '@mui/material/Grid';
 import Identifiers from '../utils/Identifiers';
 import { ATTENDANCE_STATUS, LEAVE_STATUS, LeaveStatus, WORKING_METHOD_TYPE } from '@constants/attendance';
