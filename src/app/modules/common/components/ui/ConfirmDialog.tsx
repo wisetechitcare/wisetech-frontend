@@ -15,7 +15,7 @@ import { WtCloseButton } from "./tw/WtCloseButton";
 import { T } from "./tokens";
 import { TRIO } from "./patterns";
 
-export type ConfirmDialogVariant = "confirm" | "delete";
+export type ConfirmDialogVariant = "confirm" | "delete" | "discard";
 
 const VARIANT_DEFAULTS: Record<
   ConfirmDialogVariant,
@@ -25,25 +25,34 @@ const VARIANT_DEFAULTS: Record<
     cancelLabel: string;
     iconName: string;
     submitTone: WtCtaTone;
-    /** Icon-box accent — brand navy for confirm, rose for delete. */
-    mediaColor: string;
+    /** Icon-box accent. A getter: TRIO is read at render, not at import (import cycle via patterns). */
+    mediaColor: () => string;
   }
 > = {
   confirm: {
     title: "Confirm",
     confirmLabel: "Confirm",
     cancelLabel: "Cancel",
-    iconName: "bi-check-circle",
+    iconName: "check-circle",
     submitTone: "primary",
-    mediaColor: T.color.brand,
+    mediaColor: () => T.color.brand,
   },
   delete: {
     title: "Confirm Deletion",
     confirmLabel: "Delete",
     cancelLabel: "Cancel",
-    iconName: "bi-trash",
+    iconName: "trash",
     submitTone: "danger",
-    mediaColor: TRIO.rose.c,
+    mediaColor: () => TRIO.rose.c,
+  },
+  /** Leaving a form with unsaved edits. Cancel keeps the user where they are. */
+  discard: {
+    title: "Discard unsaved changes?",
+    confirmLabel: "Discard",
+    cancelLabel: "Keep editing",
+    iconName: "warning",
+    submitTone: "danger",
+    mediaColor: () => TRIO.amber.c,
   },
 };
 
@@ -98,7 +107,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const theme = useTheme();
   const defaults = VARIANT_DEFAULTS[variant];
-  const accent = defaults.mediaColor;
+  const accent = defaults.mediaColor();
   const resolvedTitle = title ?? defaults.title;
   const resolvedConfirm = confirmLabel ?? defaults.confirmLabel;
   const resolvedCancel = cancelLabel ?? defaults.cancelLabel;

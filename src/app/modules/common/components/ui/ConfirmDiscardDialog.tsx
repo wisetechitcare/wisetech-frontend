@@ -1,42 +1,33 @@
-import { Dialog, DialogContent, Stack, Typography } from '@mui/material';
-import { WtButton } from './buttons';
+import { ConfirmDialog } from './ConfirmDialog';
 
 export interface ConfirmDiscardDialogProps {
   open: boolean;
   onKeepEditing: () => void;
   onDiscard: () => void;
+  /** Overrides "Discard unsaved changes?" — e.g. "Discard employee changes?". */
+  title?: string;
+  message?: string;
 }
 
+/**
+ * The unsaved-changes prompt: a preset of the kit's ConfirmDialog (`variant="discard"`),
+ * so leaving a form looks like every other confirmation in the app.
+ */
 export function ConfirmDiscardDialog({
   open,
   onKeepEditing,
   onDiscard,
+  title,
+  message = "Your changes haven't been saved. Are you sure you want to leave?",
 }: ConfirmDiscardDialogProps) {
   return (
-    <Dialog
+    <ConfirmDialog
       open={open}
+      variant="discard"
+      title={title}
+      message={message}
       onClose={onKeepEditing}
-      maxWidth="xs"
-      fullWidth
-      aria-labelledby="discard-unsaved-changes-title"
-      aria-describedby="discard-unsaved-changes-description"
-    >
-      <DialogContent sx={{ px: 3, py: 3 }}>
-        <Stack spacing={2.5}>
-          <Stack spacing={0.75}>
-            <Typography id="discard-unsaved-changes-title" variant="h6" fontWeight={700}>
-              Discard unsaved changes?
-            </Typography>
-            <Typography id="discard-unsaved-changes-description" color="text.secondary">
-              Your changes haven&apos;t been saved. Are you sure you want to leave?
-            </Typography>
-          </Stack>
-          <Stack direction="row" justifyContent="flex-end" spacing={1}>
-            <WtButton ghost onClick={onKeepEditing}>Keep editing</WtButton>
-            <WtButton tone="danger" onClick={onDiscard}>Discard</WtButton>
-          </Stack>
-        </Stack>
-      </DialogContent>
-    </Dialog>
+      onConfirm={onDiscard}
+    />
   );
 }

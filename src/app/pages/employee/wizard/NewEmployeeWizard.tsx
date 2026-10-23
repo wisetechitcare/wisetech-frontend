@@ -9,7 +9,7 @@ import * as Yup from "yup";
 import { uploadUserAsset } from "@services/uploader";
 import dayjs from "dayjs";
 import { DATE_FORMATS, formatDate } from "@utils/dateFormats";
-import { alertDialog, confirmDialog } from "@app/modules/common/components/ui";
+import { alertDialog, confirmDialog, ConfirmDiscardDialog } from "@app/modules/common/components/ui";
 import ManagerHandoverDialog, { type ManagerReplacement } from "@app/modules/common/components/ManagerHandoverDialog";
 import { getManagedProjects, type ManagedProject } from "@services/projects";
 // Only the section-id/field-map constants are still needed — the step components
@@ -1088,6 +1088,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   const [activeStepIndex, setActiveStepIndex] = useState(1);
   const [currentSchema, setCurrentSchema] = useState(newEmployeeWizardSchema[0]);
   const [show, setShow] = useState(openModal);
+  const [discardOpen, setDiscardOpen] = useState(false);
   // A drafted photo re-enters as a real File, so saving uploads it exactly as if it
   // had just been picked.
   const [files, setFiles] = useState<{ [key: string]: File }>(() => {
@@ -1961,17 +1962,16 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
    * entry (deep link, refresh in a fresh tab) so there is nothing to step back to, and the
    * return path replaces the wizard entry rather than stacking on top of it.
    */
-  const handleClose = async () => {
+  const handleClose = () => {
     if (!closeAfterSuccessfulSaveRef.current && formikRef.current?.dirty) {
-      const shouldDiscard = await confirmDialog({
-        icon: "warning",
-        title: editMode ? "Discard employee changes?" : "Leave onboarding?",
-        text: "Your unsaved changes will be lost.",
-        confirmText: "Discard",
-        danger: true,
-      });
-      if (!shouldDiscard) return;
+      setDiscardOpen(true);
+      return;
     }
+    closeWizard();
+  };
+
+  const closeWizard = () => {
+    setDiscardOpen(false);
     closeAfterSuccessfulSaveRef.current = false;
     setShow(false);
     if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
@@ -2042,6 +2042,13 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       employeeName={handover?.name ?? ""}
       projects={handover?.projects ?? []}
       onDone={(r) => { handover?.resolve(r); setHandover(null); }}
+    />
+    <ConfirmDiscardDialog
+      open={discardOpen}
+      title={editMode ? "Discard employee changes?" : "Leave onboarding?"}
+      message="Your unsaved changes will be lost."
+      onKeepEditing={() => setDiscardOpen(false)}
+      onDiscard={closeWizard}
     />
     </>
   );
