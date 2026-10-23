@@ -32,6 +32,7 @@ import {
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
 import { TRIO, type Trio } from "@app/modules/common/components/ui/patterns";
 import type { MemberType, PersonRef } from "../types";
+import { pinNewlySelected } from "./personPickerUtils";
 
 export function personProfilePath(
   p: Pick<PersonRef, "memberType" | "personId">,
@@ -80,6 +81,8 @@ interface PersonPickerProps {
    * Selected people are split into "Already in group" vs "Newly selected".
    */
   baselineSelected?: PersonRef[];
+  /** Name of the collection represented by `baselineSelected`. */
+  baselineLabel?: string;
   /** Hide the selected/newly-selected chip panels (e.g. when the parent already lists them). */
   hideSelectedPanels?: boolean;
 }
@@ -575,6 +578,7 @@ export default function PersonPicker({
   selected,
   onChange,
   baselineSelected,
+  baselineLabel = "group",
   hideSelectedPanels = false,
 }: PersonPickerProps) {
   const theme = useTheme();
@@ -710,7 +714,7 @@ export default function PersonPicker({
   const filtered = useMemo(() => {
     if (source === "CONTACTS") {
       // Server already filtered; do not re-filter (phone/email matches would disappear).
-      return [...contacts].sort(
+      return pinNewlySelected(contacts, newlySelected, "CONTACT").sort(
         (a, b) =>
           Number(selectedKeys.has(personKey(b))) -
           Number(selectedKeys.has(personKey(a))),
@@ -727,12 +731,12 @@ export default function PersonPicker({
             q,
           ),
         );
-    return [...list].sort(
+    return pinNewlySelected(list, newlySelected, "EMPLOYEE").sort(
       (a, b) =>
         Number(selectedKeys.has(personKey(b))) -
         Number(selectedKeys.has(personKey(a))),
     );
-  }, [source, contacts, employeePeople, query, selectedKeys]);
+  }, [source, contacts, employeePeople, query, selectedKeys, newlySelected]);
 
   const hasMoreContacts =
     source === "CONTACTS" && contacts.length < contactTotal;
@@ -742,7 +746,7 @@ export default function PersonPicker({
 
   const toggle = (person: PersonRef) => {
     const key = personKey(person);
-    // WhatsApp-style: current group members stay locked here (edit them outside).
+    // Baseline members stay locked here (edit them on their owning collection).
     if (isLockedInPicker(key)) return;
     if (selectedKeys.has(key)) {
       onChange(selected.filter((s) => personKey(s) !== key));
@@ -887,11 +891,14 @@ export default function PersonPicker({
                   const checked = selectedKeys.has(key);
                   const newlyPicked = checked && !alreadyInGroup;
                   const trio = memberTrio(p.memberType);
-                  const lockedTone = theme.palette.text.disabled;
+                  const lockedTone =
+                    theme.palette.mode === "dark"
+                      ? theme.palette.primary.light
+                      : theme.palette.primary.dark;
                   const rowBg = alreadyInGroup
                     ? alpha(
-                        theme.palette.text.primary,
-                        theme.palette.mode === "dark" ? 0.08 : 0.04,
+                        theme.palette.primary.main,
+                        theme.palette.mode === "dark" ? 0.2 : 0.08,
                       )
                     : newlyPicked
                       ? alpha(
@@ -910,14 +917,13 @@ export default function PersonPicker({
                         px: 1.25,
                         py: 0.75,
                         cursor: alreadyInGroup ? "default" : "pointer",
-                        opacity: alreadyInGroup ? 0.72 : 1,
                         borderBottom: "1px solid",
                         borderColor: "divider",
                         bgcolor: rowBg,
                         borderLeft: newlyPicked
                           ? `3px solid ${SELECTED_TRIO.c}`
                           : alreadyInGroup
-                            ? `3px solid ${alpha(theme.palette.text.primary, 0.25)}`
+                            ? `3px solid ${theme.palette.primary.main}`
                             : "3px solid transparent",
                         "&:hover": {
                           bgcolor: alreadyInGroup
@@ -929,17 +935,21 @@ export default function PersonPicker({
                       }}
                     >
                       {alreadyInGroup ? (
-                        <Box
-                          sx={{
-                            width: 34,
-                            display: "flex",
-                            justifyContent: "center",
-                            color: lockedTone,
+                        <Checkbox
+                          checked
+                          disabled
+                          size="small"
+                          inputProps={{
+                            "aria-label": `Already in ${baselineLabel}`,
                           }}
-                          title="Already in this group"
-                        >
-                          <LockOutlinedIcon sx={{ fontSize: 18 }} />
-                        </Box>
+                          sx={{
+                            p: 0.5,
+                            "&.Mui-disabled": {
+                              opacity: 0.6,
+                              filter: "grayscale(1)",
+                            },
+                          }}
+                        />
                       ) : (
                         <Checkbox
                           checked={checked}
@@ -965,22 +975,6 @@ export default function PersonPicker({
                             {p.fullName}
                           </Typography>
                           <MemberTypeChip memberType={p.memberType} />
-                          {alreadyInGroup && (
-                            <Chip
-                              size="small"
-                              label="Already in group"
-                              sx={{
-                                height: 20,
-                                fontSize: 10,
-                                fontWeight: 700,
-                                bgcolor: alpha(
-                                  theme.palette.text.primary,
-                                  0.08,
-                                ),
-                                color: "text.secondary",
-                              }}
-                            />
-                          )}
                           {p.doNotGift && (
                             <Chip
                               size="small"
@@ -1000,6 +994,33 @@ export default function PersonPicker({
                             .join(" · ") || "—"}
                         </Typography>
                       </Box>
+                      {alreadyInGroup && (
+                        <Chip
+                          size="small"
+                          icon={<LockOutlinedIcon />}
+                          label={`Already in ${baselineLabel}`}
+                          sx={{
+                            height: 26,
+                            flexShrink: 0,
+                            fontSize: 11,
+                            fontWeight: 800,
+                            bgcolor: alpha(
+                              theme.palette.primary.main,
+                              theme.palette.mode === "dark" ? 0.24 : 0.1,
+                            ),
+                            color: lockedTone,
+                            border: "1px solid",
+                            borderColor: alpha(
+                              theme.palette.primary.main,
+                              0.4,
+                            ),
+                            "& .MuiChip-icon": {
+                              color: lockedTone,
+                              fontSize: 15,
+                            },
+                          }}
+                        />
+                      )}
                     </Stack>
                   );
                 })}

@@ -180,6 +180,9 @@ export interface MaterialTableProps {
   renderMobileCard?: (props: { row: any; index: number }) => React.ReactNode;
   enableStatusColorCoding?: boolean;
   renderTopToolbarRightActions?: () => React.ReactNode;
+  /** Extra IconButtons placed at the start of the right-side icon group (e.g. a page's
+   *  Filters sheet trigger). They inherit the group's neutral styling. */
+  renderToolbarIconActions?: () => React.ReactNode;
   /** Replaces the bottom-left "Select Export File + Export" UI with custom content */
   renderExportActions?: () => React.ReactNode;
   /** Opt-in: render the column footer row (e.g. totals). Off by default to preserve existing tables. */
@@ -406,6 +409,7 @@ function MaterialTable({
   renderMobileCard,
   enableStatusColorCoding = true,
   renderTopToolbarRightActions,
+  renderToolbarIconActions,
   renderExportActions,
   showColumnFooter = false,
   defaultSorting,
@@ -1623,6 +1627,8 @@ function MaterialTable({
             getRowId={rowId}
             enableRowSelection={enableRowSelection}
             onRowSelectionChange={setRowSelection}
+            muiSelectCheckboxProps={{ size: "small", sx: { p: 0.5 } }}
+            muiSelectAllCheckboxProps={{ size: "small", sx: { p: 0.5 } }}
             // Let the selection checkbox column be hidden like any other column. MRT's
             // built-in display columns are not hideable by default, so the checkbox was
             // permanent for every user on a table that opts into selection — a fixed cost
@@ -1700,10 +1706,39 @@ function MaterialTable({
             // Rebuild the built-in icon strip so a "Reset layout" button can sit
             // beside the column show/hide toggle. Mirrors the default buttons and
             // their enable-flags (density toggle is globally off for this table).
-            renderToolbarInternalActions={({ table }) => (
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                {!enableColumnSpecificSearch && <MRT_ToggleGlobalFilterButton table={table} />}
-                {(enableFilters ?? true) && <MRT_ToggleFiltersButton table={table} />}
+            renderToolbarInternalActions={({ table }) => {
+              // One neutral segmented group (search-field height). Colour is reserved for
+              // state: a tool turns primary only while it is ON, so the tint carries meaning.
+              const { showColumnFilters, showGlobalFilter, isFullScreen } = table.getState();
+              return (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.25,
+                  height: WT_CONTROL_HEIGHT,
+                  px: 0.375,
+                  border: 1,
+                  borderColor: "divider",
+                  borderRadius: "10px",
+                  bgcolor: "background.paper",
+                  "& .MuiIconButton-root": {
+                    width: 32,
+                    height: 32,
+                    borderRadius: "8px",
+                    color: "text.secondary",
+                    transition: "background-color .15s, color .15s",
+                    "&:hover": { bgcolor: "action.hover", color: "text.primary" },
+                    "&:focus-visible": { outline: 2, outlineColor: "primary.main", outlineOffset: 1 },
+                    "& .ki-duotone": { fontSize: "1.15rem" },
+                    // ON state for any button in the group, page-supplied ones included.
+                    '&[data-active="true"]': { color: "primary.main", bgcolor: "action.selected" },
+                  },
+                }}
+              >
+                {renderToolbarIconActions?.()}
+                {!enableColumnSpecificSearch && <MRT_ToggleGlobalFilterButton table={table} data-active={showGlobalFilter} />}
+                {(enableFilters ?? true) && <MRT_ToggleFiltersButton table={table} data-active={showColumnFilters} />}
                 {(enableHiding ?? true) && <ShowHideColumnsButton table={table} />}
                 <Tooltip title="Reset columns to default layout">
                   <IconButton
@@ -1713,9 +1748,10 @@ function MaterialTable({
                     <KTIcon iconName="arrows-circle" className="fs-2" />
                   </IconButton>
                 </Tooltip>
-                {(enableFullScreenToggle ?? true) && <MRT_ToggleFullScreenButton table={table} />}
+                {(enableFullScreenToggle ?? true) && <MRT_ToggleFullScreenButton table={table} data-active={isFullScreen} />}
               </Box>
-            )}
+              );
+            }}
             // The header row is the container; each header cell is a draggable.
             //
             // THE HANDLE IS THE WHOLE CONTENT ROW, not the label inside it. `-Content-Labels`

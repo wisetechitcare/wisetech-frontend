@@ -70,6 +70,11 @@ export { CurrencySymbol } from './CurrencySymbol';
 // new record, so it deliberately drops the create action.
 export { WtEmptyState } from './WtEmptyState';
 export type { WtEmptyStateProps, WtEmptyStateVariant } from './WtEmptyState';
+// Responsive right-side workspace shared by supporting tasks such as filters and history.
+export { WtSheet } from './WtSheet';
+export type { WtSheetProps } from './WtSheet';
+export { FilterSheet, FilterSheetButton, countActiveFilters } from './FilterSheet';
+export type { FilterSheetProps } from './FilterSheet';
 // Full-block page/section loading — MUI CircularProgress. Legacy path: utils/Loader.
 export { PageLoader, type PageLoaderProps } from './PageLoader';
 // Short master create/edit dialog shell for *ConfigureForm screens.
