@@ -474,7 +474,7 @@
      106 aside toggle · 107 menu dropdown · 110 Metronic drawers · 120 onboarding
      ← nothing between 120 and 1000 →
      1050 Bootstrap modal backdrop · 1055-1060 modal · 1080 the nav's own More
-     sheet · 1090 notifications · 1300 MUI dialog · 2000 Swal
+     sheet · 1090 notifications · 1300 MUI dialog
 
    130/131 sits in that gap, and BOTH bounds are load-bearing. Above 120 so the
    sheet clears every piece of layout chrome including the nav. Below 1050 so

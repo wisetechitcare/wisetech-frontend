@@ -1,3 +1,4 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { safeJsonParse } from '@utils/safeJson';
 import { T as UiTokens } from '@app/modules/common/components/ui/tokens';
 import { useEffect, useRef, useState } from 'react';
@@ -5,7 +6,7 @@ import { parseWorkingDays } from '@utils/workingDays';
 import { anniversaryDateOrNull } from '@utils/anniversary';
 import { useFormik } from 'formik';
 import Flatpickr from "react-flatpickr";
-import { Modal } from 'react-bootstrap';
+
 import dayjs from 'dayjs';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';

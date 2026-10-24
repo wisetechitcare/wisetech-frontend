@@ -56,7 +56,7 @@ customHeaders:
       # (navigator.geolocation is used in 5+ components). Blocking it would break
       # check-in.
       - key: 'Permissions-Policy'
-        value: 'geolocation=(self), camera=(), microphone=(), payment=(), usb=()'
+        value: 'geolocation=(self), camera=(self), microphone=(), payment=(), usb=()'
 
       # DELIBERATELY NOT SET HERE:
       #

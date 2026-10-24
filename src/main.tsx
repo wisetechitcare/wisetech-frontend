@@ -118,6 +118,7 @@ const renderApp = () => {
 const BOOTSTRAP_RETRIES = 3
 
 // ── Shared inline styles injected once ────────────────────────────────────────
+// eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
 const SPLASH_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}

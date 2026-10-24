@@ -3,13 +3,13 @@ import { Box, Button, MenuItem, Stack, TextField, Typography } from "@mui/materi
 import { KTIcon } from "@metronic/helpers";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { getTaskList, getAllTasksWithMetrics, getAvailableProjects, deleteTask } from "@services/tasks";
-import { WtTooltip } from "@app/modules/common/components/ui";
+import { WtTooltip, confirmDialog } from "@app/modules/common/components/ui";
 import dayjs from "dayjs";
-import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { canSection } from "@utils/can";
 import { usePermission } from "@hooks/usePermission";
 import { getTimeTokens } from '@utils/timeFormat';
+import { errorConfirmation, successConfirmation } from '@utils/modal';
 
 interface DashboardTasksProps {
   onNewTaskClick: () => void;
@@ -100,24 +100,21 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
   }, [canSeeCost]);
 
   const handleDeleteTask = async (task: any) => {
-    const result = await Swal.fire({
+    const confirmed = await confirmDialog({
       title: "Are you sure?",
       text: "You won't be able to revert this!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#1E3A8A",
-      cancelButtonColor: "#6c757d",
-      confirmButtonText: "Yes, delete it!",
+      confirmText: "Yes, delete it!",
+      danger: true,
     });
 
-    if (result.isConfirmed) {
+    if (confirmed) {
       try {
         await deleteTask(task.id);
         await fetchTasks();
-        Swal.fire("Deleted!", "Task has been deleted.", "success");
+        successConfirmation("Task has been deleted.", "Deleted!");
       } catch (error) {
         console.error("Error deleting task:", error);
-        Swal.fire("Error!", "Failed to delete task.", "error");
+        errorConfirmation("Failed to delete task.", "Error!");
       }
     }
   };

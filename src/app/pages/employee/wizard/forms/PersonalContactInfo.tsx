@@ -1,5 +1,5 @@
-import PhoneNumberInput from "@app/components/PhoneNumberInput";
-import TextInput from "@app/modules/common/inputs/TextInput";
+import { WtFieldFormik, WtPhoneFieldFormik } from "@app/modules/common/components/ui";
+import { Alert, Box } from "@mui/material";
 import { useState } from "react";
 import { checkEmailDomain } from "@utils/emailDomain";
 
@@ -35,8 +35,8 @@ function PersonalContactInfo({
   return (
     <>
       {/* Row 1: Email + Personal Phone Number */}
-      <div className="row mb-4">
-        <div className="col-lg-6 col-md-6 col-sm-12 mb-3 mb-lg-0">
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 2, mb: 3 }}>
+        <Box>
           {/* Focus events bubble in React, so the wrapper hears the input without the shared
               TextInput growing an onFocus prop for this one field's sake. */}
           <div
@@ -47,79 +47,73 @@ function PersonalContactInfo({
                 formikProps?.validateField?.("personalEmailId"));
             }}
           >
-            <TextInput
-              isRequired={contactRequired}
+            <WtFieldFormik
+              required={contactRequired}
               label="Personal Email Address"
-              formikField="personalEmailId"
-              margin="mb-0"
+              name="personalEmailId"
+              type="email"
             />
           </div>
           {showEmailWarning && (
-            <div className="alert alert-warning d-flex align-items-start py-2 px-3 mt-2 mb-0" role="alert">
-              <i className="fa-solid fa-triangle-exclamation me-2 mt-1" />
-              <span className="fs-7">
+            <Alert severity="warning" sx={{ mt: 1, py: 0 }}>
+              <span>
                 Changing this address changes where this account's password setup and
                 sign-in emails are delivered. The employee signs in with their company
                 email, which is not affected.
               </span>
-            </div>
+            </Alert>
           )}
-        </div>
+        </Box>
 
-        <div className="col-lg-6 col-md-6 col-sm-12">
-          <PhoneNumberInput
+        <Box>
+          <WtPhoneFieldFormik
             label="Personal Phone Number"
-            isRequired={contactRequired}
-            formikField="personalPhoneNumber"
-            formikProps={formikProps}
+            required={contactRequired}
+            name="personalPhoneNumber"
             extensionField="personalPhoneNumberExtension"
             placeholder="Phone number"
           />
-        </div>
-      </div>
+        </Box>
+      </Box>
 
       {/* Row 2: Alternate Phone Number */}
-      <div className="row mb-4">
-        <div className="col-lg-6 col-md-6 col-sm-12">
-          <PhoneNumberInput
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 2, mb: 3 }}>
+        <Box>
+          <WtPhoneFieldFormik
             label="Alternate Phone Number"
-            isRequired={false}
-            formikField="alternatePhoneNumber"
-            formikProps={formikProps}
+            required={false}
+            name="alternatePhoneNumber"
             placeholder="Phone number"
           />
-        </div>
-      </div>
+        </Box>
+      </Box>
 
       {/* Row 3: Social Profiles */}
-      <div className="row">
-        <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
-          <TextInput
-            isRequired={false}
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", lg: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}>
+        <Box>
+          <WtFieldFormik
+            required={false}
             label="LinkedIn Profile URL"
-            formikField="linkedInProfileUrl"
-            margin="mb-0"
+            name="linkedInProfileUrl"
           />
-        </div>
+        </Box>
 
-        <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
-          <TextInput
-            isRequired={false}
+        <Box>
+          <WtFieldFormik
+            required={false}
             label="Instagram Profile URL"
-            formikField="instagramProfileUrl"
-            margin="mb-0"
+            name="instagramProfileUrl"
           />
-        </div>
+        </Box>
 
-        <div className="col-lg-4 col-md-6 col-sm-12">
-          <TextInput
-            isRequired={false}
+        <Box>
+          <WtFieldFormik
+            required={false}
             label="Facebook Profile URL"
-            formikField="facebookProfileUrl"
-            margin="mb-0"
+            name="facebookProfileUrl"
           />
-        </div>
-      </div>
+        </Box>
+      </Box>
     </>
   );
 }

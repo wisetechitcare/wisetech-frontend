@@ -147,6 +147,7 @@ const JobProfileConfigureForm: React.FC<JobProfileFormProps> = ({
           title={`${isEditing ? "Edit" : "New"} Job Profile`}
           subtitle={subtitle}
           saving={isSubmitting}
+          dirty={fk.dirty}
           error={error}
           onSubmit={fk.handleSubmit}
           submitLabel={isEditing ? "Update" : "Create"}

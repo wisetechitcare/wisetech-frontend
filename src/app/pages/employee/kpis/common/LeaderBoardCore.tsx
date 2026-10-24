@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from "react";
-import { Col, Modal, Row } from "react-bootstrap";
+import { UnsavedChangesModal as Modal } from "@app/modules/common/components/ui";
+import { Col, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "@redux/store";
 import {
@@ -755,7 +756,7 @@ const FactorLeaderboardCard = React.memo(
               const avatarSrc =
                 getAvatar(
                   safeString(item?.employee?.avatar),
-                  item?.employee?.gender as 0 | 1 | 2
+                  item?.employee?.gender
                 ) || maleIcons.maleIcon?.default;
               return (
                 <EmployeeCard
@@ -849,8 +850,8 @@ function LeaderBoardCore({
   const endDateStr = endDate?.format("YYYY-MM-DD") ?? "";
 
 
-  const getEmployeeAvatar = useCallback((avatar: string | undefined, gender: number | undefined) => {
-    const url = getAvatar(avatar || "", gender as 0 | 1 | 2);
+  const getEmployeeAvatar = useCallback((avatar: string | undefined, gender: string | number | undefined) => {
+    const url = getAvatar(avatar || "", gender);
     return url && url.trim() !== "" ? url : maleIcons.maleIcon?.default;
   }, []);
 
@@ -866,7 +867,7 @@ function LeaderBoardCore({
         emp?.employee?.users?.lastName || emp?.employee?.lastName || emp?.lastName || ""
       );
       const avatar = safeString(emp?.employee?.avatar || emp?.avatar || "");
-      const gender = emp?.employee?.gender ?? emp?.gender ?? 0;
+      const gender = emp?.employee?.gender ?? emp?.gender ?? null;
       const score = safeNumber(emp?.totalScore ?? emp?.score ?? 0);
       const maxScoreRaw = emp?.maxScore ?? null;
       const valueRaw = emp?.value ?? null;
@@ -902,7 +903,7 @@ function LeaderBoardCore({
     (item: any = {}) => {
       const emp = item?.employee || {};
       const avatar =
-        getAvatar(safeString(emp.avatar), emp.gender as 0 | 1 | 2) ||
+        getAvatar(safeString(emp.avatar), emp.gender) ||
         maleIcons.maleIcon?.default;
       return {
         name: `${safeString(emp.firstName)} ${safeString(emp.lastName)}`.trim() || "-",

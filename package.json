@@ -15,6 +15,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "test": "vitest run",
+    "audit:choices": "node scripts/audit-choice-fields.mjs",
     "test:watch": "vitest",
     "preview": "vite preview",
     "lint:ui:baseline": "eslint \"src/**/*.{ts,tsx}\" -f json > .eslint-ui-tmp.json; node scripts/gen-ui-baseline.cjs < .eslint-ui-tmp.json; rm -f .eslint-ui-tmp.json",
@@ -125,7 +126,6 @@
     "socket.io-client": "^4.8.1",
     "sonner": "^1.7.4",
     "supercluster": "^8.0.1",
-    "sweetalert2": "^11.11.0",
     "ua-parser-js": "^2.0.2",
     "uuid": "^10.0.0",
     "yup": "^1.0.0"

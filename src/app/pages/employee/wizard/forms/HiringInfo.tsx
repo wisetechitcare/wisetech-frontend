@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Box } from "@mui/material";
+import dayjs from "dayjs";
 import { fetchAllEmployees } from "@services/employee";
 import { fetchSrcOfHire } from "@services/options";
-import { WtFieldFormik } from "@app/modules/common/components/ui";
-import DateInput from "@app/modules/common/inputs/DateInput";
+import { WtDateField, WtFieldFormik } from "@app/modules/common/components/ui";
 import RejoinHistory from "./RejoinHistory";
 import AddAnotherBtn from "@app/modules/common/utils/AddAnotherBtn";
 import ReferrerInput from "./ReferrerInput";
@@ -35,8 +35,8 @@ function HiringInfo({ formikProps, rejoinRows = [], onAddRejoin, onRemoveRejoin 
 
     return (
         <>
-            <div className="row mb-4">
-                <div className="col-lg-6 col-md-6 col-sm-12 mb-3 mb-lg-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
                     {/* No "+ Add" here any more. Creating a master-list entry from
                         inside the form meant the list could be appended to while hiring
                         somebody but never corrected or pruned; it is maintained in
@@ -52,7 +52,7 @@ function HiringInfo({ formikProps, rejoinRows = [], onAddRejoin, onRemoveRejoin 
                     />
                 </div>
 
-                <div className="col-lg-6 col-md-6 col-sm-12">
+                <div>
                     {/* Pick a colleague OR type anyone else. A referral often comes
                         from outside the company, and `referredById` is a foreign key
                         that can only ever name staff — a free-typed name is stored in
@@ -61,15 +61,14 @@ function HiringInfo({ formikProps, rejoinRows = [], onAddRejoin, onRemoveRejoin 
                 </div>
             </div>
 
-            <div className="row mb-4">
-                <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
-                    <DateInput
-                        formikField="dateOfJoining"
-                        isRequired={true}
-                        formikProps={formikProps}
-                        inputLabel="Date Of Joining"
-                        placeHolder="Date Of Joining"
-                        maxDate={true}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <WtDateField
+                        label="Date Of Joining"
+                        required
+                        value={formikProps.values?.dateOfJoining || null}
+                        onChange={(value) => formikProps.setFieldValue("dateOfJoining", value)}
+                        maxDate={dayjs().format("YYYY-MM-DD")}
                     />
                     {/* Same amber as the draft-restored notice — Metronic's `text-warning`
                         (#FFC700) is a signal yellow that belongs to none of this form's
@@ -105,13 +104,11 @@ function HiringInfo({ formikProps, rejoinRows = [], onAddRejoin, onRemoveRejoin 
                     </Box>
                 </div>
 
-                <div className="col-lg-4 col-md-6 col-sm-12">
-                    <DateInput
-                        formikField="dateOfExit"
-                        isRequired={false}
-                        formikProps={formikProps}
-                        inputLabel="Date Of Exit"
-                        placeHolder="Date Of Exit"
+                <div>
+                    <WtDateField
+                        label="Date Of Exit"
+                        value={formikProps.values?.dateOfExit || null}
+                        onChange={(value) => formikProps.setFieldValue("dateOfExit", value)}
                     />
                 </div>
             </div>

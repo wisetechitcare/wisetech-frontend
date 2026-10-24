@@ -31,8 +31,6 @@ import { useSelector } from 'react-redux';
 import PrivacyToggle from '@app/modules/common/components/PrivacyToggle';
 import { IMonthlyApiResponse } from '@redux/slices/salaryData';
 
-type Gender = 0 | 1 | 2;
-
 interface EmployeeDetailsCardProps {
     fromAdmin?: boolean;
     stats: Attendance[];
@@ -385,7 +383,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
     const employee = useSelector((state: RootState) => fromAdmin ? state.employee?.selectedEmployee : state.employee.currentEmployee);
 
-    const avatar = getAvatar(employee?.avatar || '', employee?.gender as unknown as Gender);
+    const avatar = getAvatar(employee?.avatar || '', employee?.gender);
     let monthlySalary: number | undefined;
     let hourlySalary: number | undefined;
 

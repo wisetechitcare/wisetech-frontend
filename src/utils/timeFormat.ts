@@ -40,6 +40,7 @@
  * that side and must never route through here.
  */
 import { store } from "@redux/store";
+import { resolve, type PreferenceSpec } from "@/preferences/core";
 
 /** The resolved answer. Only ever these two — `inherit` is resolved away. */
 export type TimeFormat = "12h" | "24h";
@@ -109,6 +110,22 @@ export const normalizeTimeFormatFlag = (value: unknown): boolean | null => {
 };
 
 /**
+ * The time format as a scoped preference. The personal layer stores the literal
+ * (`'12h'`/`'24h'`, or `'inherit'` = no opinion); branch and org store the legacy
+ * boolean column in any of the shapes `normalizeTimeFormatFlag` accepts.
+ */
+export const timeFormatSpec: PreferenceSpec<TimeFormat> = {
+    key: "timeFormat",
+    scopes: ["user", "branch", "org"],
+    fallback: DEFAULT_TIME_FORMAT,
+    decode: (raw) => {
+        if (raw === "12h" || raw === "24h") return raw;
+        const flag = normalizeTimeFormatFlag(raw);
+        return flag === null ? null : flag ? "12h" : "24h";
+    },
+};
+
+/**
  * The precedence chain, as a pure function — the whole policy in one place, so
  * it can be tested without a store, a browser or a logged-in user.
  */
@@ -116,17 +133,7 @@ export const resolveTimeFormat = (
     personal: TimeFormatPreference,
     branchFlag: unknown,
     orgFlag: unknown,
-): TimeFormat => {
-    if (personal === "12h" || personal === "24h") return personal;
-
-    const branch = normalizeTimeFormatFlag(branchFlag);
-    if (branch !== null) return branch ? "12h" : "24h";
-
-    const org = normalizeTimeFormatFlag(orgFlag);
-    if (org !== null) return org ? "12h" : "24h";
-
-    return DEFAULT_TIME_FORMAT;
-};
+): TimeFormat => resolve(timeFormatSpec, { user: personal, branch: branchFlag, org: orgFlag });
 
 const isPreference = (v: unknown): v is TimeFormatPreference =>
     v === "12h" || v === "24h" || v === "inherit";

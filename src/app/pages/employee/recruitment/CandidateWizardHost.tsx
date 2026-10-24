@@ -4,7 +4,7 @@ import { Formik, Form, type FormikProps } from "formik";
 import * as Yup from "yup";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, CircularProgress } from "@mui/material";
-import { AppIcon, toast, confirmDialog } from "@app/modules/common/components/ui";
+import { AppIcon, EntityIdentityHeader, toast, useDiscardConfirm } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { useOrgScope, toCompanyIdParam } from "@/hooks/useOrgScope";
 import { apiErrorMessage } from "@utils/apiError";
@@ -20,9 +20,9 @@ import {
   uploadApplicantPhoto,
   uploadApplicantResume,
 } from "@services/recruitment";
-import OnboardingWizard from "../forms/onboarding/OnboardingWizard";
+import { EnterpriseFormWizard } from '@/shared/form-engine';
 import type { OnboardingSectionsProps } from "../forms/onboarding/OnboardingSections";
-import { FullscreenWizardModal } from "../forms/shared/FullscreenWizardModal";
+import { WtWizardDialog } from '@app/modules/common/components/ui';
 import { buildCandidateWizardGroups } from "./buildCandidateWizardGroups";
 import {
   applicantToFormikValues,
@@ -55,7 +55,7 @@ const buildCandidateSchema = (roleRequired: boolean) =>
 
 /**
  * Full-page Add/Edit Candidate wizard — same fullscreen shell as Employee
- * Onboarding (`FullscreenWizardModal` + `OnboardingWizard`). Never creates an employee.
+ * Onboarding (`WtWizardDialog` + `OnboardingWizard`). Never creates an employee.
  */
 export default function CandidateWizardHost() {
   const navigate = useNavigate();
@@ -187,22 +187,14 @@ export default function CandidateWizardHost() {
     navigate(leaveTarget());
   };
 
-  const handleCancel = async () => {
-    const f = formikRef.current;
-    const pendingUploads =
-      Boolean(resumeFile) || Boolean(photoFile) || Object.keys(pendingDocFiles).length > 0;
-    if (f?.dirty || pendingUploads) {
-      const ok = await confirmDialog({
-        title: "Discard unsaved changes?",
-        text: "Changes on this candidate will be lost.",
-        confirmText: "Discard",
-        cancelText: "Keep editing",
-        danger: true,
-      });
-      if (!ok) return;
-    }
-    goBack();
-  };
+  const discard = useDiscardConfirm(
+    () =>
+      Boolean(formikRef.current?.dirty) ||
+      Boolean(resumeFile) || Boolean(photoFile) || Object.keys(pendingDocFiles).length > 0,
+    goBack,
+    { message: "Changes on this candidate will be lost." },
+  );
+  const handleCancel = discard.requestClose;
 
   const uploadPending = async (id: string, values: CandidateFormValues) => {
     if (resumeFile) {
@@ -358,17 +350,29 @@ export default function CandidateWizardHost() {
     softRequired: true,
   };
 
-  const summaryRows = (v: CandidateFormValues) => {
+  /**
+   * Rows for one wizard leaf — the single source for both the Summary aside (all
+   * leaves, rail order) and that leaf's Review card. Leaves with no rows here show
+   * only their completion status on the Review step.
+   */
+  const leafRows = (leafId: string, v: CandidateFormValues) => {
     const rows: Array<{ label: string; value: ReactNode; isStrong?: boolean }> = [];
-    const name = `${v.firstName || ""} ${v.lastName || ""}`.trim();
-    if (name) rows.push({ label: "Name", value: name, isStrong: true });
-    if (v.personalEmailId) rows.push({ label: "Email", value: v.personalEmailId });
-    if (v.personalPhoneNumber) rows.push({ label: "Phone", value: v.personalPhoneNumber });
-    if (v.requisitionId) rows.push({ label: "Role", value: "Selected" });
-    if (v.currentCtc != null) rows.push({ label: "Current CTC", value: String(v.currentCtc) });
-    if (v.expectedCtc != null) rows.push({ label: "Expected CTC", value: String(v.expectedCtc) });
+    if (leafId === "personal-info") {
+      const name = `${v.firstName || ""} ${v.lastName || ""}`.trim();
+      if (name) rows.push({ label: "Name", value: name, isStrong: true });
+    } else if (leafId === "contact-info") {
+      if (v.personalEmailId) rows.push({ label: "Email", value: v.personalEmailId });
+      if (v.personalPhoneNumber) rows.push({ label: "Phone", value: v.personalPhoneNumber });
+    } else if (leafId === "application-strip") {
+      if (v.requisitionId) rows.push({ label: "Role", value: "Selected" });
+      if (v.currentCtc != null) rows.push({ label: "Current CTC", value: String(v.currentCtc) });
+      if (v.expectedCtc != null) rows.push({ label: "Expected CTC", value: String(v.expectedCtc) });
+    }
     return rows;
   };
+
+  const leafIds = groups.flatMap((g) => g.children.map((leaf) => leaf.id));
+  const summaryRows = (v: CandidateFormValues) => leafIds.flatMap((leafId) => leafRows(leafId, v));
 
   if (routeApplicantId && loadingApplicant) {
     return (
@@ -379,8 +383,9 @@ export default function CandidateWizardHost() {
   }
 
   return (
-    <FullscreenWizardModal
-      show={show}
+    <WtWizardDialog title={isEdit || applicantId ? "Edit Candidate" : "Add Candidate"}
+      subtitle="Capture identity, hiring facts and documents" icon="profile-user" closeGuard="host"
+      open={show}
       onClose={handleCancel}
       closeLabel="Close candidate wizard"
       className="onboarding-wizard-modal"
@@ -393,9 +398,23 @@ export default function CandidateWizardHost() {
       >
         {(formikProps) => {
           formikRef.current = formikProps;
+          const cv = formikProps.values;
+          const candidateName = `${cv.firstName || ""} ${cv.lastName || ""}`.trim();
+          const identity = candidateName ? (
+            <EntityIdentityHeader
+              variant="compact"
+              title={candidateName}
+              avatar={{
+                src: profilePhotoPreview || cv.avatar || null,
+                name: candidateName,
+                id: applicantId ?? null,
+              }}
+              meta={[(cv.currentTitle || "").trim(), (cv.currentLocation || "").trim()]}
+            />
+          ) : undefined;
           return (
             <Form noValidate style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-              <OnboardingWizard
+              <EnterpriseFormWizard layout="sections"
                 groups={groups}
                 sectionProps={{ ...sectionProps, formikProps }}
                 headerTitle={isEdit || applicantId ? "Edit Candidate" : "Add Candidate"}
@@ -427,12 +446,18 @@ export default function CandidateWizardHost() {
                 submitText={isEdit || applicantId ? "Done" : "Add Candidate"}
                 summaryTitle="Candidate Summary"
                 summaryRows={(v) => summaryRows(v as CandidateFormValues)}
+                identity={identity}
+                review={{
+                  rows: (leafId, values) => leafRows(leafId, values as CandidateFormValues),
+                  identity,
+                }}
                 initialLeafId={roleRequired ? "application-strip" : undefined}
               />
             </Form>
           );
         }}
       </Formik>
-    </FullscreenWizardModal>
+      {discard.dialog}
+    </WtWizardDialog>
   );
 }

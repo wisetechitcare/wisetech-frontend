@@ -193,11 +193,10 @@ export function makeWisetechTheme(mode: 'light' | 'dark' = 'light', brand: Brand
         },
       },
       MuiDialog: {
-        // SweetAlert renders at the end of <body>, OUTSIDE the dialog. MUI's focus trap pulls
-        // focus straight back in, so a Swal input opened from inside a dialog cannot be typed
-        // into at all — which is how "Reason (optional)" on the cancel-meeting prompt looked
-        // broken. Turned off app-wide rather than per dialog: every dialog in the app can fire
-        // a Swal, and the trap buys nothing here since Swal runs its own.
+        // Off app-wide since the SweetAlert era: overlays rendered outside a dialog (legacy
+        // react-bootstrap modals, Metronic menus) must stay typeable when opened over it. SweetAlert
+        // is gone (prompts are kit ConfirmDialogs, which stack as MUI modals); re-enabling the trap
+        // is a separate, tested change — GlassDialog already opts back in per dialog.
         defaultProps: { disableEnforceFocus: true },
         styleOverrides: {
           // Stock MUI dialogs (not GlassDialog) get the solid elevated sheet in dark —

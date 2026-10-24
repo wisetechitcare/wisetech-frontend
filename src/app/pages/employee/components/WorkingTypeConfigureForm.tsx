@@ -94,6 +94,7 @@ const WorkingTypeConfigureForm: React.FC<WorkingTypeFormProps> = ({
           onClose={onClose}
           title={`${isEditing ? "Edit" : "New"} Working Location Type`}
           saving={isSubmitting}
+          dirty={fk.dirty}
           error={error}
           onSubmit={fk.handleSubmit}
           submitLabel={isEditing ? "Update" : "Create"}

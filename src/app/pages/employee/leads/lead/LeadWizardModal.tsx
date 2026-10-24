@@ -59,7 +59,7 @@ import {
 } from "@services/options";
 import { convertFiscalYearToYearFormat } from "@app/modules/common/components/PrefixSettingsForm";
 import PrefixInlineEdit from "@app/modules/common/components/PrefixInlineEdit";
-import { confirmDialog } from "@app/modules/common/components/ui";
+import { confirmDialog, UnsavedChangesModal as Modal } from "@app/modules/common/components/ui";
 import { useOrgScope } from "@hooks/useOrgScope";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import DateInput from "@app/modules/common/inputs/DateInput";
@@ -78,10 +78,11 @@ import {
   successConfirmation,
 } from "@utils/modal";
 import ProjectConfigForm from "@pages/employee/projects/configure/components/ProjectConfigForm";
+import type { LeadSetFieldValue } from "@pages/employee/forms/lead/LeadSections";
 import CompaniesBranchForm from "@pages/employee/companies/companies/components/CompaniesBranchForm";
 import NewCompanyForm from "@pages/employee/companies/companies/components/NewCompanyForm";
 import ClientContactsForm from "@pages/employee/companies/contacts/components/ClientContactsForm";
-import { Modal, Form, Row, Col, Button, Dropdown } from "react-bootstrap";
+import { Form, Row, Col, Button, Dropdown } from "react-bootstrap";
 import LeadsConfigForm from "../configuration/components/LeadsConfigForm";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -667,7 +668,7 @@ const LeadWizardModal = ({
   // Helper to validate calculated values and show warnings
   const validateCalculatedCost = (
     cost: number,
-    setFieldError: Function,
+    setFieldError: (field: string, message: string) => void,
     fieldPath: string,
   ): boolean => {
     if (cost > 10000000000) {
@@ -1829,7 +1830,7 @@ const LeadWizardModal = ({
 
   // Address location management functions
   const handleAddressCountryChange = useCallback(
-    async (index: number, countryId: string, setFieldValue: Function) => {
+    async (index: number, countryId: string, setFieldValue: LeadSetFieldValue) => {
       try {
         const selectedCountry = countries.find((c) => c.id === countryId);
         if (!selectedCountry) {
@@ -1866,7 +1867,7 @@ const LeadWizardModal = ({
       index: number,
       stateId: string,
       countryId: string,
-      setFieldValue: Function,
+      setFieldValue: LeadSetFieldValue,
     ) => {
       try {
         const selectedCountry = countries.find((c) => c.id === countryId);

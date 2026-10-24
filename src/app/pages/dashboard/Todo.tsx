@@ -11,7 +11,6 @@ import {
 import { RootState } from '@redux/store';
 import { getTodo, createTodo, updateTodo, deleteTodo } from '@services/employee';
 import { deleteConfirmation, errorConfirmation, successConfirmation } from '@utils/modal';
-import Swal from 'sweetalert2';
 import { KTIcon } from '@metronic/helpers';
 import * as Yup from 'yup';
 import { Formik } from 'formik';
@@ -26,6 +25,7 @@ import {
   WtCheckbox,
   WtEmptyState,
   WtField,
+  alertDialog,
   label,
 } from '@app/modules/common/components/ui';
 
@@ -97,16 +97,16 @@ const TodoList = memo(() => {
     const existingTodo = todos.find((todo) => todo.id === editTodo.id);
     if (!existingTodo) return;
     if (editTodo.description === existingTodo.description && editTodo.status === existingTodo.status) {
-      Swal.fire('No changes detected!', "You didn't modify anything.", 'info');
+      alertDialog({ icon: 'info', title: 'No changes detected!', text: "You didn't modify anything." });
       return;
     }
     try {
       if (editTodo.description.length > 200) {
-        Swal.fire(
-          'Description should not exceed 200 characters.',
-          'Total characters: ' + editTodo.description.length,
-          'warning',
-        );
+        alertDialog({
+          icon: 'warning',
+          title: 'Description should not exceed 200 characters.',
+          text: 'Total characters: ' + editTodo.description.length,
+        });
         return;
       }
       await updateTodo(employeeId, editTodo.id, {
@@ -410,11 +410,11 @@ const TodoList = memo(() => {
           onSubmit={async (values, { setSubmitting, resetForm }) => {
             try {
               if (values.description.length > 200) {
-                Swal.fire(
-                  'Description should not exceed 200 characters.',
-                  'Total characters: ' + values.description.length,
-                  'warning',
-                );
+                alertDialog({
+                  icon: 'warning',
+                  title: 'Description should not exceed 200 characters.',
+                  text: 'Total characters: ' + values.description.length,
+                });
                 return;
               }
               await createTodo({ employeeId, description: values.description });

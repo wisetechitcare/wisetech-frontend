@@ -6,3 +6,4 @@ export * from "./hooks/useAddressCascade";
 export * from "./hooks/useCompanyHierarchy";
 export * from "./hooks/usePrefixGeneration";
 export * from "./types/formEngine.types";
+export type { WizardGroup, WizardLeaf, GroupedWizardProps } from './components/EnterpriseWizard/GroupedWizard';

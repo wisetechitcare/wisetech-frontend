@@ -127,6 +127,7 @@ const OrganizationConfigureForm: React.FC<ConfigFormProps> = ({
           onClose={onClose}
           title={`${isEditing ? "Edit" : "New"} ${title}`}
           saving={isSubmitting}
+          dirty={fk.dirty}
           error={error}
           onSubmit={fk.handleSubmit}
           submitLabel={isEditing ? "Update" : "Save"}

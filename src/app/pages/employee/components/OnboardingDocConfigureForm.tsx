@@ -110,6 +110,7 @@ const OnboardingDocConfigureForm: React.FC<OnboardingDocFormProps> = ({
           onClose={onClose}
           title={`${isEditing ? "Edit" : "New"} Onboarding Document`}
           saving={isSubmitting}
+          dirty={fk.dirty}
           error={error}
           onSubmit={fk.handleSubmit}
           submitLabel={isEditing ? "Update" : "Create"}

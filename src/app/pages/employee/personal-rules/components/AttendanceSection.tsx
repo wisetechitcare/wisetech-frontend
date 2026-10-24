@@ -1,6 +1,6 @@
 import { safeJsonParse } from '@utils/safeJson';
 import React, { useState, useEffect } from 'react';
-import { Card, Modal } from 'react-bootstrap';
+import { Card } from 'react-bootstrap';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { fetchConfiguration, fetchCompanyOverview } from '@services/company';
 import {

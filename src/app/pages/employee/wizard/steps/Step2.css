@@ -6,7 +6,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 /* ── Design Tokens ── */
-.ob-wizard-root {
+/* Tokens also live on the onboarding dialog (WtWizardDialog className), so ob-* widgets
+   rendered by the grouped wizard - e.g. the dashed photo dropzone - resolve their
+   variables without inheriting .ob-wizard-root layout/typography. */
+.ob-wizard-root,
+.onboarding-wizard-modal {
   --ob-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   --ob-bg:        #F1F3F7;
@@ -67,7 +71,9 @@
   --ob-tr:        150ms cubic-bezier(0.4,0,0.2,1);
   --ob-tr-slow:   260ms cubic-bezier(0.4,0,0.2,1);
   --ob-tr-bounce: 320ms cubic-bezier(0.34,1.56,0.64,1);
+}
 
+.ob-wizard-root {
   font-family: var(--ob-font);
   background: var(--ob-bg);
   color: var(--ob-text-1);

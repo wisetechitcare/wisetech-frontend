@@ -338,6 +338,7 @@ function StatusSummaryBar({ summary, waits, actionableCount, actionableAmount }:
  */
 const canDecideRequest = (r: RequestRowData, viewerEmployeeId?: string): boolean => {
   if (resolveStatusNum(r.status) !== STATUS.PENDING) return false;
+  if (typeof r.viewerCanDecide === 'boolean') return r.viewerCanDecide;
   const approval = r.approval;
   if (!approval) return true;
   if (approval.status !== 'pending') return false;
@@ -351,6 +352,7 @@ interface BatchDetailModalProps {
   batchId: string | null;
   onClose: () => void;
   onBatchActionDone: () => void;
+  approverOnly?: boolean;
   approvalInstanceId?: string | null;
   /** When 1 or 2, restricts the list to that final status — used when the modal is opened from an
    *  approved- or rejected-group row in the approvals queue. */
@@ -376,7 +378,7 @@ interface BatchDetailModalProps {
  * approve one, reject another, question a third, leave the rest — which is what the engine has
  * supported since Phase 2 and what the UI could not express.
  */
-export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approvalInstanceId, filterStatus, slice }: BatchDetailModalProps) {
+export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approvalInstanceId, filterStatus, slice, approverOnly = false }: BatchDetailModalProps) {
   const [batch, setBatch] = useState<any>(null);
   const [levels, setLevels] = useState<LevelProgressView[]>([]);
   const [summary, setSummary] = useState<BatchSummaryView | null>(null);
@@ -407,7 +409,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     if (!batchId) return;
     setLoading(true);
     try {
-      const res = await fetchReimbursementBatchById(batchId);
+      const res = await fetchReimbursementBatchById(batchId, approverOnly);
       const body = res?.data ?? res;
       setBatch(body?.batch ?? null);
       setLevels(body?.levels ?? []);
@@ -419,7 +421,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
       setSummary(null);
       setBatchQueries([]);
     } finally { setLoading(false); }
-  }, [batchId]);
+  }, [batchId, approverOnly]);
 
   useEffect(() => { loadBatch(); }, [loadBatch]);
   useEventBus(EVENT_KEYS.reimbursementChanged, () => { loadBatch(); });

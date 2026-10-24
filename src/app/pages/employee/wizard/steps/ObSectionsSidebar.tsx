@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Menu, X } from "lucide-react";
-import { KTIcon } from "@metronic/helpers";
+import { AppIcon } from "@app/modules/common/components/ui";
 
 export type ObSectionItem = {
   id: string;
@@ -42,12 +42,12 @@ function SectionNavButton({
     >
       <span className="ob-section-nav-icon">
         {section.icon ??
-          (section.ktIcon ? <KTIcon iconName={section.ktIcon} className="fs-4" /> : null)}
+          (section.ktIcon ? <AppIcon name={section.ktIcon} className="fs-4" aria-hidden /> : null)}
       </span>
       <span className="ob-section-nav-label">{section.label}</span>
       {section.isComplete && (
         <span className="ob-section-nav-check" aria-hidden>
-          <KTIcon iconName="check" className="fs-7 text-white" />
+          <AppIcon name="check" className="fs-7 text-white" aria-hidden />
         </span>
       )}
     </button>

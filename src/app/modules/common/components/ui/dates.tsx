@@ -70,6 +70,12 @@ export interface WtDateFieldBaseProps {
   open?: boolean;
   onOpen?: () => void;
   onClose?: () => void;
+  placeholder?: string;
+  /** Restrict the picker to a calendar granularity such as month/year. */
+  views?: readonly ('year' | 'month' | 'day')[];
+  openTo?: 'year' | 'month' | 'day';
+  /** Display format for specialised views; the wire value remains ISO. */
+  format?: string;
 }
 
 /** Parse a wire string into a Dayjs, or null when absent/invalid. */
@@ -115,6 +121,7 @@ const textFieldSlot = (p: WtDateFieldBaseProps, boundaryPopper: BoundaryPopper) 
     required: p.required,
     error: p.error,
     helperText: p.helperText,
+    placeholder: p.placeholder,
     onBlur: p.onBlur,
     sx: controlHeightSxFor(p.size === 'md' ? 'md' : 'sm'),
   },
@@ -142,7 +149,7 @@ const shellSx = (p: WtDateFieldBaseProps): SxProps<Theme> => [
  * (one M3 range dialog). Do not reach for Flatpickr or a native date input.
  */
 export function WtDateField(props: WtDateFieldBaseProps) {
-  const { label, value, onChange, disabled, minDate, maxDate, open, onOpen, onClose } = props;
+  const { label, value, onChange, disabled, minDate, maxDate, open, onOpen, onClose, views, openTo, format } = props;
   // `noSsr` avoids the light-then-dark double render this would otherwise cause on first paint.
   const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'), { noSsr: true });
   const Picker = isPhone ? MobileDatePicker : DatePicker;
@@ -159,7 +166,9 @@ export function WtDateField(props: WtDateFieldBaseProps) {
           disabled={disabled}
           minDate={parse(minDate) ?? undefined}
           maxDate={parse(maxDate) ?? undefined}
-          format={DATE_FORMATS.DISPLAY}
+          format={format ?? DATE_FORMATS.DISPLAY}
+          views={views}
+          openTo={openTo}
           {...(open !== undefined ? { open, onOpen, onClose } : {})}
           slotProps={textFieldSlot(props, boundarySlots.popper)}
         />

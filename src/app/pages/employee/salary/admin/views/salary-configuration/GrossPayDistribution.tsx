@@ -2,14 +2,14 @@ import { safeJsonParse } from '@utils/safeJson';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon } from "@metronic/helpers";
-import { Modal } from "react-bootstrap";
+
 import { RootState } from "@redux/store";
 import { Form, Formik, FormikValues } from "formik";
 import { MRT_ColumnDef } from "material-react-table";
 import { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import * as Yup from "yup";
-import { WtFieldFormik } from "@app/modules/common/components/ui";
+import { WtFieldFormik, UnsavedChangesModal as Modal } from "@app/modules/common/components/ui";
 import { deleteConfirmation, successConfirmation } from "@utils/modal";
 import { fetchConfiguration, updateConfigurationById } from "@services/company";
 import { GROSS_PAY } from "@constants/configurations-key";

@@ -179,6 +179,14 @@ export function useRealtimeSync(
       }
     };
 
+    // The organisation's Interface Style default changed. Same rules as above: ignore
+    // another tenant's org, spread (the reducer replaces), and keep `null` as "no opinion".
+    const onInterfaceStyleUpdated = (payload: { id?: string; interfaceStyle?: string | null }) => {
+      const company = (store.getState() as any)?.company?.currentCompany;
+      if (!company?.id || company.id !== payload?.id) return;
+      store.dispatch(saveCurrentCompanyInfo({ ...company, interfaceStyle: payload?.interfaceStyle ?? null }));
+    };
+
     // An admin changed this person's access: re-read it first (so hidden columns and tabs update),
     // then refetch whatever is on screen — lead / project lists and details, and every active query.
     const onAccessChanged = async () => {
@@ -192,6 +200,7 @@ export function useRealtimeSync(
     socket.on('access:changed', onAccessChanged);
     socket.on('colors_updated', onColorsUpdated);
     socket.on('settings:time_format_updated', onTimeFormatUpdated);
+    socket.on('settings:interface_style_updated', onInterfaceStyleUpdated);
     socket.on('faqs_updated', onFaqsUpdated);
     socket.on('attendanceRequests:updated', onAttendanceRequestChanged);
     socket.on('lead_project_synced', onLeadProjectSynced);
@@ -213,6 +222,7 @@ export function useRealtimeSync(
       socket.off('access:changed', onAccessChanged);
       socket.off('colors_updated', onColorsUpdated);
       socket.off('settings:time_format_updated', onTimeFormatUpdated);
+      socket.off('settings:interface_style_updated', onInterfaceStyleUpdated);
       socket.off('faqs_updated', onFaqsUpdated);
       socket.off('attendanceRequests:updated', onAttendanceRequestChanged);
       socket.off('lead_project_synced', onLeadProjectSynced);

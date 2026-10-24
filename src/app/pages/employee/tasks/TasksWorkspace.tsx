@@ -600,6 +600,7 @@ export const TasksWorkspace = () => {
                                 className="pointer-events-none absolute inset-0"
                                 sx={{
                                     bgcolor: `rgba(2, 6, 23, ${background.dim / 100})`,
+                                    // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
                                     backdropFilter: background.blur ? `blur(${background.blur}px)` : undefined,
                                 }}
                             />

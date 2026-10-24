@@ -5,14 +5,13 @@
  * warnings so the build stays green — while ANY file NOT listed here fails hard on the same
  * violation. New code therefore cannot regress, and this list can only shrink.
  *
- * Burn-down: 407 files at baseline. Delete a path once its violations are fixed.
+ * Burn-down: 389 files at baseline. Delete a path once its violations are fixed.
  */
 module.exports = [
   "src/app/components/ErrorBoundary.tsx",
   "src/app/modules/accounts/AccountHeader.tsx",
   "src/app/modules/accounts/components/Overview.tsx",
   "src/app/modules/accounts/components/documents/EmployeeDocumentTable.tsx",
-  "src/app/modules/accounts/components/settings/cards/ProfileDetails.tsx",
   "src/app/modules/accounts/components/settings/cards/SignInMethod.tsx",
   "src/app/modules/apps/chat/components/Group.tsx",
   "src/app/modules/apps/chat/components/Private.tsx",
@@ -203,7 +202,6 @@ module.exports = [
   "src/app/pages/employee/companies/contacts/components/ContactProject.tsx",
   "src/app/pages/employee/companies/contacts/config/ContactConfigMain.tsx",
   "src/app/pages/employee/components/AccessControlTree.tsx",
-  "src/app/pages/employee/components/AppSettingsModal.tsx",
   "src/app/pages/employee/components/DepartmentConfigureForm.tsx",
   "src/app/pages/employee/components/EmployeeConfigure.tsx",
   "src/app/pages/employee/components/EmployeeConfigureForm.tsx",
@@ -274,11 +272,9 @@ module.exports = [
   "src/app/pages/employee/leads/overview/components/modals/ManageTargetModal.tsx",
   "src/app/pages/employee/leads/template-builder/TemplateDocumentationBuilderPage.tsx",
   "src/app/pages/employee/loans/admin/views/InstallmentPayments.tsx",
-  "src/app/pages/employee/loans/admin/views/KPISettings.tsx",
   "src/app/pages/employee/loans/admin/views/OngoingLoans.tsx",
   "src/app/pages/employee/loans/admin/views/PaymentChangeRequests.tsx",
   "src/app/pages/employee/loans/admin/views/PreviousLoans.tsx",
-  "src/app/pages/employee/loans/personal/components/LoanApplicationForm.tsx",
   "src/app/pages/employee/loans/personal/components/PaymentChangeRequest.tsx",
   "src/app/pages/employee/loans/personal/components/PendingLoanTable.tsx",
   "src/app/pages/employee/loans/personal/views/LoanDetails.tsx",
@@ -373,7 +369,6 @@ module.exports = [
   "src/app/pages/employee/wizard/forms/LeaveAllocationStep.tsx",
   "src/app/pages/employee/wizard/forms/RejoinHistory.tsx",
   "src/app/pages/employee/wizard/forms/WorkExperience.tsx",
-  "src/app/pages/employee/wizard/steps/StepAppSettings.tsx",
   "src/app/pages/layout-builder/BuilderPage.tsx",
   "src/app/pages/my-team/Approvals/DomainApprovalQueue.tsx",
   "src/app/pages/my-team/Delegations/DelegationsTable.tsx",

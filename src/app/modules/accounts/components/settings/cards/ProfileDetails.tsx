@@ -8,16 +8,15 @@ import { useSelector } from 'react-redux'
 import { RootState } from '@redux/store'
 import FileInput from '@app/modules/common/inputs/FileInput'
 import TextInput from '@app/modules/common/inputs/TextInput'
-import RadioInput, { RadioButton } from '@app/modules/common/inputs/RadioInput'
+import { WtChoiceField, alertDialog } from '@app/modules/common/components/ui';
 import SignatureInput from '@app/modules/common/inputs/SignatureInput';
 import dayjs from 'dayjs';
 import { uploadUserAsset } from '@services/uploader';
 import { successConfirmation } from '@utils/modal';
 import { getAvatar } from '@utils/avatar';
 import { MAX_FILE_SIZE } from '@constants/statistics';
-import Swal from 'sweetalert2';
 
-const mealPreferencesRadioBtns: RadioButton[] = [
+const mealPreferences = [
   {
     label: "Vegetarian",
     value: "0",
@@ -95,7 +94,7 @@ const ProfileDetails: React.FC = () => {
       
       // Check file type
       if (!fileData.type.startsWith("image/")) {
-        Swal.fire({
+        alertDialog({
           icon: 'error',
           title: 'Invalid file type',
           text: `File "${fileData.name}" is not an image file.`,
@@ -105,7 +104,7 @@ const ProfileDetails: React.FC = () => {
 
       // Check file size
       if (fileData.size > MAX_FILE_SIZE) {
-        Swal.fire({
+        alertDialog({
           icon: 'error',
           title: 'File size exceeds the limit',
           text: `File "${fileData.name}" exceeds the ${MAX_FILE_SIZE / 1024 / 1024} MB size limit.`,
@@ -234,7 +233,7 @@ const ProfileDetails: React.FC = () => {
                   <div className="row mb-6">
                     <label className='col-lg-4 col-form-label fw-bold fs-6'>Meal Preference</label>
                     <div className='col-lg-8'>
-                      <RadioInput isRequired={false} formikField='meal' radioBtns={mealPreferencesRadioBtns} />
+                      <WtChoiceField name="meal" label="Meal Preference" variant="segmented" options={mealPreferences} />
                     </div>
                   </div>
 

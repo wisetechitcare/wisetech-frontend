@@ -1,21 +1,26 @@
-import { safeJsonParse } from '@utils/safeJson';
-import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import {
+  safeJsonParse } from '@utils/safeJson';
+import { KTIcon,
+  toAbsoluteUrl } from '@metronic/helpers';
 import AttendanceStatusBadge from './AttendanceStatusBadge';
-import AttendanceCheckCell, {
+import AttendanceCheckCell,
+  {
     AttendanceCoordinates,
-    formatAttendanceCheckExport,
-    hasValidMapCoordinates,
-    resolveAttendanceCoordinates,
-} from './AttendanceCheckCell';
+  formatAttendanceCheckExport,
+  hasValidMapCoordinates,
+  resolveAttendanceCoordinates,
+  } from './AttendanceCheckCell';
 import AttendanceDurationCell from './AttendanceDurationCell';
 import {
     resolveCheckInColor,
-    resolveCheckOutColor,
-    shouldApplyCheckInColoring,
-} from '@utils/attendanceColorUtils';
-import { RootState, store } from '@redux/store';
+  resolveCheckOutColor,
+  shouldApplyCheckInColoring,
+  } from '@utils/attendanceColorUtils';
+import { RootState,
+  store } from '@redux/store';
 import ReactApexChart from 'react-apexcharts';
-import { Image, Card, Col, Modal, OverlayTrigger } from 'react-bootstrap';
+import { Image, Card, Col, OverlayTrigger } from 'react-bootstrap';
 import MuiGrid from '@mui/material/Grid';
 import Identifiers from '../utils/Identifiers';
 import { ATTENDANCE_STATUS, LEAVE_STATUS, LeaveStatus, WORKING_METHOD_TYPE } from '@constants/attendance';

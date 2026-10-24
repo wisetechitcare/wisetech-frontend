@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { useFormikContext } from "formik";
 import { FileCheck2, FileText } from "lucide-react";
-import { KTIcon } from "@metronic/helpers";
+import { CloudUploadOutlined } from "@mui/icons-material";
 import FileInput from "@app/modules/common/inputs/FileInput";
 import {
   FormSection, FORM_SPACE, TRIO, WtButton, WtEmptyState, WtFieldFormik, InlineNotice,
@@ -139,7 +139,7 @@ export function CandidateDocumentsSection({
             ghost
             size="small"
             disabled={disabled}
-            startIcon={<KTIcon iconName="cloud-add" className="fs-5" />}
+            startIcon={<CloudUploadOutlined fontSize="small" />}
             onClick={() => {
               if (fileRef.current) fileRef.current.value = "";
               fileRef.current?.click();

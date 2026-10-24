@@ -84,6 +84,7 @@ const BackdropPreview = ({ bg, compact = false }: { bg: BoardBackground; compact
                     className="absolute inset-0"
                     sx={{
                         bgcolor: `rgba(2, 6, 23, ${bg.dim / 100})`,
+                        // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
                         backdropFilter: bg.blur ? `blur(${bg.blur}px)` : undefined,
                     }}
                 />

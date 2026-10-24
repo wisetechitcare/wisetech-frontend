@@ -82,7 +82,9 @@ export async function ensureCurrentCompanyLoaded(fromAdmin: boolean = false) {
         // Passed through as-is: `|| "0"` turned an org that has no setting
         // into an explicit 24-hour one, which is the one value this must not
         // invent. null keeps it inheritable. See utils/timeFormat.ts.
-        showDateIn12HourFormat: companyDetails?.showDateIn12HourFormat ?? null
+        showDateIn12HourFormat: companyDetails?.showDateIn12HourFormat ?? null,
+        // Same rule: null = the org has no Interface Style opinion, never 'material'.
+        interfaceStyle: companyDetails?.interfaceStyle ?? null,
     };
     store.dispatch(saveCurrentCompanyInfo(next));
     return next;

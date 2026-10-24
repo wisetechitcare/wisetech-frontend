@@ -171,6 +171,7 @@ export interface RequestRowData {
     isExceedingLimit?: boolean | null;
     currentVersion?: number;
     resubmitCount?: number;
+    viewerCanDecide?: boolean;
     reimbursementType?: { type?: string | null } | null;
     approval?: RequestApprovalView | null;
     queries?: QueryView[];

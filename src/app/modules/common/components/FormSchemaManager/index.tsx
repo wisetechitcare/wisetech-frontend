@@ -1,5 +1,6 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { useState, useEffect } from 'react';
-import { Modal } from 'react-bootstrap';
+
 import { v4 as uuidv4 } from 'uuid';
 import { IFormField, IFormSection, FormFieldType } from '@models/company';
 import { IconClose } from '@app/modules/common/components/icons/OrgIcons';
@@ -350,7 +351,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
             </div>
           </div>
         </div>
-        <button type="button" onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.inkSoft, cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconClose size={16} /></button>
+        <button type="button" data-unsaved-changes-close onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.inkSoft, cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconClose size={16} /></button>
       </div>
 
       {/* Body */}
@@ -486,7 +487,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'center', padding: '14px 26px', borderTop: `1px solid ${C.line}`, background: C.surface }}>
         <span style={{ fontSize: 12, color: C.inkFaint }}>Changes apply after you click <b style={{ color: C.inkSoft }}>Update</b> on the form.</span>
         <div style={{ display: 'flex', gap: 10, flexGrow: 1, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 8, padding: '9px 22px', fontWeight: 600, color: C.inkSoft, cursor: 'pointer', fontSize: 14 }}>Cancel</button>
+          <button type="button" data-unsaved-changes-close onClick={onClose} style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 8, padding: '9px 22px', fontWeight: 600, color: C.inkSoft, cursor: 'pointer', fontSize: 14 }}>Cancel</button>
           <button type="button" onClick={handleSave} style={{ background: C.brand, border: 'none', borderRadius: 8, padding: '9px 28px', fontWeight: 700, color: '#fff', cursor: 'pointer', fontSize: 14, boxShadow: '0 1px 3px rgba(30, 58, 138,.3)' }}>Apply Changes</button>
         </div>
       </div>

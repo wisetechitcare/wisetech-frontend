@@ -3,8 +3,8 @@ import { useMatch, useNavigate, useParams, useSearchParams } from "react-router-
 import { Formik, Form, useFormikContext, type FormikProps } from "formik";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, CircularProgress, Stack } from "@mui/material";
-import { toast, confirmDialog, WtButton } from "@app/modules/common/components/ui";
-import { KTIcon } from "@metronic/helpers";
+import { History } from "@mui/icons-material";
+import { toast, WtButton, useDiscardConfirm } from "@app/modules/common/components/ui";
 import RecruitmentVersionHistoryDialog from "./RecruitmentVersionHistoryDialog";
 import type { AuditEntityType } from "@modules/audit/audit.service";
 import { queryKeys } from "@/lib/queryKeys";
@@ -27,10 +27,10 @@ import {
     type JobPosting,
     type JobRequisition,
 } from "@services/recruitment";
-import OnboardingWizard from "../forms/onboarding/OnboardingWizard";
+import { EnterpriseFormWizard } from '@/shared/form-engine';
 import type { OnboardingSectionsProps } from "../forms/onboarding/OnboardingSections";
-import { FullscreenWizardModal } from "../forms/shared/FullscreenWizardModal";
-import { buildJobCreateWizardGroups } from "./buildJobCreateWizardGroups";
+import { WtWizardDialog } from '@app/modules/common/components/ui';
+import { buildJobCreateWizardGroups, JOB_CREATE_LEAF_IDS } from "./buildJobCreateWizardGroups";
 import { isEditable } from "./requisitionColumns";
 import {
     emptyJobCreateFormValues,
@@ -147,20 +147,11 @@ export default function JobCreateWizardHost() {
         navigate(leavePath());
     };
 
-    const handleCancel = async () => {
-        const dirty = formikRef.current?.dirty;
-        if (dirty) {
-            const ok = await confirmDialog({
-                icon: "warning",
-                title: isEdit ? "Discard changes?" : isAttach ? "Discard this advert?" : "Discard this role?",
-                text: isEdit ? "Unsaved edits will be lost." : "Nothing has been saved yet.",
-                confirmText: "Discard",
-                danger: true,
-            });
-            if (!ok) return;
-        }
-        goBack();
-    };
+    const discard = useDiscardConfirm(() => Boolean(formikRef.current?.dirty), goBack, {
+        title: isEdit ? "Discard changes?" : isAttach ? "Discard this advert?" : "Discard this role?",
+        message: isEdit ? "Unsaved edits will be lost." : "Nothing has been saved yet.",
+    });
+    const handleCancel = discard.requestClose;
 
     const createMut = useMutation({
         mutationFn: async ({ values, publish }: { values: JobCreateFormValues; publish: boolean }) => {
@@ -329,30 +320,41 @@ export default function JobCreateWizardHost() {
         // eslint-disable-next-line react-hooks/exhaustive-deps -- seed from entities when ready
     }, [isEdit, requisition?.id, linkedPosting?.id, defaultBranchId]);
 
-    const summaryRows = (v: JobCreateFormValues) => {
+    /**
+     * Rows for one wizard leaf — the single source for both the Summary aside (all
+     * leaves, rail order) and that leaf's Review card.
+     */
+    const leafRows = (leafId: string, v: JobCreateFormValues) => {
         const rows: Array<{ label: string; value: ReactNode; isStrong?: boolean }> = [];
-        if (v.role?.title) rows.push({ label: "Role title", value: v.role.title, isStrong: true });
-        if (v.headcountText) rows.push({ label: "Headcount", value: v.headcountText });
-        if (v.role?.branchId) {
-            const b = branchById.get(v.role.branchId);
-            rows.push({ label: "Branch", value: b?.name ?? v.role.branchId });
+        if (leafId === "role") {
+            if (v.role?.title) rows.push({ label: "Role title", value: v.role.title, isStrong: true });
+            if (v.headcountText) rows.push({ label: "Headcount", value: v.headcountText });
+            if (v.role?.branchId) {
+                const b = branchById.get(v.role.branchId);
+                rows.push({ label: "Branch", value: b?.name ?? v.role.branchId });
+            }
+            if (v.role?.minCtc != null || v.role?.maxCtc != null) {
+                rows.push({
+                    label: "CTC band",
+                    value: `${v.role.minCtc ?? "—"} – ${v.role.maxCtc ?? "—"}`,
+                });
+            }
+        } else if (leafId === "advert") {
+            const pubTitle = (v.advert?.title || v.role?.title || "").trim();
+            if (pubTitle) rows.push({ label: "Public title", value: pubTitle });
+            if (v.advert?.location) rows.push({ label: "Location", value: v.advert.location });
+            if (v.advert?.employmentType) rows.push({ label: "Employment type", value: v.advert.employmentType });
+            rows.push({ label: "Remote", value: v.advert?.isRemote ? "Yes" : "No" });
+            rows.push({ label: "Show salary", value: v.advert?.showSalary ? "Yes" : "No" });
+        } else if (leafId === "screening") {
+            const q = v.applyFormConfig?.fields?.filter((f) => f.label.trim()).length ?? 0;
+            rows.push({ label: "Screening questions", value: q === 0 ? "None" : String(q) });
         }
-        if (v.role?.minCtc != null || v.role?.maxCtc != null) {
-            rows.push({
-                label: "CTC band",
-                value: `${v.role.minCtc ?? "—"} – ${v.role.maxCtc ?? "—"}`,
-            });
-        }
-        const pubTitle = (v.advert?.title || v.role?.title || "").trim();
-        if (pubTitle) rows.push({ label: "Public title", value: pubTitle });
-        if (v.advert?.location) rows.push({ label: "Location", value: v.advert.location });
-        if (v.advert?.employmentType) rows.push({ label: "Employment type", value: v.advert.employmentType });
-        rows.push({ label: "Remote", value: v.advert?.isRemote ? "Yes" : "No" });
-        rows.push({ label: "Show salary", value: v.advert?.showSalary ? "Yes" : "No" });
-        const q = v.applyFormConfig?.fields?.filter((f) => f.label.trim()).length ?? 0;
-        rows.push({ label: "Screening questions", value: q === 0 ? "None" : String(q) });
         return rows;
     };
+
+    const summaryRows = (v: JobCreateFormValues) =>
+        JOB_CREATE_LEAF_IDS.flatMap((leafId) => leafRows(leafId, v));
 
     if (loadingEdit) {
         return (
@@ -364,17 +366,19 @@ export default function JobCreateWizardHost() {
 
     if (isEdit && !loadingEdit && !requisition) {
         return (
-            <FullscreenWizardModal show onClose={goBack} closeLabel="Close" className="onboarding-wizard-modal">
+            <WtWizardDialog title="Role and advert" open onClose={goBack} closeLabel="Close" className="onboarding-wizard-modal">
                 <Box sx={{ p: 4, textAlign: "center" }}>
                     Could not load this role. It may have been removed.
                 </Box>
-            </FullscreenWizardModal>
+            </WtWizardDialog>
         );
     }
 
     return (
-        <FullscreenWizardModal
-            show={show}
+        <WtWizardDialog title={isAttach ? "New Advert" : isEdit ? "Edit Role" : "Create Role"}
+            subtitle={isAttach ? "Publish an advert for this approved role" : "Define the role, advert and screening requirements"}
+            icon="briefcase" closeGuard="host"
+            open={show}
             onClose={handleCancel}
             closeLabel={isEdit ? "Close edit role wizard" : "Close create role wizard"}
             className="onboarding-wizard-modal"
@@ -440,7 +444,7 @@ export default function JobCreateWizardHost() {
                                     type="button"
                                     size="small"
                                     ghost
-                                    startIcon={<KTIcon iconName="time" className="fs-6" />}
+                                    startIcon={<History fontSize="small" />}
                                     onClick={() =>
                                         setHistoryTarget({
                                             type: "REQUISITION",
@@ -457,7 +461,7 @@ export default function JobCreateWizardHost() {
                                     type="button"
                                     size="small"
                                     ghost
-                                    startIcon={<KTIcon iconName="time" className="fs-6" />}
+                                    startIcon={<History fontSize="small" />}
                                     onClick={() =>
                                         setHistoryTarget({
                                             type: "POSTING",
@@ -476,7 +480,7 @@ export default function JobCreateWizardHost() {
                     return (
                         <Form noValidate style={{ height: "100%", display: "flex", flexDirection: "column" }}>
                             {!isEdit && !isAttach && <BranchDefaultSync defaultBranchId={defaultBranchId} />}
-                            <OnboardingWizard
+                            <EnterpriseFormWizard layout="sections"
                                 groups={groups}
                                 sectionProps={sectionProps}
                                 headerTitle={headerTitle}
@@ -491,8 +495,9 @@ export default function JobCreateWizardHost() {
                                     isAttach ? "Create Advert" : isEdit ? "Save Changes" : "Create Role"
                                 }
                                 submitText={isEdit && linkedPosting?.isPublished ? "Done" : "Publish"}
-                                summaryTitle="Review"
+                                summaryTitle="Summary"
                                 summaryRows={(v) => summaryRows(v as JobCreateFormValues)}
+                                review={{ rows: (leafId, v) => leafRows(leafId, v as JobCreateFormValues) }}
                             />
                         </Form>
                     );
@@ -505,7 +510,8 @@ export default function JobCreateWizardHost() {
                 id={historyTarget?.id ?? ""}
                 title={historyTarget?.title}
             />
-        </FullscreenWizardModal>
+            {discard.dialog}
+        </WtWizardDialog>
     );
 }
 

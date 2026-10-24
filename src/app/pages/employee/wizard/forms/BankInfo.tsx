@@ -1,7 +1,7 @@
 import { DOCUMENT_ACCEPT, DOCUMENT_HINT } from "@utils/fileValidation";
 import React, { useState } from "react";
 import { getIn } from "formik";
-import TextInput from "@app/modules/common/inputs/TextInput";
+import { WtFieldFormik } from "@app/modules/common/components/ui";
 import { uploadUserAsset } from "@services/uploader";
 import ObFileUpload from "../components/ObFileUpload";
 import ObUploadStatus from "../components/ObUploadStatus";
@@ -52,56 +52,52 @@ function BankInfo({ formikProps, userId, setBankFile }: any) {
     };
 
     return (
-        <div className="d-flex flex-column gap-4">
+        <div className="flex flex-col gap-4">
   {/* Row 1: Account Number, Account Holder Name */}
-  <div className="row g-3">
-    <div className="col-lg-6 col-md-6 col-sm-12">
-      <TextInput
-        isRequired={false}
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div>
+      <WtFieldFormik
+        required={false}
         label="Account Number"
-        formikField="bankInfo.accountNumber"
-        margin="mb-0"
-        inputValidation="numbers"
+        name="bankInfo.accountNumber"
+        type="number"
         maxLength={20}
       />
     </div>
 
-    <div className="col-lg-6 col-md-6 col-sm-12">
-      <TextInput
-        isRequired={false}
+    <div>
+      <WtFieldFormik
+        required={false}
         label="Account Holder Name"
-        formikField="bankInfo.accountName"
-        margin="mb-0"
+        name="bankInfo.accountName"
       />
     </div>
   </div>
 
   {/* Row 2: IFSC Code, Bank Name, Attach Document */}
-  <div className="row g-3">
-    <div className="col-lg-6 col-md-6 col-sm-12">
-      <TextInput
-        isRequired={false}
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div>
+      <WtFieldFormik
+        required={false}
         label="IFSC Code"
-        formikField="bankInfo.ifscCode"
-        margin="mb-0"
+        name="bankInfo.ifscCode"
         maxLength={11}
       />
     </div>
 
-    <div className="col-lg-6 col-md-6 col-sm-12">
-      <TextInput
-        isRequired={false}
+    <div>
+      <WtFieldFormik
+        required={false}
         label="Bank Name"
-        formikField="bankInfo.bankName"
-        margin="mb-0"
+        name="bankInfo.bankName"
       />
     </div>
   </div>
 
   {/* Row 3: Attach Document */}
-  <div className="row g-3">
-    <div className="col-lg-6 col-md-6 col-sm-12">
-      <label htmlFor="bank-passbook-upload" className="d-flex align-items-center fs-6 form-label mb-2">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div>
+      <label htmlFor="bank-passbook-upload" className="flex items-center text-sm font-medium mb-2">
         <span>Attach Document</span>
       </label>
 
@@ -129,8 +125,8 @@ function BankInfo({ formikProps, userId, setBankFile }: any) {
       />
 
       {getIn(formikProps.touched, "bankInfo.filePath") && getIn(formikProps.errors, "bankInfo.filePath") && (
-        <div className="fv-plugins-message-container">
-          <div className="fv-help-block">{getIn(formikProps.errors, "bankInfo.filePath")}</div>
+        <div role="alert" className="text-sm text-red-600 mt-1">
+          {getIn(formikProps.errors, "bankInfo.filePath")}
         </div>
       )}
     </div>
