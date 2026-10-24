@@ -134,22 +134,17 @@ jobs:
         if: github.event_name == 'pull_request'
         run: pnpm run build
 
+      # --retry-connrefused: vite preview needs a moment to bind, and plain --retry does not
+      # retry a refused connection, so the first probe failed at once ("after 0 ms"). vite is
+      # called directly: `pnpm run preview -- --host` forwards a literal "--" (pnpm 11) and the
+      # host flag never reached vite, so it bound localhost instead of 127.0.0.1.
       - name: 🌐 Preview employee-create route (PR only)
         if: github.event_name == 'pull_request'
         run: |
-          pnpm run preview -- --host 127.0.0.1 > preview.log 2>&1 &
+          pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort > preview.log 2>&1 &
           preview_pid=$!
           trap 'kill "$preview_pid"' EXIT
-          curl --fail --silent --show-error --retry 10 --retry-delay 1 \
-            http://127.0.0.1:4173/employees/create-new | grep -q '<div id="root">'
-
-      - name: 🌐 Preview employee-create route (PR only)
-        if: github.event_name == 'pull_request'
-        run: |
-          pnpm run preview -- --host 127.0.0.1 > preview.log 2>&1 &
-          preview_pid=$!
-          trap 'kill "$preview_pid"' EXIT
-          curl --fail --silent --show-error --retry 10 --retry-delay 1 \
+          curl --fail --silent --show-error --retry 10 --retry-delay 1 --retry-connrefused \
             http://127.0.0.1:4173/employees/create-new | grep -q '<div id="root">'
 
       # Mirrors the backend gate. Blocks on high/critical only; moderate and low are
