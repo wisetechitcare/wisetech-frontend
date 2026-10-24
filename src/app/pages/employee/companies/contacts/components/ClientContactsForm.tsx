@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Row, Col } from "react-bootstrap";
-import { Formik, Form as FormikForm, Field } from "formik";
+import { Formik, Form as FormikForm, Field, type FormikProps } from "formik";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -43,7 +43,7 @@ import NewCompanyForm from "../../companies/components/NewCompanyForm";
 import { useEventBus } from "@hooks/useEventBus";
 import dayjs from "dayjs";
 import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
-import { AppIcon } from "@app/modules/common/components/ui";
+import { AppIcon, useDiscardConfirm } from "@app/modules/common/components/ui";
 import {
   CRM_ACTIVE_COLOR,
   CRM_INACTIVE_COLOR,
@@ -86,6 +86,10 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   selectedCompanyId,
   key
 }) => {
+  // X / Esc / footer Cancel ask before throwing away unsaved edits (the ONE kit prompt).
+  const formikRef = useRef<FormikProps<ContactFormValues>>(null);
+  const discard = useDiscardConfirm(() => Boolean(formikRef.current?.dirty), onClose);
+
   // Dynamic validation: address fields not required on Add New Contact
   const validationSchema = useMemo(() => {
     const isAdd = !contactId;
@@ -635,11 +639,12 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     <>
       <FullscreenWizardModal
         show={show}
-        onClose={onClose}
+        onClose={discard.requestClose}
         closeLabel="Close contact form"
       >
         <Formik
           key={contactId ? `edit-${contactId}` : "add-new"}
+          innerRef={formikRef}
           initialValues={initialValues}
           validationSchema={validationSchema}
           onSubmit={handleSubmit}
@@ -652,7 +657,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
               <FormikForm style={{ height: "100%" }}>
                 <ContactWorkspace
                   isEdit={!!contactId}
-                  onCancel={onClose}
+                  onCancel={discard.requestClose}
                   isSubmitting={loading || isSubmitting}
                   sections={[
                     {
@@ -1209,6 +1214,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
           }}
         </Formik>
       </FullscreenWizardModal>
+      {discard.dialog}
       <CompanyConfigForm
         show={showModal}
         onClose={() => setShowModal(false)}
