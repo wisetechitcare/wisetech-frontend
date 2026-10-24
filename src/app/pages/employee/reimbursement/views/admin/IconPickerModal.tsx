@@ -1,5 +1,6 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { Modal } from "react-bootstrap";
+
 import { KTIcon } from "@metronic/helpers";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -731,6 +732,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
         <button
           type="button"
           className="btn btn-light btn-sm"
+          data-unsaved-changes-close
           onClick={onHide}
           style={{ fontWeight: 600 }}
         >

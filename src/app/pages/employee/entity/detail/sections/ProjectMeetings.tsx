@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import Swal from 'sweetalert2';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import MeetingsList, { toEditableMeeting } from '@app/modules/common/components/MeetingsList';
@@ -12,6 +11,7 @@ import NewTimeLogForm from '@app/pages/employee/timesheet/employeetimesheet/comp
 import MeetingRemindersDialog from '@app/pages/employee/MeetingRemindersDialog';
 import { setMeetingCancelled, updateMeeting } from '@services/employee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
+import { showDialog } from '@app/modules/common/components/ui';
 import { apiErrorMessage } from '@app/pages/employee/tasks/taskDomain';
 import { hasPermission } from '@utils/authAbac';
 import { canSection } from '@utils/can';
@@ -67,17 +67,13 @@ const ProjectMeetings: React.FC<Props> = ({ leadId, leadName, contact }) => {
                 .catch((error) => errorConfirmation(apiErrorMessage(error, 'Could not restore the meeting.')));
             return;
         }
-        const result = await Swal.fire({
+        const result = await showDialog({
+            variant: 'warning',
             title: 'Cancel this meeting?',
-            text: 'It leaves the calendar, and stays on this project record as a cancelled meeting.',
-            icon: 'question',
-            input: 'text',
-            inputPlaceholder: 'Reason (optional)',
-            showCancelButton: true,
-            confirmButtonColor: '#B45309',
-            cancelButtonColor: '#64748B',
-            confirmButtonText: 'Cancel meeting',
-            cancelButtonText: 'Keep it',
+            message: 'It leaves the calendar, and stays on this project record as a cancelled meeting.',
+            input: { placeholder: 'Reason (optional)' },
+            confirmLabel: 'Cancel meeting',
+            cancelLabel: 'Keep it',
         });
         if (!result.isConfirmed) return;
         try {

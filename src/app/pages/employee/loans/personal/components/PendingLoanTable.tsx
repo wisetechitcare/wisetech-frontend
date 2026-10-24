@@ -1,10 +1,11 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { KTIcon } from '@metronic/helpers';
 import { deleteLoanById } from '@services/employee';
 import dayjs from 'dayjs';
 import { MRT_ColumnDef } from 'material-react-table';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal } from 'react-bootstrap';
+
 import LoanApplicationForm from './LoanApplicationForm';
 import { deleteConfirmation } from '@utils/modal';
 import { formatNumber } from '@utils/statistics';

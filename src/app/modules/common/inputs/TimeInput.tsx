@@ -1,6 +1,7 @@
-import { useField } from 'formik';
+import { useField, useFormikContext, type FormikValues } from 'formik';
 import HighlightErrors from '@app/modules/errors/components/HighlightErrors';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
+import { useUnsavedChangesRegistration } from '../components/ui/UnsavedChangesProvider';
 
 /**
  * TimePickerInput — the Formik binding for `TimePickerField`.
@@ -29,6 +30,8 @@ const TimePickerInput: React.FC<TimePickerInputProps> = ({
   placeholder,
 }) => {
   const [field, meta, helpers] = useField<string>(formikField);
+  const { dirty } = useFormikContext<FormikValues>();
+  useUnsavedChangesRegistration(dirty);
 
   return (
     <div className={`d-flex flex-column fv-row ${margin ?? ''}`}>

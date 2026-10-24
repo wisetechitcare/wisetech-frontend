@@ -3,7 +3,7 @@ import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { usePermission } from '@hooks/usePermission';
 import { KTIcon } from '@metronic/helpers';
-import { Modal } from 'react-bootstrap';
+
 import {
   fetchDelegations,
   createApprovalDelegation,
@@ -13,7 +13,7 @@ import {
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
-import { ToneChip } from '@app/modules/common/components/ui';
+import { ToneChip, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 
 type EmployeeOption = { id: string; name: string; employeeCode?: string | null };
 
@@ -199,7 +199,7 @@ function CreateDelegationModal({ show, employees, onClose, onCreated }: CreateMo
         </div>
       </Modal.Body>
       <Modal.Footer style={{ gap: 8 }}>
-        <button className='btn btn-sm btn-light' onClick={onClose} disabled={submitting}>
+        <button className='btn btn-sm btn-light' data-unsaved-changes-close onClick={onClose} disabled={submitting}>
           Cancel
         </button>
         <button

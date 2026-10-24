@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { Button, Col, Form, Modal, Row } from "react-bootstrap";
+import { Button, Col, Form, Row } from "react-bootstrap";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen,

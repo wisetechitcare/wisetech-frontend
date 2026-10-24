@@ -94,6 +94,7 @@ const SourceOfHireConfigureForm: React.FC<SourceOfHireFormProps> = ({
           onClose={onClose}
           title={`${isEditing ? "Edit" : "New"} Source Of Hire`}
           saving={isSubmitting}
+          dirty={fk.dirty}
           error={error}
           onSubmit={fk.handleSubmit}
           submitLabel={isEditing ? "Update" : "Create"}

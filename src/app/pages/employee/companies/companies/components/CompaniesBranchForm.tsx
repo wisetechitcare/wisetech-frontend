@@ -1,5 +1,6 @@
-﻿import { useEffect, useState } from "react";
-import { Modal, Button, Spinner } from "react-bootstrap";
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { useEffect, useState } from "react";
+import { Button, Spinner } from "react-bootstrap";
 import { Formik, Form as FormikForm } from "formik";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";

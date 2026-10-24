@@ -82,7 +82,7 @@ export default function BranchEmployeesModal({ show, branchId, branchName, onClo
           <Stack spacing={1}>
             {employees.map(emp => {
               const name = `${emp.users?.firstName ?? ''} ${emp.users?.lastName ?? ''}`.trim() || 'Unnamed';
-              const avatarUrl = getAvatar(emp.avatar || '', Number(emp.gender) === 1 ? 1 : Number(emp.gender) === 0 ? 0 : 2);
+              const avatarUrl = getAvatar(emp.avatar || '', emp.gender);
               return (
                 <Stack
                   key={emp.id}

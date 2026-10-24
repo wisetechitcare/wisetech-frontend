@@ -16,13 +16,13 @@ import {
   fetchAllStates,
 } from "@services/options";
 
-import { Formik, Form as FormikForm, Field, FieldArray } from "formik";
+import { Formik, Form as FormikForm, Field, FieldArray, type FormikProps } from "formik";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import { WtDateField, AppIcon } from "@app/modules/common/components/ui";
-import { useEffect, useMemo, useState } from "react";
+import { WtDateField, AppIcon, useDiscardConfirm } from "@app/modules/common/components/ui";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Select from "react-select";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
@@ -150,6 +150,9 @@ const NewCompanyForm: React.FC<Props> = ({
 }) => {
   const [companyTypes, setCompanyTypes] = useState<CompanyType[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
+  // X / Esc / footer Cancel ask before throwing away unsaved edits (the ONE kit prompt).
+  const formikRef = useRef<FormikProps<FormValues>>(null);
+  const discard = useDiscardConfirm(() => Boolean(formikRef.current?.dirty), onClose);
 
   // Split the flat type list into MAIN types and SUB-types (one level deep, with the same
   // orphan-promotion as the chart/tree so nothing ever disappears). Drives the cascading
@@ -969,10 +972,11 @@ const NewCompanyForm: React.FC<Props> = ({
     <>
       <FullscreenWizardModal
         show={show}
-        onClose={onClose}
+        onClose={discard.requestClose}
         closeLabel="Close company form"
       >
         <Formik
+          innerRef={formikRef}
           initialValues={initialValues}
           onSubmit={handleSubmit}
           validationSchema={validationSchema}
@@ -983,7 +987,7 @@ const NewCompanyForm: React.FC<Props> = ({
               <FormikForm style={{ height: "100%" }}>
                 <CompanyWorkspace
                   isEdit={isEditMode}
-                  onCancel={onClose}
+                  onCancel={discard.requestClose}
                   isSubmitting={isSubmitting || isDataLoading}
                   headerMeta={
                     prefix ? (
@@ -1829,6 +1833,7 @@ const NewCompanyForm: React.FC<Props> = ({
           }}
         </Formik>
       </FullscreenWizardModal>
+      {discard.dialog}
 
       <CompanyConfigForm
         show={showCompanyTypeModal}

@@ -1,6 +1,7 @@
-import { Field } from "formik";
+import { Field, useFormikContext, type FormikValues } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
 import { employeeOnBardingFormRegexes } from "@constants/regex";
+import { useUnsavedChangesRegistration } from "../components/ui/UnsavedChangesProvider";
 
 interface NumberInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     isRequired: boolean;
@@ -31,6 +32,8 @@ function NumberInput({
     max,
     step,
 }: NumberInputProps) {
+    const { dirty } = useFormikContext<FormikValues>();
+    useUnsavedChangesRegistration(dirty);
     const hasEmptyPlaceholder = placeholder === "-";
     // DOM-safe id derived from the Formik path so the <label> links to the input.
     const fieldId = `field-${formikField.replace(/[^a-zA-Z0-9_-]/g, "-")}`;

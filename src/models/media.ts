@@ -28,6 +28,8 @@ export interface Department {
     color: string | null;
 }
 
+import type { EmployeeGender } from '@utils/employeeGender';
+
 export interface Employee {
     id: string;
     method: number;
@@ -36,7 +38,7 @@ export interface Employee {
     dateOfJoining: string;
     companyEmailId: string;
     ctcInLpa: number | null;
-    gender: number;
+    gender: EmployeeGender | number | null;
     avatar: string | null;
     dateOfExit: string | null;
     maritalStatus: number | null;

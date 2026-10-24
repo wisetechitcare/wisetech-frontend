@@ -108,6 +108,7 @@ export interface WtFieldProps {
      */
     value?: string | number | string[];
     onChange?: WtFieldChangeHandler;
+    onBlur?: React.FocusEventHandler<HTMLInputElement | HTMLTextAreaElement>;
 
     /** Present ⇒ this is a select. Absent ⇒ a text/number input. */
     options?: WtFieldOption[];
@@ -118,7 +119,12 @@ export interface WtFieldProps {
     error?: string;
     required?: boolean;
     disabled?: boolean;
+    readOnly?: boolean;
     placeholder?: string;
+    /** Optional display transform for formatted values such as INR amounts. */
+    formatValue?: (value: string) => string;
+    /** Optional wire-value transform paired with `formatValue`. */
+    parseValue?: (value: string) => string;
 
     /**
      * `'sm'` (default) = mid-density (40px) — toolbars, lists, most forms.
@@ -159,6 +165,7 @@ export interface WtFieldProps {
     inputMode?: 'text' | 'numeric' | 'decimal' | 'tel' | 'email';
     min?: number;
     max?: number;
+    maxLength?: number;
     /** `'any'` allows any decimal — without it a number input treats 1200000.50 as invalid. */
     step?: number | 'any';
 
@@ -274,9 +281,9 @@ const controlSx = (
 const ADD_OPTION_VALUE = '__wt_add__';
 
 export const WtField: React.FC<WtFieldProps> = ({
-    label, ariaLabel, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, placeholder,
+    label, ariaLabel, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, readOnly, placeholder,
     size = 'sm', fullWidth = true, fitContent, minWidth, icon, prefix, tone,
-    type = 'text', multiline, minRows = 3, maxRows, inputMode, min, max, step,
+    type = 'text', multiline, minRows = 3, maxRows, inputMode, min, max, maxLength, step, onBlur, formatValue, parseValue,
     searchable, multiple, limitTags, addOption, onAddOption, addOptionLabel, clearable, id, name, autoFocus, sx, children,
 }) => {
     const reactId = useId();
@@ -284,6 +291,7 @@ export const WtField: React.FC<WtFieldProps> = ({
     const messageId = `${fieldId}-msg`;
     const invalid = Boolean(error);
     const message = error || hint;
+    const displayValue = !options && formatValue ? formatValue(String(value ?? '')) : value ?? '';
     const hasValue = Array.isArray(value)
         ? value.length > 0
         : String(value ?? '').length > 0;
@@ -625,8 +633,9 @@ export const WtField: React.FC<WtFieldProps> = ({
                     <TextField
                         id={fieldId}
                         name={name}
-                        value={value ?? ''}
-                        onChange={(e) => onChange(e.target.value)}
+                        value={displayValue}
+                        onChange={(e) => onChange(parseValue ? parseValue(e.target.value) : e.target.value)}
+                        onBlur={onBlur}
                         placeholder={placeholder}
                         disabled={disabled}
                         autoFocus={autoFocus}
@@ -637,8 +646,8 @@ export const WtField: React.FC<WtFieldProps> = ({
                         size={muiSize}
                         fullWidth
                         error={invalid}
-                        InputProps={{ startAdornment, endAdornment: clearButton }}
-                        inputProps={{ inputMode, min, max, step, 'aria-label': label ? undefined : ariaLabel, 'aria-describedby': message ? messageId : undefined }}
+                        InputProps={{ readOnly, startAdornment, endAdornment: clearButton }}
+                        inputProps={{ inputMode, min, max, maxLength, step, 'aria-label': label ? undefined : ariaLabel, 'aria-describedby': message ? messageId : undefined }}
                         sx={controlSx(activeTone, invalid, size, false, !multiline)}
                     />
                 )}
@@ -676,10 +685,12 @@ export const WtField: React.FC<WtFieldProps> = ({
                 label={label}
                 required={required}
                 select={isSelect}
-                value={isSelect ? String(value ?? '') : (value ?? '')}
-                onChange={(e) => onChange(e.target.value)}
+                value={isSelect ? String(value ?? '') : displayValue}
+                onChange={(e) => onChange(parseValue && !isSelect ? parseValue(e.target.value) : e.target.value)}
+                onBlur={onBlur}
                 placeholder={placeholder}
                 disabled={disabled}
+                InputProps={{ readOnly, startAdornment, endAdornment: isSelect ? undefined : clearButton, notched: true }}
                 autoFocus={autoFocus}
                 type={isSelect ? undefined : type}
                 multiline={!isSelect && multiline}
@@ -693,12 +704,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                 // Selects need it for `displayEmpty`; text fields need it so Allergies /
                 // Name do not look like bare placeholders sitting inside the box.
                 InputLabelProps={{ shrink: true }}
-                InputProps={{
-                    startAdornment,
-                    endAdornment: isSelect ? undefined : clearButton,
-                    notched: true,
-                }}
-                inputProps={isSelect ? { 'aria-label': label ? undefined : ariaLabel } : { inputMode, min, max, step, 'aria-label': label ? undefined : ariaLabel }}
+                inputProps={isSelect ? { 'aria-label': label ? undefined : ariaLabel } : { inputMode, min, max, maxLength, step, 'aria-label': label ? undefined : ariaLabel }}
                 // No `id` here, and no hand-written `aria-describedby` above. TextField
                 // already mints `${id}-helper-text`, puts it on the helper text and points
                 // the input at it — renaming one half silently unlinks the pair.

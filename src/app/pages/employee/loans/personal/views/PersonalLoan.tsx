@@ -1,8 +1,8 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import CommonCard from '@app/modules/common/components/CommonCard'
 import { KTIcon } from '@metronic/helpers'
 import LoanApplicationForm from '../components/LoanApplicationForm'
-import { Modal } from 'react-bootstrap'
 import { fetchEmployeeLoans } from '@services/employee'
 import { useSelector } from 'react-redux'
 import { RootState } from '@redux/store'

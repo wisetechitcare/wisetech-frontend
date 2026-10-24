@@ -26,10 +26,10 @@
  */
 import { useMemo } from 'react';
 import {
-  Box, LinearProgress, Step, StepLabel, Stepper, Typography, useMediaQuery, useTheme,
+  Box, LinearProgress, Step, StepButton, StepLabel, Stepper, Typography, useMediaQuery, useTheme,
   type SxProps, type Theme,
 } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
+import { Check, ErrorOutline } from '@mui/icons-material';
 
 export interface WtStep {
   label: string;
@@ -54,11 +54,13 @@ export interface WtStepperProps {
    *  optional step, or a wizard that lets you revisit earlier steps). */
   completed?: Record<number, boolean>;
   orientation?: 'horizontal' | 'vertical';
+  /** Compact connected rail used inside grouped wizard navigation. */
+  variant?: 'default' | 'timeline';
   sx?: SxProps<Theme>;
 }
 
 export function WtStepper({
-  steps, activeStep, onStepClick, allowFutureNavigation = false, completed, orientation = 'horizontal', sx,
+  steps, activeStep, onStepClick, allowFutureNavigation = false, completed, orientation = 'horizontal', variant = 'default', sx,
 }: WtStepperProps) {
   const theme = useTheme();
   // `noSsr` keeps the first paint from flashing the desktop rail on a phone.
@@ -101,6 +103,7 @@ export function WtStepper({
 
   return (
     <Stepper
+      nonLinear={Boolean(onStepClick)}
       activeStep={activeStep}
       orientation={orientation}
       alternativeLabel={orientation === 'horizontal'}
@@ -110,33 +113,65 @@ export function WtStepper({
           '& .MuiStepConnector-line': { borderColor: 'divider' },
           '& .MuiStepLabel-label': { fontSize: 13, fontWeight: 600, mt: '6px !important' },
           '& .MuiStepLabel-label.Mui-active': { fontWeight: 700 },
+          ...(variant === 'timeline' && {
+            '& .MuiStep-root': { p: 0 },
+            '& .MuiStepConnector-root': { ml: '5px' },
+            '& .MuiStepConnector-line': { minHeight: 8, borderColor: 'divider' },
+            '& .MuiStepLabel-label': { mt: '0 !important', fontSize: 12, fontWeight: 500 },
+            '& .MuiStepLabel-label.Mui-active': { color: 'primary.main', fontWeight: 650 },
+          }),
         },
         ...(Array.isArray(sx) ? sx : [sx]),
       ] as SxProps<Theme>}
     >
       {steps.map((s, i) => {
         const clickable = canNavigate(i);
+        const optional =
+          s.error && s.errorText
+            ? <Typography sx={{ fontSize: 11, color: 'error.main' }}>{s.errorText}</Typography>
+            : s.optional
+              ? <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>Optional</Typography>
+              : s.description
+                ? <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{s.description}</Typography>
+                : undefined;
+        const label = (
+          <StepLabel
+            error={s.error}
+            optional={optional}
+            StepIconComponent={variant === 'timeline' ? TimelineStepNode : StepNode}
+            sx={{ '& .MuiStepLabel-iconContainer': { p: 0 } }}
+          >
+            {s.label}
+          </StepLabel>
+        );
         return (
           <Step key={s.label} completed={isCompleted(i)}>
-            <StepLabel
-              error={s.error}
-              optional={
-                s.error && s.errorText
-                  ? <Typography sx={{ fontSize: 11, color: 'error.main' }}>{s.errorText}</Typography>
-                  : s.optional
-                    ? <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>Optional</Typography>
-                    : s.description
-                      ? <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{s.description}</Typography>
-                      : undefined
-              }
-              StepIconComponent={StepNode}
-              onClick={clickable ? () => onStepClick?.(i) : undefined}
-              sx={{ cursor: clickable ? 'pointer' : 'default', '& .MuiStepLabel-iconContainer': { p: 0 } }}
-            />
+            {clickable
+              ? <StepButton onClick={() => onStepClick?.(i)} sx={{
+                  justifyContent: 'flex-start', py: variant === 'timeline' ? 0.5 : 0.5,
+                  ...(variant === 'timeline' && { px: 0.75, minHeight: 32, borderRadius: 1, bgcolor: i === activeStep ? 'action.selected' : 'transparent' }),
+                }}>{label}</StepButton>
+              : label}
           </Step>
         );
       })}
     </Stepper>
+  );
+}
+
+/** Small connected node for dense grouped navigation; state remains colour + glyph, never colour alone. */
+function TimelineStepNode({ active, completed, error }: {
+  active?: boolean; completed?: boolean; error?: boolean;
+}) {
+  return (
+    <Box aria-hidden="true" sx={{
+      width: 12, height: 12, borderRadius: '50%', display: 'grid', placeItems: 'center', flexShrink: 0,
+      bgcolor: error ? 'error.main' : completed ? 'success.main' : active ? 'primary.main' : 'background.paper',
+      border: '1.5px solid', borderColor: error ? 'error.main' : completed ? 'success.main' : active ? 'primary.main' : 'divider',
+      boxShadow: active ? (theme) => `0 0 0 3px ${theme.palette.action.selected}` : 'none',
+    }}>
+      {(completed || error) && <Box component="span" sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'common.white' }} />}
+    </Box>
   );
 }
 
@@ -148,14 +183,15 @@ function StepNode({ active, completed, error, icon }: {
   const fg = error || completed || active ? '#fff' : 'text.secondary';
   return (
     <Box
+      aria-hidden="true"
       sx={{
         width: 28, height: 28, borderRadius: '50%', display: 'grid', placeItems: 'center',
         bgcolor: bg, color: fg, fontSize: 12.5, fontWeight: 700, flexShrink: 0,
         transition: 'background-color .15s, color .15s',
       }}
     >
-      {error ? <KTIcon iconName="information" className="fs-6" />
-        : completed ? <KTIcon iconName="check" className="fs-6" />
+      {error ? <ErrorOutline sx={{ fontSize: 16 }} />
+        : completed ? <Check sx={{ fontSize: 16 }} />
         : icon}
     </Box>
   );

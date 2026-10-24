@@ -21,6 +21,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import { fetchAllBranches } from "@services/company";
 import Loader from "@app/modules/common/utils/Loader";
 import { getEmployeeStatusString, calculateTotalExperience } from "@utils/employeeStatus";
+import { employeeGenderLabel } from "@utils/employeeGender";
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import {
   ActionIconButton, AppIcon, AutoGrid, GlassSurface, Pager,
@@ -105,7 +106,7 @@ const mapEmployeeRow = (obj: Record<string, any>, branchesData: any[]) => {
     subOrganization: obj.companyOverview?.name || "N/A",
     payType: obj.professionalFeesEnabled ? "Contract Based" : "Salary Based",
     employeeStatus: employeeNewStatus,
-    gender: obj.gender === 0 ? "Male" : (obj.gender === 1 ? "Female" : (obj.gender === 2 ? "Other" : "N/A")),
+    gender: employeeGenderLabel(obj.gender),
     maritalStatus: obj.maritalStatus ? "Unmarried" : (obj.maritalStatus === 0 ? "Married" : "N/A"),
     referredBy: referredBy?.users ? `${referredBy.users.firstName} ${referredBy.users.lastName}` : "N/A",
     mealPreference: obj.veganMealPreference ? "Vegan" : obj.nonVegMealPreference ? "Non-Vegetarian" : obj.vegMealPreference ? "Vegetarian" : "N/A",

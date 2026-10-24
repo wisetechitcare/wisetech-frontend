@@ -175,6 +175,7 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({
             onClose={onClose}
             title={title}
             saving={isSubmitting}
+            dirty={fk.dirty}
             error={error}
             onSubmit={fk.handleSubmit}
             submitLabel="Save"

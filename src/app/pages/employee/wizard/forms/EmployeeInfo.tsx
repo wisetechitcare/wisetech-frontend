@@ -7,6 +7,7 @@ import { getAllEmployeeLevels } from "@services/employee";
 import { getAllTeams } from "@services/projects";
 import { fetchAllOrganizationConfigurations, fetchAllEmployeeConfigurations } from "@services/configurations";
 import { WtFieldFormik } from "@app/modules/common/components/ui";
+import { Box } from "@mui/material";
 import HierarchicalTaskSelect, { buildTaskOptions, type HierarchicalTaskOption } from "@app/pages/employee/tasks/components/HierarchicalTaskSelect";
 import { IOrgNode } from "@models/company";
 
@@ -203,12 +204,12 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
     };
 
     return (
-        <>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
   {/* Row 1: Hierarchy — Organization*, Sub-Organization, Choose Branch* — always all three
       fields, never conditionally hidden; Sub-Organization is simply empty/disabled when the
       selected org has none. */}
-  <div className="row mb-4">
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
+  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
+    <Box>
       <WtFieldFormik
         required
         name="organizationId"
@@ -217,9 +218,9 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
         onValueChange={handleOrgChange}
         searchable
       />
-    </div>
+    </Box>
 
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
+    <Box>
       <WtFieldFormik
         name="subOrganizationId"
         label="Sub-Organization"
@@ -229,9 +230,9 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
         placeholder={hasSubOrgs ? undefined : 'No sub-organizations for this organization'}
         searchable
       />
-    </div>
+    </Box>
 
-    <div className="col-lg-4 col-md-6 col-sm-12">
+    <Box>
       <WtFieldFormik
         required
         name="branchId"
@@ -241,13 +242,13 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
         placeholder={!effectiveOrgId ? 'Select an organization first' : undefined}
         searchable
       />
-    </div>
-  </div>
+    </Box>
+  </Box>
 
   {/* Remaining fields: flowing 3-column grid — fills left-to-right with no empty gaps */}
-  <div className="row">
+  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
     {/* Department first: it decides which job profiles the next field offers. */}
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
+    <Box>
       <WtFieldFormik
         required
         name="departmentId"
@@ -256,8 +257,8 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
         onValueChange={handleDepartmentChange}
         searchable
       />
-    </div>
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
+    </Box>
+    <Box>
       {/* HierarchicalTaskSelect — tree drill-down; not a plain WtField yet. */}
       <HierarchicalTaskSelect
         isRequired
@@ -274,27 +275,27 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
             : <span style={{ fontSize: 12, color: 'var(--bs-gray-600)' }}>{designationGuide.hint}</span>
         }
       />
-    </div>
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
+    </Box>
+    <Box>
       <WtFieldFormik required name="teamId" label="Team" options={teamOptions} searchable />
-    </div>
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
+    </Box>
+    <Box>
       <WtFieldFormik name="shift" label="Shift" options={shiftOptions} />
-    </div>
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
+    </Box>
+    <Box>
       <WtFieldFormik name="employeeTypeConfigId" label="Employee Type" options={employeeTypeOptions} searchable />
-    </div>
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
+    </Box>
+    <Box>
       <WtFieldFormik name="workingMethodId" label="Working Location Type" options={workingMethodOptions} searchable />
-    </div>
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
+    </Box>
+    <Box>
       <WtFieldFormik name="experienceLevel" label="Experience Level" options={experienceLevelOptions} />
-    </div>
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
+    </Box>
+    <Box>
       <WtFieldFormik name="employeeLevelId" label="Employee's Level (For website)" options={employeeLevelOptions} searchable />
-    </div>
-  </div>
-</>
+    </Box>
+  </Box>
+</Box>
 
     );
 }

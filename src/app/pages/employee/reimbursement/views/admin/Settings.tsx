@@ -1,3 +1,4 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon } from "@metronic/helpers";
 import { C, BTN, RADIUS, FONT, SP, ConfigSectionCard } from "@app/modules/configuration";
@@ -18,7 +19,7 @@ import {
 } from "@utils/statistics";
 import { Form, Formik, FormikValues } from "formik";
 import React, { useEffect, useState } from "react";
-import { Modal } from "react-bootstrap";
+
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import * as Yup from "yup";

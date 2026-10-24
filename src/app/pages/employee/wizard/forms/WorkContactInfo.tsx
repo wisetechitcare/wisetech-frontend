@@ -1,7 +1,8 @@
 import { ChangeEvent, useState } from "react";
 import { useFormikContext } from "formik";
-import PhoneNumberInput from "@app/components/PhoneNumberInput";
-import TextInput from "@app/modules/common/inputs/TextInput";
+import { WtFieldFormik } from "@app/modules/common/components/ui";
+import { WtPhoneFieldFormik } from "@app/modules/common/components/ui";
+import { Box, Checkbox, FormControlLabel } from "@mui/material";
 import { checkEmailDomain } from "@utils/emailDomain";
 
 /**
@@ -57,43 +58,37 @@ function WorkContactInfo({ formikProps }: { formikProps: any }) {
     <>
       {/* Nothing to mirror until the personal section has been filled in. */}
       {(personalEmail || personalPhone) && (
-        <div className="d-flex align-items-center gap-2 mb-4">
-          <label className="form-check form-check-sm form-check-custom form-check-solid m-0">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              checked={isSameAsPersonal}
-              onChange={handleSameAsPersonal}
-            />
-            <span className="form-check-label">Same as personal contact details</span>
-          </label>
-        </div>
+        <Box sx={{ mb: 3 }}>
+          <FormControlLabel
+            control={<Checkbox checked={isSameAsPersonal} onChange={handleSameAsPersonal} size="small" />}
+            label="Same as personal contact details"
+          />
+        </Box>
       )}
 
-      <div className="row">
-        <div
-          className="col-lg-6 col-md-6 col-sm-12 mb-3 mb-lg-0"
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 2 }}>
+        <Box
           onBlur={() => checkEmailDomain(values?.companyEmailId).then(() => formikProps?.validateField?.("companyEmailId"))}
         >
-          <TextInput
-            isRequired={false}
+          <WtFieldFormik
+            required={false}
             label="Work Email Address"
-            formikField="companyEmailId"
+            name="companyEmailId"
+            type="email"
           />
-        </div>
+        </Box>
 
-        <div className="col-lg-6 col-md-6 col-sm-12">
-          <PhoneNumberInput
-            isRequired={false}
+        <Box>
+          <WtPhoneFieldFormik
+            required={false}
             label="Work Mobile Number"
-            formikField="companyPhoneNumber"
-            formikProps={formikProps}
+            name="companyPhoneNumber"
             extensionField="companyPhoneExtension"
             defaultCountry="91"
             placeholder="Phone number"
           />
-        </div>
-      </div>
+        </Box>
+      </Box>
     </>
   );
 }

@@ -1,4 +1,5 @@
-import { Button, Form, Modal } from "react-bootstrap";
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { Button, Form } from "react-bootstrap";
 import { updateClientCompany, getClientCompanyById } from "@services/companies";
 import { useState, useEffect } from "react";
 import { Company } from "@models/companies";
@@ -59,7 +60,7 @@ const NoteModal = ({show, onClose, companyId}: {show: boolean, onClose: () => vo
                 </Form>
             </Modal.Body>
             <Modal.Footer>
-                <Button variant="secondary" onClick={onClose}>
+                <Button variant="secondary" data-unsaved-changes-close onClick={onClose}>
                     Close
                 </Button>
                 <Button variant="primary" onClick={handleUpdateNote} disabled={loading}>

@@ -1,5 +1,6 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState } from "react";
-import { Modal, Button } from "react-bootstrap";
+import { Button } from "react-bootstrap";
 import Select from "react-select";
 import { createSubService, updateSubService } from "@services/companies";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";

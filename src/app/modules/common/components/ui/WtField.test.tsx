@@ -104,6 +104,30 @@ describe('WtField', () => {
         expect(screen.getByText('Stage is required').getAttribute('role')).toBe('alert');
     });
 
+    test('formats the displayed value while emitting the parsed wire value', async () => {
+        const Harness = () => {
+            const [value, setValue] = useState('1250');
+            return (
+                <>
+                    <WtField
+                        label="Amount"
+                        value={value}
+                        onChange={(next) => setValue(String(next))}
+                        formatValue={(next) => next ? Number(next).toLocaleString('en-IN') : ''}
+                        parseValue={(next) => next.replace(/,/g, '')}
+                    />
+                    <output data-testid="wire-value">{value}</output>
+                </>
+            );
+        };
+        render(<Harness />);
+        const input = screen.getByLabelText('Amount');
+        expect((input as HTMLInputElement).value).toBe('1,250');
+        await userEvent.clear(input);
+        await userEvent.type(input, '2500');
+        expect(screen.getByTestId('wire-value').textContent).toBe('2500');
+    });
+
     test('empty select shows the placeholder, not a blank closed value', () => {
         render(
             <WtField

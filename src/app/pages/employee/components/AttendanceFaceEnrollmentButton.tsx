@@ -1,10 +1,10 @@
 import { lazy, Suspense, useState } from 'react';
-import { Modal } from 'react-bootstrap';
+
 import { Amplify } from 'aws-amplify';
 import { toast } from 'react-toastify';
 import { beginAttendanceFace, finishAttendanceFace, type AttendanceIdentityStatus } from '@services/attendanceIdentity';
 import '@aws-amplify/ui-react-liveness/styles.css';
-import { AppIcon, WtButton } from '@app/modules/common/components/ui';
+import { AppIcon, WtButton, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 
 const FaceLivenessDetector = lazy(async () => {
   const module = await import('@aws-amplify/ui-react-liveness');
@@ -57,7 +57,7 @@ export function AttendanceFaceEnrollmentButton({ employeeId, onEnrolled }: {
       onClick={start}
       startIcon={<AppIcon name="bi-person-bounding-box" />}
     >
-      Enroll face
+      Enroll Face
     </WtButton>
     <Modal show={Boolean(session)} onHide={() => setSession(null)} centered size="lg">
       <Modal.Header closeButton><Modal.Title>Enroll attendance face</Modal.Title></Modal.Header>
