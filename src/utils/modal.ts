@@ -1,7 +1,7 @@
 import {
     showDialog,
     type DialogResult,
-} from '@app/modules/common/components/ui/dialogService';
+} from '@app/modules/common/components/ui/dialogStore';
 import { escapeHtml } from '@app/modules/common/components/ui/safeHtml';
 
 /**

@@ -1,7 +1,7 @@
 import { createElement, type ReactNode } from 'react';
 import { toast as toastify, type ToastOptions } from 'react-toastify';
 import type { ConfirmDialogVariant } from './ConfirmDialog';
-import { sanitizeHtml, showDialog, type DialogResult } from './dialogService';
+import { sanitizeHtml, showDialog, type DialogResult } from './dialogStore';
 
 /**
  * Kit feedback helpers — toast, alert and confirm — for code that wants a one-liner.

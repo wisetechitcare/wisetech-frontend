@@ -130,7 +130,7 @@ Changed markers are opt-in through `editMode` and disappear after Formik
 | Page / section loading block | **`PageLoader`** (also `@app/modules/common/utils/Loader`) | Bootstrap `spinner-border` / `react-bootstrap` Spinner |
 | Inline / button busy indicator | MUI `CircularProgress` size 14–18 | a second spinner component |
 | PIN / one-time code | `PinInput` (masked by default; `masked={false}` for an emailed code; `shakeKey` to shake on a wrong entry) | `<input type="password">` — the browser saves and autofills it, which defeats a PIN meant to prove who is at the keyboard |
-| Toast / confirm | `toast` / `confirmDialog` / `alertDialog` | react-toastify, sweetalert2 directly |
+| Toast / confirm | `toast` / `confirmDialog` / `alertDialog` | react-toastify directly; SweetAlert (removed, blocked by ESLint) |
 | User data inside an `html:` string | ``safeHtml`…${name}…` `` (or `escapeHtml(v)` for a generated list) | a plain template literal — see below |
 | Explanation inside a form or panel (why it is closed, what to fix first, what will happen) | `InlineNotice` (toned, `TRIO`) / `InlineHint` (quiet info line) | a Bootstrap `.alert` div with hard-coded hex, or a private `Notice` per screen |
 | Employee picker | `EmployeeSelectionDialog` | a bespoke picker |
@@ -298,7 +298,7 @@ it from new files, and do not confuse its `DetailCard` with the barrel's.
 | Toast / confirm / alert | kit `toast` / `confirmDialog` / `alertDialog` |
 | User data inside `html:` | ``safeHtml`…${name}…` `` / `escapeHtml` |
 
-**Never:** Bootstrap `.alert`, raw react-toastify / sweetalert2 styling, unescaped `html:` templates.
+**Never:** Bootstrap `.alert`, raw react-toastify styling, SweetAlert (removed — use ConfirmDialog / showDialog), unescaped `html:` templates.
 
 ## Date / datetime / time
 
