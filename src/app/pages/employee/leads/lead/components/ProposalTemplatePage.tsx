@@ -1,5 +1,6 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect, useRef } from "react";
-import { Modal, Button, Form, Row, Col, Badge } from "react-bootstrap";
+import { Button, Form, Row, Col, Badge } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import {
   getProposalConfigurations,
@@ -1269,6 +1270,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         <Button
           variant="light"
           className="fw-bold px-6"
+          data-unsaved-changes-close
           onClick={onHide}
           disabled={isGenerating}
         >

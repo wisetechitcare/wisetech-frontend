@@ -6,7 +6,7 @@
  * “+ Add” → CommonModal. The Add control is kit `WtAddOptionButton` (same look as
  * `WtField addOption` with `placement: 'label'`). See docs/bootstrap-to-kit-migration.md §3.
  */
-import { useField } from "formik";
+import { useField, useFormikContext, type FormikValues } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
 import { components as RSComponents } from "react-select";
 import React, { useState, useMemo } from "react";
@@ -17,6 +17,7 @@ import { ColourOption, SingleValue, AvatarOption, AvatarSingleValue } from "./Co
 import DropdownChevron from "./DropdownChevron";
 import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
 import { WtAddOptionButton } from "@app/modules/common/components/ui/WtAddOption";
+import { useUnsavedChangesRegistration } from "../components/ui/UnsavedChangesProvider";
 
 const VIRTUALIZE_THRESHOLD = 80;
 
@@ -94,6 +95,8 @@ function DropDownInput({
     // and the key cannot leak into a submitted payload.
     const isFilterOnly = !formikField;
     const [field, meta, helpers] = useField(formikField || '__filterOnly');
+    const { dirty } = useFormikContext<FormikValues>();
+    useUnsavedChangesRegistration(dirty && !isFilterOnly);
     const [show, setShow] = useState(false);
     const hasError = !!(meta.touched && meta.error);
     const [inputValue, setInputValue] = useState('');

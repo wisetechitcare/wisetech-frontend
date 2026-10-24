@@ -1,5 +1,6 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState } from "react";
-import { Modal, Button } from "react-bootstrap";
+import { Button } from "react-bootstrap";
 import { ResponsiveContainer } from "recharts";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';

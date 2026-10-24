@@ -1,8 +1,14 @@
-import { safeJsonParse } from '@utils/safeJson';
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import {
+  safeJsonParse } from '@utils/safeJson';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
-import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
-import { Button, Card, ListGroup, Modal } from "react-bootstrap";
+import { KTIcon,
+  toAbsoluteUrl } from "@metronic/helpers";
+import { Button,
+  Card,
+  ListGroup
+} from "react-bootstrap";
 import { RootState } from "@redux/store";
 import { Form, Formik, FormikValues } from "formik";
 import { MRT_ColumnDef } from "material-react-table";

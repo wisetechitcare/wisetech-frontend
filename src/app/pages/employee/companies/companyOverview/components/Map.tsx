@@ -1,3 +1,4 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   MapContainer,
@@ -30,7 +31,7 @@ import {
   LayersOutlined as LayersIcon
 } from "@mui/icons-material";
 import { flagLocationError } from "@services/companies";
-import { Modal, Form, Button } from "react-bootstrap";
+import { Form, Button } from "react-bootstrap";
 import { successConfirmation } from "@utils/modal";
 import { mapStyles } from "./mapTheme";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -948,6 +949,7 @@ const LocationMarker = React.memo(({
           <Button 
             variant="secondary" 
             size="sm"
+            data-unsaved-changes-close
             onClick={() => setIsReporting(false)}
             disabled={isSubmitting}
           >
@@ -1249,11 +1251,16 @@ export default function Maps({
     if (urlSyncRef.current) clearTimeout(urlSyncRef.current);
     urlSyncRef.current = setTimeout(() => {
       const params = new URLSearchParams(window.location.search);
-      selectedCountry ? params.set('mapCountry', selectedCountry) : params.delete('mapCountry');
-      selectedState ? params.set('mapState', selectedState) : params.delete('mapState');
-      selectedCity ? params.set('mapCity', selectedCity) : params.delete('mapCity');
-      selectedLocality ? params.set('mapLocality', selectedLocality) : params.delete('mapLocality');
-      isWorldFilter ? params.set('mapWorld', '1') : params.delete('mapWorld');
+      if (selectedCountry) params.set('mapCountry', selectedCountry);
+      else params.delete('mapCountry');
+      if (selectedState) params.set('mapState', selectedState);
+      else params.delete('mapState');
+      if (selectedCity) params.set('mapCity', selectedCity);
+      else params.delete('mapCity');
+      if (selectedLocality) params.set('mapLocality', selectedLocality);
+      else params.delete('mapLocality');
+      if (isWorldFilter) params.set('mapWorld', '1');
+      else params.delete('mapWorld');
       const search = params.toString();
       window.history.replaceState({}, '', search ? `${window.location.pathname}?${search}` : window.location.pathname);
     }, 300);
@@ -3168,5 +3175,4 @@ export default function Maps({
     </div>
   );
 }
-
 

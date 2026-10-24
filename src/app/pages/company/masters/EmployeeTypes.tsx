@@ -1,9 +1,10 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import React from 'react'
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues } from "formik";
-import { Modal } from "react-bootstrap";
+
 import { MRT_ColumnDef } from "material-react-table";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";

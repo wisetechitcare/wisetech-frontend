@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { MRT_ColumnDef } from 'material-react-table';
-import { Modal } from 'react-bootstrap';
+
 import { KTIcon } from '@metronic/helpers';
 import { IReimbursementsUpdate } from '@models/employee';
 import ReimbursementEditModal from '../components/ReimbursementEditModal';
@@ -35,7 +35,7 @@ import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { resolveStatusNum as resolveStatus, STATUS, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
 import SubmissionMobileCard from '../components/SubmissionMobileCard';
 import { SkeletonTable } from '@app/modules/common/components/Skeleton';
-import { ToneChip } from '@app/modules/common/components/ui';
+import { ToneChip, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';

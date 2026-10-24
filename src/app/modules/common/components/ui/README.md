@@ -63,17 +63,59 @@ are built from.
 | Toggle | `WtSwitch` / `WtSwitchField` | raw `<Switch>`, `.form-switch` |
 | Checkbox | `WtCheckbox` / `WtCheckboxField` (`WtControlLabel` for switch+label rows). Look is also themed on `MuiCheckbox` app-wide. | inventing a second checkbox style per screen |
 | Dialog | `GlassDialog` + `GlassHeader` (`preset="form"` / `"workspace"` for height) | react-bootstrap `<Modal>`; hand-rolled `maxHeight` vh |
+| Unsaved form exits | `ConfigureFormDialog` / `WtFormDialog` with explicit `dirty`; `useUnsavedChangesGuard` for custom shells; `UnsavedChangesModal` only as a compatibility wrapper for legacy Bootstrap forms | Calling `onClose` directly for a dirty form |
 | Dialog footer (Cancel + Submit) | **`GlassDialogActions`** (SSOT; or leave `ConfigureFormDialog` / `WtFormDialog`) | hand-rolled `DialogActions sx={{ px, py, borderTop }}`; Bootstrap Cancel/`btn-light` pairs |
 | Dialog form card | `FormSection` + `FORM_SPACE` | local `GlassSurface` + `SectionHead` stacks with magic gaps |
 | Surface / card | `GlassSurface` / `GlassCard` | `<div className="card">` |
+| Right-side supporting workspace | `WtSheet` | Feature-local `Drawer` shells for filters/history |
+| **Table filters** | **`FilterSheetButton`** (via MaterialTable `renderToolbarIconActions`) + **`FilterSheet`** (draft state, Reset-applies, Apply). Set `enableFilters={false}` on the table. Reference: courtesy-desk `DrivesList.tsx` | selects in `renderTopToolbarRightActions`, a filter bar above the table, MRT head filters |
 | Config section | `SettingsSection` (optional `count` chip) | a `GlassSurface` with your own accent + header |
 | Config masters (CRUD lists) | **`MasterListSection`** — `ConfigSectionCard` + **`ConfigColorChip`** grid (+ injected fetch/create/update/delete) | per-feature GlassCard masters grids; vertical drag-row forks |
 | Compact configure value row (colour + name + actions) | **`ConfigColorChip`** + **`ConfigChipGrid`** | hand-rolled `#f7f8fa` / `#ffffff` chip tiles; forked NameChip/ColorChip |
 | Reorder list engine | **`ReorderableGroup` + `DragHandle`** (also on this barrel) | up/down buttons; deep import only from `components/ReorderableGroup` |
 | Row action tone from Trio | `trioToActionTone(TRIO.rose)` → `ActionIconButton` | mapping accents per screen |
 | Summary stat | `StatTile` | a bespoke number-in-a-box |
+| Entity detail / Review card (identity, header band, label/value rows) | `EntityIdentityHeader`, `DetailCard`, `KeyValueRow`/`KeyValueList`, `SectionDivider`, `DetailGrid` — see Entity detail below | `DetailPageComponents.tsx` in new work; a second identity header row |
 | Chip / badge (status **and** meta) | **`ToneChip`** / `StatusBadge` — see chip recipe below | Private `MetaPill`, Bootstrap `badge`, hand-rolled muted pills |
 | Exclusive 2–5 way **named** choice (status, period) | `SegmentedControl` | a row of outlined pills / `ToggleButtonGroup` |
+| Boolean setting | `WtChoiceField variant="switch"` | Yes/No segmented controls |
+| Short exclusive choice | `WtChoiceField variant="segmented"` | bespoke radio/pill groups |
+| Consequential exclusive choice | `WtChoiceField variant="cards"` | cards without native radio semantics |
+| More than four options | `WtFieldFormik` select/picker | a crowded segmented row |
+
+### Choice-field recipe
+
+`WtChoiceField` is the Formik adapter for the shared native choice primitive. Use
+`switch` for booleans, `segmented` for short exclusive values, and `cards` when
+the choice needs descriptions or stronger visual separation. Every option remains
+a native checkbox/radio input, so keyboard navigation and screen-reader semantics
+do not depend on the visual treatment.
+
+```tsx
+<WtChoiceField
+  name="gender"
+  label="Gender"
+  variant="segmented"
+  required
+  editMode={isEditMode}
+  options={genderOptions}
+  orientation="column"
+/>
+
+<WtChoiceField
+  name="tdsEnabled"
+  label="Additional TDS"
+  variant="switch"
+  clearRevealOnDisable
+  clearOnDisable={["tdsType", "tdsAmount"]}
+  reveal={<TdsFields />}
+/>
+```
+
+`clearOnDisable` is the dependent Formik path list; `clearRevealOnDisable`
+controls whether the list is applied when a switch changes from on to off.
+Changed markers are opt-in through `editMode` and disappear after Formik
+`resetForm`; create forms do not show them.
 | Same data, different **layout** (cards / list / board) | **Typed wrappers** — `CardsListViewSwitch`, `BoardListViewSwitch`, `GridListViewSwitch`, `CardsTableViewSwitch`, `KanbanTableViewSwitch`, `DmsViewSwitch`. Glyphs **only** from `VIEW_MODE_ICONS` (same purpose → same icon). Track/cell: `viewModeSwitchTrackSx` / `viewModeSwitchButtonSx` | hand-rolled `bi-grid` / `element-11` / `btn-group` List/Cards / private `ViewToggle` |
 | Icon tile | `IconBox` | a styled `<div>` around a `KTIcon` |
 | List / collection cards | **`EntityCard`** (title / subtitle / status / tags / actions) inside capped **`AutoGrid`**; raw **`GlassCard`** only when the layout is not an entity | Bootstrap `card`; hand-rolled title+chip stacks; unbounded `auto-fit`+`1fr` stretch; per-page grid forks |
@@ -83,18 +125,31 @@ are built from.
 | Single-select modal | `OptionPickerDialog` | a bespoke option list |
 | Date / time | `WtDateField` / `WtDateTimeField` / `TimeWheelField` | `<input type="date">` |
 | Wizard | `WtStepper` | hand-rolled circles |
+| Full-window wizard host | `WtWizardDialog` with an explicit `title` and `EnterpriseFormWizard` content | feature-local fullscreen shells or missing dialog labels |
+
 | Short master create/edit dialog | **`ConfigureFormDialog`** + `WtFieldFormik` | Bootstrap `Modal` + hand-rolled C/FONT/SP fields |
 | Long multi-section form dialog | **`WtFormDialog`** | a private modal layout per feature |
 | Page / section loading block | **`PageLoader`** (also `@app/modules/common/utils/Loader`) | Bootstrap `spinner-border` / `react-bootstrap` Spinner |
 | Inline / button busy indicator | MUI `CircularProgress` size 14–18 | a second spinner component |
 | PIN / one-time code | `PinInput` (masked by default; `masked={false}` for an emailed code; `shakeKey` to shake on a wrong entry) | `<input type="password">` — the browser saves and autofills it, which defeats a PIN meant to prove who is at the keyboard |
-| Toast / confirm | `toast` / `confirmDialog` / `alertDialog` | react-toastify, sweetalert2 directly |
+| Toast / confirm | `toast` / `confirmDialog` / `alertDialog` | react-toastify directly; SweetAlert (removed, blocked by ESLint) |
 | User data inside an `html:` string | ``safeHtml`…${name}…` `` (or `escapeHtml(v)` for a generated list) | a plain template literal — see below |
 | Explanation inside a form or panel (why it is closed, what to fix first, what will happen) | `InlineNotice` (toned, `TRIO`) / `InlineHint` (quiet info line) | a Bootstrap `.alert` div with hard-coded hex, or a private `Notice` per screen |
 | Employee picker | `EmployeeSelectionDialog` | a bespoke picker |
 | Org filter data | `useOrgScope` | re-deriving an org list per feature |
 
 ## Buttons — one public API (`WtButton`)
+
+Wizard close ownership: `WtWizardDialog` confirms dirty closes by default.
+Use `closeGuard="host"` only when `onClose` already confirms unsaved values or
+pending uploads. Employee, candidate, and job hosts use this mode; company and
+contact keep the dialog guard. Browser-route blocking remains a separate guard.
+
+Fullscreen wizard identity is progressive, not replaceable chrome:
+`WtWizardDialog` defaults to the WiseTech gradient entity header, and grouped
+flows retain the navy progress card, compact timeline rail, and branded section
+keyline. Use `headerVariant="plain"` or `showHeader={false}` only for an
+intentionally quiet editor—not as a migration shortcut.
 
 **Global default:** compact, flat accent (`tone="accent"`, `size="small"`,
 `flat`). This is the shared default for labelled actions. Opt into a larger,
@@ -174,6 +229,31 @@ entity (settings tiles, ad-hoc chrome).
 **Never:** Bootstrap `card`, a feature-local `gridTemplateColumns` fork, or a
 second chip/pill next to `ToneChip` on the same card.
 
+## Entity detail — the Employee Details look, rebuilt here
+
+Detail screens and the wizard Review step share one look: per-section tone
+(`TRIO`) + KT icon in an `IconBox`, a card header band, and label/value rows.
+Rules: [`docs/wizard-ux-contract.md` §15](../../../../../../docs/wizard-ux-contract.md).
+
+| Need | Use | Never |
+|------|-----|-------|
+| Entity identity (avatar + name + meta) | **`EntityIdentityHeader`** — `variant="full"` on a detail page; `variant="compact"` in a wizard rail / Review step | a second header row under the dialog header; a per-screen avatar+name block |
+| Titled section card with a header band | **`DetailCard`** (tone + KT icon + heading in `HEADING_CASE_SX`) | `GlassSurface` + hand-rolled title row |
+| One label/value line | **`KeyValueRow`** | `Typography` pairs with magic widths |
+| A stack of label/value lines | **`KeyValueList`** | a bespoke `<dl>` / `Grid` per screen |
+| Divider between groups inside a card | **`SectionDivider`** | raw `<hr>`, Bootstrap `separator` |
+| Responsive grid of `DetailCard`s | **`DetailGrid`** (single column at 360px) | a feature-local `gridTemplateColumns` |
+
+Empty values render explicit **Not provided** / **Not set** (contract §4), not `—`.
+
+**Legacy:** `@app/modules/detail-page/DetailPageComponents.tsx` (its own
+`DetailCard`, `DetailRow`, `DetailInfoGrid`, `DetailProfileBlock`, …) is
+**superseded for new work**. Existing callers keep working; its 4
+identity-header copies migrate to `EntityIdentityHeader` later. Do not import
+it from new files, and do not confuse its `DetailCard` with the barrel's.
+
+**No raw `backdrop-filter` outside the kit** — `glassSx` / `GlassSurface` / `GlassDialog` follow Interface Style (`data-surface` glass | material); form canvas, fields, review and tables stay opaque.
+
 ## Dialog / form shell
 
 | Need | Use |
@@ -220,7 +300,7 @@ second chip/pill next to `ToneChip` on the same card.
 | Toast / confirm / alert | kit `toast` / `confirmDialog` / `alertDialog` |
 | User data inside `html:` | ``safeHtml`…${name}…` `` / `escapeHtml` |
 
-**Never:** Bootstrap `.alert`, raw react-toastify / sweetalert2 styling, unescaped `html:` templates.
+**Never:** Bootstrap `.alert`, raw react-toastify styling, SweetAlert (removed — use ConfirmDialog / showDialog), unescaped `html:` templates.
 
 ## Date / datetime / time
 
@@ -257,6 +337,10 @@ row cannot disagree about height, radius, focus ring or error colour.
 ```
 
 **`addOption`** is the reusable create affordance (`WtAddOption`): `{ onAdd, label?, placement? }`.
+
+**Phone:** use `WtPhoneField` for E.164 phone values. It is ESM-safe and returns the
+selected country metadata so Formik adapters can split the national number and dial code
+without importing `react-phone-input-2`.
 Default `placement: 'menu'` puts `+ Add New` as the first list row; `'label'` puts a text button on the label row (legacy adapters). Formik forms use the same prop on `WtFieldFormik`.
 
 **Toolbar / filter selects:** use `fullWidth={false}` on a plain (non-searchable) select — the kit sizes the closed field and its menu to the widest option label (including icon/prefix chrome) so values are not ellipsized. Override with `fitContent={false}` if you need a fixed width. Full-width form selects still lock the menu to the field width inside dialogs.

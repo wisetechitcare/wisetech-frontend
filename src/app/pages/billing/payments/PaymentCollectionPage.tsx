@@ -421,6 +421,7 @@ const PaymentCollectionPage: React.FC = () => {
             alignItems: 'center',
             gap: 3,
             border: '2px solid rgba(255, 255, 255, 0.2)',
+            // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
             backdropFilter: 'blur(8px)',
             '& .MuiAlert-icon': {
               fontSize: '28px',

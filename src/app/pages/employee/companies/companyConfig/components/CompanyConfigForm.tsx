@@ -1,5 +1,6 @@
-﻿import React, { useEffect, useState } from "react";
-import { Modal, Button } from "react-bootstrap";
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import React, { useEffect, useState } from "react";
+import { Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import Select from "react-select";

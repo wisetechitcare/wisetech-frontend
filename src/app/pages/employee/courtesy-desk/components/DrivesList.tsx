@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Box,
-  MenuItem,
   Stack,
-  TextField,
   Typography,
   alpha,
   useTheme,
@@ -22,6 +20,12 @@ import { actionsColumn } from "@app/modules/common/components/table/columns";
 import {
   ActionIconButton,
   AppIcon,
+  FilterSheet,
+  FilterSheetButton,
+  FormSection,
+  TRIO,
+  WtField,
+  countActiveFilters,
   useConfirmDialog,
   usePromptDialog,
 } from "@app/modules/common/components/ui";
@@ -52,6 +56,8 @@ import {
 } from "./DriveCreate";
 import { T } from "@app/modules/common/components/ui/tokens";
 
+const EMPTY_FILTERS = { occasion: "ALL", status: "ALL" };
+
 export default function DrivesList() {
   const theme = useTheme();
   const desk = useCourtesyDesk();
@@ -64,10 +70,8 @@ export default function DrivesList() {
   const [editDrive, setEditDrive] = useState<CourtesyDrive | null>(null);
   const [presetGroupId, setPresetGroupId] = useState<string | undefined>();
   const [fromDrive, setFromDrive] = useState<CourtesyDrive | null>(null);
-  const [occasionFilter, setOccasionFilter] = useState<"ALL" | string>("ALL");
-  const [giftRunStatusFilter, setGiftRunStatusFilter] = useState<
-    "ALL" | string
-  >("ALL");
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const employeeId = useSelector(
     (s: RootState) => s.employee.currentEmployee?.id,
   );
@@ -107,14 +111,14 @@ export default function DrivesList() {
 
   const filteredDrives = useMemo(() => {
     return drives.filter((d) => {
-      if (occasionFilter !== "ALL" && d.occasionType !== occasionFilter)
+      if (filters.occasion !== "ALL" && d.occasionType !== filters.occasion)
         return false;
       // "All" keeps archived out of the default list; pick "Archived" (or a
       // specific status) to see those rows.
-      if (giftRunStatusFilter === "ALL") return d.status !== "ARCHIVED";
-      return d.status === giftRunStatusFilter;
+      if (filters.status === "ALL") return d.status !== "ARCHIVED";
+      return d.status === filters.status;
     });
-  }, [drives, occasionFilter, giftRunStatusFilter]);
+  }, [drives, filters]);
 
   const filteredAmountTotal = useMemo(
     () => filteredDrives.reduce((sum, d) => sum + giftRunTotalAmount(d), 0),
@@ -369,47 +373,6 @@ export default function DrivesList() {
     return alpha(c, theme.palette.mode === "dark" ? 0.22 : 0.12);
   };
 
-  const toolbarFilters = (
-    <Stack
-      direction="row"
-      spacing={1}
-      alignItems="center"
-      flexWrap="wrap"
-      useFlexGap
-    >
-      <TextField
-        select
-        size="small"
-        label="Occasion"
-        value={occasionFilter}
-        onChange={(e) => setOccasionFilter(e.target.value)}
-        sx={{ minWidth: 150 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        {occasions.map((o) => (
-          <MenuItem key={o.id} value={o.id}>
-            {o.name}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        select
-        size="small"
-        label="Gift Run status"
-        value={giftRunStatusFilter}
-        onChange={(e) => setGiftRunStatusFilter(e.target.value)}
-        sx={{ minWidth: 160 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        {giftRunStatuses.map((s) => (
-          <MenuItem key={s.id} value={s.id}>
-            {s.name}
-          </MenuItem>
-        ))}
-      </TextField>
-    </Stack>
-  );
-
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       {confirmDialog}
@@ -445,7 +408,12 @@ export default function DrivesList() {
         enableGrouping={false}
         enableStatusColorCoding={false}
         showColumnFooter
-        renderTopToolbarRightActions={() => toolbarFilters}
+        renderToolbarIconActions={() => (
+          <FilterSheetButton
+            count={countActiveFilters(filters, EMPTY_FILTERS)}
+            onClick={() => setFilterSheetOpen(true)}
+          />
+        )}
         muiTablePaperStyle={{
           borderRadius: `${T.radius.lg}px`,
           border: `1px solid ${T.color.line}`,
@@ -475,6 +443,49 @@ export default function DrivesList() {
           },
         }}
       />
+
+      <FilterSheet
+        open={filterSheetOpen}
+        value={filters}
+        empty={EMPTY_FILTERS}
+        title={`Filter ${GIFT_RUN_LABEL_PLURAL}`}
+        description={`${filteredDrives.length.toLocaleString()} of ${drives.length.toLocaleString()} ${GIFT_RUN_LABEL_PLURAL} currently shown`}
+        onClose={() => setFilterSheetOpen(false)}
+        onApply={(next) => {
+          setFilters(next);
+          setFilterSheetOpen(false);
+        }}
+      >
+        {(draft, set) => (
+          <FormSection
+            tone={TRIO.green}
+            icon="gift"
+            title={GIFT_RUN_LABEL}
+            desc="Narrow the list by occasion and progress. Archived runs show only when picked."
+          >
+            <WtField
+              label="Occasion"
+              value={draft.occasion}
+              onChange={(next) => set("occasion", next)}
+              options={[
+                { value: "ALL", label: "All" },
+                ...occasions.map((o) => ({ value: o.id, label: o.name })),
+              ]}
+              fullWidth
+            />
+            <WtField
+              label={`${GIFT_RUN_LABEL} status`}
+              value={draft.status}
+              onChange={(next) => set("status", next)}
+              options={[
+                { value: "ALL", label: "All (except archived)" },
+                ...giftRunStatuses.map((st) => ({ value: st.id, label: st.name })),
+              ]}
+              fullWidth
+            />
+          </FormSection>
+        )}
+      </FilterSheet>
 
       <DriveCreateModal
         open={createOpen}

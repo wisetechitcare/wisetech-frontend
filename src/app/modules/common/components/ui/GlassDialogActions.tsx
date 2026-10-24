@@ -3,6 +3,7 @@ import { DialogActions, type DialogActionsProps } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { WtButton, type WtCtaTone } from './buttons';
 import { FORM_SPACE } from './FormSection';
+import { DialogCloseContext } from './UnsavedChangesContext';
 
 /**
  * Shared Cancel / Save (or custom) footer for GlassDialog — **dialog footer SSOT**.
@@ -67,10 +68,18 @@ export function GlassDialogActions({
   ...rest
 }: GlassDialogActionsProps) {
   const busy = submitting;
+  const dialogClose = React.useContext(DialogCloseContext);
   const content = children ?? (
     <>
       {onCancel ? (
-        <WtButton ghost onClick={onCancel} disabled={cancelDisabled || busy}>
+        <WtButton
+          ghost
+          onClick={() => {
+            if (dialogClose) dialogClose.requestClose(onCancel);
+            else onCancel();
+          }}
+          disabled={cancelDisabled || busy}
+        >
           {cancelLabel}
         </WtButton>
       ) : null}

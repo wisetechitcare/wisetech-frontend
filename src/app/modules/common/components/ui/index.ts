@@ -5,7 +5,7 @@
 //     plus WT_CONTROL_HEIGHT (40) / WT_CONTROL_HEIGHT_MD (44) / controlHeightSx —
 //     the one height a control row shares (fields + buttons)
 //   - glass: reusable glassmorphism primitives (GlassSurface / GlassDialog / GlassHeader / GlassCard)
-//   - feedback: branded Swal helpers (toast / alertDialog / confirmDialog)
+//   - feedback: toast (react-toastify) + alertDialog / confirmDialog (ConfirmDialog via dialogService)
 //   - safeHtml: tagged template that escapes interpolations for any html: string
 export { T, tonePair, label, glassTokens } from './tokens';
 export type { SemanticTone, VividTone, GlassVariant, ThemeMode, LabelTier } from './tokens';
@@ -70,6 +70,11 @@ export { CurrencySymbol } from './CurrencySymbol';
 // new record, so it deliberately drops the create action.
 export { WtEmptyState } from './WtEmptyState';
 export type { WtEmptyStateProps, WtEmptyStateVariant } from './WtEmptyState';
+// Responsive right-side workspace shared by supporting tasks such as filters and history.
+export { WtSheet } from './WtSheet';
+export type { WtSheetProps } from './WtSheet';
+export { FilterSheet, FilterSheetButton, countActiveFilters } from './FilterSheet';
+export type { FilterSheetProps } from './FilterSheet';
 // Full-block page/section loading — MUI CircularProgress. Legacy path: utils/Loader.
 export { PageLoader, type PageLoaderProps } from './PageLoader';
 // Short master create/edit dialog shell for *ConfigureForm screens.
@@ -101,7 +106,17 @@ export {
   ConfirmDialog,
   type ConfirmDialogProps,
   type ConfirmDialogVariant,
+  type ConfirmDialogDismissReason,
 } from './ConfirmDialog';
+// THE imperative dialog: `await showDialog({...})` from anywhere (plain .ts included) renders
+// ConfirmDialog via <DialogServiceHost/> (mounted once in App.tsx). Replaces SweetAlert2.
+export { showDialog, closeDialog, updateDialog, DialogServiceHost } from './dialogService';
+export type { DialogResult, DialogOptions, DialogInputOptions, DialogDismissReason } from './dialogService';
+export { ConfirmDiscardDialog, type ConfirmDiscardDialogProps } from './ConfirmDiscardDialog';
+export { UnsavedChangesProvider } from './UnsavedChangesProvider';
+export { useUnsavedChangesGuard } from './useUnsavedChangesGuard';
+export { useDiscardConfirm, type DiscardConfirmOptions } from './useDiscardConfirm';
+export { UnsavedChangesModal, type UnsavedChangesModalProps } from './UnsavedChangesModal';
 export {
   useConfirmDialog,
   type AskConfirmOptions,
@@ -182,6 +197,10 @@ export { NavCard } from './NavCard';
 export type { NavCardProps } from './NavCard';
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
+export { choiceIsOn, WtChoice } from './WtChoice';
+export { WtChoiceField } from './WtChoiceField';
+export type { ChoiceVariant, WtChoiceOption, WtChoiceProps } from './WtChoice';
+export type { WtChoiceFieldProps } from './WtChoiceField';
 // MaterialTable `renderSelectionActions` strip — "{n} selected" + bulk CTAs (WtButton).
 export { TableSelectionBar } from './TableSelectionBar';
 export type { TableSelectionBarProps } from './TableSelectionBar';
@@ -205,7 +224,7 @@ export { safeHtml, escapeHtml } from './safeHtml';
 // A line of explanation INSIDE a form or panel: toned notice, or a quiet info hint.
 export { InlineNotice, InlineHint } from './InlineNotice';
 export type { InlineNoticeProps } from './InlineNotice';
-export type { FeedbackOptions } from './feedback';
+export type { FeedbackOptions, FeedbackIcon } from './feedback';
 // App-wide single-select picker modal (glass kit, theme-aware) — use instead of bootstrap <Modal>.
 export { OptionPickerDialog, OptionRow, OptionCard } from './pickers';
 export type { OptionPickerDialogProps, PickerOption } from './pickers';
@@ -228,3 +247,16 @@ export { WtFormDialog, WtFormSection, WtFormSpan } from './WtFormDialog';
 export type { WtFormDialogProps, WtFormSectionProps, WtFormNavItem } from './WtFormDialog';
 export { WtImageField } from './WtImageField';
 export type { WtImageFieldProps } from './WtImageField';
+export { WtPhoneField } from './WtPhoneField';
+export { WtPhoneFieldFormik, type WtPhoneFieldFormikProps } from './WtPhoneFieldFormik';
+export type { WtPhoneFieldProps } from './WtPhoneField';
+export { WtWizardDialog, type WtWizardDialogProps } from './WtWizardDialog';
+// Read-only record view: accent-topped opaque card + label/value rows + section divider + 2-up grid.
+// The employee-details look rebuilt on the kit; KeyValueList rows match the form engine's SummaryRow.
+export { DetailCard, KeyValueRow, KeyValueList, SectionDivider, DetailGrid } from './DetailCard';
+export type {
+  DetailCardProps, KeyValueRowProps, KeyValueListProps, KeyValueListRow, SectionDividerProps, DetailGridProps,
+} from './DetailCard';
+// Record identity header (avatar + name + meta + contact links + actions) for detail pages and wizards.
+export { EntityIdentityHeader } from './EntityIdentityHeader';
+export type { EntityIdentityHeaderProps } from './EntityIdentityHeader';

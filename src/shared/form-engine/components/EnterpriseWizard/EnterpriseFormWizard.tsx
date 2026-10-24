@@ -2,13 +2,15 @@ import React, { useMemo, useState, useCallback } from "react";
 import { useFormikContext } from "formik";
 import { toast } from "react-toastify";
 import { PictureAsPdf, Description, ChevronRight, ChevronLeft } from "@mui/icons-material";
-import { EnterpriseWizardStep, WizardActionConfig, WizardSummaryConfig } from "../../types/formEngine.types";
+import { EnterpriseWizardStep, WizardActionConfig, WizardReviewConfig, WizardSummaryConfig } from "../../types/formEngine.types";
+import { GroupedWizard, type GroupedWizardProps } from "./GroupedWizard";
 import { SummarySidebar } from "../SummarySidebar/SummarySidebar";
 import { WizardSidebar } from "../WizardSidebar/WizardSidebar";
 import "@app/pages/employee/forms/shared/Workspace.css";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
+  layout?: "steps";
   module: string;
   steps: EnterpriseWizardStep<TStepProps>[];
   stepProps?: TStepProps;
@@ -19,13 +21,30 @@ interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
   headerActions?: React.ReactNode;
   /** Bootstrap-icon class for the header avatar. Defaults per `module`. */
   moduleIcon?: string;
+  /** Alias of moduleIcon. */
+  icon?: string;
+  /** Accepted for API compatibility; the steps layout (Lead / Company / Contact) keeps the production design and renders no review step. */
+  review?: WizardReviewConfig;
   sidebarTitle?: string;
   breadcrumb?: string[];
   onStepChange?: (step: number) => void;
   initialStep?: number;
 }
 
-export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
+/**
+ * One entry point, two layouts. `sections` (Employee onboarding, Job, Candidate) renders
+ * GroupedWizard; the steps layout (Lead, Company, Contact) is the production design, kept
+ * unchanged on purpose.
+ */
+export function EnterpriseFormWizard<TValues = any, TStepProps = any>(
+  props: EnterpriseFormWizardProps<TValues, TStepProps> | (GroupedWizardProps<TStepProps> & { layout: "sections" }),
+) {
+  return props.layout === "sections"
+    ? <GroupedWizard {...props} />
+    : <StepWizard {...props} />;
+}
+
+function StepWizard<TValues = any, TStepProps = any>({
   module,
   steps,
   stepProps,
@@ -34,12 +53,14 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
   headerTitle,
   headerSub,
   headerActions,
-  moduleIcon,
+  moduleIcon: moduleIconProp,
+  icon,
   sidebarTitle,
   breadcrumb,
   onStepChange,
   initialStep = 0,
 }: EnterpriseFormWizardProps<TValues, TStepProps>) {
+  const moduleIcon = moduleIconProp ?? icon;
   const { values, submitForm, validateForm, setFieldTouched } = useFormikContext<TValues>();
   const visibleSteps = useMemo(() => steps.filter((step) => !step.hidden), [steps]);
   const [currentStep, setCurrentStep] = useState(initialStep);
@@ -335,7 +356,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
                   Object.keys(errors).forEach((key) => setFieldTouched(key, true));
                   return;
                 }
-                actions.onFinalSave && actions.onFinalSave();
+                actions.onFinalSave?.();
               }}
               title="Save changes now"
             >
@@ -370,7 +391,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
                     Object.keys(errors).forEach(key => setFieldTouched(key, true));
                     return;
                   }
-                  actions.onFinalSave && actions.onFinalSave();
+                  actions.onFinalSave?.();
                 }}
               >
                 {actions.isSubmitting ? "Saving…" : "Save"}
@@ -388,7 +409,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
                       Object.keys(errors).forEach(key => setFieldTouched(key, true));
                       return;
                     }
-                    actions.onSaveUpdate && actions.onSaveUpdate();
+                    actions.onSaveUpdate?.();
                   }}
                 >
                   {actions.isSubmitting ? "Saving…" : "Save as Update"}
@@ -404,7 +425,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
                       Object.keys(errors).forEach(key => setFieldTouched(key, true));
                       return;
                     }
-                    actions.onSaveRevision && actions.onSaveRevision();
+                    actions.onSaveRevision?.();
                   }}
                 >
                   {actions.isSubmitting ? "Saving…" : "Save as Revision"}

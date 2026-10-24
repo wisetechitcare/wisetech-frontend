@@ -290,6 +290,7 @@ function WeekendsAndWorkingDays() {
                 title="Customize Weekend Days"
                 subtitle="Select days off (weekend days)"
                 saving={loading}
+                dirty={formik.dirty}
                 onSubmit={formik.handleSubmit}
                 submitLabel="Save Changes"
             >

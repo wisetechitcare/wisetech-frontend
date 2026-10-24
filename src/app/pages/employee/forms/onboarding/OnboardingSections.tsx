@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useFormikContext } from "formik";
+import { Box, Typography } from "@mui/material";
 
 import AddAnotherBtn from "@app/modules/common/utils/AddAnotherBtn";
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import TextInput from "@app/modules/common/inputs/TextInput";
-import RadioInput from "@app/modules/common/inputs/RadioInput";
-import MonthYearInput from "@app/modules/common/inputs/MonthYearInput";
+import { WtChoiceField, WtDateField, WtFieldFormik } from "@app/modules/common/components/ui";
 import { useSalaryMaster } from "@modules/payroll/hooks/useSalaryComponentNames";
 import { fetchAllEmployees, fetchQualificationMasters } from "@services/employee";
 
@@ -54,6 +52,23 @@ const createNewWorkExp = () => ({
 });
 
 const NEW_REJOIN_ENTRY = { dateOfReJoining: "", dateOfReExit: "", reason: "" };
+
+const MonthField = ({ name, label, placeholder, minDate }: any) => {
+  const { values, setFieldValue } = useFormikContext<any>();
+  return (
+    <WtDateField
+      label={label}
+      value={values?.[name] ?? ""}
+      onChange={(value) => setFieldValue(name, value ? `${value.slice(0, 7)}-01` : "")}
+      required
+      placeholder={placeholder}
+      minDate={minDate}
+      views={["year", "month"]}
+      openTo="month"
+      format="MM/YYYY"
+    />
+  );
+};
 
 /**
  * Props every onboarding leaf section receives. The wizard forwards the whole
@@ -333,17 +348,15 @@ export const ReportingSection: React.FC<OnboardingSectionsProps> = () => {
   }, []);
 
   return (
-    <div className="row">
-      <div className="col-lg-6 col-md-6 col-sm-12">
-        <DropDownInput
-          isRequired={false}
-          formikField="reportsToId"
-          inputLabel="Reporting Manager"
-          placeholder="Select reporting manager"
-          options={managerOptions}
-        />
-      </div>
-    </div>
+    <Box className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <WtFieldFormik
+        name="reportsToId"
+        label="Reporting Manager"
+        placeholder="Select reporting manager"
+        options={managerOptions}
+        searchable
+      />
+    </Box>
   );
 };
 
@@ -361,12 +374,6 @@ export const FinancialSection: React.FC<OnboardingSectionsProps> = ({ formikProp
     : tds2Comp?.displayName
       ? tds2Comp.displayName
       : "TDS 2";
-
-  const formatINNumber = (val: any) => {
-    if (!val) return "";
-    return Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(val));
-  };
-  const parseINNumber = (val: string) => val.replace(/,/g, "");
 
   const ctcValue = parseFloat(formikProps.values.ctcInLpa || "0");
   const isCTCReadonly = editMode && ctcValue > 0;
@@ -401,14 +408,7 @@ export const FinancialSection: React.FC<OnboardingSectionsProps> = ({ formikProp
       {/* CTC */}
       <div className="row mb-4">
         <div className="col-lg-4 col-md-6 col-sm-12">
-          <TextInput
-            isRequired={true}
-            label="CTC"
-            formikField="ctcInLpa"
-            formatter={formatINNumber}
-            parser={parseINNumber}
-            readonly={isCTCReadonly}
-          />
+          <WtFieldFormik name="ctcInLpa" label="CTC" required readOnly={isCTCReadonly} />
           {isCTCReadonly && (
             <span className="wt-field-hint">
               Salary cannot be updated here — use the Increment option in the Salary module.
@@ -420,46 +420,26 @@ export const FinancialSection: React.FC<OnboardingSectionsProps> = ({ formikProp
       {/* Professional Fees (TDS1) */}
       <div className="row">
         <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-          <RadioInput
-            formikField="professionalFeesEnabled"
-            inputLabel="Employee Type"
-            radioBtns={[
+          <WtChoiceField name="professionalFeesEnabled" label="Employee Type" variant="cards" required options={[
               { label: "Contract Based", value: "true" },
               { label: "Salary Based", value: "false" },
-            ]}
-            isRequired={true}
-          />
+            ]} />
         </div>
 
         {pfEnabled && (
           <>
             <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-              <RadioInput
-                formikField="professionalFeesType"
-                inputLabel="Type"
-                radioBtns={[
+              <WtChoiceField name="professionalFeesType" label="Type" variant="segmented" required options={[
                   { label: "Fixed", value: "FIXED" },
                   { label: "Percentage", value: "PERCENTAGE" },
-                ]}
-                isRequired={true}
-              />
+                ]} />
             </div>
 
             <div className="col-lg-4 col-md-4 col-sm-12">
               {pfType === "PERCENTAGE" ? (
-                <TextInput
-                  isRequired={true}
-                  label={`${tds1Name} %`}
-                  formikField="professionalFeesPercentage"
-                />
+                <WtFieldFormik name="professionalFeesPercentage" label={`${tds1Name} %`} required />
               ) : (
-                <TextInput
-                  isRequired={true}
-                  label={`${tds1Name} Amount`}
-                  formikField="professionalFeesAmount"
-                  formatter={formatINNumber}
-                  parser={parseINNumber}
-                />
+                <WtFieldFormik name="professionalFeesAmount" label={`${tds1Name} Amount`} required />
               )}
             </div>
           </>
@@ -470,45 +450,25 @@ export const FinancialSection: React.FC<OnboardingSectionsProps> = ({ formikProp
       <div className="separator separator-dashed my-6" />
       <div className="row">
         <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-          <RadioInput
-            formikField="tds2Enabled"
-            inputLabel={`${tds2Name} (Additional)`}
-            radioBtns={[
+          <WtChoiceField name="tds2Enabled" label={`${tds2Name} (Additional)`} variant="switch" required clearRevealOnDisable clearOnDisable={["tds2Type", "tds2Amount", "tds2Percentage"]} options={[
               { label: "Enabled", value: "true" },
               { label: "Disabled", value: "false" },
-            ]}
-            isRequired={true}
-          />
+            ]} />
         </div>
 
         {tds2Enabled && (
           <>
             <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-              <RadioInput
-                formikField="tds2Type"
-                inputLabel={`${tds2Name} Type`}
-                radioBtns={[
+              <WtChoiceField name="tds2Type" label={`${tds2Name} Type`} variant="segmented" required options={[
                   { label: "Fixed", value: "FIXED" },
                   { label: "Percentage", value: "PERCENTAGE" },
-                ]}
-                isRequired={true}
-              />
+                ]} />
             </div>
             <div className="col-lg-4 col-md-4 col-sm-12">
               {tds2Type === "PERCENTAGE" ? (
-                <TextInput
-                  isRequired={true}
-                  label={`${tds2Name} %`}
-                  formikField="tds2Percentage"
-                />
+                <WtFieldFormik name="tds2Percentage" label={`${tds2Name} %`} required />
               ) : (
-                <TextInput
-                  isRequired={true}
-                  label={`${tds2Name} Amount`}
-                  formikField="tds2Amount"
-                  formatter={formatINNumber}
-                  parser={parseINNumber}
-                />
+                <WtFieldFormik name="tds2Amount" label={`${tds2Name} Amount`} required />
               )}
             </div>
           </>
@@ -519,37 +479,19 @@ export const FinancialSection: React.FC<OnboardingSectionsProps> = ({ formikProp
       <div className="separator separator-dashed my-6" />
       <div className="row">
         <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-          <RadioInput
-            formikField="retentionEnabled"
-            inputLabel="Retention (Fresher Bond)"
-            radioBtns={[
+          <WtChoiceField name="retentionEnabled" label="Retention (Fresher Bond)" variant="switch" required clearRevealOnDisable clearOnDisable={["retentionType", "retentionAmount", "retentionPercentage", "retentionStartDate", "retentionEndDate"]} options={[
               { label: "Enabled", value: "true" },
               { label: "Disabled", value: "false" },
-            ]}
-            isRequired={true}
-          />
+            ]} />
         </div>
 
         {retentionEnabled && (
           <>
             <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-              <MonthYearInput
-                formikField="retentionStartDate"
-                inputLabel="Retention Start Month"
-                placeHolder="Auto-filled from joining month"
-                isRequired={true}
-                formikProps={formikProps}
-              />
+              <MonthField name="retentionStartDate" label="Retention Start Month" placeholder="Auto-filled from joining month" />
             </div>
             <div className="col-lg-4 col-md-4 col-sm-12">
-              <MonthYearInput
-                formikField="retentionEndDate"
-                inputLabel="Retention End Month"
-                placeHolder="Retention End Month"
-                isRequired={true}
-                formikProps={formikProps}
-                minDateField="retentionStartDate"
-              />
+              <MonthField name="retentionEndDate" label="Retention End Month" placeholder="Retention End Month" minDate={formikProps.values.retentionStartDate} />
             </div>
           </>
         )}
@@ -558,31 +500,16 @@ export const FinancialSection: React.FC<OnboardingSectionsProps> = ({ formikProp
       {retentionEnabled && (
         <div className="row mt-4">
           <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
-            <RadioInput
-              formikField="retentionType"
-              inputLabel="Retention Type"
-              radioBtns={[
+            <WtChoiceField name="retentionType" label="Retention Type" variant="segmented" required options={[
                 { label: "Fixed", value: "FIXED" },
                 { label: "Percentage", value: "PERCENTAGE" },
-              ]}
-              isRequired={true}
-            />
+              ]} />
           </div>
           <div className="col-lg-4 col-md-4 col-sm-12">
             {retentionType === "PERCENTAGE" ? (
-              <TextInput
-                isRequired={true}
-                label="Retention % (per month)"
-                formikField="retentionPercentage"
-              />
+              <WtFieldFormik name="retentionPercentage" label="Retention % (per month)" required />
             ) : (
-              <TextInput
-                isRequired={true}
-                label="Retention Amount (per month)"
-                formikField="retentionAmount"
-                formatter={formatINNumber}
-                parser={parseINNumber}
-              />
+              <WtFieldFormik name="retentionAmount" label="Retention Amount (per month)" required />
             )}
           </div>
         </div>
@@ -592,15 +519,9 @@ export const FinancialSection: React.FC<OnboardingSectionsProps> = ({ formikProp
 };
 
 export const ReimbursementSection: React.FC<OnboardingSectionsProps> = () => (
-  <div className="row">
-    <div className="col-lg-6 col-md-6 col-sm-12">
-      <TextInput
-        isRequired={false}
-        label="Reimbursement Limit Per Request"
-        formikField="reimbursementLimitPerRequest"
-      />
-    </div>
-  </div>
+  <Box className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <WtFieldFormik name="reimbursementLimitPerRequest" label="Reimbursement Limit Per Request" />
+  </Box>
 );
 
 export const SystemAccessSection: React.FC<OnboardingSectionsProps> = () => <AppSettings />;

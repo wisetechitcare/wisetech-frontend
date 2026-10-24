@@ -1,6 +1,6 @@
 import { Box, Stack } from "@mui/material";
 import {
-  FormSection, FORM_SPACE, TRIO, WtFieldFormik,
+  FormSection, FORM_SPACE, TRIO, WtChoiceField,
 } from "@app/modules/common/components/ui";
 
 const MEAL_OPTIONS = [
@@ -23,14 +23,12 @@ export function CandidateMealSection({ disabled }: { disabled?: boolean }) {
     >
       <Stack spacing={FORM_SPACE.fieldGap} sx={{ pt: FORM_SPACE.fieldGap / 2, maxWidth: { md: 360 } }}>
         <Box>
-          <WtFieldFormik
+          <WtChoiceField
             name="meal"
             label="Meal preference"
+            variant="segmented"
             options={MEAL_OPTIONS}
-            clearable
-            fullWidth
             disabled={disabled}
-            disableAlphabeticalSort
           />
         </Box>
       </Stack>

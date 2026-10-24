@@ -2,9 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
-  MenuItem,
   Stack,
-  TextField,
   Typography,
   alpha,
   useTheme,
@@ -20,6 +18,12 @@ import { actionsColumn } from "@app/modules/common/components/table/columns";
 import {
   ActionIconButton,
   AppIcon,
+  FilterSheet,
+  FilterSheetButton,
+  FormSection,
+  TRIO,
+  WtField,
+  countActiveFilters,
   useConfirmDialog,
   usePromptDialog,
 } from "@app/modules/common/components/ui";
@@ -41,6 +45,9 @@ import { groupStatusColor, parseGroupStatus } from "../types";
 
 type GroupStatusScope = "ACTIVE" | "ARCHIVED" | "ALL";
 
+// Reset lands on Active — archived groups stay out of the default list.
+const EMPTY_FILTERS: { status: GroupStatusScope } = { status: "ACTIVE" };
+
 export default function PeopleGroupsList() {
   const theme = useTheme();
   useCourtesyDesk();
@@ -50,7 +57,9 @@ export default function PeopleGroupsList() {
   const employeeId = useSelector(
     (s: RootState) => s.employee.currentEmployee?.id,
   );
-  const [statusScope, setStatusScope] = useState<GroupStatusScope>("ACTIVE");
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const statusScope = filters.status;
   // Re-read on every store-driven render (useCourtesyDesk above).
   const allGroups = listGroups(true);
   const drives = listDrives(true);
@@ -298,19 +307,11 @@ export default function PeopleGroupsList() {
         enableFilters={false}
         enableGrouping={false}
         enableStatusColorCoding={false}
-        renderTopToolbarRightActions={() => (
-          <TextField
-            select
-            size="small"
-            label="Status"
-            value={statusScope}
-            onChange={(e) => setStatusScope(e.target.value as GroupStatusScope)}
-            sx={{ minWidth: 150 }}
-          >
-            <MenuItem value="ALL">All</MenuItem>
-            <MenuItem value="ACTIVE">Active</MenuItem>
-            <MenuItem value="ARCHIVED">Archive</MenuItem>
-          </TextField>
+        renderToolbarIconActions={() => (
+          <FilterSheetButton
+            count={countActiveFilters(filters, EMPTY_FILTERS)}
+            onClick={() => setFilterSheetOpen(true)}
+          />
         )}
         muiTablePaperStyle={{
           borderRadius: `${T.radius.lg}px`,
@@ -341,6 +342,40 @@ export default function PeopleGroupsList() {
           },
         }}
       />
+
+      <FilterSheet
+        open={filterSheetOpen}
+        value={filters}
+        empty={EMPTY_FILTERS}
+        title="Filter People Groups"
+        description={`${groups.length.toLocaleString()} of ${allGroups.length.toLocaleString()} groups currently shown`}
+        onClose={() => setFilterSheetOpen(false)}
+        onApply={(next) => {
+          setFilters(next);
+          setFilterSheetOpen(false);
+        }}
+      >
+        {(draft, set) => (
+          <FormSection
+            tone={TRIO.cyan}
+            icon="people"
+            title="Group"
+            desc="Active groups show by default; pick Archived or All to see the rest."
+          >
+            <WtField
+              label="Status"
+              value={draft.status}
+              onChange={(next) => set("status", next as GroupStatusScope)}
+              options={[
+                { value: "ACTIVE", label: "Active" },
+                { value: "ARCHIVED", label: "Archived" },
+                { value: "ALL", label: "All" },
+              ]}
+              fullWidth
+            />
+          </FormSection>
+        )}
+      </FilterSheet>
     </Box>
   );
 }

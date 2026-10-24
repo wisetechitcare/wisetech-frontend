@@ -382,7 +382,7 @@ export function SectionHead({
   desc,
 }: {
   tone: Trio;
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   desc?: string;
 }) {

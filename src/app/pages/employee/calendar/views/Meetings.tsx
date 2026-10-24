@@ -6,7 +6,6 @@ import { RootState } from '@redux/store';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import dayjs from 'dayjs';
-import Swal from 'sweetalert2';
 import MeetingDialog from '../../MeetingDialog';
 // The SAME form the timesheet uses. There were two, writing the same Timesheet row
 // through different endpoints, so what logging an hour asked you depended on which
@@ -18,6 +17,7 @@ import MeetingsList, { toEditableMeeting } from '@app/modules/common/components/
 // reported as a permission problem.
 import { apiErrorMessage } from '@app/pages/employee/tasks/taskDomain';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
+import { confirmDialog, showDialog } from '@app/modules/common/components/ui';
 
 /**
  * The Calendar module's Meetings tab.
@@ -72,17 +72,13 @@ const Meetings = () => {
         .catch((error) => errorConfirmation(apiErrorMessage(error, 'Could not restore the meeting.')));
       return;
     }
-    const result = await Swal.fire({
+    const result = await showDialog({
+      variant: 'warning',
       title: 'Cancel this meeting?',
-      text: 'It leaves your calendar, and stays on the project record as a cancelled meeting.',
-      icon: 'question',
-      input: 'text',
-      inputPlaceholder: 'Reason (optional)',
-      showCancelButton: true,
-      confirmButtonColor: '#B45309',
-      cancelButtonColor: '#64748B',
-      confirmButtonText: 'Cancel meeting',
-      cancelButtonText: 'Keep it',
+      message: 'It leaves your calendar, and stays on the project record as a cancelled meeting.',
+      input: { placeholder: 'Reason (optional)' },
+      confirmLabel: 'Cancel meeting',
+      cancelLabel: 'Keep it',
     });
     if (!result.isConfirmed) return;
     try {
@@ -133,17 +129,14 @@ const Meetings = () => {
   };
 
   const handleDelete = async (meetingId: string) => {
-    const result = await Swal.fire({
+    const confirmed = await confirmDialog({
       title: 'Are you sure?',
       text: 'You will not be able to recover this meeting!',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, delete it!',
+      confirmText: 'Yes, delete it!',
+      danger: true,
     });
 
-    if (result.isConfirmed) {
+    if (confirmed) {
       try {
         await deleteMeeting(meetingId, currentEmployeeId);
         successConfirmation('Meeting deleted successfully');

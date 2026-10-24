@@ -30,6 +30,7 @@ const FormHeader: React.FC<FormHeaderProps> = ({ mode, levelNumber, onClose }) =
       </h2>
       <button
         type="button"
+        data-unsaved-changes-close
         onClick={onClose}
         className="btn-close"
         aria-label="Close"

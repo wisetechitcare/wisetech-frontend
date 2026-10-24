@@ -1,10 +1,11 @@
-﻿import CommonCard from '@app/modules/common/components/CommonCard';
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import CommonCard from '@app/modules/common/components/CommonCard';
 import { Donut } from '@app/modules/common/components/Graphs';
 import { customPaidLoanInstallment, fetchLoanById, skipLoanInstallment } from '@services/employee'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom';
 import InstallmentAndPayment from '../components/InstallmentAndPayment';
-import { Modal } from 'react-bootstrap';
+
 import { InstallmentTypeEnum, LoanType, LoanTypeVal, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, Status } from '@constants/statistics';
 import dayjs from 'dayjs';
 import { MRT_ColumnDef } from 'material-react-table';

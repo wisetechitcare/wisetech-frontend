@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import Swal from "sweetalert2";
 import { IconButton, Tooltip } from "@mui/material";
 import { ConfigSectionCard, ConfigSettingsRow, C, ICON_COLORS, coloredActionBtn } from "@app/modules/configuration";
 import { deleteConfirmation } from "@utils/modal";
+import { alertDialog } from "@app/modules/common/components/ui/feedback";
 import {
     getAllProjectPointMasters,
     deleteProjectPointMaster,
@@ -48,7 +48,7 @@ const ProjectPointsConfigSection: React.FC = () => {
             fetchPoints();
         } catch (e) {
             console.error("Error deleting project point:", e);
-            Swal.fire({ icon: "error", title: "Delete failed", confirmButtonColor: "#1E3A8A" });
+            alertDialog({ icon: "error", title: "Delete failed" });
         }
     };
 

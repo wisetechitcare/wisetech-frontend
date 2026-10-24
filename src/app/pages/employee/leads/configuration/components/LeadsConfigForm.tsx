@@ -10,9 +10,9 @@ import {
 import { successConfirmation } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
-import Swal from "sweetalert2";
 import {
   ConfigureFormDialog,
+  confirmDialog,
   KIT_HEX_SWATCHES,
   WtCheckboxField,
   WtColorPicker,
@@ -91,17 +91,14 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({
     setError(null);
 
     if (type === "status" && "isDefault" in values && values.isDefault) {
-      const result = await Swal.fire({
+      const confirmed = await confirmDialog({
+        icon: "warning",
         title: "Set as Default Status?",
         text: "There can be only 1 default status. If any previous status is set as default, it will be overwritten and this status will be set as default.",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonColor: "#1E3A8A",
-        cancelButtonColor: "#6c757d",
-        confirmButtonText: "Yes, Set as Default",
-        cancelButtonText: "Cancel",
+        confirmText: "Yes, Set as Default",
+        cancelText: "Cancel",
       });
-      if (!result.isConfirmed) return;
+      if (!confirmed) return;
     }
 
     try {
@@ -164,6 +161,7 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({
           onClose={onClose}
           title={`${isEditing ? "Edit" : "New"} ${title}`}
           saving={fk.isSubmitting}
+          dirty={fk.dirty}
           error={error}
           onSubmit={fk.handleSubmit}
           submitLabel={isEditing ? "Update" : "Save"}

@@ -1,20 +1,6 @@
 import React from "react";
-import {
-  PersonOutlined,
-  ContactPhoneOutlined,
-  SchoolOutlined,
-  GroupsOutlined,
-  HealthAndSafetyOutlined,
-  PlaceOutlined,
-  RestaurantOutlined,
-  WorkHistoryOutlined,
-  BusinessCenterOutlined,
-  UploadFileOutlined,
-  PersonOutlineOutlined,
-  FolderOutlined,
-  BadgeOutlined,
-} from "@mui/icons-material";
-import type { OnboardingGroup } from "../forms/onboarding/OnboardingWizard";
+import { TRIO } from "@app/modules/common/components/ui";
+import type { WizardGroup } from '@/shared/form-engine';
 import * as S from "../forms/onboarding/OnboardingSections";
 import type { OnboardingSectionsProps } from "../forms/onboarding/OnboardingSections";
 import { CandidateApplicationStrip } from "./CandidateApplicationStrip";
@@ -39,7 +25,7 @@ interface BuildArgs {
  * Candidate-mode group tree — same shell as employee onboarding, filtered to
  * pre-hire sections only. Rail order: Personal → Background → Application → Documents.
  */
-export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
+export function buildCandidateWizardGroups(args: BuildArgs): WizardGroup<OnboardingSectionsProps>[] {
   const stripRender = () => (
     <CandidateApplicationStrip
       roleRequired={args.roleRequired}
@@ -62,14 +48,15 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
     {
       id: "personal",
       label: "Personal Details",
-      icon: <PersonOutlineOutlined />,
+      icon: "profile-circle",
       children: [
         {
           id: "personal-info",
           label: "Personal Information",
           title: "Personal Information",
           subtitle: "Photo, legal name and key dates",
-          icon: <PersonOutlined />,
+          icon: "profile-circle",
+          tone: TRIO.blue,
           // bloodGroup lives on Health & Emergency — do not double-count on this leaf's rail.
           fields: ["avatar", "firstName", "lastName", "dateOfBirth", "gender", "maritalStatus", "anniversary"],
           requiredFields: ["firstName"],
@@ -80,7 +67,8 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
           label: "Contact Information",
           title: "Contact Information",
           subtitle: "At least one of email or phone",
-          icon: <ContactPhoneOutlined />,
+          icon: "phone",
+          tone: TRIO.blue,
           fields: [
             "personalEmailId",
             "personalPhoneNumber",
@@ -98,7 +86,8 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
           label: "Education Details",
           title: "Education Details",
           subtitle: "Qualifications, institutes and certificates",
-          icon: <SchoolOutlined />,
+          icon: "teacher",
+          tone: TRIO.cyan,
           fields: ["educationalInfo"],
           render: (p) => <S.EducationSection {...p} />,
         },
@@ -107,7 +96,8 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
           label: "Family Details",
           title: "Family Details",
           subtitle: "Dependants and relatives on record",
-          icon: <GroupsOutlined />,
+          icon: "people",
+          tone: TRIO.purple,
           fields: ["familyInfo"],
           render: (p) => <S.FamilySection {...p} />,
         },
@@ -116,7 +106,8 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
           label: "Health & Emergency Info",
           title: "Health & Emergency Info",
           subtitle: "Blood group, allergies and who to call",
-          icon: <HealthAndSafetyOutlined />,
+          icon: "heart",
+          tone: TRIO.rose,
           fields: ["emergencyDetails"],
           render: (p) => <S.EmergencySection {...p} />,
         },
@@ -125,7 +116,8 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
           label: "Address Details",
           title: "Address Details",
           subtitle: "Current and permanent address",
-          icon: <PlaceOutlined />,
+          icon: "geolocation",
+          tone: TRIO.cyan,
           fields: ["addressInfo"],
           render: (p) => <S.AddressSection {...p} />,
         },
@@ -134,7 +126,8 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
           label: "Additional Details",
           title: "Additional Details",
           subtitle: "Dietary preference",
-          icon: <RestaurantOutlined />,
+          icon: "cup",
+          tone: TRIO.amber,
           fields: ["meal"],
           render: () => <CandidateMealSection disabled={args.disabled} />,
         },
@@ -143,14 +136,15 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
     {
       id: "background",
       label: "Background",
-      icon: <WorkHistoryOutlined />,
+      icon: "time",
       children: [
         {
           id: "work_experience",
           label: "Work Experience",
           title: "Work Experience",
           subtitle: "Prior employers — optional",
-          icon: <WorkHistoryOutlined />,
+          icon: "time",
+          tone: TRIO.amber,
           fields: ["workExpInfo"],
           render: (p) => <S.WorkExperienceSection {...p} />,
         },
@@ -159,7 +153,8 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
           label: "Hiring Information",
           title: "Hiring Information",
           subtitle: "Proposed joining and referral",
-          icon: <BusinessCenterOutlined />,
+          icon: "user-tick",
+          tone: TRIO.green,
           fields: ["proposedJoiningDate", "referredById", ...(args.isEdit ? ["isBlacklisted"] : [])],
           render: () => (
             <CandidateHiringSection disabled={args.disabled} showBlacklist={Boolean(args.isEdit)} />
@@ -170,14 +165,15 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
     {
       id: "application",
       label: "Application",
-      icon: <BadgeOutlined />,
+      icon: "briefcase",
       children: [
         {
           id: "application-strip",
           label: "Role & screening",
           title: "Role & screening",
           subtitle: "Role, salary, notice and source",
-          icon: <BadgeOutlined />,
+          icon: "briefcase",
+          tone: TRIO.blue,
           // Hiring facts only — identity lives on Personal Information / Contact.
           fields: [
             "requisitionId",
@@ -198,14 +194,15 @@ export function buildCandidateWizardGroups(args: BuildArgs): OnboardingGroup[] {
     {
       id: "documents",
       label: "Documents",
-      icon: <FolderOutlined />,
+      icon: "folder",
       children: [
         {
           id: "upload_docs",
           label: "Documents",
           title: "Documents",
           subtitle: "Resume and identity documents",
-          icon: <UploadFileOutlined />,
+          icon: "document",
+          tone: TRIO.slate,
           fields: ["documentInfo"],
           render: documentsRender,
         },

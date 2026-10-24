@@ -23,7 +23,7 @@
   --wt-hover: color-mix(in srgb, var(--bs-gray-500, #99a1b7) 10%, transparent);
 
   position: fixed;
-  z-index: 1090; /* above bottom-nav (105) & its More sheet (1080); below Swal (2000) */
+  z-index: 1090; /* above bottom-nav (105) & its More sheet (1080) */
   bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   right: 24px;
   width: 400px;

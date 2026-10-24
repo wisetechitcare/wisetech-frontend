@@ -1,5 +1,6 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect } from "react";
-import { Modal, Button, Form, Spinner } from "react-bootstrap";
+import { Button, Form, Spinner } from "react-bootstrap";
 import { getMonthlyTargets, saveMonthlyTargets } from "@services/lead";
 import dayjs from "dayjs";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -140,7 +141,7 @@ const ManageTargetModal: React.FC<ManageTargetModalProps> = ({ show, onHide, onS
       </Modal.Body>
 
       <Modal.Footer className="border-0 pt-3">
-        <Button variant="light" size="sm" className="px-4 fw-semibold border shadow-sm" onClick={onHide} disabled={saving}>Cancel</Button>
+        <Button variant="light" size="sm" className="px-4 fw-semibold border shadow-sm" data-unsaved-changes-close onClick={onHide} disabled={saving}>Cancel</Button>
         <Button variant="dark" size="sm" className="px-4 shadow-sm" onClick={handleSave} disabled={saving || loading}>
           {saving ? 'Saving...' : `Sync ${targetLabel} Targets`}
         </Button>

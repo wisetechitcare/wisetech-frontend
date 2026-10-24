@@ -30,10 +30,13 @@
  */
 
 import { useSyncExternalStore } from 'react';
+import { resolve, type PreferenceSpec } from '@/preferences/core';
 
 export type ThemeMode = 'light' | 'dark';
 export type ColorPreference = ThemeMode | 'system';
 export type SurfaceStyle = 'glass' | 'material';
+/** What a person can choose. `inherit` = follow the organisation default (no opinion). */
+export type SurfacePreference = SurfaceStyle | 'inherit';
 
 /**
  * Four roles, because four is what a logo actually yields and what a UI needs:
@@ -54,7 +57,8 @@ export interface BrandPalette {
 export interface AppearanceSettings {
   preference: ColorPreference;
   brand: BrandPalette;
-  surface: SurfaceStyle;
+  /** This browser's choice; the painted surface is `resolveSurface(surface, org)`. */
+  surface: SurfacePreference;
 }
 
 /** The current WiseTech brand — the navy the app already ships. */
@@ -68,8 +72,22 @@ export const DEFAULT_BRAND: BrandPalette = {
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   preference: 'light',
   brand: DEFAULT_BRAND,
-  surface: 'material',
+  surface: 'inherit',
 };
+
+/**
+ * Interface Style as a scoped preference: this browser -> the organisation -> Material.
+ * The org layer is `Organization.interfaceStyle` (null = no opinion).
+ */
+export const interfaceStyleSpec: PreferenceSpec<SurfaceStyle> = {
+  key: 'interfaceStyle',
+  scopes: ['user', 'org'],
+  fallback: 'material',
+  decode: (raw) => (raw === 'glass' || raw === 'material' ? raw : null),
+};
+
+export const resolveSurface = (user: SurfacePreference, org: unknown): SurfaceStyle =>
+  resolve(interfaceStyleSpec, { user, org });
 
 /** Starting points, so nobody has to invent four coordinated colours from nothing. */
 export const BRAND_PRESETS: ReadonlyArray<{ id: string; label: string; brand: BrandPalette }> = [
@@ -86,7 +104,20 @@ export const LEGACY_MODE_KEY = 'wt-mui-color-mode';
 export const isHex6 = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
 
 const isPreference = (v: unknown): v is ColorPreference => v === 'light' || v === 'dark' || v === 'system';
-const isSurface = (v: unknown): v is SurfaceStyle => v === 'glass' || v === 'material';
+const isSurfacePreference = (v: unknown): v is SurfacePreference => v === 'glass' || v === 'material' || v === 'inherit';
+
+/**
+ * Read this browser's surface choice.
+ *
+ * Current shape: `surfacePref`. Before the organisation default existed the value lived in
+ * `surface` and could not record "no opinion" — every save wrote the default `material`
+ * alongside mode and brand, so a stored `material` is indistinguishable from "never chose".
+ * Only `glass` was reachable by choosing, so only it is carried over as explicit.
+ */
+function readSurfacePreference(s: Record<string, unknown>): SurfacePreference {
+  if (isSurfacePreference(s.surfacePref)) return s.surfacePref;
+  return s.surface === 'glass' ? 'glass' : 'inherit';
+}
 
 /** Only the roles that are valid hex survive; the rest fall back per-key. */
 export function normalizeBrand(raw: unknown): BrandPalette {
@@ -125,13 +156,14 @@ export function readAppearance(): AppearanceSettings {
   return {
     preference,
     brand: normalizeBrand(s.brand),
-    surface: isSurface(s.surface) ? s.surface : DEFAULT_APPEARANCE.surface,
+    surface: readSurfacePreference(s as Record<string, unknown>),
   };
 }
 
 export function writeAppearance(next: AppearanceSettings): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    const { surface, ...rest } = next;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...rest, surfacePref: surface }));
     // Keep the legacy key in step: Metronic's own boot script and the previous
     // provider both still read it, and a stale value there would flash the
     // wrong mode before React mounts.

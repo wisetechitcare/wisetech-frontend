@@ -46,6 +46,7 @@ import {
   useConfirmDialog,
   usePromptDialog,
   WtButton,
+  FilterSheetButton,
 } from "@app/modules/common/components/ui";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
@@ -90,6 +91,13 @@ import {
 } from "./DriveCreate";
 import GiftHistoryButton from "./GroupActivityLog";
 import SolidChipPickMenu from "./SolidChipPickMenu";
+import GiftRunFilterSheet from "./GiftRunFilterSheet";
+import {
+  EMPTY_GIFT_RUN_FILTERS,
+  giftRunActiveFilterCount,
+  matchesGiftRunFilters,
+  type GiftRunFilters,
+} from "./giftRunFilters";
 
 const SKIP_REASON_OPTIONS: ConfigOption[] = [
   { id: "REFUSED", name: "Refused", color: "#dc2626" },
@@ -344,19 +352,13 @@ export default function DriveDetail() {
     (s: RootState) => s.employee.currentEmployee?.id,
   );
 
-  const [statusFilter, setStatusFilter] = useState<"ALL" | string>("ALL");
   const deliveryStatuses = desk.config.deliveryStatuses;
   const giftRunStatuses = desk.config.giftRunStatuses;
   const deliveryModes = desk.config.deliveryModes;
-  const [sourceFilter, setSourceFilter] = useState<
-    "ALL" | "CONTACT" | "EMPLOYEE"
-  >("ALL");
-  const [areaFilter, setAreaFilter] = useState("");
-  const [genderFilter, setGenderFilter] = useState<"ALL" | string>("ALL");
-  const [designationFilter, setDesignationFilter] = useState<"ALL" | string>(
-    "ALL",
+  const [filters, setFilters] = useState<GiftRunFilters>(
+    EMPTY_GIFT_RUN_FILTERS,
   );
-  const [modeFilter, setModeFilter] = useState<"ALL" | string>("ALL");
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<CourtesyRecipient[]>([]);
   const [selectionAssigneeId, setSelectionAssigneeId] = useState("");
   const [selectionStatus, setSelectionStatus] = useState("");
@@ -503,10 +505,11 @@ export default function DriveDetail() {
   );
 
   const genderFilterOptions = useMemo(() => {
-    if (!drive) return [];
-    return Array.from(
-      new Set(drive.recipients.map((r) => recipientGender(r))),
-    ).sort((a, b) => a.localeCompare(b));
+    const standardGenders = ["Male", "Female", "Other"];
+    const recipientGenders = drive
+      ? drive.recipients.map((recipient) => recipientGender(recipient))
+      : [];
+    return Array.from(new Set([...standardGenders, ...recipientGenders]));
   }, [drive, recipientGender]);
 
   const designationFilterOptions = useMemo(() => {
@@ -564,28 +567,15 @@ export default function DriveDetail() {
 
   const tableRows = useMemo(() => {
     if (!drive) return [];
-    return drive.recipients.filter((r) => {
-      if (statusFilter !== "ALL" && r.status !== statusFilter) return false;
-      if (sourceFilter !== "ALL" && r.memberType !== sourceFilter) return false;
-      if (areaFilter && (r.area || "") !== areaFilter) return false;
-      if (genderFilter !== "ALL" && recipientGender(r) !== genderFilter)
-        return false;
-      if (
-        designationFilter !== "ALL" &&
-        recipientDesignation(r) !== designationFilter
-      )
-        return false;
-      if (modeFilter !== "ALL" && r.mode !== modeFilter) return false;
-      return true;
-    });
+    return drive.recipients.filter((recipient) =>
+      matchesGiftRunFilters(recipient, filters, {
+        gender: recipientGender(recipient),
+        designation: recipientDesignation(recipient),
+      }),
+    );
   }, [
     drive,
-    statusFilter,
-    sourceFilter,
-    areaFilter,
-    genderFilter,
-    designationFilter,
-    modeFilter,
+    filters,
     recipientGender,
     recipientDesignation,
   ]);
@@ -596,6 +586,23 @@ export default function DriveDetail() {
       drive.recipients.map((r) => `${r.memberType}:${r.personId}`),
     );
   }, [drive]);
+
+  const existingPickerPeople = useMemo<PersonRef[]>(
+    () =>
+      drive?.recipients.map((r) => ({
+        memberType: r.memberType,
+        personId: r.personId,
+        fullName: r.fullName,
+        companyName: r.companyName,
+        area: r.area,
+        address: r.address,
+        phone: r.phone,
+        email: r.email,
+        avatarUrl: r.avatarUrl,
+        giftQuantity: r.quantity,
+      })) ?? [],
+    [drive],
+  );
 
   const employeeAvatarById = useMemo(() => {
     const m = new Map<string, string>();
@@ -609,6 +616,27 @@ export default function DriveDetail() {
     () => courtesyDeskAssigneeOptions(employees),
     [employees],
   );
+
+  const recipientAssigneeFilterOptions = useMemo(() => {
+    const assigned = new Map<string, string>();
+    drive?.recipients.forEach((recipient) => {
+      if (recipient.assigneeEmployeeId) {
+        assigned.set(
+          recipient.assigneeEmployeeId,
+          recipient.assigneeName || "Former employee",
+        );
+      }
+    });
+    return [
+      { value: "ALL", label: "All" },
+      { value: "UNASSIGNED", label: "None" },
+      ...Array.from(assigned, ([value, label]) => ({ value, label })).sort(
+        (a, b) => a.label.localeCompare(b.label),
+      ),
+    ];
+  }, [drive]);
+
+  const activeFilterCount = giftRunActiveFilterCount(filters);
 
   const toastApiErr = (err: unknown) =>
     toast.error(apiErrorMessage(err, "Something went wrong"));
@@ -630,6 +658,15 @@ export default function DriveDetail() {
       0,
     );
   }, [drive, tableRows]);
+
+  const tableQuantityTotal = useMemo(
+    () =>
+      tableRows.reduce(
+        (sum, recipient) => sum + Math.max(1, recipient.quantity || 1),
+        0,
+      ),
+    [tableRows],
+  );
 
   const columns = useMemo<MRT_ColumnDef<CourtesyRecipient>[]>(() => {
     const unitCost = Number(drive?.costPerGift);
@@ -792,6 +829,11 @@ export default function DriveDetail() {
             }}
             sx={{ width: 80 }}
           />
+        ),
+        Footer: () => (
+          <Typography fontWeight={800} sx={{ fontSize: "0.8rem" }}>
+            {tableQuantityTotal.toLocaleString()}
+          </Typography>
         ),
       },
       {
@@ -968,6 +1010,7 @@ export default function DriveDetail() {
     runEditable,
     sensitive.cls,
     tableAmountTotal,
+    tableQuantityTotal,
   ]);
 
   if (!drive) {
@@ -1093,7 +1136,7 @@ export default function DriveDetail() {
 
   const openAddPeople = () => {
     if (!runEditable) return;
-    setPickerPeople([]);
+    setPickerPeople(existingPickerPeople);
     setAddPeopleOpen(true);
   };
 
@@ -1109,7 +1152,7 @@ export default function DriveDetail() {
     void ask({
       variant: "confirm",
       title: "Add people to Gift Run",
-      message: `Add ${toAdd.length} person(s) to this Gift Run? They will not be added to the People Group.`,
+      message: `Add ${toAdd.length} person(s)  to this Gift Run? They will not be added to the People Group.`,
       confirmLabel: "Add",
       icon: "bi-people",
     }).then((ok) => {
@@ -1127,109 +1170,6 @@ export default function DriveDetail() {
         .finally(() => setAddingPeople(false));
     });
   };
-
-  const toolbarFilters = (
-    <Stack
-      direction="row"
-      spacing={1}
-      alignItems="center"
-      flexWrap="wrap"
-      useFlexGap
-    >
-      <TextField
-        select
-        size="small"
-        label="Delivery Status"
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value)}
-        sx={{ minWidth: 130 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        {deliveryStatuses.map((s: ConfigOption) => (
-          <MenuItem key={s.id} value={s.id}>
-            {s.name}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        select
-        size="small"
-        label="Source"
-        value={sourceFilter}
-        onChange={(e) => setSourceFilter(e.target.value as typeof sourceFilter)}
-        sx={{ minWidth: 120 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        <MenuItem value="CONTACT">Contact</MenuItem>
-        <MenuItem value="EMPLOYEE">Employee</MenuItem>
-      </TextField>
-      <TextField
-        select
-        size="small"
-        label="Gender"
-        value={genderFilter}
-        onChange={(e) => setGenderFilter(e.target.value)}
-        sx={{ minWidth: 110 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        {genderFilterOptions.map((g) => (
-          <MenuItem key={g} value={g}>
-            {g}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        select
-        size="small"
-        label="Designation"
-        value={designationFilter}
-        onChange={(e) => setDesignationFilter(e.target.value)}
-        sx={{ minWidth: 140 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        {designationFilterOptions.map((d) => (
-          <MenuItem key={d} value={d}>
-            {d}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        select
-        size="small"
-        label="Mode"
-        value={modeFilter}
-        onChange={(e) => setModeFilter(e.target.value)}
-        sx={{ minWidth: 120 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        {deliveryModes.map((m: ConfigOption) => (
-          <MenuItem key={m.id} value={m.id}>
-            {m.name}
-          </MenuItem>
-        ))}
-      </TextField>
-      {/* <TextField
-        select
-        size="small"
-        label="Area"
-        value={areaFilter}
-        onChange={(e) => setAreaFilter(e.target.value)}
-        sx={{ minWidth: 120 }}
-      >
-        <MenuItem value="">All</MenuItem>
-        {areas.map((a) => (
-          <MenuItem key={a} value={a}>
-            {a}
-          </MenuItem>
-        ))}
-      </TextField> */}
-      {runEditable ? (
-        <Button size="large" variant="contained" onClick={openAddPeople}>
-          Add people
-        </Button>
-      ) : null}
-    </Stack>
-  );
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -1641,7 +1581,13 @@ export default function DriveDetail() {
             These people are added only to this run — not to the linked People
             Group.
           </Typography>
-          <PersonPicker selected={pickerPeople} onChange={setPickerPeople} />
+          <PersonPicker
+            selected={pickerPeople}
+            onChange={setPickerPeople}
+            baselineSelected={existingPickerPeople}
+            baselineLabel="Gift Run"
+            hideSelectedPanels
+          />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
           <WtButton
@@ -1657,6 +1603,51 @@ export default function DriveDetail() {
         </DialogActions>
       </GlassDialog>
 
+      <GiftRunFilterSheet
+        open={filterSheetOpen}
+        value={filters}
+        visibleCount={tableRows.length}
+        totalCount={drive.recipients.length}
+        statusOptions={[
+          { value: "ALL", label: "All" },
+          ...deliveryStatuses.map((status) => ({
+            value: status.id,
+            label: status.name,
+          })),
+        ]}
+        modeOptions={[
+          { value: "ALL", label: "All" },
+          ...deliveryModes.map((mode) => ({
+            value: mode.id,
+            label: mode.name,
+          })),
+        ]}
+        genderOptions={[
+          { value: "ALL", label: "All" },
+          ...genderFilterOptions.map((gender) => ({
+            value: gender,
+            label: gender,
+          })),
+        ]}
+        designationOptions={[
+          { value: "ALL", label: "All" },
+          ...designationFilterOptions.map((designation) => ({
+            value: designation,
+            label: designation,
+          })),
+        ]}
+        areaOptions={[
+          { value: "ALL", label: "All" },
+          ...areas.map((area) => ({ value: area, label: area })),
+        ]}
+        assigneeOptions={recipientAssigneeFilterOptions}
+        onClose={() => setFilterSheetOpen(false)}
+        onApply={(nextFilters) => {
+          setFilters(nextFilters);
+          setFilterSheetOpen(false);
+        }}
+      />
+
       <MaterialTable
         key={`Courtesy-Gift-Run-Recipients-${tableSelectionReset}`}
         tableName="Courtesy-Gift-Run-Recipients"
@@ -1668,7 +1659,17 @@ export default function DriveDetail() {
         enableRowSelection={runEditable}
         showColumnFooter
         onSelectedRowsChange={setSelectedRows}
-        renderTopToolbarRightActions={() => toolbarFilters}
+        renderToolbarIconActions={() => (
+          <FilterSheetButton
+            count={activeFilterCount}
+            onClick={() => setFilterSheetOpen(true)}
+          />
+        )}
+        renderTopToolbarRightActions={
+          runEditable
+            ? () => <WtButton onClick={openAddPeople}>Add people</WtButton>
+            : undefined
+        }
         muiTableProps={{
           muiTableBodyRowProps: ({ row }) => ({
             sx: {

@@ -1,4 +1,5 @@
 import React from "react";
+import type { Trio } from "@app/modules/common/components/ui/patterns";
 
 // ─── Navigation & Summary ────────────────────────────────────────────────────
 
@@ -105,6 +106,8 @@ export interface EnterpriseWizardStep<TProps = any> extends NavigationSection {
   defaultOpen?: boolean;
   hidden?: boolean;
   isSubmitStep?: boolean;
+  /** Accent tone for the step's section card and review card. Defaults to TRIO.blue. */
+  tone?: Trio;
   component?: React.ComponentType<TProps>;
   render?: (props: TProps) => React.ReactNode;
 }
@@ -129,4 +132,26 @@ export interface WizardActionConfig {
   onFinalSave?: () => void;
   onSaveDraft?: () => void;
   isSavingDraft?: boolean;
+  /**
+   * Outcome of the last draft save, announced next to the draft button.
+   * `isSavingDraft` still wins while a save is in flight (it reads as 'saving').
+   */
+  draftStatus?: WizardDraftStatus;
+}
+
+/** Where the most recent draft save stands. 'idle' renders nothing. */
+export type WizardDraftStatus = 'idle' | 'saving' | 'saved' | 'failed' | 'conflict';
+
+/**
+ * Optional final "Review" step. When passed, the wizard appends one read-only step
+ * after the real ones and moves the submit button onto it; it is never counted as a
+ * section to complete.
+ */
+export interface WizardReviewConfig {
+  /** Step label and heading. Defaults to "Review". */
+  title?: string;
+  /** Read-only rows for one step's card, keyed by that step's id. */
+  rows?: (stepId: string, values: any) => SummaryRow[];
+  /** Shown above the cards, e.g. a compact EntityIdentityHeader. */
+  identity?: React.ReactNode;
 }

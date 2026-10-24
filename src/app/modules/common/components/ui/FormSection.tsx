@@ -30,13 +30,20 @@ export const FORM_SPACE = {
 export interface FormSectionProps {
   /** Accent tone for the leading IconBox. */
   tone: Trio;
-  /** Keenicons name (same contract as SectionHead / SettingsSection). */
-  icon: string;
+  /** Kit icon name or React icon node, passed through SectionHead to IconBox. */
+  icon: React.ReactNode;
   title: string;
   /** Optional one-line guidance under the title. */
   desc?: string;
   children?: React.ReactNode;
   sx?: SxProps<Theme>;
+  /** Branded top rule used by primary wizard canvases. */
+  accentTop?: boolean;
+  /**
+   * Leave out the icon + title head. For a host that already names the section in its
+   * own heading (a wizard canvas header), so the title is not shown twice. Default false.
+   */
+  hideHead?: boolean;
 }
 
 /**
@@ -52,7 +59,7 @@ export interface FormSectionProps {
  *   <WtField label="Name" … />
  * </FormSection>
  */
-export function FormSection({ tone, icon, title, desc, children, sx }: FormSectionProps) {
+export function FormSection({ tone, icon, title, desc, children, sx, accentTop = false, hideHead = false }: FormSectionProps) {
   return (
     <GlassSurface
       variant="thin"
@@ -61,12 +68,13 @@ export function FormSection({ tone, icon, title, desc, children, sx }: FormSecti
           p: FORM_SPACE.cardPad,
           borderRadius: '12px',
           borderColor: 'divider',
+          ...(accentTop && { borderTop: '3px solid', borderTopColor: 'primary.main' }),
         },
         ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
       ] as SxProps<Theme>}
     >
       <Stack spacing={FORM_SPACE.fieldGap}>
-        <SectionHead tone={tone} icon={icon} title={title} desc={desc} />
+        {!hideHead && <SectionHead tone={tone} icon={icon} title={title} desc={desc} />}
         {children}
       </Stack>
     </GlassSurface>

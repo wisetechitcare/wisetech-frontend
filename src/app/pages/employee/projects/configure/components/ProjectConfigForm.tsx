@@ -1,5 +1,6 @@
-﻿import React, { useState, useEffect } from "react";
-import { Modal, Button, Form } from "react-bootstrap";
+import { UnsavedChangesModal as Modal, confirmDialog } from '@app/modules/common/components/ui';
+import React, { useState, useEffect } from "react";
+import { Button, Form } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import {
@@ -19,7 +20,6 @@ import { successConfirmation } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import { ConfigItem, ProjectCategory } from "@models/clientProject";
-import Swal from "sweetalert2";
 
 interface ConfigFormProps {
   show: boolean;
@@ -140,17 +140,14 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
 
     // If setting as default status, confirm with user first
     if (type === "status" && "isDefault" in values && (values as any).isDefault) {
-      const result = await Swal.fire({
+      const confirmed = await confirmDialog({
+        icon: 'warning',
         title: 'Set as Default Status?',
         text: 'There can be only 1 default status. If any previous status is set as default, it will be overwritten and this status will be set as default.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#1E3A8A',
-        cancelButtonColor: '#6c757d',
-        confirmButtonText: 'Yes, Set as Default',
-        cancelButtonText: 'Cancel'
+        confirmText: 'Yes, Set as Default',
+        cancelText: 'Cancel',
       });
-      if (!result.isConfirmed) return;
+      if (!confirmed) return;
     }
 
     setIsSubmitting(true);
