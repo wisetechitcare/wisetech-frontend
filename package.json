@@ -127,7 +127,7 @@
     "sonner": "^1.7.4",
     "supercluster": "^8.0.1",
     "ua-parser-js": "^2.0.2",
-    "uuid": "^10.0.0",
+    "uuid": "^14.0.2",
     "yup": "^1.0.0"
   },
   "devDependencies": {
