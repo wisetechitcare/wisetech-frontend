@@ -1,4 +1,5 @@
 import type { IEmployeesAttendance } from "@models/employee";
+import { serverIsNonWorkingDay } from "@utils/attendanceVerdicts";
 
 /**
  * attendancePeriodSummary — rolls per-day attendance rows up to one row per employee
@@ -27,7 +28,13 @@ export interface EmployeePeriodSummary {
     name: string;
     code: string;
     avatar?: string | null;
-    /** Days with a check-in (worked days, weekend work included). */
+    /**
+     * WORKING days with a check-in. Off-day work (the server's `dayKind` says weekend or
+     * holiday) is not counted: `absent` subtracts this from a working-days-only
+     * denominator, so counting it would hide real absences. A row with no `dayKind`
+     * (older response) still counts. A worked day that also carries a half-day leave
+     * counts 0.5, so present + leave for that day is 1.
+     */
     present: number;
     /** Days with a check-in but no check-out — the Check-out Missing card's rows. */
     checkoutMissing: number;
@@ -89,6 +96,12 @@ export interface SummarizeOptions {
     /** employeeId → weighted leave days in the window (half-days already 0.5). */
     leaveDaysByEmployee: Map<string, number>;
     /**
+     * employeeId → YYYY-MM-DD dates carrying a HALF-day leave. A worked row on one of
+     * these dates counts 0.5 present, because its other half is already 0.5 in
+     * `leaveDaysByEmployee`. Omitted → every worked day counts 1 (the old behaviour).
+     */
+    halfDayLeaveDatesByEmployee?: Map<string, ReadonlySet<string>>;
+    /**
      * employeeId → late/early counts from the server's classification engine. Absent
      * entries stay `null` on the summary rather than defaulting to 0. Omit the whole map
      * while the batch call is still in flight.
@@ -105,7 +118,7 @@ const displayName = (emp: SummaryRosterEntry) =>
 
 export function summarizeAttendanceByEmployee(
     rows: readonly IEmployeesAttendance[],
-    { roster, workingDaysFor, leaveDaysByEmployee, classificationByEmployee }: SummarizeOptions,
+    { roster, workingDaysFor, leaveDaysByEmployee, halfDayLeaveDatesByEmployee, classificationByEmployee }: SummarizeOptions,
 ): EmployeePeriodSummary[] {
     const byEmployee = new Map<string, EmployeePeriodSummary>();
 
@@ -165,7 +178,11 @@ export function summarizeAttendanceByEmployee(
 
         summary.days.push(row);
         if (hasCheckIn(row)) {
-            summary.present += 1;
+            // Present is the absent-denominator's counterpart, so only working days count.
+            if (serverIsNonWorkingDay(row) !== true) {
+                const halfLeave = !!row.date && halfDayLeaveDatesByEmployee?.get(id)?.has(row.date);
+                summary.present += halfLeave ? 0.5 : 1;
+            }
             if (!hasCheckOut(row)) summary.checkoutMissing += 1;
         }
         summary.workedMinutes += row.durationMinutes ?? 0;
@@ -180,6 +197,7 @@ export function summarizeAttendanceByEmployee(
         summary.absent = Math.max(0, workingDaysFor(summary.employeeId) - summary.present - summary.leave);
         // 0.5 weights are exact in IEEE-754, but round defensively so a future
         // fractional-day policy can't surface 2.9999999999999996 in a cell.
+        summary.present = Math.round(summary.present * 100) / 100;
         summary.leave = Math.round(summary.leave * 100) / 100;
         summary.absent = Math.round(summary.absent * 100) / 100;
     }

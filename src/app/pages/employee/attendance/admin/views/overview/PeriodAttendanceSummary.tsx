@@ -238,9 +238,13 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
      * whole span would credit June days to a July total. Working-day judgement uses the
      * same server calendar as the Absent denominator (not the admin weekend map).
      */
-    const leaveDaysByEmployee = useMemo(() => {
+    const { leaveDaysByEmployee, halfDayLeaveDatesByEmployee } = useMemo(() => {
         const totals = new Map<string, number>();
-        if (!range.start || !range.end) return totals;
+        // The half-day leave days, from the same walk: a day worked AND half on leave is
+        // 0.5 present + 0.5 leave, never 1 + 0.5 against the absent denominator.
+        const halfDays = new Map<string, Set<string>>();
+        const result = { leaveDaysByEmployee: totals, halfDayLeaveDatesByEmployee: halfDays };
+        if (!range.start || !range.end) return result;
         const rangeStart = range.start.startOf('day');
         const rangeEnd = range.end.startOf('day');
 
@@ -261,11 +265,16 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
                     : weekends?.[cursor.format('dddd').toLowerCase()] !== '0';
                 if (inWindow && isWorkingDay) {
                     totals.set(record.employeeId, (totals.get(record.employeeId) ?? 0) + (record.isHalfDay ? 0.5 : 1));
+                    if (record.isHalfDay) {
+                        const set = halfDays.get(record.employeeId) ?? new Set<string>();
+                        set.add(dateISO);
+                        halfDays.set(record.employeeId, set);
+                    }
                 }
                 cursor = cursor.add(1, 'day');
             }
         }
-        return totals;
+        return result;
     }, [leaveRecords, range.start, range.end, weekends, rangeNonWorking]);
 
     /**
@@ -310,12 +319,13 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
             })),
             workingDaysFor,
             leaveDaysByEmployee,
+            halfDayLeaveDatesByEmployee,
             classificationByEmployee: classifications,
         });
         // Most absences first — the reason an admin opens a month at all. Name breaks ties
         // so the order is deterministic across refetches.
         return result.sort((a, b) => b.absent - a.absent || a.name.localeCompare(b.name));
-    }, [transformedRows, roster, workingDaysFor, leaveDaysByEmployee, classifications, filterIds]);
+    }, [transformedRows, roster, workingDaysFor, leaveDaysByEmployee, halfDayLeaveDatesByEmployee, classifications, filterIds]);
 
     const openSummary = useMemo(
         () => summaries.find((s) => s.employeeId === openEmployee) ?? null,

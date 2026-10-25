@@ -9,7 +9,15 @@ import { fetchEmpsAttendance } from "@pages/employee/attendance/admin/views/over
 import { saveTotalEmployeeCount, saveEmployeesAttendance } from "@redux/slices/attendance";
 import { Attendance } from "@models/employee";
 import { EARLY_CHECKOUT, EXTRA_DAYS, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
-import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
+import { donutaDataLabel } from "@utils/statistics";
+import {
+  serverIsNonWorkingDay,
+  serverIsLate,
+  serverIsEarlyCheckout,
+  serverLateMinutes,
+  serverEarlyMinutes,
+  formatVerdictMinutes,
+} from "@utils/attendanceVerdicts";
 import { fetchDayWiseShifts } from "@services/dayWiseShift";
 import { fetchConfiguration } from "@services/company";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
@@ -170,7 +178,6 @@ const DashboardDailyAttendanceOverview = () => {
   const rolesAndPermissionsLoaded = useSelector((state: RootState) =>
     state.rolesAndPermissions && Object.keys(state.rolesAndPermissions).length > 0
   );
-  const lateEarlyCheckInOut = multipleRadialBarData(attendance, dayWiseShifts) || new Map();
 
   // Get current employee to access weekend configuration
   const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee, shallowEqual);
@@ -263,8 +270,8 @@ const DashboardDailyAttendanceOverview = () => {
 
   /** Non-working day for THIS row's employee: the server's `dayKind`, else the local calendar. */
   const isNonWorkingRow = (att: any): boolean => {
-    const kind = att?.dayKind as string | undefined;
-    if (kind) return kind !== 'working';
+    const serverVerdict = serverIsNonWorkingDay(att);
+    if (serverVerdict !== undefined) return serverVerdict;
     const stamp = att?.checkIn || att?.checkOut;
     return stamp ? checkIfWeekendOrHoliday(new Date(stamp)) : false;
   };
@@ -275,15 +282,15 @@ const DashboardDailyAttendanceOverview = () => {
 
     // THE SERVER'S VERDICT decides when present. Everything below is a fallback for
     // responses without one.
-    const serverVerdict = att.lateMark as { isLate: boolean } | undefined;
-    if (serverVerdict) return serverVerdict.isLate;
-    if (att.lateWaived) return false;
+    // (`serverIsLate` also honours the legacy `lateWaived` flag.)
+    const serverVerdict = serverIsLate(att);
+    if (serverVerdict !== undefined) return serverVerdict;
 
     const attendanceDate = new Date(att.checkIn);
 
-    // Get shift for this date
+    // Get shift for this date (the API rows carry `check_in`; `checkIn` is the legacy name)
     const shift = getShiftForDate(attendanceDate);
-    const shiftCheckIn = shift?.checkIn || appSettings.checkinTime;
+    const shiftCheckIn = (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
 
     if (!shiftCheckIn) return false;
 
@@ -315,6 +322,11 @@ const DashboardDailyAttendanceOverview = () => {
   const isEarlyRow = (att: any): boolean => {
     if (!att?.checkOut) return false;
 
+    // THE SERVER'S VERDICT decides when present (it already exempts non-working days and,
+    // under the master switch, on-site). Everything below is a fallback.
+    const serverVerdict = serverIsEarlyCheckout(att);
+    if (serverVerdict !== undefined) return serverVerdict;
+
     const attendanceDate = new Date(att.checkOut);
     // A check-out on a non-working day cannot be "early" — there is no shift to be early
     // against. The server stamps `dayKind`; fall back to the local calendar check.
@@ -325,9 +337,9 @@ const DashboardDailyAttendanceOverview = () => {
     const isOnSite = workingMethod?.includes("onsite");
     if (isOnSiteSettingsOn === '1' && isOnSite) return false;
 
-    // Get shift for this date
+    // Get shift for this date (the API rows carry `check_out`; `checkOut` is the legacy name)
     const shift = getShiftForDate(attendanceDate);
-    const shiftCheckOut = shift?.checkOut || appSettings.checkoutTime;
+    const shiftCheckOut = (shift?.check_out ?? shift?.checkOut) || appSettings.checkoutTime;
 
     if (!shiftCheckOut) return false;
 
@@ -599,19 +611,15 @@ const DashboardDailyAttendanceOverview = () => {
           // Add additional info for late check-ins
           employees.forEach(emp => {
             // The server's verdict carries the minutes payroll uses — show those.
-            const verdict = (emp.attendance as any)?.lateMark as
-              | { lateMinutes?: number; thresholdLabel?: string | null }
-              | undefined;
-            if (emp.attendance?.checkIn && typeof verdict?.lateMinutes === 'number') {
-              const hours = Math.floor(verdict.lateMinutes / 60);
-              const mins = verdict.lateMinutes % 60;
-              additionalInfo[emp._id] = `Late by ${hours > 0 ? hours + 'h ' : ''}${mins}m (Checked in at ${dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)})`;
+            const serverMinutes = serverLateMinutes(emp.attendance);
+            if (emp.attendance?.checkIn && serverMinutes !== undefined) {
+              additionalInfo[emp._id] = `Late by ${formatVerdictMinutes(serverMinutes)} (Checked in at ${dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)})`;
               return;
             }
             if (emp.attendance?.checkIn) {
               const attendanceDate = new Date(emp.attendance.checkIn);
               const shift = getShiftForDate(attendanceDate);
-              const shiftCheckIn = shift?.checkIn || appSettings.checkinTime;
+              const shiftCheckIn = (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
 
               if (shiftCheckIn) {
                 // Use on-site grace time for on-site employees, office grace time for others
@@ -629,9 +637,7 @@ const DashboardDailyAttendanceOverview = () => {
 
                 const actualCheckIn = dayjs(emp.attendance.checkIn);
                 const lateByMinutes = actualCheckIn.diff(expectedCheckIn, 'minute');
-                const lateHours = Math.floor(lateByMinutes / 60);
-                const lateMins = lateByMinutes % 60;
-                additionalInfo[emp._id] = `Late by ${lateHours > 0 ? lateHours + 'h ' : ''}${lateMins}m (Checked in at ${actualCheckIn.format(getTimeTokens().TIME)})`;
+                additionalInfo[emp._id] = `Late by ${formatVerdictMinutes(lateByMinutes)} (Checked in at ${actualCheckIn.format(getTimeTokens().TIME)})`;
               }
             }
           });
@@ -642,10 +648,16 @@ const DashboardDailyAttendanceOverview = () => {
 
           // Add additional info for early check-outs
           employees.forEach(emp => {
+            // The server's verdict carries the minutes payroll uses — show those.
+            const serverMinutes = serverEarlyMinutes(emp.attendance);
+            if (emp.attendance?.checkOut && serverMinutes !== undefined) {
+              additionalInfo[emp._id] = `Early by ${formatVerdictMinutes(serverMinutes)} (Checked out at ${dayjs(emp.attendance.checkOut).format(getTimeTokens().TIME)})`;
+              return;
+            }
             if (emp.attendance?.checkOut) {
               const attendanceDate = new Date(emp.attendance.checkOut);
               const shift = getShiftForDate(attendanceDate);
-              const shiftCheckOut = shift?.checkOut || appSettings.checkoutTime;
+              const shiftCheckOut = (shift?.check_out ?? shift?.checkOut) || appSettings.checkoutTime;
 
               if (shiftCheckOut) {
                 const expectedCheckOut = dayjs(emp.attendance.checkOut)
@@ -655,9 +667,7 @@ const DashboardDailyAttendanceOverview = () => {
 
                 const actualCheckOut = dayjs(emp.attendance.checkOut);
                 const earlyByMinutes = expectedCheckOut.diff(actualCheckOut, 'minute');
-                const earlyHours = Math.floor(earlyByMinutes / 60);
-                const earlyMins = earlyByMinutes % 60;
-                additionalInfo[emp._id] = `Early by ${earlyHours > 0 ? earlyHours + 'h ' : ''}${earlyMins}m (Checked out at ${actualCheckOut.format(getTimeTokens().TIME)})`;
+                additionalInfo[emp._id] = `Early by ${formatVerdictMinutes(earlyByMinutes)} (Checked out at ${actualCheckOut.format(getTimeTokens().TIME)})`;
               }
             }
           });

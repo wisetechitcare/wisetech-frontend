@@ -33,7 +33,14 @@ import { getGraceBasedThresholds } from "@utils/getGraceBasedThresholds";
 import { markWeekendOrHoliday } from "@utils/statistics";
 import { fetchConfiguration } from "@services/company";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
-import { onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
+import {
+  ATTENDANCE_COLORS,
+  isOnsiteHolidayWeekendExemptionEnabled,
+  isOnsiteWorkingMethod,
+  parseAttendanceTime,
+  resolveCheckInColor,
+} from "@utils/attendanceColorUtils";
+import { serverIsEarlyCheckout } from "@utils/attendanceVerdicts";
 import { can } from "@utils/can";
 import {
   GlassDialog,
@@ -404,20 +411,24 @@ const PendingRequestsTable = () => {
           }
           const employeeData = employeeThresholds.find((emp: any) => emp.id === employee.id);
           const employeeThreshold = employeeData?.lateCheckInThreshold;
-          const workingMethod = employee?.workingMethod?.replace('-', '')?.replace(' ', '')?.toLowerCase();
-          const isOnSiteSettingsOn = leaveConfiguration?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
-          const isWeekendOrHolidays = employee.isWeekendOrHoliday;
-          const checkInTime = checkIn.includes(':') ? dayjs(checkIn, ['HH:mm', 'HH:mm:ss']) : null;
-          const thresholdTime = employeeThreshold ? dayjs(employeeThreshold, 'HH:mm:ss') : null;
-          if (!thresholdTime) return <span>{checkIn || "N/A"}</span>;
-          if (!checkInTime) return <span>{checkIn || "N/A"}</span>;
-          const isLateCheckIn = checkInTime.isAfter(thresholdTime, 'minute');
-          const finalCheckIn = formatTimeString(checkIn);
+          if (!employeeThreshold) return <span>{checkIn || "N/A"}</span>;
+          // The ONE late ladder every attendance table uses (attendanceColorUtils): server
+          // verdict first, then waiver, master switch, on-site deadline, shift + grace. It
+          // also parses the 12h value ("01:15 PM") the old HH:mm parse read as AM.
+          const rowDay = dayjs(employee.date, 'DD MMM YYYY');
+          const checkInColor = resolveCheckInColor({
+            checkIn,
+            workingMethod: employee.workingMethod,
+            date: rowDay.isValid() ? rowDay.format('YYYY-MM-DD') : null,
+            lateCheckInThreshold: employeeThreshold,
+            leaveConfig: leaveConfiguration,
+            isWeekendOrHoliday: employee.isWeekendOrHoliday === true,
+            lateWaived: employee.lateWaived === true,
+            lateMark: employee.lateMark ?? null,
+          });
           return (
-            <span style={{
-              color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : isLateCheckIn ? 'red' : 'green',
-            }}>
-              {finalCheckIn}
+            <span style={{ color: checkInColor.color }}>
+              {formatTimeString(checkIn)}
             </span>
           );
         },
@@ -430,25 +441,28 @@ const PendingRequestsTable = () => {
         Cell: ({ row }: any) => {
           const employee = row.original;
           const checkOut = employee.checkOut;
-          const isWeekendOrHolidays = employee.isWeekendOrHoliday;
           if (!checkOut || checkOut === '-NA-' || !earlyCheckOutThreshold) {
             return <span>{checkOut ? formatTimeString(checkOut) : "N/A"}</span>;
           }
           const employeeData = employeeThresholds.find((emp: any) => emp.id === employee.id);
           const employeeThreshold = employeeData?.earlyCheckOutThreshold;
-          const workingMethod = employee?.workingMethod?.replace('-', '')?.replace(' ', '')?.toLowerCase();
-          const isOnSiteSettingsOn = leaveConfiguration?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
-          const checkOutTime = checkOut.includes(':') ? dayjs(checkOut, ['HH:mm', 'HH:mm:ss']) : null;
-          const thresholdTime = employeeThreshold ? dayjs(employeeThreshold, 'HH:mm:ss') : null;
-          if (!thresholdTime) return <span>{checkOut ? formatTimeString(checkOut) : "N/A"}</span>;
-          if (!checkOutTime) return <span>{checkOut ? formatTimeString(checkOut) : "N/A"}</span>;
-          const isEarlyCheckOut = checkOutTime.isBefore(thresholdTime, 'minute');
-          const finalCheckOut = formatTimeString(checkOut);
+          if (!employeeThreshold) return <span>{formatTimeString(checkOut)}</span>;
+          // No shared early-check-out ladder exists yet, so the rule stays here but is read
+          // through the shared primitives: the server verdict wins, the master switch is
+          // parsed like the late ladder's, and the time parse is 12h-aware — the old HH:mm
+          // parse read "06:30 PM" as 06:30 and painted evening check-outs red.
+          const rowDay = dayjs(employee.date, 'DD MMM YYYY');
+          const referenceDay = rowDay.isValid() ? rowDay.format('YYYY-MM-DD') : undefined;
+          const checkOutTime = parseAttendanceTime(checkOut, referenceDay);
+          const thresholdTime = parseAttendanceTime(employeeThreshold, referenceDay);
+          if (!checkOutTime || !thresholdTime) return <span>{formatTimeString(checkOut)}</span>;
+          const isExempt = isOnsiteHolidayWeekendExemptionEnabled(leaveConfiguration)
+            && (employee.isWeekendOrHoliday === true || isOnsiteWorkingMethod(employee.workingMethod));
+          const isEarlyCheckOut = serverIsEarlyCheckout(employee)
+            ?? (!isExempt && checkOutTime.isBefore(thresholdTime));
           return (
-            <span style={{
-              color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : isEarlyCheckOut ? 'red' : 'green',
-            }}>
-              {finalCheckOut}
+            <span style={{ color: isEarlyCheckOut ? ATTENDANCE_COLORS.danger : ATTENDANCE_COLORS.success }}>
+              {formatTimeString(checkOut)}
             </span>
           );
         },

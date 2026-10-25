@@ -8,7 +8,15 @@ import { saveTotalEmployeeCount } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
 import { fetchAllEmployees, fetchEmployeesOnLeaveToday, fetchEmployeesOnLeaveRange, fetchAttendanceRangeCalendar } from "@services/employee";
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
-import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
+import { donutaDataLabel } from "@utils/statistics";
+import {
+    formatVerdictMinutes,
+    serverEarlyMinutes,
+    serverIsEarlyCheckout,
+    serverIsLate,
+    serverIsNonWorkingDay,
+    serverLateMinutes,
+} from "@utils/attendanceVerdicts";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
@@ -284,7 +292,6 @@ function Overview({ date, range }: OverviewProps) {
 
     // All these calculations are date-specific because they depend on state
     // updated by useEffect with date dependency (line 803)
-    const lateEarlyCheckInOut = multipleRadialBarData(attendance, dayWiseShifts) || new Map();
     const workingLocationColors = useSelector((state: RootState) => state?.customColors?.workingLocation);
     const getAllWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
     const weekends = safeJsonParse(getAllWeekends);
@@ -388,10 +395,9 @@ function Overview({ date, range }: OverviewProps) {
         // KPI use, against this employee's OWN branch calendar — which the derivation
         // below cannot see. Everything after this line is a fallback for responses that
         // predate the verdict annotator, and can be deleted once those are gone.
-        const serverVerdict = (att as any).lateMark as { isLate: boolean } | undefined;
-        if (serverVerdict) return serverVerdict.isLate;
-        // Late-night waiver (server verdict, same rule payroll applies) — never late.
-        if ((att as any).lateWaived) return false;
+        // (`serverIsLate` also answers false for a late-night-waived row.)
+        const serverVerdict = serverIsLate(att);
+        if (serverVerdict !== undefined) return serverVerdict;
 
         const attendanceDate = new Date(att.checkIn);
 
@@ -407,8 +413,9 @@ function Overview({ date, range }: OverviewProps) {
 
         // Master switch — all THREE legs (on-site, holiday, weekend), matching the backend
         // ladder. It used to test only `isOnSite`, so this card reported late check-ins on
-        // the very days `extraRows` below was counting as Extra Days.
-        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
+        // the very days `extraRows` below was counting as Extra Days. The off-day test
+        // prefers the row's `dayKind` (the employee's own branch calendar).
+        if (isOnSiteSettingsOn === '1' && (isOnSite || (serverIsNonWorkingDay(att) ?? checkIfWeekendOrHoliday(attendanceDate)))) return false;
         const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
         const graceTime = parseGraceTime(graceTimeStr);
 
@@ -431,14 +438,21 @@ function Overview({ date, range }: OverviewProps) {
     // Calculate early check-out count: employees who checked out before shift check-out time
     const earlyRows = attendance.filter(att => {
         if (!att.checkOut) return false;
+        // THE SERVER'S VERDICT decides when present (same engine as payroll, the employee's
+        // OWN branch calendar). The derivation below is only the fallback.
+        const serverVerdict = serverIsEarlyCheckout(att);
+        if (serverVerdict !== undefined) return serverVerdict;
 
         const attendanceDate = new Date(att.checkOut);
 
-        // Master switch — all three legs, same as `lateRows`. A weekend/holiday check-out
-        // is not an early check-out; there is no shift to be early against.
+        // A weekend/holiday check-out is never an early check-out — there is no shift to be
+        // early against — whatever the on-site setting. `dayKind` (the employee's own branch
+        // calendar) wins over the viewing admin's calendar.
+        if (serverIsNonWorkingDay(att) ?? checkIfWeekendOrHoliday(attendanceDate)) return false;
+        // Master switch — the on-site leg.
         const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
         const isOnSite = workingMethod?.includes("onsite");
-        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
+        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
 
         // Get shift for this date
         const shift = getShiftForDate(attendanceDate);
@@ -838,6 +852,16 @@ function Overview({ date, range }: OverviewProps) {
 
                         if (!empAttendance?.checkIn) return false;
 
+                        // Server verdict first, keep in step with `lateRows`; "Late by" is the
+                        // server's figure (the one payroll uses) whenever it sent one.
+                        const serverLate = serverIsLate(empAttendance);
+                        if (serverLate === false) return false;
+                        const serverMinutes = serverLateMinutes(empAttendance);
+                        if (serverLate && serverMinutes !== undefined) {
+                            additionalInfo[emp._id] = `Late by ${formatVerdictMinutes(serverMinutes)} (Checked in at ${dayjs(empAttendance.checkIn).format(getTimeTokens().TIME)})`;
+                            return true;
+                        }
+
                         const attendanceDate = new Date(empAttendance.checkIn);
 
                         // Get shift for this date
@@ -851,7 +875,7 @@ function Overview({ date, range }: OverviewProps) {
                         const isOnSite = workingMethod?.includes("onsite");
 
                         // Master switch — all three legs; keep in step with `lateRows`.
-                        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
+                        if (isOnSiteSettingsOn === '1' && (isOnSite || (serverIsNonWorkingDay(empAttendance) ?? checkIfWeekendOrHoliday(attendanceDate)))) return false;
                         const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
                         const graceTime = parseGraceTime(graceTimeStr);
 
@@ -865,13 +889,11 @@ function Overview({ date, range }: OverviewProps) {
                             .add(graceTime.seconds, 'second');
 
                         const actualCheckIn = dayjs(empAttendance.checkIn);
-                        const isLate = actualCheckIn.isAfter(expectedCheckIn);
+                        const isLate = serverLate ?? actualCheckIn.isAfter(expectedCheckIn);
 
                         if (isLate) {
                             const lateByMinutes = actualCheckIn.diff(expectedCheckIn, 'minute');
-                            const lateHours = Math.floor(lateByMinutes / 60);
-                            const lateMins = lateByMinutes % 60;
-                            additionalInfo[emp._id] = `Late by ${lateHours > 0 ? lateHours + 'h ' : ''}${lateMins}m (Checked in at ${actualCheckIn.format(getTimeTokens().TIME)})`;
+                            additionalInfo[emp._id] = `Late by ${formatVerdictMinutes(lateByMinutes)} (Checked in at ${actualCheckIn.format(getTimeTokens().TIME)})`;
                         }
 
                         return isLate;
@@ -892,12 +914,24 @@ function Overview({ date, range }: OverviewProps) {
 
                         if (!empAttendance?.checkOut) return false;
 
+                        // Server verdict first, keep in step with `earlyRows`; "Early by" is the
+                        // server's figure whenever it sent one.
+                        const serverEarly = serverIsEarlyCheckout(empAttendance);
+                        if (serverEarly === false) return false;
+                        const serverMinutes = serverEarlyMinutes(empAttendance);
+                        if (serverEarly && serverMinutes !== undefined) {
+                            additionalInfo[emp._id] = `Early by ${formatVerdictMinutes(serverMinutes)} (Checked out at ${dayjs(empAttendance.checkOut).format(getTimeTokens().TIME)})`;
+                            return true;
+                        }
+
                         const attendanceDate = new Date(empAttendance.checkOut);
 
-                        // Master switch — all three legs; keep in step with `earlyRows`.
+                        // Keep in step with `earlyRows`: a non-working day is never early,
+                        // whatever the on-site setting; the master switch exempts on-site.
+                        if (serverIsNonWorkingDay(empAttendance) ?? checkIfWeekendOrHoliday(attendanceDate)) return false;
                         const workingMethod = empAttendance.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
                         const isOnSite = workingMethod?.includes("onsite");
-                        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
+                        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
 
                         // Get shift for this date
                         const shift = getShiftForDate(attendanceDate);
@@ -912,13 +946,11 @@ function Overview({ date, range }: OverviewProps) {
                             .add(dayjs(shiftCheckOut, 'h:mm A').minute(), 'minute');
 
                         const actualCheckOut = dayjs(empAttendance.checkOut);
-                        const isEarly = actualCheckOut.isBefore(expectedCheckOut);
+                        const isEarly = serverEarly ?? actualCheckOut.isBefore(expectedCheckOut);
 
                         if (isEarly) {
                             const earlyByMinutes = expectedCheckOut.diff(actualCheckOut, 'minute');
-                            const earlyHours = Math.floor(earlyByMinutes / 60);
-                            const earlyMins = earlyByMinutes % 60;
-                            additionalInfo[emp._id] = `Early by ${earlyHours > 0 ? earlyHours + 'h ' : ''}${earlyMins}m (Checked out at ${actualCheckOut.format(getTimeTokens().TIME)})`;
+                            additionalInfo[emp._id] = `Early by ${formatVerdictMinutes(earlyByMinutes)} (Checked out at ${actualCheckOut.format(getTimeTokens().TIME)})`;
                         }
 
                         return isEarly;
@@ -1091,7 +1123,7 @@ function Overview({ date, range }: OverviewProps) {
                                             {emp.attendance?.checkIn && emp.attendance?.checkOut && (() => {
                                                 // Check if weekend/holiday worker
                                                 const attendanceDate = new Date(emp.attendance.checkIn);
-                                                const isWeekendOrHoliday = checkIfWeekendOrHoliday(attendanceDate);
+                                                const isWeekendOrHoliday = serverIsNonWorkingDay(emp.attendance) ?? checkIfWeekendOrHoliday(attendanceDate);
 
                                                 // Get shift for this date
                                                 const shift = getShiftForDate(attendanceDate);
@@ -1135,6 +1167,9 @@ function Overview({ date, range }: OverviewProps) {
                                                     const actualCheckOut = dayjs(emp.attendance.checkOut);
                                                     isEarlyCheckOut = actualCheckOut.isBefore(expectedCheckOut);
                                                 }
+                                                // The server's verdicts win; the derivation above is only the fallback.
+                                                isLateCheckIn = serverIsLate(emp.attendance) ?? isLateCheckIn;
+                                                isEarlyCheckOut = serverIsEarlyCheckout(emp.attendance) ?? isEarlyCheckOut;
 
                                                 return (
                                                     <>
@@ -1152,7 +1187,7 @@ function Overview({ date, range }: OverviewProps) {
                                             {emp.attendance?.checkIn && !emp.attendance?.checkOut && (() => {
                                                 // Check if weekend/holiday worker
                                                 const attendanceDate = new Date(emp.attendance.checkIn);
-                                                const isWeekendOrHoliday = checkIfWeekendOrHoliday(attendanceDate);
+                                                const isWeekendOrHoliday = serverIsNonWorkingDay(emp.attendance) ?? checkIfWeekendOrHoliday(attendanceDate);
 
                                                 // Get shift for this date
                                                 const shift = getShiftForDate(attendanceDate);
@@ -1185,6 +1220,8 @@ function Overview({ date, range }: OverviewProps) {
                                                     isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn)
                                                         && !(emp.attendance as any)?.lateWaived;
                                                 }
+                                                // The server's verdict wins; the derivation above is only the fallback.
+                                                isLateCheckIn = serverIsLate(emp.attendance) ?? isLateCheckIn;
 
                                                 return (
                                                     <span className={isLateCheckIn ? "text-danger" : "text-success"} title={isLateCheckIn ? "Late check-in" : "On-time check-in"} aria-label={`${isLateCheckIn ? "Late" : "On-time"} check-in at ${dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
