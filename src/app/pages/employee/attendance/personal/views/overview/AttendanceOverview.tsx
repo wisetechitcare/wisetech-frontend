@@ -142,15 +142,21 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
             >
               <KTIcon iconName="time" className="fs-3" />
             </div>
-            <div className="overflow-hidden">
+            {/* minWidth: 0 (not overflow-hidden) lets the text truncate WITHOUT clipping the
+                status dot: its pulse is a 5px box-shadow ring that overflow-hidden — here and
+                on the status row — cut off, so the dot looked broken. Truncation lives on the
+                text spans only. */}
+            <div style={{ minWidth: 0 }}>
               <span className="text-muted d-block fs-8 fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>Check In</span>
-            <span className="fw-bolder fs-7 text-gray-800 text-truncate">
+            <span className="d-block fw-bolder fs-7 text-gray-800 text-truncate">
               {data.checkInTime && data.checkInTime !== "-NA-" ? dayjs(data.checkInTime).format(getTimeTokens().TIME_WITH_SECONDS) : "—"}
             </span>
               {attendanceStatus && (
-                <span role="status" className="d-flex align-items-center gap-1 text-success fs-9 fw-semibold text-truncate">
+                <span role="status" className="d-flex align-items-center gap-2 text-success fs-9 fw-semibold">
                   <span className="bullet bullet-dot bg-success h-6px w-6px flex-shrink-0 wt-dot-pulse"></span>
-                  {attendanceStatus === "Working now" ? "You are working now.." : attendanceStatus}
+                  <span className="text-truncate" style={{ minWidth: 0 }}>
+                    {attendanceStatus === "Working now" ? "You are working now.." : attendanceStatus}
+                  </span>
                 </span>
               )}
             </div>
