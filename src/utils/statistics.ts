@@ -1027,6 +1027,14 @@ export function totalProgressPercent(stats: any[], totalWorkingDay: number, tota
     return Math.floor(percentage);
 }
 
+// Raw branch working/off-days of the employee a chart is drawn FOR: the viewed (selected)
+// employee on fromAdmin screens, else the logged-in one. Falls back to the logged-in branch
+// when the selected employee carries none — same rule CurrentYearOverview/Custom use.
+function viewedBranchWorkingAndOffDays(fromAdmin?: boolean) {
+    const { selectedEmployee, currentEmployee } = store.getState().employee;
+    const own = currentEmployee?.branches?.workingAndOffDays;
+    return fromAdmin ? (selectedEmployee?.branches?.workingAndOffDays || own) : own;
+}
 
 export function donutaDataLabel(
     stats: any[],
@@ -1082,9 +1090,7 @@ export function donutaDataLabel(
     statMap.set(CHECK_OUT_MISSING, 0);
 
     // Get weekend configuration
-    const allWeekends = safeJsonParse(
-        store.getState().employee.currentEmployee.branches?.workingAndOffDays
-    );
+    const allWeekends = safeJsonParse(viewedBranchWorkingAndOffDays(fromAdmin));
 
     // Following heatmap logic:
     // 1. Holidays with isWeekend=true are treated as weekends
@@ -1433,11 +1439,11 @@ function isDayWiseCheckInCheckOut(checkInDate: string, scheduleRows: ScheduleRow
 }
 
 
-export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[], _fromAdmin?: boolean): Map<string, number> {
+export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[], fromAdmin?: boolean): Map<string, number> {
     fetchCompanyTimings();
     // public holidays and weekends..
     const publicHolidays = store.getState().attendanceStats.publicHolidays;
-    const allWeekendsInString = store.getState().employee?.currentEmployee?.branches?.workingAndOffDays || JSON.stringify({})
+    const allWeekendsInString = viewedBranchWorkingAndOffDays(fromAdmin) || JSON.stringify({})
     const allWeekends = parseWorkingDays(allWeekendsInString)
 
     const graceTimeAllowance = leaveConfigurations[onSiteAndHolidayWeekendSettingsOnOffName];
@@ -1976,7 +1982,7 @@ const generatingHeatMapSeries = (
     const today = dayjs();
 
     // Get weekend configuration
-    const weekends = store.getState().employee.currentEmployee.branches.workingAndOffDays;
+    const weekends = viewedBranchWorkingAndOffDays(fromAdmin);
     const allWeekends = parseWorkingDays(weekends);
 
     yearMap.forEach((value, key) => {
@@ -2182,7 +2188,7 @@ export const weekHeatMap = (
         : store.getState().employee.currentEmployee?.dateOfJoining;
     const doj = dateOfJoining ? dayjs(dateOfJoining, "YYYY-MM-DD") : null;
 
-    const weekends = store.getState().employee.currentEmployee?.branches?.workingAndOffDays;
+    const weekends = viewedBranchWorkingAndOffDays(fromAdmin);
     const allWeekends = parseWorkingDays(weekends);
 
     const startDate = startWeek.format("YYYY-MM-DD");
@@ -2346,7 +2352,7 @@ export const generatingHeatMapSeriesForFiscalYear = (
     const today = dayjs();
 
     // Get weekend configuration
-    const weekends = store.getState().employee.currentEmployee.branches.workingAndOffDays;
+    const weekends = viewedBranchWorkingAndOffDays(fromAdmin);
     const allWeekends = parseWorkingDays(weekends);
 
     const fiscalMonths = [
@@ -2539,7 +2545,7 @@ export const customHeatMap = (stats: IAttendance[], startDate: string | Dayjs, e
     const rawDOJ = fromAdmin ? store.getState().employee.selectedEmployee.dateOfJoining : store.getState().employee?.currentEmployee?.dateOfJoining;
     const dateOfJoining = rawDOJ ? dayjs(rawDOJ) : null;
 
-    const weekends = store.getState().employee.currentEmployee.branches.workingAndOffDays;
+    const weekends = viewedBranchWorkingAndOffDays(fromAdmin);
     const allWeekends = parseWorkingDays(weekends);
 
     // Debug: Log weekend configuration

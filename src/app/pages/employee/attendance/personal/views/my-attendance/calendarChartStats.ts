@@ -127,16 +127,20 @@ export function chartStatsFromCalendarDays(
         }
 
         if (day.status === "present" || day.status === "half_day") {
+            // A worked half day is 0.5 present + 0.5 leave — never 1.5 for one day.
+            const halfLeave = day.status === "half_day" && day.leave?.fraction === 0.5;
             if (day.status === "half_day" && day.leave) {
                 donut.set(ON_LEAVE, (donut.get(ON_LEAVE) || 0) + (day.leave.fraction === 0.5 ? 0.5 : 1));
             }
-            donut.set(PRESENT, (donut.get(PRESENT) || 0) + 1);
+            donut.set(PRESENT, (donut.get(PRESENT) || 0) + (halfLeave ? 0.5 : 1));
         }
     }
 
-    // Round leave so 0.5 weights stay tidy in the donut.
+    // Round leave and present so 0.5 weights stay tidy in the donut.
     const leave = donut.get(ON_LEAVE) || 0;
     donut.set(ON_LEAVE, Math.round(leave * 100) / 100);
+    const present = donut.get(PRESENT) || 0;
+    donut.set(PRESENT, Math.round(present * 100) / 100);
 
     return { workingDays, donut };
 }
