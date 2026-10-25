@@ -1597,7 +1597,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
             await fetchAttendance();
             if(sendNotification) sendNotification();
             eventBus.emit(EVENT_KEYS.userRaisedRequestSubmitted);
-            successConfirmation(data.message);
+            successConfirmation(data.message, 'Checked In');
             dispatch(toggleOpenModal(false));
         }
         catch (err: any) {
@@ -1879,7 +1879,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
             }
 
             eventBus.emit(EVENT_KEYS.userRaisedRequestSubmitted);
-            successConfirmation(res.data.message);
+            successConfirmation(res.data.message, 'Checked Out');
             dispatch(toggleOpenModal(false));
         }
         catch (err: any) {
