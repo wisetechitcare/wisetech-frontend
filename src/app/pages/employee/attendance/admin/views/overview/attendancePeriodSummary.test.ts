@@ -22,13 +22,13 @@ const row = (partial: Partial<Row> & { date: string }): Row => ({
 
 const summarize = (
     rows: Row[],
-    { workingDays = 5, leave = 0, halfDays }: { workingDays?: number; leave?: number; halfDays?: string[] } = {},
+    { workingDays = 5, leave = 0, leaveDays }: { workingDays?: number; leave?: number; leaveDays?: Record<string, number> } = {},
 ) =>
     summarizeAttendanceByEmployee(rows, {
         roster: [{ _id: "e1", firstName: "Asha" }],
         workingDaysFor: () => workingDays,
         leaveDaysByEmployee: new Map(leave ? [["e1", leave]] : []),
-        halfDayLeaveDatesByEmployee: halfDays ? new Map([["e1", new Set(halfDays)]]) : undefined,
+        leaveFractionByEmployeeDate: leaveDays ? new Map([["e1", new Map(Object.entries(leaveDays))]]) : undefined,
     })[0];
 
 describe("summarizeAttendanceByEmployee", () => {
@@ -62,14 +62,25 @@ describe("summarizeAttendanceByEmployee", () => {
     it("weights a worked half-day-leave day as 0.5 present + 0.5 leave", () => {
         const s = summarize(
             [row({ date: "2026-08-03", dayKind: "working" }), row({ date: "2026-08-04", dayKind: "working" })],
-            { workingDays: 5, leave: 0.5, halfDays: ["2026-08-04"] },
+            { workingDays: 5, leave: 0.5, leaveDays: { "2026-08-04": 0.5 } },
         );
         expect(s.present).toBe(1.5);
         expect(s.leave).toBe(0.5);
         expect(s.absent).toBe(3);
     });
 
-    it("without half-day dates keeps the old 1-per-worked-day count", () => {
+    it("a punched FULL-day leave counts 0 present, so it cannot hide an absence", () => {
+        // 5 working days: worked the 3rd, on full leave the 4th but also punched in.
+        const s = summarize(
+            [row({ date: "2026-08-03", dayKind: "working" }), row({ date: "2026-08-04", dayKind: "working" })],
+            { workingDays: 5, leave: 1, leaveDays: { "2026-08-04": 1 } },
+        );
+        expect(s.present).toBe(1);
+        expect(s.leave).toBe(1);
+        expect(s.absent).toBe(3);
+    });
+
+    it("without leave dates keeps the old 1-per-worked-day count", () => {
         const s = summarize([row({ date: "2026-08-04", dayKind: "working" })], { workingDays: 5, leave: 0.5 });
         expect(s.present).toBe(1);
         expect(s.absent).toBe(3.5);

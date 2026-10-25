@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { Box, Typography } from "@mui/material";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import EmployeeIdentityCell from "@app/modules/common/components/EmployeeIdentityCell";
@@ -32,6 +33,8 @@ import {
     countWorkingDaysFromCalendar,
     type RangeNonWorking,
 } from "./rangeCalendar";
+
+dayjs.extend(utc);
 
 /**
  * PeriodAttendanceSummary — the Attendance table in Weekly/Monthly mode: one row per
@@ -238,24 +241,27 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
      * whole span would credit June days to a July total. Working-day judgement uses the
      * same server calendar as the Absent denominator (not the admin weekend map).
      */
-    const { leaveDaysByEmployee, halfDayLeaveDatesByEmployee } = useMemo(() => {
+    const { leaveDaysByEmployee, leaveFractionByEmployeeDate } = useMemo(() => {
         const totals = new Map<string, number>();
-        // The half-day leave days, from the same walk: a day worked AND half on leave is
-        // 0.5 present + 0.5 leave, never 1 + 0.5 against the absent denominator.
-        const halfDays = new Map<string, Set<string>>();
-        const result = { leaveDaysByEmployee: totals, halfDayLeaveDatesByEmployee: halfDays };
+        // The leave fraction per DAY, from the same walk: a day that is worked AND on leave
+        // counts only its unleft part as present, never 1 + the leave.
+        const fractions = new Map<string, Map<string, number>>();
+        const result = { leaveDaysByEmployee: totals, leaveFractionByEmployeeDate: fractions };
         if (!range.start || !range.end) return result;
-        const rangeStart = range.start.startOf('day');
-        const rangeEnd = range.end.startOf('day');
+        const rangeStartISO = range.start.format('YYYY-MM-DD');
+        const rangeEndISO = range.end.format('YYYY-MM-DD');
 
         for (const record of leaveRecords) {
             if (!record?.employeeId) continue;
-            let cursor = dayjs(record.dateFrom).startOf('day');
-            const last = dayjs(record.dateTo).startOf('day');
+            // Leave dates are stored as UTC midnight of the calendar day, so they are walked
+            // in UTC. Reading them in the browser's zone shifted every day back by one west
+            // of UTC — and then never matched the attendance row's date.
+            let cursor = dayjs.utc(record.dateFrom).startOf('day');
+            const last = dayjs.utc(record.dateTo).startOf('day');
             if (!cursor.isValid() || !last.isValid()) continue;
             while (cursor.isBefore(last) || cursor.isSame(last, 'day')) {
-                const inWindow = !cursor.isBefore(rangeStart) && !cursor.isAfter(rangeEnd);
                 const dateISO = cursor.format('YYYY-MM-DD');
+                const inWindow = dateISO >= rangeStartISO && dateISO <= rangeEndISO;
                 const hasServerScope = !!(
                     rangeNonWorking.employeeScopes[record.employeeId] &&
                     rangeNonWorking.scopes[rangeNonWorking.employeeScopes[record.employeeId]]
@@ -264,12 +270,11 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
                     ? !isNonWorkingForEmployee(rangeNonWorking, record.employeeId, dateISO)
                     : weekends?.[cursor.format('dddd').toLowerCase()] !== '0';
                 if (inWindow && isWorkingDay) {
-                    totals.set(record.employeeId, (totals.get(record.employeeId) ?? 0) + (record.isHalfDay ? 0.5 : 1));
-                    if (record.isHalfDay) {
-                        const set = halfDays.get(record.employeeId) ?? new Set<string>();
-                        set.add(dateISO);
-                        halfDays.set(record.employeeId, set);
-                    }
+                    const fraction = record.isHalfDay ? 0.5 : 1;
+                    totals.set(record.employeeId, (totals.get(record.employeeId) ?? 0) + fraction);
+                    const days = fractions.get(record.employeeId) ?? new Map<string, number>();
+                    days.set(dateISO, Math.min(1, (days.get(dateISO) ?? 0) + fraction));
+                    fractions.set(record.employeeId, days);
                 }
                 cursor = cursor.add(1, 'day');
             }
@@ -319,13 +324,13 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
             })),
             workingDaysFor,
             leaveDaysByEmployee,
-            halfDayLeaveDatesByEmployee,
+            leaveFractionByEmployeeDate,
             classificationByEmployee: classifications,
         });
         // Most absences first — the reason an admin opens a month at all. Name breaks ties
         // so the order is deterministic across refetches.
         return result.sort((a, b) => b.absent - a.absent || a.name.localeCompare(b.name));
-    }, [transformedRows, roster, workingDaysFor, leaveDaysByEmployee, halfDayLeaveDatesByEmployee, classifications, filterIds]);
+    }, [transformedRows, roster, workingDaysFor, leaveDaysByEmployee, leaveFractionByEmployeeDate, classifications, filterIds]);
 
     const openSummary = useMemo(
         () => summaries.find((s) => s.employeeId === openEmployee) ?? null,

@@ -403,7 +403,7 @@ function Overview({ date, range }: OverviewProps) {
 
         // Get shift for this date
         const shift = getShiftForDate(attendanceDate);
-        const shiftCheckIn = shift?.checkIn || appSettings.checkinTime;
+        const shiftCheckIn = (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
 
         if (!shiftCheckIn) return false;
 
@@ -456,7 +456,7 @@ function Overview({ date, range }: OverviewProps) {
 
         // Get shift for this date
         const shift = getShiftForDate(attendanceDate);
-        const shiftCheckOut = shift?.checkOut || appSettings.checkoutTime;
+        const shiftCheckOut = (shift?.check_out ?? shift?.checkOut) || appSettings.checkoutTime;
 
         if (!shiftCheckOut) return false;
 
@@ -848,7 +848,10 @@ function Overview({ date, range }: OverviewProps) {
                 case 'late':
                     // Late check-in: employees who checked in after (shift check-in time + grace time)
                     const lateCheckInEmployees = allEmployees.filter(emp => {
-                        const empAttendance = attendance.find(a => a.employeeId === emp._id);
+                        // The employee's LATE row — the one this modal lists — not their first row
+                        // of the period, which in a week or month was usually a different day.
+                        const empAttendance = lateRows.find(a => a.employeeId === emp._id)
+                            ?? attendance.find(a => a.employeeId === emp._id);
 
                         if (!empAttendance?.checkIn) return false;
 
@@ -866,7 +869,7 @@ function Overview({ date, range }: OverviewProps) {
 
                         // Get shift for this date
                         const shift = getShiftForDate(attendanceDate);
-                        const shiftCheckIn = shift?.checkIn || appSettings.checkinTime;
+                        const shiftCheckIn = (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
 
                         if (!shiftCheckIn) return false;
 
@@ -910,7 +913,9 @@ function Overview({ date, range }: OverviewProps) {
                 case 'early':
                     // Early check-out: employees who checked out before shift check-out time
                     const earlyCheckOutEmployees = allEmployees.filter(emp => {
-                        const empAttendance = attendance.find(a => a.employeeId === emp._id);
+                        // The employee's EARLY row, as for 'late' above.
+                        const empAttendance = earlyRows.find(a => a.employeeId === emp._id)
+                            ?? attendance.find(a => a.employeeId === emp._id);
 
                         if (!empAttendance?.checkOut) return false;
 
@@ -935,7 +940,7 @@ function Overview({ date, range }: OverviewProps) {
 
                         // Get shift for this date
                         const shift = getShiftForDate(attendanceDate);
-                        const shiftCheckOut = shift?.checkOut || appSettings.checkoutTime;
+                        const shiftCheckOut = (shift?.check_out ?? shift?.checkOut) || appSettings.checkoutTime;
 
                         if (!shiftCheckOut) return false;
 
@@ -1127,8 +1132,8 @@ function Overview({ date, range }: OverviewProps) {
 
                                                 // Get shift for this date
                                                 const shift = getShiftForDate(attendanceDate);
-                                                const shiftCheckIn = shift?.checkIn || appSettings.checkinTime;
-                                                const shiftCheckOut = shift?.checkOut || appSettings.checkoutTime;
+                                                const shiftCheckIn = (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
+                                                const shiftCheckOut = (shift?.check_out ?? shift?.checkOut) || appSettings.checkoutTime;
 
                                                 // Check working method for on-site
                                                 const workingMethod = emp.attendance?.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
@@ -1191,7 +1196,7 @@ function Overview({ date, range }: OverviewProps) {
 
                                                 // Get shift for this date
                                                 const shift = getShiftForDate(attendanceDate);
-                                                const shiftCheckIn = shift?.checkIn || appSettings.checkinTime;
+                                                const shiftCheckIn = (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
 
                                                 // Check working method for on-site
                                                 const workingMethod = emp.attendance?.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();

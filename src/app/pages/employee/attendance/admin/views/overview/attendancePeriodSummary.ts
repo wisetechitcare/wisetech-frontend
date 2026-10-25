@@ -96,11 +96,12 @@ export interface SummarizeOptions {
     /** employeeId → weighted leave days in the window (half-days already 0.5). */
     leaveDaysByEmployee: Map<string, number>;
     /**
-     * employeeId → YYYY-MM-DD dates carrying a HALF-day leave. A worked row on one of
-     * these dates counts 0.5 present, because its other half is already 0.5 in
-     * `leaveDaysByEmployee`. Omitted → every worked day counts 1 (the old behaviour).
+     * employeeId → (YYYY-MM-DD → leave fraction counted in `leaveDaysByEmployee`, 0.5 or 1).
+     * A worked row on such a date counts only `1 − fraction` present, so one day is never
+     * more than 1 against the absent denominator: a half-day leave → 0.5 present, a
+     * full-day leave that was also punched → 0. Omitted → every worked day counts 1.
      */
-    halfDayLeaveDatesByEmployee?: Map<string, ReadonlySet<string>>;
+    leaveFractionByEmployeeDate?: Map<string, ReadonlyMap<string, number>>;
     /**
      * employeeId → late/early counts from the server's classification engine. Absent
      * entries stay `null` on the summary rather than defaulting to 0. Omit the whole map
@@ -118,7 +119,7 @@ const displayName = (emp: SummaryRosterEntry) =>
 
 export function summarizeAttendanceByEmployee(
     rows: readonly IEmployeesAttendance[],
-    { roster, workingDaysFor, leaveDaysByEmployee, halfDayLeaveDatesByEmployee, classificationByEmployee }: SummarizeOptions,
+    { roster, workingDaysFor, leaveDaysByEmployee, leaveFractionByEmployeeDate, classificationByEmployee }: SummarizeOptions,
 ): EmployeePeriodSummary[] {
     const byEmployee = new Map<string, EmployeePeriodSummary>();
 
@@ -180,8 +181,8 @@ export function summarizeAttendanceByEmployee(
         if (hasCheckIn(row)) {
             // Present is the absent-denominator's counterpart, so only working days count.
             if (serverIsNonWorkingDay(row) !== true) {
-                const halfLeave = !!row.date && halfDayLeaveDatesByEmployee?.get(id)?.has(row.date);
-                summary.present += halfLeave ? 0.5 : 1;
+                const leaveFraction = (row.date && leaveFractionByEmployeeDate?.get(id)?.get(row.date)) || 0;
+                summary.present += Math.max(0, 1 - leaveFraction);
             }
             if (!hasCheckOut(row)) summary.checkoutMissing += 1;
         }
