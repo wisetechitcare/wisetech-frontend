@@ -24,7 +24,8 @@ describe('utils/modal on the dialog service', () => {
         expect(screen.getByText('Confirm Deletion')).toBeTruthy();
         fireEvent.click(button('delete'));
         await waitFor(() => expect(screen.getByText('Record deleted')).toBeTruthy());
-        fireEvent.click(button('dismiss'));
+        // The success notice's button reads "OK" (it was "Dismiss" — MESSAGE_STYLE, 2026-10-25).
+        fireEvent.click(button('ok'));
         await expect(res).resolves.toBe(true);
     });
 
