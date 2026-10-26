@@ -47,6 +47,9 @@ export { AppIcon, type AppIconProps } from './AppIcon';
 // the border line. That is the bug this control was rebuilt to end.
 // Reach for this before building an InputLabel + control pairing by hand.
 export { WtField } from './WtField';
+// Opt-in floating labels: wrap a form in <FloatingLabels> and every kit input's label rests in
+// the empty box and floats into the border on focus/value. FloatingLabelFrame does it for non-MUI controls.
+export { FloatingLabels, FloatingLabelFrame, useFloatingLabels, type FloatingLabelFrameProps } from './FloatingLabel';
 // Formik-bound WtField — default labelled select/text in Formik forms (Sandwich look).
 export { WtFieldFormik, type WtFieldFormikProps } from './WtFieldFormik';
 // Canonical “+ Add …” for labelled selects — pass as `addOption` on WtField / WtFieldFormik.

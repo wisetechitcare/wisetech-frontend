@@ -43,10 +43,10 @@ function moveItem<T>(arr: T[], from: number, to: number): T[] {
 
 // ─── Atoms ────────────────────────────────────────────────────────────────────
 
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
-    <div onClick={() => onChange(!value)}
-      style={{ width: 38, height: 21, borderRadius: 999, cursor: 'pointer', background: value ? C.brand : '#CDD2DC', position: 'relative', transition: 'background .2s', flexShrink: 0 }}>
+    <div onClick={() => !disabled && onChange(!value)}
+      style={{ width: 38, height: 21, borderRadius: 999, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, background: value ? C.brand : '#CDD2DC', position: 'relative', transition: 'background .2s', flexShrink: 0 }}>
       <div style={{ position: 'absolute', top: 3, left: value ? 20 : 3, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: 'left .2s', boxShadow: '0 1px 2px rgba(0,0,0,.2)' }} />
     </div>
   );
@@ -66,10 +66,11 @@ function IconBtn({ children, onClick, disabled, title, danger }: { children: Rea
   );
 }
 
-function TypeSelect({ value, onChange }: { value: FormFieldType; onChange: (v: FormFieldType) => void }) {
+function TypeSelect({ value, onChange, disabled }: { value: FormFieldType; onChange: (v: FormFieldType) => void; disabled?: boolean }) {
   return (
-    <select value={value} onChange={e => onChange(e.target.value as FormFieldType)}
-      style={{ padding: '8px 10px', borderRadius: 8, fontSize: 13, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, cursor: 'pointer', outline: 'none', minWidth: 130 }}>
+    <select value={value} disabled={disabled} title={disabled ? 'This built-in field uses its own input' : undefined}
+      onChange={e => onChange(e.target.value as FormFieldType)}
+      style={{ padding: '8px 10px', borderRadius: 8, fontSize: 13, border: `1px solid ${C.line}`, background: disabled ? C.panel : '#fff', color: disabled ? C.inkSoft : C.ink, cursor: disabled ? 'not-allowed' : 'pointer', outline: 'none', minWidth: 130 }}>
       <option value="text">Character (Text)</option>
       <option value="number">Number</option>
       <option value="date">Date</option>
@@ -90,27 +91,11 @@ interface FieldCardProps {
   onMoveToSection: (targetSectionId: string) => void;
   otherSections: { id: string; title: string }[];
   error?: string;
-  locked?: boolean;
 }
 
-// Compact read-only row for built-in fields the host form renders itself.
-function LockedFieldRow({ field }: { field: IFormField }) {
-  const meta = TYPE_META[field.type];
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10, background: C.panelAlt,
-      border: `1px solid ${C.line}`, borderRadius: 10, padding: '11px 14px', marginBottom: 8,
-    }}>
-      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.4px', color: C.brand, background: C.brandSoft, border: `1px solid ${C.brandBorder}`, borderRadius: 999, padding: '2px 8px' }}>BUILT-IN</span>
-      <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{field.label}</span>
-      <span style={{ fontSize: 11, fontWeight: 700, color: meta.color, background: meta.bg, borderRadius: 6, padding: '3px 8px' }}>{meta.label}</span>
-    </div>
-  );
-}
-
-function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSection, otherSections, error, locked }: FieldCardProps) {
+function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSection, otherSections, error }: FieldCardProps) {
   const sys = field.isSystem;
-  if (locked) return <LockedFieldRow field={field} />;
+  const required = field.essential || field.required;
   return (
     <div style={{
       background: sys ? C.panelAlt : '#fff', border: `1px solid ${error ? '#F3B4B4' : C.line}`,
@@ -124,7 +109,7 @@ function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSect
         )}
         <div style={{ flex: 1 }} />
         {/* Move this field to another section */}
-        {otherSections.length > 0 && (
+        {otherSections.length > 0 && !field.fixedSection && (
           <select
             value=""
             title="Move field to another section"
@@ -137,7 +122,7 @@ function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSect
         )}
         <IconBtn title="Move up" disabled={idx === 0} onClick={() => onMove(-1)}>▲</IconBtn>
         <IconBtn title="Move down" disabled={idx === total - 1} onClick={() => onMove(1)}>▼</IconBtn>
-        <IconBtn title={sys ? 'Hide field (its data is kept)' : 'Delete field'} danger onClick={onDelete}>✕</IconBtn>
+        <IconBtn title={field.essential ? 'This field is always on the form' : sys ? 'Hide field (its data is kept)' : 'Delete field'} danger disabled={field.essential} onClick={onDelete}>✕</IconBtn>
       </div>
 
       {/* control row */}
@@ -151,13 +136,13 @@ function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSect
         </div>
         <div>
           <label style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 5, letterSpacing: '.3px' }}>INPUT TYPE</label>
-          <TypeSelect value={field.type} onChange={type => onChange({ type })} />
+          <TypeSelect value={field.type} disabled={field.fixedType} onChange={type => onChange({ type })} />
         </div>
         <div>
           <label style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 7, letterSpacing: '.3px' }}>REQUIRED</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Toggle value={field.required} onChange={required => onChange({ required })} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: field.required ? C.brand : C.inkFaint }}>{field.required ? 'Yes' : 'No'}</span>
+            <Toggle value={required} disabled={field.essential} onChange={required => onChange({ required })} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: required ? C.brand : C.inkFaint }}>{field.essential ? 'Always' : required ? 'Yes' : 'No'}</span>
           </div>
         </div>
         <div>
@@ -182,13 +167,9 @@ interface Props {
   onClose: () => void;
   // Label for the "shown on … Info page" toggle (e.g. "Organization" or "Company").
   infoPageLabel?: string;
-  // When true, built-in (system) fields are shown read-only for reference and cannot be
-  // edited/hidden/reordered. Use when the host form renders built-in fields itself
-  // (e.g. the CRM company form) so the manager only mutates custom fields/sections.
-  lockBuiltinFields?: boolean;
 }
 
-export default function FormSchemaManager({ show, sections, onSave, onClose, infoPageLabel = 'Organization', lockBuiltinFields = false }: Props) {
+export default function FormSchemaManager({ show, sections, onSave, onClose, infoPageLabel = 'Organization' }: Props) {
   const [local, setLocal] = useState<IFormSection[]>([]);
   const [activeId, setActiveId] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -451,8 +432,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
                         <FieldCard key={f.id} field={f} idx={i} total={visibleFields.length}
                           onChange={patch => patchField(f.id, patch)} onDelete={() => removeField(f.id)}
                           onMove={dir => moveField(f.id, dir)} onMoveToSection={target => moveFieldToSection(f.id, target)}
-                          otherSections={otherSections} error={fieldErrors[f.id]}
-                          locked={lockBuiltinFields && f.isSystem} />
+                          otherSections={otherSections} error={fieldErrors[f.id]} />
                       ))
                     )}
 
