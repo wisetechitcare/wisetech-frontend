@@ -37,6 +37,33 @@ export const deleteCompanyAgendaCategory = async (categoryId: string) => {
   return data;
 };
 
+export const getCompanyAgendaStatuses = async () => {
+  const { data } = await axios.get(`${meetingsRoot}/agenda-statuses`);
+  return data;
+};
+
+export const createCompanyAgendaStatus = async (payload: {
+  name: string;
+  color?: string;
+  sortOrder?: number;
+}) => {
+  const { data } = await axios.post(`${meetingsRoot}/agenda-statuses`, payload);
+  return data;
+};
+
+export const updateCompanyAgendaStatus = async (
+  statusId: string,
+  payload: { name?: string; color?: string; sortOrder?: number; isActive?: boolean },
+) => {
+  const { data } = await axios.patch(`${meetingsRoot}/agenda-statuses/${statusId}`, payload);
+  return data;
+};
+
+export const deleteCompanyAgendaStatus = async (statusId: string) => {
+  const { data } = await axios.delete(`${meetingsRoot}/agenda-statuses/${statusId}`);
+  return data;
+};
+
 export const getCompanyMeetingPurposes = async () => {
   const { data } = await axios.get(`${meetingsRoot}/purposes`);
   return data;
@@ -89,6 +116,14 @@ export const getAgendaItems = async (meetingId: string) => {
 
 export const createAgendaItem = async (meetingId: string, payload: Record<string, unknown>) => {
   const { data } = await axios.post(`${base(meetingId)}/agenda-items`, payload);
+  return data;
+};
+
+export const createAgendaItemsBulk = async (
+  meetingId: string,
+  items: Record<string, unknown>[],
+) => {
+  const { data } = await axios.post(`${base(meetingId)}/agenda-items/bulk`, { items });
   return data;
 };
 

@@ -19,12 +19,16 @@ import {
 } from '@app/modules/configuration';
 import {
   createCompanyAgendaCategory,
+  createCompanyAgendaStatus,
   createCompanyMeetingPurpose,
   deleteCompanyAgendaCategory,
+  deleteCompanyAgendaStatus,
   deleteCompanyMeetingPurpose,
   getCompanyAgendaCategories,
+  getCompanyAgendaStatuses,
   getCompanyMeetingPurposes,
   updateCompanyAgendaCategory,
+  updateCompanyAgendaStatus,
   updateCompanyMeetingPurpose,
 } from '@services/meetingAgendaMom';
 import { MeetingsAppearancePanel } from '../../calendar/views/CalendarConfigure';
@@ -42,38 +46,46 @@ const CHIP_COLORS = [
 
 type EditTarget =
   | { kind: 'category'; id: string; name: string; isActive: boolean }
+  | { kind: 'status'; id: string; name: string; color: string; isActive: boolean }
   | { kind: 'purpose'; id: string; name: string; isActive: boolean; requiresOther?: boolean }
   | null;
+
+type CreateKind = 'category' | 'status' | 'purpose';
 
 function byNameAz<T extends { name: string }>(rows: T[]): T[] {
   return [...rows].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }
 
 /**
- * Meetings → Configure: calendar appearance, agenda categories, meeting purposes.
- * Categories / purposes match Leads Configure chip UI (rail + edit/delete).
+ * Meetings → Configure: calendar appearance, agenda categories, statuses, purposes.
  */
 export default function MeetingsConfigureTab() {
   const [categories, setCategories] = useState<any[]>([]);
+  const [statuses, setStatuses] = useState<any[]>([]);
   const [purposes, setPurposes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState<EditTarget>(null);
   const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState('#64748B');
   const [editActive, setEditActive] = useState(true);
-  const [createKind, setCreateKind] = useState<'category' | 'purpose' | null>(null);
+  const [createKind, setCreateKind] = useState<CreateKind | null>(null);
   const [createName, setCreateName] = useState('');
+  const [createColor, setCreateColor] = useState('#3B82F6');
 
   const sortedCategories = useMemo(() => byNameAz(categories), [categories]);
+  const sortedStatuses = useMemo(() => byNameAz(statuses), [statuses]);
   const sortedPurposes = useMemo(() => byNameAz(purposes), [purposes]);
 
   const load = async () => {
-    const [cats, purps] = await Promise.all([
+    const [cats, sts, purps] = await Promise.all([
       getCompanyAgendaCategories(),
+      getCompanyAgendaStatuses(),
       getCompanyMeetingPurposes(),
     ]);
     setCategories(cats.categories || []);
+    setStatuses(sts.statuses || []);
     setPurposes(purps.purposes || []);
   };
 
@@ -93,6 +105,7 @@ export default function MeetingsConfigureTab() {
     setEdit(target);
     setEditName(target.name);
     setEditActive(!!target.isActive);
+    setEditColor(target.kind === 'status' ? target.color || '#64748B' : '#64748B');
   };
 
   const saveEdit = async () => {
@@ -102,6 +115,12 @@ export default function MeetingsConfigureTab() {
       if (edit.kind === 'category') {
         await updateCompanyAgendaCategory(edit.id, {
           name: editName.trim(),
+          isActive: editActive,
+        });
+      } else if (edit.kind === 'status') {
+        await updateCompanyAgendaStatus(edit.id, {
+          name: editName.trim(),
+          color: editColor.trim() || '#64748B',
           isActive: editActive,
         });
       } else {
@@ -125,6 +144,11 @@ export default function MeetingsConfigureTab() {
     try {
       if (createKind === 'category') {
         await createCompanyAgendaCategory({ name: createName.trim() });
+      } else if (createKind === 'status') {
+        await createCompanyAgendaStatus({
+          name: createName.trim(),
+          color: createColor.trim() || CHIP_COLORS[statuses.length % CHIP_COLORS.length],
+        });
       } else {
         await createCompanyMeetingPurpose({ name: createName.trim() });
       }
@@ -153,6 +177,21 @@ export default function MeetingsConfigureTab() {
     }
   };
 
+  const removeStatus = async (status: any) => {
+    if (!window.confirm(`Delete status “${status.name}”? Existing agenda rows keep the old code until changed.`)) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await deleteCompanyAgendaStatus(status.id);
+      await load();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Could not delete status');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const removePurpose = async (purpose: any) => {
     if (!window.confirm(`Delete purpose “${purpose.name}”?`)) return;
     setBusy(true);
@@ -165,6 +204,16 @@ export default function MeetingsConfigureTab() {
       setBusy(false);
     }
   };
+
+  const createTitle =
+    createKind === 'purpose' ? 'New purpose'
+      : createKind === 'status' ? 'New status'
+        : 'New category';
+
+  const editTitle =
+    edit?.kind === 'purpose' ? 'Edit purpose'
+      : edit?.kind === 'status' ? 'Edit status'
+        : 'Edit category';
 
   return (
     <Box className="px-lg-0 px-2 pt-4" sx={{ pb: 4, maxWidth: 1100 }}>
@@ -238,6 +287,58 @@ export default function MeetingsConfigureTab() {
           </ConfigSectionCard>
 
           <ConfigSectionCard
+            title="Agenda statuses"
+            description="Labels and colours for agenda item status chips (Open, Closed, Information, or your own)."
+            icon="bi-flag"
+            iconColor="amber"
+            primaryAction={{
+              label: 'New status',
+              icon: 'bi-plus-lg',
+              onClick: () => {
+                setCreateName('');
+                setCreateColor(CHIP_COLORS[statuses.length % CHIP_COLORS.length]);
+                setCreateKind('status');
+              },
+              variant: 'primary',
+              disabled: busy,
+            }}
+          >
+            {sortedStatuses.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                No statuses yet — defaults appear when you open this screen.
+              </Typography>
+            ) : (
+              <ConfigChipGrid>
+                {sortedStatuses.map((status) => (
+                  <ConfigColorChip
+                    key={status.id}
+                    name={status.name}
+                    color={status.color || '#64748B'}
+                    caption={status.code}
+                    badge={status.isActive ? undefined : 'Inactive'}
+                    disabled={busy}
+                    onEdit={() =>
+                      openEdit({
+                        kind: 'status',
+                        id: status.id,
+                        name: status.name,
+                        color: status.color || '#64748B',
+                        isActive: !!status.isActive,
+                      })
+                    }
+                    action={{
+                      icon: 'bi-trash',
+                      title: `Delete ${status.name}`,
+                      danger: true,
+                      onClick: () => removeStatus(status),
+                    }}
+                  />
+                ))}
+              </ConfigChipGrid>
+            )}
+          </ConfigSectionCard>
+
+          <ConfigSectionCard
             title="Meeting purposes"
             description="Used on meeting detail. Title remains the separate calendar/list name."
             icon="bi-bullseye"
@@ -291,20 +392,39 @@ export default function MeetingsConfigureTab() {
       )}
 
       <Dialog open={!!createKind} onClose={() => !busy && setCreateKind(null)} fullWidth maxWidth="xs">
-        <DialogTitle>{createKind === 'purpose' ? 'New purpose' : 'New category'}</DialogTitle>
+        <DialogTitle>{createTitle}</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            size="small"
-            label="Name"
-            value={createName}
-            onChange={(e) => setCreateName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void createItem();
-            }}
-            sx={{ mt: 1 }}
-          />
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              autoFocus
+              fullWidth
+              size="small"
+              label="Name"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void createItem();
+              }}
+            />
+            {createKind === 'status' && (
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <Box
+                  component="input"
+                  type="color"
+                  value={createColor}
+                  onChange={(e: any) => setCreateColor(e.target.value)}
+                  sx={{ width: 40, height: 36, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.25, bgcolor: 'background.paper' }}
+                />
+                <TextField
+                  size="small"
+                  label="Colour"
+                  value={createColor}
+                  onChange={(e) => setCreateColor(e.target.value)}
+                  fullWidth
+                />
+              </Stack>
+            )}
+          </Stack>
         </DialogContent>
         <DialogActions>
           <WtButton ghost disabled={busy} onClick={() => setCreateKind(null)}>
@@ -317,7 +437,7 @@ export default function MeetingsConfigureTab() {
       </Dialog>
 
       <Dialog open={!!edit} onClose={() => !busy && setEdit(null)} fullWidth maxWidth="xs">
-        <DialogTitle>{edit?.kind === 'purpose' ? 'Edit purpose' : 'Edit category'}</DialogTitle>
+        <DialogTitle>{editTitle}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
@@ -328,6 +448,24 @@ export default function MeetingsConfigureTab() {
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
             />
+            {edit?.kind === 'status' && (
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <Box
+                  component="input"
+                  type="color"
+                  value={editColor}
+                  onChange={(e: any) => setEditColor(e.target.value)}
+                  sx={{ width: 40, height: 36, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.25, bgcolor: 'background.paper' }}
+                />
+                <TextField
+                  size="small"
+                  label="Colour"
+                  value={editColor}
+                  onChange={(e) => setEditColor(e.target.value)}
+                  fullWidth
+                />
+              </Stack>
+            )}
             <Stack direction="row" alignItems="center" spacing={1}>
               <Typography variant="body2" color="text.secondary">
                 Active

@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -21,6 +22,7 @@ import {
   MenuItem,
   Stack,
   TextField,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -31,6 +33,13 @@ import AccessTimeRounded from '@mui/icons-material/AccessTimeRounded';
 import VideocamOutlined from '@mui/icons-material/VideocamOutlined';
 import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
+import FormatListBulleted from '@mui/icons-material/FormatListBulleted';
+import FormatListNumbered from '@mui/icons-material/FormatListNumbered';
+import FormatIndentIncrease from '@mui/icons-material/FormatIndentIncrease';
+import FormatIndentDecrease from '@mui/icons-material/FormatIndentDecrease';
+import FormatAlignLeft from '@mui/icons-material/FormatAlignLeft';
+import FormatAlignCenter from '@mui/icons-material/FormatAlignCenter';
+import FormatAlignRight from '@mui/icons-material/FormatAlignRight';
 import dayjs from 'dayjs';
 import { hasPermission } from '@utils/authAbac';
 import {
@@ -38,8 +47,10 @@ import {
   resourceNameMapWithCamelCase,
 } from '@constants/statistics';
 import {
+  AppIcon,
   WtButton,
   WtDateField,
+  WtIconButton,
   WtSelect,
   type WtSelectOption,
 } from '@app/modules/common/components/ui';
@@ -54,11 +65,13 @@ import { getProjectTeam } from '@services/tasks';
 import {
   amendMeetingMinutes,
   createAgendaItem,
+  createAgendaItemsBulk,
   createMeetingMinutesDraft,
   deleteAgendaItem,
   downloadMeetingMinutesPdf,
   getAgendaItems,
   getCompanyAgendaCategories,
+  getCompanyAgendaStatuses,
   getMeetingDetail,
   getMeetingMinutes,
   getMeetingsAgendaHub,
@@ -156,12 +169,18 @@ const placeLabel = (m: HubMeeting | any) => {
   return '—';
 };
 
-const statusTone = (status?: string) => {
-  const s = String(status || '').toUpperCase();
-  if (s === 'OPEN') return { bg: '#DBEAFE', fg: '#1D4ED8', label: 'Open' };
-  if (s === 'CLOSED') return { bg: '#DCFCE7', fg: '#15803D', label: 'Closed' };
-  if (s === 'INFORMATION') return { bg: '#F1F5F9', fg: '#475569', label: 'Information' };
-  return { bg: '#F1F5F9', fg: '#475569', label: status || '—' };
+/** Soft chip wash from a configure colour hex. */
+const statusTone = (label?: string | null, color?: string | null) => {
+  const fg = color || '#475569';
+  const bg = (() => {
+    const hex = fg.replace('#', '');
+    if (hex.length !== 6) return '#F1F5F9';
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},0.14)`;
+  })();
+  return { bg, fg, label: label || '—' };
 };
 
 /**
@@ -559,15 +578,17 @@ export default function MeetingsAgendaHubTab() {
         </Box>
       </Box>
 
-      {/* ── Right: detail ── */}
+      {/* ── Right: detail — height follows content (no empty stretch). ── */}
       <Box
         sx={{
           minWidth: 0,
-          minHeight: 0,
+          alignSelf: { lg: 'start' },
+          width: '100%',
           maxHeight: { lg: 'calc(100vh - 220px)' },
           overflowY: 'auto',
           bgcolor: C.page,
           p: { xs: 1.5, md: 2 },
+          pb: { xs: 2, md: 2.5 },
           display: showDetail ? 'block' : 'none',
         }}
       >
@@ -772,6 +793,48 @@ function DetailPane({
   const perms = cached?.permissions;
   const purposeOptions = cached?.purposeOptions || [];
   const agendaCount = cached ? items.length : listMeeting.agendaCount;
+  const permsLoaded = perms != null;
+  const canEditMom = !!perms?.canEditMom;
+  const canEditAgenda = !!perms?.canEditAgenda;
+  const minutesFinal = minutes?.status === 'FINAL';
+  const accessBadge = (() => {
+    if (!permsLoaded) return null;
+    if (minutesFinal) {
+      return {
+        label: 'Finalized',
+        tip: canEditMom
+          ? 'Minutes are finalized. Notes are locked — open Minutes of Meeting and create an amendment draft to edit them.'
+          : 'Minutes are finalized and read-only. Only the organizer or a project manager can create an amendment.',
+        bg: '#DCFCE7',
+        fg: '#166534',
+      };
+    }
+    if (!canEditMom && !canEditAgenda) {
+      return {
+        label: 'View only',
+        tip: 'Only the meeting organizer or a project manager can edit the agenda and discussion notes.',
+        bg: C.slate,
+        fg: C.mute,
+      };
+    }
+    if (!canEditMom) {
+      return {
+        label: 'View only',
+        tip: 'Only the organizer or a project manager can edit discussion notes and decisions.',
+        bg: C.slate,
+        fg: C.mute,
+      };
+    }
+    if (!canEditAgenda) {
+      return {
+        label: 'View only',
+        tip: 'Only the organizer or a project manager can add or edit agenda items.',
+        bg: C.slate,
+        fg: C.mute,
+      };
+    }
+    return null;
+  })();
 
   return (
     <Stack spacing={1.75} sx={{ opacity: loading ? 0.72 : 1, transition: 'opacity .18s ease' }}>
@@ -828,6 +891,25 @@ function DetailPane({
               />
             </Stack>
           </Box>
+          {accessBadge && (
+            <Tooltip title={accessBadge.tip} arrow placement="left">
+              <Chip
+                size="small"
+                label={accessBadge.label}
+                tabIndex={0}
+                sx={{
+                  flexShrink: 0,
+                  height: 26,
+                  fontWeight: 700,
+                  fontSize: 12,
+                  bgcolor: accessBadge.bg,
+                  color: accessBadge.fg,
+                  cursor: 'help',
+                  border: `1px solid ${accessBadge.fg}22`,
+                }}
+              />
+            </Tooltip>
+          )}
         </Stack>
 
         <Stack
@@ -901,14 +983,11 @@ function DetailPane({
           meetingId={listMeeting.id}
           meeting={meeting}
           items={items}
-          minutes={minutes}
           canEdit={!!perms?.canEditAgenda}
-          canEditMom={!!perms?.canEditMom}
           permsLoaded={perms != null}
           onRefresh={onRefresh}
           onPatchItem={onPatchItem}
           onError={onError}
-          onOpenMom={() => setDetailTab('mom')}
         />
       )}
     </Stack>
@@ -1187,6 +1266,9 @@ function MomPanel({
         </Stack>
       </Box>
 
+      <Typography sx={{ fontWeight: 800, fontSize: 14, color: C.ink, pt: 0.5 }}>
+        Discussion notes & decisions
+      </Typography>
       <NotesDecisionsEditors
         discussionNotes={discussionNotes}
         decisions={decisions}
@@ -1199,11 +1281,35 @@ function MomPanel({
   );
 }
 
+type RichCmd =
+  | 'bold'
+  | 'italic'
+  | 'underline'
+  | 'insertUnorderedList'
+  | 'insertOrderedList'
+  | 'indent'
+  | 'outdent'
+  | 'justifyLeft'
+  | 'justifyCenter'
+  | 'justifyRight'
+  | 'justifyFull';
+
 /**
  * Uncontrolled rich field: React never rewrites the DOM while you type
  * (controlled contentEditable + setState was wiping bold/lists).
  * Seeds only when `seed` changes (minutes id / revision).
  */
+const RICH_STATE_CMDS: RichCmd[] = [
+  'bold',
+  'italic',
+  'underline',
+  'insertUnorderedList',
+  'insertOrderedList',
+  'justifyLeft',
+  'justifyCenter',
+  'justifyRight',
+];
+
 function MomRichField({
   label,
   value,
@@ -1221,6 +1327,7 @@ function MomRichField({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const lastSeed = useRef('');
+  const [active, setActive] = useState<Partial<Record<RichCmd, boolean>>>({});
 
   useEffect(() => {
     if (!ref.current) return;
@@ -1234,61 +1341,147 @@ function MomRichField({
     ref.current.contentEditable = readOnly ? 'false' : 'true';
   }, [readOnly]);
 
+  const syncActive = useCallback(() => {
+    if (readOnly || !ref.current) {
+      setActive({});
+      return;
+    }
+    const sel = window.getSelection();
+    if (!sel || !sel.anchorNode || !ref.current.contains(sel.anchorNode)) {
+      setActive({});
+      return;
+    }
+    const next: Partial<Record<RichCmd, boolean>> = {};
+    for (const cmd of RICH_STATE_CMDS) {
+      try {
+        next[cmd] = document.queryCommandState(cmd);
+      } catch {
+        next[cmd] = false;
+      }
+    }
+    // Default align-left when no explicit alignment is set
+    if (!next.justifyCenter && !next.justifyRight && !next.justifyFull) {
+      next.justifyLeft = true;
+    }
+    setActive(next);
+  }, [readOnly]);
+
+  useEffect(() => {
+    if (readOnly) return undefined;
+    const onSel = () => syncActive();
+    document.addEventListener('selectionchange', onSel);
+    return () => document.removeEventListener('selectionchange', onSel);
+  }, [readOnly, syncActive]);
+
   const emit = () => {
     if (!ref.current) return;
     onChange(ref.current.innerHTML);
+    syncActive();
   };
 
-  const run = (cmd: string) => {
-    if (readOnly || !ref.current) return;
+  const ensureCaret = () => {
+    if (!ref.current) return;
     ref.current.focus();
-    // Ensure a caret exists so bold/list have something to apply to
     const sel = window.getSelection();
-    if (sel && sel.rangeCount === 0) {
+    if (!sel) return;
+    if (sel.rangeCount === 0 || !ref.current.contains(sel.anchorNode)) {
       const range = document.createRange();
       range.selectNodeContents(ref.current);
       range.collapse(false);
+      sel.removeAllRanges();
       sel.addRange(range);
+    }
+  };
+
+  const run = (cmd: RichCmd) => {
+    if (readOnly || !ref.current) return;
+    ensureCaret();
+    try {
+      document.execCommand('styleWithCSS', false, 'false');
+      document.execCommand('defaultParagraphSeparator', false, 'p');
+    } catch {
+      /* older browsers */
     }
     document.execCommand(cmd, false);
     emit();
+    syncActive();
+  };
+
+  const toolBtn = (
+    cmd: RichCmd,
+    title: string,
+    content: ReactNode,
+    sxExtra?: Record<string, unknown>,
+  ) => {
+    const isOn = !!active[cmd];
+    return (
+      <Tooltip key={cmd + title} title={title} enterDelay={400}>
+        <Box
+          component="button"
+          type="button"
+          aria-label={title}
+          aria-pressed={isOn}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            run(cmd);
+          }}
+          sx={{
+            border: `1px solid ${isOn ? C.blue : C.line}`,
+            bgcolor: isOn ? C.blueSoft : C.slate,
+            borderRadius: 1,
+            minWidth: 30,
+            height: 28,
+            px: 0.85,
+            flexShrink: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 12,
+            fontWeight: isOn ? 800 : 600,
+            color: isOn ? C.blue : C.ink,
+            cursor: 'pointer',
+            lineHeight: 1,
+            boxShadow: isOn ? 'inset 0 0 0 1px rgba(29,78,216,0.25)' : 'none',
+            '&:hover': {
+              bgcolor: isOn ? '#DBEAFE' : '#E8EEF8',
+              borderColor: isOn ? C.blue : '#BFDBFE',
+            },
+            '& .MuiSvgIcon-root': { fontSize: 16, color: 'inherit' },
+            ...sxExtra,
+          }}
+        >
+          {content}
+        </Box>
+      </Tooltip>
+    );
   };
 
   return (
     <Box sx={{ p: 1.75, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
       <Typography sx={{ fontWeight: 800, fontSize: 13.5, mb: 1, color: C.ink }}>{label}</Typography>
       {!readOnly && (
-        <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap' }}>
-          {[
-            { cmd: 'bold', label: 'B', sx: { fontWeight: 800 } as const },
-            { cmd: 'italic', label: 'I', sx: { fontStyle: 'italic' as const } },
-            { cmd: 'underline', label: 'U', sx: { textDecoration: 'underline' as const } },
-            { cmd: 'insertUnorderedList', label: '• List', sx: {} },
-            { cmd: 'insertOrderedList', label: '1. List', sx: {} },
-          ].map((t) => (
-            <Box
-              key={t.cmd}
-              component="button"
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                run(t.cmd);
-              }}
-              sx={{
-                border: `1px solid ${C.line}`,
-                bgcolor: C.slate,
-                borderRadius: 1,
-                px: 1,
-                py: 0.35,
-                fontSize: 12,
-                color: C.ink,
-                cursor: 'pointer',
-                ...t.sx,
-              }}
-            >
-              {t.label}
-            </Box>
-          ))}
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            mb: 1,
+            flexWrap: 'nowrap',
+            alignItems: 'center',
+            overflowX: 'auto',
+            pb: 0.25,
+            '&::-webkit-scrollbar': { height: 4 },
+          }}
+        >
+          {toolBtn('bold', 'Bold', 'B', { fontWeight: 800 })}
+          {toolBtn('italic', 'Italic', 'I', { fontStyle: 'italic' })}
+          {toolBtn('underline', 'Underline', 'U', { textDecoration: 'underline' })}
+          {toolBtn('insertUnorderedList', 'Bulleted list', <FormatListBulleted />)}
+          {toolBtn('insertOrderedList', 'Numbered list', <FormatListNumbered />)}
+          {toolBtn('outdent', 'Decrease indent', <FormatIndentDecrease />)}
+          {toolBtn('indent', 'Increase indent', <FormatIndentIncrease />)}
+          {toolBtn('justifyLeft', 'Align left', <FormatAlignLeft />)}
+          {toolBtn('justifyCenter', 'Align center', <FormatAlignCenter />)}
+          {toolBtn('justifyRight', 'Align right', <FormatAlignRight />)}
         </Stack>
       )}
       <Box
@@ -1302,16 +1495,27 @@ function MomRichField({
         data-placeholder={placeholder}
         onInput={emit}
         onBlur={emit}
+        onKeyUp={syncActive}
+        onMouseUp={syncActive}
+        onFocus={syncActive}
+        onKeyDown={(e) => {
+          if (readOnly) return;
+          // Tab indents list items like Word
+          if (e.key === 'Tab') {
+            e.preventDefault();
+            run(e.shiftKey ? 'outdent' : 'indent');
+          }
+        }}
         sx={{
-          minHeight: 110,
-          px: 1.25,
-          py: 1,
+          minHeight: 160,
+          px: 1.5,
+          py: 1.15,
           borderRadius: 1.5,
           border: `1px solid ${C.line}`,
           bgcolor: readOnly ? C.slate : '#fff',
           outline: 'none',
           fontSize: 13.5,
-          lineHeight: 1.55,
+          lineHeight: 1.6,
           color: C.ink,
           cursor: readOnly ? 'default' : 'text',
           '&:focus': { borderColor: C.blue, boxShadow: '0 0 0 2px rgba(29,78,216,0.12)' },
@@ -1323,8 +1527,21 @@ function MomRichField({
           '& b, & strong': { fontWeight: 700 },
           '& i, & em': { fontStyle: 'italic' },
           '& u': { textDecoration: 'underline' },
-          '& ul, & ol': { pl: 2.5, my: 0.5 },
-          '& p': { m: 0, mb: 0.5 },
+          '& p': { m: 0, mb: 0.35 },
+          '& ul, & ol': {
+            margin: '0.35em 0',
+            paddingLeft: '1.6em',
+            listStylePosition: 'outside',
+          },
+          '& ul': { listStyleType: 'disc' },
+          '& ul ul': { listStyleType: 'circle' },
+          '& ul ul ul': { listStyleType: 'square' },
+          '& ol': { listStyleType: 'decimal' },
+          '& ol ol': { listStyleType: 'lower-alpha' },
+          '& ol ol ol': { listStyleType: 'lower-roman' },
+          '& li': { margin: '0.15em 0', display: 'list-item' },
+          '& li > p': { margin: 0 },
+          '& li + li': { marginTop: '0.2em' },
         }}
       />
     </Box>
@@ -1347,13 +1564,7 @@ function NotesDecisionsEditors({
   seed: string;
 }) {
   return (
-    <Box
-      sx={{
-        display: 'grid',
-        gap: 1.5,
-        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-      }}
-    >
+    <Stack spacing={1.5}>
       <MomRichField
         label="Discussion notes"
         value={discussionNotes}
@@ -1370,7 +1581,7 @@ function NotesDecisionsEditors({
         placeholder="Key decisions taken in this meeting."
         seed={`${seed}:c`}
       />
-    </Box>
+    </Stack>
   );
 }
 
@@ -1378,26 +1589,20 @@ function AgendaPanel({
   meetingId,
   meeting,
   items,
-  minutes,
   canEdit,
-  canEditMom,
   permsLoaded,
   onRefresh,
   onPatchItem,
   onError,
-  onOpenMom,
 }: {
   meetingId: string;
   meeting: any;
   items: any[];
-  minutes: any;
   canEdit: boolean;
-  canEditMom: boolean;
   permsLoaded: boolean;
   onRefresh: () => Promise<void>;
   onPatchItem: (meetingId: string, itemId: string, patch: Record<string, unknown>) => void;
   onError: (m: string) => void;
-  onOpenMom: () => void;
 }) {
   const [agendaSearch, setAgendaSearch] = useState('');
   const [open, setOpen] = useState(false);
@@ -1409,55 +1614,11 @@ function AgendaPanel({
   const [addCategoryId, setAddCategoryId] = useState('');
   const [teamIds, setTeamIds] = useState<Set<string> | null>(null);
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
-  const [discussionNotes, setDiscussionNotes] = useState(minutes?.discussionNotes || '');
-  const [decisions, setDecisions] = useState(minutes?.decisions || '');
-  const [notesBusy, setNotesBusy] = useState(false);
+  const [statusOptions, setStatusOptions] = useState<
+    Array<{ code: string; name: string; color: string }>
+  >([]);
+  const [addStatusCode, setAddStatusCode] = useState('');
   const { data: directory = [], isLoading: directoryLoading } = useEmployeeDirectory();
-
-  useEffect(() => {
-    setDiscussionNotes(minutes?.discussionNotes || '');
-    setDecisions(minutes?.decisions || '');
-  }, [minutes?.id, minutes?.discussionNotes, minutes?.decisions, minutes?.revision]);
-
-  const notesReadOnly = minutes?.status === 'FINAL' || !canEditMom;
-
-  const ensureDraft = async () => {
-    if (minutes) return minutes;
-    const res = await createMeetingMinutesDraft(meetingId);
-    await onRefresh();
-    return res?.minutes || null;
-  };
-
-  const saveNotes = async () => {
-    if (notesReadOnly) return;
-    setNotesBusy(true);
-    try {
-      await ensureDraft();
-      await updateMeetingMinutesDraft(meetingId, { discussionNotes, decisions });
-      await onRefresh();
-    } catch (e) {
-      onError(errMsg(e));
-    } finally {
-      setNotesBusy(false);
-    }
-  };
-
-  const ensureMomThenEdit = async () => {
-    if (minutes) {
-      onOpenMom();
-      return;
-    }
-    setNotesBusy(true);
-    try {
-      await createMeetingMinutesDraft(meetingId);
-      await onRefresh();
-      onOpenMom();
-    } catch (e) {
-      onError(errMsg(e));
-    } finally {
-      setNotesBusy(false);
-    }
-  };
 
   const patchItem = async (
     itemId: string,
@@ -1546,23 +1707,60 @@ function AgendaPanel({
     let cancelled = false;
     (async () => {
       try {
-        const res = await getCompanyAgendaCategories();
-        const rows = (res?.categories || [])
+        const [catRes, stRes] = await Promise.all([
+          getCompanyAgendaCategories(),
+          getCompanyAgendaStatuses(),
+        ]);
+        const rows = (catRes?.categories || [])
           .filter((c: any) => c.isActive !== false)
           .map((c: any) => ({ id: String(c.id), name: String(c.name || '') }))
           .filter((c: { id: string; name: string }) => c.id && c.name)
           .sort((a: { name: string }, b: { name: string }) =>
             a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
           );
-        if (!cancelled) setCategories(rows);
+        const sts = (stRes?.statuses || [])
+          .filter((s: any) => s.isActive !== false)
+          .map((s: any) => ({
+            code: String(s.code || ''),
+            name: String(s.name || ''),
+            color: String(s.color || '#64748B'),
+          }))
+          .filter((s: { code: string; name: string }) => s.code && s.name)
+          .sort((a: { name: string }, b: { name: string }) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+          );
+        if (!cancelled) {
+          setCategories(rows);
+          setStatusOptions(sts);
+        }
       } catch {
-        if (!cancelled) setCategories([]);
+        if (!cancelled) {
+          setCategories([]);
+          setStatusOptions([]);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const defaultOpenCode = useMemo(
+    () =>
+      statusOptions.find((s) => s.code === 'OPEN')?.code
+      || statusOptions.find((s) => /open/i.test(s.name))?.code
+      || statusOptions[0]?.code
+      || 'OPEN',
+    [statusOptions],
+  );
+  const defaultInfoCode = useMemo(
+    () =>
+      statusOptions.find((s) => s.code === 'INFORMATION')?.code
+      || statusOptions.find((s) => /info/i.test(s.name))?.code
+      || statusOptions.find((s) => s.code !== defaultOpenCode)?.code
+      || defaultOpenCode,
+    [statusOptions, defaultOpenCode],
+  );
 
   const assigneeOptions: WtSelectOption[] = useMemo(() => {
     const list = projectId && teamIds
@@ -1588,25 +1786,29 @@ function AgendaPanel({
     setAssignToId('');
     setDueDate('');
     setAddCategoryId('');
+    setAddStatusCode('');
   };
 
   const submit = async () => {
     if (!selectedAgenda.length) return;
     setSaving(true);
     try {
-      const status = assignToId || dueDate ? 'OPEN' : 'INFORMATION';
-      await Promise.all(
-        selectedAgenda.map((item) =>
-          createAgendaItem(meetingId, {
-            description: item.label,
-            itemMode: 'DISCUSSION',
-            status,
-            categoryId: addCategoryId || null,
-            responsibleUserId: assignToId || null,
-            targetCompletionDate: dueDate || null,
-          }),
-        ),
-      );
+      const status =
+        addStatusCode
+        || (assignToId || dueDate ? defaultOpenCode : defaultInfoCode);
+      const payloads = selectedAgenda.map((item) => ({
+        description: item.label,
+        itemMode: 'DISCUSSION',
+        status,
+        categoryId: addCategoryId || null,
+        responsibleUserId: assignToId || null,
+        targetCompletionDate: dueDate || null,
+      }));
+      if (payloads.length === 1) {
+        await createAgendaItem(meetingId, payloads[0]);
+      } else {
+        await createAgendaItemsBulk(meetingId, payloads);
+      }
       setOpen(false);
       resetForm();
       await onRefresh();
@@ -1717,7 +1919,13 @@ function AgendaPanel({
               </Box>
               <Box component="tbody">
                 {visibleItems.map((item: any, idx: number) => {
-                  const tone = statusTone(item.statusLabel || item.status);
+                  const statusMeta =
+                    statusOptions.find((s) => s.code === item.status)
+                    || null;
+                  const tone = statusTone(
+                    item.statusLabel || statusMeta?.name || item.status,
+                    item.statusColor || statusMeta?.color,
+                  );
                   const rowBusy = rowBusyId === item.id;
                   const assigneeVal =
                     assigneeOptions.find((a) => a.value === item.responsibleUserId) || null;
@@ -1785,7 +1993,8 @@ function AgendaPanel({
                               ariaLabel="Assignee"
                               onChange={(next) => {
                                 const opt = next as WtSelectOption | null;
-                                const status = opt || dueVal ? 'OPEN' : item.status;
+                                const status = opt || dueVal ? defaultOpenCode : item.status;
+                                const meta = statusOptions.find((s) => s.code === status);
                                 void patchItem(
                                   item.id,
                                   {
@@ -1796,7 +2005,8 @@ function AgendaPanel({
                                     responsibleUserId: opt?.value || null,
                                     responsibleName: opt?.label || null,
                                     status,
-                                    statusLabel: status === 'OPEN' ? 'Open' : item.statusLabel,
+                                    statusLabel: meta?.name || item.statusLabel,
+                                    statusColor: meta?.color || item.statusColor,
                                   },
                                 );
                               }}
@@ -1813,7 +2023,8 @@ function AgendaPanel({
                             value={dueVal}
                             disabled={rowBusy}
                             onChange={(v) => {
-                              const status = v || item.responsibleUserId ? 'OPEN' : item.status;
+                              const status = v || item.responsibleUserId ? defaultOpenCode : item.status;
+                              const meta = statusOptions.find((s) => s.code === status);
                               void patchItem(
                                 item.id,
                                 {
@@ -1823,7 +2034,8 @@ function AgendaPanel({
                                 {
                                   targetCompletionDate: v || null,
                                   status,
-                                  statusLabel: status === 'OPEN' ? 'Open' : item.statusLabel,
+                                  statusLabel: meta?.name || item.statusLabel,
+                                  statusColor: meta?.color || item.statusColor,
                                 },
                               );
                             }}
@@ -1832,30 +2044,64 @@ function AgendaPanel({
                           fmtDate(item.targetCompletionDate)
                         )}
                       </Box>
-                      <Box component="td">
-                        <Chip
-                          size="small"
-                          label={tone.label}
-                          sx={{
-                            height: 22,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            bgcolor: tone.bg,
-                            color: tone.fg,
-                          }}
-                        />
-                      </Box>
-                      <Box component="td">
-                        {canEdit && (
-                          <WtButton
+                      <Box component="td" sx={{ minWidth: 130 }}>
+                        {canEdit && statusOptions.length > 0 ? (
+                          <TextField
+                            select
                             size="small"
-                            ghost
+                            fullWidth
+                            disabled={rowBusy}
+                            value={
+                              statusOptions.some((s) => s.code === item.status)
+                                ? item.status
+                                : (statusOptions[0]?.code || '')
+                            }
+                            onChange={(e) => {
+                              const status = e.target.value;
+                              const meta = statusOptions.find((s) => s.code === status);
+                              void patchItem(
+                                item.id,
+                                { status },
+                                {
+                                  status,
+                                  statusLabel: meta?.name || status,
+                                  statusColor: meta?.color || null,
+                                },
+                              );
+                            }}
+                            sx={{ '& .MuiInputBase-root': { fontSize: 13 } }}
+                          >
+                            {statusOptions.map((s) => (
+                              <MenuItem key={s.code} value={s.code}>
+                                {s.name}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        ) : (
+                          <Chip
+                            size="small"
+                            label={String(tone.label || '—')}
+                            sx={{
+                              height: 22,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              bgcolor: tone.bg,
+                              color: tone.fg,
+                            }}
+                          />
+                        )}
+                      </Box>
+                      <Box component="td" sx={{ width: 44, textAlign: 'center' }}>
+                        {canEdit && (
+                          <WtIconButton
+                            title="Remove agenda item"
+                            color="#DC2626"
                             disabled={rowBusy}
                             onClick={() => onDelete(item.id)}
-                            sx={{ color: '#DC2626 !important', minWidth: 0, px: 1 }}
+                            sx={{ width: 32, height: 32, borderRadius: '10px' }}
                           >
-                            Remove
-                          </WtButton>
+                            <AppIcon name="bi-trash" fallbackSize={14} />
+                          </WtIconButton>
                         )}
                       </Box>
                     </Box>
@@ -1866,52 +2112,6 @@ function AgendaPanel({
           </Box>
         )}
       </Box>
-
-      <Stack spacing={1}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Typography sx={{ fontWeight: 800, fontSize: 14, color: C.ink }}>
-            Discussion notes & decisions
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            {!minutes && canEditMom && (
-              <WtButton size="small" inverted disabled={notesBusy} onClick={ensureMomThenEdit}>
-                Open MoM
-              </WtButton>
-            )}
-            {!notesReadOnly && (
-              <WtButton size="small" inverted disabled={notesBusy} onClick={saveNotes}>
-                Save notes
-              </WtButton>
-            )}
-          </Stack>
-        </Stack>
-        {notesReadOnly && permsLoaded && (
-          <Alert severity="info">
-            {minutes?.status === 'FINAL'
-              ? 'Minutes are finalized — create an amendment draft on the Minutes tab to edit notes.'
-              : 'Only the organizer or a project manager can edit discussion notes and decisions.'}
-          </Alert>
-        )}
-        <NotesDecisionsEditors
-          discussionNotes={discussionNotes}
-          decisions={decisions}
-          setDiscussionNotes={setDiscussionNotes}
-          setDecisions={setDecisions}
-          readOnly={notesReadOnly}
-          seed={`${meetingId}-${minutes?.id || 'none'}-${minutes?.revision ?? 0}`}
-        />
-      </Stack>
-
-      <Alert
-        severity="warning"
-        sx={{
-          bgcolor: C.amberWash,
-          color: C.ink,
-          '& .MuiAlert-icon': { color: C.amber },
-        }}
-      >
-        Meetings without an agenda are marked in amber on the left. Select one to add agenda items.
-      </Alert>
 
       <Dialog open={open} onClose={() => !saving && setOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Add agenda items</DialogTitle>
@@ -1999,6 +2199,20 @@ function AgendaPanel({
               </Box>
             </Box>
             <WtDateField label="Due date" value={dueDate} onChange={setDueDate} />
+            <TextField
+              select
+              size="small"
+              fullWidth
+              label="Status"
+              value={addStatusCode || (assignToId || dueDate ? defaultOpenCode : defaultInfoCode)}
+              onChange={(e) => setAddStatusCode(e.target.value)}
+            >
+              {statusOptions.map((s) => (
+                <MenuItem key={s.code} value={s.code}>
+                  {s.name}
+                </MenuItem>
+              ))}
+            </TextField>
           </Stack>
         </DialogContent>
         <DialogActions>
