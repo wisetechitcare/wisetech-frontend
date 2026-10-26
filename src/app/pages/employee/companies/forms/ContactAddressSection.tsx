@@ -8,6 +8,7 @@ import SmartLocationPicker, {
   GeoPick,
 } from "@app/modules/common/components/SmartLocationPicker";
 import { CrmSection } from "./CrmSection";
+import type { IFormField } from "@models/company";
 
 type Loc = { id: string; name: string; iso2?: string };
 
@@ -21,7 +22,16 @@ type Props = {
   setSelectedState: (id: string) => void;
   handleCountryChange: (countryId: string) => void | Promise<void>;
   handleStateChange: (countryId: string, stateId: string) => void | Promise<void>;
+  /** Formik names for the fields whose name differs per form (Company uses
+   *  addressLine1 / googleMapsLink / gmbProfileUrl). Defaults are the contact's. */
+  fields?: { address?: string; googleMapLink?: string; gmbLink?: string };
+  /** The host form's Address-section schema, keyed by Formik name. Omit for the default layout. */
+  schema?: IFormField[];
+  /** Section heading — the schema's section title when the host lets admins rename it. */
+  title?: string;
 };
+
+const DROPDOWNS = new Set(["country", "state", "city"]);
 
 const norm = (s: string) =>
   String(s || "")
@@ -42,8 +52,12 @@ export function ContactAddressSection({
   setSelectedState,
   handleCountryChange,
   handleStateChange,
+  fields = {},
+  schema,
+  title = "Address",
 }: Props) {
   const { values, setFieldValue } = useFormikContext<any>();
+  const { address = "address", googleMapLink = "googleMapLink", gmbLink = "gmbLink" } = fields;
   const pendingGeo = useRef<{ state?: string; city?: string } | null>(null);
 
   const byName = (list: Loc[], name?: string) =>
@@ -52,8 +66,8 @@ export function ContactAddressSection({
   const applyGeoPick = (geo: GeoPick) => {
     setFieldValue("latitude", String(geo.lat));
     setFieldValue("longitude", String(geo.lng));
-    setFieldValue("googleMapLink", geo.googleMapLink);
-    if (geo.formatted) setFieldValue("address", geo.formatted);
+    setFieldValue(googleMapLink, geo.googleMapLink);
+    if (geo.formatted) setFieldValue(address, geo.formatted);
     if (geo.locality) setFieldValue("area", geo.locality);
     if (geo.postcode) setFieldValue("zipCode", geo.postcode);
 
@@ -92,8 +106,8 @@ export function ContactAddressSection({
   }, [cities]);
 
   // Parse lat/lng out of a pasted Google Maps link when coords are empty.
+  const link = values[googleMapLink];
   useEffect(() => {
-    const link = values.googleMapLink;
     if (link && !values.latitude && !values.longitude) {
       const latLngMatch = String(link).match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
       if (latLngMatch) {
@@ -101,10 +115,91 @@ export function ContactAddressSection({
         setFieldValue("longitude", latLngMatch[2]);
       }
     }
-  }, [values.googleMapLink, values.latitude, values.longitude, setFieldValue]);
+  }, [link, values.latitude, values.longitude, setFieldValue]);
+
+
+  // Each manual-override input, in default order. With a `schema`, the host form's
+  // field settings (label, required, hidden, order) apply; without one this is the
+  // contact layout exactly as before.
+  const items: { name: string; md: number; render: (label: string | undefined, required: boolean) => React.ReactNode }[] = [
+    { name: "country", md: 4, render: (label, required) => (
+      <DropDownInput
+        formikField="country"
+        inputLabel={label || "Country"}
+        options={countries.map((c) => ({ label: c.name, value: c.id }))}
+        isRequired={required}
+        onChange={(option: any) => {
+          setFieldValue("country", option?.value || "");
+          setFieldValue("state", "");
+          setFieldValue("city", "");
+          setSelectedCountry(option?.value || "");
+          setSelectedState("");
+          if (option?.value) void handleCountryChange(option.value);
+        }}
+        value={selectedCountry ? { label: countries.find((c) => c.id === selectedCountry)?.name || "", value: selectedCountry } : null}
+      />
+    )},
+    { name: "state", md: 4, render: (label, required) => (
+      <DropDownInput
+        formikField="state"
+        inputLabel={label || "State"}
+        options={selectedCountry ? states.map((s) => ({ label: s.name, value: s.id })) : []}
+        placeholder={!selectedCountry ? "Please select country first" : "Select State"}
+        isRequired={required}
+        onChange={(option: any) => {
+          setFieldValue("state", option?.value || "");
+          setFieldValue("city", "");
+          setSelectedState(option?.value || "");
+          if (option?.value && selectedCountry) void handleStateChange(selectedCountry, option.value);
+        }}
+        value={selectedState ? { label: states.find((s) => s.id === selectedState)?.name || "", value: selectedState } : null}
+      />
+    )},
+    { name: "city", md: 4, render: (label, required) => (
+      <DropDownInput
+        formikField="city"
+        inputLabel={label || "City"}
+        options={
+          selectedState
+            ? [
+                ...cities.map((c) => ({ label: c.name, value: c.id })),
+                ...(values.city && !cities.find((c) => c.id === values.city) ? [{ label: values.city, value: values.city }] : []),
+              ]
+            : []
+        }
+        placeholder={!selectedState ? "Please select state first" : "Select City"}
+        isRequired={required}
+        onChange={(option: any) => setFieldValue("city", option?.value || "")}
+        value={values.city ? { label: cities.find((c) => c.id === values.city)?.name || values.city, value: values.city } : null}
+      />
+    )},
+    { name: "area", md: 6, render: (label, required) => (
+      <TextInput formikField="area" label={label || "Locality"} placeholder="Area / neighbourhood — auto-filled from the map" isRequired={required} />
+    )},
+    { name: "zipCode", md: 6, render: (label, required) => (
+      <TextInput formikField="zipCode" label={label || "Pincode"} isRequired={required} />
+    )},
+    { name: address, md: 6, render: (label, required) => (
+      <TextInput formikField={address} label={label || "Formatted Address"} placeholder="Building, street, landmark" isRequired={required} />
+    )},
+    { name: "latitude", md: 3, render: (label, required) => (
+      <TextInput formikField="latitude" label={label || "Latitude"} isRequired={required} inputValidation="signed-decimal" />
+    )},
+    { name: "longitude", md: 3, render: (label, required) => (
+      <TextInput formikField="longitude" label={label || "Longitude"} isRequired={required} inputValidation="signed-decimal" />
+    )},
+    { name: googleMapLink, md: 6, render: (label, required) => (
+      <TextInput formikField={googleMapLink} label={label || "Google Map Link"} placeholder="https://www.google.com/maps/@19.1234,72.8765,17z" isRequired={required} />
+    )},
+    { name: gmbLink, md: 6, render: (label, required) => (
+      <TextInput formikField={gmbLink} label={label || "Google My Business Link"} isRequired={required} />
+    )},
+  ];
+  const schemaOf = (name: string) => schema?.find((f) => f.id === name);
+  if (schema) items.sort((a, b) => schema.findIndex((f) => f.id === a.name) - schema.findIndex((f) => f.id === b.name));
 
   return (
-    <CrmSection title="Address">
+    <CrmSection title={title}>
       <SmartLocationPicker
         lat={values.latitude}
         lng={values.longitude}
@@ -113,159 +208,18 @@ export function ContactAddressSection({
         <Typography sx={{ fontSize: 13, fontWeight: 700, mt: 2, mb: 1.5 }}>
           Advanced Location Details (Manual Override)
         </Typography>
-        <Row className="g-3">
-          <Col md={4}>
-            <DropDownInput
-              formikField="country"
-              inputLabel="Country"
-              options={countries.map((c) => ({ label: c.name, value: c.id }))}
-              isRequired={false}
-              onChange={(option: any) => {
-                setFieldValue("country", option?.value || "");
-                setFieldValue("state", "");
-                setFieldValue("city", "");
-                setSelectedCountry(option?.value || "");
-                setSelectedState("");
-                if (option?.value) void handleCountryChange(option.value);
-              }}
-              value={
-                selectedCountry
-                  ? {
-                      label:
-                        countries.find((c) => c.id === selectedCountry)?.name ||
-                        "",
-                      value: selectedCountry,
-                    }
-                  : null
-              }
-            />
-          </Col>
-          <Col md={4}>
-            <DropDownInput
-              formikField="state"
-              inputLabel="State"
-              options={
-                selectedCountry
-                  ? states.map((s) => ({ label: s.name, value: s.id }))
-                  : []
-              }
-              placeholder={
-                !selectedCountry
-                  ? "Please select country first"
-                  : "Select State"
-              }
-              isRequired={false}
-              onChange={(option: any) => {
-                setFieldValue("state", option?.value || "");
-                setFieldValue("city", "");
-                setSelectedState(option?.value || "");
-                if (option?.value && selectedCountry) {
-                  void handleStateChange(selectedCountry, option.value);
-                }
-              }}
-              value={
-                selectedState
-                  ? {
-                      label:
-                        states.find((s) => s.id === selectedState)?.name || "",
-                      value: selectedState,
-                    }
-                  : null
-              }
-            />
-          </Col>
-          <Col md={4}>
-            <DropDownInput
-              formikField="city"
-              inputLabel="City"
-              options={
-                selectedState
-                  ? [
-                      ...cities.map((c) => ({ label: c.name, value: c.id })),
-                      ...(values.city &&
-                      !cities.find((c) => c.id === values.city)
-                        ? [{ label: values.city, value: values.city }]
-                        : []),
-                    ]
-                  : []
-              }
-              placeholder={
-                !selectedState ? "Please select state first" : "Select City"
-              }
-              isRequired={false}
-              onChange={(option: any) =>
-                setFieldValue("city", option?.value || "")
-              }
-              value={
-                values.city
-                  ? {
-                      label:
-                        cities.find((c) => c.id === values.city)?.name ||
-                        values.city,
-                      value: values.city,
-                    }
-                  : null
-              }
-            />
-          </Col>
-
-          <Col md={6}>
-            <TextInput
-              formikField="area"
-              label="Locality"
-              placeholder="Area / neighbourhood — auto-filled from the map"
-              isRequired={false}
-            />
-          </Col>
-          <Col md={6}>
-            <TextInput
-              formikField="zipCode"
-              label="Pincode"
-              isRequired={false}
-            />
-          </Col>
-
-          <Col md={6}>
-            <TextInput
-              formikField="address"
-              label="Formatted Address"
-              placeholder="Building, street, landmark"
-              isRequired={false}
-            />
-          </Col>
-          <Col md={3}>
-            <TextInput
-              formikField="latitude"
-              label="Latitude"
-              isRequired={false}
-              inputValidation="signed-decimal"
-            />
-          </Col>
-          <Col md={3}>
-            <TextInput
-              formikField="longitude"
-              label="Longitude"
-              isRequired={false}
-              inputValidation="signed-decimal"
-            />
-          </Col>
-
-          <Col md={6}>
-            <TextInput
-              formikField="googleMapLink"
-              label="Google Map Link"
-              placeholder="https://www.google.com/maps/@19.1234,72.8765,17z"
-              isRequired={false}
-            />
-          </Col>
-          <Col md={6}>
-            <TextInput
-              formikField="gmbLink"
-              label="Google My Business Link"
-              isRequired={false}
-            />
-          </Col>
-        </Row>
+        {/* Two rows on purpose: the dropdowns label ABOVE the box, the text inputs float
+            theirs IN the border, so a row mixing the two staggers. Schema order applies
+            within each row, never across them. */}
+        {[items.filter((i) => DROPDOWNS.has(i.name)), items.filter((i) => !DROPDOWNS.has(i.name))].map((row, r) => (
+          <Row key={r} className={r ? "g-3 mt-0" : "g-3"}>
+            {row.map(({ name, md, render }) => {
+              const f = schemaOf(name);
+              if (f?.hidden) return null;
+              return <Col key={name} md={md}>{render(f?.label, !!f?.required)}</Col>;
+            })}
+          </Row>
+        ))}
       </SmartLocationPicker>
     </CrmSection>
   );
