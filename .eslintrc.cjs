@@ -106,6 +106,15 @@ module.exports = {
             message: 'Use WtChoiceField from @app/modules/common/components/ui. RadioInput is deprecated for new feature work.',
           },
         ],
+        /* ADR-001 (docs/DESIGN_SYSTEM_DECISION.md): the WiseTech kit is the design system, owned
+         * code on Radix + Tailwind. Competing component libraries never enter the app — they
+         * bring their own look, theme and focus rules, which is how four visual systems piled up. */
+        patterns: [
+          {
+            group: ['antd', 'antd/*', '@ant-design/*', '@mantine/*', '@chakra-ui/*', '@carbon/*'],
+            message: 'Not part of the WiseTech design system (ADR-001). Use the kit: @app/modules/common/components/ui — add a component there if one is missing.',
+          },
+        ],
       },
     ],
 
