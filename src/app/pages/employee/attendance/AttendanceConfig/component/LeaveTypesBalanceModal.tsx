@@ -144,7 +144,7 @@ export function LeaveTypesBalanceModal({ open, onClose, readOnly }: LeaveTypesBa
         throw new Error('Failed to update some leave settings');
       }
 
-      await successConfirmation('Leave settings updated successfully!');
+      await successConfirmation('Leave settings saved.');
       eventBus.emit(EVENT_KEYS.leaveOptionsUpdated, {});
       onClose();
     } catch (err: any) {

@@ -485,7 +485,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     try {
       await processApprovalAction(step.instance.id, 'approve');
       setSteps((prev) => prev.filter((s) => s.id !== step.id));
-      successConfirmation('Request has been approved successfully.', 'Approved!');
+      successConfirmation('Request approved.', 'Approved');
     } catch (err: any) {
       errorConfirmation(apiErrorMessage(err, 'Failed to approve this request.'));
     } finally {

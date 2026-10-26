@@ -194,7 +194,7 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
     });
 
     const deleteLeaveRequest = async (id: string) => {
-        const confirmed = await deleteConfirmation("Leave Request deleted successfully!");
+        const confirmed = await deleteConfirmation("Leave request deleted.");
         if (!confirmed) return;
         await deleteLeaveRequestById(id);
         successConfirmation("Leave Request Deleted Successfully");

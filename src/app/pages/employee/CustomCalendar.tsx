@@ -1758,7 +1758,7 @@ function CustomCalendar() {
                     setShowNewHolidayForm={undefined} 
                     selectedDateTimeInfo={selectedDateTimeInfo}
                     setRefetch={setHolidayRefresh}
-                    sendNotification={() => successConfirmation('Holiday added successfully')}
+                    sendNotification={() => successConfirmation('Holiday added.')}
                 />
                 </Modal.Body>
             </Modal>

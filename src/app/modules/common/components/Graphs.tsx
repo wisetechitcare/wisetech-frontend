@@ -2073,7 +2073,7 @@ export const ReportsTable = ({
     const deleteRequest = async (values: any) => {
 
         try {
-            const confirm = await deleteConfirmation('Attendance Request deleted successfully');
+            const confirm = await deleteConfirmation('Attendance request deleted.');
             if (!confirm) return;
             await deleteAttendanceRequestById(values.id);
             // successConfirmation('Attendance Request deleted successfully');

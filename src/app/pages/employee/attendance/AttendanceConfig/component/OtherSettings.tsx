@@ -339,7 +339,7 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
         })
       );
 
-      successConfirmation('All settings saved successfully!');
+      successConfirmation('Settings saved.');
     } catch (error) {
       console.error('Failed to save settings:', error);
       errorConfirmation('Failed to save settings. Please try again.');

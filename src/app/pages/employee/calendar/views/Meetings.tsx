@@ -139,7 +139,7 @@ const Meetings = () => {
     if (confirmed) {
       try {
         await deleteMeeting(meetingId, currentEmployeeId);
-        successConfirmation('Meeting deleted successfully');
+        successConfirmation('Meeting deleted.');
         reload();
       } catch (error) {
         console.error('Error deleting meeting', error);

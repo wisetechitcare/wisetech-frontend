@@ -244,7 +244,7 @@ function PublicHolidaysListTwo({
                 const res = await deletePublicHolidayById(item?.id as string);
                 if (!res?.hasError) {
                     setRefetch(prev => !prev);
-                    successConfirmation('Holiday deleted successfully');
+                    successConfirmation('Holiday deleted.');
                 }
             } catch (error) {
                 console.log("error: ", error);
