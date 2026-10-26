@@ -539,7 +539,6 @@ export interface MyCheckInGeofence {
     radiusMeters: number | null;
     center: { latitude: number; longitude: number } | null;
     branchName: string | null;
-    gpsAccuracyAllowanceCapMeters: number;
 }
 
 export const fetchMyCheckInGeofence = async (): Promise<MyCheckInGeofence> => {

@@ -1133,7 +1133,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [lastSubmitTime, setLastSubmitTime] = useState<number>(0);
     const dispatch = useDispatch();
-    const { btnText, currentAddress, employeeId, position: { latitude, longitude, accuracy }, disableBtn, personalAttendance, workingMethodOptions } = useSelector((state: RootState) => {
+    const { btnText, currentAddress, employeeId, position: { latitude, longitude }, disableBtn, personalAttendance, workingMethodOptions } = useSelector((state: RootState) => {
         const { employee, attendance } = state;
         return {
             personalAttendance: attendance.personalAttendance,
@@ -1339,8 +1339,6 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
                 checkInLocation: currentAddress,
                 workingMethodId: values.workingMethod,
                 verificationId,
-                // The server re-checks the office fence and forgives this much GPS error.
-                locationAccuracy: accuracy ?? null,
             }
 
             // calculation for Late Attendance Days
@@ -1964,11 +1962,10 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
         center: geofence?.center,
         point: { latitude: Number(latitude), longitude: Number(longitude) },
         radiusMeters: geofence?.radiusMeters,
-        accuracyMeters: accuracy,
-    }), [geofence, latitude, longitude, accuracy]);
+    }), [geofence, latitude, longitude]);
     /** Shown only when the fence is what's holding the check-in back. */
     const fenceRefusal = dayState !== 'in' && isOfficeMethod && fenceResult.verdict === 'outside' && geofence?.radiusMeters
-        ? outsideFenceMessage(fenceResult, geofence.radiusMeters, geofence.branchName, accuracy)
+        ? outsideFenceMessage(fenceResult, geofence.radiusMeters, geofence.branchName)
         : null;
 
     useEffect(()=>{

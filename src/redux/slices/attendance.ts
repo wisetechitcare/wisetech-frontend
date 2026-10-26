@@ -4,8 +4,6 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 interface Location {
     latitude: number;
     longitude: number;
-    /** Reported GPS accuracy in metres (68% confidence). The office fence forgives this much. */
-    accuracy?: number;
 }
 
 interface Attendance {

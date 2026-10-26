@@ -307,7 +307,7 @@ function OverviewView() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((position: any) => {
                 const { coords: { latitude, longitude } } = position;
-                dispatch(saveCoordinates({ latitude, longitude, accuracy: position?.coords?.accuracy }));
+                dispatch(saveCoordinates({ latitude, longitude }));
                 dispatch(toggleLocationPermission(true));
             },()=>{ 
                 console.warn('Error in fetching ocation from OverviewView.tsx: Unable to retrieve your location')

@@ -2,39 +2,24 @@
  * Twin of the backend's officeGeofence tests — same cases, so the button and the server agree.
  */
 import { describe, expect, it } from 'vitest';
-import {
-    GPS_ACCURACY_ALLOWANCE_CAP_METERS,
-    evaluateOfficeGeofence,
-    isOfficeWorkingMethod,
-    outsideFenceMessage,
-} from './officeGeofence';
+import { evaluateOfficeGeofence, isOfficeWorkingMethod, outsideFenceMessage } from './officeGeofence';
 
 // A branch pin, and points due north of it. 0.0001° of latitude is ~11.1 m.
 const office = { latitude: 19.076, longitude: 72.8777 };
 const north = (metres: number) => ({ latitude: office.latitude + metres / 111_195, longitude: office.longitude });
 
-describe('the radius is what the admin typed', () => {
+describe('the radius is exactly what the admin typed', () => {
+    it('inside the radius is inside', () => {
+        expect(evaluateOfficeGeofence({ center: office, point: north(10), radiusMeters: 12 }).verdict).toBe('inside');
+    });
+    it('exactly on the radius is inside ("within 12 m")', () => {
+        expect(evaluateOfficeGeofence({ center: office, point: north(11.99), radiusMeters: 12 }).verdict).toBe('inside');
+    });
+    it('one step past the radius is outside — nothing is added to it', () => {
+        expect(evaluateOfficeGeofence({ center: office, point: north(13), radiusMeters: 12 }).verdict).toBe('outside');
+    });
     it('a 12 m setting fences at 12 m, not 72 m (the hidden ×6 is gone)', () => {
-        expect(evaluateOfficeGeofence({ center: office, point: north(60), radiusMeters: 12, accuracyMeters: 5 }).verdict).toBe('outside');
-    });
-    it('a precise reading inside the radius is inside', () => {
-        expect(evaluateOfficeGeofence({ center: office, point: north(10), radiusMeters: 12, accuracyMeters: 3 }).verdict).toBe('inside');
-    });
-});
-
-describe('GPS error is forgiven, within a cap', () => {
-    it('a reading whose error circle overlaps the office is inside', () => {
-        const r = evaluateOfficeGeofence({ center: office, point: north(40), radiusMeters: 12, accuracyMeters: 30 });
-        expect(r.verdict).toBe('inside');
-        expect(r.allowanceMeters).toBe(30);
-    });
-    it('a ±2 km fix does not open the fence to the city', () => {
-        const r = evaluateOfficeGeofence({ center: office, point: north(1500), radiusMeters: 12, accuracyMeters: 2000 });
-        expect(r.verdict).toBe('outside');
-        expect(r.allowanceMeters).toBe(GPS_ACCURACY_ALLOWANCE_CAP_METERS);
-    });
-    it('no reported accuracy gets the cap', () => {
-        expect(evaluateOfficeGeofence({ center: office, point: north(55), radiusMeters: 12 }).verdict).toBe('inside');
+        expect(evaluateOfficeGeofence({ center: office, point: north(60), radiusMeters: 12 }).verdict).toBe('outside');
     });
 });
 
@@ -53,8 +38,8 @@ describe('labels and wording', () => {
         expect(isOfficeWorkingMethod('Hybrid')).toBe(false);
     });
     it('says how far, the limit, and what to do', () => {
-        const r = evaluateOfficeGeofence({ center: office, point: north(140), radiusMeters: 12, accuracyMeters: 8 });
-        expect(outsideFenceMessage(r, 12, 'Andheri', 8)).toBe(
+        const r = evaluateOfficeGeofence({ center: office, point: north(140), radiusMeters: 12 });
+        expect(outsideFenceMessage(r, 12, 'Andheri')).toBe(
             "You're about 140 m from Andheri. Office check-in works within 12 m of the office. Move closer, or choose another working method.",
         );
     });

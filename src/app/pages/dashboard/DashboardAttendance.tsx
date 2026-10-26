@@ -103,7 +103,7 @@ function DashboardAttendance() {
 
             setLongitudeNew(position?.coords?.longitude);
             if(position?.coords?.latitude && position?.coords?.longitude){
-                dispatch(saveCoordinates({ latitude: position?.coords?.latitude, longitude: position?.coords?.longitude, accuracy: position?.coords?.accuracy }));
+                dispatch(saveCoordinates({ latitude: position?.coords?.latitude, longitude: position?.coords?.longitude }));
             }
         }, (error) => {
             // console.log("error:: ", error);
@@ -380,7 +380,7 @@ useEffect(() => {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((position: any) => {
                 const { coords: { latitude, longitude } } = position;
-                dispatch(saveCoordinates({ latitude, longitude, accuracy: position?.coords?.accuracy }));
+                dispatch(saveCoordinates({ latitude, longitude }));
                 dispatch(toggleLocationPermission(true));
             },()=>{
                 console.warn('Error in fetching location from OverviewView.tsx: Unable to retrieve your location')
