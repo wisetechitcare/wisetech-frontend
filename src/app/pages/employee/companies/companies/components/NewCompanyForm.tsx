@@ -16,12 +16,12 @@ import {
   fetchAllStates,
 } from "@services/options";
 
-import { Formik, Form as FormikForm, Field, FieldArray, ErrorMessage, type FormikProps } from "formik";
+import { Formik, Form as FormikForm, FieldArray, type FormikProps } from "formik";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtSwitch } from "@app/modules/common/components/ui";
+import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtSwitch, WtField, WtFieldFormik, FloatingLabels, FloatingLabelFrame } from "@app/modules/common/components/ui";
 import { Box } from "@mui/material";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Select from "react-select";
@@ -740,37 +740,33 @@ const NewCompanyForm: React.FC<Props> = ({
         />
       );
     }
+    // Kit fields, so custom fields float their labels like the built-ins around them.
     if (field.type === "date") {
       return (
-        <>
-          <label className="form-label">{field.label}{reqMark}</label>
-          <WtDateField
-            value={field.value ?? ""}
-            onChange={(v) => updateCustomValue(sectionId, field.id, v)}
-          />
-          {customErrors[field.id] && <div className="text-danger small mt-1">{customErrors[field.id]}</div>}
-        </>
+        <WtDateField
+          label={field.label}
+          required={field.required}
+          value={field.value ?? ""}
+          onChange={(v) => updateCustomValue(sectionId, field.id, v)}
+          error={!!customErrors[field.id]}
+          helperText={customErrors[field.id]}
+          fullWidth
+        />
       );
     }
     const isNumber = field.type === "number";
     return (
-      <>
-        <label className="form-label">{field.label}{reqMark}</label>
-        <input
-          type="text"
-          inputMode={isNumber ? "decimal" : undefined}
-          className="form-control"
-          placeholder={field.label}
-          value={field.value ?? ""}
-          onChange={(e) => {
-            const next = isNumber
-              ? e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
-              : e.target.value;
-            updateCustomValue(sectionId, field.id, next);
-          }}
-        />
-        {customErrors[field.id] && <div className="text-danger small mt-1">{customErrors[field.id]}</div>}
-      </>
+      <WtField
+        label={field.label}
+        required={field.required}
+        inputMode={isNumber ? "decimal" : undefined}
+        value={field.value ?? ""}
+        onChange={(v) => {
+          const raw = String(v ?? "");
+          updateCustomValue(sectionId, field.id, isNumber ? raw.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1") : raw);
+        }}
+        error={customErrors[field.id]}
+      />
     );
   };
 
@@ -1394,36 +1390,27 @@ const NewCompanyForm: React.FC<Props> = ({
                     />
                   );
                 case "blacklisted":
-                  // Same label row + 42px box as the Status dropdown beside it, so the two
-                  // line up. A blacklisted company is highlighted in the list.
+                  // A toggle always has a value, so its label sits in the border like the
+                  // filled Status dropdown beside it. A blacklisted company is highlighted in the list.
                   return (
-                    <Box sx={{ display: "flex", flexDirection: "column" }}>
-                      <Box component="label" htmlFor="blacklistedToggle" sx={{ fontSize: 13.5, fontWeight: 500, color: "text.primary", mb: 1 }}>
-                        {label}
-                      </Box>
+                    <FloatingLabelFrame label={label} filled>
                       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, minHeight: 42, px: 1.5, border: 1, borderColor: "divider", borderRadius: "8px", bgcolor: "background.paper" }}>
                         <Box component="span" sx={{ fontSize: 13.5, fontWeight: 600, color: values.blacklisted ? "error.main" : "text.secondary" }}>
                           {values.blacklisted ? "Yes — blacklisted" : "No"}
                         </Box>
                         <WtSwitch
-                          id="blacklistedToggle"
                           size="sm"
                           tone="#DC2626"
+                          aria-label={label}
                           checked={!!values.blacklisted}
                           onChange={(_, checked) => setFieldValue("blacklisted", checked)}
                         />
                       </Box>
-                    </Box>
+                    </FloatingLabelFrame>
                   );
                 case "note":
                   return (
-                    <>
-                      <label className="form-label">
-                        {label}{req && <span style={{ color: "#dc3545" }}> *</span>}
-                      </label>
-                      <Field as="textarea" name="note" className="form-control" rows={3} placeholder="Enter note" />
-                      <ErrorMessage name="note" component="div" className="text-danger small mt-1" />
-                    </>
+                    <WtFieldFormik name="note" label={label} required={req} multiline minRows={3} placeholder="Enter note" />
                   );
                 default:
                   // gstNumber, panNumber, gstAddress, fax — plain text built-ins.
@@ -1546,6 +1533,8 @@ const NewCompanyForm: React.FC<Props> = ({
 
             return (
               <FormikForm style={{ height: "100%" }}>
+                {/* Every field in the wizard: label rests in the empty box, floats up on focus/value. */}
+                <FloatingLabels>
                 <CompanyWorkspace
                   isEdit={isEditMode}
                   onCancel={discard.requestClose}
@@ -1584,6 +1573,7 @@ const NewCompanyForm: React.FC<Props> = ({
                         ]
                   }
                 />
+                </FloatingLabels>
               </FormikForm>
             );
           }}

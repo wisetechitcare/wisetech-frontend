@@ -47,6 +47,7 @@ are built from.
 | Brand logo glyph (WhatsApp…) | `WhatsAppIcon` from `brandIcons` | `KTIcon iconName="whatsapp"` — the duotone font paints its first layer at 40% opacity, so the mark washes out |
 | Close (×) | `WtCloseButton` (`ui/tw/WtCloseButton`) | a `&times;` in an `IconButton` |
 | **Any labelled input** (text, number, textarea, select) | **`WtField`** | `InputLabel` + `Select`/`TextField` assembled by hand |
+| Labels that rest **inside** the empty field and float up on focus/value (placeholder-as-label) | Wrap the form in **`<FloatingLabels>`** — `WtField`, `TextInput`, `DropDownInput`, `MultiSelectWithInlineCreate`, `WtPhoneField` and the map search follow it; wrap any other control in **`FloatingLabelFrame`** | a per-screen CSS transform on `.MuiInputLabel-root`, or a hand-rolled absolutely-positioned label |
 | **Labelled select in a Formik form** | **`WtFieldFormik`** | inventing Formik + select glue, or new wrappers |
 | **An amount of money** (salary, fee, expense) | **`WtMoneyField`** (a `WtField` with the currency inside the frame and a live money read-back) | a number box with the unit in its label — "CTC (LPA)", "Lakhs per year" |
 | Toolbar filter | `ToolbarFilterSelect` + `FILTER_TONES` (a `WtField` adapter) | a bespoke `<select>` or `FormControl` |
