@@ -273,10 +273,10 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
 
       if (isEditing && initialData?.id) {
         await (apiFunction as (id: string, payload: any) => Promise<any>)(initialData.id, payload);
-        successConfirmation(`${effectiveTitle} updated successfully`);
+        successConfirmation(`${effectiveTitle} updated.`);
       } else {
         const created = await (apiFunction as (payload: any) => Promise<any>)(payload);
-        successConfirmation(`${effectiveTitle} created successfully`);
+        successConfirmation(`${effectiveTitle} created.`);
         const row = created?.presetTaskStatus;
         if (row?.id) onCreated?.(row);
       }

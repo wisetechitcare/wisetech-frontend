@@ -2913,7 +2913,7 @@ const LeadWizardModal = ({
         } else {
           // LEAD-AS-MASTER: execution fields were persisted on the lead (execution
           // extension) as part of the lead update — no separate project write.
-          successConfirmation("Lead Updated successfully!");
+          successConfirmation("Lead Updated.");
           eventBus.emit(EVENT_KEYS.leadUpdated, { id: res.id });
           if (onClose) onClose();
         }
@@ -2923,7 +2923,7 @@ const LeadWizardModal = ({
           errorConfirmation("Failed to create lead. Please try again.");
         } else {
           eventBus.emit(EVENT_KEYS.leadCreated, { id: res.id });
-          successConfirmation("Lead created successfully!");
+          successConfirmation("Lead created.");
           if (onClose) onClose();
         }
       }

@@ -247,7 +247,7 @@ export const TaskDetailPage = () => {
 
     /**
      * Delete. §24: the success message appears ONLY after the API confirms.
-     * The old flow toasted "deleted successfully" from inside the confirm dialog, before the
+     * The old flow toasted "deleted." from inside the confirm dialog, before the
      * request was even sent — so a failed delete still told the user it had worked.
      */
     // Entries already logged against this task — what the confirm dialog promises to keep.
@@ -273,7 +273,7 @@ export const TaskDetailPage = () => {
                 title: 'Task deleted',
                 // The API says whether any logs were preserved; repeating its own sentence keeps
                 // the two surfaces from drifting into different promises.
-                text: result?.message && result.message !== 'Task deleted successfully'
+                text: result?.message && result.message !== 'Task deleted.'
                     ? result.message
                     : undefined,
                 timer: 3200,

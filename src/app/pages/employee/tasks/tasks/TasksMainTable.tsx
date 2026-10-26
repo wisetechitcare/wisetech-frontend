@@ -314,7 +314,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
 
     const handleDeleteTask = async (task: any) => {
         try {
-            const sure = await deleteConfirmation("Task deleted successfully!");
+            const sure = await deleteConfirmation("Task deleted.");
             if (!sure) return;
             await deleteTask(task.id);
             fetchTasks();
@@ -372,7 +372,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
                     open={open} 
                     onClose={handleClose} 
                     title="Task Deleted" 
-                    message="Task deleted successfully!" 
+                    message="Task deleted." 
                     icon={<PauseCircleIcon sx={{ color: "green", fontSize: 48, mr: 1 }} />} 
                   
                  /> */}

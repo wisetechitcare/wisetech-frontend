@@ -148,7 +148,7 @@ function Designations() {
             if (editMode) {
                 await updateDesignationById(designationId, values);
                 setLoading(false);
-                successConfirmation('Designation updated successfully');
+                successConfirmation('Designation updated.');
                 setShowModal(false);
                 setEditMode(false);
                 // Refresh data
@@ -159,7 +159,7 @@ function Designations() {
             const payload = [{ isActive: true, companyId: companyId, role: values.role }];
             await createDesignation(payload);
             setLoading(false);
-            successConfirmation('Designation created successfully');
+            successConfirmation('Designation created.');
             setShowModal(false);
             // Refresh data
             const { data: { designations = [] } = {} } = await fetchDesignations();

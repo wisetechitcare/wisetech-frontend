@@ -250,7 +250,7 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
                 const email = salarySlipProps.employee?.companyEmailId || (salarySlipProps.employee as any)?.users?.personalEmailId || 'Employee';
                 toast.success(
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' }}>Email Sent Successfully</div>
+                        <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' }}>Email sent</div>
                         <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>Salary slip delivered to:</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#334155', fontWeight: 600, border: '1px solid #e2e8f0' }}>

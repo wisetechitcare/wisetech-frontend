@@ -560,10 +560,10 @@ const SubCompanyForm: React.FC<Props> = ({
 
       if (editingSubCompanyId) {
         await updateSubCompany(editingSubCompanyId, finalCleanPayload);
-        successConfirmation("Sub-company updated successfully");
+        successConfirmation("Sub-company updated.");
       } else {
         await createSubCompany(finalCleanPayload);
-        successConfirmation("Sub-company created successfully");
+        successConfirmation("Sub-company created.");
       }
 
       // eventBus.emit("subCompanyCreated");

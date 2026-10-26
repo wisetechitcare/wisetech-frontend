@@ -2076,7 +2076,7 @@ export const ReportsTable = ({
             const confirm = await deleteConfirmation('Attendance request deleted.');
             if (!confirm) return;
             await deleteAttendanceRequestById(values.id);
-            // successConfirmation('Attendance Request deleted successfully');
+            // successConfirmation('Attendance Request deleted.');
             dispatch(saveToggleChange(!toggleChange));
             return;
         } catch (e) {

@@ -121,7 +121,7 @@ export const useGrossDistribution = (employee: any, month: string, year: string,
                 configuration: transformedData
             } as any);
 
-            successConfirmation('Gross distribution updated successfully!');
+            successConfirmation('Gross distribution updated.');
             onRefresh();
             return true;
         } catch (error: any) {

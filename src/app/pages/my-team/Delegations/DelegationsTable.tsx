@@ -83,7 +83,7 @@ function CreateDelegationModal({ show, employees, onClose, onCreated }: CreateMo
     setSubmitting(true);
     try {
       await createApprovalDelegation({ originalApproverId: originalId, delegateToId: delegateId, startDate, endDate, reason: reason || undefined });
-      successConfirmation('Delegation has been created successfully.', 'Created!');
+      successConfirmation('Delegation has been created.', 'Created!');
       onCreated();
       onClose();
     } catch (err: any) {

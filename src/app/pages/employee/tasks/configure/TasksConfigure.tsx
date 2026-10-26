@@ -230,7 +230,7 @@ const TasksConfigure = () => {
       await remove(item.id);
       refetch();
       invalidateTasks();
-      successConfirmation(`${label} deleted successfully`);
+      successConfirmation(`${label} deleted.`);
     } catch (err: any) {
       await errorConfirmation(
         err?.response?.data?.detail || err?.response?.data?.message || `Failed to delete ${label.toLowerCase()}.`
@@ -282,7 +282,7 @@ const TasksConfigure = () => {
       await deletePresetTask(id);
       refetch();
       invalidateTasks();
-      successConfirmation(`${label} deleted successfully`);
+      successConfirmation(`${label} deleted.`);
     } catch (err: any) {
       // The server refuses when children appeared meanwhile — show its reason verbatim.
       await errorConfirmation(
@@ -522,7 +522,7 @@ const TasksConfigure = () => {
   // ) => {
   //   try {
   //     const confirmed = await deleteConfirmation(
-  //       `Successfully deleted ${type}`
+  //       `Deleted ${type}`
   //     );
   //     if (!confirmed) return;
 

@@ -436,7 +436,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
           });
         }
       }
-      successConfirmation('Prefix settings saved successfully.');
+      successConfirmation('Prefix settings saved.');
       setReloadToken((n) => n + 1);
     } catch (err: any) {
       // The server explains a refused save (e.g. a prefix that would duplicate

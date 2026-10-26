@@ -76,13 +76,13 @@ const PaymentChangeRequests: React.FC<MyComponentProps> = ({
       status: LoanStatus.Approved,
       approvedById: employeeId,
     });
-    successConfirmation("Loan request approved successfully");
+    successConfirmation("Loan request approved.");
     fetchAllLoanDetails();
   };
 
   const rejectLoanIntallment = async (instId: string) => {
     await updateLoanIntallmentById({ id: instId, status: LoanStatus.Rejected });
-    successConfirmation("Loan request rejected successfully");
+    successConfirmation("Loan request rejected.");
     fetchAllLoanDetails();
   };
 

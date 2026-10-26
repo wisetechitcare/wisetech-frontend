@@ -141,11 +141,11 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
     try {
       if (isEditing && initialData?.id) {
         await updatePaymentPlan(initialData.id, payload);
-        showSuccess("Success", "Payment plan updated successfully.");
+        showSuccess("Success", "Payment plan updated.");
         eventBus.emit(EVENT_KEYS.paymentPlanUpdated, { id: initialData.id });
       } else {
         const res = await createPaymentPlan(payload);
-        showSuccess("Success", "Payment plan created successfully.");
+        showSuccess("Success", "Payment plan created.");
         eventBus.emit(EVENT_KEYS.paymentPlanCreated, { id: res?.paymentPlan?.id || "created" });
       }
       if (onSuccess) onSuccess();

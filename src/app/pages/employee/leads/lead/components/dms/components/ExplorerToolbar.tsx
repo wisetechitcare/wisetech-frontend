@@ -45,7 +45,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
       
       if (confirmed) {
         await deleteFiles(state.selectedFiles);
-        successConfirmation(`${state.selectedFiles.length} file(s) deleted successfully!`);
+        successConfirmation(`${state.selectedFiles.length} file(s) deleted.`);
       }
     } catch (error) {
       errorConfirmation('Failed to delete files. Please try again.');

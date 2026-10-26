@@ -214,7 +214,7 @@ const ProposalConfigurationPage: React.FC = () => {
         { ...selectedConfig, rules: flattenedRules },
         templateBase64,
       );
-      showSuccess("Success", "Proposal configuration saved successfully.");
+      showSuccess("Success", "Proposal configuration saved.");
 
       const [configs] = await Promise.all([
         getProposalConfigurations(),

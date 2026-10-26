@@ -121,7 +121,7 @@ const RULES = [
   {
     icon: "information-5",
     title: "Error handling",
-    body: "Rows with validation errors are skipped. All valid rows still import successfully.",
+    body: "Rows with validation errors are skipped. All valid rows still import.",
   },
 ];
 

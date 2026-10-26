@@ -152,7 +152,7 @@ function EmployeeTypes() {
           if (editMode) {
               await updateEmployeeTypeById(values);
               setLoading(false);
-              successConfirmation('Employee Type updated successfully');
+              successConfirmation('Employee Type updated.');
               setShowModal(false);
               setEditMode(false);
               return;
@@ -160,7 +160,7 @@ function EmployeeTypes() {
           const payload = { companyId: companyId, employeeTypes: [values.employeeType] };
           await createNewEmployeeType(payload);
           setLoading(false);
-          successConfirmation('Employee Type created successfully');
+          successConfirmation('Employee Type created.');
           setShowModal(false);
       } catch (err) {
           setLoading(false);

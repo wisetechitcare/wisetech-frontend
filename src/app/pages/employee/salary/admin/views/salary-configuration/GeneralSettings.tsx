@@ -149,7 +149,7 @@ function GeneralSettings() {
       const res = await createNewConfiguration(payload);
       setConfigurationId(res?.data?.configuration?.id);
     }
-    successConfirmation("Excluded from late attendance deduction updated successfully");
+    successConfirmation("Excluded from late attendance deduction updated.");
     fetchConfiguration(EXCLUDE_FROM_LATE_ATTENDANCE)
     setShowModal(false);
   };
@@ -164,7 +164,7 @@ function GeneralSettings() {
     });
     if (items.length > 0) await saveCheckinDeadlineOverrides(items);
     setDeadlines(next);
-    successConfirmation("Custom check-in deadlines updated successfully");
+    successConfirmation("Custom check-in deadlines updated.");
     setShowDeadlineModal(false);
   };
 
@@ -181,7 +181,7 @@ function GeneralSettings() {
       const res = await createNewConfiguration(payload);
       setPaymentModeConfigurationId(res?.data?.configuration?.id);
     }
-    successConfirmation("Payment mode updated successfully");
+    successConfirmation("Payment mode updated.");
     fetchConfiguration(PAYMENT_MODE)
   };
   

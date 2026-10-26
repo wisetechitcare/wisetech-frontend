@@ -523,7 +523,7 @@ const ClientCompaniesMain = ({
   const handleDelete = (company: Company) => {
     const deleteCompany = async () => {
       try {
-        const sure = await deleteConfirmation("Company deleted successfully");
+        const sure = await deleteConfirmation("Company deleted.");
         if (!sure) return;
         console.warn("companyId", company.id);
 

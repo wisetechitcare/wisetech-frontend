@@ -133,7 +133,7 @@ const SubCompanies = ({
 
   const handleDelete = async (subCompany: SubCompany) => {
     try {
-      const sure = await deleteConfirmation("Sub-company deleted successfully");
+      const sure = await deleteConfirmation("Sub-company deleted.");
       if (!sure) return;
       await deleteSubCompany(subCompany.id);
       fetchSubCompanies();

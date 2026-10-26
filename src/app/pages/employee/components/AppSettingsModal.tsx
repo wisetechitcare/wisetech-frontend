@@ -596,7 +596,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
             // the employee payload lands, same order the onboarding wizard uses. Shared
             // helper so both screens agree on what a valid chain is.
             await persistApprovalChains(values.approvalChains, employeeId);
-            successConfirmation("Settings saved successfully");
+            successConfirmation("Settings saved.");
             if (onSuccess) onSuccess();
             onClose();
         } catch (err: any) {
