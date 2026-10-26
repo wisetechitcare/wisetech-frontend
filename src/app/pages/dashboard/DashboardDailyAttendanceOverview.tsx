@@ -36,22 +36,13 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 // drifts from StatDetailModal's menu the moment an option is added there.
 type SortOption = StatSortOption;
 
-/**
- * Returns true when the total worked duration is < 8 hours.
- * Uses dayjs diff so no string parsing is needed — works directly with ISO timestamps.
- * Returns false if either timestamp is missing (e.g. employee hasn't checked out yet).
- */
-function isAttendanceDurationShort(checkIn: string | undefined, checkOut: string | undefined): boolean {
-    if (!checkIn || !checkOut) return false;
-    const minutes = dayjs(checkOut).diff(dayjs(checkIn), 'minute');
-    return minutes > 0 && minutes < 480; // 8h = 480 min
-}
 
 // Modal shell and the employee card grid are shared with the admin Attendance
 // Overview - see the two components below, not a local copy.
 import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
 import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
 import { ToneChip, AppIcon, WtTooltip, InlineNotice, TRIO } from '@app/modules/common/components/ui';
+import AttendanceDayTimes from '@app/modules/common/components/AttendanceDayTimes';
 import { getTimeTokens } from '@utils/timeFormat';
 import { useStoredState } from '@app/hooks/useStoredState';
 
@@ -709,91 +700,53 @@ const DashboardDailyAttendanceOverview = () => {
           meta: hasMeta ? (
                 <>
                   {additionalInfo[emp._id] && (
-                    <div className="text-primary small mt-1">
-                      <AppIcon name="bi-info-circle" className="me-1" />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, color: 'primary.main', fontSize: '0.8125rem' }}>
+                      <AppIcon name="bi-info-circle" className="fs-7" />
                       {additionalInfo[emp._id]}
-                    </div>
+                    </Box>
                   )}
-                  {!additionalInfo[emp._id] && (emp.attendance?.checkIn || emp.attendance?.checkOut) && (
-                    <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
-                      {emp.attendance?.checkIn && emp.attendance?.checkOut && (() => {
-                        // Same predicates as the cards: the server verdict for late, and no
-                        // early mark on a non-working day for THIS employee.
-                        const isLateCheckIn = isLateRow(emp.attendance);
-                        const isEarlyCheckOut = isEarlyRow(emp.attendance);
-
-                        // RED if: late check-in OR total worked < 8 hours
-                        const isShortDuration = isAttendanceDurationShort(emp.attendance.checkIn, emp.attendance.checkOut);
-                        return (
-                          <>
-                            <span className={(isLateCheckIn || isShortDuration) ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                              <AppIcon name="bi-clock" className="me-1" />
-                              {dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}
-                            </span>
-                            <span className={isEarlyCheckOut ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                              <AppIcon name="bi-clock-fill" className="me-1" />
-                              {dayjs(emp.attendance.checkOut).format(getTimeTokens().TIME)}
-                            </span>
-                          </>
-                        );
-                      })()}
-                      {emp.attendance?.checkIn && !emp.attendance?.checkOut && (() => {
-                        // Same predicate as the Late Check-in card (server verdict first).
-                        const isLateCheckIn = isLateRow(emp.attendance);
-
-                        // Employee hasn't checked out yet — duration is unknown, so only flag late check-in
-                        return (
-                          <span className={isLateCheckIn ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                            <AppIcon name="bi-clock" className="me-1" />
-                            {dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}
-                          </span>
-                        );
-                      })()}
-                      {showModal === 'working' && emp.attendance?.workingMethod && (
-                        <span
-                          style={{
+                  {!additionalInfo[emp._id] && emp.attendance?.checkIn && (
+                    // One rule for the colours (AttendanceDayTimes): check-in red ONLY for a
+                    // late mark, check-out red only for an early check-out, and the DURATION
+                    // red when the shift is short — never the check-in for a short day.
+                    <AttendanceDayTimes
+                      checkIn={emp.attendance.checkIn}
+                      checkOut={emp.attendance.checkOut}
+                      isLate={isLateRow(emp.attendance)}
+                      isEarly={isEarlyRow(emp.attendance)}
+                      skipDurationHighlight={isNonWorkingRow(emp.attendance)}
+                      trailing={showModal === 'working' && emp.attendance?.workingMethod ? (
+                        <Box
+                          component="span"
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            fontWeight: 600,
                             color:
                               emp.attendance.workingMethod.type === 'Office' ? workingLocationColors?.officeColor :
                               emp.attendance.workingMethod.type === 'Hybrid' ? workingLocationColors?.remoteColor :
-                              emp.attendance.workingMethod.type === 'On-site' ? workingLocationColors?.onSiteColor : '#6c757d',
-                            fontWeight: '600',
-                            display: 'inline-flex',
-                            alignItems: 'center'
+                              emp.attendance.workingMethod.type === 'On-site' ? workingLocationColors?.onSiteColor : 'text.secondary',
                           }}
                         >
                           {emp.attendance.workingMethod.type}
                           {emp.attendance.workingMethod.type === 'On-site' && emp.attendance.checkInLocation && emp.attendance.latitude && emp.attendance.longitude && (
                             <WtTooltip title={emp.attendance.checkInLocation}>
-                              <a
+                              <Box
+                                component="a"
                                 href={`https://www.google.com/maps?q=${emp.attendance.latitude},${emp.attendance.longitude}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{
-                                  marginLeft: '6px',
-                                  textDecoration: 'none',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  verticalAlign: 'middle'
-                                }}
-                                onClick={(e) => e.stopPropagation()}
+                                aria-label={`Open check-in location in Google Maps: ${emp.attendance.checkInLocation}`}
+                                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                sx={{ ml: 0.75, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
                               >
-                                <img
-                                  src={locationIcon}
-                                  alt="location"
-                                  style={{
-                                    width: '20px',
-                                    height: '20px',
-                                    objectFit: 'contain',
-                                    display: 'block'
-                                  }}
-                                />
-                              </a>
+                                <Box component="img" src={locationIcon} alt="" sx={{ width: 20, height: 20, objectFit: 'contain', display: 'block' }} />
+                              </Box>
                             </WtTooltip>
                           )}
-                        </span>
-                      )}
-                    </div>
+                        </Box>
+                      ) : undefined}
+                    />
                   )}
                 </>
           ) : null,

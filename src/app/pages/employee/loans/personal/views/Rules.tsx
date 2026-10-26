@@ -62,7 +62,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
         };
 
         await updateConfigurationById(ruleId, payload);
-        successConfirmation('Loan rule deleted successfully');
+        successConfirmation('Loan rule deleted.');
         fetchLoanConfiguration();
     };
 
@@ -100,7 +100,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                 await createNewConfiguration(payload);
             }
             setLoading(false);
-            successConfirmation(editMode ? 'Loan rule updated successfully' : 'Loan rule created successfully');
+            successConfirmation(editMode ? 'Loan rule updated.' : 'Loan rule created.');
             fetchLoanConfiguration();
             setShow(false);
             setEditMode(false);

@@ -97,7 +97,7 @@ function AttendanceRequestLimitReset() {
       setProcessingRowId(request.id);
       setProcessingAction('approve');
       await approveAttendanceRequestLimitReset(request.id);
-      successConfirmation("Request approved successfully");
+      successConfirmation("Request approved.");
       fetchRequests();
     } catch (error) {
       console.error("Error approving request:", error);
@@ -112,7 +112,7 @@ function AttendanceRequestLimitReset() {
       setProcessingRowId(requestId);
       setProcessingAction('reject');
       await rejectAttendanceRequestLimitReset(requestId);
-      successConfirmation("Request rejected successfully");
+      successConfirmation("Request rejected.");
       fetchRequests();
     } catch (error) {
       console.error("Error rejecting request:", error);

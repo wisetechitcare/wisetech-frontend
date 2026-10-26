@@ -133,7 +133,7 @@ const ContractBillSection: React.FC<ContractBillSectionProps> = ({
         toast.success(
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' }}>
-              Email Sent Successfully
+              Email sent
             </div>
             <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>
               Contract bill delivered to:

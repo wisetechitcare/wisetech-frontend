@@ -947,7 +947,7 @@ const NewCompanyForm: React.FC<Props> = ({
           companyTypeIds: companyTypeIdsMerged,
           overallRating: weightedAverageRating ?? 0.0,
         });
-        successConfirmation("Company updated successfully");
+        successConfirmation("Company updated.");
         onClose();
         eventBus.emit("companyCreated");
       } else {
@@ -956,7 +956,7 @@ const NewCompanyForm: React.FC<Props> = ({
           companyTypeIds: companyTypeIdsMerged,
           overallRating: weightedAverageRating ?? 0.0,
         });
-        successConfirmation("Company created successfully");
+        successConfirmation("Company created.");
         onClose();
         eventBus.emit("companyCreated");
       }

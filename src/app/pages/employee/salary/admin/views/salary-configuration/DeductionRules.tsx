@@ -178,7 +178,7 @@ function DeductionRules() {
       providentFund: values
     };
     try {
-      await saveConfiguration(updatedConfig, "Provident Fund updated successfully");
+      await saveConfiguration(updatedConfig, "Provident Fund updated.");
       setShowPFModal(false);
     } catch (error) {
       // Error handled in saveConfiguration
@@ -191,7 +191,7 @@ function DeductionRules() {
       professionalTax: values
     };
     try {
-      await saveConfiguration(updatedConfig, "Professional Tax rules updated successfully");
+      await saveConfiguration(updatedConfig, "Professional Tax rules updated.");
       setShowPTModal(false);
     } catch (error) {
       // Error handled in saveConfiguration

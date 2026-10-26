@@ -995,17 +995,22 @@ const getBlockingMessage = async () => {
                         justifyContent: 'space-between',
                         px: { xs: 2, sm: 3 },
                         color: 'common.white',
+                        '& .wt-timer-pill': { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
+                        // Disabled: everything inside inherits ONE readable colour. The timer and
+                        // arrow were hardcoded white, and `text.disabled` (38% opacity) was too
+                        // faint on the grey — the label, the time and the icon all washed out.
                         '&.Mui-disabled': {
-                            color: 'text.disabled',
+                            color: 'text.secondary',
                             backgroundImage: 'none',
                             backgroundColor: 'action.disabledBackground',
                             boxShadow: 'none',
+                            '& .wt-timer-pill': { backgroundColor: 'action.hover' },
                         },
                     }}
                 >
                     <div className="d-flex align-items-center">
                         {hasCheckin && hasCheckin !== null && hasCheckin !== "" && (
-                            <div className="d-flex align-items-center bg-white bg-opacity-20 px-3 py-1.5 rounded-pill me-3 fs-7" style={{ height: '34px' }}>
+                            <div className="wt-timer-pill d-flex align-items-center px-3 py-1.5 rounded-pill me-3 fs-7" style={{ height: '34px' }}>
                                 <Timer />
                             </div>
                         )}
@@ -1015,9 +1020,9 @@ const getBlockingMessage = async () => {
                             {hasCheckin && hasCheckin !== null && hasCheckin !== "" ? "Mark Checkout" : "Mark Attendance"}
                         </span>
                         {isLocationLoading ? (
-                            <span className='spinner-border spinner-border-sm text-white' role='status' aria-hidden='true'></span>
+                            <span className='spinner-border spinner-border-sm' role='status' aria-hidden='true'></span>
                         ) : (
-                            <KTIcon iconName="arrow-right" className="fs-4 text-white" />
+                            <KTIcon iconName="arrow-right" className="fs-4" />
                         )}
                     </div>
                 </WtButton>

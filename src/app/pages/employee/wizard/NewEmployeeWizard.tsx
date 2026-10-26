@@ -1029,7 +1029,7 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
 
     const responses = await Promise.all(reqPromises.map((fn) => fn()));
     const allSuccessful = responses.every((response) => response?.statusCode === 200);
-    if (!allSuccessful) throw new Error("Some operations failed to complete successfully");
+    if (!allSuccessful) throw new Error("Some operations failed to complete.");
     return true;
   } catch (err) { console.log(err); }
 };
@@ -1623,7 +1623,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     try {
       await Promise.all(reqPromise.map((fn) => fn()));
-      await successConfirmation("Employee data updated successfully.");
+      await successConfirmation("Employee data updated.");
       // Same destination as Cancel — a save and an abandon from the same screen
       // should not land in two different places.
       closeAfterSuccessfulSaveRef.current = true;
@@ -1795,7 +1795,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
             "Onboarded, with one issue",
           );
         } else {
-          successConfirmation("Successfully onboarded an employee");
+          successConfirmation("Onboarded an employee.");
         }
         // Order matters: latch BEFORE clearing, so the unmount flush that `handleClose()`
         // is about to trigger cannot write the finished values back into the slot.

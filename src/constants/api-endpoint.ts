@@ -459,6 +459,8 @@ export const OPTIONS = {
     UPDATE_REIMBURSEMENT_TYPE_BY_ID: "api/options/reimbursement",
     GET_COMPANY_SETTINGS: "api/options/settings",
     UPDATE_COMPANY_SETTINGS: "api/options/settings",
+    CHECK_IN_RADIUS: "api/options/check-in-radius",
+    MY_CHECK_IN_GEOFENCE: "api/options/check-in-radius/me",
     GET_ALL_COLORS: "api/options/colors",
     UPDATE_COLOR_BY_ID: "api/options/colors",
     CREATE_COLOR: "api/options/colors",

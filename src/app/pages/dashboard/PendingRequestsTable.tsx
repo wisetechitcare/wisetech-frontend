@@ -256,7 +256,7 @@ const PendingRequestsTable = () => {
     setApprovalProcessingId(requestId);
     try {
       await processApprovalAction(instanceId, 'approve');
-      successConfirmation('Request has been approved successfully.', 'Approved!');
+      successConfirmation('Request has been approved.', 'Approved!');
       await Promise.all([refresh(), fetchActionableApprovals()]);
     } catch (err: any) {
       errorConfirmation(err?.response?.data?.message || 'Failed to approve this request.');

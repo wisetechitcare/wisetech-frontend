@@ -3,7 +3,9 @@ import React, { useEffect, useState } from 'react'
 import { useFormik, Field, FormikProvider, Formik, Form, ErrorMessage, useFormikContext } from "formik";
 import { Container, Row } from 'react-bootstrap';
 import { KTCard, KTCardBody } from '@metronic/helpers';
-import { fetchCompanySettings, updateCompanySettings } from '@services/options';
+// The radius is per organisation / branch now (the global app_settings value is retired). This
+// screen is not mounted anywhere today; it edits the signed-in user's organisation if it returns.
+import { fetchCheckInRadius, updateCheckInRadius } from '@services/options';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { fetchLeaveOptions, updateLeaveOptionsById } from '@services/company';
 
@@ -28,7 +30,6 @@ function GeneralSettings() {
     const [loading, setLoading] = useState(false);
     // const [attendanceRequestLimitCount, setAttendanceRequestLimitCount] = useState(0);
     const [allowedDistanceFromOffice, setAllowedDistanceFromOffice] = useState(0);
-    const [appSettingsId, setAppSettingsId] = useState('');
     const [leaveOptions, setLeaveOptions] = useState([])
     const [leaveOptionInitialValues, setLeaveOptionInitialValues] = useState([])
     const [isLoading, setIsLoading] = useState(true);
@@ -40,16 +41,12 @@ function GeneralSettings() {
             try {
                 setIsLoading(true);
     
-                const [companySettingsRes, leaveOptionsRes] = await Promise.all([
-                    fetchCompanySettings(),
+                const [radiusRes, leaveOptionsRes] = await Promise.all([
+                    fetchCheckInRadius(),
                     fetchLeaveOptions()
                 ]);
 
-                // Handle company settings
-                const appSettings = companySettingsRes.data?.appSettings;
-                // setAttendanceRequestLimitCount(appSettings?.attendanceRequestRaiseLimit || 0);
-                setAllowedDistanceFromOffice(appSettings?.distanceAllowedInMeters || 0);
-                setAppSettingsId(appSettings?.id);
+                setAllowedDistanceFromOffice(radiusRes?.radiusMeters || 0);
     
                 // Handle leave options
                 const leaveOptionsData = leaveOptionsRes.data?.leaveOptions || [];
@@ -122,18 +119,9 @@ function GeneralSettings() {
             onSubmit={ async (values) => {
                 setLoading(true);
                 try {
-                    // 1. update appsettings through api call, if the data is updated
-                    const data = {
-                        // attendanceRequestRaiseLimit: values.attendanceRequestLimit,
-                        distanceAllowedInMeters: Number(values.allowedDistanceFromOffice)
-                    }
-                    // console.log("data:: ", data);
-                    const res = await updateCompanySettings(data, appSettingsId);
-                    // const res = {hasError: false};
-                    if (res?.hasError) {
-                        errorConfirmation("Failed to update Appsettings");
-                        return;
-                    }
+                    // 1. The organisation's office check-in radius. 0/blank clears it (no limit).
+                    const typedRadius = Number(values.allowedDistanceFromOffice);
+                    await updateCheckInRadius(undefined, typedRadius > 0 ? typedRadius : null);
 
                     // 2. updated leaves limit if the data is updated
                     let leaveData = Object.entries(values).filter(([key, value]) => key !== 'attendanceRequestLimit' && key !== 'allowedDistanceFromOffice' && key);

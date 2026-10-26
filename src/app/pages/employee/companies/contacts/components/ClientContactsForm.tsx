@@ -598,10 +598,10 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
       if (contactId) {
         await updateClientContact(contactId, contactData);
-        successConfirmation("Contact updated successfully!");
+        successConfirmation("Contact updated.");
       } else {
         await createClientContact(contactData);
-        successConfirmation("Contact created successfully!");
+        successConfirmation("Contact created.");
       }
 
       eventBus.emit("clientContactUpdated");

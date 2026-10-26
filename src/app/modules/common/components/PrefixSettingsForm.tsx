@@ -210,7 +210,7 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
       if (onSuccess) {
         onSuccess?.(); // Call success callback if provided
       } else {
-        successConfirmation('Prefix settings saved successfully');
+        successConfirmation('Prefix settings saved.');
       }
     } catch (err) {
       console.error('Error saving prefix settings:', err);

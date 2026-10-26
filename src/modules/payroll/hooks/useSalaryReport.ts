@@ -73,7 +73,7 @@ export const useSalaryReport = () => {
                 : await payrollService.deletePayment(deleteId);
             console.log('🗑️ [DeletePayment] API response:', response);
 
-            successConfirmation('Payment deleted successfully');
+            successConfirmation('Payment deleted.');
             handleRefresh(onRefreshCallback);
         } catch (error) {
             console.error('❌ [DeletePayment] failed:', error);
@@ -165,7 +165,7 @@ export const useSalaryReport = () => {
                 }
             }
 
-            successConfirmation('Disbursement authorized successfully');
+            successConfirmation('Disbursement authorized.');
             setShowPaymentModal(false);
             handleRefresh(onSuccess);
 

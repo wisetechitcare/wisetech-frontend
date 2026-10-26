@@ -131,7 +131,7 @@ export const handleDeleteEmployee = async (
     setError: React.Dispatch<React.SetStateAction<string | null>>,
     onDeleteEmployee?: (employeeId: string) => void
 ) => {
-    const confirmed = await deleteConfirmation("Removed successfully");
+    const confirmed = await deleteConfirmation("Removed.");
 
     if (!confirmed) return;
 

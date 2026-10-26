@@ -481,9 +481,9 @@ const NewTimeLogForm = ({
       }
       eventBus.emit(EVENT_KEYS.NewTimeLogFromCreated, {});
       if (timeSheetId) {
-        successConfirmation("Time log updated successfully");
+        successConfirmation("Time log updated.");
       } else {
-        successConfirmation("Time log created successfully");
+        successConfirmation("Time log created.");
       }
       onClose();
       setEditTimeSheetData(null);

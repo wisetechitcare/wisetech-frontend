@@ -17,17 +17,19 @@ import { escapeHtml } from '@app/modules/common/components/ui/safeHtml';
 
 export type { DialogResult };
 
-export const successConfirmation = (message: string, title: string = 'Success'): Promise<DialogResult> => {
+// Default titles match the kit's ConfirmDialog variant defaults. A caller that knows the outcome
+// should name it instead ("Checked In", "Leave Approved") — see wisetech-backend/docs/MESSAGE_STYLE.md.
+export const successConfirmation = (message: string, title: string = 'Done'): Promise<DialogResult> => {
     return showDialog({
         variant: 'success',
         title,
         message,
-        confirmLabel: 'Dismiss',
+        confirmLabel: 'OK',
         showCancel: false,
     });
 };
 
-export const errorConfirmation = (message: string, title: string = 'Error'): Promise<DialogResult> => {
+export const errorConfirmation = (message: string, title: string = "That Didn't Work"): Promise<DialogResult> => {
     const isHtml = /<[a-z][\s\S]*>/i.test(message || '');
     // Markup from the caller is sanitised by the dialog service. Plain text is escaped first so
     // it can never become markup, then its line breaks are kept.
@@ -35,7 +37,7 @@ export const errorConfirmation = (message: string, title: string = 'Error'): Pro
         ? message
         : message
             ? escapeHtml(message).replace(/\n/g, '<br>')
-            : 'An unexpected error occurred.';
+            : 'Something went wrong on our side. Try again.';
 
     return showDialog({
         variant: 'error',

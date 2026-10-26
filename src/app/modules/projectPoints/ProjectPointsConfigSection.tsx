@@ -41,7 +41,7 @@ const ProjectPointsConfigSection: React.FC = () => {
     const openEdit = (p: ProjectPointMaster) => { setEditing(p); setShowModal(true); };
 
     const handleDelete = async (p: ProjectPointMaster) => {
-        const confirmed = await deleteConfirmation("Project point deleted successfully");
+        const confirmed = await deleteConfirmation("Project point deleted.");
         if (!confirmed) return;
         try {
             await deleteProjectPointMaster(p.id);

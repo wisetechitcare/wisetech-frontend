@@ -215,7 +215,7 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
             prevRaw.filter((h) => h.id !== row.id)
           );
 
-        //   successConfirmation("Holiday deleted successfully!");
+        //   successConfirmation("Holiday deleted.");
           eventBus.emit("holidayDeleted", { id: row.id });
         } else {
           throw new Error(res?.message || "Failed to delete holiday");

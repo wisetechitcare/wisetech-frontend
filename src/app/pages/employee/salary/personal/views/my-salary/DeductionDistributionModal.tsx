@@ -383,7 +383,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             };
 
             await createUpdateDeductionConfiguration(apiPayload as any);
-            successConfirmation(`Deduction adjustments updated successfully!`);
+            successConfirmation(`Deduction adjustments updated.`);
             onSuccess();
             onClose();
 

@@ -119,7 +119,7 @@ function LeaveManagementRequests() {
       // The server routes this through the employee's leave approval chain, so the outcome is not
       // always "approved" — a multi-level chain advances to the next approver. Show what it says.
       const res = await updateLeaveManagement(request.id, payLoad);
-      await successConfirmation(res?.message || "Leave management request approved successfully");
+      await successConfirmation(res?.message || "Leave management request approved.");
       eventBus.emit(EVENT_KEYS.leaveManagementRequestUpdated, { requestId: request.id });
       fetchRequests();
     } catch (error: any) {
@@ -146,7 +146,7 @@ function LeaveManagementRequests() {
         approvedRejectById: currentEmployeeId
       }
       const res = await updateLeaveManagement(requestId, payLoad);
-      await successConfirmation(res?.message || "Leave management request rejected successfully");
+      await successConfirmation(res?.message || "Leave management request rejected.");
       eventBus.emit(EVENT_KEYS.leaveManagementRequestUpdated, { requestId });
       fetchRequests();
     } catch (error: any) {
@@ -179,7 +179,7 @@ function LeaveManagementRequests() {
 
       // Call revoke API endpoint using service method
       await revokeLeaveManagement(revokeRequestId, payLoad);
-      await successConfirmation("Leave management request revoked successfully");
+      await successConfirmation("Leave management request revoked.");
       eventBus.emit(EVENT_KEYS.leaveManagementRequestUpdated, { requestId: revokeRequestId });
       fetchRequests();
     } catch (error) {

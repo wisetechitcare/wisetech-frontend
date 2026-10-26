@@ -120,7 +120,7 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                     const updatedCount = result.data.filter(item => item.action === 'updated').length;
                     const errorCount = result.data.filter(item => item.action === 'error').length;
                     
-                    const message = 'Addon leaves allowances processed successfully!';
+                    const message = 'Add-on leave allowances saved.';
                     // if (createdCount > 0) message += ` Created: ${createdCount}.`;
                     // if (updatedCount > 0) message += ` Updated: ${updatedCount}.`;
                     // if (errorCount > 0) message += ` Errors: ${errorCount}.`;

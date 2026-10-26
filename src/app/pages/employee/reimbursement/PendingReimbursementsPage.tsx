@@ -445,7 +445,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
         await updatePendingReimbursementDraft(currentReimbursement.id, values);
         setFormLoading(false);
-        successConfirmation('Reimbursement updated successfully');
+        successConfirmation('Reimbursement updated.');
         setShow(false);
         setEditMode(false);
         loadDrafts();
@@ -535,7 +535,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   };
 
   const handleDelete = async (id: string) => {
-    const confirmed = await deleteConfirmation('Draft deleted successfully');
+    const confirmed = await deleteConfirmation('Draft deleted.');
     if (!confirmed) return;
     try {
       await deletePendingReimbursementDraft(id);

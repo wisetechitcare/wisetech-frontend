@@ -142,7 +142,7 @@ const PaymentPlansSection: React.FC = () => {
 
     const handleDelete = async (id: string) => {
         try {
-            const confirmed = await deleteConfirmation('Payment plan deleted successfully');
+            const confirmed = await deleteConfirmation('Payment plan deleted.');
             if (!confirmed) return;
             await deletePaymentPlan(id);
             fetchPaymentPlans();

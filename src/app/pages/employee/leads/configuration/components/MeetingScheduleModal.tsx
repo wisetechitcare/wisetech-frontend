@@ -168,11 +168,11 @@ const MeetingScheduleModal: React.FC<MeetingScheduleModalProps> = ({
     try {
       if (isEditing && initialData?.id) {
         await updateMeetingSchedule(initialData.id, payload);
-        showSuccess("Success", "Meeting schedule updated successfully.");
+        showSuccess("Success", "Meeting schedule updated.");
         eventBus.emit(EVENT_KEYS.meetingScheduleUpdated, { id: initialData.id });
       } else {
         const res = await createMeetingSchedule(payload);
-        showSuccess("Success", "Meeting schedule created successfully.");
+        showSuccess("Success", "Meeting schedule created.");
         eventBus.emit(EVENT_KEYS.meetingScheduleCreated, { id: res?.meetingSchedule?.id || "created" });
       }
       if (onSuccess) onSuccess();

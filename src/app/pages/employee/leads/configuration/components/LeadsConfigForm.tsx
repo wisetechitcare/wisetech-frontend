@@ -133,10 +133,10 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({
 
       if (isEditing && initialData?.id) {
         await update(initialData.id, submitValues);
-        successConfirmation(`${title} updated successfully`);
+        successConfirmation(`${title} updated.`);
       } else {
         await create(submitValues);
-        successConfirmation(`${title} created successfully`);
+        successConfirmation(`${title} created.`);
       }
 
       eventBus.emit(event, { id: isEditing ? "updated" : "created" });

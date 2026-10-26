@@ -100,7 +100,7 @@ function CustomRules() {
       setLoading(true);
       await updateConfigurationById(configurationId, payload);
       setLoading(false);
-      successConfirmation('Custom Rule updated successfully');
+      successConfirmation('Custom Rule updated.');
       fetchPayrollConfiguration();
       setShow(false);
       setEditMode(false);
