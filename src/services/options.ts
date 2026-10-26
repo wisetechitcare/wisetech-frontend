@@ -507,6 +507,46 @@ export const updateCompanySettings = async (payload: any, id: string) => {
     }
 }
 
+/** Office check-in radius at one scope. No scope = the signed-in user's organisation. */
+export interface CheckInRadiusScope { companyId?: string; branchId?: string }
+export interface ScopedCheckInRadius {
+    /** Stored at exactly this scope. Null = this scope inherits. */
+    radiusMeters: number | null;
+    inheritedRadiusMeters: number | null;
+    /** What applies here. Null = no limit. */
+    effectiveRadiusMeters: number | null;
+}
+
+export const fetchCheckInRadius = async (scope?: CheckInRadiusScope): Promise<ScopedCheckInRadius> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${OPTIONS.CHECK_IN_RADIUS}`, {
+        params: { companyId: scope?.companyId, branchId: scope?.branchId },
+    });
+    return data.data;
+}
+
+/** `radiusMeters: null` clears this scope's own value so it inherits again. Admin only. */
+export const updateCheckInRadius = async (scope: CheckInRadiusScope | undefined, radiusMeters: number | null) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${OPTIONS.CHECK_IN_RADIUS}`, {
+        companyId: scope?.companyId,
+        branchId: scope?.branchId,
+        radiusMeters,
+    });
+    return data as { message: string; data: ScopedCheckInRadius };
+}
+
+/** The fence the signed-in employee checks in against. The server enforces the same values. */
+export interface MyCheckInGeofence {
+    radiusMeters: number | null;
+    center: { latitude: number; longitude: number } | null;
+    branchName: string | null;
+    gpsAccuracyAllowanceCapMeters: number;
+}
+
+export const fetchMyCheckInGeofence = async (): Promise<MyCheckInGeofence> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${OPTIONS.MY_CHECK_IN_GEOFENCE}`);
+    return data.data;
+}
+
 export const createNewEmployeeType = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${OPTIONS.CREATE_EMPLOYEE_TYPES}`;

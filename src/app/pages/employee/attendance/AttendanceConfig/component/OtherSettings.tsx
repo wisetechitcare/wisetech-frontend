@@ -23,7 +23,7 @@ import {
   fetchCompanyOverview,
   updateCompanyOverview
 } from '@services/company';
-import { fetchCompanySettings, updateCompanySettings } from '@services/options';
+import { fetchCheckInRadius, updateCheckInRadius, type ScopedCheckInRadius } from '@services/options';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useDispatch, useSelector } from 'react-redux';
 import { setFeatureConfiguration } from '@redux/slices/featureConfiguration';
@@ -93,8 +93,8 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
   const [restrictConfigId, setRestrictConfigId] = useState<string | null>(null);
   const [dateConfigId, setDateConfigId] = useState<string | null>(null);
 
-  // AppSettings ID and CompanyOverview ID
-  const [appSettingsId, setAppSettingsId] = useState<string>('');
+  // The check-in radius at THIS scope (branch override or org default) and what it inherits.
+  const [radius, setRadius] = useState<ScopedCheckInRadius | null>(null);
   const [companyId, setCompanyId] = useState<string>('');
 
   // Redux update callback for lunch deduction configuration
@@ -149,9 +149,15 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
   }, [scoped, scope?.companyId, scope?.branchId]);
 
   const validationSchema = Yup.object().shape({
+    // Blank is allowed: it clears this scope's own value (a branch inherits the organisation's;
+    // an organisation with nothing above it has no limit). Bounds mirror the server.
     allowedDistance: Yup.number()
-      .min(0, 'Distance must be 0 or greater')
-      .required('Allowed distance is required'),
+      .transform((value, original) => (String(original ?? '').trim() === '' ? undefined : value))
+      .typeError('Enter the distance as a number of metres.')
+      .integer('Enter a whole number of metres.')
+      .min(1, 'Enter at least 1 m, or leave it blank.')
+      .max(5000, 'The distance can be at most 5000 m.')
+      .optional(),
     restrictAttendanceRequestDays: Yup.number()
       .min(1, 'Minimum required value is 1')
       .max(365, 'Value cannot exceed 365 days')
@@ -166,7 +172,7 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
     enableLunchDeduction: 'off',
     onSiteHolidayWeekendSettings: 'off',
     requireSiteHybridApproval: 'off',
-    allowedDistance: '100',
+    allowedDistance: '',
     restrictAttendanceRequestDays: '7',
     showDataUpToToday: 'off',
     monthlyAnnualLeaveLimit: '2',
@@ -182,14 +188,14 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
         leaveManagementConfigRes,
         restrictConfigRes,
         dateConfigRes,
-        companySettingsRes,
+        radiusRes,
         companyOverviewRes
       ] = await Promise.all([
         fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY, undefined, undefined, scope),
         fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, scope),
         fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY, undefined, undefined, scope),
         fetchConfiguration(DATE_SETTINGS_KEY, undefined, undefined, scope),
-        fetchCompanySettings(),
+        fetchCheckInRadius(scope),
         fetchCompanyOverview()
       ]);
 
@@ -227,10 +233,9 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
       const dateSettingsEnabled = dateConfig?.useDateSettings ?? false;
       setDateConfigId(dateConfigRes?.data?.configuration?.id || null);
 
-      // Get app settings (distance)
-      const appSettings = companySettingsRes?.data?.appSettings;
-      const allowedDistance = appSettings?.distanceAllowedInMeters || 12;
-      setAppSettingsId(appSettings?.id || '');
+      // Check-in radius stored at exactly this scope; blank when it inherits.
+      setRadius(radiusRes);
+      const allowedDistance = radiusRes?.radiusMeters ?? '';
 
       // Get company overview
       const companyOverview = companyOverviewRes?.data?.companyOverview?.[0];
@@ -307,13 +312,10 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
         await persistConfig(LEAVE_MANAGEMENT, mergedLeaveManagement, leaveManagementConfigId)
       );
 
-      // 3. Save allowed distance (AppSettings)
-      if (appSettingsId) {
-        await updateCompanySettings(
-          { distanceAllowedInMeters: Number(values.allowedDistance) },
-          appSettingsId
-        );
-      }
+      // 3. Save the check-in radius at exactly this scope. Blank clears it (inherit / no limit).
+      const typedRadius = String(values.allowedDistance ?? '').trim();
+      const savedRadius = await updateCheckInRadius(scope, typedRadius === '' ? null : Number(typedRadius));
+      setRadius(savedRadius.data);
 
       // 4. Save restrict attendance days
       const restrictDays = Number(values.restrictAttendanceRequestDays);
@@ -391,7 +393,10 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
               <SettingRow
                 icon="geolocation" trio={TRIO.cyan}
                 title="Allowed check-in distance from office (meters)"
-                control={<Box sx={{ width: { xs: '100%', sm: 160 } }}><TextInput formikField="allowedDistance" isRequired placeholder="100" inputValidation="numbers" /></Box>}
+                desc={radius?.inheritedRadiusMeters
+                  ? `Office check-in must be within this distance of the branch's map pin. Blank uses ${scope?.branchId ? "the organisation's" : "the parent organisation's"} ${radius.inheritedRadiusMeters} m.`
+                  : "Office check-in must be within this distance of the branch's map pin. Blank means no limit."}
+                control={<Box sx={{ width: { xs: '100%', sm: 160 } }}><TextInput formikField="allowedDistance" isRequired={false} placeholder={radius?.inheritedRadiusMeters ? String(radius.inheritedRadiusMeters) : 'No limit'} inputValidation="numbers" /></Box>}
               />
               <SettingRow
                 icon="calendar-tick" trio={TRIO.green}

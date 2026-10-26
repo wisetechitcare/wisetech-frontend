@@ -87,7 +87,7 @@ function MarkAttendance({ variant = 'default' }: MarkAttendanceProps) {
                 const { latitude, longitude } = position.coords;
 
                 // Update coordinates in Redux
-                dispatch(saveCoordinates({ latitude, longitude }));
+                dispatch(saveCoordinates({ latitude, longitude, accuracy: position?.coords?.accuracy }));
                 setLatitudeNew(latitude);
                 setLongitudeNew(longitude);
 
@@ -166,7 +166,8 @@ function MarkAttendance({ variant = 'default' }: MarkAttendanceProps) {
                 if(position?.coords?.latitude && position?.coords?.longitude){
                     dispatch(saveCoordinates({
                         latitude: position?.coords?.latitude,
-                        longitude: position?.coords?.longitude
+                        longitude: position?.coords?.longitude,
+                        accuracy: position?.coords?.accuracy,
                     }));
                 }
             },
@@ -879,7 +880,7 @@ const getBlockingMessage = async () => {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((position: any) => {
                 const { coords: { latitude, longitude } } = position;
-                dispatch(saveCoordinates({ latitude, longitude }));
+                dispatch(saveCoordinates({ latitude, longitude, accuracy: position?.coords?.accuracy }));
                 dispatch(toggleLocationPermission(true));
             },()=>{
                 console.warn('Error in fetching location from OverviewView.tsx: Unable to retrieve your location')

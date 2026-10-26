@@ -1098,13 +1098,14 @@ import { saveBtnText, savePersonalAttendance, toggleDisableBtn, toggleOpenModal 
 import { isCheckButtonDisabled } from './checkButtonState';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getKey } from '@utils/localStorage';
 import { generateDatesForMonth, generateDatesForMonth2, convertToTimeZone, MUMBAI_TZ as mumbaiTz } from '@utils/date';
 import { toAbsoluteUrl } from '@metronic/helpers';
 import { transformAttendance } from '../../OverviewView';
-import { distanceInMeters } from '@utils/file';
-import { fetchCompanySettings } from '@services/options';
+import { fetchMyCheckInGeofence, type MyCheckInGeofence } from '@services/options';
+import { evaluateOfficeGeofence, isOfficeWorkingMethod, outsideFenceMessage } from '@utils/officeGeofence';
+import Alert from '@mui/material/Alert';
 
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { fetchAppSettings } from '@redux/slices/appSettings';
@@ -1132,7 +1133,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [lastSubmitTime, setLastSubmitTime] = useState<number>(0);
     const dispatch = useDispatch();
-    const { btnText, currentAddress, employeeId, position: { latitude, longitude }, disableBtn, personalAttendance, workingMethodOptions } = useSelector((state: RootState) => {
+    const { btnText, currentAddress, employeeId, position: { latitude, longitude, accuracy }, disableBtn, personalAttendance, workingMethodOptions } = useSelector((state: RootState) => {
         const { employee, attendance } = state;
         return {
             personalAttendance: attendance.personalAttendance,
@@ -1155,7 +1156,8 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
 
     const [allTheFactorDetails, setAllTheFactorDetails] = useState<any>([])
     const [selectedWorkingMethod, setSelectedWorkingMethod] = useState(workingMethodOptions[0]?.type);
-    const [distanceAllowedFromOfficeInMeters, setDistanceAllowedFromOfficeInMeters] = useState(0);
+    /** The fence this employee checks in against, from the server (null until it answers). */
+    const [geofence, setGeofence] = useState<MyCheckInGeofence | null>(null);
     /**
      * Today's attendance as the server reports it, and the single input that decides what the
      * button may do. It starts 'unknown', which must never be treated as "blocked".
@@ -1164,8 +1166,6 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     const { verify: verifyPunchIdentity, dialog: identityDialog } = usePunchIdentity();
     const [graceTimeOnSite, setGraceTimeOnSite] = useState<string>('');
     const allEmpDetails = useSelector((state: RootState) => state.employee.currentEmployee);
-    const branchLatitude = allEmpDetails.branches?.latitude;
-    const branchLongitude = allEmpDetails.branches?.longitude;
     const publicHolidays = useSelector((state: RootState) => state.attendanceStats.publicHolidays);
     const branchDetails = useSelector((state: RootState) => state.employee?.currentEmployee?.branches);
     const employeeWorkingAndOffDays = parseWorkingDays(branchDetails?.workingAndOffDays);
@@ -1339,6 +1339,8 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
                 checkInLocation: currentAddress,
                 workingMethodId: values.workingMethod,
                 verificationId,
+                // The server re-checks the office fence and forgives this much GPS error.
+                locationAccuracy: accuracy ?? null,
             }
 
             // calculation for Late Attendance Days
@@ -1911,12 +1913,10 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     }
 
     useEffect(() => {
-        async function fetchCompanySettingsDetails() {
-            const { data: { appSettings } } = await fetchCompanySettings();
-
-            setDistanceAllowedFromOfficeInMeters(appSettings?.distanceAllowedInMeters * 6 || 0);
-        }
-        fetchCompanySettingsDetails();
+        // Fresh on every open: the modal mounts each time, so a radius an admin just changed
+        // applies to the next check-in. A failed fetch leaves the fence unknown, which never
+        // blocks — the server enforces the real one on submit.
+        fetchMyCheckInGeofence().then(setGeofence).catch(() => setGeofence(null));
     }, []);
 
     useEffect(() => {
@@ -1959,22 +1959,25 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
      * checked in at the office, left, and found a greyed-out button, so nothing was ever sent
      * (there is no server error for either day, because no request was made).
      */
+    const isOfficeMethod = isOfficeWorkingMethod(selectedWorkingMethod);
+    const fenceResult = useMemo(() => evaluateOfficeGeofence({
+        center: geofence?.center,
+        point: { latitude: Number(latitude), longitude: Number(longitude) },
+        radiusMeters: geofence?.radiusMeters,
+        accuracyMeters: accuracy,
+    }), [geofence, latitude, longitude, accuracy]);
+    /** Shown only when the fence is what's holding the check-in back. */
+    const fenceRefusal = dayState !== 'in' && isOfficeMethod && fenceResult.verdict === 'outside' && geofence?.radiusMeters
+        ? outsideFenceMessage(fenceResult, geofence.radiusMeters, geofence.branchName, accuracy)
+        : null;
+
     useEffect(()=>{
-        const branchLatitudeFinal = parseFloat(Number(branchLatitude).toFixed(6));
-        const branchLongitudeFinal = parseFloat(Number(branchLongitude).toFixed(6));
-        const myLatitudeFinal = parseFloat(Number(latitude).toFixed(6));
-        const myLongitudeFinal = parseFloat(Number(longitude).toFixed(6));
-
-        const dist = distanceInMeters(branchLatitudeFinal, branchLongitudeFinal, myLatitudeFinal, myLongitudeFinal);
-
         dispatch(toggleDisableBtn(isCheckButtonDisabled({
             dayState,
-            isOfficeMethod: selectedWorkingMethod === 'Office' || selectedWorkingMethod === 'office',
-            distanceFromBranch: dist,
-            allowedRadius: distanceAllowedFromOfficeInMeters,
+            isOfficeMethod,
+            fence: fenceResult.verdict,
         })));
-
-    },[latitude,longitude,branchLatitude,branchLongitude, selectedWorkingMethod, distanceAllowedFromOfficeInMeters, dayState]);
+    },[dispatch, dayState, isOfficeMethod, fenceResult.verdict]);
 
     useEffect(() => {
         /**
@@ -2122,10 +2125,8 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
                     </div>
                     <div className="d-flex flex-wrap justify-content-between">
                         <div>
-                            {disableBtn && (
-                                <div className="alert alert-warning my-5" role="alert">
-                                    Your current location does not match with your office location.
-                                </div>
+                            {disableBtn && fenceRefusal && (
+                                <Alert severity="warning" sx={{ my: 2.5 }}>{fenceRefusal}</Alert>
                             )}
                             {!isWorkingMethodSelected && (
                                 <div className="alert alert-warning my-5" style={{backgroundColor: "#FCEDDF", color: '#DD700C', borderColor:'#DD700C'}} role="alert">
