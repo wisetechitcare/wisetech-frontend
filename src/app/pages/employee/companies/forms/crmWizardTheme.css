@@ -172,6 +172,9 @@
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  /* Clip sideways only: a floating label sits half above the box and must not be cut. */
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .enterprise-wizard[data-form-module="contact"] .crm-date-field .MuiFormControl-root,

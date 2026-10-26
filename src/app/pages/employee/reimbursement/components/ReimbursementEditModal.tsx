@@ -133,7 +133,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved, editCont
       // The server says which it was — "Resubmitted as version 2. Approval has restarted from
       // level 1." or "Nothing about the claim changed". Echoing it avoids a second, drifting copy
       // of the rule on the client.
-      successConfirmation(res?.message ?? "Reimbursement updated successfully");
+      successConfirmation(res?.message ?? "Reimbursement updated.");
       eventBus.emit("reimbursementRecords", { records: [] });
       onSaved();
       onHide();

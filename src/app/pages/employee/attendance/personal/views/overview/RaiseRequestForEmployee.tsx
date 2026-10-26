@@ -287,7 +287,7 @@
 //         employeeId: updatedValues.employeeId
 //       });
 
-//       successConfirmation("Attendance Request created successfully for the employee");
+//       successConfirmation("Attendance request raised for the employee.");
 //       resetForm();
 //       onHide();
 //     } catch (err) {
@@ -527,7 +527,7 @@ const RaiseRequestForEmployee = ({ show, onHide, selectedDate }: RaiseRequestFor
       preferredKind="both"
       title="Raise Attendance Request for Employee"
       subtitle={formatDate(selectedDate)}
-      successMessage="Attendance Request created successfully for the employee"
+      successMessage="Attendance request raised for the employee."
       onSaved={async ({ id, employeeId, status }) => {
         if (status === 1) await writeKpiScore(employeeId);
         eventBus.emit(EVENT_KEYS.attendanceRequestCreated, { id, employeeId });

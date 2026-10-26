@@ -239,7 +239,7 @@ const ClientContactsMain = ({
   const handleDelete = (contact: any) => {
     const deleteContact = async () => {
       try {
-        const sure = await deleteConfirmation("Contact deleted successfully");
+        const sure = await deleteConfirmation("Contact deleted.");
         if (!sure) return;
         await deleteClientContact(contact.id);
         eventBus.emit("clientContactUpdated");

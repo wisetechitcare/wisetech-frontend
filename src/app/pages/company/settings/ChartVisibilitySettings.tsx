@@ -130,7 +130,7 @@ const ChartVisibilitySettings: React.FC<ChartVisibilitySettingsProps> = ({ type,
       setSaving(true);
       const resultAction = await dispatch(saveAllConfigurations(chartSettings as Partial<ChartSettings>));
       if (!saveAllConfigurations.fulfilled.match(resultAction)) throw new Error();
-      successConfirmation("Settings saved successfully!");
+      successConfirmation("Settings saved.");
       // Refresh the charts, then close whichever modal hosts this.
       eventBus.emit(EVENT_KEYS.chartSettingsUpdated, {});
       eventBus.emit(EVENT_KEYS.closeChartDialogModal, {});

@@ -159,7 +159,7 @@ const ProfileDetails: React.FC = () => {
       setLoading(true)
       if (!isEmpty(payload)) {
         await updateEmployee(employeeId, payload);
-        successConfirmation("Profile data updated successfully!");
+        successConfirmation("Profile data updated.");
         location.reload();
       }
     } catch (error) {

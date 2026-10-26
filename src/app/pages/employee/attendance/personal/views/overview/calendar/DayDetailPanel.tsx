@@ -88,7 +88,7 @@ export function DayDetailPanel({ day, open, overrides, modifierOverrides, labels
         open: open && mode === 'form',
         date: day?.date ?? '',
         employeeId,
-        successMessage: 'Attendance request saved successfully',
+        successMessage: 'Attendance request saved.',
         onSaved: () => {
             onSubmitted?.();
             onClose();

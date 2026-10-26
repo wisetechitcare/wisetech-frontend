@@ -285,12 +285,12 @@ function Settings() {
     if (!rowDetails || !rowDetails.id) return;
     // announce:false — the success alert used to fire on CONFIRM, before the delete ran, so a
     // failed delete still told the user it had worked. Report what actually happened.
-    const val = await deleteConfirmation("Reimbursement Type Deleted Successfully!", "Delete", "Deleted", false);
+    const val = await deleteConfirmation("Reimbursement Type Deleted.", "Delete", "Deleted", false);
     if (!val) return;
     try {
       await deleteReimbursementTypeByItsId(rowDetails?.id);
       setFetchAgain((prev) => !prev);
-      await successConfirmation("Reimbursement Type Deleted Successfully!");
+      await successConfirmation("Reimbursement Type Deleted.");
     } catch {
       await errorConfirmation("Could not delete this category. It may still be in use.");
     }
@@ -331,10 +331,10 @@ function Settings() {
 
       if (editMode && selectedReimbursement) {
         await updateReimbursementTypeById(payload, selectedReimbursement.id);
-        successConfirmation("Reimbursement Type updated successfully");
+        successConfirmation("Reimbursement Type updated.");
       } else {
         await createReimbursementType(payload);
-        successConfirmation("Reimbursement type created successfully");
+        successConfirmation("Reimbursement type created.");
       }
 
       setLoading(false);

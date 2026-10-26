@@ -112,7 +112,7 @@ export const useContactConfig = () => {
   // Delete handler for contact status
   const handleContactStatusDelete = async (id: string) => {
     try {
-      const confirmed = await deleteConfirmation("Contact status deleted successfully");
+      const confirmed = await deleteConfirmation("Contact status deleted.");
       if (confirmed) {
         await deleteContactStatus(id);
         fetchContactStatuses();

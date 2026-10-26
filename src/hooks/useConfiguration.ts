@@ -95,7 +95,7 @@ export const useConfiguration = (
 
             // Only show success confirmation if not skipped
             if (!skipConfirmation) {
-                successConfirmation('Setting saved successfully!');
+                successConfirmation('Setting saved.');
             }
 
             if (onSuccess) {

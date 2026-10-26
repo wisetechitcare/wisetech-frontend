@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Row, Col } from "react-bootstrap";
-import { Formik, Form as FormikForm, Field, type FormikProps } from "formik";
+import { Formik, Form as FormikForm, type FormikProps } from "formik";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -43,7 +43,8 @@ import NewCompanyForm from "../../companies/components/NewCompanyForm";
 import { useEventBus } from "@hooks/useEventBus";
 import dayjs from "dayjs";
 import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
-import { AppIcon, useDiscardConfirm } from "@app/modules/common/components/ui";
+import { AppIcon, useDiscardConfirm, FloatingLabels, FloatingLabelFrame, WtFieldFormik } from "@app/modules/common/components/ui";
+import { Box } from "@mui/material";
 import {
   CRM_ACTIVE_COLOR,
   CRM_INACTIVE_COLOR,
@@ -597,10 +598,10 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
       if (contactId) {
         await updateClientContact(contactId, contactData);
-        successConfirmation("Contact updated successfully!");
+        successConfirmation("Contact updated.");
       } else {
         await createClientContact(contactData);
-        successConfirmation("Contact created successfully!");
+        successConfirmation("Contact created.");
       }
 
       eventBus.emit("clientContactUpdated");
@@ -655,6 +656,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
             return (
               <FormikForm style={{ height: "100%" }}>
+                {/* Every field in the wizard: label rests in the empty box, floats up on focus/value. */}
+                <FloatingLabels>
                 <ContactWorkspace
                   isEdit={!!contactId}
                   onCancel={discard.requestClose}
@@ -747,20 +750,24 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   />
                                 </Col>
                                 <Col md={6}>
-                                  <label className="form-label">Gender</label>
-                                  <div className="crm-pill-group" role="group" aria-label="Gender">
-                                    {genderOptions.map((option) => (
-                                      <label key={option.value}>
-                                        <input
-                                          type="radio"
-                                          name="gender"
-                                          checked={values.gender === option.value}
-                                          onChange={() => setFieldValue("gender", option.value)}
-                                        />
-                                        {option.label}
-                                      </label>
-                                    ))}
-                                  </div>
+                                  {/* Pills in a box the date beside it's height, "Gender" in its border. */}
+                                  <FloatingLabelFrame label="Gender" filled controlHeight={44}>
+                                    <Box sx={{ display: "flex", alignItems: "center", minHeight: 44, px: 1, border: 1, borderColor: "divider", borderRadius: "8px", bgcolor: "background.paper", "& .crm-pill-group label": { padding: "4px 12px !important" } }}>
+                                      <div className="crm-pill-group" role="group" aria-label="Gender">
+                                        {genderOptions.map((option) => (
+                                          <label key={option.value}>
+                                            <input
+                                              type="radio"
+                                              name="gender"
+                                              checked={values.gender === option.value}
+                                              onChange={() => setFieldValue("gender", option.value)}
+                                            />
+                                            {option.label}
+                                          </label>
+                                        ))}
+                                      </div>
+                                    </Box>
+                                  </FloatingLabelFrame>
                                 </Col>
                                 <Col md={6} className="crm-date-field">
                                   <DateInput
@@ -996,8 +1003,9 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               </small>
                             </Col>
                             <Col md={6} className="mt-2">
-                              <label className="form-label">Sub-services</label>
+                              <FloatingLabelFrame label="Sub-services" filled={(values.serviceIds || []).length > 0} controlHeight={38}>
                               <Select
+                                aria-label="Sub-services"
 {...FLOATING_MENU_BEHAVIOUR}
                                 isMulti
                                 placeholder={
@@ -1042,6 +1050,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 menuPosition="fixed"
                                 styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
                               />
+                              </FloatingLabelFrame>
                               <small
                                 className="text-primary"
                                 onClick={() => setShowCompanyServiceModal(true)}
@@ -1193,14 +1202,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               </div>
                             </Col> */}
                             <div className="mb-3 mt-3">
-                              <label className="form-label">Note</label>
-                              <Field
-                                as="textarea"
-                                name="note"
-                                className="form-control"
-                                rows={3}
-                                placeholder="Enter note"
-                              />
+                              <WtFieldFormik name="note" label="Note" multiline minRows={3} placeholder="Enter note" />
                             </div>
                           </Row>
                     
@@ -1209,6 +1211,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                     }
                   ]}
                 />
+                </FloatingLabels>
               </FormikForm>
             );
           }}

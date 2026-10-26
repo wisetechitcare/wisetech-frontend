@@ -102,7 +102,7 @@ const Information = () => {
             console.log('[Information] Hook value (disableLunchDeductionTime):', disableLunchDeductionTime);
             await handleToggle({ target: { checked: lunchDeductionTimeValue } } as any);
             console.log('[Information] Save successful, value is now:', lunchDeductionTimeValue);
-            successConfirmation("Lunch deduction time setting saved successfully!");
+            successConfirmation("Lunch deduction setting saved.");
         } catch (error) {
             console.error("Failed to save lunch deduction time setting:", error);
             errorConfirmation("Failed to save lunch deduction time setting.");
@@ -142,7 +142,7 @@ const Information = () => {
             setRestrictAttendanceTo7Days(restrictToNDaysValue);
             updateReduxRestrictConfig(restrictToNDaysValue);
             
-            successConfirmation("Attendance restriction setting saved successfully!");
+            successConfirmation("Attendance request limit saved.");
         } catch (error) {
             console.error("Failed to save attendance restriction setting:", error);
             errorConfirmation("Failed to save attendance restriction setting.");

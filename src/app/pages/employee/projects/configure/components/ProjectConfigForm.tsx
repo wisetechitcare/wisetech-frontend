@@ -169,10 +169,10 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
 
       if (isEditing && initialData?.id) {
         await (apiFunction as (id: string, payload: any) => Promise<any>)(initialData.id, payload);
-        successConfirmation(`${title} updated successfully`);
+        successConfirmation(`${title} updated.`);
       } else {
         await (apiFunction as (payload: any) => Promise<any>)(payload);
-        successConfirmation(`${title} created successfully`);
+        successConfirmation(`${title} created.`);
       }
 
       const eventKey = getEventKey(type);

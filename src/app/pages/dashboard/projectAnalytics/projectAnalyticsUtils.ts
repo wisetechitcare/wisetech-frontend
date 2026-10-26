@@ -240,7 +240,7 @@ export const generateProjectInsights = (
   // Insight 1: Overall completion rate
   const completed = statusData.find(s => s.name?.toLowerCase().includes("completed"))?.count || 0;
   const completionRate = ((completed / totalProjects) * 100).toFixed(0);
-  insights.push(`${completionRate}% of projects have been successfully completed this period.`);
+  insights.push(`${completionRate}% of projects have been completed this period.`);
 
   // Insight 2: Delayed projects alert
   const delayed = statusData.find(s => s.name?.toLowerCase().includes("delayed"))?.count || 0;

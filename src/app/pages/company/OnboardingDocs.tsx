@@ -149,7 +149,7 @@ function OnBoardingDocs() {
 
             await createOnboardingDocs(payload);
             setData(prevData => [...prevData, values]);
-            successConfirmation("Onboarding document created successfully");
+            successConfirmation("Onboarding document created.");
             setShowModal(false);
             setEditMode(false);
         } catch (err) {
@@ -173,7 +173,7 @@ function OnBoardingDocs() {
             setData(prevData =>
                 prevData.map(doc => doc.id === documentId ? { ...doc, ...payload } : doc)
             );
-            successConfirmation("Onboarding document updated successfully");
+            successConfirmation("Onboarding document updated.");
             setShowModal(false);
             setEditMode(false);
         } catch (err) {

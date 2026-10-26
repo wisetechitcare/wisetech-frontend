@@ -14,7 +14,7 @@ import {
   fetchCompanyOverview,
   fetchAllBranches,
 } from '@services/company';
-import { fetchCompanySettings } from '@services/options';
+import { fetchCheckInRadius } from '@services/options';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { resolveActiveOrg, resolveActiveOrgId } from '@utils/activeOrg';
 import { usePermission } from '@hooks/usePermission';
@@ -50,7 +50,8 @@ interface OtherSettingsData {
   enableLunchDeduction: boolean;
   onSiteHolidayWeekendSettings: boolean;
   requireSiteHybridApproval: boolean;
-  allowedDistance: number;
+  /** Effective office check-in radius at this scope, metres. Null = no limit. */
+  allowedDistance: number | null;
   restrictAttendanceRequestDays: number;
   showDataUpToToday: boolean;
   monthlyAnnualLeaveLimit: number;
@@ -295,7 +296,7 @@ const AttendanceConfig: React.FC = () => {
     enableLunchDeduction: false,
     onSiteHolidayWeekendSettings: false,
     requireSiteHybridApproval: false,
-    allowedDistance: 12,
+    allowedDistance: null,
     restrictAttendanceRequestDays: 7,
     showDataUpToToday: false,
     monthlyAnnualLeaveLimit: 2,
@@ -364,21 +365,20 @@ const AttendanceConfig: React.FC = () => {
   const loadOtherSettingsData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [lunchRes, leaveRes, restrictRes, dateRes, settingsRes] = await Promise.all([
+      const [lunchRes, leaveRes, restrictRes, dateRes, radiusRes] = await Promise.all([
         // Same scope the modal reads/writes — otherwise the card summary and the modal it opens
         // show different numbers for the same setting.
         fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY, undefined, undefined, configScope),
         fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, configScope),
         fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY, undefined, undefined, configScope),
         fetchConfiguration(DATE_SETTINGS_KEY, undefined, undefined, configScope),
-        fetchCompanySettings(),
+        fetchCheckInRadius(configScope),
       ]);
 
       const lunchConfig    = safeJsonParse(lunchRes?.data?.configuration?.configuration || '{}');
       const leaveConfig    = safeJsonParse(leaveRes?.data?.configuration?.configuration || '{}');
       const restrictConfig = safeJsonParse(restrictRes?.data?.configuration?.configuration || '{}');
       const dateConfig     = safeJsonParse(dateRes?.data?.configuration?.configuration || '{}');
-      const appSettings    = settingsRes?.data?.appSettings;
 
       let restrictDays = restrictConfig?.restrictAttendanceTo7Days;
       if (typeof restrictDays === 'boolean') restrictDays = restrictDays ? 7 : 1;
@@ -392,7 +392,7 @@ const AttendanceConfig: React.FC = () => {
         enableLunchDeduction:         lunchConfig?.disableLaunchDeductionTime ?? false,
         onSiteHolidayWeekendSettings: onSiteVal === '1' || onSiteVal === 1,
         requireSiteHybridApproval:    siteHybridApprovalVal === '1' || siteHybridApprovalVal === 1,
-        allowedDistance:              appSettings?.distanceAllowedInMeters || 12,
+        allowedDistance:              radiusRes?.effectiveRadiusMeters ?? null,
         restrictAttendanceRequestDays: restrictDays,
         showDataUpToToday:            dateConfig?.useDateSettings ?? false,
         monthlyAnnualLeaveLimit:      Number(leaveConfig?.['Number of Annual Leaves allowed per month'] || 2),
@@ -621,7 +621,7 @@ const AttendanceConfig: React.FC = () => {
                     />
                     <SettingToggleRow
                       label="Check-in Distance (meters)"
-                      value={`${otherSettingsData.allowedDistance} m`}
+                      value={otherSettingsData.allowedDistance ? `${otherSettingsData.allowedDistance} m` : 'No limit'}
                     />
                     <SettingToggleRow
                       label="Restrict Attendance Requests"

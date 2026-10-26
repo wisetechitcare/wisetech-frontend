@@ -228,7 +228,7 @@ function AddNewRole({ setShowAddNewRole, setRefetch }: { setShowAddNewRole: (sho
       const res = await createRole({ name: roleName });
       // console.log("res::: ", res);
       if (!res?.hasError) {
-        successConfirmation("Role created successfully");
+        successConfirmation("Role created.");
         setRefetch(true);
       }
       else {
@@ -282,7 +282,7 @@ function RolesAndPermissions({ editingRole, onEditRole }: { editingRole: any, on
       const res = await deleteRoleById(roleId);
       // console.log("res::: ", res);
       if (!res?.hasError) {
-        successConfirmation("Role deleted successfully");
+        successConfirmation("Role deleted.");
         setRefetch(true);
       }
       else {

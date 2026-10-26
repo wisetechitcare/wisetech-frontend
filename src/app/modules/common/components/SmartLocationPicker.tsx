@@ -7,6 +7,7 @@ import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { Box, Chip, CircularProgress, IconButton, InputAdornment, TextField, Typography, Paper, List, ListItemButton, ListItemText } from "@mui/material";
 import { LocationOn, MyLocation } from "@mui/icons-material";
+import { useFloatingLabels } from "./ui/FloatingLabel";
 // import { resolveReactComponent } from "../../../../utils/resolveReactComponent";
 // import { LocationOn as RawLocationOn, MyLocation as RawMyLocation } from "@mui/icons-material";
 
@@ -152,6 +153,8 @@ function ClickToDrop({ onDrop }: { onDrop: (lat: number, lng: number) => void })
 }
 
 export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({ lat, lng, onPick, children }) => {
+  const floating = useFloatingLabels();
+  const [searchFocused, setSearchFocused] = useState(false);
   const latNum = num(lat);
   const lngNum = num(lng);
   const hasPin = latNum !== null && lngNum !== null;
@@ -334,13 +337,19 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({ lat, l
       <Box sx={{ border: 1, borderTop: 0, borderColor: "divider", borderRadius: "0 0 8px 8px", p: 2 }}>
         {/* Search */}
         <Box ref={boxRef} sx={{ position: "relative", mb: 2 }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.75 }}>Search Address</Typography>
+          {!floating && <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.75 }}>Search Address</Typography>}
           <TextField
             fullWidth
             size="small"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            onFocus={() => { setSearchFocused(true); if (suggestions.length > 0) setShowSuggestions(true); }}
+            onBlur={() => setSearchFocused(false)}
+            // Floating mode: MUI lifts the label for any start adornment (the pin), so lift it
+            // ourselves on focus/text and rest it just past the pin otherwise.
+            label={floating ? "Search address" : undefined}
+            InputLabelProps={floating ? { shrink: searchFocused || !!query } : undefined}
+            sx={floating ? { "& .MuiInputLabel-root:not(.MuiInputLabel-shrink)": { transform: "translate(40px, 9px) scale(1)" } } : undefined}
             placeholder="Start typing an address, building, or area (press Enter to select)..."
             InputProps={{
               startAdornment: (

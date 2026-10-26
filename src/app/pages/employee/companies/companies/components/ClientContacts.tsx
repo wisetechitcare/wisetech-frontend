@@ -71,7 +71,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
 
   const handleDelete = async (contact: any) => {
     try {
-      const sure = await deleteConfirmation("Contact deleted successfully");
+      const sure = await deleteConfirmation("Contact deleted.");
       if (!sure) return;
       const response = await deleteClientContact(contact.id);
       fetchClientContacts();

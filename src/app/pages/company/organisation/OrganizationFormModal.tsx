@@ -95,7 +95,7 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
       const payload: any = { ...form, fiscalYear, ...(parentOrg ? { parentOrganizationId: parentOrg.id } : {}) };
       const res = await createCompanyOverview(payload);
       if (res && !res.hasError) {
-        successConfirmation(parentOrg ? 'Sub-organization created successfully' : 'Organization created successfully');
+        successConfirmation(parentOrg ? 'Sub-organization created.' : 'Organization created.');
         onCreated();
         onClose();
       } else {

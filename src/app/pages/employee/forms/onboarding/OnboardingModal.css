@@ -20,7 +20,8 @@
 /* Close (X) — sits over the navy wizard header, so it is white-on-navy. */
 .ob-wizard-close {
   position: absolute;
-  top: 22px;
+  /* Centred in the header, so it lines up with the header's own actions. */
+  top: calc((var(--wt-header-height, 92px) - 36px) / 2);
   right: 20px;
   z-index: 1300;
   display: inline-flex;
