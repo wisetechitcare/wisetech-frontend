@@ -1120,7 +1120,167 @@ function Overview({ date, range }: OverviewProps) {
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, color: 'primary.main', fontSize: '0.8125rem' }}>
                                             <AppIcon name="bi-info-circle" className="fs-7" />
                                             {additionalInfo[emp._id]}
-                                        </Box>
+                                        </div>
+                                    )}
+                                    {!additionalInfo[emp._id] && (emp.attendance?.checkIn || emp.attendance?.checkOut) && (
+                                        // flex-wrap: at 4 columns the check-in/out chips plus a
+                                        // working-method label must wrap, not overflow the card.
+                                        <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
+                                            {emp.attendance?.checkIn && emp.attendance?.checkOut && (() => {
+                                                // Check if weekend/holiday worker
+                                                const attendanceDate = new Date(emp.attendance.checkIn);
+                                                const isWeekendOrHoliday = serverIsNonWorkingDay(emp.attendance) ?? checkIfWeekendOrHoliday(attendanceDate);
+
+                                                // Get shift for this date
+                                                const shift = getShiftForDate(attendanceDate);
+                                                const shiftCheckIn = (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
+                                                const shiftCheckOut = (shift?.check_out ?? shift?.checkOut) || appSettings.checkoutTime;
+
+                                                // Check working method for on-site
+                                                const workingMethod = emp.attendance?.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
+                                                const isOnSite = workingMethod?.includes("onsite");
+
+                                                // If on-site settings is ON and employee is on-site, always show green
+                                                const skipLateEarlyCheck = (isOnSiteSettingsOn === '1' && isOnSite) || isWeekendOrHoliday;
+
+                                                let isLateCheckIn = false;
+                                                let isEarlyCheckOut = false;
+
+                                                if (!skipLateEarlyCheck && shiftCheckIn && shiftCheckOut) {
+                                                    // Calculate late check-in
+                                                    const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
+                                                    const graceTime = parseGraceTime(graceTimeStr);
+
+                                                    const expectedCheckIn = dayjs(emp.attendance.checkIn)
+                                                        .startOf('day')
+                                                        .add(dayjs(shiftCheckIn, 'h:mm A').hour(), 'hour')
+                                                        .add(dayjs(shiftCheckIn, 'h:mm A').minute(), 'minute')
+                                                        .add(graceTime.hours, 'hour')
+                                                        .add(graceTime.minutes, 'minute')
+                                                        .add(graceTime.seconds, 'second');
+
+                                                    const actualCheckIn = dayjs(emp.attendance.checkIn);
+                                                    // Late-night waiver (server verdict) wins over the shift+grace comparison.
+                                                    isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn)
+                                                        && !(emp.attendance as any)?.lateWaived;
+
+                                                    // Calculate early check-out
+                                                    const expectedCheckOut = dayjs(emp.attendance.checkOut)
+                                                        .startOf('day')
+                                                        .add(dayjs(shiftCheckOut, 'h:mm A').hour(), 'hour')
+                                                        .add(dayjs(shiftCheckOut, 'h:mm A').minute(), 'minute');
+
+                                                    const actualCheckOut = dayjs(emp.attendance.checkOut);
+                                                    isEarlyCheckOut = actualCheckOut.isBefore(expectedCheckOut);
+                                                }
+                                                // The server's verdicts win; the derivation above is only the fallback.
+                                                isLateCheckIn = serverIsLate(emp.attendance) ?? isLateCheckIn;
+                                                isEarlyCheckOut = serverIsEarlyCheckout(emp.attendance) ?? isEarlyCheckOut;
+
+                                                return (
+                                                    <>
+                                                        <span className={isLateCheckIn ? "text-danger" : "text-success"} title={isLateCheckIn ? "Late check-in" : "On-time check-in"} aria-label={`${isLateCheckIn ? "Late" : "On-time"} check-in at ${dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                            <i className={`bi ${isLateCheckIn ? 'bi-exclamation-triangle-fill' : 'bi-clock'} me-1`}></i>
+                                                            {dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}
+                                                        </span>
+                                                        <span className={isEarlyCheckOut ? "text-danger" : "text-success"} title={isEarlyCheckOut ? "Early check-out" : "On-time check-out"} aria-label={`${isEarlyCheckOut ? "Early" : "On-time"} check-out at ${dayjs(emp.attendance.checkOut).format(getTimeTokens().TIME)}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                            <i className={`bi ${isEarlyCheckOut ? 'bi-exclamation-triangle-fill' : 'bi-clock-fill'} me-1`}></i>
+                                                            {dayjs(emp.attendance.checkOut).format(getTimeTokens().TIME)}
+                                                        </span>
+                                                    </>
+                                                );
+                                            })()}
+                                            {emp.attendance?.checkIn && !emp.attendance?.checkOut && (() => {
+                                                // Check if weekend/holiday worker
+                                                const attendanceDate = new Date(emp.attendance.checkIn);
+                                                const isWeekendOrHoliday = serverIsNonWorkingDay(emp.attendance) ?? checkIfWeekendOrHoliday(attendanceDate);
+
+                                                // Get shift for this date
+                                                const shift = getShiftForDate(attendanceDate);
+                                                const shiftCheckIn = (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
+
+                                                // Check working method for on-site
+                                                const workingMethod = emp.attendance?.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
+                                                const isOnSite = workingMethod?.includes("onsite");
+
+                                                // If on-site settings is ON and employee is on-site, always show green
+                                                const skipLateCheck = (isOnSiteSettingsOn === '1' && isOnSite) || isWeekendOrHoliday;
+
+                                                let isLateCheckIn = false;
+
+                                                if (!skipLateCheck && shiftCheckIn) {
+                                                    // Calculate late check-in
+                                                    const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
+                                                    const graceTime = parseGraceTime(graceTimeStr);
+
+                                                    const expectedCheckIn = dayjs(emp.attendance.checkIn)
+                                                        .startOf('day')
+                                                        .add(dayjs(shiftCheckIn, 'h:mm A').hour(), 'hour')
+                                                        .add(dayjs(shiftCheckIn, 'h:mm A').minute(), 'minute')
+                                                        .add(graceTime.hours, 'hour')
+                                                        .add(graceTime.minutes, 'minute')
+                                                        .add(graceTime.seconds, 'second');
+
+                                                    const actualCheckIn = dayjs(emp.attendance.checkIn);
+                                                    // Late-night waiver (server verdict) wins over the shift+grace comparison.
+                                                    isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn)
+                                                        && !(emp.attendance as any)?.lateWaived;
+                                                }
+                                                // The server's verdict wins; the derivation above is only the fallback.
+                                                isLateCheckIn = serverIsLate(emp.attendance) ?? isLateCheckIn;
+
+                                                return (
+                                                    <span className={isLateCheckIn ? "text-danger" : "text-success"} title={isLateCheckIn ? "Late check-in" : "On-time check-in"} aria-label={`${isLateCheckIn ? "Late" : "On-time"} check-in at ${dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                        <i className={`bi ${isLateCheckIn ? 'bi-exclamation-triangle-fill' : 'bi-clock'} me-1`}></i>
+                                                        {dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}
+                                                    </span>
+                                                );
+                                            })()}
+                                            {showModal === 'working' && emp.attendance?.workingMethod && (
+                                                <span
+                                                    style={{
+                                                        color:
+                                                            emp.attendance.workingMethod.type === 'Office' ? workingLocationColors?.officeColor :
+                                                            emp.attendance.workingMethod.type === 'Hybrid' ? workingLocationColors?.remoteColor :
+                                                            emp.attendance.workingMethod.type === 'On-site' ? workingLocationColors?.onSiteColor : '#6c757d',
+                                                        fontWeight: '600',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center'
+                                                    }}
+                                                >
+                                                    {emp.attendance.workingMethod.type}
+                                                    {emp.attendance.workingMethod.type === 'On-site' && emp.attendance.checkInLocation && emp.attendance.latitude && emp.attendance.longitude && (
+                                                        <Tooltip title={emp.attendance.checkInLocation} placement="top">
+                                                            <a
+                                                                href={`https://www.google.com/maps?q=${emp.attendance.latitude},${emp.attendance.longitude}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                style={{
+                                                                    marginLeft: '6px',
+                                                                    textDecoration: 'none',
+                                                                    cursor: 'pointer',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    verticalAlign: 'middle'
+                                                                }}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <img
+                                                                    src={locationIcon}
+                                                                    alt="location"
+                                                                    style={{
+                                                                        width: '20px',
+                                                                        height: '20px',
+                                                                        objectFit: 'contain',
+                                                                        display: 'block'
+                                                                    }}
+                                                                />
+                                                            </a>
+                                                        </Tooltip>
+                                                    )}
+                                                </span>
+                                            )}
+                                        </div>
                                     )}
                                     {!additionalInfo[emp._id] && emp.attendance?.checkIn && (() => {
                                         const att = emp.attendance;
