@@ -294,7 +294,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
       // delete succeeded — do not gate on res.hasError (res is empty on 204).
       await deleteBranchById(branch.id)
       setLoading(prev => !prev) // trigger refetch
-      await successConfirmation('Branch deleted successfully')
+      await successConfirmation('Branch deleted.')
     } catch (err: any) {
       errorConfirmation(err?.response?.data?.message || 'Failed to delete branch')
     }
@@ -496,7 +496,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
           showDateIn12HourFormat: toBranchTimeFormat(values.showDateIn12HourFormat),
         })
         setLoading(false)
-        successConfirmation('Branch updated successfully')
+        successConfirmation('Branch updated.')
         setShow(false)
         setEditMode(false)
         return
@@ -512,7 +512,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       ]
       const response = await createNewBranch(payload)
       setLoading(false)
-      successConfirmation('Branch created successfully')
+      successConfirmation('Branch created.')
       setShow(false)
     } catch (err) {
       setLoading(false)

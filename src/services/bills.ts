@@ -4,19 +4,19 @@ import { BILLS, PROJECT_BILLING } from "@constants/api-endpoint";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 /**
- * Direct billing client — one bill per deliverable.
+ * Direct billing client — one live bill per stage.
  *
- * The project's Billing tab is deliverable-grained, not bill-grained: its table
- * IS the deliverable list, with a bill attached where one exists. Returning bills
- * alone would hide the rows that actually need acting on — work that is finished
- * and that nobody has billed.
+ * The project's Billing tab is stage-grained, not bill-grained: its table IS the
+ * stage list, with a bill attached where one exists and the stage's deliverables
+ * (tracked work) listed inside. Returning bills alone would hide the stages that
+ * actually need acting on — the ones nobody has billed yet.
  */
 
 /** The one path a bill takes: DRAFT -> PROFORMA -> PARTIALLY_PAID -> PAID -> INVOICED. */
 export type BillStatus =
-  | "DRAFT" | "PROFORMA" | "PARTIALLY_PAID" | "PAID" | "INVOICED" | "CANCELLED";
+  | "DRAFT" | "PROFORMA" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "INVOICED" | "CANCELLED";
 export type WorkStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED";
-export type BillBlockReason = "NOT_COMPLETED" | "NOT_BILLABLE" | "ALREADY_BILLED";
+export type BillBlockReason = "ALREADY_BILLED" | "ZERO_AMOUNT";
 
 export type PaymentMethod =
   | "CASH" | "CHEQUE" | "NEFT" | "RTGS" | "IMPS" | "UPI" | "BANK_TRANSFER" | "ONLINE" | "OTHER";
@@ -79,17 +79,32 @@ export interface BillOnRow {
 /** The document engine's own lifecycle, mirrored for display only. */
 export type DocumentStatus = "DRAFT" | "PUBLISHED" | "SENT" | "CANCELLED";
 
+/** A deliverable inside a stage: a work item tracked by hand, never billed on its own. */
+export interface StageDeliverable {
+  id: string;
+  name: string;
+  /** Share of its stage — the weight of its progress in the stage work %. */
+  percentage: number;
+  /** Work done, 0–100. */
+  progress: number;
+  status: WorkStatus;
+  remarks: string | null;
+  completedAt: string | null;
+  completedByName: string | null;
+}
+
+/** One payment stage — the unit a bill is raised against. */
 export interface ProjectBillingRow {
-  deliverableId: string;
-  deliverableName: string;
   stageId: string;
   stageName: string;
   stageSortOrder: number;
+  /** Share of the contract. */
   percentage: number;
+  /** Taxable value of the stage. */
   amount: number;
-  workStatus: WorkStatus;
-  completedAt: string | null;
-  isBillable: boolean;
+  /** Work done across its deliverables, weighted by their shares. */
+  work: { progress: number; completed: number; total: number };
+  deliverables: StageDeliverable[];
   /** Why this row offers no "Raise bill", or null when it does. */
   blockReason: BillBlockReason | null;
   blockMessage: string | null;
@@ -103,25 +118,9 @@ export interface ProjectBillingSummary {
   received: number;
   /** totalBilling − received. The Tracker's definition, so the two agree. */
   pending: number;
-  /** Work finished that nobody has billed — ours to chase. */
-  doneNotBilled: number;
-  /** Billed and still unpaid — the client's to settle. */
-  billedUnpaid: number;
-  /** Contract left that no work has been done against yet. */
-  notStarted: number;
-  gstBilled: number;
-  tdsDeducted: number;
-  /** Withheld by clients but not shown as deposited. */
-  tdsPending: number;
-  /**
-   * Collected through the old billing-request chain, before this project moved
-   * to per-deliverable bills. Included in `received` so this tab and the Billing
-   * Tracker agree; surfaced separately so the table, which only knows about
-   * bills, does not look short by that amount.
-   */
-  legacyReceived: number;
+  /** Stage value with no bill raised yet — ours to chase. */
+  notBilled: number;
   billCount: number;
-  billableCount: number;
   currency: string;
 }
 
@@ -131,10 +130,13 @@ export interface ProjectBillingPayload {
     title: string | null;
     projectNumber: string | null;
     clientName: string | null;
-    clientGstNumber: string | null;
     poStatus: string | null;
     /** Same gate as the Billing Tracker: PO Value and Total Pending show only once true. */
     poApproved: boolean;
+    /** The payment plan the stages were copied from. Null when none was picked on the lead. */
+    paymentPlan: { id: string; name: string } | null;
+    /** The lead edited the plan's stages for this project. */
+    stagesCustomised: boolean;
   };
   summary: ProjectBillingSummary;
   rows: ProjectBillingRow[];
@@ -176,7 +178,7 @@ export const getProjectBilling = async (projectId: string): Promise<ProjectBilli
 };
 
 export interface RaiseBillInput {
-  deliverableId: string;
+  stageId: string;
   gstSlabId?: string | null;
   tdsSectionId?: string | null;
   billDate?: string | null;
@@ -241,11 +243,6 @@ export interface RecordPaymentInput {
 
 export const recordBillPayment = async (billId: string, input: RecordPaymentInput) => {
   const { data } = await axios.post(byId(BILLS.PAYMENTS, billId), input, { withCredentials: true });
-  return data.bill;
-};
-
-export const deleteBillPayment = async (paymentId: string) => {
-  const { data } = await axios.delete(byId(BILLS.PAYMENT, paymentId), { withCredentials: true });
   return data.bill;
 };
 

@@ -85,13 +85,13 @@ const LoanApplicationRequests: React.FC<MyComponentProps> = ({ resource, viewOth
   const approveLoan = async (loanId: string) => {
     const res = await approveLoanById(loanId, employeeId, dayjs().format("YYYY-MM-DD"));
     console.log("approveLoanapproveLoan",res);
-    successConfirmation("Loan request approved successfully");
+    successConfirmation("Loan request approved.");
     fetchAllLoan();
   };
 
   const rejectLoan = async (loanId: string) => {
     const reas = await updateLoanById({ id: loanId, status: LoanStatus.Rejected });
-    successConfirmation("Loan request rejected successfully");
+    successConfirmation("Loan request rejected.");
     fetchAllLoan();
   };
 

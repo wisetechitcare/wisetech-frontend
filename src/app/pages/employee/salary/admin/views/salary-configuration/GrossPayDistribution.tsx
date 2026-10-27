@@ -78,7 +78,7 @@ const GrossPayDistribution = () => {
   };
 
   const handleDelete = async (rowDetails: any) => {
-    const sure = await deleteConfirmation('Gross Pay Rule deleted successfully')
+    const sure = await deleteConfirmation('Gross Pay Rule deleted.')
     if(!sure) return;
     const config: any = configurationRule;
 
@@ -90,7 +90,7 @@ const GrossPayDistribution = () => {
     };
 
     await updateConfigurationById(configurationId, payload);
-    // successConfirmation('Gross Pay Rule deleted successfully');
+    // successConfirmation('Gross Pay Rule deleted.');
     fetchPayrollConfiguration();
   };
 
@@ -119,7 +119,7 @@ const GrossPayDistribution = () => {
       if (editMode) {
         await updateConfigurationById(configurationId, payload);
         setLoading(false);
-        successConfirmation('Gross Pay Rule updated successfully');
+        successConfirmation('Gross Pay Rule updated.');
         fetchPayrollConfiguration();
         setShow(false);
         setEditMode(false);
@@ -128,7 +128,7 @@ const GrossPayDistribution = () => {
 
       await updateConfigurationById(configurationId, payload);
       setLoading(false);
-      successConfirmation('Gross Pay Rule created successfully');
+      successConfirmation('Gross Pay Rule created.');
       fetchPayrollConfiguration();
       setShow(false);
     } catch (err) {

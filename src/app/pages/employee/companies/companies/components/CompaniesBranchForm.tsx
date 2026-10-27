@@ -124,7 +124,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
         await createClientBranch(cleanPayload);
       }
 
-      successConfirmation("Branch saved successfully");
+      successConfirmation("Branch saved.");
       eventBus.emit("branchCreated");
       onClose();
       onSuccess?.();

@@ -69,7 +69,7 @@ const VARIANT_DEFAULTS: Record<
     mediaColor: () => TRIO.amber.c,
   },
   success: {
-    title: "Success",
+    title: "Done",
     confirmLabel: "OK",
     cancelLabel: "Cancel",
     iconName: "check-circle",
@@ -77,7 +77,7 @@ const VARIANT_DEFAULTS: Record<
     mediaColor: () => TRIO.green.c,
   },
   error: {
-    title: "Error",
+    title: "That Didn't Work",
     confirmLabel: "Close",
     cancelLabel: "Cancel",
     iconName: "cross-circle",

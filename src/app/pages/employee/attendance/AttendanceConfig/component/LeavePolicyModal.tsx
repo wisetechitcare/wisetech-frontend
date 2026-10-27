@@ -211,7 +211,7 @@ export function LeavePolicyModal({ open, onClose, readOnly, scope }: LeavePolicy
       } else {
         await createNewConfiguration({ module: LEAVE_POLICY_KEY, configuration });
       }
-      await successConfirmation('Auto-allocation policy saved successfully');
+      await successConfirmation('Auto-allocation policy saved.');
       onClose();
     } catch (err) {
       console.error('Error saving auto-allocation policy:', err);

@@ -165,7 +165,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
         if (isConfirmed) {
             try {
                 await deleteTimeSheetById(log.id);
-                toast.success("Timesheet entry deleted successfully");
+                toast.success("Timesheet entry deleted.");
                 await fetchTimesheetData();
             } catch (err) {
                 toast.error("Failed to delete timesheet entry");

@@ -93,7 +93,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
         };
 
         await saveConfig(payload);
-        successConfirmation('Rule deleted successfully');
+        successConfirmation('Rule deleted.');
         fetchLeaveConfiguration();
     }
 
@@ -132,7 +132,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
             if (editMode) {
                 await saveConfig(payload);
                 setLoading(false);
-                successConfirmation('Rule updated successfully');
+                successConfirmation('Rule updated.');
                 fetchLeaveConfiguration();
                 setShow(false);
                 setEditMode(false);
@@ -141,7 +141,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
 
             await saveConfig(payload);
             setLoading(false);
-            successConfirmation('Rule created successfully');
+            successConfirmation('Rule created.');
             fetchLeaveConfiguration();
             setShow(false);
         } catch (err) {

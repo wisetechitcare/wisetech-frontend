@@ -870,7 +870,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         configToSave,
         templateBase64 || undefined,
       );
-      alert("Template configuration saved successfully!");
+      alert("Template configuration saved.");
     } catch (err: any) {
       showError("Failed to save template changes: " + (err.message || err));
     } finally {
@@ -956,9 +956,9 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
 
       if (destination === "cloud" || destination === "both") {
         window.dispatchEvent(new CustomEvent("dms-refresh"));
-        showSuccess("Export Successful", "The document has been successfully generated and saved to the Cloud (DMS).");
+        showSuccess("Exported", "The document has been generated and saved to the Cloud (DMS).");
       } else {
-        showSuccess("Export Successful", "The document has been successfully generated and downloaded.");
+        showSuccess("Exported", "The document has been generated and downloaded.");
       }
     } catch (error: any) {
       console.error(`Error exporting ${type}:`, error);

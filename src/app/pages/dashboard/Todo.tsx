@@ -115,7 +115,7 @@ const TodoList = memo(() => {
       });
       handleEditClose();
       fetchTodos();
-      successConfirmation('successfully updated!');
+      successConfirmation('To-do updated.');
     } catch (error) {
       console.error('Error updating todo:', error);
       errorConfirmation('Failed to update the todo. Please try again.');
@@ -125,7 +125,7 @@ const TodoList = memo(() => {
   const handleDeleteTodo = async (todoId: string) => {
     if (!employeeId) return;
     try {
-      const confirmed = await deleteConfirmation('Todo deleted successfully!');
+      const confirmed = await deleteConfirmation('Todo deleted.');
       if (!confirmed) return;
       await deleteTodo(employeeId, todoId);
       fetchTodos();
@@ -421,7 +421,7 @@ const TodoList = memo(() => {
               resetForm();
               handleClose();
               fetchTodos();
-              successConfirmation('Todo created successfully');
+              successConfirmation('Todo created.');
             } catch (error) {
               console.error('Error creating todo:', error);
               errorConfirmation('Failed to create the todo. Please try again.');

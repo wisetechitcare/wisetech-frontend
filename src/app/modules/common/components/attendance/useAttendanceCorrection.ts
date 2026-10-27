@@ -272,7 +272,7 @@ export function useAttendanceCorrection(args: UseAttendanceCorrectionArgs) {
         updatedById: asAdmin ? me?.id : undefined,
       });
       const res = await createUpdateAttendanceRequest(payload as never, asAdmin);
-      successConfirmation(successMessage ?? (mode === 'edit' ? 'Attendance request updated successfully' : 'Attendance request raised successfully'));
+      successConfirmation(successMessage ?? (mode === 'edit' ? 'Attendance request updated.' : 'Attendance request raised.'));
       await onSaved?.({
         id: (res as { data?: { id?: string } })?.data?.id || request?.id || '',
         employeeId,

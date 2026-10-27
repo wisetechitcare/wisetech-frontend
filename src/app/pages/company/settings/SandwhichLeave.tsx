@@ -288,10 +288,10 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
     try {
       if (editingRule) {
         await updateSandwichRule(editingRule.id, { name, description, category, pattern, isEnabled });
-        await successConfirmation('Rule updated successfully');
+        await successConfirmation('Rule updated.');
       } else {
         await createSandwichRule({ name, description, category, pattern, isEnabled });
-        await successConfirmation('Rule created successfully');
+        await successConfirmation('Rule created.');
       }
       onSaved();
       onClose();
@@ -621,7 +621,7 @@ function SandwichLeave({ open, showSandWhichLeaveModal, readOnly = false }: Sand
     try {
       await deleteSandwichRule(deletingRule.id);
       setRules((prev) => prev.filter((r) => r.id !== deletingRule.id));
-      await successConfirmation('Rule deleted successfully');
+      await successConfirmation('Rule deleted.');
     } catch (err: any) {
       errorConfirmation(err?.response?.data?.message || 'Failed to delete rule');
     } finally {

@@ -219,8 +219,8 @@ function OpenLeaveRequests() {
 
         successConfirmation(
             nextStatus === LeaveStatus.PendingHR
-                ? 'Leave request forwarded to HR successfully'
-                : 'Leave request approved successfully'
+                ? 'Leave request forwarded to HR.'
+                : 'Leave request approved.'
         );
 
         setLeaveActionId(leave.id);
@@ -242,7 +242,7 @@ function OpenLeaveRequests() {
             const sure = await rejectConfirmation('Yes, reject it!')
             if(sure){
                 await updateLeaveStatus({ id: leaveId, status: LeaveStatus.Rejected, rejectedById: employeeIdCurrent });
-                successConfirmation('Leave request rejected successfully');
+                successConfirmation('Leave request rejected.');
                 setLeaveActionId(leaveId);
                 const { data: { leaveRequest } } = await fetchLeaveRequest(selectedEmployeeId || undefined);
                 dispatch(saveLeaveRequests(transformLeaveRequests(leaveRequest)));

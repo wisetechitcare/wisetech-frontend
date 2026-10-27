@@ -315,7 +315,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
             });
 
             onHide();
-            await successConfirmation(selectedOption === 'encash' ? 'Leave encashment request submitted successfully!' : 'Leave transfer request submitted successfully!');
+            await successConfirmation(selectedOption === 'encash' ? 'Leave encashment request submitted.' : 'Leave transfer request submitted.');
 
             // Call onSuccess callback if provided
             if (onSuccess) {

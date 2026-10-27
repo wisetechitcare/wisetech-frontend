@@ -58,7 +58,7 @@ export const useDeleteConfirmation = ({
             toast({
                 icon: 'success',
                 title: 'Deleted',
-                text: 'Data has been deleted successfully.',
+                text: 'Data has been deleted.',
             });
 
             onSuccess?.();

@@ -118,7 +118,7 @@ const FileActionsDropdown: React.FC<{ file: DMSFile; onClose: () => void; onPrev
         );
         if (confirmed) {
           await deleteFiles([file.id]);
-          successConfirmation('File deleted successfully!');
+          successConfirmation('File deleted.');
           onClose();
         }
       } catch (error) {

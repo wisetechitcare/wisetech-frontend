@@ -16,10 +16,13 @@
  * requireAccessToEmployee for any non-self target, refuses unless the leave policy has
  * leaveConversion.onBehalf.enabled, and enforces the ceilings and settlement window. This panel
  * reflects that state; it never grants it.
+ *
+ * With on-behalf settlement switched off the panel does not render at all (the server does not
+ * even build the list then) — a list nobody can act on was only noise.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { KTIcon } from '@metronic/helpers';
-import { IconBox, TRIO, WtButton, Spinner, StatusBadge } from '@app/modules/common/components/ui/tw';
+import { IconBox, TRIO, WtButton, StatusBadge } from '@app/modules/common/components/ui/tw';
 import { fetchUnsettledLeavers, type UnsettledLeaver } from '@services/employee';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
@@ -54,8 +57,10 @@ export default function UnsettledLeaversPanel() {
     useEventBus(EVENT_KEYS.leaveManagementRequestCreated, load);
     useEventBus(EVENT_KEYS.leaveManagementRequestUpdated, load);
 
-    // Nothing stranded, or not this user's panel — say nothing rather than showing an empty card.
-    if (denied || (!loading && leavers.length === 0)) return null;
+    // Hidden entirely until on-behalf settlement is switched on in the leave policy — a list nobody
+    // can act on is noise (product decision 2026-10-26). Also hidden when nothing is stranded, or
+    // when this is not an Admin/HR viewer. Nothing renders while loading, so it never flashes.
+    if (denied || loading || !onBehalfEnabled || leavers.length === 0) return null;
 
     return (
         <>
@@ -73,72 +78,56 @@ export default function UnsettledLeaversPanel() {
                     </div>
                 </div>
 
-                {loading ? (
-                    <div className="flex items-center gap-2 py-6 text-[13px] text-slate-500">
-                        <Spinner size={16} /> Loading…
-                    </div>
-                ) : (
-                    <>
-                        {!onBehalfEnabled && (
-                            <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-                                Settling leave on an employee's behalf is <strong>turned off</strong>. Enable
-                                <strong> Leave Policy → Conversion → On behalf</strong> to act on this list. Until then
-                                these balances are visible but cannot be settled.
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-                            {leavers.map((l) => (
-                                <div
-                                    key={l.employeeId}
-                                    className="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-3.5 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-800/60"
-                                >
-                                    <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="truncate text-[14px] font-bold text-slate-900 dark:text-slate-100">
-                                                {l.employeeName}
-                                            </span>
-                                            {l.employeeCode && (
-                                                <span className="text-[11.5px] text-slate-400">{l.employeeCode}</span>
-                                            )}
-                                            {l.windowClosed && (
-                                                <StatusBadge trio={TRIO.rose} label="Window closed" />
-                                            )}
-                                            {l.hasOpenConversion && (
-                                                <StatusBadge trio={TRIO.blue} label="Request raised" />
-                                            )}
-                                        </div>
-                                        <p className="m-0 mt-1 text-[12px] text-slate-500 dark:text-slate-400">
-                                            Exited {l.dateOfExit} · {l.daysSinceExit} day(s) ago
-                                            {windowDays > 0 && !l.windowClosed
-                                                ? ` · ${Math.max(0, windowDays - l.daysSinceExit)} day(s) left to settle`
-                                                : ''}
-                                        </p>
-                                        <p className="m-0 mt-1 text-[12px] text-slate-600 dark:text-slate-300">
-                                            {Object.entries(l.balanceByType)
-                                                .map(([type, days]) => `${type}: ${days}`)
-                                                .join(' · ')}
-                                        </p>
-                                    </div>
-
-                                    <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end">
-                                        <span className="whitespace-nowrap text-[18px] font-extrabold text-slate-900 dark:text-slate-100">
-                                            {l.totalDays} <span className="text-[12px] font-semibold text-slate-400">days</span>
-                                        </span>
-                                        <WtButton
-                                            tone="accent"
-                                            disabled={!onBehalfEnabled || l.hasOpenConversion}
-                                            onClick={() => setTarget(l)}
-                                            className="w-full sm:w-auto"
-                                        >
-                                            {l.hasOpenConversion ? 'Already raised' : 'Settle'}
-                                        </WtButton>
-                                    </div>
+                <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                    {leavers.map((l) => (
+                        <div
+                            key={l.employeeId}
+                            className="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-3.5 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-800/60"
+                        >
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="truncate text-[14px] font-bold text-slate-900 dark:text-slate-100">
+                                        {l.employeeName}
+                                    </span>
+                                    {l.employeeCode && (
+                                        <span className="text-[11.5px] text-slate-400">{l.employeeCode}</span>
+                                    )}
+                                    {l.windowClosed && (
+                                        <StatusBadge trio={TRIO.rose} label="Window closed" />
+                                    )}
+                                    {l.hasOpenConversion && (
+                                        <StatusBadge trio={TRIO.blue} label="Request raised" />
+                                    )}
                                 </div>
-                            ))}
+                                <p className="m-0 mt-1 text-[12px] text-slate-500 dark:text-slate-400">
+                                    Exited {l.dateOfExit} · {l.daysSinceExit} day(s) ago
+                                    {windowDays > 0 && !l.windowClosed
+                                        ? ` · ${Math.max(0, windowDays - l.daysSinceExit)} day(s) left to settle`
+                                        : ''}
+                                </p>
+                                <p className="m-0 mt-1 text-[12px] text-slate-600 dark:text-slate-300">
+                                    {Object.entries(l.balanceByType)
+                                        .map(([type, days]) => `${type}: ${days}`)
+                                        .join(' · ')}
+                                </p>
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end">
+                                <span className="whitespace-nowrap text-[18px] font-extrabold text-slate-900 dark:text-slate-100">
+                                    {l.totalDays} <span className="text-[12px] font-semibold text-slate-400">days</span>
+                                </span>
+                                <WtButton
+                                    tone="accent"
+                                    disabled={l.hasOpenConversion}
+                                    onClick={() => setTarget(l)}
+                                    className="w-full sm:w-auto"
+                                >
+                                    {l.hasOpenConversion ? 'Already raised' : 'Settle'}
+                                </WtButton>
+                            </div>
                         </div>
-                    </>
-                )}
+                    ))}
+                </div>
             </div>
 
             {/*

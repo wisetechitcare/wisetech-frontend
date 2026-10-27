@@ -623,7 +623,7 @@ export default function KpiSettings() {
                 );
                 setEditModal({ open: false, item: null, moduleName: "" });
                 signalKpiConfigChanged();
-                successConfirmation("KPI factor updated successfully");
+                successConfirmation("KPI factor updated.");
               } catch (e) {
                 errorConfirmation((e as Error).message || "Failed to update KPI factor");
               } finally {
@@ -785,7 +785,7 @@ export default function KpiSettings() {
               resetForm();
               setAddModal({ open: false, moduleId: "", moduleName: "" });
               signalKpiConfigChanged();
-              successConfirmation("KPI factor added successfully");
+              successConfirmation("KPI factor added.");
             } catch (e) {
               errorConfirmation((e as Error).message || "Failed to add KPI factor");
             } finally {

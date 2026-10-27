@@ -436,7 +436,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
           });
         }
       }
-      successConfirmation('Prefix settings saved successfully.');
+      successConfirmation('Prefix settings saved.');
       setReloadToken((n) => n + 1);
     } catch (err: any) {
       // The server explains a refused save (e.g. a prefix that would duplicate
@@ -495,7 +495,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
           }}
         >
           {/* Section 1: the fiscal year itself — label and picker read as one field. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', whiteSpace: 'nowrap' }}>
                 Fiscal Year
@@ -524,6 +524,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
               <FiscalYearRangeField
                 value={fiscalYear}
                 onChange={setFiscalYear}
+                label=""
                 startLabel="Start"
                 endLabel="End"
                 density="compact"

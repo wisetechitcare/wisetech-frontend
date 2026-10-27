@@ -252,7 +252,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                 console.log('Updating team with payload:', teamPayload)
                 const response = await updateTeam(team!.id, teamPayload)
                 console.log('Team updated successfully', response)
-                successConfirmation('Team updated successfully')
+                successConfirmation('Team updated.')
 
                 // Notify parent that team was updated successfully
                 onSave({ name: formData.name, color: formData.color })
@@ -280,7 +280,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                 console.log('Creating team with payload:', teamPayload)
                 const response = await createTeamWithMembers(teamPayload)
                 console.log('Team created successfully with members', response)
-                successConfirmation('Team created successfully')
+                successConfirmation('Team created.')
 
                 // Notify parent that team was created successfully
                 onSave({ name: formData.name, color: formData.color })
@@ -298,7 +298,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
         if (!team) return
 
         const confirmed = await deleteConfirmation(
-          "Team deleted successfully",
+          "Team deleted.",
         );
 
         if (confirmed) {

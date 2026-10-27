@@ -20,9 +20,10 @@ import PaymentPlanModal from './PaymentPlanModal';
  * two fetches, two delete handlers and two chips to keep in step, and the first divergence
  * would be silent — a plan created on one page simply missing from the other.
  *
- * It therefore takes NO props and owns everything it needs: its own fetch, its own modal, its
- * own delete. Dropping it into a third page is one line, and there is no state for a host page
- * to hold, forget to refresh, or hold differently from its neighbour.
+ * It therefore owns everything it needs — its own fetch, its own modal, its own delete — and
+ * takes a single switch, `deliverablesEditable`, which only Tasks → Configure turns on.
+ * Dropping it into another page is one line, and there is no state for a host page to hold,
+ * forget to refresh, or hold differently from its neighbour.
  *
  * ─── DELIVERABLES LIVE INSIDE A PLAN'S STAGES ────────────────────────────────
  * There is no free-standing deliverable: one belongs to a stage, a stage belongs to a plan.
@@ -41,6 +42,7 @@ const PaymentPlanChip: React.FC<{
 }> = ({ plan, onEdit, onDelete }) => {
     const [hov, setHov] = useState(false);
     const stageCount = plan.stages?.length || 0;
+    const typeCount = plan.scopes?.length || 0;
     // `plan.name` is the server-derived project-type label — a plan has no name of its own.
     const scopeLabel = plan.name || '';
 
@@ -64,7 +66,7 @@ const PaymentPlanChip: React.FC<{
                             fontFamily: FONT.body, fontWeight: 600, fontSize: '13px', color: C.textPrimary,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         }}>
-                            {scopeLabel || 'No project category'}
+                            <span title={scopeLabel}>{scopeLabel || 'No project category'}</span>
                         </span>
                         {/* The kit's chip rather than the hand-rolled green span this section
                             carried: the hex pair in that span stayed the same colour in dark
@@ -80,10 +82,11 @@ const PaymentPlanChip: React.FC<{
                     </div>
                     <div style={{ marginTop: 4, fontFamily: FONT.body, fontSize: '11.5px', color: C.textMuted }}>
                         {stageCount} stage{stageCount === 1 ? '' : 's'}
+                        {typeCount > 1 && ` · covers ${typeCount} project types`}
                     </div>
                     {/* Plans written before they carried a project type fall back to a placeholder
                         title, so say what to do about it rather than leaving it unexplained. */}
-                    {!plan.categoryId && (
+                    {typeCount === 0 && (
                         <div style={{ marginTop: 2, fontFamily: FONT.body, fontSize: '11px', color: C.danger }}>
                             Edit to set its project category
                         </div>
@@ -115,7 +118,10 @@ const PaymentPlanChip: React.FC<{
     );
 };
 
-const PaymentPlansSection: React.FC = () => {
+const PaymentPlansSection: React.FC<{
+    /** Show and edit each stage's deliverables. Only Tasks → Configure sets this. */
+    deliverablesEditable?: boolean;
+}> = ({ deliverablesEditable = false }) => {
     const [paymentPlans, setPaymentPlans] = useState<PaymentPlan[]>([]);
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
@@ -142,7 +148,7 @@ const PaymentPlansSection: React.FC = () => {
 
     const handleDelete = async (id: string) => {
         try {
-            const confirmed = await deleteConfirmation('Payment plan deleted successfully');
+            const confirmed = await deleteConfirmation('Payment plan deleted.');
             if (!confirmed) return;
             await deletePaymentPlan(id);
             fetchPaymentPlans();
@@ -212,6 +218,8 @@ const PaymentPlansSection: React.FC = () => {
                 isEditing={!!editing}
                 categories={categories}
                 subCategories={subCategories}
+                plans={paymentPlans}
+                deliverablesEditable={deliverablesEditable}
             />
         </>
     );
