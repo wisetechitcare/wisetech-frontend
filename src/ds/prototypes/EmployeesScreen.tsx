@@ -116,7 +116,9 @@ export function EmployeesScreen({ onOpen }: { onOpen: (p: Person) => void }) {
               <TableHead>Location</TableHead>
               <TableHead>Today</TableHead>
               <TableHead className="text-right">Leave left</TableHead>
-              <TableHead className="w-10" />
+              <TableHead className="w-10">
+                <span className="sr-only">Actions</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

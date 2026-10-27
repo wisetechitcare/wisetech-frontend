@@ -12,7 +12,7 @@ function InfoCard({ title, icon, children }: { title: string; icon: ReactNode; c
     <section className="rounded-xl border bg-card shadow-e1">
       <div className="flex items-center gap-2.5 border-b px-5 py-3.5">
         <span className="grid size-7 place-items-center rounded-md bg-accent text-accent-foreground [&>svg]:size-4">{icon}</span>
-        <h3 className="text-body font-semibold">{title}</h3>
+        <h2 className="text-body font-semibold">{title}</h2>
         <Button variant="ghost" size="icon" className="ml-auto size-7" aria-label={`Edit ${title}`}>
           <Pencil className="size-3.5" />
         </Button>
@@ -121,7 +121,7 @@ export function EmployeeDetailScreen({ person, onBack }: { person: Person; onBac
             </div>
 
             <section className="rounded-xl border bg-card p-5 shadow-e1">
-              <h3 className="text-body font-semibold">Activity</h3>
+              <h2 className="text-body font-semibold">Activity</h2>
               <ol className="mt-4 space-y-4">
                 {TIMELINE.map((t) => (
                   <li key={t.what} className="relative flex gap-3">
