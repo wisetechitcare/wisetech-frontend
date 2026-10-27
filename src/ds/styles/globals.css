@@ -1,0 +1,262 @@
+/* ============================================================================
+ * WiseTech Visual Language v2 — the ONE token source (ADR-001).
+ *
+ * Every colour, radius, shadow, motion and type value the new kit uses lives here as a CSS
+ * variable. Tailwind reads them through `@theme inline`; components never hardcode a value.
+ * Per-tenant branding overrides only `--brand-*` at runtime; everything else derives from it.
+ *
+ * Axes (all set on <html>):
+ *   .dark                       light / dark
+ *   [data-surface="glass"]      Glass chrome (frosted header/sidebar/overlays); default Material
+ *   [data-density="compact"]    tighter spacing scale for data-heavy users; default comfortable
+ * ========================================================================== */
+
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* ── Brand (overridable per tenant) ─────────────────────────────────── */
+  --brand: oklch(0.45 0.17 265);
+  --brand-foreground: oklch(0.985 0.002 265);
+
+  /* ── Surfaces & text ────────────────────────────────────────────────── */
+  --background: oklch(0.985 0.003 265);
+  --foreground: oklch(0.21 0.02 265);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+  --muted: oklch(0.965 0.006 265);
+  --muted-foreground: oklch(0.51 0.02 265);
+  --subtle-foreground: oklch(0.62 0.015 265);
+
+  /* ── Actions ────────────────────────────────────────────────────────── */
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-foreground);
+  --secondary: oklch(0.955 0.008 265);
+  --secondary-foreground: oklch(0.27 0.03 265);
+  --accent: color-mix(in oklch, var(--brand) 9%, white);
+  --accent-foreground: color-mix(in oklch, var(--brand) 80%, black);
+
+  /* ── Status (one set, each with a soft fill and readable text) ──────── */
+  --success: oklch(0.6 0.14 155);
+  --success-soft: oklch(0.96 0.035 155);
+  --success-foreground: oklch(0.4 0.1 155);
+  --warning: oklch(0.76 0.15 75);
+  --warning-soft: oklch(0.97 0.045 85);
+  --warning-foreground: oklch(0.47 0.11 60);
+  --destructive: oklch(0.58 0.21 25);
+  --destructive-soft: oklch(0.965 0.025 25);
+  --destructive-foreground: oklch(0.47 0.17 25);
+  --info: oklch(0.62 0.13 235);
+  --info-soft: oklch(0.965 0.025 235);
+  --info-foreground: oklch(0.43 0.1 240);
+
+  /* ── Lines & focus ──────────────────────────────────────────────────── */
+  --border: oklch(0.915 0.008 265);
+  --input: oklch(0.885 0.01 265);
+  --ring: color-mix(in oklch, var(--brand) 70%, white);
+
+  /* ── Data viz ───────────────────────────────────────────────────────── */
+  --chart-1: var(--brand);
+  --chart-2: oklch(0.65 0.13 195);
+  --chart-3: oklch(0.72 0.15 75);
+  --chart-4: oklch(0.62 0.17 330);
+  --chart-5: oklch(0.6 0.14 155);
+
+  /* ── App shell ──────────────────────────────────────────────────────── */
+  --sidebar: oklch(0.975 0.004 265);
+  --sidebar-foreground: oklch(0.3 0.02 265);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-accent: color-mix(in oklch, var(--brand) 8%, white);
+  --sidebar-accent-foreground: color-mix(in oklch, var(--brand) 85%, black);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* ── Shape, depth, motion ───────────────────────────────────────────── */
+  --radius: 0.625rem;
+  --shadow-color: 265 30% 20%;
+  --elevation-1: 0 1px 2px hsl(var(--shadow-color) / 0.06), 0 1px 1px hsl(var(--shadow-color) / 0.04);
+  --elevation-2: 0 4px 12px -2px hsl(var(--shadow-color) / 0.08), 0 2px 4px -2px hsl(var(--shadow-color) / 0.05);
+  --elevation-3: 0 16px 40px -8px hsl(var(--shadow-color) / 0.16), 0 6px 12px -6px hsl(var(--shadow-color) / 0.08);
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 260ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1.2);
+
+  /* ── Glass chrome (used only when [data-surface="glass"]) ───────────── */
+  --chrome: color-mix(in oklch, var(--card) 100%, transparent);
+  --chrome-blur: 0px;
+}
+
+.dark {
+  --brand: oklch(0.7 0.14 265);
+  --brand-foreground: oklch(0.17 0.03 265);
+
+  --background: oklch(0.16 0.012 265);
+  --foreground: oklch(0.95 0.005 265);
+  --card: oklch(0.195 0.014 265);
+  --popover: oklch(0.215 0.015 265);
+  --muted: oklch(0.235 0.014 265);
+  --muted-foreground: oklch(0.71 0.015 265);
+  --subtle-foreground: oklch(0.6 0.015 265);
+
+  --secondary: oklch(0.26 0.016 265);
+  --secondary-foreground: oklch(0.92 0.006 265);
+  --accent: color-mix(in oklch, var(--brand) 16%, var(--card));
+  --accent-foreground: oklch(0.93 0.02 265);
+
+  --success: oklch(0.7 0.15 155);
+  --success-soft: oklch(0.3 0.06 155 / 55%);
+  --success-foreground: oklch(0.82 0.12 155);
+  --warning: oklch(0.8 0.14 80);
+  --warning-soft: oklch(0.32 0.06 75 / 55%);
+  --warning-foreground: oklch(0.86 0.12 80);
+  --destructive: oklch(0.68 0.19 25);
+  --destructive-soft: oklch(0.32 0.08 25 / 55%);
+  --destructive-foreground: oklch(0.8 0.13 25);
+  --info: oklch(0.72 0.12 235);
+  --info-soft: oklch(0.31 0.06 240 / 55%);
+  --info-foreground: oklch(0.83 0.09 235);
+
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: color-mix(in oklch, var(--brand) 75%, black);
+
+  --sidebar: oklch(0.18 0.013 265);
+  --sidebar-foreground: oklch(0.86 0.01 265);
+  --sidebar-accent: color-mix(in oklch, var(--brand) 14%, var(--sidebar));
+  --sidebar-accent-foreground: oklch(0.96 0.01 265);
+
+  --shadow-color: 265 40% 2%;
+}
+
+/* Glass chrome: frosted header/sidebar/overlays. The work canvas (cards, forms, tables) stays opaque. */
+[data-surface="glass"] {
+  --chrome: color-mix(in oklch, var(--card) 72%, transparent);
+  --chrome-blur: 18px;
+}
+
+/* Density: compact shrinks the whole spacing scale, so every p-/gap-/h- follows. */
+[data-density="compact"] {
+  --spacing: 0.2125rem;
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chrome: var(--chrome);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --shadow-e1: var(--elevation-1);
+  --shadow-e2: var(--elevation-2);
+  --shadow-e3: var(--elevation-3);
+
+  /* Type scale (Material 3-shaped, tuned for dense SaaS) */
+  --text-display: 2.25rem;
+  --text-display--line-height: 2.625rem;
+  --text-display--letter-spacing: -0.022em;
+  --text-headline: 1.5rem;
+  --text-headline--line-height: 2rem;
+  --text-headline--letter-spacing: -0.018em;
+  --text-title: 1.0625rem;
+  --text-title--line-height: 1.5rem;
+  --text-title--letter-spacing: -0.011em;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.375rem;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1rem;
+  --text-label--letter-spacing: 0.01em;
+
+  --ease-standard: var(--ease-standard);
+  --ease-emphasized: var(--ease-emphasized);
+}
+
+/* Frosted chrome surface: opaque in Material, blurred in Glass. */
+@utility surface-chrome {
+  background-color: var(--chrome);
+  backdrop-filter: blur(var(--chrome-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(140%);
+}
+
+/* Numbers in tables, money and dates line up. */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground font-sans text-body;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

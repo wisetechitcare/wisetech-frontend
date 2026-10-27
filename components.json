@@ -5,18 +5,18 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "src/main.css",
-    "baseColor": "neutral",
-    "cssVariables": false,
+    "css": "src/ds/styles/globals.css",
+    "baseColor": "slate",
+    "cssVariables": true,
     "prefix": ""
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "components": "@/ds",
+    "utils": "@/ds/lib/utils",
+    "ui": "@/ds/ui",
+    "lib": "@/ds/lib",
+    "hooks": "@/ds/hooks"
   },
   "registries": {
     "@react-bits": "https://reactbits.dev/r/{name}.json"

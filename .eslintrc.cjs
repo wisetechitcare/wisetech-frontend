@@ -281,6 +281,13 @@ module.exports = {
       rules: { 'no-restricted-syntax': 'off', 'no-restricted-imports': 'off' },
     },
     {
+      /* ADR-001 v2 kit (Radix + Tailwind). It implements its own primitives, so the legacy
+       * MUI-kit syntax rules (raw Switch, raw `title`, etc.) don't apply here. The import
+       * bans stay ON: the v2 kit must not pull in antd / Mantine / raw react-select either. */
+      files: ['src/ds/**'],
+      rules: { 'no-restricted-syntax': 'off' },
+    },
+    {
       /* DROPDOWN MIGRATION BACKLOG — still import react-select outside the kit. Warn while
        * converting; delete entries as files move to WtField / WtSelect adapters.
        * Do NOT add new feature files here — use WtFieldFormik / MultiSelectWithInlineCreate. */
