@@ -10,7 +10,6 @@ const meta = {
   title: 'Screens/App',
   component: PrototypeApp,
   parameters: { layout: 'fullscreen' },
-  decorators: [(Story) => <div className="p-6"><Story /></div>],
 } satisfies Meta<typeof PrototypeApp>
 
 export default meta

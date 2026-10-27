@@ -23,9 +23,7 @@ const meta = {
   args: { onOpenChange: fn() },
   render: (args) => (
     <Dialog {...args}>
-      <DialogTrigger asChild>
-        <Button variant="outline">Close wizard</Button>
-      </DialogTrigger>
+      <DialogTrigger render={<Button variant="outline" />}>Close wizard</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <span className="mb-2 grid size-11 place-items-center rounded-xl bg-warning-soft text-warning-foreground">
@@ -35,12 +33,8 @@ const meta = {
           <DialogDescription>Your changes to this employee haven&apos;t been saved.</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Keep editing</Button>
-          </DialogClose>
-          <DialogClose asChild>
-            <Button variant="destructive">Discard</Button>
-          </DialogClose>
+          <DialogClose render={<Button variant="outline" />}>Keep editing</DialogClose>
+          <DialogClose render={<Button variant="destructive" />}>Discard</DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -58,7 +52,7 @@ export const DiscardPrompt: Story = {
     await expect(dialog).toHaveAccessibleDescription("Your changes to this employee haven't been saved.")
     await userEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await expect(args.onOpenChange).toHaveBeenLastCalledWith(false)
+    await expect(args.onOpenChange).toHaveBeenLastCalledWith(false, expect.anything())
   },
 }
 

@@ -2,13 +2,15 @@ import { useMemo, useState } from "react"
 import { Download, Filter, Mail, MoreHorizontal, Plus, Search, SlidersHorizontal, X } from "lucide-react"
 import { Button } from "@/ds/ui/button"
 import { Badge } from "@/ds/ui/badge"
-import { Input } from "@/ds/ui/input"
+import { Card, CardFooter } from "@/ds/ui/card"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/ds/ui/input-group"
+import { Item, ItemActions, ItemContent, ItemTitle } from "@/ds/ui/item"
+import { Tabs, TabsList, TabsTrigger } from "@/ds/ui/tabs"
 import { Checkbox } from "@/ds/ui/checkbox"
 import { Avatar, AvatarFallback } from "@/ds/ui/avatar"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ds/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/ds/ui/dropdown-menu"
 import { PageHeader } from "@/ds/patterns/page-header"
-import { cn } from "@/ds/lib/utils"
 import { initials, PEOPLE, STATUS_META, type Person } from "./fixtures"
 
 const VIEWS = ["All people", "Engineering", "On leave today", "New joiners"] as const
@@ -45,66 +47,68 @@ export function EmployeesScreen({ onOpen }: { onOpen: (p: Person) => void }) {
         actions={
           <>
             <Button variant="outline">
-              <Download /> Export
+              <Download data-icon="inline-start" /> Export
             </Button>
             <Button>
-              <Plus /> Add employee
+              <Plus data-icon="inline-start" /> Add employee
             </Button>
           </>
         }
       />
 
-      <div className="flex flex-wrap items-center gap-1 border-b">
-        {VIEWS.map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setView(v)}
-            className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-body font-medium transition-colors",
-              view === v ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {v}
-          </button>
-        ))}
-        <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground">
-          <Plus /> Save view
+      <div className="flex flex-wrap items-center gap-2">
+        <Tabs value={view} onValueChange={(v) => setView(v as (typeof VIEWS)[number])}>
+          <TabsList variant="line" aria-label="Saved views">
+            {VIEWS.map((v) => (
+              <TabsTrigger key={v} value={v}>
+                {v}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        <Button variant="ghost" size="sm" className="ml-auto">
+          <Plus data-icon="inline-start" /> Save view
         </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, role or ID" className="pl-8" />
-        </div>
+        <InputGroup className="max-w-xs">
+          <InputGroupAddon>
+            <Search />
+          </InputGroupAddon>
+          <InputGroupInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, role or ID" aria-label="Search employees" />
+        </InputGroup>
         <Button variant="outline" size="sm">
-          <Filter /> Department
+          <Filter data-icon="inline-start" /> Department
         </Button>
         <Button variant="outline" size="sm">
-          <Filter /> Status
+          <Filter data-icon="inline-start" /> Status
         </Button>
         <Button variant="ghost" size="sm" className="ml-auto">
-          <SlidersHorizontal /> Columns
+          <SlidersHorizontal data-icon="inline-start" /> Columns
         </Button>
       </div>
 
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-accent px-3 py-2 text-body text-accent-foreground">
-          <span className="font-medium">{selected.size} selected</span>
-          <Button size="sm" variant="outline">
-            <Mail /> Email
-          </Button>
-          <Button size="sm" variant="outline">
-            <Download /> Export
-          </Button>
-          <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setSelected(new Set())} aria-label="Clear selection">
-            <X /> Clear
-          </Button>
-        </div>
+        <Item variant="muted" size="sm">
+          <ItemContent>
+            <ItemTitle>{selected.size} selected</ItemTitle>
+          </ItemContent>
+          <ItemActions>
+            <Button size="sm" variant="outline">
+              <Mail data-icon="inline-start" /> Email
+            </Button>
+            <Button size="sm" variant="outline">
+              <Download data-icon="inline-start" /> Export
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} aria-label="Clear selection">
+              <X data-icon="inline-start" /> Clear
+            </Button>
+          </ItemActions>
+        </Item>
       )}
 
-      <div className="overflow-hidden rounded-xl border bg-card shadow-e1">
+      <Card className="gap-0 py-0">
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
@@ -129,12 +133,12 @@ export function EmployeesScreen({ onOpen }: { onOpen: (p: Person) => void }) {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <Avatar className="size-8">
-                      <AvatarFallback className="bg-accent text-label font-semibold text-accent-foreground">{initials(p.name)}</AvatarFallback>
+                    <Avatar>
+                      <AvatarFallback className="bg-accent text-xs font-semibold text-accent-foreground">{initials(p.name)}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
                       <p className="truncate font-medium">{p.name}</p>
-                      <p className="truncate text-label text-muted-foreground">
+                      <p className="truncate text-xs text-muted-foreground">
                         {p.role} · {p.id}
                       </p>
                     </div>
@@ -150,13 +154,11 @@ export function EmployeesScreen({ onOpen }: { onOpen: (p: Person) => void }) {
                 <TableCell className="tabular text-right font-medium">{p.leave.toFixed(1)}</TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label={`Actions for ${p.name}`}>
-                        <MoreHorizontal />
-                      </Button>
+                    <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label={`Actions for ${p.name}`} />}>
+                      <MoreHorizontal />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => onOpen(p)}>View profile</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onOpen(p)}>View profile</DropdownMenuItem>
                       <DropdownMenuItem>Send email</DropdownMenuItem>
                       <DropdownMenuItem variant="destructive">Deactivate</DropdownMenuItem>
                     </DropdownMenuContent>
@@ -166,7 +168,7 @@ export function EmployeesScreen({ onOpen }: { onOpen: (p: Person) => void }) {
             ))}
           </TableBody>
         </Table>
-        <div className="flex items-center justify-between border-t px-4 py-2.5 text-label text-muted-foreground">
+        <CardFooter className="justify-between border-t py-3 text-xs text-muted-foreground">
           <span className="tabular">
             Showing {rows.length} of 248
           </span>
@@ -178,8 +180,8 @@ export function EmployeesScreen({ onOpen }: { onOpen: (p: Person) => void }) {
               Next
             </Button>
           </div>
-        </div>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
   )
 }

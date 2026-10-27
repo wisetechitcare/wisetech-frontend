@@ -1,9 +1,10 @@
 /* ============================================================================
  * WiseTech Visual Language v2 — the ONE token source (ADR-001).
  *
- * Every colour, radius, shadow, motion and type value the new kit uses lives here as a CSS
- * variable. Tailwind reads them through `@theme inline`; components never hardcode a value.
- * Per-tenant branding overrides only `--brand-*` at runtime; everything else derives from it.
+ * Look = shadcn/ui style `base-maia` (components.json); colours = ours. Components come from
+ * the shadcn CLI and use shadcn's type, radius and motion conventions; this file owns only the
+ * colour roles, the radius base and the appearance axes below. Per-tenant branding overrides
+ * only `--brand-*` at runtime; everything else derives from it.
  *
  * Axes (all set on <html>):
  *   .dark                       light / dark
@@ -13,6 +14,7 @@
 
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -24,14 +26,13 @@
 
   /* ── Surfaces & text ────────────────────────────────────────────────── */
   --background: oklch(0.985 0.003 265);
-  --foreground: oklch(0.21 0.02 265);
+  --foreground: oklch(0.18 0.02 265); /* shadcn tints with /60 (inactive tabs): 4.77:1 on muted */
   --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
   --popover-foreground: var(--foreground);
   --muted: oklch(0.965 0.006 265);
   --muted-foreground: oklch(0.51 0.02 265);
-  --subtle-foreground: oklch(0.62 0.015 265);
 
   /* ── Actions ────────────────────────────────────────────────────────── */
   --primary: var(--brand);
@@ -48,7 +49,7 @@
   --warning: oklch(0.76 0.15 75);
   --warning-soft: oklch(0.97 0.045 85);
   --warning-foreground: oklch(0.47 0.11 60);
-  --destructive: oklch(0.58 0.21 25);
+  --destructive: oklch(0.53 0.21 25); /* text on its own /10 tint: 4.95:1 */
   --destructive-soft: oklch(0.965 0.025 25);
   --destructive-foreground: oklch(0.47 0.17 25);
   --info: oklch(0.62 0.13 235);
@@ -77,17 +78,8 @@
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
 
-  /* ── Shape, depth, motion ───────────────────────────────────────────── */
+  /* ── Shape ──────────────────────────────────────────────────────────── */
   --radius: 0.625rem;
-  --shadow-color: 265 30% 20%;
-  --elevation-1: 0 1px 2px hsl(var(--shadow-color) / 0.06), 0 1px 1px hsl(var(--shadow-color) / 0.04);
-  --elevation-2: 0 4px 12px -2px hsl(var(--shadow-color) / 0.08), 0 2px 4px -2px hsl(var(--shadow-color) / 0.05);
-  --elevation-3: 0 16px 40px -8px hsl(var(--shadow-color) / 0.16), 0 6px 12px -6px hsl(var(--shadow-color) / 0.08);
-  --duration-fast: 120ms;
-  --duration-base: 180ms;
-  --duration-slow: 260ms;
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1.2);
 
   /* ── Glass chrome (used only when [data-surface="glass"]) ───────────── */
   --chrome: color-mix(in oklch, var(--card) 100%, transparent);
@@ -104,7 +96,6 @@
   --popover: oklch(0.215 0.015 265);
   --muted: oklch(0.235 0.014 265);
   --muted-foreground: oklch(0.71 0.015 265);
-  --subtle-foreground: oklch(0.6 0.015 265);
 
   --secondary: oklch(0.26 0.016 265);
   --secondary-foreground: oklch(0.92 0.006 265);
@@ -117,7 +108,7 @@
   --warning: oklch(0.8 0.14 80);
   --warning-soft: oklch(0.32 0.06 75 / 55%);
   --warning-foreground: oklch(0.86 0.12 80);
-  --destructive: oklch(0.68 0.19 25);
+  --destructive: oklch(0.7 0.19 25); /* text on its own /20 tint: 4.75:1 */
   --destructive-soft: oklch(0.32 0.08 25 / 55%);
   --destructive-foreground: oklch(0.8 0.13 25);
   --info: oklch(0.72 0.12 235);
@@ -133,7 +124,6 @@
   --sidebar-accent: color-mix(in oklch, var(--brand) 14%, var(--sidebar));
   --sidebar-accent-foreground: oklch(0.96 0.01 265);
 
-  --shadow-color: 265 40% 2%;
 }
 
 /* Glass chrome: frosted header/sidebar/overlays. The work canvas (cards, forms, tables) stays opaque. */
@@ -149,6 +139,10 @@
 
 @theme inline {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-sans);
+
+  /* Button physics from the live app's WtButton (Meridian recipe): quick, slightly springy. */
+  --ease-spring: cubic-bezier(0.22, 0.61, 0.36, 1);
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
 
   --color-background: var(--background);
@@ -159,7 +153,6 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-subtle-foreground: var(--subtle-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
@@ -196,34 +189,14 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-chrome: var(--chrome);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  /* shadcn's radius scale (base-maia uses up to 4xl for pills). */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-
-  --shadow-e1: var(--elevation-1);
-  --shadow-e2: var(--elevation-2);
-  --shadow-e3: var(--elevation-3);
-
-  /* Type scale (Material 3-shaped, tuned for dense SaaS) */
-  --text-display: 2.25rem;
-  --text-display--line-height: 2.625rem;
-  --text-display--letter-spacing: -0.022em;
-  --text-headline: 1.5rem;
-  --text-headline--line-height: 2rem;
-  --text-headline--letter-spacing: -0.018em;
-  --text-title: 1.0625rem;
-  --text-title--line-height: 1.5rem;
-  --text-title--letter-spacing: -0.011em;
-  --text-body: 0.875rem;
-  --text-body--line-height: 1.375rem;
-  --text-label: 0.75rem;
-  --text-label--line-height: 1rem;
-  --text-label--letter-spacing: 0.01em;
-
-  --ease-standard: var(--ease-standard);
-  --ease-emphasized: var(--ease-emphasized);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 /* Frosted chrome surface: opaque in Material, blurred in Glass. */
@@ -231,6 +204,21 @@
   background-color: var(--chrome);
   backdrop-filter: blur(var(--chrome-blur)) saturate(140%);
   -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(140%);
+}
+
+/* Button depth (WtButton recipe): crisp edge + soft glow in the button's own colour (--glow)
+ * + a 1px glass highlight on the top edge. -lg is the hover state. */
+@utility shadow-glow {
+  box-shadow:
+    0 1px 2px color-mix(in oklch, var(--glow, var(--primary)) 30%, transparent),
+    0 6px 16px -6px color-mix(in oklch, var(--glow, var(--primary)) 55%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.16);
+}
+@utility shadow-glow-lg {
+  box-shadow:
+    0 3px 6px color-mix(in oklch, var(--glow, var(--primary)) 30%, transparent),
+    0 12px 24px -8px color-mix(in oklch, var(--glow, var(--primary)) 65%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.16);
 }
 
 /* Numbers in tables, money and dates line up. */
@@ -242,14 +230,11 @@
   * {
     @apply border-border outline-ring/50;
   }
-  html {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-  }
   body {
-    @apply bg-background text-foreground font-sans text-body;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans antialiased;
   }
   @media (prefers-reduced-motion: reduce) {
     *,

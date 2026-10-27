@@ -1,19 +1,21 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, screen, userEvent } from 'storybook/test'
+import { expect, userEvent, waitFor } from 'storybook/test'
 import { Settings } from 'lucide-react'
 import { Button } from './button'
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
 
-/** Short supplementary label on hover or focus. Never the only way to get essential information. */
+/**
+ * Short supplementary label on hover or focus. Never the only way to get essential information:
+ * Base UI treats the popup as visual only (no role="tooltip"), so the trigger needs its own
+ * accessible name (here `aria-label`).
+ */
 const meta = {
   title: 'Components/Tooltip',
   component: Tooltip,
   render: (args) => (
     <Tooltip {...args}>
-      <TooltipTrigger asChild>
-        <Button variant="outline" size="icon" aria-label="Settings">
-          <Settings aria-hidden />
-        </Button>
+      <TooltipTrigger render={<Button variant="outline" size="icon" aria-label="Settings" />}>
+        <Settings aria-hidden />
       </TooltipTrigger>
       <TooltipContent>Settings</TooltipContent>
     </Tooltip>
@@ -27,6 +29,8 @@ type Story = StoryObj<typeof meta>
 export const OnFocus: Story = {
   play: async () => {
     await userEvent.tab()
-    await expect(await screen.findByRole('tooltip')).toHaveTextContent('Settings')
+    await waitFor(() =>
+      expect(document.querySelector('[data-slot="tooltip-content"]')).toHaveTextContent('Settings'),
+    )
   },
 }

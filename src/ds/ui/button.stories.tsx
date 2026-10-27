@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent } from 'storybook/test'
 import { Download, Plus, Settings, Trash2 } from 'lucide-react'
-import { Button } from './button'
+import { Button, buttonVariants } from './button'
 
 /** The one button. Variants carry meaning: one primary action per view, destructive only for irreversible actions. */
 const meta = {
@@ -84,10 +84,14 @@ export const Disabled: Story = {
   },
 }
 
-/** `asChild` renders the button styles on a link. */
+/** Navigation is a link, not a button: put `buttonVariants` on a real <a> so it keeps role="link". */
 export const AsLink: Story = {
-  args: { asChild: true, variant: 'outline', children: <a href="#policy">Read the leave policy</a> },
+  render: () => (
+    <a href="#policy" className={buttonVariants({ variant: 'outline' })}>
+      Read the leave policy
+    </a>
+  ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole('link', { name: 'Read the leave policy' })).toHaveAttribute('data-slot', 'button')
+    await expect(canvas.getByRole('link', { name: 'Read the leave policy' })).toHaveAttribute('href', '#policy')
   },
 }

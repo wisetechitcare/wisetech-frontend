@@ -25,7 +25,7 @@ export const Toggle: Story = {
     const sw = canvas.getByRole('switch', { name: 'Notify reporting manager' })
     await userEvent.click(sw)
     await expect(sw).toBeChecked()
-    await expect(args.onCheckedChange).toHaveBeenCalledWith(true)
+    await expect(args.onCheckedChange).toHaveBeenCalledWith(true, expect.anything())
   },
 }
 

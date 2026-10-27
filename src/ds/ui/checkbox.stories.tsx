@@ -26,7 +26,7 @@ export const Toggle: Story = {
     await expect(box).not.toBeChecked()
     await userEvent.click(canvas.getByText('Send welcome email'))
     await expect(box).toBeChecked()
-    await expect(args.onCheckedChange).toHaveBeenCalledWith(true)
+    await expect(args.onCheckedChange).toHaveBeenCalledWith(true, expect.anything())
   },
 }
 
@@ -37,6 +37,7 @@ export const Checked: Story = { args: { defaultChecked: true } }
 export const Disabled: Story = {
   args: { disabled: true },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole('checkbox')).toBeDisabled()
+    // Base UI renders the box as role="checkbox" with aria-disabled (the native input is hidden).
+    await expect(canvas.getByRole('checkbox')).toHaveAttribute('aria-disabled', 'true')
   },
 }

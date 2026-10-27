@@ -19,20 +19,18 @@ export function PrototypeApp({ initialScreen = "dashboard" }: { initialScreen?: 
   const [person, setPerson] = useState<Person>(PEOPLE[0])
 
   return (
-    <div className="space-y-3">
-      <AppShell active={screen} onNavigate={setScreen} breadcrumb={CRUMBS[screen]}>
-        {screen === "dashboard" && <DashboardScreen />}
-        {screen === "employees" && (
-          <EmployeesScreen
-            onOpen={(p) => {
-              setPerson(p)
-              setScreen("employee")
-            }}
-          />
-        )}
-        {screen === "employee" && <EmployeeDetailScreen person={person} onBack={() => setScreen("employees")} />}
-        {screen === "leave" && <LeaveMobileScreen />}
-      </AppShell>
-    </div>
+    <AppShell active={screen} onNavigate={setScreen} breadcrumb={CRUMBS[screen]}>
+      {screen === "dashboard" && <DashboardScreen />}
+      {screen === "employees" && (
+        <EmployeesScreen
+          onOpen={(p) => {
+            setPerson(p)
+            setScreen("employee")
+          }}
+        />
+      )}
+      {screen === "employee" && <EmployeeDetailScreen person={person} onBack={() => setScreen("employees")} />}
+      {screen === "leave" && <LeaveMobileScreen />}
+    </AppShell>
   )
 }

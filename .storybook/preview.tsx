@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react'
+import { useLayoutEffect, type ReactNode } from 'react'
 import type { Decorator, Preview } from '@storybook/react-vite'
 import '../src/ds/styles/globals.css'
 import { TooltipProvider } from '../src/ds/ui/tooltip'
@@ -9,13 +9,9 @@ import { applyAppearance, BRAND_PRESETS, type Density, type Mode, type Surface }
  * WiseTech v2 appearance: the four axes the product exposes (theme, surface, density, tenant
  * brand) are applied to <html> exactly as the app will, so every story renders in real context.
  */
-const withAppearance: Decorator = (Story, ctx) => {
-  const { mode, surface, density, brand } = ctx.globals as {
-    mode: Mode
-    surface: Surface
-    density: Density
-    brand: string
-  }
+type Globals = { mode: Mode; surface: Surface; density: Density; brand: string }
+
+function Appearance({ mode, surface, density, brand, children }: Globals & { children: ReactNode }) {
   const preset = BRAND_PRESETS.find((b) => b.id === brand) ?? BRAND_PRESETS[0]
   useLayoutEffect(() => {
     applyAppearance({
@@ -26,12 +22,18 @@ const withAppearance: Decorator = (Story, ctx) => {
     })
   }, [mode, surface, density, preset])
   return (
-    <TooltipProvider delayDuration={150}>
-      <Story />
-      <Toaster position="bottom-right" richColors closeButton />
+    <TooltipProvider delay={150}>
+      {children}
+      <Toaster position="bottom-right" closeButton />
     </TooltipProvider>
   )
 }
+
+const withAppearance: Decorator = (Story, ctx) => (
+  <Appearance {...(ctx.globals as Globals)}>
+    <Story />
+  </Appearance>
+)
 
 const toolbar = (title: string, icon: string, items: Array<{ value: string; title: string }>) => ({
   toolbar: { title, icon, items, dynamicTitle: true },

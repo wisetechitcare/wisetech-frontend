@@ -27,6 +27,8 @@ CLAUDE.md
 
 # Manual patch / variant-file workflow is banned — use branches + PRs
 *.patch
+# pnpm dependency patches are source: pnpm-workspace.yaml patchedDependencies needs them at install.
+!patches/*.patch
 *.diff
 *_diff.txt
 *.labbai.*

@@ -4,8 +4,8 @@ function Section({ title, description, children }: { title: string; description?
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-title font-semibold">{title}</h2>
-        {description && <p className="text-body text-muted-foreground">{description}</p>}
+        <h2 className="text-base font-semibold">{title}</h2>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       {children}
     </section>
@@ -14,12 +14,12 @@ function Section({ title, description, children }: { title: string; description?
 
 function Swatch({ name, varName, fg }: { name: string; varName: string; fg?: string }) {
   return (
-    <div className="overflow-hidden rounded-xl border bg-card shadow-e1">
+    <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
       <div className="flex h-16 items-end p-2" style={{ background: `var(${varName})`, color: fg ? `var(${fg})` : undefined }}>
-        {fg && <span className="text-label font-semibold">Aa</span>}
+        {fg && <span className="text-xs font-semibold">Aa</span>}
       </div>
       <div className="px-3 py-2">
-        <p className="text-label font-medium">{name}</p>
+        <p className="text-xs font-medium">{name}</p>
         <p className="font-mono text-[11px] text-muted-foreground">{varName}</p>
       </div>
     </div>
@@ -45,11 +45,11 @@ const STATUS: Array<[string, string, string, string]> = [
 ]
 
 const TYPE: Array<[string, string, string]> = [
-  ["Display", "text-display font-semibold", "₹4,82,500 payroll this month"],
-  ["Headline", "text-headline font-semibold", "Employee onboarding"],
-  ["Title", "text-title font-semibold", "Personal information"],
-  ["Body", "text-body", "Leave balances update in real time as requests are approved."],
-  ["Label", "text-label font-medium uppercase tracking-wider text-muted-foreground", "Required fields"],
+  ["text-3xl", "text-3xl font-semibold tracking-tight", "₹4,82,500 payroll this month"],
+  ["text-2xl", "text-2xl font-semibold tracking-tight", "Employee onboarding"],
+  ["text-base", "text-base font-medium", "Personal information"],
+  ["text-sm", "text-sm", "Leave balances update in real time as requests are approved."],
+  ["text-xs", "text-xs text-muted-foreground", "Required fields"],
 ]
 
 export function ColourRoles() {
@@ -69,12 +69,12 @@ export function StatusColours() {
     <Section title="Status" description="One meaning per colour. Each has a solid, a soft fill and readable text — in both themes.">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {STATUS.map(([n, solid, soft, fg]) => (
-          <div key={n} className="rounded-xl border bg-card p-3 shadow-e1">
+          <div key={n} className="rounded-xl border bg-card p-3 shadow-xs">
             <div className="flex items-center gap-2">
               <span className="size-3 rounded-full" style={{ background: `var(${solid})` }} />
-              <p className="text-body font-medium">{n}</p>
+              <p className="text-sm font-medium">{n}</p>
             </div>
-            <div className="mt-3 rounded-lg px-3 py-2 text-label font-medium" style={{ background: `var(${soft})`, color: `var(${fg})` }}>
+            <div className="mt-3 rounded-lg px-3 py-2 text-xs font-medium" style={{ background: `var(${soft})`, color: `var(${fg})` }}>
               {n} message on its soft fill
             </div>
           </div>
@@ -86,11 +86,11 @@ export function StatusColours() {
 
 export function TypeScale() {
   return (
-    <Section title="Type scale" description="Inter (self-hosted), five roles. Numbers use tabular figures so columns align.">
-      <div className="divide-y rounded-xl border bg-card shadow-e1">
+    <Section title="Type scale" description="Inter (self-hosted) on shadcn's Tailwind scale. Body copy is text-sm; numbers use tabular figures so columns align.">
+      <div className="divide-y rounded-xl border bg-card shadow-xs">
         {TYPE.map(([n, cls, sample]) => (
           <div key={n} className="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:items-baseline sm:gap-6">
-            <p className="w-24 shrink-0 text-label text-muted-foreground">{n}</p>
+            <p className="w-24 shrink-0 text-xs text-muted-foreground">{n}</p>
             <p className={cls}>{sample}</p>
           </div>
         ))}
@@ -101,18 +101,18 @@ export function TypeScale() {
 
 export function RadiusElevation() {
   return (
-    <Section title="Radius & elevation" description="One radius scale; three elevation steps tuned to the canvas.">
+    <Section title="Radius & shadow" description="shadcn's radius scale from one --radius base; base-maia uses the large radii for pills and cards.">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-        {["rounded-sm", "rounded-md", "rounded-lg", "rounded-xl", "rounded-2xl"].map((r) => (
-          <div key={r} className={`flex h-20 items-center justify-center border bg-card text-label text-muted-foreground ${r}`}>
+        {["rounded-sm", "rounded-md", "rounded-lg", "rounded-xl", "rounded-2xl", "rounded-4xl"].map((r) => (
+          <div key={r} className={`flex h-20 items-center justify-center border bg-card text-xs text-muted-foreground ${r}`}>
             {r.replace("rounded-", "")}
           </div>
         ))}
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {["shadow-e1", "shadow-e2", "shadow-e3"].map((s) => (
-          <div key={s} className={`flex h-24 items-center justify-center rounded-xl bg-card text-label text-muted-foreground ${s}`}>
-            {s.replace("shadow-", "elevation ")}
+        {["shadow-xs", "shadow-md", "shadow-lg"].map((s) => (
+          <div key={s} className={`flex h-24 items-center justify-center rounded-xl bg-card text-xs text-muted-foreground ${s}`}>
+            {s}
           </div>
         ))}
       </div>
@@ -123,7 +123,7 @@ export function RadiusElevation() {
 export function SpacingDensity() {
   return (
     <Section title="Spacing & density" description="A 4-point scale. Compact density shrinks the whole scale — switch it in the toolbar.">
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-5 shadow-e1">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-5 shadow-xs">
         {[1, 2, 3, 4, 6, 8, 10, 12, 16].map((n) => (
           <div key={n} className="flex flex-col items-center gap-1.5">
             <div className="rounded-sm bg-primary/80" style={{ width: `calc(var(--spacing) * ${n})`, height: `calc(var(--spacing) * ${n})` }} />

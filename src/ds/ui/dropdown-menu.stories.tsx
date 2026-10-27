@@ -5,6 +5,7 @@ import { Button } from './button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -20,21 +21,22 @@ const meta = {
   component: DropdownMenu,
   render: (args) => (
     <DropdownMenu {...args}>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline">
-          Actions <ChevronDown aria-hidden />
-        </Button>
+      <DropdownMenuTrigger render={<Button variant="outline" />}>
+        Actions <ChevronDown aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
-        <DropdownMenuLabel>Employee</DropdownMenuLabel>
-        <DropdownMenuItem onSelect={onEmail}>
-          <Mail aria-hidden /> Send email
-        </DropdownMenuItem>
-        <DropdownMenuItem>
-          <Upload aria-hidden /> Upload document
-        </DropdownMenuItem>
+        {/* Base UI: a label belongs to the group it names. */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Employee</DropdownMenuLabel>
+          <DropdownMenuItem onClick={onEmail}>
+            <Mail aria-hidden /> Send email
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Upload aria-hidden /> Upload document
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={onDeactivate}>
+        <DropdownMenuItem variant="destructive" onClick={onDeactivate}>
           <Trash2 aria-hidden /> Deactivate
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -66,7 +68,8 @@ export const Keyboard: Story = {
   play: async ({ canvas }) => {
     canvas.getByRole('button', { name: 'Actions' }).focus()
     await userEvent.keyboard('{Enter}')
-    await screen.findByRole('menu')
+    // Base UI moves focus into the menu a frame after it opens.
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: /Send email/ })).toHaveFocus())
     await userEvent.keyboard('{End}{Enter}')
     await expect(onDeactivate).toHaveBeenCalledTimes(1)
     // Focus returns to the trigger once the menu has fully closed.

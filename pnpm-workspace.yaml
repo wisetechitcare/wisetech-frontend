@@ -60,3 +60,13 @@ peerDependencyRules:
     react-copy-to-clipboard>react: '19'
     # @aws-amplify/ui-react-liveness declares React 19 itself but still depends on @xstate/react 3.
     '@xstate/react>react': '19'
+
+# cmdk 1.1.1 (shadcn's Command, all bases) has two a11y bugs, fixed in patches/cmdk@1.1.1.patch:
+#   1. after a search, aria-activedescendant keeps the id of an item that re-mounted with a new id
+#      (the store skips the update because the selected VALUE did not change);
+#   2. an empty result list keeps role="listbox" with no options (aria-required-children);
+#   3. Command.Separator is role="separator" inside the listbox, which allows only options/groups —
+#      it is decorative, so it is aria-hidden instead.
+# Re-check both on any cmdk upgrade (Storybook: Components/Command stories) and drop the patch if fixed upstream.
+patchedDependencies:
+  cmdk@1.1.1: patches/cmdk@1.1.1.patch

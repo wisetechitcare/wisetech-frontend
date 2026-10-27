@@ -2,6 +2,8 @@ import { CalendarDays, CheckCircle2, Clock, Gift, Plus, Receipt, Sparkles, UserP
 import { Button } from "@/ds/ui/button"
 import { Badge } from "@/ds/ui/badge"
 import { Avatar, AvatarFallback } from "@/ds/ui/avatar"
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ds/ui/card"
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/ds/ui/item"
 import { Progress } from "@/ds/ui/progress"
 import { PageHeader } from "@/ds/patterns/page-header"
 import { StatCard } from "@/ds/patterns/stat-card"
@@ -22,6 +24,12 @@ const ATTENDANCE = [
 ]
 const TOTAL = ATTENDANCE.reduce((s, a) => s + a.value, 0)
 
+const COMING_UP = [
+  { label: "Meera Joshi's birthday", when: "Tomorrow", icon: <Gift />, tone: "bg-warning-soft text-warning-foreground" },
+  { label: "Diwali — office closed", when: "1 Nov", icon: <CalendarDays />, tone: "bg-info-soft text-info-foreground" },
+  { label: "October payroll run", when: "31 Oct", icon: <Receipt />, tone: "bg-success-soft text-success-foreground" },
+]
+
 export function DashboardScreen() {
   return (
     <div className="space-y-6 p-6">
@@ -32,10 +40,10 @@ export function DashboardScreen() {
         actions={
           <>
             <Button variant="outline">
-              <CalendarDays /> Apply leave
+              <CalendarDays data-icon="inline-start" /> Apply leave
             </Button>
             <Button>
-              <UserPlus /> Add employee
+              <UserPlus data-icon="inline-start" /> Add employee
             </Button>
           </>
         }
@@ -49,131 +57,153 @@ export function DashboardScreen() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
-        {/* Needs you */}
-        <section className="rounded-xl border bg-card shadow-e1 xl:col-span-2">
-          <div className="flex items-center justify-between border-b px-5 py-4">
-            <div>
-              <h2 className="text-title font-semibold">Needs your decision</h2>
-              <p className="text-label text-muted-foreground">Oldest first · decide without leaving the dashboard</p>
-            </div>
-            <Button variant="ghost" size="sm">
-              View all 17
-            </Button>
-          </div>
-          <ul className="divide-y">
-            {APPROVALS.map((a) => (
-              <li key={a.what} className="flex flex-wrap items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/50">
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground [&>svg]:size-4">
-                  {a.icon}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-body font-medium">
-                    {a.who} <span className="font-normal text-muted-foreground">· {a.what}</span>
-                  </p>
-                  <p className="text-label text-muted-foreground">{a.meta}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline">
-                    <XCircle /> Decline
-                  </Button>
-                  <Button size="sm">
-                    <CheckCircle2 /> Approve
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Card className="xl:col-span-2">
+          <CardHeader className="border-b">
+            <CardTitle>
+              <h2>Needs your decision</h2>
+            </CardTitle>
+            <CardDescription>Oldest first · decide without leaving the dashboard</CardDescription>
+            <CardAction>
+              <Button variant="ghost" size="sm">
+                View all 17
+              </Button>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="px-2">
+            {/* ItemGroup is role="list"; each Item is a listitem. */}
+            <ItemGroup className="gap-1">
+              {APPROVALS.map((a) => (
+                <Item key={a.what} role="listitem" size="sm">
+                  <ItemMedia variant="icon" className="size-9 rounded-xl bg-accent text-accent-foreground">
+                    {a.icon}
+                  </ItemMedia>
+                  <ItemContent className="min-w-0">
+                    <ItemTitle>
+                      {a.who} <span className="font-normal text-muted-foreground">· {a.what}</span>
+                    </ItemTitle>
+                    <ItemDescription>{a.meta}</ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <Button size="sm" variant="outline">
+                      <XCircle data-icon="inline-start" /> Decline
+                    </Button>
+                    <Button size="sm">
+                      <CheckCircle2 data-icon="inline-start" /> Approve
+                    </Button>
+                  </ItemActions>
+                </Item>
+              ))}
+            </ItemGroup>
+          </CardContent>
+        </Card>
 
-        {/* Attendance */}
-        <section className="rounded-xl border bg-card p-5 shadow-e1">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-title font-semibold">Attendance today</h2>
-            <Badge variant="success" dot>
-              Live
-            </Badge>
-          </div>
-          <div className="mt-4 flex h-3 overflow-hidden rounded-full" role="img" aria-label="Attendance distribution">
-            {ATTENDANCE.map((a) => (
-              <span key={a.label} className={a.cls} style={{ width: `${(a.value / TOTAL) * 100}%` }} />
-            ))}
-          </div>
-          <ul className="mt-4 space-y-2.5">
-            {ATTENDANCE.map((a) => (
-              <li key={a.label} className="flex items-center gap-2.5 text-body">
-                <span className={`size-2.5 rounded-full ${a.cls}`} />
-                <span className="flex-1 text-muted-foreground">{a.label}</span>
-                <span className="tabular font-medium">{a.value}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>Attendance today</h2>
+            </CardTitle>
+            <CardAction>
+              <Badge variant="success" dot>
+                Live
+              </Badge>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex h-3 overflow-hidden rounded-full" role="img" aria-label="Attendance distribution">
+              {ATTENDANCE.map((a) => (
+                <span key={a.label} className={a.cls} style={{ width: `${(a.value / TOTAL) * 100}%` }} />
+              ))}
+            </div>
+            <ul className="space-y-2.5">
+              {ATTENDANCE.map((a) => (
+                <li key={a.label} className="flex items-center gap-2.5">
+                  <span className={`size-2.5 rounded-full ${a.cls}`} />
+                  <span className="flex-1 text-muted-foreground">{a.label}</span>
+                  <span className="tabular font-medium">{a.value}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
-        <section className="rounded-xl border bg-card p-5 shadow-e1">
-          <h2 className="text-title font-semibold">Onboarding this week</h2>
-          <ul className="mt-4 space-y-4">
-            {[
-              ["Ishaan Verma", "Site Engineer", 80],
-              ["Tara Menon", "HR Associate", 45],
-            ].map(([n, r, p]) => (
-              <li key={n as string} className="flex items-center gap-3">
-                <Avatar>
-                  <AvatarFallback className="bg-accent text-accent-foreground">{initials(n as string)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-body font-medium">{n}</p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Progress value={p as number} className="h-1.5" aria-label={`${n} onboarding`} />
-                    <span className="tabular text-label text-muted-foreground">{p}%</span>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>Onboarding this week</h2>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ItemGroup className="gap-1">
+              {(
+                [
+                  ["Ishaan Verma", 80],
+                  ["Tara Menon", 45],
+                ] as const
+              ).map(([n, p]) => (
+                <Item key={n} role="listitem" size="xs" className="px-0">
+                  <ItemMedia>
+                    <Avatar>
+                      <AvatarFallback className="bg-accent text-accent-foreground">{initials(n)}</AvatarFallback>
+                    </Avatar>
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{n}</ItemTitle>
+                    <div className="flex items-center gap-2">
+                      <Progress value={p} aria-label={`${n} onboarding`} />
+                      <span className="tabular text-xs text-muted-foreground">{p}%</span>
+                    </div>
+                  </ItemContent>
+                </Item>
+              ))}
+            </ItemGroup>
+          </CardContent>
+        </Card>
 
-        <section className="rounded-xl border bg-card p-5 shadow-e1">
-          <h2 className="text-title font-semibold">Coming up</h2>
-          <ul className="mt-4 space-y-3 text-body">
-            <li className="flex items-center gap-3">
-              <span className="grid size-8 place-items-center rounded-lg bg-warning-soft text-warning-foreground">
-                <Gift className="size-4" />
-              </span>
-              <span className="flex-1">Meera Joshi's birthday</span>
-              <span className="text-label text-muted-foreground">Tomorrow</span>
-            </li>
-            <li className="flex items-center gap-3">
-              <span className="grid size-8 place-items-center rounded-lg bg-info-soft text-info-foreground">
-                <CalendarDays className="size-4" />
-              </span>
-              <span className="flex-1">Diwali — office closed</span>
-              <span className="text-label text-muted-foreground">1 Nov</span>
-            </li>
-            <li className="flex items-center gap-3">
-              <span className="grid size-8 place-items-center rounded-lg bg-success-soft text-success-foreground">
-                <Receipt className="size-4" />
-              </span>
-              <span className="flex-1">October payroll run</span>
-              <span className="text-label text-muted-foreground">31 Oct</span>
-            </li>
-          </ul>
-        </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>Coming up</h2>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ItemGroup className="gap-1">
+              {COMING_UP.map((c) => (
+                <Item key={c.label} role="listitem" size="xs" className="px-0">
+                  <ItemMedia variant="icon" className={`size-8 rounded-xl ${c.tone}`}>
+                    {c.icon}
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle className="font-normal">{c.label}</ItemTitle>
+                  </ItemContent>
+                  <ItemActions className="text-xs text-muted-foreground">{c.when}</ItemActions>
+                </Item>
+              ))}
+            </ItemGroup>
+          </CardContent>
+        </Card>
 
-        <section className="relative overflow-hidden rounded-xl border bg-card p-5 shadow-e1">
-          <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-primary/10 blur-2xl" />
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2 py-0.5 text-label font-medium text-accent-foreground">
-            <Sparkles className="size-3.5" /> Suggested
-          </span>
-          <h2 className="mt-3 text-title font-semibold">3 people near their leave cap</h2>
-          <p className="mt-1 text-body text-muted-foreground">
+        <Card>
+          <CardHeader>
+            <CardDescription>
+              <Badge variant="brand">
+                <Sparkles data-icon="inline-start" /> Suggested
+              </Badge>
+            </CardDescription>
+            <CardTitle>
+              <h2>3 people near their leave cap</h2>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-muted-foreground">
             Encourage them to plan time off before year-end — unused leave over the carry-forward limit lapses.
-          </p>
-          <Button variant="outline" size="sm" className="mt-4">
-            <Plus /> Send reminder
-          </Button>
-        </section>
+          </CardContent>
+          <CardFooter>
+            <Button variant="outline" size="sm">
+              <Plus data-icon="inline-start" /> Send reminder
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   )

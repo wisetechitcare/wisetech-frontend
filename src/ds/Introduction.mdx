@@ -4,8 +4,9 @@ import { Meta } from '@storybook/addon-docs/blocks'
 
 # WiseTech Design System — Visual Language v2
 
-The catalogue of the WiseTech UI kit: owned code on **Radix primitives + Tailwind CSS v4**
-(the shadcn model), decided in **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`).
+The catalogue of the WiseTech UI kit: owned code from **shadcn/ui** (style `base-maia`) on
+**Base UI + Tailwind CSS v4**, with **React Aria** for locale-sensitive inputs (dates, times, numbers).
+Decided in **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`).
 
 ## Principles
 
@@ -13,11 +14,25 @@ The catalogue of the WiseTech UI kit: owned code on **Radix primitives + Tailwin
   `src/ds/styles/globals.css` — never a hex value.
 - **One meaning per colour.** A single status set (success, warning, danger, info), each with a solid,
   a soft fill and readable text, in light and dark.
-- **Apple-inspired, tuned for density.** Apple's structure and materials, with a 14px body and calm
-  status tones so data-heavy HR and payroll screens stay readable.
-- **Accessible by default.** Radix primitives, visible focus, keyboard-complete; every story is checked
+- **shadcn's design, our colours.** Components come from the shadcn CLI unchanged in shape, type and
+  motion; only the colour roles (navy brand, status set, per-tenant brand) are ours.
+- **Accessible by default.** Base UI and React Aria primitives, visible focus, keyboard-complete; every story is checked
   with axe and fails on a violation.
 - **Status is never colour alone.** Badges carry text (and a dot); trends carry an arrow.
+
+## Where we differ from stock shadcn
+
+Everything in `src/ds/ui` comes from the shadcn CLI (`components.json`, style `base-maia`). Our only
+changes, each marked in the file:
+
+- **Badge** — the WiseTech status set (`success`, `warning`, `danger`, `info`, `brand`, `neutral`) and `dot`.
+- **Button** — the live app's button physics: gradient + own-colour glow on filled buttons, 1px lift on
+  hover, press to 0.975, spring easing (motion only when the user allows it).
+- **Toaster** — follows our light/dark engine instead of `next-themes`.
+- **cmdk** (behind Command) — patched for three screen-reader bugs; see `pnpm-workspace.yaml`.
+
+Screens and patterns are composed only from these components; `src/ds/consistency.test.ts` fails the
+build if one hand-builds a button, input, textarea, kbd or card.
 
 ## Appearance axes
 
@@ -32,8 +47,8 @@ Use the toolbar above any story:
 
 ## Sections
 
-- **Foundations** — colour roles, status, type scale, radius & elevation, spacing & density.
-- **Components** — the Radix + Tailwind primitives in `src/ds/ui`.
+- **Foundations** — colour roles, status, type scale, radius & shadow, spacing & density.
+- **Components** — the shadcn components in `src/ds/ui`.
 - **Patterns** — page header, stat card, empty state (`src/ds/patterns`).
 - **Screens** — prototypes of the new app shell and hero screens (`src/ds/prototypes`).
 

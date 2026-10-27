@@ -23,8 +23,8 @@ export const StatusStory: Story = { name: 'Status colours', render: () => <Statu
 /** Inter, five roles; numbers use tabular figures. */
 export const TypeScaleStory: Story = { name: 'Type scale', render: () => <TypeScale /> }
 
-/** One radius scale and three elevation steps. */
-export const RadiusElevationStory: Story = { name: 'Radius & elevation', render: () => <RadiusElevation /> }
+/** shadcn's radius scale and shadows. */
+export const RadiusElevationStory: Story = { name: 'Radius & shadow', render: () => <RadiusElevation /> }
 
 /** 4-point spacing; switch Density in the toolbar to see the compact scale. */
 export const SpacingStory: Story = { name: 'Spacing & density', render: () => <SpacingDensity /> }
