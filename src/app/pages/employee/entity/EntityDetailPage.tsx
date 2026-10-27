@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTabKeyRoute } from '@app/hooks/useTabRoute';
 import { Button } from 'react-bootstrap';
+import { Box } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { useDispatch } from 'react-redux';
 import { getLeadById } from '@services/leads';
@@ -265,17 +266,30 @@ const EntityDetailPage: React.FC = () => {
 
   return (
     <DMSProvider leadId={lead.id} inquiryNumber={lead.inquiryNo || lead.prefix || 'N/A'} leadTitle={lead.title || lead.name || 'Lead'}>
-      <div className="d-flex flex-column flex-lg-row p-6">
+      <div className="d-flex flex-column flex-lg-row p-3 p-md-6">
         <div className="flex-lg-row-fluid">
           {/* ── Header ── */}
-          <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-4 mb-2">
-            <div className="d-flex align-items-start gap-3 flex-grow-1" style={{ minWidth: 0 }}>
-              <button 
-                className="btn btn-icon btn-active-light-primary" 
+          {/* One grid for back | title | status. Phones: two columns, and the status row drops
+              into the title's column — aligned with the title by construction, no magic indent.
+              md+: the status block takes a third column on the right. */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: 'auto minmax(0, 1fr)', md: 'auto minmax(0, 1fr) auto' },
+              alignItems: 'center',
+              columnGap: { xs: 1.25, md: 1.5 },
+              rowGap: 1.25,
+              mb: 0.5,
+            }}
+          >
+            <div style={{ display: 'contents' }}>
+              <button
+                className="btn btn-icon btn-active-light-primary"
+                aria-label="Back"
                 onClick={() => navigate(-1)}
-                style={{ width: '40px', height: '40px', flexShrink: 0, border: 'none', background: 'transparent' }}
+                style={{ width: 40, height: 40, flexShrink: 0, border: 'none', background: 'transparent', alignSelf: 'start' }}
               >
-                <img src={miscellaneousIcons.leftArrow} alt="Back" style={{ width: '36px', height: '36px' }} />
+                <img src={miscellaneousIcons.leftArrow} alt="" style={{ width: 34, height: 34 }} />
               </button>
               
               <div className="d-flex flex-column flex-grow-1" style={{ minWidth: 0 }}>
@@ -308,7 +322,9 @@ const EntityDetailPage: React.FC = () => {
                 </div>
                 
                 {/* Title */}
-                <h2 className="mb-0 text-truncate" style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '26px', color: '#0F172A', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+                {/* Scales down on phones and wraps to two lines before it truncates, so a long
+                    project name is still readable instead of cut after a few words. */}
+                <h2 className="mb-0" style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: 'clamp(20px, 5.4vw, 26px)', color: '#0F172A', letterSpacing: '-0.3px', lineHeight: 1.2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>
                   {lead?.title || 'Unnamed Entity'}
                 </h2>
               </div>
@@ -317,7 +333,7 @@ const EntityDetailPage: React.FC = () => {
             {/* Status pill follows the active tab: Lead status while on the Leads
                 tab, Project status everywhere else (once the lead is a project).
                 Edit/Export stay lead-only actions, shown only on the Leads tab. */}
-            <div className="d-flex flex-wrap align-items-stretch align-items-sm-center gap-2 mt-1 mt-md-0">
+            <Box sx={{ gridColumn: { xs: 2, md: 3 }, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, minWidth: 0 }}>
               {isProject && !fromLeads && activeTab !== 'leads' ? (
                 <ProjectStatusControl
                   leadId={leadId!}
@@ -330,7 +346,7 @@ const EntityDetailPage: React.FC = () => {
               ) : (
                 <div
                   style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 9,
+                    display: 'inline-flex', alignItems: 'center', gap: 9, maxWidth: '100%', minHeight: 36,
                     border: `1px solid ${lead?.status?.color || '#64748B'}3D`,
                     background: `linear-gradient(180deg, ${lead?.status?.color || '#64748B'}17, ${lead?.status?.color || '#64748B'}0A)`,
                     color: lead?.status?.color || '#64748B',
@@ -389,8 +405,8 @@ const EntityDetailPage: React.FC = () => {
                   )}
                 </>
               )}
-            </div>
-          </div>
+            </Box>
+          </Box>
 
           {/* ── Sticky tab nav ── */}
           {/* The provider wraps the bar AND the content so one eye governs both. Disabled
@@ -403,7 +419,7 @@ const EntityDetailPage: React.FC = () => {
               value={activeTab}
               onChange={setActiveTab}
               ariaLabel="Record sections"
-              sx={{ mt: 3 }}
+              sx={{ mt: { xs: 2, md: 3 } }}
               actions={EYE_TABS.includes(activeTab) ? <SensitiveDataBarToggle /> : undefined}
             />
 

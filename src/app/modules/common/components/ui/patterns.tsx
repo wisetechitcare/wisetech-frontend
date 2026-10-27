@@ -684,6 +684,38 @@ export function UnderlineTabs<K extends string>({
    */
   actions?: React.ReactNode;
 }) {
+  // A scrolling tab row can leave the active tab off-screen (a deep link to Billing on a
+  // phone shows Leads / Projects / Commercial and nothing selected). Bring it into view by
+  // moving the row only — scrollIntoView would also scroll the page.
+  const listRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const list = listRef.current;
+    const active = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!list || !active) return;
+    const left = active.offsetLeft - list.offsetLeft;
+    const right = left + active.offsetWidth;
+    if (left < list.scrollLeft) list.scrollLeft = left - 8;
+    else if (right > list.scrollLeft + list.clientWidth) list.scrollLeft = right - list.clientWidth + 8;
+  }, [value]);
+
+  // Which ends have more tabs hidden past them — those ends fade out, so a clipped tab
+  // reads as "keep scrolling" and the last tab is only faded while something follows it.
+  const [more, setMore] = React.useState({ start: false, end: false });
+  React.useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const measure = () => {
+      const start = list.scrollLeft > 2;
+      const end = list.scrollLeft + list.clientWidth < list.scrollWidth - 2;
+      setMore((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+    };
+    measure();
+    list.addEventListener("scroll", measure, { passive: true });
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    observer?.observe(list);
+    return () => { list.removeEventListener("scroll", measure); observer?.disconnect(); };
+  }, [tabs.length]);
+  const fade = `linear-gradient(to right, ${more.start ? "transparent, #000 28px" : "#000, #000"}, ${more.end ? "#000 calc(100% - 28px), transparent" : "#000, #000"})`;
   return (
     <Box
       sx={
@@ -715,6 +747,7 @@ export function UnderlineTabs<K extends string>({
         }}
       >
         <Box
+          ref={listRef}
           role="tablist"
           aria-label={ariaLabel}
           sx={{
@@ -728,6 +761,7 @@ export function UnderlineTabs<K extends string>({
             // The scrollbar under a tab bar is chrome nobody needs; the row still scrolls.
             scrollbarWidth: "none",
             "&::-webkit-scrollbar": { display: "none" },
+            ...((more.start || more.end) && { maskImage: fade, WebkitMaskImage: fade }),
           }}
         >
           {tabs.map((tab) => {

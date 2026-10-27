@@ -719,6 +719,7 @@ export const PROJECT_EXECUTION = {
     GET_STAGE_PROGRESS: "api/projects/:projectId/stages/:stageId/progress",
     UPDATE_DELIVERABLE_STATUS: "api/projects/deliverables/:deliverableId/status",
     UPDATE_DELIVERABLE_REMARKS: "api/projects/deliverables/:deliverableId/remarks",
+    UPDATE_DELIVERABLE_PROGRESS: "api/projects/deliverables/:deliverableId/progress",
     // Configuration — amounts are always derived, never posted.
     RECALCULATE_STAGE_AMOUNTS: "api/projects/stages/:stageId/recalculate-amounts",
     GET_DELIVERABLE_CATEGORIES: "api/projects/deliverable-categories",
@@ -750,17 +751,13 @@ export const BILLING_REQUEST = {
 // billing request through proforma → payment → invoice → closure.
 export const BILLING_OPERATION = {
     LIST: "api/billing/operations",
-    STATISTICS: "api/billing/operations/statistics",
-    WORKFLOW: "api/billing/operations/workflow",
     // One row per PROJECT rather than per billing request — unbilled projects included.
     PROJECTS: "api/billing/operations/projects",
     // The Tracker's own status dropdown, for a project with no operation yet.
     PROJECT_STATUS: "api/billing/operations/projects/:leadId/status",
     GET_BY_ID: "api/billing/operations/:id",
     UPDATE_STATUS: "api/billing/operations/:id/status",
-    TIMELINE: "api/billing/operations/:id/timeline",
     ACTIVITY: "api/billing/operations/:id/activity",
-    DOCUMENTS: "api/billing/operations/:id/documents",
     ADD_NOTE: "api/billing/operations/:id/notes",
 }
 
@@ -781,7 +778,6 @@ export const BILLING_CONFIG = {
 
 // Financial Reporting Center — every route is read-only.
 export const BILLING_REPORT = {
-    DASHBOARD: "api/billing/reports/dashboard",
     REVENUE: "api/billing/reports/revenue",
     COLLECTIONS: "api/billing/reports/collections",
     OUTSTANDING: "api/billing/reports/outstanding",
@@ -795,14 +791,11 @@ export const BILLING_REPORT = {
 // exposed on every payload for the next phase to filter on.
 export const PAYMENT = {
     LIST: "api/billing/payments",
-    SYNC: "api/billing/payments",
-    STATISTICS: "api/billing/payments/statistics",
     GET_BY_ID: "api/billing/payments/:id",
     HISTORY: "api/billing/payments/:id/history",
     RECORD: "api/billing/payments/:id/record",
     UPDATE_TRANSACTION: "api/billing/payments/:id/transactions/:transactionId",
     VERIFY: "api/billing/payments/:id/verify",
-    SET_VERIFICATION: "api/billing/payments/:id/verification",
     ADD_ATTACHMENT: "api/billing/payments/:id/attachments",
     GET_ATTACHMENT: "api/billing/payments/:id/attachments/:attachmentId",
     DELETE_ATTACHMENT: "api/billing/payments/:id/attachments/:attachmentId",
@@ -836,7 +829,7 @@ export const PROJECT_BILLING = {
     OVERVIEW: "api/billing/projects/:projectId/billing",
 }
 
-// Direct billing — one bill per deliverable. Unlike PROJECT_BILLING these are
+// Direct billing — one live bill per stage. Unlike PROJECT_BILLING these are
 // writes: a bill is raised, paid and closed here, not in another module.
 export const BILLS = {
     RAISE: "api/billing/bills",
@@ -845,7 +838,6 @@ export const BILLS = {
     INVOICE: "api/billing/bills/:id/invoice",
     CANCEL: "api/billing/bills/:id/cancel",
     PAYMENTS: "api/billing/bills/:id/payments",
-    PAYMENT: "api/billing/bills/payments/:paymentId",
     TDS: "api/billing/bills/:id/tds",
 }
 
@@ -853,16 +845,7 @@ export const BILLS = {
 // Collection path; there is deliberately no create route here.
 export const TAX_INVOICE = {
     LIST: "api/billing/tax-invoices",
-    GET_BY_ID: "api/billing/tax-invoices/:id",
-    VERSIONS: "api/billing/tax-invoices/:id/versions",
-    TIMELINE: "api/billing/tax-invoices/:id/timeline",
-    ACTIVITY: "api/billing/tax-invoices/:id/activity",
-    COMPARE: "api/billing/tax-invoices/:id/compare/:versionId",
-    PREVIEW: "api/billing/tax-invoices/:id/versions/:versionId/preview",
-    VERSION_STATUS: "api/billing/tax-invoices/:id/versions/:versionId/status",
     ACCESS: "api/billing/tax-invoices/:id/access",
-    ARCHIVE: "api/billing/tax-invoices/:id/archive",
-    RESTORE: "api/billing/tax-invoices/:id/restore",
     DOWNLOAD_WORD: "api/billing/tax-invoices/:id/download-word",
 }
 

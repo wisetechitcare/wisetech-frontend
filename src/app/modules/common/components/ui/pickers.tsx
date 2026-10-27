@@ -107,8 +107,10 @@ export function OptionCard({
         position: 'relative', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start',
         gap: 1.5, width: '100%', height: '100%', px: 2, py: 2.5, borderRadius: 3, textAlign: 'center',
         opacity: disabled ? 0.55 : 1,
-        border: `1px solid ${selected ? alpha(color, dark ? 0.6 : 0.45) : (dark ? 'rgba(255,255,255,0.08)' : '#E2E8F0')}`,
-        bgcolor: selected ? alpha(color, dark ? 0.22 : 0.1) : (dark ? 'rgba(255,255,255,0.03)' : '#F8FAFC'),
+        border: `1px solid ${selected ? color : (dark ? 'rgba(255,255,255,0.08)' : '#E2E8F0')}`,
+        // Ring instead of a thicker border, so selecting doesn't shift the layout.
+        boxShadow: selected ? `0 0 0 1px ${color}, 0 6px 16px ${alpha(color, 0.18)}` : 'none',
+        bgcolor: selected ? alpha(color, dark ? 0.18 : 0.06) : (dark ? 'rgba(255,255,255,0.03)' : '#F8FAFC'),
         transition: 'background-color .12s, border-color .12s, transform .12s, box-shadow .12s',
         '&:hover': {
           bgcolor: selected ? alpha(color, dark ? 0.28 : 0.14) : (dark ? 'rgba(255,255,255,0.06)' : '#eef2f7'),
@@ -178,7 +180,9 @@ export function OptionPickerDialog({
   onConfirm, confirmDisabled, confirmLabel = 'Confirm', cancelLabel = 'Cancel',
   loading = false, maxWidth = 'xs', layout = 'list', gridMin = 170, children,
 }: OptionPickerDialogProps) {
-  const divider = useTheme().palette.divider;
+  const { divider, primary } = useTheme().palette;
+  // Uncoloured options select in the brand colour; slate made the picked card read as disabled.
+  const fallback = primary.main;
   return (
     <GlassDialog
       open={open}
@@ -188,14 +192,14 @@ export function OptionPickerDialog({
     >
       <Box sx={{ p: { xs: 2, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {layout === 'grid' ? (
-          <AutoGrid min={gridMin} gap={10}>
+          <AutoGrid min={gridMin} gap={12} stretch>
             {options.map((o) => (
               <OptionCard
                 key={o.id}
                 label={o.name}
                 caption={o.caption}
                 leading={o.leading}
-                color={o.color || '#64748b'}
+                color={o.color || fallback}
                 selected={o.id === selectedId}
                 disabled={o.disabled}
                 onClick={() => onSelect(o.id)}
@@ -210,7 +214,7 @@ export function OptionPickerDialog({
                 label={o.name}
                 caption={o.caption}
                 leading={o.leading}
-                color={o.color || '#64748b'}
+                color={o.color || fallback}
                 selected={o.id === selectedId}
                 disabled={o.disabled}
                 onClick={() => onSelect(o.id)}

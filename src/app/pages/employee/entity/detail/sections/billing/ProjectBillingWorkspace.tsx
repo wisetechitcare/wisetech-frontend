@@ -4,18 +4,14 @@ import {
     Alert, Box, DialogActions, DialogContent, Divider, IconButton, InputAdornment, Menu, MenuItem,
     Stack, TextField, Tooltip, Typography,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import { KTIcon } from "@metronic/helpers";
 import {
     GlassCard, GlassDialog, GlassHeader, WtButton, toast,
     AutoGrid,  TRIO,  CurrencySymbol,
 } from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
-import {
-    getProjectStages, createProjectDeliverable, updateProjectDeliverable, deleteProjectDeliverable,
-    reorderProjectDeliverables, updateDeliverableStatus, updateDeliverableRemarks,
-    type DeliverablePayload, type DeliverableStatus, type ProjectDeliverable, type ProjectStage,
-} from "@services/projectExecution";
-import DeliverableFormDialog from "../DeliverableFormDialog";
+import { updateDeliverableProgress, updateDeliverableRemarks } from "@services/projectExecution";
 import { confirmDialog } from "@app/modules/common/components/ui/feedback";
 import { ToneChip } from "@app/modules/common/components/ui/chips";
 import { BillingLoadingState } from "@pages/billing/components";
@@ -23,13 +19,14 @@ import { formatCurrencyDecimal } from "@utils/currency";
 import {
     getProjectBilling, raiseBill, recordBillPayment, cancelBill, openProforma,
     openTaxInvoice, setTdsDeposited,
-    type ProjectBillingRow, type RaiseBillInput, type RecordPaymentInput,
+    type ProjectBillingPayload, type ProjectBillingRow, type RaiseBillInput, type RecordPaymentInput,
+    type StageDeliverable,
 } from "@services/bills";
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import { RaiseBillDialog, RecordPaymentDialog } from "./BillDialogs";
 import BillDocumentDialog, { type BillDocumentTarget } from "./BillDocumentDialog";
 import ProjectBillingTree, {
-    FILTERS, attentionOf, liveBill,
+    ActionGate, FILTERS, SORTS, liveBill, stageWorkProgress, statusForProgress,
     type BillingFilterTab, type BillingSortOption,
 } from "./ProjectBillingTree";
 
@@ -37,39 +34,98 @@ const QUERY_KEY = (projectId: string) => ["project-billing", projectId];
 
 const MENU_ITEM_SX = { fontSize: 13, gap: 1.25, py: 0.85 };
 
-/** The stages + deliverables the Execution tab used to own — now managed from here. */
-const STAGES_KEY = (projectId: string) => ["project-execution", "stages", projectId];
-
 const REMARKS_MAX = 2000;
 
-const WORK_STATUS: Record<DeliverableStatus, { label: string; icon: string }> = {
-    PENDING: { label: "Not started", icon: "abstract-8" },
-    IN_PROGRESS: { label: "In progress", icon: "time" },
-    COMPLETED: { label: "Completed", icon: "check-circle" },
-};
+/** The payload with one deliverable's progress changed — what the next read will return. */
+const withProgress = (data: ProjectBillingPayload, deliverableId: string, progress: number): ProjectBillingPayload => ({
+    ...data,
+    rows: data.rows.map((row) => {
+        if (!row.deliverables.some((d) => d.id === deliverableId)) return row;
+        const deliverables = row.deliverables.map((d) =>
+            d.id === deliverableId ? { ...d, progress, status: statusForProgress(progress) } : d);
+        return {
+            ...row,
+            deliverables,
+            work: {
+                ...row.work,
+                progress: stageWorkProgress(deliverables),
+                completed: deliverables.filter((d) => d.progress >= 100).length,
+            },
+        };
+    }),
+});
 
 const NUM = { fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } as const;
 
-/** One figure in the summary panel: label, amount, and the one line that qualifies it. */
-const Headline: React.FC<{ label: string; value: number | null; note: string; tone?: string; divider?: boolean }> = ({
-    label, value, note, tone, divider = true,
-}) => (
-    <Box sx={{ pr: 2, borderRight: divider ? { md: "1px solid" } : 0, borderColor: { md: "divider" }, minWidth: 0 }}>
-        <Typography sx={{ fontSize: 12, fontWeight: 600, color: "text.secondary" }}>{label}</Typography>
-        <Typography sx={{ ...NUM, fontSize: { xs: 19, sm: 22 }, fontWeight: 700, lineHeight: 1.25, mt: 0.5, color: value === null ? "text.disabled" : tone ?? "text.primary" }}>
+/**
+ * Same inset tile as the open-bill card — label, then the figure. `done` adds how much
+ * of that figure has come in, as "₹done / ₹total received" over a bar.
+ */
+const Tile: React.FC<{
+    label: string;
+    value: number | null;
+    tone?: string;
+    hint?: string;
+    done?: { amount: number; verb: string };
+}> = ({ label, value, tone, hint, done }) => {
+    const figure = (
+        <Typography sx={{
+            ...NUM, fontSize: { xs: 16, sm: 18 }, fontWeight: 700, lineHeight: 1.3,
+            color: value === null ? "text.disabled" : tone ?? "text.primary",
+        }}>
             {value === null ? "—" : formatCurrencyDecimal(value)}
         </Typography>
-        <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.5 }}>{note}</Typography>
-    </Box>
-);
-
-/** A secondary figure: quiet label, quiet number, no chrome. */
-const Aside: React.FC<{ label: string; value: string; tone?: string }> = ({ label, value, tone }) => (
-    <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-        {label}{" "}
-        <Box component="span" sx={{ ...NUM, fontWeight: 600, color: tone ?? "text.primary" }}>{value}</Box>
-    </Typography>
-);
+    );
+    return (
+        <Box
+            sx={{
+                minWidth: 0,
+                px: 1.25,
+                py: 1,
+                borderRadius: "10px",
+                border: "1px solid",
+                borderColor: "divider",
+                bgcolor: (theme) => alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.05 : 0.03),
+            }}
+        >
+            <Typography noWrap sx={{ fontSize: 12, color: "text.secondary", mb: 0.45, lineHeight: 1.3 }}>{label}</Typography>
+            {hint ? (
+                <Tooltip title={hint} placement="top">
+                    <Box component="span" sx={{ display: "inline-block" }}>{figure}</Box>
+                </Tooltip>
+            ) : figure}
+            {done && value !== null && value > 0 && (() => {
+                const pct = Math.min(100, Math.round((done.amount / value) * 100));
+                const full = pct >= 100;
+                return (
+                    <Box sx={{ mt: 0.75 }}>
+                        <Box
+                            role="progressbar"
+                            aria-label={`${label} ${done.verb}`}
+                            aria-valuenow={pct}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            sx={{ height: 4, borderRadius: 2, bgcolor: "action.hover", overflow: "hidden" }}
+                        >
+                            <Box sx={{ width: `${pct}%`, height: "100%", bgcolor: full ? "success.main" : "warning.main" }} />
+                        </Box>
+                        <Stack direction="row" flexWrap="wrap" justifyContent="space-between" alignItems="baseline" columnGap={1} sx={{ mt: 0.5 }}>
+                            <Typography sx={{ ...NUM, fontSize: 12, color: "text.secondary" }}>
+                                {done.verb}{" "}
+                                <Box component="span" sx={{ fontWeight: 700, color: full ? "success.main" : "text.primary" }}>
+                                    {formatCurrencyDecimal(done.amount)}
+                                </Box>
+                            </Typography>
+                            <Typography sx={{ ...NUM, fontSize: 12, fontWeight: 700, color: full ? "success.main" : "text.secondary" }}>
+                                {pct}%
+                            </Typography>
+                        </Stack>
+                    </Box>
+                );
+            })()}
+        </Box>
+    );
+};
 
 const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId }) => {
     const queryClient = useQueryClient();
@@ -84,25 +140,9 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
     const [searchQuery, setSearchQuery] = useState("");
     const [sortBy, setSortBy] = useState<BillingSortOption>("STAGE");
 
-    // Deliverable management (formerly the Execution tab).
-    const [deliverableForm, setDeliverableForm] = useState<{ stage: ProjectStage; editing: ProjectDeliverable | null } | null>(null);
-    const [formError, setFormError] = useState<string | null>(null);
-    const [remarksOn, setRemarksOn] = useState<ProjectDeliverable | null>(null);
+    // Remarks on a deliverable — the one thing besides work done that is edited here.
+    const [remarksOn, setRemarksOn] = useState<StageDeliverable | null>(null);
     const [remarks, setRemarks] = useState("");
-
-    const stagesKey = STAGES_KEY(projectId);
-    const { data: stages = [] } = useQuery({
-        queryKey: stagesKey,
-        queryFn: () => getProjectStages(projectId),
-        enabled: Boolean(projectId),
-    });
-
-    /** Billing rows and execution deliverables share ids — this joins them. */
-    const deliverableIndex = useMemo(() => {
-        const index = new Map<string, { deliverable: ProjectDeliverable; stage: ProjectStage }>();
-        stages.forEach((stage) => stage.deliverables.forEach((deliverable) => index.set(deliverable.id, { deliverable, stage })));
-        return index;
-    }, [stages]);
 
     const queryKey = QUERY_KEY(projectId);
     const { data, isLoading, isError, error, refetch } = useQuery({
@@ -113,51 +153,26 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
 
     const refresh = () => queryClient.invalidateQueries({ queryKey });
 
-    /** A work or deliverable change moves billing figures too, so both re-read. */
-    const refreshAll = () => {
-        void queryClient.invalidateQueries({ queryKey: stagesKey });
-        void refresh();
-    };
+    // ── work done (deliverables are tracked here, never created) ────────────
 
-    // ── deliverable management (was the Execution tab) ──────────────────────
-
-    const saveDeliverable = useMutation({
-        mutationFn: async (payload: DeliverablePayload) => {
-            if (!deliverableForm) return;
-            return deliverableForm.editing
-                ? updateProjectDeliverable(deliverableForm.editing.id, payload)
-                : createProjectDeliverable(projectId, deliverableForm.stage.id, payload);
+    /** Optimistic: the bar moves on release, and rolls back if the save fails. */
+    const progress = useMutation({
+        mutationFn: ({ deliverableId, value }: { deliverableId: string; value: number }) =>
+            updateDeliverableProgress(deliverableId, value),
+        onMutate: async ({ deliverableId, value }) => {
+            await queryClient.cancelQueries({ queryKey });
+            const previous = queryClient.getQueryData<ProjectBillingPayload>(queryKey);
+            if (previous) queryClient.setQueryData(queryKey, withProgress(previous, deliverableId, value));
+            return { previous };
         },
-        onSuccess: () => {
-            toast({ icon: "success", title: deliverableForm?.editing ? "Deliverable updated" : "Deliverable added" });
-            setDeliverableForm(null);
-            setFormError(null);
-            refreshAll();
+        onError: (err: unknown, _vars, context) => {
+            if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
+            toast({ icon: "error", title: apiErrorMessage(err, "Could not save the work done") });
         },
-        onError: (err: unknown) => setFormError(apiErrorMessage(err, "Could not save the deliverable.")),
+        onSettled: () => { void refresh(); },
     });
 
-    const openDeliverableForm = (stageId: string, deliverableId?: string) => {
-        const stage = stages.find((s) => s.id === stageId);
-        if (!stage) return;
-        setFormError(null);
-        setDeliverableForm({ stage, editing: deliverableId ? deliverableIndex.get(deliverableId)?.deliverable ?? null : null });
-    };
-
-    /** Status only — started/completed dates and the completer are derived server-side. */
-    const setWorkStatus = async (deliverableId: string, status: DeliverableStatus) => {
-        try {
-            await updateDeliverableStatus(deliverableId, status);
-            toast({ icon: "success", title: `Marked ${WORK_STATUS[status].label.toLowerCase()}` });
-        } catch (err) {
-            toast({ icon: "error", title: apiErrorMessage(err, "Could not update the work status") });
-        }
-        refreshAll();
-    };
-
-    const openRemarks = (deliverableId: string) => {
-        const deliverable = deliverableIndex.get(deliverableId)?.deliverable;
-        if (!deliverable) return;
+    const openRemarks = (deliverable: StageDeliverable) => {
         setRemarksOn(deliverable);
         setRemarks(deliverable.remarks ?? "");
     };
@@ -168,54 +183,10 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
             await updateDeliverableRemarks(remarksOn.id, remarks.trim() || null);
             toast({ icon: "success", title: "Remarks saved" });
             setRemarksOn(null);
-            refreshAll();
+            void refresh();
         } catch (err) {
             toast({ icon: "error", title: apiErrorMessage(err, "Could not save the remarks") });
         }
-    };
-
-    const removeDeliverable = async (deliverableId: string) => {
-        const found = deliverableIndex.get(deliverableId);
-        if (!found) return;
-        const { deliverable, stage } = found;
-        const share = Number(deliverable.percentage) || 0;
-        const ok = await confirmDialog({
-            icon: "warning",
-            title: `Remove "${deliverable.name}"?`,
-            // The remaining shares are NOT redistributed — say what that does to the stage.
-            text: share > 0
-                ? `The stage will drop to ${Math.round((stage.allocation.percentageTotal - share) * 1000) / 1000}% and must be brought back to 100%.`
-                : "This removes it from this project only.",
-            confirmText: "Remove deliverable",
-            danger: true,
-        });
-        if (!ok) return;
-        try {
-            const { allocation } = await deleteProjectDeliverable(deliverableId);
-            toast(allocation && !allocation.isBalanced
-                ? { icon: "warning", title: `Stage is now ${allocation.percentageTotal}% — reallocate to 100%` }
-                : { icon: "success", title: "Deliverable removed" });
-        } catch (err) {
-            toast({ icon: "error", title: apiErrorMessage(err, "Could not remove the deliverable") });
-        }
-        refreshAll();
-    };
-
-    /** One step up or down within its stage — replaces Execution's drag handle. */
-    const moveDeliverable = async (deliverableId: string, direction: -1 | 1) => {
-        const found = deliverableIndex.get(deliverableId);
-        if (!found) return;
-        const ids = found.stage.deliverables.map((d) => d.id);
-        const from = ids.indexOf(deliverableId);
-        const to = from + direction;
-        if (from < 0 || to < 0 || to >= ids.length) return;
-        [ids[from], ids[to]] = [ids[to], ids[from]];
-        try {
-            await reorderProjectDeliverables(found.stage.id, ids);
-        } catch (err) {
-            toast({ icon: "error", title: apiErrorMessage(err, "Could not save the new order") });
-        }
-        refreshAll();
     };
 
     const openDocument = React.useCallback(
@@ -283,7 +254,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
     const confirmCancel = React.useCallback(async (row: ProjectBillingRow) => {
         const ok = await confirmDialog({
             title: `Cancel ${row.bill?.billNumber}?`,
-            text: "The bill keeps its number and stays in the history. The deliverable becomes billable again.",
+            text: "The bill keeps its number and stays in the history. The stage becomes billable again.",
             confirmText: "Cancel bill",
             danger: true,
         });
@@ -295,16 +266,16 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
     const project = data?.project;
     const canBill = data?.capabilities.canBill ?? false;
     const canPay = data?.capabilities.canRecordPayment ?? false;
-
-    /** Needs-attention breakdown — the same rule the "Needs attention" filter applies. */
-    const attention = useMemo(() => {
-        const counts = { READY_TO_BILL: 0, PROFORMA: 0, PAYMENT: 0, TAX_INVOICE: 0 };
-        rows.forEach((row) => {
-            const kind = attentionOf(row);
-            if (kind) counts[kind] += 1;
-        });
-        return { ...counts, total: counts.READY_TO_BILL + counts.PROFORMA + counts.PAYMENT + counts.TAX_INVOICE };
-    }, [rows]);
+    const expandToggleRef = React.useRef<() => void>(() => undefined);
+    const [expandAllOpen, setExpandAllOpen] = useState<boolean | null>(null);
+    const onExpandApi = React.useCallback((api: { allOpen: boolean; toggle: () => void } | null) => {
+        if (!api) {
+            setExpandAllOpen(null);
+            return;
+        }
+        expandToggleRef.current = api.toggle;
+        setExpandAllOpen((prev) => (prev === api.allOpen ? prev : api.allOpen));
+    }, []);
 
     /**
      * The page's money, in the company's billing vocabulary — the same words and the
@@ -321,19 +292,28 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
      *   Bill Value = basic + GST = Bill Amount + TDS + GST.
      */
     const money = useMemo(() => {
-        let billValue = 0; let billAmount = 0; let gst = 0; let tds = 0; let notBilled = 0;
+        // Each component's total and the part still open, settled flag by flag exactly as
+        // the Invoice Tracker marks them (Received / Awaited, Deposited / Not deposited).
+        const m = {
+            billValue: 0, billReceived: 0,
+            billAmount: 0, billAmountReceived: 0,
+            gst: 0, gstReceived: 0,
+            tds: 0, tdsDeposited: 0,
+        };
         rows.forEach((row) => {
             const bill = liveBill(row);
-            if (bill) {
-                billValue += bill.totalAmount;
-                billAmount += bill.amount - bill.tdsAmount;
-                gst += bill.gstAmount;
-                tds += bill.tdsAmount;
-            } else {
-                notBilled += row.amount;
-            }
+            if (!bill) return;
+            const basic = bill.amount - bill.tdsAmount;
+            m.billValue += bill.totalAmount;
+            m.billReceived += bill.receivedAmount;
+            m.billAmount += basic;
+            if (bill.basicPaid) m.billAmountReceived += basic;
+            m.gst += bill.gstAmount;
+            if (bill.gstPaid) m.gstReceived += bill.gstAmount;
+            m.tds += bill.tdsAmount;
+            if (bill.tdsDeposited) m.tdsDeposited += bill.tdsAmount;
         });
-        return { billValue, billAmount, gst, tds, notBilled };
+        return m;
     }, [rows]);
 
     const poApproved = data?.project.poApproved ?? false;
@@ -355,18 +335,21 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
             whiteSpace: "nowrap" as const, boxShadow: "none", px: 1.5,
         };
 
-        // Every deliverable has a ⋮ now: it carries the work actions (status,
-        // remarks, edit, reorder, remove) as well as the billing ones.
+        // The ⋮ carries the bill's secondary actions: documents, TDS, cancel.
         const more = (
             <Tooltip title="More actions">
                 <IconButton
                     size="small"
-                    aria-label={`More actions for ${row.deliverableName}`}
+                    aria-label={`More actions for ${row.stageName}`}
                     onClick={(event) => {
                         event.stopPropagation();
                         setRowMenu({ el: event.currentTarget, row });
                     }}
-                    sx={{ width: 28, height: 28, borderRadius: "6px", color: "text.secondary" }}
+                    sx={{
+                        width: 28, height: 28, borderRadius: "6px", color: "text.secondary",
+                        // A fingertip needs more than 28px.
+                        "@media (pointer: coarse)": { width: 40, height: 40 },
+                    }}
                 >
                     <KTIcon iconName="dots-vertical" className="fs-5" />
                 </IconButton>
@@ -375,27 +358,25 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
 
         if (!bill) {
             return (
-                <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="flex-end">
-                    {row.workStatus === "COMPLETED" && !row.blockReason ? (
-                        <WtButton
-                            size="small" inverted disabled={!canBill || raise.isPending}
-                            onClick={() => setRaiseOn(row)}
-                            sx={btnSx}
-                        >
-                            Raise bill
-                        </WtButton>
-                    ) : row.workStatus !== "COMPLETED" ? (
-                        // Unfinished work: the next step is finishing it, so that is the button.
-                        <WtButton size="small" inverted onClick={() => void setWorkStatus(row.deliverableId, "COMPLETED")} sx={btnSx}>
-                            Mark completed
-                        </WtButton>
-                    ) : null}
-                    {more}
-                </Stack>
+                // Billable at any work done; nothing else to do on an unbilled stage, so no ⋮.
+                <ActionGate>
+                    <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="flex-end">
+                        {!row.blockReason && (
+                            <WtButton
+                                size="small" inverted disabled={!canBill || raise.isPending}
+                                onClick={() => setRaiseOn(row)}
+                                sx={btnSx}
+                            >
+                                Raise bill
+                            </WtButton>
+                        )}
+                    </Stack>
+                </ActionGate>
             );
         }
 
         return (
+            <ActionGate>
             <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="flex-end">
                 {bill.status === "DRAFT" && (
                     <WtButton
@@ -412,7 +393,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     </WtButton>
                 )}
 
-                {(bill.status === "PROFORMA" || bill.status === "PARTIALLY_PAID") && (
+                {(bill.status === "PROFORMA" || bill.status === "AWAITING_PAYMENT" || bill.status === "PARTIALLY_PAID") && (
                     <WtButton
                         size="small" inverted disabled={!canPay || pay.isPending}
                         onClick={() => setPayOn(row)}
@@ -452,6 +433,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
 
                 {more}
             </Stack>
+            </ActionGate>
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [canBill, canPay, openDocument, raise.isPending, proforma, pay.isPending, invoice]);
@@ -478,143 +460,80 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
     if (isLoading || !data || !summary) return <BillingLoadingState rows={5} />;
 
     return (
-        <Stack spacing={2.5} sx={{ maxWidth: 1600, mx: "auto", pb: 6 }}>
-            {/* ── page header: what this is, for whom ───────────────────── */}
-            <Box>
-                <Stack direction="row" alignItems="center" spacing={1.25} flexWrap="wrap" useFlexGap>
-                    <Typography component="h2" sx={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3 }}>
-                        Billing and collections
-                    </Typography>
-                    {project?.projectNumber && <ToneChip tone="neutral" dense label={project.projectNumber} />}
-                </Stack>
-                <Stack direction="row" flexWrap="wrap" useFlexGap columnGap={2.5} rowGap={0.25} sx={{ mt: 0.5 }}>
-                    {project?.title && <Typography sx={{ fontSize: 13, color: "text.secondary" }}>{project.title}</Typography>}
-                    {project?.clientName && <Aside label="Client" value={project.clientName} />}
-                    {project?.clientGstNumber && <Aside label="GSTIN" value={project.clientGstNumber} />}
-                    <Aside label="Currency" value={summary.currency} />
-                </Stack>
-            </Box>
-
-            {/* ── financial position: one panel, not four cards ─────────── */}
-            <Box component="section" aria-label="Financial summary" sx={{ bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: "10px", p: { xs: 2, sm: 2.5 } }}>
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }, gap: 2.5 }}>
-                    <Headline
-                        label="PO Value"
-                        value={poValue}
-                        note={poApproved ? "Commercials total, excluding GST" : `PO not approved yet${data.project.poStatus ? ` (${data.project.poStatus})` : ""}`}
-                    />
-                    <Headline
-                        label="Total Billed"
-                        value={money.billValue}
-                        note={money.notBilled > 0 ? `Bill Value of raised bills. ${formatCurrencyDecimal(money.notBilled)} not yet billed` : "Bill Value of raised bills"}
-                    />
-                    <Headline
-                        label="Total Received"
-                        value={summary.received}
-                        note={summary.legacyReceived > 0
-                            ? `Includes ${formatCurrencyDecimal(summary.legacyReceived)} billed the old way`
-                            : "GST included, TDS deducted"}
-                    />
-                    <Headline
-                        label="Total Pending"
-                        value={totalPending}
-                        tone={totalPending && totalPending > 0 ? "warning.dark" : undefined}
-                        note={pendingPct !== null ? `${pendingPct}% of PO, PO Value − Total Received` : "Shown once the PO is approved"}
-                        divider={false}
-                    />
-                </Box>
-
-                <Box sx={{ mt: 2.5, pt: 2, borderTop: "1px solid", borderColor: "divider" }}>
-                    {receivedPct !== null && (
-                        <>
-                            <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.75 }}>
-                                <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>Collection progress</Typography>
-                                <Typography sx={{ ...NUM, fontSize: 12.5, color: "text.secondary" }}>
-                                    <Box component="span" sx={{ fontWeight: 700, color: "text.primary" }}>{receivedPct}%</Box> of PO received
-                                </Typography>
-                            </Stack>
-                            <Box
-                                role="progressbar"
-                                aria-label="Collection progress"
-                                aria-valuenow={receivedPct}
-                                aria-valuemin={0}
-                                aria-valuemax={100}
-                                sx={{ height: 6, borderRadius: 3, bgcolor: "action.hover", overflow: "hidden", mb: 1.5 }}
-                            >
-                                <Box sx={{ width: `${receivedPct}%`, height: "100%", bgcolor: "success.main", borderRadius: 3 }} />
-                            </Box>
-                        </>
-                    )}
-                    {/* The bill breakdown in Invoice Tracker columns: Bill Amount + TDS + GST = Bill Value. */}
-                    <Stack direction="row" flexWrap="wrap" useFlexGap columnGap={3} rowGap={0.5}>
-                        <Aside label="Bill Amount" value={formatCurrencyDecimal(money.billAmount)} />
-                        <Aside label="GST" value={formatCurrencyDecimal(money.gst)} />
-                        <Aside
-                            label="TDS"
-                            value={summary.tdsPending > 0
-                                ? `${formatCurrencyDecimal(money.tds)} (${formatCurrencyDecimal(summary.tdsPending)} not deposited)`
-                                : formatCurrencyDecimal(money.tds)}
-                            tone={summary.tdsPending > 0 ? "warning.dark" : undefined}
-                        />
-                        <Aside label="Awaited on raised bills" value={formatCurrencyDecimal(summary.billedUnpaid)} />
-                        <Aside label="Done, not billed" value={formatCurrencyDecimal(summary.doneNotBilled)} />
-                    </Stack>
-                </Box>
-            </Box>
-
-            {/* ── needs attention: what is waiting on us, by kind ───────── */}
-            {attention.total > 0 && (
-                <Box
-                    component="section"
-                    aria-label="Needs attention"
-                    sx={{
-                        display: "flex",
-                        flexDirection: { xs: "column", sm: "row" },
-                        alignItems: { xs: "flex-start", sm: "center" },
-                        justifyContent: "space-between",
-                        gap: 1.5,
-                        px: 2,
-                        py: 1.25,
-                        borderRadius: "10px",
-                        border: "1px solid",
-                        borderColor: filterTab === "NEEDS_ATTENTION" ? "warning.main" : "divider",
-                        borderLeft: "3px solid",
-                        borderLeftColor: "warning.main",
-                        bgcolor: "background.paper",
-                    }}
-                >
-                    <Stack direction="row" alignItems="center" flexWrap="wrap" useFlexGap columnGap={2.5} rowGap={0.75}>
-                        <Typography sx={{ fontSize: 13.5, fontWeight: 700 }}>
-                            Needs attention · {attention.total}
-                        </Typography>
-                        {([
-                            ["READY_TO_BILL", "ready to bill"],
-                            ["PROFORMA", "proforma to finalise"],
-                            ["PAYMENT", "payment pending"],
-                            ["TAX_INVOICE", "tax invoice pending"],
-                        ] as const).filter(([k]) => attention[k] > 0).map(([k, text]) => (
-                            <Typography key={k} sx={{ fontSize: 12.5, color: "text.secondary" }}>
-                                <Box component="span" sx={{ ...NUM, fontWeight: 700, color: "text.primary" }}>{attention[k]}</Box> {text}
+        // Phones: extra bottom room so the fixed bottom nav never covers the last card.
+        <Stack spacing={{ xs: 2, sm: 2.5 }} sx={{ maxWidth: 1600, mx: "auto", pb: { xs: 14, md: 6 } }}>
+            <Box
+                component="section"
+                aria-label="Financial summary"
+                sx={{
+                    bgcolor: "background.paper",
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                }}
+            >
+                <Box sx={{ height: 3, bgcolor: totalPending && totalPending > 0 ? "warning.main" : "success.main" }} />
+                <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
+                    <Stack direction="row" alignItems="baseline" justifyContent="space-between" spacing={2} sx={{ mb: 1.25 }}>
+                        <Typography sx={{ fontSize: 12, fontWeight: 600, color: "text.secondary" }}>Overview</Typography>
+                        {receivedPct !== null && (
+                            <Typography sx={{ ...NUM, fontSize: 13, fontWeight: 700 }}>
+                                {receivedPct}% received
                             </Typography>
-                        ))}
+                        )}
                     </Stack>
-                    <WtButton
-                        size="small"
-                        ghost
-                        onClick={() => setFilterTab(filterTab === "NEEDS_ATTENTION" ? "ALL" : "NEEDS_ATTENTION")}
-                        sx={{ minHeight: 30, height: 30, fontSize: 12, whiteSpace: "nowrap" }}
-                    >
-                        {filterTab === "NEEDS_ATTENTION" ? "Show everything" : "Show only these"}
-                    </WtButton>
+                    {/* The flow of the contract: what was agreed, what has been billed (and how
+                        much of that the client still owes), what is left to bill. */}
+                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, minmax(0, 1fr))" }, gap: 1 }}>
+                        <Tile
+                            label="PO Value"
+                            value={poValue}
+                            hint={poApproved ? "Commercials total, excluding GST" : `PO not approved yet${data.project.poStatus ? ` (${data.project.poStatus})` : ""}`}
+                        />
+                        <Tile
+                            label="Total Billed"
+                            value={money.billValue}
+                            hint="Bill Value of raised bills: basic + GST"
+                            done={{ amount: money.billReceived, verb: "Received" }}
+                        />
+                        <Tile
+                            label="Not billed"
+                            value={summary.notBilled}
+                            tone={summary.notBilled > 0 ? "warning.dark" : undefined}
+                            hint="Stage values with no bill raised yet, excluding GST"
+                        />
+                        {/* What each bill is made of, and what of each part is still open.
+                            One grid, so six tiles pair up 2×3 on phones and 3×2 from sm — no orphan. */}
+                        <Tile
+                            label="Bill Amount"
+                            value={money.billAmount}
+                            hint="Basic minus TDS: the cash part of the bills"
+                            done={{ amount: money.billAmountReceived, verb: "Received" }}
+                        />
+                        <Tile
+                            label="GST"
+                            value={money.gst}
+                            done={{ amount: money.gstReceived, verb: "Received" }}
+                        />
+                        <Tile
+                            label="TDS"
+                            value={money.tds}
+                            hint="Withheld by the client and deposited with the government"
+                            done={{ amount: money.tdsDeposited, verb: "Deposited" }}
+                        />
+                    </Box>
                 </Box>
-            )}
+            </Box>
 
             {/* ── filter, search, sort: one compact line ────────────────── */}
+            {/* Wraps instead of switching direction at a breakpoint: tabs and controls share
+                a line while they fit, and the controls drop below as one block when not. */}
             <Box
                 sx={{
                     display: "flex",
-                    flexDirection: { xs: "column", md: "row" },
-                    alignItems: { xs: "stretch", md: "center" },
+                    flexWrap: "wrap",
+                    alignItems: "center",
                     justifyContent: "space-between",
                     gap: 1.5,
                 }}
@@ -623,15 +542,30 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     value={filterTab}
                     onChange={(v) => setFilterTab(v as BillingFilterTab)}
                     ariaLabel="Filter deliverables"
+                    // Phones: one swipeable row instead of a two-row wrap; tabs keep a
+                    // readable width and a 40px touch height.
+                    sx={{
+                        "@media (max-width: 599.95px)": {
+                            flexWrap: "nowrap",
+                            overflowX: "auto",
+                            scrollbarWidth: "none",
+                            "&::-webkit-scrollbar": { display: "none" },                        },
+                        "&& .MuiToggleButtonGroup-grouped": {
+                            "@media (max-width: 599.95px)": { flex: "0 0 auto", minHeight: 40, px: 1.75 },
+                        },
+                    }}
                     options={(Object.keys(FILTERS) as BillingFilterTab[]).map((tab) => ({
                         value: tab,
                         label: tab === "ALL" ? FILTERS[tab].label : `${FILTERS[tab].label} ${filterCount(tab)}`,
                     }))}
                 />
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                {/* One line from sm up (search takes the slack, sort and Expand all keep their size);
+                    when the tabs leave too little room the whole block drops below them intact. */}
+                <Stack direction="row" flexWrap={{ xs: "wrap", sm: "nowrap" }} justifyContent="flex-end" gap={1} sx={{ flex: "1 1 28rem", minWidth: 0 }}>
                     <TextField
                         size="small"
                         placeholder="Search deliverables, proformas, invoices"
+                        sx={{ flex: { xs: "1 1 100%", sm: "1 1 10rem" }, minWidth: 0, maxWidth: { sm: 360 } }}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         inputProps={{ "aria-label": "Search deliverables, proformas and invoices" }}
@@ -648,26 +582,37 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                                     </IconButton>
                                 </InputAdornment>
                             ) : null,
-                            sx: { height: 34, fontSize: 12.5, minWidth: { sm: 280 }, bgcolor: "background.paper" },
+                            sx: { height: { xs: 40, sm: 34 }, fontSize: 12.5, bgcolor: "background.paper" },
                         }}
                     />
                     <TextField
                         select
                         size="small"
+                        sx={{ flex: { xs: 1, sm: "0 0 auto" } }}
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as BillingSortOption)}
                         inputProps={{ "aria-label": "Sort deliverables" }}
-                        InputProps={{ sx: { height: 34, fontSize: 12.5, minWidth: 190, bgcolor: "background.paper" } }}
+                        InputProps={{ sx: { height: { xs: 40, sm: 34 }, fontSize: 12.5, minWidth: { xs: 0, sm: 176 }, bgcolor: "background.paper" } }}
                     >
-                        <MenuItem value="STAGE" sx={{ fontSize: 12.5 }}>Sort: stage order</MenuItem>
-                        <MenuItem value="OUTSTANDING" sx={{ fontSize: 12.5 }}>Sort: pending on bill</MenuItem>
-                        <MenuItem value="RECENT" sx={{ fontSize: 12.5 }}>Sort: recent activity</MenuItem>
+                        {(Object.keys(SORTS) as BillingSortOption[]).map((key) => (
+                            <MenuItem key={key} value={key} sx={{ fontSize: 12.5 }}>Sort: {SORTS[key].label}</MenuItem>
+                        ))}
                     </TextField>
+                    {expandAllOpen !== null && (
+                        <WtButton
+                            size="small"
+                            ghost
+                            onClick={() => expandToggleRef.current()}
+                            sx={{ minHeight: { xs: 40, sm: 34 }, height: { xs: 40, sm: 34 }, fontSize: 12.5, color: "text.secondary", px: 1.25, whiteSpace: "nowrap", flexShrink: 0 }}
+                        >
+                            {expandAllOpen ? "Collapse all" : "Expand all"}
+                        </WtButton>
+                    )}
                 </Stack>
             </Box>
 
             {/* ── stages ────────────────────────────────────────────────── */}
-            {rows.length === 0 && stages.length === 0 ? (
+            {rows.length === 0 ? (
                 <Box sx={{ py: 5, px: 3, textAlign: "center", border: "1px dashed", borderColor: "divider", borderRadius: "10px" }}>
                     <Typography sx={{ fontSize: 14, fontWeight: 600 }}>No stages yet</Typography>
                     <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.5 }}>
@@ -676,11 +621,27 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     </Typography>
                 </Box>
             ) : (
+                <Stack spacing={1}>
+                {/* Which fee split these stages are — every project's table looks alike otherwise. */}
+                <Stack direction="row" flexWrap="wrap" alignItems="baseline" columnGap={1} rowGap={0.5} sx={{ px: 0.5 }}>
+                    <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>Payment plan</Typography>
+                    <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+                        {data.project.paymentPlan?.name ?? "No plan selected on the lead"}
+                    </Typography>
+                    {data.project.stagesCustomised && (
+                        <Tooltip title="The plan's stages were edited on the lead for this project.">
+                            <Typography sx={{ fontSize: 12, fontWeight: 600, color: "warning.dark" }}>
+                                Customised for this project
+                            </Typography>
+                        </Tooltip>
+                    )}
+                    <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
+                        {rows.length} stage{rows.length === 1 ? "" : "s"}
+                    </Typography>
+                </Stack>
                 <ProjectBillingTree
                     projectId={projectId}
                     rows={rows}
-                    stages={stages}
-                    onAddDeliverable={(stageId) => openDeliverableForm(stageId)}
                     filterTab={filterTab}
                     searchQuery={searchQuery}
                     sortBy={sortBy}
@@ -689,7 +650,11 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     onToggleTds={(billId, deposited) => tds.mutate({ billId, deposited })}
                     canRecordPayment={canPay}
                     busy={tds.isPending}
+                    onSetProgress={(deliverableId, value) => progress.mutate({ deliverableId, value })}
+                    onEditRemarks={openRemarks}
+                    onExpandApi={onExpandApi}
                 />
+                </Stack>
             )}
 
             {/* Overflow Context Menu */}
@@ -706,11 +671,6 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     if (!row) return null;
                     const bill = row.bill;
                     const close = () => setRowMenu(null);
-                    const heading = (key: string, text: string) => (
-                        <Typography key={key} sx={{ px: 2, pt: 1, pb: 0.5, fontSize: 11.5, fontWeight: 600, color: "text.secondary" }}>
-                            {text}
-                        </Typography>
-                    );
                     const item = (key: string, icon: string, label: string, onClick: () => void, opts: { danger?: boolean; disabled?: boolean } = {}) => (
                         <MenuItem
                             key={key}
@@ -726,41 +686,12 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     const items: React.ReactNode[] = [];
                     const danger: React.ReactNode[] = [];
 
-                    // ── Work (formerly the Execution tab) ──────────────────────
-                    const found = deliverableIndex.get(row.deliverableId);
-                    const billed = Boolean(liveBill(row));
-                    items.push(heading("work-h", "Work"));
-                    // Billed work stays complete: reopening it would leave a bill
-                    // raised against unfinished work.
-                    if (!billed) {
-                        (["COMPLETED", "IN_PROGRESS", "PENDING"] as DeliverableStatus[])
-                            .filter((status) => status !== row.workStatus)
-                            .forEach((status) => items.push(item(
-                                `status-${status}`,
-                                WORK_STATUS[status].icon,
-                                `Mark ${WORK_STATUS[status].label.toLowerCase()}`,
-                                () => void setWorkStatus(row.deliverableId, status),
-                            )));
-                    }
-                    if (found) {
-                        const position = found.stage.deliverables.findIndex((d) => d.id === row.deliverableId);
-                        items.push(item("remarks", "notepad-edit", found.deliverable.remarks ? "Edit remarks" : "Add remarks", () => openRemarks(row.deliverableId)));
-                        items.push(item("edit", "pencil", "Edit deliverable", () => openDeliverableForm(row.stageId, row.deliverableId)));
-                        items.push(item("up", "arrow-up", "Move up", () => void moveDeliverable(row.deliverableId, -1), { disabled: position <= 0 }));
-                        items.push(item("down", "arrow-down", "Move down", () => void moveDeliverable(row.deliverableId, 1), {
-                            disabled: position < 0 || position >= found.stage.deliverables.length - 1,
-                        }));
-                        if (!billed) {
-                            danger.push(item("remove", "trash", "Remove deliverable", () => void removeDeliverable(row.deliverableId), { danger: true }));
-                        }
-                    }
-
                     // ── Billing ─────────────────────────────────────────────────
                     if (bill) {
                         // The overflow never repeats the row's primary button.
                         const primaryIs =
                             bill.status === "DRAFT" ? "proforma"
-                                : bill.status === "PROFORMA" || bill.status === "PARTIALLY_PAID" ? "pay"
+                                : bill.status === "PROFORMA" || bill.status === "AWAITING_PAYMENT" || bill.status === "PARTIALLY_PAID" ? "pay"
                                     : bill.status === "PAID" || bill.status === "INVOICED" ? "invoice"
                                         : "none";
                         const billing: React.ReactNode[] = [];
@@ -783,16 +714,14 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                                 bill.tdsDeposited ? "Mark TDS not deposited" : "Mark TDS deposited",
                                 () => tds.mutate({ billId: bill.id, deposited: !bill.tdsDeposited })));
                         }
-                        if (billing.length) {
-                            items.push(<Divider key="billing-sep" sx={{ my: 0.5 }} />, heading("billing-h", "Billing"), ...billing);
-                        }
+                        items.push(...billing);
                         // Refused once money has arrived — that is a payment to unpick first.
                         if (bill.status !== "CANCELLED" && bill.status !== "INVOICED" && bill.receivedAmount <= 0) {
                             danger.unshift(item("cancel", "cross-circle", "Cancel bill", () => void confirmCancel(row), { danger: true }));
                         }
                     }
 
-                    if (danger.length) items.push(<Divider key="danger-sep" sx={{ my: 0.5 }} />, ...danger);
+                    if (danger.length) items.push(...(items.length ? [<Divider key="danger-sep" sx={{ my: 0.5 }} />] : []), ...danger);
                     return items;
                 })()}
             </Menu>
@@ -815,25 +744,12 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
             <RecordPaymentDialog
                 open={Boolean(payOn)}
                 bill={payOn?.bill ?? null}
-                deliverableName={payOn?.deliverableName}
+                stageName={payOn?.stageName}
                 busy={pay.isPending}
                 onClose={() => setPayOn(null)}
                 onSubmit={(input) =>
                     payOn?.bill && pay.mutate({ billId: payOn.bill.id, input })
                 }
-            />
-
-            {/* Add / edit a deliverable — the same form the Execution tab used. */}
-            <DeliverableFormDialog
-                open={Boolean(deliverableForm)}
-                onClose={() => { setDeliverableForm(null); setFormError(null); }}
-                onSubmit={(payload) => saveDeliverable.mutate(payload)}
-                saving={saveDeliverable.isPending}
-                serverError={formError}
-                editing={deliverableForm?.editing ?? null}
-                stageName={deliverableForm?.stage.name ?? ""}
-                stageAmount={deliverableForm?.stage.amount ?? 0}
-                siblings={deliverableForm?.stage.deliverables ?? []}
             />
 
             <GlassDialog

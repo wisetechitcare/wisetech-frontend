@@ -90,7 +90,7 @@ const SelectLeadOrganizationDialog: React.FC<SelectLeadOrganizationDialogProps> 
                                 name={org.name}
                                 id={org.id}
                                 imageUrl={org.logo}
-                                size={76}
+                                size={56}
                                 shape="rounded"
                                 imageFit="contain"
                             />

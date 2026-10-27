@@ -667,15 +667,31 @@ body {
   position: relative;
 }
 
-.aside .menu-item-pinnable>.menu-link {
-  /* leave room so long titles don't run under the pin button */
-  padding-right: 44px;
+/* Reserve room for the pin only while it is visible (hover, keyboard focus, pinned), so
+   at rest the full title shows. 26px button + 8px inset + 4px gap.
+   !important: the `.aside .menu-item > .menu-link` 10px !important rule above would
+   otherwise win and let titles slide under the pin. */
+.aside .menu-item-pinnable:hover>.menu-link,
+.aside .menu-item-pinnable:focus-within>.menu-link,
+.aside .menu-item-pinnable:has(.menu-pin-btn.pinned)>.menu-link {
+  padding-right: 38px !important;
+}
+
+/* When the pin does show, long titles truncate instead of colliding; the link's `title` shows the full name. */
+.aside .menu-item-pinnable>.menu-link .menu-title {
+  min-width: 0;
+}
+
+.aside .menu-item-pinnable>.menu-link .menu-title>span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .aside .menu-pin-btn {
   position: absolute;
   top: 50%;
-  right: 14px;
+  right: 8px;
   transform: translateY(-50%);
   z-index: 2;
   display: inline-flex;
@@ -731,6 +747,13 @@ body {
     opacity: 0;
     width: 0;
     display: none !important;
+  }
+
+  /* The rail hides the pin, so give back its reserved space or icons sit off-centre. */
+  body[data-aside-collapsed='true'] .aside .menu-item-pinnable:hover>.menu-link,
+  body[data-aside-collapsed='true'] .aside .menu-item-pinnable:focus-within>.menu-link,
+  body[data-aside-collapsed='true'] .aside .menu-item-pinnable:has(.menu-pin-btn.pinned)>.menu-link {
+    padding-right: 10px !important;
   }
 
   /* Headings collapse to a plain divider — the expanded tree's spacing and its own

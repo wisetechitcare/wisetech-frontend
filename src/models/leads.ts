@@ -101,6 +101,15 @@ export interface DeliverablePayload {
 }
 
 /** A reusable, stage-wise fee break-up plan ("payment method"). */
+/** One project type a plan bills. `subCategoryId` null = the whole category. */
+export interface PaymentPlanScope {
+  id?: string;
+  categoryId: string;
+  subCategoryId?: string | null;
+  category?: { id: string; name: string; color?: string | null } | null;
+  subCategory?: { id: string; name: string; color?: string | null; categoryId?: string } | null;
+}
+
 export interface PaymentPlan {
   id?: string;
   /**
@@ -114,13 +123,12 @@ export interface PaymentPlan {
   isActive?: boolean;
   stages: PaymentPlanStage[];
   /**
-   * The project type this plan bills. `subCategoryId` null = the whole category; BOTH null =
-   * an un-typed plan written before plans were scoped, which every lead is still offered.
+   * The project types this plan bills — a whole category (`subCategoryId` null) or one of its
+   * subcategories; a plan can cover several. EMPTY = an un-typed plan written before plans were
+   * scoped, which every lead is still offered. Sent on a write as `{ categoryId, subCategoryId }`
+   * pairs; the extra fields below only come back on a read.
    */
-  categoryId?: string | null;
-  subCategoryId?: string | null;
-  category?: { id: string; name: string; color?: string | null } | null;
-  subCategory?: { id: string; name: string; color?: string | null } | null;
+  scopes?: PaymentPlanScope[];
   /** How this plan's stages print their Sr No. Null = the default format. */
   stageNumberingFormatId?: string | null;
   stageNumberingFormat?: Omit<StageNumberingFormat, "isDefault"> | null;

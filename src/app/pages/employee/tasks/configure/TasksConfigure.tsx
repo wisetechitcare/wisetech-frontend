@@ -874,7 +874,7 @@ const TasksConfigure = () => {
               A deliverable belongs to a stage and a stage belongs to a payment plan, so the
               plans ARE the deliverables surface: open one and its stage tree is where they are
               written. Added here, it appears there, because there is only one of it. */}
-          {activeTab === 'deliverables' && <PaymentPlansSection />}
+          {activeTab === 'deliverables' && <PaymentPlansSection deliverablesEditable />}
         </div>
       </ConfigPageLayout>
 

@@ -1,59 +1,91 @@
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-    Box, Collapse, Divider, IconButton, Stack, Tooltip, Typography, useMediaQuery,
+    Box, Collapse, IconButton, Popover, Slider, Stack, Table, TableBody, TableCell, TableRow,
+    TextField, Tooltip, Typography, useMediaQuery,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import { KTIcon } from "@metronic/helpers";
-import { WtButton } from "@app/modules/common/components/ui";
+import { SegmentedControl, WtButton, isHexColor, toast } from "@app/modules/common/components/ui";
+import { tonePair } from "@app/theme/tokens";
+import { SolidChip } from "@pages/billing/operations/TrackerCells";
+import { useBillingLabels } from "@pages/billing/components";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
-import { getBill, type BillOnRow, type ProjectBillingRow } from "@services/bills";
-import type { ProjectDeliverable, ProjectStage } from "@services/projectExecution";
+import {
+    getBill, type BillOnRow, type DocumentStatus, type ProjectBillingRow, type StageDeliverable, type WorkStatus,
+} from "@services/bills";
 
 /**
  * Project → Billing: the stage-based billing workspace.
  *
- *   Stage → Deliverable → Billing activity → the exact money arithmetic.
+ *   Stage (the billed unit) → its billing path + the work inside it.
  *
- * Progressive disclosure: a stage shows its roll-up, a deliverable shows where it
- * stands on three INDEPENDENT dimensions (work, billing, collection), and only an
- * opened deliverable shows its documents, payments and arithmetic.
+ * A stage row shows where it stands on three INDEPENDENT dimensions — work done,
+ * billing, collection — and its money. Opening it shows the bill's path (bill,
+ * proforma, payments, tax invoice) and the stage's deliverables, whose work-done
+ * percentage is set by hand. Work never gates a bill: an Advance is billed before
+ * any work exists.
  *
  * THE COMPANY'S BILLING VOCABULARY — identical to the Billing Tracker and the
- * Invoice Tracker, word for word and rule for rule, so this tab can be joined to
- * them without a translation layer:
+ * Invoice Tracker, word for word and rule for rule:
  *
- *   Per bill (Invoice Tracker columns)
  *   • Bill Amount — the basic amount MINUS the TDS withheld from it (the cash part).
  *   • GST         — with its rate. Bill Amount and GST are each Received / Awaited.
  *   • TDS         — withheld by the client; Deposited / Not deposited.
  *   • Bill Value  — basic + GST = Bill Amount + TDS + GST. The document's face value.
- *   • Received / Pending on the bill — cash in, and what the client still has to
- *     transfer (Bill Value − TDS − received).
- *
- *   Per stage / project (Billing Tracker columns)
- *   • Value (PO Value for the project) — commercials, EXCLUDING GST.
- *   • Received — cash in: GST included, TDS already deducted.
- *   • Pending  — Value − Received, exactly the Tracker's "Total Pending".
+ *   • Pending     — what the client still has to transfer (Bill Value − TDS − received).
  */
 
 // ── shared billing rules (the workspace imports these, so the two agree) ─────
 
 export type BillingFilterTab = "ALL" | "NEEDS_ATTENTION" | "PENDING" | "PAID" | "DRAFT";
-export type BillingSortOption = "STAGE" | "OUTSTANDING" | "RECENT";
+/**
+ * Master switch for every billing ACTION on Project → Billing: Raise Bill, Open/Edit
+ * Proforma, Record payment, Tax invoice, the row ⋮ menu and TDS "Mark deposited".
+ * Off while billing is not offered to clients: the buttons still SHOW, but a click
+ * goes nowhere (see `ActionGate`). Flip to `true` to make them work again.
+ */
+export const BILLING_ACTIONS_ENABLED = false;
 
-/** A cancelled bill no longer counts — the deliverable is billable again. */
+/**
+ * Wraps billing buttons. While actions are off it swallows clicks in the capture
+ * phase — before any button's own handler runs — and says why. `display: contents`
+ * so the wrapper adds no box and the layout is unchanged.
+ */
+export const ActionGate: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+    BILLING_ACTIONS_ENABLED ? (
+        <>{children}</>
+    ) : (
+        <Box
+            sx={{ display: "contents" }}
+            onClickCapture={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toast({ icon: "info", title: "Coming soon", text: "Billing actions are not available yet." });
+            }}
+        >
+            {children}
+        </Box>
+    );
+
+export type BillingSortOption = "STAGE" | "ATTENTION" | "DUE" | "PENDING" | "VALUE" | "WORK" | "RECENT";
+
+/** A cancelled bill no longer counts — the stage is billable again. */
 export const liveBill = (row: ProjectBillingRow) =>
     row.bill && row.bill.status !== "CANCELLED" ? row.bill : null;
 
-/** What, if anything, is waiting on us for this deliverable. Null when nothing is. */
+const AWAITING_MONEY = ["PROFORMA", "AWAITING_PAYMENT", "PARTIALLY_PAID"];
+
+/** What, if anything, is waiting on us for this stage. Null when nothing is. */
 export const attentionOf = (row: ProjectBillingRow):
     | "READY_TO_BILL" | "PROFORMA" | "PAYMENT" | "TAX_INVOICE" | null => {
     const bill = liveBill(row);
-    if (!bill) return row.workStatus === "COMPLETED" && !row.blockReason ? "READY_TO_BILL" : null;
+    // Billable any time, but only finished work is a reminder.
+    if (!bill) return !row.blockReason && row.work.total > 0 && row.work.progress >= 100 ? "READY_TO_BILL" : null;
     if (bill.status === "DRAFT") return "PROFORMA";
-    if (bill.status === "PROFORMA" || bill.status === "PARTIALLY_PAID") return "PAYMENT";
+    if (AWAITING_MONEY.includes(bill.status)) return "PAYMENT";
     if (bill.status === "PAID") return "TAX_INVOICE";
     return null;
 };
@@ -62,10 +94,7 @@ export const attentionOf = (row: ProjectBillingRow):
 export const FILTERS: Record<BillingFilterTab, { label: string; match: (row: ProjectBillingRow) => boolean }> = {
     ALL: { label: "All", match: () => true },
     NEEDS_ATTENTION: { label: "Needs attention", match: (r) => attentionOf(r) !== null },
-    PENDING: {
-        label: "Payment pending",
-        match: (r) => ["PROFORMA", "PARTIALLY_PAID"].includes(liveBill(r)?.status ?? ""),
-    },
+    PENDING: { label: "Payment pending", match: (r) => AWAITING_MONEY.includes(liveBill(r)?.status ?? "") },
     PAID: { label: "Paid", match: (r) => ["PAID", "INVOICED"].includes(liveBill(r)?.status ?? "") },
     DRAFT: {
         // A document someone started and has not finalised.
@@ -80,48 +109,122 @@ export const FILTERS: Record<BillingFilterTab, { label: string; match: (row: Pro
 /** Invoice Tracker's "Bill Amount": the basic minus the TDS withheld from it. */
 export const billAmountOf = (bill: BillOnRow) => Math.round((bill.amount - bill.tdsAmount) * 100) / 100;
 
+/**
+ * A stage's work done: each deliverable's progress weighted by its share of the stage,
+ * or the plain mean when the shares don't total 100. Same rule as the server, so an
+ * optimistic edit shows the figure the next read will return.
+ */
+export const stageWorkProgress = (deliverables: Array<{ percentage: number; progress: number }>) => {
+    if (deliverables.length === 0) return 0;
+    const shares = deliverables.reduce((sum, d) => sum + d.percentage, 0);
+    const value = Math.abs(shares - 100) < 0.01
+        ? deliverables.reduce((sum, d) => sum + d.percentage * d.progress, 0) / 100
+        : deliverables.reduce((sum, d) => sum + d.progress, 0) / deliverables.length;
+    return Math.round(value);
+};
+
+/** 0 Not started, 1–99 In progress, 100 Completed — the server's rule. */
+export const statusForProgress = (progress: number): WorkStatus =>
+    progress >= 100 ? "COMPLETED" : progress > 0 ? "IN_PROGRESS" : "PENDING";
+
+const roundMoney = (value: number) => Math.round(value * 100) / 100;
+
+/** Column totals for the rows on screen. Unbilled stages count toward Bill Value and Pending. */
+const totalsOf = (rows: ProjectBillingRow[]) => {
+    const totals = rows.reduce(
+        (sum, row) => {
+            const bill = liveBill(row);
+            if (bill) {
+                sum.billAmount += billAmountOf(bill);
+                sum.gst += bill.gstAmount;
+                sum.tds += bill.tdsAmount;
+                sum.billValue += bill.totalAmount;
+                sum.pending += bill.outstandingAmount;
+            } else {
+                sum.billValue += row.amount;
+                sum.pending += row.amount;
+            }
+            return sum;
+        },
+        { billAmount: 0, gst: 0, tds: 0, billValue: 0, pending: 0 },
+    );
+    return {
+        billAmount: roundMoney(totals.billAmount),
+        gst: roundMoney(totals.gst),
+        tds: roundMoney(totals.tds),
+        billValue: roundMoney(totals.billValue),
+        pending: roundMoney(totals.pending),
+    };
+};
+
 const isOverdue = (bill: BillOnRow) =>
     bill.outstandingAmount > 0 && !!bill.dueDate && new Date(bill.dueDate) < new Date(new Date().toDateString());
 
-/** Latest dated thing that happened on a deliverable, for "Recent activity". */
+/** Latest dated thing that happened on a stage, for "Recent activity". */
 const lastActivityOf = (row: ProjectBillingRow) => {
     const b = liveBill(row);
-    const dates = [row.completedAt, b?.billDate, b?.proformaDate, b?.invoiceDate, b?.tdsDepositedAt]
+    const dates = [b?.billDate, b?.proformaDate, b?.invoiceDate, b?.tdsDepositedAt, ...row.deliverables.map((d) => d.completedAt)]
         .filter(Boolean)
         .map((d) => new Date(d as string).getTime());
     return dates.length ? Math.max(...dates) : 0;
+};
+
+/** The Pending and Bill Value columns' figures — an unbilled stage counts its full amount. */
+const pendingOf = (row: ProjectBillingRow) => liveBill(row)?.outstandingAmount ?? row.amount;
+const billValueOf = (row: ProjectBillingRow) => liveBill(row)?.totalAmount ?? row.amount;
+
+/** Overdue money first, then the billing pipeline in the order the work happens. */
+const ATTENTION_RANK = { READY_TO_BILL: 1, PROFORMA: 2, PAYMENT: 3, TAX_INVOICE: 4 } as const;
+const attentionRankOf = (row: ProjectBillingRow) => {
+    const bill = liveBill(row);
+    if (bill && isOverdue(bill)) return 0;
+    const attention = attentionOf(row);
+    return attention ? ATTENTION_RANK[attention] : 5;
+};
+
+/** Money still owed with a due date, soonest first; owed with no date next; settled or unbilled last. */
+const dueRankOf = (row: ProjectBillingRow) => {
+    const bill = liveBill(row);
+    if (!bill || bill.status === "DRAFT" || bill.outstandingAmount <= 0) return Number.MAX_SAFE_INTEGER;
+    return bill.dueDate ? new Date(bill.dueDate).getTime() : Number.MAX_SAFE_INTEGER - 1;
+};
+
+/**
+ * Sort options, as comparators. Rows arrive in stage order and `sort` is stable, so
+ * ties keep stage order. `null` means "leave stage order alone".
+ */
+export const SORTS: Record<BillingSortOption, { label: string; compare: ((a: ProjectBillingRow, b: ProjectBillingRow) => number) | null }> = {
+    STAGE: { label: "Stage order", compare: null },
+    ATTENTION: { label: "Needs action first", compare: (a, b) => attentionRankOf(a) - attentionRankOf(b) },
+    DUE: { label: "Collection due date", compare: (a, b) => dueRankOf(a) - dueRankOf(b) },
+    PENDING: { label: "Pending amount (high → low)", compare: (a, b) => pendingOf(b) - pendingOf(a) },
+    VALUE: { label: "Bill value (high → low)", compare: (a, b) => billValueOf(b) - billValueOf(a) },
+    WORK: { label: "Work done (least first)", compare: (a, b) => a.work.progress - b.work.progress },
+    RECENT: { label: "Recent activity", compare: (a, b) => lastActivityOf(b) - lastActivityOf(a) },
 };
 
 // ── the three dimensions ────────────────────────────────────────────────────
 
 type Tone = "positive" | "attention" | "critical" | "active" | "neutral";
 
-/** Tone → theme colour. Muted, and never the only signal: every status carries text. */
-const TONE_COLOR: Record<Tone, string> = {
-    positive: "success.main",
-    attention: "warning.main",
-    critical: "error.main",
-    active: "primary.main",
-    neutral: "text.disabled",
-};
-
 interface Status { label: string; tone: Tone }
 
-const workStatusOf = (row: ProjectBillingRow): Status =>
-    row.workStatus === "COMPLETED" ? { label: "Completed", tone: "positive" }
-        : row.workStatus === "IN_PROGRESS" ? { label: "In progress", tone: "active" }
+const workStatusOf = (status: WorkStatus): Status =>
+    status === "COMPLETED" ? { label: "Completed", tone: "positive" }
+        : status === "IN_PROGRESS" ? { label: "In progress", tone: "active" }
             : { label: "Not started", tone: "neutral" };
 
 const billingStatusOf = (row: ProjectBillingRow): Status => {
     const bill = liveBill(row);
     if (!bill) {
-        if (row.workStatus !== "COMPLETED") return { label: "Not billed", tone: "neutral" };
-        return row.blockReason ? { label: "Not billable", tone: "neutral" } : { label: "Ready to bill", tone: "attention" };
+        if (row.blockReason === "ZERO_AMOUNT") return { label: "No value", tone: "neutral" };
+        return attentionOf(row) ? { label: "Ready to bill", tone: "attention" } : { label: "Not billed", tone: "neutral" };
     }
     switch (bill.status) {
         case "DRAFT": return { label: "Proforma draft", tone: "attention" };
         case "PROFORMA":
         case "PARTIALLY_PAID": return { label: bill.proformaStatus === "SENT" ? "Proforma sent" : "Proforma issued", tone: "active" };
+        case "AWAITING_PAYMENT": return { label: "Invoice issued", tone: "active" };
         case "PAID": return { label: bill.invoiceStatus === "DRAFT" ? "Invoice draft" : "Invoice due", tone: "attention" };
         default: return { label: "Invoiced", tone: "positive" };
     }
@@ -137,14 +240,40 @@ const collectionStatusOf = (row: ProjectBillingRow): Status => {
         : { label: "Payment pending", tone: "attention" };
 };
 
-/** A status as a coloured dot + text. Never colour alone. */
-const StatusText: React.FC<{ status: Status; caption?: string }> = ({ status, caption }) => (
-    <Box sx={{ minWidth: 0 }}>
-        {caption && <Typography sx={{ fontSize: 11, color: "text.secondary", lineHeight: 1.4 }}>{caption}</Typography>}
-        <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
-            <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: TONE_COLOR[status.tone], flexShrink: 0 }} />
-            <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600, color: "text.primary" }}>{status.label}</Typography>
-        </Stack>
+/** Same solid chip as the Billing Tracker columns. Colour is the tracker's tone, not a second palette. */
+const CHIP_COLOR: Record<Tone, string> = {
+    positive: tonePair("success").fg,
+    attention: tonePair("warning").fg,
+    critical: tonePair("danger").fg,
+    active: tonePair("brand").fg,
+    neutral: tonePair("neutral").fg,
+};
+
+/**
+ * The same solid chip, stretched to fill its grid cell and left-aligned. Chips in one
+ * column then share a left edge and a width, instead of each hugging its own label
+ * (which is what made Billing and Collection look ragged). Long labels truncate.
+ */
+const CellChip: React.FC<{ status: Status }> = ({ status }) => (
+    <Box sx={{
+        display: "flex", minWidth: 0, maxWidth: "100%",
+        "& > *": { flex: 1, minWidth: 0, boxSizing: "border-box", overflow: "hidden" },
+        "& .MuiTypography-root": { overflow: "hidden", textOverflow: "ellipsis" },
+    }}>
+        <SolidChip label={status.label} color={CHIP_COLOR[status.tone]} />
+    </Box>
+);
+
+const StatusChip: React.FC<{ status: Status }> = ({ status }) => (
+    <Box sx={{
+        display: "flex",
+        justifyContent: "center",
+        minWidth: 0,
+        maxWidth: "100%",
+        "& > *": { maxWidth: "100%", overflow: "hidden" },
+        "& .MuiTypography-root": { overflow: "hidden", textOverflow: "ellipsis" },
+    }}>
+        <SolidChip label={status.label} color={CHIP_COLOR[status.tone]} />
     </Box>
 );
 
@@ -152,51 +281,125 @@ const StatusText: React.FC<{ status: Status; caption?: string }> = ({ status, ca
 
 const NUM = { fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } as const;
 
-/** Label over a right-aligned figure — the unit every money column is built from. */
+/**
+ * Defaults for the bill-component codes in Billing → Configure, used only until
+ * that catalogue has loaded. Once it has, the saved name and colour win.
+ */
+const SETTLEMENT_FALLBACK: Record<string, { label: string; tone: string }> = {
+    BASIC_PAID: { label: "Received", tone: "success" },
+    BASIC_UNPAID: { label: "Awaited", tone: "neutral" },
+    GST_PAID: { label: "Received", tone: "success" },
+    GST_UNPAID: { label: "Awaited", tone: "neutral" },
+    TDS_PAID: { label: "Deposited", tone: "success" },
+    TDS_UNPAID: { label: "Not deposited", tone: "warning" },
+    PENDING: { label: "Pending", tone: "neutral" },
+    PARTIALLY_PAID: { label: "Partially Paid", tone: "warning" },
+    FULLY_PAID: { label: "Fully Paid", tone: "success" },
+    OVERPAID: { label: "Overpaid", tone: "indigo" },
+};
+
+/**
+ * Payment status for the Pending column only.
+ * Bill Amount, GST, TDS, and Bill Value always show the full figure on the bill.
+ * Pending is the only column that shows what the client still has to pay.
+ */
+const paymentCodeOf = (bill: BillOnRow): string | undefined => {
+    if (bill.outstandingAmount > 0 && bill.receivedAmount > 0) return "PARTIALLY_PAID";
+    if (bill.outstandingAmount > 0) return "PENDING";
+    if (bill.receivedAmount > 0) return "FULLY_PAID";
+    return undefined;
+};
+
+/** A right-aligned figure. `statusCode` paints it in the Configure colour and names that status on hover. */
 const Amount: React.FC<{
-    label: string;
+    label?: string;
     value: number | null;
     tone?: string;
     strong?: boolean;
     note?: string;
-    /** This component's settlement, as the Invoice Tracker labels it (Received / Awaited …). */
-    settle?: Status;
-}> = ({ label, value, tone, strong, note, settle }) => (
-    <Box sx={{ textAlign: "right", minWidth: 0 }}>
-        <Typography noWrap sx={{ fontSize: 11, color: "text.secondary", lineHeight: 1.4 }}>{label}</Typography>
-        <Typography sx={{ ...NUM, fontSize: strong ? 14 : 13, fontWeight: strong ? 700 : 600, color: value ? tone ?? "text.primary" : "text.disabled" }}>
+    statusCode?: string;
+    align?: "left" | "right";
+    inline?: boolean;
+}> = ({ label, value, tone, strong, note, statusCode, align = "right", inline }) => {
+    const labels = useBillingLabels();
+    const configured = statusCode ? labels.tone(statusCode) : undefined;
+    const fallback = statusCode ? SETTLEMENT_FALLBACK[statusCode] : undefined;
+    const colourName = configured ?? fallback?.tone;
+    const colour = colourName ? (isHexColor(colourName) ? colourName : tonePair(colourName).fg) : undefined;
+    const statusName = statusCode ? (configured ? labels.label(statusCode) : fallback?.label ?? labels.label(statusCode)) : "";
+    const settledZero = value === 0 && !!statusCode;
+    const figure = (
+        <Typography sx={{ ...NUM, fontSize: strong ? 14 : 13, fontWeight: strong ? 700 : 600, color: value || settledZero ? colour ?? tone ?? "text.primary" : "text.disabled" }}>
             {value === null ? "—" : formatCurrencyDecimal(value)}
         </Typography>
-        {settle && (
-            <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5}>
-                <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: TONE_COLOR[settle.tone], flexShrink: 0 }} />
-                <Typography noWrap sx={{ fontSize: 11, color: "text.secondary" }}>{settle.label}</Typography>
+    );
+    const painted = statusName ? (
+        <Tooltip title={statusName} placement="top">
+            <Box component="span" sx={{ display: "inline-block" }}>{figure}</Box>
+        </Tooltip>
+    ) : figure;
+    if (inline) {
+        return (
+            <Stack
+                direction="row"
+                alignItems="baseline"
+                spacing={0.75}
+                sx={{ width: align === "left" ? "auto" : "100%", justifyContent: align === "left" ? "flex-start" : "flex-end", minWidth: 0 }}
+            >
+                {label && <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: "text.secondary", whiteSpace: "nowrap" }}>{label}</Typography>}
+                {painted}
             </Stack>
-        )}
-        {note && <Typography noWrap sx={{ fontSize: 11, color: "text.secondary" }}>{note}</Typography>}
+        );
+    }
+    return (
+        <Box sx={{ textAlign: align, width: "100%", minWidth: 0 }}>
+            {label && <Typography noWrap sx={{ fontSize: 11, color: "text.secondary", lineHeight: 1.4 }}>{label}</Typography>}
+            {painted}
+            {note && !statusCode && (
+                <Typography sx={{ fontSize: 11, color: "text.secondary", lineHeight: 1.35, whiteSpace: "normal" }}>{note}</Typography>
+            )}
     </Box>
 );
+};
 
-const Progress: React.FC<{ label: string; percent: number; tone: string; hint: string }> = ({ label, percent, tone, hint }) => (
+/** Label is optional: a table cell's column header already names the bar. */
+const Progress: React.FC<{ label?: string; percent: number; tone: string; hint?: string }> = ({ label, percent, tone, hint = "" }) => (
     <Tooltip title={hint}>
-        <Box>
-            <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>{label}</Typography>
-                <Typography sx={{ ...NUM, fontSize: 11.5, fontWeight: 700 }}>{percent}%</Typography>
-            </Stack>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+            {label && (
+                <Typography sx={{ fontSize: 12, fontWeight: 600, color: "text.secondary", flexShrink: 0 }}>
+                    {label}
+                </Typography>
+            )}
             <Box
                 role="progressbar"
-                aria-label={label}
+                aria-label={label ?? "Work done"}
                 aria-valuenow={percent}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                sx={{ height: 5, borderRadius: 3, bgcolor: "action.hover", overflow: "hidden" }}
+                sx={{ flex: 1, minWidth: 36, height: 6, borderRadius: 3, bgcolor: "action.hover", overflow: "hidden" }}
             >
                 <Box sx={{ width: `${percent}%`, height: "100%", bgcolor: tone, borderRadius: 3 }} />
             </Box>
-        </Box>
+            <Typography sx={{ ...NUM, fontSize: 12, fontWeight: 700, flexShrink: 0, minWidth: 32, textAlign: "right" }}>
+                {percent}%
+            </Typography>
+        </Stack>
     </Tooltip>
 );
+
+/**
+ * Plan stage names carry their terms in brackets — "Advance (To be paid along with the
+ * Work Order)". The row shows the title; the terms stay one hover away.
+ */
+const StageName: React.FC<{ name: string; fontSize: number }> = ({ name, fontSize }) => {
+    const match = name.match(/^(.*?)\s*\((.+)\)\s*$/);
+    const title = match ? match[1] : name;
+    const text = (
+        <Typography sx={{ fontSize, fontWeight: 600, lineHeight: 1.35, flex: 1, minWidth: 0 }}>{title}</Typography>
+    );
+    return match ? <Tooltip title={match[2]} placement="top-start">{text}</Tooltip> : text;
+};
 
 const Chevron: React.FC<{ open: boolean; label: string; onClick: () => void }> = ({ open, label, onClick }) => (
     <IconButton
@@ -206,6 +409,8 @@ const Chevron: React.FC<{ open: boolean; label: string; onClick: () => void }> =
         onClick={(e) => { e.stopPropagation(); onClick(); }}
         sx={{
             width: 32, height: 32, borderRadius: "8px", flexShrink: 0,
+            // A fingertip needs more than 32px.
+            "@media (pointer: coarse)": { width: 40, height: 40 },
             color: open ? "primary.main" : "text.secondary",
             transform: open ? "rotate(90deg)" : "none",
             transition: "transform 180ms ease",
@@ -216,16 +421,6 @@ const Chevron: React.FC<{ open: boolean; label: string; onClick: () => void }> =
     </IconButton>
 );
 
-/**
- * "Advance (To be paid along with the Work Order)" → title + description. The
- * project's own stage names carry their terms in brackets; this shows them as the
- * stage's subtitle instead of inventing one.
- */
-const splitStageName = (name: string) => {
-    const m = name.match(/^(.*?)\s*\((.+)\)\s*$/);
-    return m ? { title: m[1], note: m[2] } : { title: name, note: null };
-};
-
 // ── the workspace ───────────────────────────────────────────────────────────
 
 export interface ProjectBillingTreeProps {
@@ -234,471 +429,714 @@ export interface ProjectBillingTreeProps {
     filterTab: BillingFilterTab;
     searchQuery: string;
     sortBy: BillingSortOption;
-    /** The primary step and overflow menu for one deliverable — owned by the workspace. */
+    /** The primary step and overflow menu for one stage — owned by the workspace. */
     actionsFor: (row: ProjectBillingRow) => React.ReactNode;
     onOpenDocument: (documentId: string, status?: string | null) => void;
     onToggleTds: (billId: string, deposited: boolean) => void;
     canRecordPayment: boolean;
     busy?: boolean;
-    /**
-     * The project's stages as execution sees them. Supplies what billing rows cannot:
-     * stages with no deliverables yet, each stage's percentage allocation, and each
-     * deliverable's remarks and completer.
-     */
-    stages?: ProjectStage[];
-    /** Opens the add-deliverable form for a stage. */
-    onAddDeliverable?: (stageId: string) => void;
-}
-
-interface StageNode {
-    id: string;
-    title: string;
-    note: string | null;
-    sort: number;
-    rows: ProjectBillingRow[];
-    value: number;
-    received: number;
-    outstanding: number;
-    notBilled: number;
-
-    done: number;
-    billed: number;
-    attention: number;
-    /** Deliverable shares within the stage must total 100%; null until execution data loads. */
-    allocation: { percentageTotal: number; isBalanced: boolean } | null;
+    /** Saves a deliverable's work done, 0–100. */
+    onSetProgress: (deliverableId: string, progress: number) => void;
+    onEditRemarks: (deliverable: StageDeliverable) => void;
+    /** Lets the workspace put Expand all beside Sort. Null when nothing is visible. */
+    onExpandApi?: (api: { allOpen: boolean; toggle: () => void } | null) => void;
 }
 
 const ProjectBillingTree: React.FC<ProjectBillingTreeProps> = ({
     projectId, rows, filterTab, searchQuery, sortBy, actionsFor, onOpenDocument, onToggleTds,
-    canRecordPayment, busy, stages: executionStages = [], onAddDeliverable,
+    canRecordPayment, busy, onSetProgress, onEditRemarks, onExpandApi,
 }) => {
     const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
 
-    /** Execution detail per deliverable (remarks, completer) — billing rows do not carry it. */
-    const detailById = useMemo(() => {
-        const map = new Map<string, ProjectDeliverable>();
-        executionStages.forEach((s) => s.deliverables.forEach((d) => map.set(d.id, d)));
-        return map;
-    }, [executionStages]);
-
-    /** Roll-ups over ALL deliverables — a stage's figures are facts about the stage, not the filter. */
-    const stages = useMemo<StageNode[]>(() => {
-        const byStage = new Map<string, StageNode>();
-        const blank = (id: string, name: string, sort: number): StageNode => ({
-            id, ...splitStageName(name), sort, rows: [],
-            value: 0, received: 0, outstanding: 0, notBilled: 0,
-            done: 0, billed: 0, attention: 0, allocation: null,
-        });
-        // Seeded from execution first, so a stage with no deliverables yet still
-        // appears — it is where the first one gets added.
-        executionStages.forEach((s) => {
-            const node = blank(s.id, s.name, s.sortOrder);
-            node.allocation = s.allocation ?? null;
-            byStage.set(s.id, node);
-        });
-        rows.forEach((row) => {
-            let node = byStage.get(row.stageId);
-            if (!node) {
-                node = blank(row.stageId, row.stageName, row.stageSortOrder);
-                byStage.set(row.stageId, node);
-            }
-            const bill = liveBill(row);
-            node.rows.push(row);
-            node.value += row.amount;
-            if (bill) {
-                node.billed += 1;
-                node.received += bill.receivedAmount;
-                node.outstanding += bill.outstandingAmount;
-            } else {
-                node.notBilled += row.amount;
-            }
-            if (row.workStatus === "COMPLETED") node.done += 1;
-            if (attentionOf(row)) node.attention += 1;
-        });
-        return [...byStage.values()].sort((a, b) => a.sort - b.sort);
-    }, [rows, executionStages]);
-
-    // Opens with ONE stage: the first that needs attention, else the first. Set
-    // once, not re-derived, so a refetch after a payment never re-folds the page.
-    const [openStages, setOpenStages] = useState<Set<string>>(() => {
-        const first = stages.find((s) => s.attention > 0) ?? stages[0];
-        return new Set(first ? [first.id] : []);
+    // Opens with ONE stage: the first that needs attention, else none. Set once, not
+    // re-derived, so a refetch after a payment never re-folds the page.
+    const [openRows, setOpenRows] = useState<Set<string>>(() => {
+        const first = rows.find((r) => attentionOf(r));
+        return new Set(first ? [first.stageId] : []);
     });
-    const [openRows, setOpenRows] = useState<Set<string>>(() => new Set());
 
     const query = searchQuery.trim().toLowerCase();
-    const filtering = filterTab !== "ALL" || query !== "";
 
-    const visibleStages = useMemo(() => stages
-        .map((stage) => {
-            const matches = stage.rows.filter((row) => {
-                if (!FILTERS[filterTab].match(row)) return false;
-                if (!query) return true;
-                const bill = liveBill(row);
-                return [row.deliverableName, row.stageName, bill?.proformaNumber, bill?.invoiceNumber, bill?.billNumber]
-                    .some((text) => text?.toLowerCase().includes(query));
-            });
-            if (sortBy === "OUTSTANDING") {
-                matches.sort((a, b) => (liveBill(b)?.outstandingAmount ?? 0) - (liveBill(a)?.outstandingAmount ?? 0));
-            } else if (sortBy === "RECENT") {
-                matches.sort((a, b) => lastActivityOf(b) - lastActivityOf(a));
-            }
-            return { ...stage, visible: matches };
-        })
-        // Unfiltered, an empty stage stays visible (its body offers "Add deliverable");
-        // a filter or search shows only stages it actually matched in.
-        .filter((stage) => stage.visible.length > 0 || (!filtering && stage.rows.length === 0)), [stages, filterTab, query, sortBy, filtering]);
+    const visibleRows = useMemo(() => {
+        const matches = rows.filter((row) => {
+            if (!FILTERS[filterTab].match(row)) return false;
+            if (!query) return true;
+            const bill = liveBill(row);
+            return [row.stageName, bill?.proformaNumber, bill?.invoiceNumber, bill?.billNumber, ...row.deliverables.map((d) => d.name)]
+                .some((text) => text?.toLowerCase().includes(query));
+        });
+        const compare = SORTS[sortBy].compare;
+        return compare ? matches.sort(compare) : matches;
+    }, [rows, filterTab, query, sortBy]);
 
-    // A filter or search opens every stage it matched in, so its results are never
-    // hidden inside a closed section. Keyed on the filter only, not on the data.
-    useEffect(() => {
-        if (filtering) setOpenStages(new Set(visibleStages.map((s) => s.id)));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filterTab, query]);
-
-    const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) =>
-        setter((prev) => {
+    const toggle = (id: string) =>
+        setOpenRows((prev) => {
             const next = new Set(prev);
             if (next.has(id)) next.delete(id); else next.add(id);
             return next;
         });
 
-    const allOpen = visibleStages.every((s) => openStages.has(s.id));
+    // Which half of an opened stage is showing. Unset means "whatever needs action".
+    const [tabs, setTabs] = useState<Record<string, StageTab>>({});
+    const setTab = (id: string, tab: StageTab) => setTabs((prev) => ({ ...prev, [id]: tab }));
+    /** A row cell jumps straight to its tab — opens the stage, never closes it. */
+    const openTo = (id: string, tab: StageTab) => {
+        setTab(id, tab);
+        setOpenRows((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+    };
+
+    const allOpen = visibleRows.length > 0 && visibleRows.every((r) => openRows.has(r.stageId));
     const timeout = reduceMotion ? 0 : 180;
 
-    if (visibleStages.length === 0) {
+    const toggleAll = React.useCallback(() => {
+        setOpenRows(allOpen ? new Set() : new Set(visibleRows.map((r) => r.stageId)));
+    }, [allOpen, visibleRows]);
+
+    useEffect(() => {
+        if (!onExpandApi) return;
+        onExpandApi(visibleRows.length ? { allOpen, toggle: toggleAll } : null);
+    }, [onExpandApi, allOpen, toggleAll, visibleRows.length]);
+
+    useEffect(() => () => onExpandApi?.(null), [onExpandApi]);
+
+    // Measured on the tree itself, not the window: the app sidebar and the page
+    // padding decide how much room the figures actually get.
+    const [host, setHost] = useState<HTMLDivElement | null>(null);
+    const [width, setWidth] = useState(Infinity);
+    useLayoutEffect(() => {
+        if (!host || typeof ResizeObserver === "undefined") return;
+        const measure = () => setWidth(host.clientWidth);
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(host);
+        return () => observer.disconnect();
+    }, [host]);
+    const layout: Layout = width >= TABLE_MIN_WIDTH ? "table" : width >= CARDS_MIN_WIDTH ? "cards" : "narrow";
+
+    const viewProps = (row: ProjectBillingRow): StageViewProps => ({
+        projectId,
+        row,
+        open: openRows.has(row.stageId),
+        onToggle: () => toggle(row.stageId),
+        tab: tabs[row.stageId] ?? defaultTabOf(row),
+        onTabChange: (tab) => setTab(row.stageId, tab),
+        onOpenTo: (tab) => openTo(row.stageId, tab),
+        actionsFor,
+        onOpenDocument,
+        onToggleTds,
+        canRecordPayment,
+        busy,
+        timeout,
+        onSetProgress,
+        onEditRemarks,
+    });
+
+    if (visibleRows.length === 0) {
         return (
             <Box sx={{ py: 5, px: 3, textAlign: "center", border: "1px dashed", borderColor: "divider", borderRadius: "10px" }}>
                 <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Nothing matches</Typography>
                 <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.5 }}>
                     {filterTab === "NEEDS_ATTENTION" && !query
-                        ? "No deliverable is waiting on an action right now."
-                        : "Clear the search or pick another filter to see more deliverables."}
+                        ? "No stage is waiting on an action right now."
+                        : "Clear the search or pick another filter to see more stages."}
                 </Typography>
             </Box>
         );
     }
 
+    const totals = totalsOf(visibleRows);
+
     return (
-        <Box>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: "text.secondary" }}>
-                    {visibleStages.length} stage{visibleStages.length === 1 ? "" : "s"}
-                </Typography>
-                <WtButton
-                    size="small" ghost
-                    onClick={() => setOpenStages(allOpen ? new Set() : new Set(visibleStages.map((s) => s.id)))}
-                    sx={{ minHeight: 28, height: 28, fontSize: 12, color: "text.secondary" }}
-                >
-                    {allOpen ? "Collapse all" : "Expand all"}
-                </WtButton>
-            </Stack>
-
-            <Stack spacing={1.5}>
-                {visibleStages.map((stage) => {
-                    const open = openStages.has(stage.id);
-                    const workPct = stage.rows.length ? Math.round((stage.done / stage.rows.length) * 100) : 0;
-                    const unbalanced = stage.allocation && stage.rows.length > 0 && !stage.allocation.isBalanced;
-                    // The Tracker's rule, applied to one stage: Pending = Value − Received.
-                    const pending = Math.round((stage.value - stage.received) * 100) / 100;
-                    const collectedPct = stage.value > 0
-                        ? Math.min(100, Math.max(0, Math.round((stage.received / stage.value) * 100)))
-                        : 0;
-                    return (
-                        <Box
-                            component="section"
-                            key={stage.id}
-                            aria-label={stage.title}
-                            sx={{ border: "1px solid", borderColor: "divider", borderRadius: "10px", bgcolor: "background.paper", overflow: "hidden" }}
-                        >
-                            {/* ── stage header ─────────────────────────────── */}
-                            <Box
-                                onClick={() => toggle(setOpenStages, stage.id)}
-                                sx={{
-                                    display: "grid",
-                                    gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(260px, 1.25fr) minmax(220px, 0.9fr) 384px" },
-                                    columnGap: 4,
-                                    rowGap: 1.5,
-                                    alignItems: "center",
-                                    px: { xs: 1.5, sm: 2 },
-                                    py: 1.75,
-                                    cursor: "pointer",
-                                    transition: "background-color 150ms ease",
-                                    "&:hover": { bgcolor: "action.hover" },
-                                }}
-                            >
-                                <Stack direction="row" alignItems="flex-start" spacing={1.25} sx={{ minWidth: 0 }}>
-                                    <Chevron open={open} label={stage.title} onClick={() => toggle(setOpenStages, stage.id)} />
-                                    <Box sx={{ minWidth: 0, pt: 0.25 }}>
-                                        <Typography sx={{ fontSize: 16, fontWeight: 600, lineHeight: 1.35 }}>{stage.title}</Typography>
-                                        {stage.note && (
-                                            <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.25 }}>{stage.note}</Typography>
-                                        )}
-                                        <Stack direction="row" flexWrap="wrap" useFlexGap columnGap={2} rowGap={0.5} sx={{ mt: 0.75 }}>
-                                            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-                                                {stage.done} of {stage.rows.length} deliverables complete, {stage.billed} billed
-                                            </Typography>
-                                            {stage.attention > 0 && (
-                                                <Stack direction="row" alignItems="center" spacing={0.75}>
-                                                    <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: "warning.main" }} />
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: "warning.dark" }}>
-                                                        {stage.attention} action{stage.attention === 1 ? "" : "s"} pending
-                                                    </Typography>
-                                                </Stack>
-                                            )}
-                                            {unbalanced && (
-                                                <Tooltip title="Deliverable shares in a stage must add up to 100%, or its amounts will not match the stage value.">
-                                                    <Stack direction="row" alignItems="center" spacing={0.75}>
-                                                        <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: "error.main" }} />
-                                                        <Typography sx={{ fontSize: 12, fontWeight: 600, color: "error.main" }}>
-                                                            Shares total {stage.allocation!.percentageTotal}%, must be 100%
-                                                        </Typography>
-                                                    </Stack>
-                                                </Tooltip>
-                                            )}
-                                            {onAddDeliverable && (
-                                                <WtButton
-                                                    size="small"
-                                                    ghost
-                                                    onClick={(e) => { e.stopPropagation(); onAddDeliverable(stage.id); }}
-                                                    startIcon={<KTIcon iconName="plus" className="fs-7" />}
-                                                    sx={{ minHeight: 24, height: 24, fontSize: 12, px: 1, color: "primary.main", border: 0 }}
-                                                >
-                                                    Add deliverable
-                                                </WtButton>
-                                            )}
-                                        </Stack>
-                                    </Box>
-                                </Stack>
-
-                                {/* Work and collection are different questions — two bars, never one. */}
-                                <Stack spacing={1.25} sx={{ pl: { xs: 5.5, lg: 0 } }}>
-                                    <Progress
-                                        label="Work"
-                                        percent={workPct}
-                                        tone="primary.main"
-                                        hint={`${stage.done} of ${stage.rows.length} deliverables marked complete`}
-                                    />
-                                    <Progress
-                                        label="Collection"
-                                        percent={collectedPct}
-                                        tone="success.main"
-                                        hint={`${formatCurrencyDecimal(stage.received)} received against ${formatCurrencyDecimal(stage.value)} stage value`}
-                                    />
-                                </Stack>
-
-                                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", columnGap: 2, pl: { xs: 5.5, lg: 0 } }}>
-                                    <Amount label="Stage Value" value={stage.value} strong />
-                                    <Amount label="Received" value={stage.received} strong />
-                                    <Amount
-                                        label="Pending"
-                                        value={pending}
-                                        tone="warning.dark"
-                                        strong
-                                        note={stage.outstanding > 0 ? `${formatCurrencyDecimal(stage.outstanding)} awaited on bills` : undefined}
-                                    />
-                                </Box>
-                            </Box>
-
-                            {/* ── deliverables ─────────────────────────────── */}
-                            <Collapse in={open} timeout={timeout} unmountOnExit>
-                                <Box sx={{ borderTop: "1px solid", borderColor: "divider" }}>
-                                    {stage.visible.length === 0 && (
-                                        <Box sx={{ pl: { xs: 1.5, sm: 7.25 }, pr: 2, py: 2 }}>
-                                            <Typography sx={{ fontSize: 13, fontWeight: 600 }}>No deliverables yet</Typography>
-                                            <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.25 }}>
-                                                Bills are raised against deliverables. Add one, and give the stage&apos;s deliverables shares that total 100%.
-                                            </Typography>
-                                        </Box>
-                                    )}
-                                    {stage.visible.map((row, index) => (
-                                        <DeliverableRow
-                                            key={row.deliverableId}
-                                            projectId={projectId}
-                                            row={row}
-                                            detail={detailById.get(row.deliverableId)}
-                                            first={index === 0}
-                                            open={openRows.has(row.deliverableId)}
-                                            onToggle={() => toggle(setOpenRows, row.deliverableId)}
-                                            actionsFor={actionsFor}
-                                            onOpenDocument={onOpenDocument}
-                                            onToggleTds={onToggleTds}
-                                            canRecordPayment={canRecordPayment}
-                                            busy={busy}
-                                            timeout={timeout}
-                                        />
-                                    ))}
-                                </Box>
-                            </Collapse>
-                        </Box>
-                    );
-                })}
-            </Stack>
+        <Box ref={setHost}>
+            {layout === "table" ? (
+                <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: "10px", bgcolor: "background.paper", overflow: "hidden" }}>
+                    <Table
+                        size="small"
+                        sx={{ tableLayout: "fixed", width: "100%", borderCollapse: "collapse", "& .MuiTableCell-root": { borderLeft: 0, borderRight: 0 } }}
+                    >
+                        <colgroup>
+                            {COLUMN_WIDTHS.map((w, i) => <col key={i} style={{ width: w }} />)}
+                        </colgroup>
+                        <TableBody>
+                            <StageColumns />
+                            {visibleRows.map((row) => <StageRow key={row.stageId} {...viewProps(row)} />)}
+                            <GrandTotalRow totals={totals} />
+                        </TableBody>
+                    </Table>
+                </Box>
+            ) : (
+                <Stack spacing={1.5}>
+                    {visibleRows.map((row) => (
+                        <StageCard key={row.stageId} {...viewProps(row)} narrow={layout === "narrow"} />
+                    ))}
+                    <CompactTotal totals={totals} />
+                </Stack>
+            )}
         </Box>
     );
 };
 
-// ── deliverable row ─────────────────────────────────────────────────────────
+// ── stage columns ───────────────────────────────────────────────────────────
 
-const DeliverableRow: React.FC<{
+/** Shares of the table width. They sum to 100%, so the table fills the card. */
+const COLUMN_WIDTHS = ["21%", "10%", "10%", "9%", "8%", "7%", "7%", "9%", "8%", "11%"];
+
+const HEAD_CELL = {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "text.secondary",
+    lineHeight: 1.3,
+    py: 1,
+    px: 1,
+    borderBottom: "1px solid",
+    borderColor: "divider",
+    bgcolor: "background.paper",
+    whiteSpace: "nowrap",
+} as const;
+
+const BODY_CELL = {
+    py: 1.25,
+    px: 1,
+    borderBottom: "1px solid",
+    borderColor: "divider",
+    verticalAlign: "middle",
+} as const;
+
+/** Stage chevron sits at 16px; everything a stage opens hangs off a rail under it. */
+const TREE = { stage: 16, child: 56 } as const;
+
+const treeRailSx = {
+    position: "relative" as const,
+    "&::before": {
+        content: '""',
+        position: "absolute",
+        left: 31,
+        top: 0,
+        bottom: 0,
+        width: "1px",
+        bgcolor: "divider",
+    },
+};
+
+const StageColumns: React.FC = () => (
+    <TableRow>
+        <TableCell sx={{ ...HEAD_CELL, pl: `${TREE.child}px` }}>Stage</TableCell>
+        <TableCell sx={HEAD_CELL}>Work</TableCell>
+        <TableCell align="center" sx={HEAD_CELL}>Billing</TableCell>
+        <TableCell align="center" sx={HEAD_CELL}>Collection</TableCell>
+        <TableCell align="right" sx={HEAD_CELL}>Bill Amount</TableCell>
+        <TableCell align="right" sx={HEAD_CELL}>GST</TableCell>
+        <TableCell align="right" sx={HEAD_CELL}>TDS</TableCell>
+        <TableCell align="right" sx={HEAD_CELL}>Bill Value</TableCell>
+        <TableCell align="right" sx={HEAD_CELL}>Pending</TableCell>
+        <TableCell sx={HEAD_CELL} />
+    </TableRow>
+);
+
+const TOTAL_CELL = {
+    ...BODY_CELL,
+    borderBottom: 0,
+    bgcolor: "action.hover",
+} as const;
+
+const GrandTotalRow: React.FC<{ totals: ReturnType<typeof totalsOf> }> = ({ totals }) => (
+    <TableRow>
+        <TableCell colSpan={4} sx={{ ...TOTAL_CELL, pl: `${TREE.child}px` }}>
+            <Typography sx={{ fontSize: 13.5, fontWeight: 700 }}>Total</Typography>
+        </TableCell>
+        <TableCell align="right" sx={TOTAL_CELL}><Amount value={totals.billAmount} strong /></TableCell>
+        <TableCell align="right" sx={TOTAL_CELL}><Amount value={totals.gst} strong /></TableCell>
+        <TableCell align="right" sx={TOTAL_CELL}><Amount value={totals.tds} strong /></TableCell>
+        <TableCell align="right" sx={TOTAL_CELL}><Amount value={totals.billValue} strong /></TableCell>
+        <TableCell align="right" sx={TOTAL_CELL}><Amount value={totals.pending} strong /></TableCell>
+        <TableCell sx={TOTAL_CELL} />
+    </TableRow>
+);
+
+interface Figure { label: string; value: number | null; statusCode?: string; strong?: boolean }
+
+/** A stage's five figures, in column order. Unbilled, its value is the whole Bill Value and Pending. */
+const figuresOf = (row: ProjectBillingRow): Figure[] => {
+    const bill = liveBill(row);
+    if (!bill) {
+        return [
+            { label: "Bill Amount", value: null },
+            { label: "GST", value: null },
+            { label: "TDS", value: null },
+            { label: "Bill Value", value: row.amount },
+            { label: "Pending", value: row.amount },
+        ];
+    }
+    return [
+        { label: "Bill Amount", value: billAmountOf(bill), statusCode: bill.basicPaid ? "BASIC_PAID" : "BASIC_UNPAID" },
+        { label: "GST", value: bill.gstAmount, statusCode: bill.gstAmount > 0 ? (bill.gstPaid ? "GST_PAID" : "GST_UNPAID") : undefined },
+        {
+            label: "TDS",
+            value: bill.tdsAmount > 0 ? bill.tdsAmount : null,
+            statusCode: bill.tdsAmount > 0 ? (bill.tdsDeposited ? "TDS_PAID" : "TDS_UNPAID") : undefined,
+        },
+        { label: "Bill Value", value: bill.totalAmount, strong: true },
+        { label: "Pending", value: bill.outstandingAmount, statusCode: paymentCodeOf(bill) },
+    ];
+};
+
+const workHintOf = (row: ProjectBillingRow) =>
+    row.work.total
+        ? `${row.work.completed} of ${row.work.total} deliverables complete`
+        : "No deliverables on this stage";
+
+type StageTab = "billing" | "work";
+
+/** A stage with a bill, or one waiting on a billing action, opens on Billing; otherwise Work. */
+const defaultTabOf = (row: ProjectBillingRow): StageTab =>
+    attentionOf(row) || liveBill(row) ? "billing" : "work";
+
+/** Click handler for a row cell that opens its own tab instead of toggling the row. */
+const jumpTo = (onOpenTo: (tab: StageTab) => void, tab: StageTab) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onOpenTo(tab);
+};
+
+interface StageViewProps {
     projectId: string;
     row: ProjectBillingRow;
-    /** Execution detail — remarks and who completed it. */
-    detail?: ProjectDeliverable;
-    first: boolean;
     open: boolean;
     onToggle: () => void;
+    tab: StageTab;
+    onTabChange: (tab: StageTab) => void;
+    onOpenTo: (tab: StageTab) => void;
     actionsFor: (row: ProjectBillingRow) => React.ReactNode;
     onOpenDocument: (documentId: string, status?: string | null) => void;
     onToggleTds: (billId: string, deposited: boolean) => void;
     canRecordPayment: boolean;
     busy?: boolean;
     timeout: number;
-}> = ({ projectId, row, detail, first, open, onToggle, actionsFor, onOpenDocument, onToggleTds, canRecordPayment, busy, timeout }) => {
-    const bill = liveBill(row);
-    const work = workStatusOf(row);
+    onSetProgress: (deliverableId: string, progress: number) => void;
+    onEditRemarks: (deliverable: StageDeliverable) => void;
+}
 
+/** What an opened stage shows: its billing path OR the work inside it, one at a time. */
+const StageDetail: React.FC<StageViewProps & { stacked: boolean; narrow: boolean; compactPath?: boolean }> = ({
+    projectId, row, tab, onTabChange, onOpenDocument, onToggleTds, canRecordPayment, busy, onSetProgress, onEditRemarks, stacked, narrow, compactPath,
+}) => (
+    <Stack spacing={1.25}>
+        <SegmentedControl<StageTab>
+            ariaLabel={`${row.stageName} details`}
+            value={tab}
+            onChange={onTabChange}
+            fullWidth={narrow}
+            options={[
+                { value: "billing", label: "Billing" },
+                { value: "work", label: row.work.total ? `Work ${row.work.completed}/${row.work.total}` : "Work" },
+            ]}
+        />
+        <Box role="tabpanel" aria-label={tab === "billing" ? "Billing" : "Work"}>
+            {tab === "billing" ? (
+                <BillingActivity
+                    projectId={projectId}
+                    row={row}
+                    onOpenDocument={onOpenDocument}
+                    onToggleTds={onToggleTds}
+                    canRecordPayment={canRecordPayment}
+                    busy={busy}
+                    stacked={stacked}
+                    narrow={narrow}
+                    compactPath={compactPath}
+                />
+            ) : (
+                <WorkList row={row} narrow={narrow} onSetProgress={onSetProgress} onEditRemarks={onEditRemarks} />
+            )}
+        </Box>
+    </Stack>
+);
+
+const StageRow: React.FC<StageViewProps> = (props) => {
+    const { row, open, onToggle, onOpenTo, actionsFor, timeout } = props;
+    const cell = { ...BODY_CELL, borderBottom: open ? 0 : BODY_CELL.borderBottom };
     return (
-        <Box sx={{ borderTop: first ? 0 : "1px solid", borderColor: "divider" }}>
-            <Box
-                sx={{
-                    display: "grid",
-                    gridTemplateColumns: {
-                        xs: "minmax(0, 1fr)",
-                        md: "minmax(220px, 1fr) 460px",
-                        xl: "minmax(200px, 1fr) 270px 460px 220px",
-                    },
-                    columnGap: 3,
-                    rowGap: 1.5,
-                    alignItems: "center",
-                    // Indented under the stage title, so the hierarchy reads without boxes.
-                    pl: { xs: 1.5, sm: 7.25 },
-                    pr: { xs: 1.5, sm: 2 },
-                    py: 1.5,
-                    // The whole row opens its billing activity, exactly like a stage
-                    // header — one disclosure pattern at every level.
-                    cursor: "pointer",
-                    bgcolor: open ? "action.hover" : "transparent",
-                    transition: "background-color 150ms ease",
-                    "&:hover": { bgcolor: "action.hover" },
-                }}
-                onClick={onToggle}
-            >
-                {/* What */}
-                <Stack direction="row" alignItems="flex-start" spacing={1.25} sx={{ minWidth: 0 }}>
-                    <Box sx={{ mt: "-5px" }}>
-                        <Chevron open={open} label={`billing activity for ${row.deliverableName}`} onClick={onToggle} />
-                    </Box>
-                    <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35 }}>{row.deliverableName}</Typography>
-                        <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.25 }}>
-                            {row.percentage}% of stage
-                            {row.completedAt ? `, completed ${formatDate(row.completedAt)}` : ""}
-                            {row.completedAt && detail?.completedByName ? ` by ${detail.completedByName}` : ""}
-                        </Typography>
-                    </Box>
-                </Stack>
+        <>
+            <TableRow hover onClick={onToggle} sx={{ cursor: "pointer" }}>
+                <TableCell sx={{ ...cell, pl: `${TREE.stage}px` }}>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                        <Chevron open={open} label={row.stageName} onClick={onToggle} />
+                        <StageName name={row.stageName} fontSize={14} />
+                        <Tooltip title="Share of the contract">
+                            <Typography sx={{ ...NUM, fontSize: 12.5, fontWeight: 600, color: "text.secondary", flexShrink: 0 }}>
+                                {row.percentage}%
+                            </Typography>
+                        </Tooltip>
+                    </Stack>
+                </TableCell>
+                <TableCell sx={cell} onClick={jumpTo(onOpenTo, "work")}>
+                    <Progress percent={row.work.progress} tone="primary.main" hint={workHintOf(row)} />
+                </TableCell>
+                <TableCell align="center" sx={cell} onClick={jumpTo(onOpenTo, "billing")}><StatusChip status={billingStatusOf(row)} /></TableCell>
+                <TableCell align="center" sx={cell} onClick={jumpTo(onOpenTo, "billing")}><StatusChip status={collectionStatusOf(row)} /></TableCell>
+                {figuresOf(row).map((f) => (
+                    <TableCell key={f.label} align="right" sx={cell}>
+                        <Amount value={f.value} statusCode={f.statusCode} strong={f.strong} />
+                    </TableCell>
+                ))}
+                <TableCell align="right" sx={cell}>
+                    <Stack direction="row" alignItems="center" justifyContent="flex-end" sx={{ cursor: "default" }} onClick={(e) => e.stopPropagation()}>
+                        {actionsFor(row)}
+                    </Stack>
+                </TableCell>
+            </TableRow>
+            <TableRow>
+                <TableCell colSpan={COLUMN_WIDTHS.length} sx={{ p: 0, borderBottom: open ? "1px solid" : 0, borderColor: "divider" }}>
+                    <Collapse in={open} timeout={timeout} unmountOnExit>
+                        <Box sx={{ pl: `${TREE.child}px`, pr: 2, pt: 0.5, pb: 1.5, ...treeRailSx }}>
+                            <StageDetail {...props} stacked={false} narrow={false} />
+                        </Box>
+                    </Collapse>
+                </TableCell>
+            </TableRow>
+        </>
+    );
+};
 
-                {/* Work · Billing · Collection — three dimensions, three answers */}
+// ── work: the stage's deliverables ──────────────────────────────────────────
+
+const QUICK_PROGRESS = [0, 25, 50, 75, 100];
+
+/** The work-done bar, as a button that opens the editor: slider, quick steps, exact value. */
+const ProgressControl: React.FC<{ deliverable: StageDeliverable; onSave: (progress: number) => void }> = ({ deliverable, onSave }) => {
+    const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+    const [draft, setDraft] = useState(deliverable.progress);
+    const open = (el: HTMLElement) => { setDraft(deliverable.progress); setAnchor(el); };
+    const commit = (value: number) => {
+        const clean = Math.min(100, Math.max(0, Math.round(value)));
+        if (clean !== deliverable.progress) onSave(clean);
+    };
+    const tone = deliverable.progress >= 100 ? "success.main" : "primary.main";
+    return (
+        <>
+            <Box
+                component="button"
+                type="button"
+                aria-label={`Work done on ${deliverable.name}: ${deliverable.progress}%. Change`}
+                onClick={(e: React.MouseEvent<HTMLElement>) => open(e.currentTarget)}
+                sx={{
+                    all: "unset",
+                    boxSizing: "border-box",
+                    display: "block",
+                    width: "100%",
+                    cursor: "pointer",
+                    borderRadius: "8px",
+                    px: 1,
+                    py: 0.75,
+                    "&:hover": { bgcolor: "action.hover" },
+                    "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main" },
+                }}
+            >
+                <Progress percent={deliverable.progress} tone={tone} />
+            </Box>
+            <Popover
+                open={Boolean(anchor)}
+                anchorEl={anchor}
+                onClose={() => setAnchor(null)}
+                anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+                slotProps={{ paper: { sx: { p: 2, width: 280, borderRadius: "10px" } } }}
+            >
+                <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 1 }}>{deliverable.name}</Typography>
+                <Stack direction="row" alignItems="center" spacing={1.5}>
+                    <Slider
+                        size="small"
+                        value={draft}
+                        step={5}
+                        min={0}
+                        max={100}
+                        aria-label="Work done"
+                        onChange={(_, v) => setDraft(v as number)}
+                        onChangeCommitted={(_, v) => commit(v as number)}
+                    />
+                    <TextField
+                        size="small"
+                        type="number"
+                        value={draft}
+                        onChange={(e) => setDraft(Number(e.target.value))}
+                        onBlur={() => commit(draft)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { commit(draft); setAnchor(null); } }}
+                        inputProps={{ min: 0, max: 100, "aria-label": "Work done, percent" }}
+                        InputProps={{ endAdornment: <Typography sx={{ fontSize: 12, color: "text.secondary" }}>%</Typography> }}
+                        sx={{ width: 84, flexShrink: 0, "& input": { fontSize: 13, py: 0.75 } }}
+                    />
+                </Stack>
+                <Stack direction="row" spacing={0.75} sx={{ mt: 1.25 }}>
+                    {QUICK_PROGRESS.map((value) => (
+                        <WtButton
+                            key={value}
+                            size="small"
+                            inverted={value !== draft}
+                            onClick={() => { setDraft(value); commit(value); setAnchor(null); }}
+                            sx={{ minWidth: 0, flex: 1, height: 28, minHeight: 28, fontSize: 12, px: 0 }}
+                        >
+                            {value === 100 ? "Done" : `${value}%`}
+                        </WtButton>
+                    ))}
+                </Stack>
+            </Popover>
+        </>
+    );
+};
+
+/** Deliverables are tracked here, never billed: share of the stage, work done, status, remarks. */
+const WorkList: React.FC<{
+    row: ProjectBillingRow;
+    narrow: boolean;
+    onSetProgress: (deliverableId: string, progress: number) => void;
+    onEditRemarks: (deliverable: StageDeliverable) => void;
+}> = ({ row, narrow, onSetProgress, onEditRemarks }) => (
+    <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: "12px", overflow: "hidden" }}>
+        <Stack
+            direction="row"
+            alignItems="baseline"
+            justifyContent="space-between"
+            spacing={1}
+            sx={{ px: 1.5, py: 1, borderBottom: row.deliverables.length ? "1px solid" : 0, borderColor: "divider" }}
+        >
+            <Typography sx={{ ...NUM, fontSize: 12, color: "text.secondary" }}>
+                {row.work.total ? `${row.work.completed} of ${row.work.total} complete · ${row.work.progress}% done` : "No deliverables on this stage"}
+            </Typography>
+        </Stack>
+        {row.deliverables.map((d, index) => {
+            const status = workStatusOf(d.status);
+            const chip = (
+                <Tooltip
+                    title={d.completedAt ? `Completed ${formatDate(d.completedAt)}${d.completedByName ? ` by ${d.completedByName}` : ""}` : ""}
+                    disableHoverListener={!d.completedAt}
+                >
+                    <Box sx={{ justifySelf: "start" }}><StatusChip status={status} /></Box>
+                </Tooltip>
+            );
+            const remarksButton = (
+                <Tooltip title={d.remarks ? "Edit remarks" : "Add remarks"}>
+                    <IconButton
+                        size="small"
+                        aria-label={`${d.remarks ? "Edit" : "Add"} remarks for ${d.name}`}
+                        onClick={() => onEditRemarks(d)}
+                        sx={{ width: 32, height: 32, borderRadius: "8px", color: d.remarks ? "primary.main" : "text.secondary" }}
+                    >
+                        <KTIcon iconName="notepad-edit" className="fs-5" />
+                    </IconButton>
+                </Tooltip>
+            );
+            const name = (
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.35 }}>{d.name}</Typography>
+                    {d.remarks && (
+                        <Typography noWrap sx={{ fontSize: 12, color: "text.secondary", mt: 0.15 }}>{d.remarks}</Typography>
+                    )}
+                </Box>
+            );
+            const share = (
+                <Tooltip title="Share of the stage">
+                    <Typography sx={{ ...NUM, fontSize: 12.5, fontWeight: 600, color: "text.secondary" }}>{d.percentage}%</Typography>
+                </Tooltip>
+            );
+            return (
                 <Box
+                    key={d.id}
                     sx={{
-                        display: { xs: "grid", md: "none", xl: "grid" },
-                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                        px: 1.5,
+                        py: 0.75,
+                        borderTop: index ? "1px solid" : 0,
+                        borderColor: "divider",
+                        display: "grid",
+                        alignItems: "center",
                         columnGap: 1.5,
-                        pl: { xs: 5.25, xl: 0 },
+                        rowGap: 0.5,
+                        gridTemplateColumns: narrow
+                            ? "minmax(0, 1fr) auto auto"
+                            : "minmax(0, 1.4fr) 3.5rem minmax(10rem, 1fr) 7.5rem auto",
                     }}
                 >
-                    <StatusText caption="Work" status={work} />
-                    <StatusText caption="Billing" status={billingStatusOf(row)} />
-                    <StatusText caption="Collection" status={collectionStatusOf(row)} />
-                </Box>
-
-                {/* Money — the Invoice Tracker's four columns, each with its own settlement:
-                    Bill Amount + TDS + GST = Bill Value. */}
-                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", columnGap: 2, pl: { xs: 5.25, md: 0 } }}>
-                    {bill ? (
+                    {narrow ? (
                         <>
-                            <Amount
-                                label="Bill Amount"
-                                value={billAmountOf(bill)}
-                                settle={bill.basicPaid ? { label: "Received", tone: "positive" } : { label: "Awaited", tone: "attention" }}
-                            />
-                            <Amount
-                                label={`GST ${bill.gstRate}%`}
-                                value={bill.gstAmount}
-                                settle={bill.gstAmount > 0
-                                    ? bill.gstPaid ? { label: "Received", tone: "positive" } : { label: "Awaited", tone: "attention" }
-                                    : undefined}
-                            />
-                            <Amount
-                                label={bill.tdsAmount > 0 ? `TDS ${bill.tdsRate}%` : "TDS"}
-                                value={bill.tdsAmount > 0 ? bill.tdsAmount : null}
-                                note={bill.tdsAmount > 0 ? undefined : "No TDS"}
-                                settle={bill.tdsAmount > 0
-                                    ? bill.tdsDeposited ? { label: "Deposited", tone: "positive" } : { label: "Not deposited", tone: "attention" }
-                                    : undefined}
-                            />
-                            <Amount
-                                label="Bill Value"
-                                value={bill.totalAmount}
-                                strong
-                                note={bill.outstandingAmount > 0
-                                    ? `${formatCurrencyDecimal(bill.outstandingAmount)} pending`
-                                    : bill.receivedAmount > 0 ? "Fully received" : undefined}
-                            />
+                            {name}
+                            {share}
+                            {remarksButton}
+                            <Box sx={{ gridColumn: "1 / 3", ml: -1 }}>
+                                <ProgressControl deliverable={d} onSave={(p) => onSetProgress(d.id, p)} />
+                            </Box>
+                            {chip}
                         </>
                     ) : (
-                        // Not billed: there is no Bill Amount / GST / TDS yet — only the
-                        // deliverable's value, which is exclusive of GST.
-                        <Box sx={{ gridColumn: "1 / -1" }}>
-                            <Amount label="Value, not billed yet" value={row.amount} note="Excluding GST" />
-                        </Box>
+                        <>
+                            {name}
+                            {share}
+                            <ProgressControl deliverable={d} onSave={(p) => onSetProgress(d.id, p)} />
+                            {chip}
+                            {remarksButton}
+                        </>
                     )}
                 </Box>
+            );
+        })}
+    </Box>
+);
 
-                {/* Action — next to the object it affects */}
-                <Stack
-                    direction="row"
-                    alignItems="center"
-                    justifyContent={{ xs: "flex-start", xl: "flex-end" }}
-                    spacing={0.5}
-                    sx={{ gridColumn: { md: "1 / -1", xl: "auto" }, pl: { xs: 5.25, xl: 0 }, cursor: "default" }}
-                    // Buttons act on the deliverable; they must not also fold the row.
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {/* md only: the status triplet moves here, beside the actions. */}
-                    <Box sx={{ display: { xs: "none", md: "grid", xl: "none" }, gridTemplateColumns: "repeat(3, 150px)", mr: "auto" }}>
-                        <StatusText caption="Work" status={work} />
-                        <StatusText caption="Billing" status={billingStatusOf(row)} />
-                        <StatusText caption="Collection" status={collectionStatusOf(row)} />
-                    </Box>
-                    {actionsFor(row)}
-                </Stack>
+// ── compact layout: cards instead of columns ────────────────────────────────
+
+/**
+ * Below TABLE_MIN_WIDTH the ten columns cannot hold their figures without
+ * overlapping, so each stage becomes a card. Same data, same order, same
+ * vocabulary — only the arrangement changes:
+ *   cards  — figures keep a five-column grid, aligned from one stage to the next;
+ *   narrow — Bill Value and Pending (what decides the next step) lead, the rest wrap below.
+ */
+type Layout = "table" | "cards" | "narrow";
+/** Where the widest totals still fit their 7% columns. */
+const TABLE_MIN_WIDTH = 1280;
+/** Where the bill path still fits on one line per step. */
+const CARDS_MIN_WIDTH = 800;
+
+/** Narrow money: two leading figures side by side, the rest as a wrapping line — any figure length fits. */
+const Figures: React.FC<{ primary: Figure[]; secondary: Figure[] }> = ({ primary, secondary }) => (
+    <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: "10px", overflow: "hidden" }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 2, px: 1.25, py: 1, bgcolor: "action.hover" }}>
+            {primary.map((f) => (
+                <Amount key={f.label} label={f.label} value={f.value} statusCode={f.statusCode} strong align="left" />
+            ))}
+        </Box>
+        {/* Label over figure, auto-fit columns: three across when they fit, two when not — never ragged.
+            Figures that do not exist (unbilled stage, no TDS) are left out rather than shown as dashes. */}
+        {secondary.some((f) => f.value !== null) && (
+            <Box sx={{
+                display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(6.5rem, 1fr))", columnGap: 2, rowGap: 0.75,
+                px: 1.25, py: 1, borderTop: "1px solid", borderColor: "divider",
+            }}>
+                {secondary.filter((f) => f.value !== null).map((f) => (
+                    <Amount key={f.label} align="left" label={f.label} value={f.value} statusCode={f.statusCode} />
+                ))}
             </Box>
+        )}
+    </Box>
+);
 
-            <Collapse in={open} timeout={timeout} unmountOnExit>
-                {/* Attached to its row: same band colour, same indent — not a floating card. */}
-                {/* Indented to the deliverable NAME (past the chevron), so it reads as its child. */}
-                <Box sx={{ bgcolor: "action.hover", pl: { xs: 1.5, sm: 12.5 }, pr: { xs: 1.5, sm: 2 }, pb: 2.5, pt: 0.5 }}>
-                    {detail?.remarks && (
-                        <Box sx={{ pt: 1, pb: 0.5 }}>
-                            <Typography sx={{ fontSize: 12, fontWeight: 600, color: "text.secondary" }}>Remarks</Typography>
-                            <Typography sx={{ fontSize: 12.5, mt: 0.25, whiteSpace: "pre-line", maxWidth: 720 }}>{detail.remarks}</Typography>
+/** Work, Billing, Collection — each named, since a card has no column headers. Wraps as needed. */
+const StatusLine: React.FC<{ row: ProjectBillingRow; onOpenTo: (tab: StageTab) => void; narrow?: boolean }> = ({ row, onOpenTo, narrow }) => narrow ? (
+    // Phones: work bar on its own line, then Billing and Collection side by side, name over chip.
+    <Stack spacing={1}>
+        <Box onClick={jumpTo(onOpenTo, "work")}>
+            <Progress label="Work" percent={row.work.progress} tone="primary.main" hint={workHintOf(row)} />
+        </Box>
+        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 1.5 }} onClick={jumpTo(onOpenTo, "billing")}>
+            {([["Billing", billingStatusOf(row)], ["Collection", collectionStatusOf(row)]] as const).map(([label, status]) => (
+                <Box key={label} sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 11, color: "text.secondary", lineHeight: 1.4, mb: 0.25 }}>{label}</Typography>
+                    <CellChip status={status} />
+                </Box>
+            ))}
+        </Box>
+    </Stack>
+) : (
+    // Cards: the same five tracks as the money row beneath, so Work, Billing and Collection
+    // line up over the figures — labels above, in the figures' own label style.
+    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", columnGap: 2, alignItems: "end" }}>
+        <Box sx={{ gridColumn: "span 2", cursor: "pointer", pr: 2 }} onClick={jumpTo(onOpenTo, "work")}>
+            <Typography sx={{ fontSize: 11, color: "text.secondary", lineHeight: 1.4, mb: 0.5 }}>Work</Typography>
+            <Progress percent={row.work.progress} tone="primary.main" hint={workHintOf(row)} />
+        </Box>
+        {([["Billing", billingStatusOf(row)], ["Collection", collectionStatusOf(row)]] as const).map(([label, status]) => (
+            // Wide: each chip hugs its label (a stretched chip across two tracks looks bloated).
+            <Box key={label} sx={{ minWidth: 0, cursor: "pointer" }} onClick={jumpTo(onOpenTo, "billing")}>
+                <Typography sx={{ fontSize: 11, color: "text.secondary", lineHeight: 1.4, mb: 0.25 }}>{label}</Typography>
+                <Box sx={{ display: "flex", maxWidth: "100%", "& > *": { maxWidth: "100%" } }}>
+                    <SolidChip label={status.label} color={CHIP_COLOR[status.tone]} />
+                </Box>
+            </Box>
+        ))}
+    </Box>
+);
+
+const StageCard: React.FC<StageViewProps & { narrow: boolean }> = (props) => {
+    const { narrow, row, open, onToggle, onOpenTo, actionsFor, timeout } = props;
+    const figures = figuresOf(row);
+    const actions = (
+        <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="flex-end"
+            sx={{
+                cursor: "default", flexShrink: 0,
+                // Phones: the primary action is a full-width, thumb-sized button beside the ⋮.
+                // `actionsFor` returns its own inner Stack, so that is what has to stretch.
+                ...(narrow && {
+                    width: "100%",
+                    // Descendant, not child: ActionGate's `display: contents` box sits in between in the DOM.
+                    "& .MuiStack-root": { flex: 1, minWidth: 0, width: "100%", justifyContent: "stretch", gap: 1 },
+                    "& .MuiStack-root > *": { marginLeft: "0 !important" },
+                    "& .MuiButtonBase-root:not(.MuiIconButton-root)": { flex: 1, minHeight: 40, fontSize: 13 },
+                    "& span:has(> .MuiButtonBase-root:not(.MuiIconButton-root))": { flex: 1, display: "flex" },
+                    "& .MuiIconButton-root": { width: 40, height: 40, border: "1px solid", borderColor: "divider" },
+                }),
+            }}
+            onClick={(e) => e.stopPropagation()}
+        >
+            {actionsFor(row)}
+        </Stack>
+    );
+    return (
+        <Box component="section" aria-label={row.stageName} sx={{ border: "1px solid", borderColor: "divider", borderRadius: "10px", bgcolor: "background.paper", overflow: "hidden" }}>
+            <Box onClick={onToggle} sx={{ cursor: "pointer", px: 1.5, py: 1.25, "&:hover": { bgcolor: "action.hover" } }}>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                    <Chevron open={open} label={row.stageName} onClick={onToggle} />
+                    <StageName name={row.stageName} fontSize={15} />
+                    <Typography sx={{ ...NUM, fontSize: 12.5, fontWeight: 600, color: "text.secondary", flexShrink: 0 }}>{row.percentage}%</Typography>
+                    {!narrow && actions}
+                </Stack>
+                <Stack spacing={narrow ? 1.25 : 0} sx={{
+                    ml: narrow ? 0 : 5, mt: 1,
+                    // Cards: status and money share one tinted panel, split by a hairline.
+                    ...(!narrow && { border: "1px solid", borderColor: "divider", borderRadius: "10px", bgcolor: "action.hover", overflow: "hidden", "& > *": { px: 1.5, py: 1.1 } }),
+                }}>
+                    <StatusLine row={row} onOpenTo={onOpenTo} narrow={narrow} />
+                    {narrow ? (
+                        <Figures primary={figures.slice(3)} secondary={figures.slice(0, 3)} />
+                    ) : (
+                        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", columnGap: 2, borderTop: "1px solid", borderColor: "divider", bgcolor: "background.paper" }}>
+                            {/* A figure that does not exist (unbilled stage, no TDS) leaves its column
+                                empty instead of printing a dash, so Bill Value and Pending stay aligned
+                                from card to card without a row of placeholders. */}
+                            {figures.map((f) => f.value === null
+                                ? <Box key={f.label} aria-hidden />
+                                : <Amount key={f.label} label={f.label} value={f.value} statusCode={f.statusCode} strong={f.strong} align="left" />)}
                         </Box>
                     )}
-                    <BillingActivity
-                        projectId={projectId}
-                        row={row}
-                        onOpenDocument={onOpenDocument}
-                        onToggleTds={onToggleTds}
-                        canRecordPayment={canRecordPayment}
-                        busy={busy}
-                    />
+                    {narrow && actions}
+                </Stack>
+            </Box>
+            <Collapse in={open} timeout={timeout} unmountOnExit>
+                <Box sx={{ px: 1.5, pb: 1.5, pl: narrow ? 1.5 : 6.5 }}>
+                    {/* Cards layout: path and detail sit side by side, with the path in its two-line
+                        form — the five reserved tracks of the wide path would leave gaps and crowd the detail. */}
+                    <StageDetail {...props} stacked={narrow} narrow={narrow} compactPath />
                 </Box>
             </Collapse>
         </Box>
     );
 };
+
+/** Totals as label/figure pairs that wrap — the table's total row, for cards. */
+const CompactTotal: React.FC<{ totals: ReturnType<typeof totalsOf> }> = ({ totals }) => (
+    <Stack
+        direction="row"
+        flexWrap="wrap"
+        alignItems="baseline"
+        columnGap={2.5}
+        rowGap={0.5}
+        sx={{ px: 1.5, py: 1.25, border: "1px solid", borderColor: "divider", borderRadius: "10px", bgcolor: "action.hover" }}
+    >
+        <Typography sx={{ fontSize: 13.5, fontWeight: 700 }}>Total</Typography>
+        <Amount inline align="left" label="Bill Amount" value={totals.billAmount} />
+        <Amount inline align="left" label="GST" value={totals.gst} />
+        <Amount inline align="left" label="TDS" value={totals.tds} />
+        <Amount inline align="left" label="Bill Value" value={totals.billValue} strong />
+        <Amount inline align="left" label="Pending" value={totals.pending} strong />
+    </Stack>
+);
 
 // ── billing activity ────────────────────────────────────────────────────────
 
@@ -711,67 +1149,549 @@ const METHOD_LABEL: Record<string, string> = {
 const DOC_STATUS: Record<string, string> = { DRAFT: "Draft", PUBLISHED: "Issued", SENT: "Sent", CANCELLED: "Cancelled" };
 
 const linkSx = { minHeight: 28, height: 28, fontSize: 12, px: 1.25, whiteSpace: "nowrap" as const, flexShrink: 0 };
+/** Same quiet filled look as Record Payment / Open Tax Invoice on the row. */
+const pathActionSx = {
+    height: 30,
+    minHeight: 30,
+    fontSize: 12,
+    fontWeight: 600,
+    borderRadius: "8px",
+    whiteSpace: "nowrap" as const,
+    boxShadow: "none",
+    px: 1.5,
+    flexShrink: 0,
+    alignSelf: "center",
+};
 
-/** Width of the Open / Edit slot on a timeline event. */
-const ACTION_SLOT = 64;
-/** Right padding that puts a sub-line's amount under its event's amount (slot + gap). */
-const AMOUNT_INSET = `${ACTION_SLOT + 12}px`;
+/** What the right card is showing — mirrors a click on the path. */
+type PathFocus = "OVERVIEW" | "PROFORMA" | "PAYMENT" | "INVOICE";
 
-/** One event on the timeline. ● happened, ○ still to happen. */
-const Event: React.FC<{
+type PathPayment = {
+    id: string;
+    amount: number;
+    paymentDate: string;
+    method: string;
+    reference?: string | null;
+};
+
+const docChipOf = (status: DocumentStatus | null): Status | null => {
+    if (!status) return null;
+    switch (status) {
+        case "DRAFT": return { label: DOC_STATUS.DRAFT, tone: "attention" };
+        case "PUBLISHED": return { label: DOC_STATUS.PUBLISHED, tone: "positive" };
+        case "SENT": return { label: DOC_STATUS.SENT, tone: "positive" };
+        case "CANCELLED": return { label: DOC_STATUS.CANCELLED, tone: "critical" };
+        default: {
+            const _never: never = status;
+            return _never;
+        }
+    }
+};
+
+/** Same tracks on every step — kind, number, date, chip, amount. Chip grows so amount stays at the end. */
+const PATH_COLS = "6.75rem 10.5rem 6.75rem minmax(6.25rem, 1fr) 8.75rem";
+
+/**
+ * One step on the path — kind, number, date, chip and amount stay on one line
+ * with reserved tracks so they cannot collide.
+ */
+const PathStep: React.FC<{
     done: boolean;
+    next?: boolean;
+    selected?: boolean;
     last?: boolean;
-    title: string;
-    status?: string | null;
-    meta?: string | null;
+    kind: string;
+    title?: string;
+    meta?: string;
+    chip?: Status | null;
     amount?: number;
-    action?: React.ReactNode;
-    children?: React.ReactNode;
-}> = ({ done, last, title, status, meta, amount, action, children }) => (
-    <Box sx={{ display: "grid", gridTemplateColumns: "16px minmax(0, 1fr)", columnGap: 1.5 }}>
-        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+    /** Two lines — kind, number, amount / date, chip — instead of five reserved tracks. */
+    narrow?: boolean;
+    onSelect: () => void;
+}> = ({ done, next, selected, last, kind, title, meta, chip, amount, narrow, onSelect }) => {
+    const kindText = (
+        <Typography sx={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: selected || done || next ? "text.primary" : "text.secondary",
+            lineHeight: 1.3,
+            whiteSpace: "nowrap",
+        }}>
+            {kind}
+        </Typography>
+    );
+    const titleText = <Typography noWrap sx={{ fontSize: 13, color: "text.secondary", minWidth: 0 }}>{title ?? ""}</Typography>;
+    const metaText = <Typography sx={{ ...NUM, fontSize: 12.5, color: "text.secondary" }}>{meta ?? ""}</Typography>;
+    const chipBox = <Box sx={{ justifySelf: narrow ? "end" : "start", minWidth: 0 }}>{chip ? <StatusChip status={chip} /> : null}</Box>;
+    const amountText = (
+        <Typography sx={{ ...NUM, fontSize: 13, fontWeight: 700, textAlign: "right" }}>
+            {amount !== undefined ? formatCurrencyDecimal(amount) : ""}
+        </Typography>
+    );
+    const marker = selected
+        ? { border: "primary.main", fill: "primary.main" }
+        : done
+            ? { border: "success.main", fill: "success.main" }
+            : next
+                ? { border: "warning.main", fill: "warning.main" }
+                : { border: "text.disabled", fill: "transparent" };
+    return (
+        <Box sx={{ display: "grid", gridTemplateColumns: "18px minmax(0, 1fr)", columnGap: 1.25, width: "100%" }}>
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <Box
+                    aria-hidden
+                    sx={{
+                        width: 11, height: 11, mt: "6px", borderRadius: "50%", flexShrink: 0,
+                        border: "2px solid",
+                        borderColor: marker.border,
+                        bgcolor: marker.fill,
+                    }}
+                />
+                {!last && (
+                    <Box sx={{
+                        width: "1px", flex: 1, minHeight: 8, mt: 0.5,
+                        bgcolor: done ? "success.main" : "divider",
+                    }}
+                    />
+                )}
+            </Box>
             <Box
-                aria-hidden
-                sx={{
-                    width: 10, height: 10, mt: "5px", borderRadius: "50%", flexShrink: 0,
-                    border: "2px solid",
-                    borderColor: done ? "text.primary" : "text.disabled",
-                    bgcolor: done ? "text.primary" : "background.paper",
+                role="button"
+                tabIndex={0}
+                aria-current={selected ? "true" : undefined}
+                onClick={onSelect}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelect();
+                    }
                 }}
-            />
-            {!last && <Box sx={{ width: "1px", flex: 1, bgcolor: "divider", mt: 0.5 }} />}
+                sx={{
+                    width: "100%",
+                    minWidth: 0,
+                    px: 1.25,
+                    py: 0.7,
+                    mb: last ? 0 : 0.25,
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    bgcolor: selected
+                        ? (theme) => alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.18 : 0.08)
+                        : "transparent",
+                    "&:hover": {
+                        bgcolor: selected
+                            ? (theme) => alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.22 : 0.12)
+                            : "action.hover",
+                    },
+                }}
+            >
+                {narrow ? (
+                    <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", columnGap: 1, rowGap: 0.4, alignItems: "center" }}>
+                        <Stack direction="row" alignItems="baseline" spacing={1} sx={{ minWidth: 0 }}>
+                            {kindText}
+                            {titleText}
+                        </Stack>
+                        {amountText}
+                        {metaText}
+                        {chipBox}
+                    </Box>
+                ) : (
+                    <Box sx={{ display: "grid", gridTemplateColumns: PATH_COLS, columnGap: 1.5, alignItems: "center", width: "100%" }}>
+                        {kindText}
+                        {titleText}
+                        {metaText}
+                        {chipBox}
+                        {amountText}
+                    </Box>
+                )}
+            </Box>
         </Box>
-        <Box sx={{ pb: last ? 0 : 2, minWidth: 0 }}>
-            <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2}>
-                <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: done ? "text.primary" : "text.secondary" }}>
+    );
+};
+
+/** Right pane of the path+detail shell — no second card, just the selected step. */
+const DetailShell: React.FC<{
+    eyebrow: string;
+    title: string;
+    accent: string;
+    aside?: React.ReactNode;
+    action?: React.ReactNode;
+    children: React.ReactNode;
+}> = ({ eyebrow, title, accent, aside, action, children }) => (
+    <Box sx={{ display: "flex", flexDirection: "column", width: "100%", height: "fit-content" }}>
+        <Box sx={{ height: 3, bgcolor: accent, flexShrink: 0 }} />
+        <Box sx={{ px: { xs: 1.5, md: 1.75 }, py: 1.5, minWidth: 0, flex: 1 }}>
+            <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1.25} sx={{ mb: 1.25, minWidth: 0 }}>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: "text.secondary", letterSpacing: "0.01em" }}>{eyebrow}</Typography>
+                    <Typography sx={{ fontSize: 15, fontWeight: 700, color: "text.primary", lineHeight: 1.35, mt: 0.25 }}>
                         {title}
-                        <Box component="span" sx={visuallyHidden}>{done ? ", done" : ", pending"}</Box>
-                        {status && (
-                            <Box component="span" sx={{ ml: 1, fontSize: 12, fontWeight: 500, color: "text.secondary" }}>
-                                {status}
-                            </Box>
-                        )}
                     </Typography>
-                    {meta && <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.25 }}>{meta}</Typography>}
+                    {aside}
                 </Box>
-                {/* Fixed amount column + fixed button slot: every amount on the
-                    timeline — events and payment lines alike — ends on one edge. */}
-                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ flexShrink: 0 }}>
-                    <Typography sx={{ ...NUM, fontSize: 13, fontWeight: 600, textAlign: "right", minWidth: 110 }}>
-                        {amount !== undefined ? formatCurrencyDecimal(amount) : ""}
-                    </Typography>
-                    <Box sx={{ width: ACTION_SLOT, display: "flex", justifyContent: "flex-end" }}>{action}</Box>
-                </Stack>
+                {action && <Box sx={{ flexShrink: 0, pt: 0.25 }}>{action}</Box>}
             </Stack>
             {children}
         </Box>
     </Box>
 );
 
-const visuallyHidden = {
-    position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap",
-} as const;
+/** Inset tiles — same card language as the bill-open / workspace summary. */
+const Bento: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <Box
+        sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 1,
+            minWidth: 0,
+        }}
+    >
+        {children}
+    </Box>
+);
+
+const Tile: React.FC<{
+    label: string;
+    wide?: boolean;
+    min?: string;
+    children: React.ReactNode;
+}> = ({ label, wide, min = "8.5rem", children }) => (
+    <Box
+        sx={{
+            flex: wide ? "1 1 100%" : `1 0 ${min}`,
+            minWidth: wide ? "100%" : min,
+            px: 1.25,
+            py: 1,
+            borderRadius: "10px",
+            border: "1px solid",
+            borderColor: "divider",
+            bgcolor: (theme) => alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.05 : 0.03),
+        }}
+    >
+        <Typography noWrap sx={{ fontSize: 12, color: "text.secondary", mb: 0.45, lineHeight: 1.3 }}>{label}</Typography>
+        <Box sx={{ minWidth: 0, overflow: "hidden" }}>{children}</Box>
+    </Box>
+);
+
+/** One aligned label / value row — used when the card is too narrow for a 3-tile grid. */
+const FactList: React.FC<{ items: Array<{ label: string; value: React.ReactNode }> }> = ({ items }) => (
+    <Box
+        sx={{
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: "10px",
+            overflow: "hidden",
+            minWidth: 0,
+            bgcolor: (theme) => alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.05 : 0.03),
+        }}
+    >
+        {items.map((item, index) => (
+            <Stack
+                key={item.label}
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                spacing={2}
+                sx={{
+                    px: 1.25,
+                    py: 0.7,
+                    minHeight: 0,
+                    minWidth: 0,
+                    borderTop: index ? "1px solid" : 0,
+                    borderColor: "divider",
+                }}
+            >
+                <Typography sx={{ fontSize: 12.5, color: "text.secondary", flexShrink: 0 }}>{item.label}</Typography>
+                <Box sx={{ minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "flex-end", textAlign: "right" }}>
+                    {item.value}
+                </Box>
+            </Stack>
+        ))}
+    </Box>
+);
+
+/** Right card — content follows the selected path step. */
+const BillFocusPanel: React.FC<{
+    focus: PathFocus;
+    selectedPaymentId: string | null;
+    bill: BillOnRow;
+    payments: PathPayment[];
+    paymentsLoading: boolean;
+    paymentsError: boolean;
+    onRetryPayments: () => void;
+    onOpenDocument: (documentId: string, status?: string | null) => void;
+    onToggleTds: (billId: string, deposited: boolean) => void;
+    canRecordPayment: boolean;
+    busy?: boolean;
+}> = ({
+    focus, selectedPaymentId, bill, payments, paymentsLoading, paymentsError, onRetryPayments,
+    onOpenDocument, onToggleTds, canRecordPayment, busy,
+}) => {
+    const settled = bill.outstandingAmount <= 0;
+    const overdue = isOverdue(bill);
+    const pending = Math.max(0, bill.outstandingAmount);
+    const proformaDone = Boolean(bill.proformaNumber) && bill.proformaStatus !== "DRAFT";
+    const paidInFull = bill.status === "PAID" || bill.status === "INVOICED";
+    const invoiceDone = Boolean(bill.invoiceNumber) && bill.invoiceStatus !== "DRAFT";
+
+    const docButton = (documentId: string | null, status: string | null) =>
+        documentId ? (
+            <ActionGate>
+                <WtButton
+                    size="small"
+                    inverted
+                    sx={pathActionSx}
+                    onClick={() => onOpenDocument(documentId, status)}
+                >
+                    {status === "DRAFT" ? "Edit" : "Open"}
+                </WtButton>
+            </ActionGate>
+        ) : null;
+
+    if (focus === "PROFORMA") {
+        return (
+            <DetailShell
+                eyebrow="Proforma"
+                title={bill.proformaNumber ?? "Not created yet"}
+                accent={proformaDone ? "success.main" : bill.proformaDocumentId ? "warning.main" : "text.disabled"}
+                action={docButton(bill.proformaDocumentId, bill.proformaStatus)}
+            >
+                <FactList
+                    items={[
+                        {
+                            label: "Amount",
+                            value: (
+                                <Typography sx={{ ...NUM, fontSize: 15, fontWeight: 700 }}>
+                                    {formatCurrencyDecimal(bill.totalAmount)}
+                                </Typography>
+                            ),
+                        },
+                        {
+                            label: "Status",
+                            value: docChipOf(bill.proformaStatus)
+                                ? <StatusChip status={docChipOf(bill.proformaStatus)!} />
+                                : <StatusChip status={{ label: "Not created", tone: "neutral" }} />,
+                        },
+                        {
+                            label: "Date",
+                            value: (
+                                <Typography sx={{ ...NUM, fontSize: 14, fontWeight: 700 }}>
+                                    {bill.proformaDate ? formatDate(bill.proformaDate) : "—"}
+                                </Typography>
+                            ),
+                        },
+                    ]}
+                />
+                {bill.proformaVersions > 1 && (
+                    <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 1 }}>
+                        Revision {bill.proformaVersions}
+                    </Typography>
+                )}
+            </DetailShell>
+        );
+    }
+
+    if (focus === "PAYMENT") {
+        const selected = selectedPaymentId ? payments.find((p) => p.id === selectedPaymentId) : undefined;
+        if (selected) {
+            return (
+                <DetailShell
+                    eyebrow="Payment"
+                    title={formatDate(selected.paymentDate)}
+                    accent="success.main"
+                >
+                    <FactList
+                        items={[
+                            {
+                                label: "Amount",
+                                value: (
+                                    <Typography sx={{ ...NUM, fontSize: 15, fontWeight: 700 }}>
+                                        {formatCurrencyDecimal(selected.amount)}
+                                    </Typography>
+                                ),
+                            },
+                            {
+                                label: "Method",
+                                value: <StatusChip status={{ label: METHOD_LABEL[selected.method] ?? selected.method, tone: "active" }} />,
+                            },
+                            {
+                                label: "Date",
+                                value: (
+                                    <Typography sx={{ ...NUM, fontSize: 14, fontWeight: 700 }}>
+                                        {formatDate(selected.paymentDate)}
+                                    </Typography>
+                                ),
+                            },
+                        ]}
+                    />
+                    {selected.reference && (
+                        <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 1 }}>{selected.reference}</Typography>
+                    )}
+                </DetailShell>
+            );
+        }
+        return (
+            <DetailShell
+                eyebrow="Payments"
+                title={bill.paymentCount > 0
+                    ? `${bill.paymentCount} payment${bill.paymentCount === 1 ? "" : "s"}`
+                    : "No payments yet"}
+                accent={paidInFull ? "success.main" : overdue ? "error.main" : "warning.main"}
+                aside={bill.dueDate ? (
+                    <Typography sx={{ fontSize: 12, fontWeight: overdue ? 700 : 500, color: overdue ? "error.main" : "text.secondary", mt: 0.25 }}>
+                        {overdue ? "Overdue" : "Due"} {formatDate(bill.dueDate)}
+                    </Typography>
+                ) : undefined}
+            >
+                <Bento>
+                    <Tile label="Received">
+                        <Amount value={bill.receivedAmount} strong align="left" />
+                    </Tile>
+                    <Tile label="Pending">
+                        <Amount
+                            value={pending}
+                            strong
+                            align="left"
+                            tone={settled ? "success.main" : overdue ? "error.main" : "warning.dark"}
+                            statusCode={paymentCodeOf(bill)}
+                        />
+                    </Tile>
+                    {!proformaDone && (
+                        <Tile label="Next" wide>
+                            <Typography sx={{ fontSize: 13, color: "text.secondary" }}>Issue the proforma first.</Typography>
+                        </Tile>
+                    )}
+                    {proformaDone && bill.paymentCount === 0 && (
+                        <Tile label="Awaiting" wide>
+                            <Amount value={bill.expectedAmount} strong align="left" />
+                        </Tile>
+                    )}
+                    {bill.tdsAmount > 0 && (
+                        <Tile label={`TDS ${bill.tdsRate}%`} wide>
+                            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ minWidth: 0 }}>
+                                <Amount
+                                    value={bill.tdsAmount}
+                                    strong
+                                    align="left"
+                                    statusCode={bill.tdsDeposited ? "TDS_PAID" : "TDS_UNPAID"}
+                                />
+                                <ActionGate>
+                                    <WtButton
+                                        size="small"
+                                        ghost
+                                        sx={{ ...linkSx, minHeight: 26, height: 26 }}
+                                        disabled={!canRecordPayment || busy}
+                                        onClick={() => onToggleTds(bill.id, !bill.tdsDeposited)}
+                                    >
+                                        {bill.tdsDeposited ? "Undo" : "Mark deposited"}
+                                    </WtButton>
+                                </ActionGate>
+                            </Stack>
+                        </Tile>
+                    )}
+                </Bento>
+                {paymentsLoading && <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 1 }}>Loading payments…</Typography>}
+                {paymentsError && (
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1 }}>
+                        <Typography sx={{ fontSize: 12, color: "error.main" }}>Could not load payments.</Typography>
+                        <WtButton size="small" ghost sx={linkSx} onClick={onRetryPayments}>Retry</WtButton>
+                    </Stack>
+                )}
+            </DetailShell>
+        );
+    }
+
+    if (focus === "INVOICE") {
+        return (
+            <DetailShell
+                eyebrow="Tax invoice"
+                title={bill.invoiceNumber ?? "Not raised yet"}
+                accent={invoiceDone ? "success.main" : paidInFull ? "warning.main" : "text.disabled"}
+                action={docButton(bill.invoiceDocumentId, bill.invoiceStatus)}
+            >
+                <FactList
+                    items={[
+                        {
+                            label: "Amount",
+                            value: (
+                                <Typography sx={{ ...NUM, fontSize: 15, fontWeight: 700 }}>
+                                    {formatCurrencyDecimal(bill.totalAmount)}
+                                </Typography>
+                            ),
+                        },
+                        {
+                            label: "Status",
+                            value: docChipOf(bill.invoiceStatus)
+                                ? <StatusChip status={docChipOf(bill.invoiceStatus)!} />
+                                : <StatusChip status={{ label: paidInFull ? "Ready" : "Waiting", tone: paidInFull ? "attention" : "neutral" }} />,
+                        },
+                        {
+                            label: "Date",
+                            value: (
+                                <Typography sx={{ ...NUM, fontSize: 14, fontWeight: 700 }}>
+                                    {bill.invoiceDate ? formatDate(bill.invoiceDate) : "—"}
+                                </Typography>
+                            ),
+                        },
+                    ]}
+                />
+            </DetailShell>
+        );
+    }
+
+    return (
+        <DetailShell
+            eyebrow="Bill overview"
+            title={bill.billNumber}
+            accent={settled ? "success.main" : overdue ? "error.main" : "primary.main"}
+            aside={bill.dueDate ? (
+                <Typography sx={{ fontSize: 12, fontWeight: overdue ? 700 : 500, color: overdue ? "error.main" : "text.secondary", mt: 0.25 }}>
+                    {overdue ? "Overdue" : "Due"} {formatDate(bill.dueDate)}
+                </Typography>
+            ) : undefined}
+        >
+            <Bento>
+                <Tile label="Bill Value">
+                    <Amount value={bill.totalAmount} strong align="left" />
+                </Tile>
+                <Tile label="Pending">
+                    <Amount value={pending} strong align="left" statusCode={paymentCodeOf(bill)} />
+                </Tile>
+            </Bento>
+            <Box sx={{ mt: 1 }}>
+                <Bento>
+                    <Tile label="Bill Amount" min="7.25rem">
+                        <Amount
+                            value={billAmountOf(bill)}
+                            strong
+                            align="left"
+                            statusCode={bill.basicPaid ? "BASIC_PAID" : "BASIC_UNPAID"}
+                        />
+                    </Tile>
+                    {bill.gstAmount > 0 && (
+                        <Tile label={`GST ${bill.gstRate}%`} min="7.25rem">
+                            <Amount
+                                value={bill.gstAmount}
+                                strong
+                                align="left"
+                                statusCode={bill.gstPaid ? "GST_PAID" : "GST_UNPAID"}
+                            />
+                        </Tile>
+                    )}
+                    {bill.tdsAmount > 0 && (
+                        <Tile label={`TDS ${bill.tdsRate}%`} min="7.25rem">
+                            <Amount
+                                value={bill.tdsAmount}
+                                strong
+                                align="left"
+                                statusCode={bill.tdsDeposited ? "TDS_PAID" : "TDS_UNPAID"}
+                            />
+                        </Tile>
+                    )}
+                </Bento>
+            </Box>
+        </DetailShell>
+    );
+};
 
 const BillingActivity: React.FC<{
     projectId: string;
@@ -780,10 +1700,38 @@ const BillingActivity: React.FC<{
     onToggleTds: (billId: string, deposited: boolean) => void;
     canRecordPayment: boolean;
     busy?: boolean;
-}> = ({ projectId, row, onOpenDocument, onToggleTds, canRecordPayment, busy }) => {
+    /** Detail card below the path instead of beside it. */
+    stacked?: boolean;
+    narrow?: boolean;
+    /** Two-line path rows without the phone-only changes (full-width tabs, tight padding). */
+    compactPath?: boolean;
+}> = ({ projectId, row, onOpenDocument, onToggleTds, canRecordPayment, busy, stacked, narrow: phone, compactPath }) => {
+    const narrow = phone || compactPath;
     const bill = liveBill(row);
 
-    // Under the project's query key, so the workspace's refresh re-reads it too.
+    const proformaDone = Boolean(bill && bill.proformaNumber && bill.proformaStatus !== "DRAFT");
+    const paidInFull = bill?.status === "PAID" || bill?.status === "INVOICED";
+    const invoiceDone = Boolean(bill && bill.invoiceNumber && bill.invoiceStatus !== "DRAFT");
+    const overdue = bill ? isOverdue(bill) : false;
+
+    const nextStep: PathFocus = !bill
+        ? "OVERVIEW"
+        : !proformaDone
+            ? "PROFORMA"
+            : !paidInFull
+                ? "PAYMENT"
+                : !invoiceDone
+                    ? "INVOICE"
+                    : "OVERVIEW";
+
+    const [focus, setFocus] = useState<PathFocus>(nextStep);
+    const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+
+    useEffect(() => {
+        setFocus(nextStep);
+        setSelectedPaymentId(null);
+    }, [bill?.id, nextStep]);
+
     const { data: detail, isLoading, isError, refetch } = useQuery({
         queryKey: ["project-billing", projectId, "bill", bill?.id],
         queryFn: () => getBill(bill!.id),
@@ -792,216 +1740,132 @@ const BillingActivity: React.FC<{
 
     if (!bill) {
         return (
-            <Box sx={{ pt: 1 }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 600 }}>
-                    {row.bill?.status === "CANCELLED" ? `${row.bill.billNumber} was cancelled` : "No billing activity yet"}
-                </Typography>
-                <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.25 }}>
-                    {row.blockMessage ?? (row.workStatus === "COMPLETED"
-                        ? "The work is complete, so this deliverable can be billed now."
-                        : "It can be billed once the work is marked complete.")}
+            <Box sx={{ px: 1.5, py: 1.25, border: "1px solid", borderColor: "divider", borderRadius: "12px" }}>
+                <Typography sx={{ fontSize: 13.5, fontWeight: 700 }}>Not billed yet</Typography>
+                <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.35 }}>
+                    {row.blockMessage ?? `${formatCurrencyDecimal(row.amount)} can be billed now. Raise the bill to start its proforma.`}
                 </Typography>
             </Box>
         );
     }
 
-    // Chronological, oldest first — this is a record of what happened, in order.
-    const payments = ((detail?.payments ?? []) as any[])
+    const payments: PathPayment[] = ((detail?.payments ?? []) as PathPayment[])
         .map((p) => ({ ...p, amount: Number(p.amount) }))
         .sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
 
-    const proformaDone = Boolean(bill.proformaNumber) && bill.proformaStatus !== "DRAFT";
-    const paidInFull = bill.status === "PAID" || bill.status === "INVOICED";
-    const invoiceDone = Boolean(bill.invoiceNumber) && bill.invoiceStatus !== "DRAFT";
-    const overdue = isOverdue(bill);
-
-    const open = (documentId: string | null, status: string | null) =>
-        documentId ? (
-            <WtButton size="small" ghost sx={linkSx} onClick={() => onOpenDocument(documentId, status)}>
-                {status === "DRAFT" ? "Edit" : "Open"}
-            </WtButton>
-        ) : null;
+    const awaitingPayment = proformaDone && !paidInFull;
+    const select = (kind: PathFocus, paymentId: string | null = null) => {
+        setFocus(kind);
+        setSelectedPaymentId(paymentId);
+    };
 
     return (
         <Box
             sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) 320px" },
-                gap: { xs: 2.5, lg: 4 },
-                alignItems: "start",
-                pt: 1,
+                display: "flex",
+                flexDirection: stacked ? "column" : "row",
+                alignItems: "stretch",
+                width: "100%",
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: "12px",
+                overflow: "hidden",
+                bgcolor: "background.paper",
             }}
         >
-            <Box>
-                <Typography sx={{ fontSize: 12, fontWeight: 600, color: "text.secondary", mb: 1.5 }}>Billing activity</Typography>
-
-                <Event
-                    done={proformaDone}
-                    title={bill.proformaNumber ? `Proforma ${bill.proformaNumber}` : "Proforma"}
-                    // The state and its date say one thing once: "Issued 2026.09.21".
-                    status={bill.proformaStatus
-                        ? `${DOC_STATUS[bill.proformaStatus]}${proformaDone && bill.proformaDate ? ` ${formatDate(bill.proformaDate)}` : ""}`
-                        : "Not created"}
-                    meta={proformaDone
-                        ? [
-                            bill.dueDate ? `Payment due ${formatDate(bill.dueDate)}` : null,
-                            bill.proformaVersions > 1 ? `revision ${bill.proformaVersions}` : null,
-                        ].filter(Boolean).join(", ") || null
-                        : "Not yet sent to the client"}
+            <Box sx={{ flex: "1 1 auto", minWidth: 0, px: narrow ? 1 : 1.5, py: 1.25 }}>
+                <PathStep
+                    done={false}
+                    selected={focus === "OVERVIEW"}
+                    kind="Bill"
+                    title={bill.billNumber}
                     amount={bill.totalAmount}
-                    action={open(bill.proformaDocumentId, bill.proformaStatus)}
+                    narrow={narrow} onSelect={() => select("OVERVIEW")}
                 />
 
-                <Event
-                    done={paidInFull}
-                    title={bill.paymentCount > 0 ? "Payments received" : "Payment"}
-                    meta={bill.paymentCount === 0
-                        ? proformaDone
-                            ? `${overdue ? "Overdue: " : "Awaiting "}${formatCurrencyDecimal(bill.expectedAmount)}${bill.dueDate ? `, due ${formatDate(bill.dueDate)}` : ""}`
-                            : "Starts once the proforma is issued"
-                        : null}
-                >
-                    {bill.paymentCount > 0 && (
-                        <Box sx={{ mt: 0.75 }}>
-                            {isLoading && <Typography sx={{ fontSize: 12, color: "text.secondary", py: 0.5 }}>Loading payments…</Typography>}
-                            {isError && (
-                                <Stack direction="row" alignItems="center" spacing={1} sx={{ py: 0.5 }}>
-                                    <Typography sx={{ fontSize: 12, color: "error.main" }}>Unable to load billing activity.</Typography>
-                                    <WtButton size="small" ghost sx={linkSx} onClick={() => refetch()}>Retry</WtButton>
-                                </Stack>
-                            )}
-                            {payments.map((p) => (
-                                <Stack
-                                    key={p.id}
-                                    direction="row"
-                                    justifyContent="space-between"
-                                    alignItems="baseline"
-                                    spacing={2}
-                                    sx={{ py: 0.6, pr: AMOUNT_INSET, borderBottom: "1px dashed", borderColor: "divider" }}
-                                >
-                                    <Typography sx={{ fontSize: 12.5 }}>
-                                        {formatDate(p.paymentDate)}
-                                        <Box component="span" sx={{ color: "text.secondary", ml: 1 }}>
-                                            {METHOD_LABEL[p.method] ?? p.method}
-                                            {p.reference ? `, ref ${p.reference}` : ""}
-                                        </Box>
-                                    </Typography>
-                                    <Typography sx={{ ...NUM, fontSize: 13 }}>{formatCurrencyDecimal(p.amount)}</Typography>
-                                </Stack>
-                            ))}
-                            {payments.length > 0 && (
-                                <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ pt: 0.75, pr: AMOUNT_INSET }}>
-                                    <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>Total received</Typography>
-                                    <Typography sx={{ ...NUM, fontSize: 13, fontWeight: 700 }}>
-                                        {formatCurrencyDecimal(bill.receivedAmount)}
-                                    </Typography>
-                                </Stack>
-                            )}
-                        </Box>
-                    )}
-                    {bill.tdsAmount > 0 && (
-                        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} sx={{ mt: 1.25 }}>
-                            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-                                TDS {bill.tdsRate}% ({formatCurrencyDecimal(bill.tdsAmount)}) withheld by the client,{" "}
-                                <Box component="span" sx={{ fontWeight: 600, color: bill.tdsDeposited ? "text.primary" : "warning.dark" }}>
-                                    {bill.tdsDeposited
-                                        ? `deposited${bill.tdsDepositedAt ? ` ${formatDate(bill.tdsDepositedAt)}` : ""}`
-                                        : "not yet deposited"}
-                                </Box>
-                            </Typography>
-                            <WtButton
-                                size="small" ghost sx={linkSx}
-                                disabled={!canRecordPayment || busy}
-                                onClick={() => onToggleTds(bill.id, !bill.tdsDeposited)}
-                            >
-                                {bill.tdsDeposited ? "Mark not deposited" : "Mark deposited"}
-                            </WtButton>
-                        </Stack>
-                    )}
-                </Event>
-
-                <Event
-                    last
-                    done={invoiceDone}
-                    title={bill.invoiceNumber ? `Tax invoice ${bill.invoiceNumber}` : "Tax invoice"}
-                    status={bill.invoiceStatus
-                        ? `${DOC_STATUS[bill.invoiceStatus]}${invoiceDone && bill.invoiceDate ? ` ${formatDate(bill.invoiceDate)}` : ""}`
-                        : null}
-                    meta={bill.invoiceNumber
-                        ? null
-                        : paidInFull ? "Ready to raise: the proforma is paid in full" : "Raised once the proforma is paid in full"}
-                    amount={bill.invoiceNumber ? bill.totalAmount : undefined}
-                    action={open(bill.invoiceDocumentId, bill.invoiceStatus)}
+                <PathStep
+                    done={proformaDone}
+                    next={nextStep === "PROFORMA"}
+                    selected={focus === "PROFORMA"}
+                    kind="Proforma"
+                    title={bill.proformaNumber ?? undefined}
+                    meta={bill.proformaDate ? formatDate(bill.proformaDate) : undefined}
+                    chip={docChipOf(bill.proformaStatus) ?? { label: "Not created", tone: "neutral" }}
+                    narrow={narrow} onSelect={() => select("PROFORMA")}
                 />
-            </Box>
 
-            <FinancialSummary bill={bill} />
-        </Box>
-    );
-};
+                {payments.map((payment) => (
+                    <PathStep
+                        key={payment.id}
+                        done
+                        selected={focus === "PAYMENT" && selectedPaymentId === payment.id}
+                        kind="Payment"
+                        meta={formatDate(payment.paymentDate)}
+                        chip={{ label: METHOD_LABEL[payment.method] ?? payment.method, tone: "active" }}
+                        amount={payment.amount}
+                        narrow={narrow} onSelect={() => select("PAYMENT", payment.id)}
+                    />
+                ))}
 
-/**
- * One bill's money, in the Invoice Tracker's own columns and order:
- * Bill Amount + TDS + GST = Bill Value, each component with its settlement,
- * then what has been received and what is still pending on the bill.
- */
-const FinancialSummary: React.FC<{ bill: BillOnRow }> = ({ bill }) => {
-    const line = (
-        label: string,
-        value: string,
-        opts: { strong?: boolean; tone?: string; settle?: Status } = {},
-    ) => (
-        <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={2} sx={{ py: 0.4 }}>
-            <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontSize: opts.strong ? 13 : 12.5, fontWeight: opts.strong ? 600 : 400, color: opts.strong ? "text.primary" : "text.secondary" }}>
-                    {label}
-                </Typography>
-                {opts.settle && (
-                    <Stack direction="row" alignItems="center" spacing={0.5}>
-                        <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: TONE_COLOR[opts.settle.tone] }} />
-                        <Typography sx={{ fontSize: 11, color: "text.secondary" }}>{opts.settle.label}</Typography>
+                {isLoading && bill.paymentCount > 0 && payments.length === 0 && (
+                    <Typography sx={{ fontSize: 12, color: "text.secondary", pl: 4, py: 0.5 }}>Loading payments…</Typography>
+                )}
+                {isError && (
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ pl: 4, py: 0.5 }}>
+                        <Typography sx={{ fontSize: 12, color: "error.main" }}>Could not load payments.</Typography>
+                        <WtButton size="small" ghost sx={linkSx} onClick={() => { void refetch(); }}>Retry</WtButton>
                     </Stack>
                 )}
+
+                {awaitingPayment && (
+                    <PathStep
+                        done={false}
+                        next
+                        selected={focus === "PAYMENT" && !selectedPaymentId}
+                        kind="Payment"
+                        title={overdue ? "Overdue" : "Awaiting"}
+                        chip={{ label: overdue ? "Overdue" : "Pending", tone: overdue ? "critical" : "attention" }}
+                        amount={bill.outstandingAmount}
+                        narrow={narrow} onSelect={() => select("PAYMENT")}
+                    />
+                )}
+
+                <PathStep
+                    last
+                    done={invoiceDone}
+                    next={nextStep === "INVOICE"}
+                    selected={focus === "INVOICE"}
+                    kind="Tax invoice"
+                    title={bill.invoiceNumber ?? undefined}
+                    meta={bill.invoiceDate ? formatDate(bill.invoiceDate) : undefined}
+                    chip={docChipOf(bill.invoiceStatus) ?? { label: paidInFull ? "Ready" : "Waiting", tone: paidInFull ? "attention" : "neutral" }}
+                    narrow={narrow} onSelect={() => select("INVOICE")}
+                />
             </Box>
-            <Typography sx={{ ...NUM, fontSize: opts.strong ? 14 : 12.5, fontWeight: opts.strong ? 700 : 500, color: opts.tone ?? "text.primary" }}>
-                {value}
-            </Typography>
-        </Stack>
-    );
-    const received: Status = { label: "Received", tone: "positive" };
-    const awaited: Status = { label: "Awaited", tone: "attention" };
-    const settled = bill.outstandingAmount <= 0;
-    return (
-        <Box sx={{ bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: "8px", p: 2 }}>
-            <Typography sx={{ fontSize: 12, fontWeight: 600, color: "text.secondary", mb: 1 }}>
-                Bill {bill.billNumber}
-            </Typography>
 
-            {line("Bill Amount", formatCurrencyDecimal(billAmountOf(bill)), { settle: bill.basicPaid ? received : awaited })}
-            {bill.tdsAmount > 0 && line(`TDS ${bill.tdsRate}%`, formatCurrencyDecimal(bill.tdsAmount), {
-                settle: bill.tdsDeposited ? { label: "Deposited", tone: "positive" } : { label: "Not deposited", tone: "attention" },
-            })}
-            {line(`GST ${bill.gstRate}%`, formatCurrencyDecimal(bill.gstAmount), bill.gstAmount > 0 ? { settle: bill.gstPaid ? received : awaited } : {})}
-            <Divider sx={{ my: 1 }} />
-            {line("Bill Value", formatCurrencyDecimal(bill.totalAmount), { strong: true })}
-            {/* The reconciliation the Invoice Tracker prints under Bill Value. */}
-            <Typography sx={{ ...NUM, fontSize: 11, color: "text.secondary", textAlign: "right", whiteSpace: "normal" }}>
-                {formatCurrencyDecimal(billAmountOf(bill))}
-                {bill.tdsAmount > 0 ? ` + ${formatCurrencyDecimal(bill.tdsAmount)} TDS` : ""}
-                {` + ${formatCurrencyDecimal(bill.gstAmount)} GST`}
-            </Typography>
-
-            <Divider sx={{ my: 1 }} />
-            {line(`Received${bill.paymentCount ? ` (${bill.paymentCount} payment${bill.paymentCount === 1 ? "" : "s"})` : ""}`, formatCurrencyDecimal(bill.receivedAmount), { strong: true })}
-            {line("Pending on this bill", formatCurrencyDecimal(Math.max(0, bill.outstandingAmount)), {
-                strong: true,
-                tone: settled ? "text.primary" : "warning.dark",
-            })}
-            <Typography sx={{ fontSize: 12, color: "text.secondary", textAlign: "right" }}>
-                {settled
-                    ? "Nothing left to collect"
-                    : `Client transfers Bill Value − TDS${bill.dueDate ? `, due ${formatDate(bill.dueDate)}` : ""}`}
-            </Typography>
+            <Box
+                sx={{
+                    flex: stacked ? "none" : "0 0 22rem",
+                    borderLeft: stacked ? 0 : "1px solid",
+                    borderTop: stacked ? "1px solid" : 0,
+                    borderColor: "divider",
+                    bgcolor: (theme) => alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.04 : 0.02),
+                }}
+            >
+                <BillFocusPanel
+                    focus={focus}
+                    selectedPaymentId={selectedPaymentId}
+                    bill={bill}
+                    payments={payments}
+                    paymentsLoading={isLoading}
+                    paymentsError={isError}
+                    onRetryPayments={() => { void refetch(); }}
+                    onOpenDocument={onOpenDocument}
+                    onToggleTds={onToggleTds}
+                    canRecordPayment={canRecordPayment}
+                    busy={busy}
+                />
+            </Box>
         </Box>
     );
 };

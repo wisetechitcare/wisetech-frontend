@@ -165,7 +165,7 @@ const PaymentCollectionPage: React.FC = () => {
       size: 230,
       /**
        * The two numbers the CLIENT holds. The internal record numbers — BR, BO and
-       * the per-deliverable BILL — are deliberately not shown: four series on one
+       * the per-stage BILL — are deliberately not shown: four series on one
        * row is noise, and "BILL/2026/0001" reads as the bill while the actual bill
        * is the tax invoice beside it.
        */
