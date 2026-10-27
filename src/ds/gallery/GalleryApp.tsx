@@ -5,9 +5,9 @@ import { TooltipProvider } from "@/ds/ui/tooltip"
 import { Toaster } from "@/ds/ui/sonner"
 import { applyAppearance, BRAND_PRESETS, type Appearance } from "@/ds/lib/appearance"
 import { cn } from "@/ds/lib/utils"
-import { Foundations } from "./sections/Foundations"
+import { Foundations } from "@/ds/foundations/Foundations"
 import { Components } from "./sections/Components"
-import { Screens } from "./sections/Screens"
+import { PrototypeApp } from "@/ds/prototypes/PrototypeApp"
 
 /** Read the initial appearance from the query string so screenshots can pin a theme. */
 function initialAppearance(): Appearance & { brandId: string } {
@@ -134,7 +134,7 @@ export function GalleryApp() {
               <TabsTrigger value="foundations">Foundations</TabsTrigger>
             </TabsList>
             <TabsContent value="screens" className="mt-6">
-              <Screens />
+              <PrototypeApp initialScreen={(new URLSearchParams(location.search).get("screen") as "dashboard" | "employees" | "employee" | "leave" | null) ?? "dashboard"} />
             </TabsContent>
             <TabsContent value="components" className="mt-6">
               <Components />

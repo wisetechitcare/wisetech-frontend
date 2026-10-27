@@ -37,3 +37,6 @@ CLAUDE.md
 
 # npm is not used here — pnpm-lock.yaml is the lockfile
 package-lock.json
+
+*storybook.log
+storybook-static
