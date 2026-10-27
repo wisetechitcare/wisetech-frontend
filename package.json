@@ -7,6 +7,12 @@
   "scripts": {
     "prepare": "husky",
     "hooks:test": "node scripts/hooks/guard.mjs --self-test",
+    "stage": "node devtools/run.mjs stage",
+    "gstage": "node devtools/run.mjs stage",
+    "commit": "node devtools/run.mjs commit",
+    "push": "node devtools/run.mjs push",
+        "pull": "node devtools/run.mjs pull",
+        "push:test": "bash devtools/push.test.sh",
     "type-check": "tsc --noEmit",
     "verify": "node scripts/hooks/run.mjs verify",
     "dev": "vite",
