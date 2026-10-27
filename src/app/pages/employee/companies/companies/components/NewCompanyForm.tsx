@@ -1,3 +1,4 @@
+import { toast } from "react-toastify";
 import {
   createClientCompany,
   getAllCompanyTypes,
@@ -21,8 +22,8 @@ import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtSwitch, WtField, WtFieldFormik, FloatingLabels, FloatingLabelFrame } from "@app/modules/common/components/ui";
-import { Box } from "@mui/material";
+import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtTooltip, WtSwitch, WtField, WtFieldFormik, FloatingLabels, FloatingLabelFrame } from "@app/modules/common/components/ui";
+import { Box, IconButton } from "@mui/material";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Select from "react-select";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
@@ -45,15 +46,8 @@ import { FullscreenWizardModal } from "@app/pages/employee/forms/shared/Fullscre
 import { CompanyWorkspace } from "../../forms/CompanyWorkspace";
 import { CrmSection } from "../../forms/CrmSection";
 import { ContactAddressSection } from "../../forms/ContactAddressSection";
-import {
-  CRM_ACTIVE_COLOR,
-  CRM_INACTIVE_COLOR,
-} from "../../crmListRowSx";
+import { COMPANY_STATUS_OPTIONS } from "../../crmListRowSx";
 
-const COMPANY_STATUS_OPTIONS = [
-  { value: "ACTIVE", label: "Active", color: CRM_ACTIVE_COLOR },
-  { value: "CLOSED", label: "Inactive", color: CRM_INACTIVE_COLOR },
-];
 
 
 // Type definitions
@@ -507,7 +501,8 @@ const NewCompanyForm: React.FC<Props> = ({
               } catch (error) {
                 console.error("Failed to fetch states", error);
               }
-            } else {
+            } else if (company.country) {
+              // Only a country that IS set but unknown is worth a warning; none at all is normal.
               console.warn(
                 "Country not found in countries list",
                 company.country
@@ -716,13 +711,20 @@ const NewCompanyForm: React.FC<Props> = ({
     const errs: Record<string, string> = {};
     formSections.forEach((sec) =>
       sec.fields.forEach((f) => {
+        // Custom fields only. A built-in (Company Name…) keeps its value in Formik, not on
+        // `f.value`, so checking it here always failed and silently blocked every save;
+        // built-ins are already enforced by `schemaFor`. Hidden fields cannot be filled in.
+        if (f.isSystem || f.hidden) return;
         if (f.required && !String(f.value ?? "").trim()) {
           errs[f.id] = `${f.label} is required`;
         }
       })
     );
     setCustomErrors(errs);
-    return Object.keys(errs).length === 0;
+    const missing = Object.values(errs);
+    // Say so: the inline errors sit on their own step, which may not be the one on screen.
+    if (missing.length) toast.error(missing.join(", "));
+    return missing.length === 0;
   };
 
   // Renders a single admin-defined custom field (text / number / date / file).
@@ -1547,9 +1549,22 @@ const NewCompanyForm: React.FC<Props> = ({
                     ) : undefined
                   }
                   headerActions={
-                    <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)} startIcon={<AppIcon name="bi-gear" className="fs-6" />}>
-                      Manage fields
-                    </WtButton>
+                    <>
+                      <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)}
+                        startIcon={<AppIcon name="bi-gear" className="fs-6" />} sx={{ display: { xs: "none", sm: "inline-flex" } }}>
+                        Manage fields
+                      </WtButton>
+                      {/* Phones: icon only, the same 32px translucent square as the close button beside it. */}
+                      <WtTooltip title="Manage fields" wrap>
+                        <IconButton onClick={() => setShowSchemaManager(true)} aria-label="Manage fields" sx={{
+                          display: { xs: "inline-flex", sm: "none" }, width: 32, height: 32, borderRadius: "10px",
+                          border: "1px solid rgba(255, 255, 255, 0.25)", bgcolor: "rgba(255, 255, 255, 0.12)", color: "#fff",
+                          fontSize: 15, "&:hover": { bgcolor: "rgba(255, 255, 255, 0.22)", borderColor: "rgba(255, 255, 255, 0.4)" },
+                        }}>
+                          <AppIcon name="bi-gear" />
+                        </IconButton>
+                      </WtTooltip>
+                    </>
                   }
                 
                   sections={
