@@ -37,7 +37,10 @@ phase_stage() {
 
   local o=() acts=()
   if [ "$nstaged" -gt 0 ]; then o+=("Use what's already staged ($nstaged file(s))"); acts+=(keep); fi
-  o+=("Stage everything" "Choose files…" "Cancel"); acts+=(all pick cancel)
+  if [ -e "$(git rev-parse --git-dir)/MERGE_HEAD" ]; then   # a merge commit takes everything — no partial picks
+    note "  A merge is in progress: staging also marks your fixed conflicts as resolved."
+    o+=("Stage everything" "Cancel"); acts+=(all cancel)
+  else o+=("Stage everything" "Choose files…" "Cancel"); acts+=(all pick cancel); fi
   menu "What goes in this commit?" o || return 1
   case "${acts[MENU_IDX]}" in
     keep) ;;

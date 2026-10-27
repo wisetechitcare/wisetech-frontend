@@ -211,8 +211,10 @@ health_check() {
   for f in CHERRY_PICK_HEAD REVERT_HEAD rebase-merge rebase-apply; do
     [ -e "$gd/$f" ] && { echo "a rebase / cherry-pick / revert is in progress ($f) — finish or abort it first"; return 1; }
   done
-  local c; c=$(git diff --name-only --diff-filter=U)
-  [ -z "$c" ] || { echo "unresolved merge conflicts — open each file, fix it, then 'git add' it:"; echo "$c"; echo "(or undo the whole merge: git merge --abort)"; return 1; }
+  # A file git still lists as conflicted but that has no <<<<<<< markers left is FIXED — it only needs staging,
+  # which pnpm stage does. Only files that still contain markers block the tools.
+  local c u=""; while IFS= read -r f; do [ -n "$f" ] && grep -q '^<<<<<<< ' "$f" 2>/dev/null && u+="$f"$'\n'; done < <(git diff --name-only --diff-filter=U)
+  [ -z "$u" ] || { echo "unresolved merge conflicts — open each file, remove the <<<<<<< ======= >>>>>>> lines, save, then run pnpm stage:"; printf '%s' "$u"; echo "(or undo the whole merge: git merge --abort)"; return 1; }
   [ -d node_modules ] || { echo "dependencies missing — run: $PM install"; return 1; }
   git remote get-url origin >/dev/null 2>&1 || { echo "no 'origin' remote configured — run: git remote add origin <url>"; return 1; }
   { git config user.name && git config user.email; } >/dev/null 2>&1 || { echo "git identity not set — run: git config --global user.name 'Your Name'  and  git config --global user.email you@example.com"; return 1; }

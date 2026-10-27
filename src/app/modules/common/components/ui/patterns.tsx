@@ -688,15 +688,16 @@ export function UnderlineTabs<K extends string>({
   // phone shows Leads / Projects / Commercial and nothing selected). Bring it into view by
   // moving the row only — scrollIntoView would also scroll the page.
   const listRef = React.useRef<HTMLDivElement>(null);
+  const tabRefs = React.useRef(new Map<K, HTMLButtonElement>());
   React.useEffect(() => {
     const keepActiveTabVisible = () => {
       const list = listRef.current;
-      const active = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+      const active = tabRefs.current.get(value);
       if (!list || !active) return;
-      const left = active.offsetLeft - list.offsetLeft;
-      const right = left + active.offsetWidth;
-      if (left < list.scrollLeft) list.scrollLeft = left - 8;
-      else if (right > list.scrollLeft + list.clientWidth) list.scrollLeft = right - list.clientWidth + 8;
+      const listRect = list.getBoundingClientRect();
+      const tabRect = active.getBoundingClientRect();
+      if (tabRect.left < listRect.left) list.scrollLeft -= listRect.left - tabRect.left;
+      else if (tabRect.right > listRect.right) list.scrollLeft += tabRect.right - listRect.right;
     };
     keepActiveTabVisible();
     window.addEventListener("resize", keepActiveTabVisible);
@@ -776,6 +777,10 @@ export function UnderlineTabs<K extends string>({
               <Box
                 key={tab.key}
                 component="button"
+                ref={(node: HTMLButtonElement | null) => {
+                  if (node) tabRefs.current.set(tab.key, node);
+                  else tabRefs.current.delete(tab.key);
+                }}
                 type="button"
                 role="tab"
                 aria-selected={isActive}
