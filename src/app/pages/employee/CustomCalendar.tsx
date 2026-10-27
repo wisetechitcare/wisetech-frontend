@@ -1,7 +1,7 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { safeJsonParse } from '@utils/safeJson';
 import { T as UiTokens } from '@app/modules/common/components/ui/tokens';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 import { parseWorkingDays } from '@utils/workingDays';
 import { anniversaryDateOrNull } from '@utils/anniversary';
 import { useFormik } from 'formik';

@@ -17,7 +17,7 @@ import { nextCell, isMove, NAVIGATION_KEYS, CellPosition } from './gridNavigatio
  * on every sort, filter and page, and per-cell listeners would leak and go stale.
  */
 export const useGridNavigation = (
-    containerRef: React.RefObject<HTMLElement>,
+    containerRef: React.RefObject<HTMLElement | null>,
     enabled: boolean,
 ) => {
     const posRef = useRef<CellPosition>({ row: 0, col: 0 });

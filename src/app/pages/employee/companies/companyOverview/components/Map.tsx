@@ -1246,7 +1246,7 @@ export default function Maps({
   }, []);
 
   // Debounced URL sync — writes filter state to URL without triggering navigation
-  const urlSyncRef = useRef<ReturnType<typeof setTimeout>>();
+  const urlSyncRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     if (urlSyncRef.current) clearTimeout(urlSyncRef.current);
     urlSyncRef.current = setTimeout(() => {

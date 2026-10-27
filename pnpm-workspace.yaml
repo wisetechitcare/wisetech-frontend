@@ -22,6 +22,7 @@ overrides:
   vite: '>=7.3.7'
   dompurify: '>=3.4.17' # SAFE_FOR_TEMPLATES bypass (critical, GHSA-cg2g-xh64-v4q7) + IN_PLACE hook (GHSA-mrv2-3pqr-j5jr); covers jspdf's copy
   undici: '>=8.12.2' # DoS via excessive content-encodings (GHSA-xjj6-f33q-929c), via jsdom
+  '@tanstack/react-virtual': '3.14.22' # React 19 support; material-react-table pins 3.10.6 (same major)
 
 # pnpm blocks dependency install scripts by default. These need theirs:
 #   esbuild, @swc/core   -> Vite's bundler + the React SWC plugin (build breaks without)
@@ -49,3 +50,13 @@ minimumReleaseAgeExclude:
   - eslint-plugin-storybook@10.6.4
   - '@storybook/addon-mcp@10.6.4'
   - '@storybook/addon-vitest@10.6.4'
+
+# React 19: these two declare an old React peer range but use no API React 19 removed
+# (checked their dist for findDOMNode, ReactDOM.render, string refs, legacy context).
+# Drop an entry once the package is replaced: react-table -> TanStack Table (ADR-001).
+peerDependencyRules:
+  allowedVersions:
+    react-table>react: '19'
+    react-copy-to-clipboard>react: '19'
+    # @aws-amplify/ui-react-liveness declares React 19 itself but still depends on @xstate/react 3.
+    '@xstate/react>react': '19'
