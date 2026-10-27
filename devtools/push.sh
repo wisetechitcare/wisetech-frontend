@@ -4,7 +4,9 @@
 # The same three phases that pnpm gstage / pnpm commit run on their own, one after another. Each
 # finishes by itself: quit at the commit message and your staged files stay staged; skip the push
 # and your commit stays committed. Run pnpm push again to carry on from wherever you stopped.
-# SKIP_TYPECHECK=1 pnpm push   skips the type-check (the pre-push hook still runs it).
+# The checks are the repo's own git hooks, run by git itself: pre-commit + commit-msg when the commit is
+# made, pre-push (protected branches, type-check, migration drift) when it is pushed. These scripts add no
+# checks of their own and never skip a hook — to bypass one, run git with --no-verify yourself.
 
 DEVTOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1090
@@ -53,7 +55,7 @@ phase_push() {
     fi
   fi
   TARGET=$target
-  if spin "Pushing to origin/$target (hooks running)" push_it; then PUSH_RESULT=$target
+  if spin "Pushing to origin/$target (the pre-push hook checks first)" push_it; then PUSH_RESULT=$target
   else showlog 40; explain_git_error; warn "Your commit is safe locally. Fix the above, then run pnpm push again."; PUSH_RESULT=later; fi
 }
 

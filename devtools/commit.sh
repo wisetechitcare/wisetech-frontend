@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 # Commit what is staged — nothing else.   Run: pnpm commit   (or: bash devtools/commit.sh)
-# Runs the checks, asks for type / scope / description, and commits as soon as you enter the
-# description. It never stages (pnpm gstage does) and never pushes (pnpm push does).
+# Asks for type / scope / description and commits as soon as you enter the description. It never
+# stages (pnpm gstage does) and never pushes (pnpm push does). The checks are the repo's own git hooks
+# (.husky/pre-commit and commit-msg), which run inside the commit — nothing is duplicated here.
 
 DEVTOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1090
 source "$DEVTOOLS_DIR/lib/select.sh"
 
-# ── checks ───────────────────────────────────────────────────────────────────
-guard_scan() { [ ${#STAGED[@]} -eq 0 ] || [ ! -f scripts/hooks/guard.mjs ] || node scripts/hooks/guard.mjs "${STAGED[@]}"; }
-typecheck()  { grep -q '"type-check"' package.json || { echo "no type-check script in package.json"; return 0; }; $PM run -s type-check; }
-prisma_check() { npx --no-install prisma validate; }
+# ── commit ───────────────────────────────────────────────────────────────────
 commit_it()  { git commit -m "$MSG"; }
 
 # ── phase 2 · commit ─────────────────────────────────────────────────────────
@@ -39,12 +37,23 @@ ensure_work_branch() {
   esac
 }
 
-phase_commit() {
-  local STAGED=()
-  mapfile -d '' -t STAGED < <(git diff --cached --name-only --diff-filter=ACM -z)
+# ── the hooks are the single source of truth ─────────────────────────────────
+# pre-commit (secret / hygiene scan of the staged files) and commit-msg (message format) run inside
+# `git commit` below; pre-push (protected branches, type-check, migration drift) runs inside `git push`.
+# Nothing in these scripts repeats those checks. The one thing asked up front is the commit-msg
+# hook's own validator, so a message the hook would refuse is caught while you are still typing it.
+hook_msg_error() { # prints the commit-msg hook's complaint; fails when the message is not acceptable
+  [ -f "$ROOT/scripts/hooks/guard.mjs" ] || return 0
+  local f out rc; f=$(mktemp); TMPS+=("$f"); printf '%s\n' "$1" >"$f"
+  out=$(node "$ROOT/scripts/hooks/guard.mjs" --commit-msg "$f" 2>&1); rc=$?
+  rm -f "$f"
+  [ "$rc" -eq 0 ] || printf '%s\n' "$out"
+  return "$rc"
+}
 
-  step "2 · Checks"
-  run_check "Scanning for secrets, conflict markers, debugger, .only" guard_scan || return 1
+phase_commit() {
+  step "2 · Commit"
+  # Not a gate — just saves a CI failure: CI installs with --frozen-lockfile.
   if git diff --cached --name-only | grep -qx 'package.json' && ! git diff --cached --name-only | grep -qx 'pnpm-lock.yaml'; then
     warn "package.json changed but pnpm-lock.yaml did not (CI installs with --frozen-lockfile)"
     local o2=("Run $PM install now, then continue" "Continue anyway" "Cancel")
@@ -57,22 +66,11 @@ phase_commit() {
       *) return 1 ;;
     esac
   fi
-  if [ "$NAME" = "wisetech-backend" ] && printf '%s\n' "${STAGED[@]}" | grep -qx 'prisma/schema.prisma'; then
-    run_check "Validating Prisma schema" prisma_check || return 1
-    if ! git diff --cached --name-only | grep -q '^prisma/migrations/'; then
-      warn "schema.prisma changed with no migration in this commit — the pre-push hook and CI reject drift"
-      local o3=("Continue anyway" "Stop — I'll create a migration"); menu "Migration" o3 || return 1
-      [ "$MENU_IDX" -eq 0 ] || return 1
-    fi
-  fi
-  if [ "${SKIP_TYPECHECK:-0}" = 1 ]; then warn "type-check skipped (SKIP_TYPECHECK=1) — the pre-push hook still runs it"
-  else run_check "Type-checking (can take a minute)" typecheck 1 || return 1; fi
 
-  step "3 · Commit message"
-  local ctype="" scope="" desc="" stage=type known=()
+  local ctype="" scope="" desc="" stage=type known=() err rc
   mapfile -t known < <(scope_candidates)
-  # type -> scope -> description. Esc (or an empty line at the description) steps back; q quits where it
-  # can't be a typed character; Ctrl+C quits anywhere. Entering the description makes the commit.
+  # type -> scope -> description -> commit. Esc (or an empty line at the description) steps back; q quits
+  # where it can't be a typed character; Ctrl+C quits anywhere. Entering a valid description commits.
   while :; do
     case "$stage" in
       type)
@@ -90,22 +88,29 @@ phase_commit() {
           *) return 1 ;;
         esac ;;
       desc)
-        ask_line desc "Description (≤100 chars, no trailing period; empty + enter = back): " "$desc"
-        _scope_trim "$desc"; desc=$TRIMMED
-        if [ -z "$desc" ]; then stage=scope
-        elif [ ${#desc} -gt 100 ]; then warn "${#desc} characters — max 100"
-        elif [[ $desc == *. ]]; then warn "must not end with a period"
-        else break; fi ;;
+        TEXT_PREFILL=$desc
+        text_input "Description" "up to 100 characters, no trailing period" 100
+        case "$TEXT_ACTION" in
+          submit) desc=$TEXT_RESULT ;;
+          back)   stage=scope; continue ;;
+          *)      return 1 ;;
+        esac
+        MSG=$(build_commit_msg "$ctype" "$scope" "$desc")
+        if err=$(hook_msg_error "$MSG"); then stage=commit
+        else warn "the commit-msg hook would refuse this:"; printf '%s\n' "$err" | sed 's/^/    /'; fi ;;
+      commit)
+        ensure_work_branch || return 1
+        echo
+        if spin "Committing (pre-commit and commit-msg hooks run)" commit_it; then
+          ok "committed: ${B}$MSG${N}"; return 0
+        fi
+        showlog 40; explain_git_error
+        local ro=("Retry with the same message" "Change the message" "Stop — files stay staged")
+        menu "The commit was stopped" ro || return 1
+        case "$MENU_IDX" in 0) ;; 1) stage=desc ;; *) return 1 ;; esac ;;
     esac
   done
-  MSG=$(build_commit_msg "$ctype" "$scope" "$desc")
-
-  ensure_work_branch || return 1
-  echo
-  spin "Committing (hooks running)" commit_it || { showlog 40; explain_git_error; warn "The commit didn't go through — your files stay staged. Fix the above and run pnpm push again."; return 1; }
-  ok "committed: ${B}$MSG${N}"
 }
-
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   begin "commit"

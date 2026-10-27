@@ -285,3 +285,57 @@ branch_select() {
   esac
   LS_VALID=""; LS_CHAR_OK=""; LS_CHAR_NOTE=""; LS_CREATE_LABEL=""
 }
+
+# ── text_input: a short free-text box with a visible Back row ────────────────
+# text_input "Title" "rules shown beside the title" [maxlen=100]   In: TEXT_PREFILL (optional starting text)
+# Out: TEXT_ACTION (submit | back | cancel) and TEXT_RESULT (trimmed text on submit).
+# Enter submits (an empty box just waits); ↑/↓ moves focus between the box and "← Back"; Esc clears the text,
+# then goes back. Long text wraps inside the box instead of scrolling sideways. Ctrl+C quits.
+TEXT_ACTION=""; TEXT_RESULT=""; TEXT_PREFILL=""
+text_input() {
+  local title=$1 rules=$2 max=${3:-100} q=$TEXT_PREFILL focus=0 note="" w i t seg lines hint escw
+  w=$((COLS - 6)); [ "$w" -lt 20 ] && w=20
+  lines=$(((max + 1 + w - 1) / w))            # rows reserved for the box: room for max characters plus the cursor
+  TEXT_ACTION=""; TEXT_RESULT=""; TEXT_PREFILL=""
+  hide
+  while :; do
+    printf '  %s%s%s  %s(%s)%s\e[K\n' "$B" "$title" "$N" "$D" "$rules" "$N"
+    t=$q; [ "$focus" -eq 0 ] && t+="▏"
+    for ((i = 0; i < lines; i++)); do
+      seg=${t:$((i * w)):w}
+      if [ "$i" -eq 0 ]; then printf '  %s❯%s %s\e[K\n' "$C" "$N" "$seg"; else printf '    %s\e[K\n' "$seg"; fi
+    done
+    if [ "$focus" -eq 1 ]; then printf '  %s❯ ← Back%s\e[K\n' "$C$B" "$N"; else printf '    %s← Back%s\e[K\n' "$D" "$N"; fi
+    if [ -n "$note" ]; then printf '  %s▲ %s%s\e[K\n' "$Y" "$note" "$N"
+    else
+      escw=back; [ -n "$q" ] && escw=clear     # no $(…) here: a subshell per keystroke is slow on Windows
+      hint="${#q}/$max · enter to confirm · ↑↓ Back · esc $escw · ctrl+c quit"
+      printf '  %s%s%s\e[K\n' "$D" "$hint" "$N"
+    fi
+    note=""
+
+    readkey_text
+    case "$KEY" in
+      up|down) focus=$((1 - focus)) ;;
+      enter)   if [ "$focus" -eq 1 ]; then TEXT_ACTION=back; break; fi
+               _scope_trim "$q"
+               if [ -n "$TRIMMED" ]; then TEXT_ACTION=submit; TEXT_RESULT=$TRIMMED; break; fi
+               note="type something first — or press esc to go back" ;;
+      esc)     if [ "$focus" -eq 0 ] && [ -n "$q" ]; then q=""; else TEXT_ACTION=back; break; fi ;;
+      eof)     TEXT_ACTION=cancel; break ;;
+      clear)   q=""; focus=0 ;;
+      bs)      q=${q%?}; focus=0 ;;
+      char)    focus=0
+               if [ -z "$q" ] && [ "$CH" = " " ]; then :                 # no leading space
+               elif [ ${#q} -ge "$max" ]; then note="$max characters is the limit"
+               else q+=$CH; fi ;;
+    esac
+    printf '\e[%dA' $((lines + 3))
+  done
+  printf '\e[%dA\e[J' $((lines + 3))
+  show
+  if [ "$TEXT_ACTION" = submit ]; then
+    t=$TEXT_RESULT; [ ${#t} -gt $((COLS - 20)) ] && t="${t:0:$((COLS - 21))}…"
+    printf '  %s✔%s %s %s%s%s\n' "$G" "$N" "$title" "$B" "$t" "$N"
+  fi
+}

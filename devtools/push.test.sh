@@ -195,5 +195,24 @@ bsel "";                        eq "branch: end of input cancels"               
 tsel "${ENTER}";                eq "branch rules don't leak into the type list"         "pick|feat" "$GOT"
 popd >/dev/null
 
+
+# ── text_input: the description box ──────────────────────────────────────────
+xsel() { text_input "Description" "up to 100 characters" 100 < <(printf "$1") >/dev/null 2>&1; GOT="$TEXT_ACTION|$TEXT_RESULT"; }
+xsel "fix the login bug${ENTER}";           eq "text: typing then enter submits"               "submit|fix the login bug" "$GOT"
+xsel "  padded  ${ENTER}";                  eq "text: result is trimmed, leading space ignored" "submit|padded" "$GOT"
+xsel "abc${BS}${BS}x${ENTER}";              eq "text: backspace edits"                         "submit|ax" "$GOT"
+xsel "junk\025clean${ENTER}";               eq "text: ctrl-u clears"                           "submit|clean" "$GOT"
+xsel "${ENTER}";                            eq "text: enter on an empty box does nothing → end cancels" "cancel|" "$GOT"
+xsel "${UP}${ENTER}";                       eq "text: ↑ then enter = Back"                     "back|" "$GOT"
+xsel "typed${DOWN}${ENTER}";                eq "text: ↓ then enter = Back (even with text)"    "back|" "$GOT"
+xsel "typed${UP}more${ENTER}";              eq "text: typing returns focus to the box"         "submit|typedmore" "$GOT"
+xsel "";                                    eq "text: end of input cancels"                    "cancel|" "$GOT"
+xsel "$(printf 'x%.0s' $(seq 1 105))${ENTER}"; eq "text: capped at 100 characters"            "submit|$(printf 'x%.0s' $(seq 1 100))" "$GOT"
+TEXT_PREFILL="old text"; xsel "${BS}${BS}${BS}${BS}new${ENTER}"; eq "text: prefill is editable" "submit|old new" "$GOT"
+sel_esc2() { text_input "Description" "r" 100 < <({ printf "$1"; sleep 1.2; printf '\e'; sleep 1.2; printf "$2"; }) >/dev/null 2>&1; GOT="$TEXT_ACTION|$TEXT_RESULT"; }
+sel_esc2 "abc" "${ENTER}";                  eq "text: esc clears the text first (empty enter then waits → cancel)" "cancel|" "$GOT"
+sel_esc2 "abc" '\e';                        eq "text: second esc goes back"                    "back|" "$GOT"
+sel_esc2 "" "";                             eq "text: esc on an empty box goes back"           "back|" "$GOT"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

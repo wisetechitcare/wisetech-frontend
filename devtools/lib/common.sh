@@ -7,7 +7,13 @@ DEVTOOLS_COMMON=1
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # the repo: devtools/lib/ -> devtools/ -> repo
-PROTECTED=" main master develop " # same list the pre-push hook refuses
+# Protected branches come from the pre-push hook itself, so the scripts and the hook can never disagree.
+PROTECTED=" main master develop "   # fallback if the hook can't be read
+if [ -f "$ROOT/scripts/hooks/run.mjs" ]; then
+  _p=$(sed -n "s/.*PROTECTED = new Set(\[\(.*\)\]).*/\1/p" "$ROOT/scripts/hooks/run.mjs" | head -1 | tr ',' ' ' | tr -d "'\"")
+  read -ra _pa <<<"$_p"
+  [ ${#_pa[@]} -gt 0 ] && PROTECTED=" ${_pa[*]} "
+fi
 COMMIT_ONLY=${COMMIT_ONLY:-0}     # 1 = commit without offering a push (set by pnpm pull)
 TITLE=${TITLE:-tools}
 PM=npm; command -v pnpm >/dev/null && [ -f "$ROOT/pnpm-lock.yaml" ] && PM=pnpm
@@ -105,7 +111,7 @@ explain_git_error() {
     *"would be overwritten by merge"*|*"Your local changes"*) warn "your uncommitted changes touch files the pull changes — commit them first (pnpm pull offers to)" ;;
     *"Couldn't find remote ref"*|*"couldn't find remote ref"*) warn "that branch doesn't exist on origin" ;;
     *"nothing to commit"*|*"no changes added"*) warn "nothing was staged to commit" ;;
-    *"pre-push"*|*"pre-commit"*|*husky*) warn "a git hook stopped this — fix what it reports above, then run again" ;;
+    *"pre-push"*|*"Pre-push"*|*"pre-commit"*|*"Pre-commit"*|*"commit-msg"*|*husky*) warn "a git hook stopped this — fix what it reports above, then run again" ;;
   esac
 }
 
@@ -185,8 +191,11 @@ checklist() {
 }
 
 ask_line() { # ask_line VAR "prompt" [prefill]  (readline editing)
-  local __v; show
-  read -e -r -i "${3:-}" -p "  ${C}❯${N} $2" __v || die "No input (is this a terminal?)"
+  local __v __p; show
+  # \001 … \002 mark the colour codes as zero-width; without them readline miscounts the prompt and long
+  # input wraps and redraws in the wrong place (garbled text in a narrow terminal).
+  printf -v __p '  \001%s\002❯\001%s\002 %s' "$C" "$N" "$2"
+  read -e -r -i "${3:-}" -p "$__p" __v || die "No input (is this a terminal?)"
   printf -v "$1" '%s' "$__v"
 }
 
@@ -208,22 +217,6 @@ health_check() {
   git remote get-url origin >/dev/null 2>&1 || { echo "no 'origin' remote configured — run: git remote add origin <url>"; return 1; }
   { git config user.name && git config user.email; } >/dev/null 2>&1 || { echo "git identity not set — run: git config --global user.name 'Your Name'  and  git config --global user.email you@example.com"; return 1; }
 }
-retry_or_quit() { # $1 = 1 when the check may be skipped.  Returns 0 retry · 2 skip · 1 quit
-  showlog 30
-  local o=("Retry" "Quit (files stay staged)")
-  [ "${1:-0}" = 1 ] && o=("Retry" "Skip this check (the pre-push hook still runs it)" "Quit (files stay staged)")
-  menu "What now?" o || return 1
-  case "${o[MENU_IDX]}" in Retry*) return 0 ;; Skip*) return 2 ;; *) return 1 ;; esac
-}
-run_check() { # run_check "label" fn [1 = skippable]
-  local rc
-  while :; do
-    spin "$1" "$2" && return 0
-    retry_or_quit "${3:-0}"; rc=$?
-    case $rc in 0) ;; 2) warn "skipped: $1"; return 0 ;; *) return 1 ;; esac
-  done
-}
-
 left_as_is() { # what is still in place after stopping early
   local st up; st=$(git diff --cached --name-only | wc -l | tr -d ' '); up=$(unpushed_count)
   echo
