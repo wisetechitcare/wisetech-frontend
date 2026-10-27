@@ -15,6 +15,7 @@ import {
   DEFAULT_DELIVERY_STATUSES,
   DEFAULT_GIFT_RUN_STATUSES,
   DEFAULT_OCCASIONS,
+  driveGroupIds,
   giftRunTotalAmount,
 } from "../types";
 import * as giftsApi from "@services/gifts";
@@ -61,6 +62,8 @@ function defaultConfig(): CourtesyConfig {
     deliveryStatuses: DEFAULT_DELIVERY_STATUSES.map((s) => ({ ...s })),
     giftRunStatuses: DEFAULT_GIFT_RUN_STATUSES.map((s) => ({ ...s })),
     deliveryModes: DEFAULT_DELIVERY_MODES.map((m) => ({ ...m })),
+    // Units always come from the API (configured per company) — none are hardcoded here.
+    units: [],
   };
 }
 
@@ -199,6 +202,27 @@ export function deleteDeliveryStatus(id: string) {
   });
 }
 
+/**
+ * Every unit incl. inactive (for Configure). Also refreshes the active list the Gift Run
+ * forms read, so a unit saved in Configure appears in the dropdown immediately.
+ */
+export async function fetchAllUnitsFromApi() {
+  requireApi();
+  const all = await giftsApi.fetchConfigOptionsApi("units", true);
+  setState({
+    ...state,
+    config: { ...state.config, units: all.filter((u) => u.isActive !== false) },
+  });
+  return all;
+}
+
+export async function saveUnitToApi(option: ConfigOption, isNew: boolean) {
+  requireApi();
+  if (isNew) await giftsApi.createConfigOptionApi("units", option);
+  else await giftsApi.updateConfigOptionApi("units", option);
+  return fetchAllUnitsFromApi();
+}
+
 export async function saveGiftRunStatusToApi(option: ConfigOption) {
   requireApi();
   const exists = state.config.giftRunStatuses.some((s) => s.id === option.id);
@@ -323,16 +347,23 @@ export async function saveGroupToApi(input: {
 function syncDrivesFromGroup(groupId: string) {
   const group = state.groups.find((g) => g.id === groupId);
   if (!group) return;
-  const memberKeys = new Set(group.members.map(personKey));
   const ts = nowIso();
   const drives = state.drives.map((d) => {
     if (
-      d.sourceGroupId !== groupId ||
+      !driveGroupIds(d).includes(groupId) ||
       d.status === "ARCHIVED" ||
       d.status === "COMPLETED"
     ) {
       return d;
     }
+    // Union of every group the run links — a person in two groups is one recipient.
+    const linked = driveGroupIds(d)
+      .map((id) => state.groups.find((g) => g.id === id))
+      .filter((g): g is PeopleGroup => !!g);
+    const members = linked
+      .flatMap((g) => g.members)
+      .filter((m, i, all) => all.findIndex((x) => personKey(x) === personKey(m)) === i);
+    const memberKeys = new Set(members.map(personKey));
     const driveOnly = d.recipients.filter(
       (r) => (r.rosterSource ?? "GROUP") === "DRIVE_ONLY",
     );
@@ -351,12 +382,12 @@ function syncDrivesFromGroup(groupId: string) {
       ...driveOnly.map(personKey),
       ...removedKeys,
     ]);
-    const additions = group.members.filter(
+    const additions = members.filter(
       (m) => !linkedKeys.has(personKey(m)),
     );
     const recipients = [
       ...groupLinked.map((r) => {
-        const m = group.members.find((x) => personKey(x) === personKey(r));
+        const m = members.find((x) => personKey(x) === personKey(r));
         if (!m) return { ...r, rosterSource: "GROUP" as const };
         return {
           ...r,
@@ -371,7 +402,7 @@ function syncDrivesFromGroup(groupId: string) {
         };
       }),
       ...driveOnly.map((r) => {
-        const m = group.members.find((x) => personKey(x) === personKey(r));
+        const m = members.find((x) => personKey(x) === personKey(r));
         if (!m) return r;
         return {
           ...r,
@@ -389,7 +420,7 @@ function syncDrivesFromGroup(groupId: string) {
     ];
     return {
       ...d,
-      sourceGroupName: group.name,
+      sourceGroupName: linked.map((g) => g.name).join(", "),
       recipients,
       updatedAt: ts,
     };
@@ -561,9 +592,15 @@ export async function createDriveToApi(input: {
   giftItem: string;
   driveDate?: string;
   sourceGroupId?: string;
+  /** Several groups (first = primary); a person in more than one is added once. */
+  sourceGroupIds?: string[];
+  /** Individually picked people; skipped when already in a selected group. */
+  members?: PersonRef[];
   fromRunId?: string;
   defaultQuantity?: number;
   costPerGift?: number | null;
+  sizeUnit?: string;
+  sizePerGift?: string;
 }) {
   requireApi();
   const drive = await giftsApi.createDriveApi(input);
@@ -622,8 +659,10 @@ export async function updateDriveMetaToApi(
       | "defaultAssigneeEmployeeId"
       | "defaultAssigneeName"
       | "defaultMode"
+      | "sizeUnit"
+      | "sizePerGift"
     >
-  >,
+  > & { sourceGroupIds?: string[] },
 ) {
   requireApi();
   const drive = await giftsApi.updateDriveApi(driveId, patch);

@@ -108,11 +108,22 @@ export interface CourtesyDrive {
   occasionType: string;
   giftItem: string;
   driveDate?: string;
+  /** Primary People Group (first selected). */
   sourceGroupId: string;
+  /** Names of every linked group, e.g. "IT Team, WiseTech Group". */
   sourceGroupName: string;
+  /** Every linked People Group, primary first. */
+  groupIds?: string[];
   status: string;
   /** Unit cost of one gift; total = costPerGift × sum(quantities). */
   costPerGift?: number | null;
+  /** What ONE gift contains, as a decimal string ("250"). Always "1" for countable units. */
+  sizePerGift?: string;
+  /** Unit config id (see CourtesyConfig.units). */
+  sizeUnit?: string;
+  /** Configured symbol, shown verbatim ("kg", "Box", "Office Kit"). */
+  sizeUnitSymbol?: string;
+  sizeUnitCountable?: boolean;
   /** Drive-level defaults — apply to all, or leave empty when mixed. */
   defaultAssigneeEmployeeId?: string;
   defaultAssigneeName?: string;
@@ -122,6 +133,29 @@ export interface CourtesyDrive {
   updatedAt: string;
 }
 
+/** A run's People Groups, primary first (older payloads: just the primary). */
+export const driveGroupIds = (d: Pick<CourtesyDrive, "groupIds" | "sourceGroupId">) =>
+  d.groupIds?.length ? d.groupIds : [d.sourceGroupId];
+
+/** Members of each picked group (missing groups → none). */
+export const groupMembersOf = (groups: PeopleGroup[], ids: string[]) =>
+  ids.map((id) => groups.find((g) => g.id === id)?.members ?? []);
+
+/**
+ * People a run gets from several groups + individuals — each person once, keyed by
+ * member type + database id (never name / phone). Mirrors the API's buildRoster.
+ */
+export function uniquePeopleCount(
+  groupMembers: PersonRef[][],
+  individuals: PersonRef[] = [],
+): number {
+  return new Set([...groupMembers.flat(), ...individuals].map((p) => `${p.memberType}:${p.personId}`))
+    .size;
+}
+
+/** A recipient's gifts — fractional on kg / L runs (0.5 = half a gift); missing → 1. */
+export const recipientQty = (q: number | null | undefined) => (Number(q) > 0 ? Number(q) : 1);
+
 /** Total spend for a run: costPerGift × sum(recipient quantities). */
 export function giftRunTotalAmount(drive: {
   costPerGift?: number | null;
@@ -129,17 +163,61 @@ export function giftRunTotalAmount(drive: {
 }): number {
   const cost = Number(drive.costPerGift);
   if (!Number.isFinite(cost) || cost < 0) return 0;
-  const qty = drive.recipients.reduce(
-    (sum, r) => sum + Math.max(1, Number(r.quantity) || 1),
-    0,
-  );
+  const qty = drive.recipients.reduce((sum, r) => sum + recipientQty(r.quantity), 0);
   return cost * qty;
+}
+
+/** Gifts × size per gift, with the configured unit: 1 gift of 0.25 kg → "0.25 kg", 5 → "5 Box". */
+export function formatGiftQty(
+  count: number,
+  drive: Pick<CourtesyDrive, "sizePerGift" | "sizeUnitSymbol">,
+): string {
+  const total = Math.round(count * Number(drive.sizePerGift || 1) * 1000) / 1000;
+  const n = total.toLocaleString("en-US", { maximumFractionDigits: 3 });
+  return drive.sizeUnitSymbol ? `${n} ${drive.sizeUnitSymbol}` : n;
+}
+
+/**
+ * What a person typed ("0.25" kg, "2" Box) → their gift count. Countable units take whole
+ * gifts; kg / L take any amount > 0 (3 decimals), stored as amount ÷ size per gift.
+ * Returns null for an invalid entry.
+ */
+export function giftsFromAmount(
+  text: string,
+  drive: Pick<CourtesyDrive, "sizePerGift" | "sizeUnitCountable">,
+): number | null {
+  const amount = Math.round(Number(text) * 1000) / 1000;
+  if (!(amount > 0)) return null;
+  if (drive.sizeUnitCountable !== false) return Math.max(1, Math.round(amount));
+  return Math.round((amount / Number(drive.sizePerGift || 1)) * 1e6) / 1e6;
+}
+
+/** Picker / Configure label: "Kilogram (kg)", or just "Office Kit" when name = symbol. */
+export const unitLabel = (u: { name: string; symbol?: string }) =>
+  u.symbol && u.symbol !== u.name ? `${u.name} (${u.symbol})` : u.name;
+
+/** The modal's Quantity: countable = whole gifts each (≥ 1); measurable = amount each (> 0, ≤ 3 decimals). */
+export function giftSizeError(isCountable: boolean, size: string): string | null {
+  const text = size.trim();
+  if (!text) return "Quantity is required";
+  if (isCountable) return /^[1-9]\d*$/.test(text) ? null : "Enter a whole number (1 or more)";
+  if (!/^\d+(\.\d{1,3})?$/.test(text) || !(Number(text) > 0) || Number(text) > 999999999.999) {
+    return "Enter a number greater than 0 (up to 3 decimals)";
+  }
+  return null;
 }
 
 export interface ConfigOption {
   id: string;
   name: string;
   color: string;
+  /** Units only. */
+  symbol?: string;
+  isCountable?: boolean;
+  isDefault?: boolean;
+  isSystem?: boolean;
+  isActive?: boolean;
+  inUse?: boolean;
 }
 
 export interface CourtesyConfig {
@@ -150,6 +228,8 @@ export interface CourtesyConfig {
   giftRunStatuses: ConfigOption[];
   /** Delivery mode options per recipient (editable in Configure). */
   deliveryModes: ConfigOption[];
+  /** Active quantity units / kit labels (editable in Configure). */
+  units: ConfigOption[];
   /** @deprecated migrated to deliveryStatuses — kept for localStorage normalize only */
   statusColors?: Record<string, string>;
 }

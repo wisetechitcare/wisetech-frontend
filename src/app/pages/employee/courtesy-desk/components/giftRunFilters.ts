@@ -8,6 +8,8 @@ export interface GiftRunFilters {
   mode: string;
   area: string;
   assignee: string;
+  /** "ALL", a linked People Group id, or "INDIVIDUAL" (in none of the run's groups). */
+  via: string;
 }
 
 export const EMPTY_GIFT_RUN_FILTERS: GiftRunFilters = {
@@ -18,6 +20,7 @@ export const EMPTY_GIFT_RUN_FILTERS: GiftRunFilters = {
   mode: "ALL",
   area: "ALL",
   assignee: "ALL",
+  via: "ALL",
 };
 
 export function giftRunActiveFilterCount(filters: GiftRunFilters) {
@@ -27,8 +30,12 @@ export function giftRunActiveFilterCount(filters: GiftRunFilters) {
 export function matchesGiftRunFilters(
   recipient: CourtesyRecipient,
   filters: GiftRunFilters,
-  profile: { gender: string; designation: string },
+  profile: { gender: string; designation: string; groupIds?: string[] },
 ) {
+  const groupIds = profile.groupIds ?? [];
+  if (filters.via === "INDIVIDUAL" && groupIds.length) return false;
+  if (filters.via !== "ALL" && filters.via !== "INDIVIDUAL" && !groupIds.includes(filters.via))
+    return false;
   if (filters.status !== "ALL" && recipient.status !== filters.status)
     return false;
   if (filters.source !== "ALL" && recipient.memberType !== filters.source)

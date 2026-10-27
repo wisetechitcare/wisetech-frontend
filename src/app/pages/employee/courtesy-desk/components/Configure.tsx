@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import {
   ConfigPageLayout,
@@ -17,12 +17,15 @@ import {
   deleteDeliveryStatusToApi,
   deleteGiftRunStatusToApi,
   deleteOccasionToApi,
+  fetchAllUnitsFromApi,
   saveDeliveryModeToApi,
   saveDeliveryStatusToApi,
   saveGiftRunStatusToApi,
   saveOccasionToApi,
+  saveUnitToApi,
 } from "../store/courtesyDeskStore";
 import type { ConfigOption } from "../types";
+import { unitLabel } from "../types";
 import GiftConfigOptionModal from "./GiftConfigOptionModal";
 
 const runConfig = (p: Promise<unknown>, ok: string) =>
@@ -30,13 +33,31 @@ const runConfig = (p: Promise<unknown>, ok: string) =>
     .then(() => toast.success(ok))
     .catch((err: unknown) => toast.error(apiErrorMessage(err, "Something went wrong")));
 
-type ModalKind = "occasion" | "status" | "giftRunStatus" | "mode" | null;
+type ModalKind = "occasion" | "status" | "giftRunStatus" | "mode" | "unit" | null;
 
 export default function Configure() {
   const desk = useCourtesyDesk();
   const { ask, dialog: confirmDialog } = useConfirmDialog();
   const [modal, setModal] = useState<ModalKind>(null);
   const [editing, setEditing] = useState<ConfigOption | null>(null);
+  // Every unit incl. deactivated ones (Configure is where they get reactivated);
+  // the active list from config shows until that arrives.
+  const [allUnits, setAllUnits] = useState<ConfigOption[] | null>(null);
+  const units = allUnits ?? desk.config.units;
+
+  useEffect(() => {
+    fetchAllUnitsFromApi()
+      .then(setAllUnits)
+      .catch((err: unknown) => toast.error(apiErrorMessage(err, "Could not load units")));
+  }, []);
+
+  const runUnit = (p: Promise<ConfigOption[]>, ok: string) =>
+    void p
+      .then((all) => {
+        setAllUnits(all);
+        toast.success(ok);
+      })
+      .catch((err: unknown) => toast.error(apiErrorMessage(err, "Something went wrong")));
 
   const openNew = (kind: ModalKind) => {
     setEditing(null);
@@ -225,6 +246,55 @@ export default function Configure() {
               </ConfigChipGrid>
             )}
           </ConfigSectionCard>
+
+          <ConfigSectionCard
+            title="Units & kits"
+            description="Shown next to gift quantities — kg, L, Unit, or your own like Box or Office Kit."
+            icon="bi-rulers"
+            iconColor="primary"
+            primaryAction={{
+              label: "New Unit",
+              icon: "bi-plus-lg",
+              onClick: () => openNew("unit"),
+              variant: "primary",
+            }}
+          >
+            {units.length === 0 ? (
+              <EmptyState label="units" />
+            ) : (
+              <ConfigChipGrid>
+                {units.map((u) => {
+                  const active = u.isActive !== false;
+                  return (
+                    <ConfigColorChip
+                      key={u.id}
+                      name={unitLabel(u)}
+                      color={u.color}
+                      caption={`${u.isCountable ? "Countable" : "Measurable"}${active ? "" : " · Inactive"}`}
+                      badge={u.isSystem ? "Default" : undefined}
+                      disabled={!active}
+                      // Default units keep their name/symbol; custom ones are editable.
+                      onEdit={u.isSystem ? undefined : () => openEdit("unit", u)}
+                      action={
+                        u.isDefault
+                          ? undefined
+                          : {
+                              icon: active ? "bi-eye-slash" : "bi-eye",
+                              title: active ? `Deactivate ${u.name}` : `Activate ${u.name}`,
+                              tone: active ? "neutral" : "revert",
+                              onClick: () =>
+                                runUnit(
+                                  saveUnitToApi({ ...u, isActive: !active }, false),
+                                  active ? "Deactivated." : "Activated.",
+                                ),
+                            }
+                      }
+                    />
+                  );
+                })}
+              </ConfigChipGrid>
+            )}
+          </ConfigSectionCard>
         </div>
       </ConfigPageLayout>
 
@@ -265,6 +335,16 @@ export default function Configure() {
         initial={editing}
         existing={desk.config.deliveryModes}
         onSave={(o) => runConfig(saveDeliveryModeToApi(o), "Saved.")}
+      />
+      <GiftConfigOptionModal
+        unit
+        show={modal === "unit"}
+        onClose={closeModal}
+        title="Unit"
+        nameLabel="Unit name"
+        initial={editing}
+        existing={units}
+        onSave={(o) => runUnit(saveUnitToApi(o, !editing), "Saved.")}
       />
     </>
   );
