@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button } from 'react-bootstrap';
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { Button } from 'react-bootstrap';
 import { Formik, Form, FormikValues } from 'formik';
 import * as Yup from 'yup';
 import { KTIcon } from '@metronic/helpers';
@@ -382,7 +383,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             };
 
             await createUpdateDeductionConfiguration(apiPayload as any);
-            successConfirmation(`Deduction adjustments updated successfully!`);
+            successConfirmation(`Deduction adjustments updated.`);
             onSuccess();
             onClose();
 

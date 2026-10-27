@@ -44,13 +44,14 @@ import {
   StatTile,
   TRIO,
   useConfirmDialog,
+  usePromptDialog,
   WtButton,
+  FilterSheetButton,
 } from "@app/modules/common/components/ui";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import {
   addPeopleToDriveToApi,
-  applyDriveAssigneeModeToApi,
   archiveDriveToApi,
   bulkUpdateRecipientsToApi,
   cloneDriveToApi,
@@ -83,9 +84,20 @@ import PersonPicker, {
   PersonAvatar,
   courtesyDeskAssigneeOptions,
 } from "./PersonPicker";
-import { DriveEditModal, isGiftRunEditable } from "./DriveCreate";
+import {
+  DriveCreateModal,
+  DriveEditModal,
+  isGiftRunEditable,
+} from "./DriveCreate";
 import GiftHistoryButton from "./GroupActivityLog";
 import SolidChipPickMenu from "./SolidChipPickMenu";
+import GiftRunFilterSheet from "./GiftRunFilterSheet";
+import {
+  EMPTY_GIFT_RUN_FILTERS,
+  giftRunActiveFilterCount,
+  matchesGiftRunFilters,
+  type GiftRunFilters,
+} from "./giftRunFilters";
 
 const SKIP_REASON_OPTIONS: ConfigOption[] = [
   { id: "REFUSED", name: "Refused", color: "#dc2626" },
@@ -93,7 +105,12 @@ const SKIP_REASON_OPTIONS: ConfigOption[] = [
   { id: "DO_NOT_GIFT", name: "Do not gift", color: "#64748b" },
 ];
 
-type PersonProfile = { gender?: string; designation?: string };
+type PersonProfile = {
+  gender?: string;
+  designation?: string;
+  /** Live CRM active flag — undefined until loaded. */
+  isActive?: boolean;
+};
 
 function employeeGenderLabel(g: unknown): string {
   const n = Number(g);
@@ -328,25 +345,20 @@ export default function DriveDetail() {
   const runEditable = isGiftRunEditable(drive?.status ?? "");
   const navigate = useNavigate();
   const { ask, dialog: confirmDialog } = useConfirmDialog();
+  const { askText, dialog: promptDialog } = usePromptDialog();
   const dispatch = useDispatch<AppDispatch>();
   const employees = useSelector((s: RootState) => s.allEmployees.list);
   const employeeId = useSelector(
     (s: RootState) => s.employee.currentEmployee?.id,
   );
 
-  const [statusFilter, setStatusFilter] = useState<"ALL" | string>("ALL");
   const deliveryStatuses = desk.config.deliveryStatuses;
   const giftRunStatuses = desk.config.giftRunStatuses;
   const deliveryModes = desk.config.deliveryModes;
-  const [sourceFilter, setSourceFilter] = useState<
-    "ALL" | "CONTACT" | "EMPLOYEE"
-  >("ALL");
-  const [areaFilter, setAreaFilter] = useState("");
-  const [genderFilter, setGenderFilter] = useState<"ALL" | string>("ALL");
-  const [designationFilter, setDesignationFilter] = useState<"ALL" | string>(
-    "ALL",
+  const [filters, setFilters] = useState<GiftRunFilters>(
+    EMPTY_GIFT_RUN_FILTERS,
   );
-  const [modeFilter, setModeFilter] = useState<"ALL" | string>("ALL");
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<CourtesyRecipient[]>([]);
   const [selectionAssigneeId, setSelectionAssigneeId] = useState("");
   const [selectionStatus, setSelectionStatus] = useState("");
@@ -359,6 +371,7 @@ export default function DriveDetail() {
   const [pickerPeople, setPickerPeople] = useState<PersonRef[]>([]);
   const [addingPeople, setAddingPeople] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [createFromRunOpen, setCreateFromRunOpen] = useState(false);
   const [employeeProfiles, setEmployeeProfiles] = useState(
     () => new Map<string, PersonProfile>(),
   );
@@ -393,6 +406,7 @@ export default function DriveDetail() {
           map.set(String(e.id), {
             gender: employeeGenderLabel(e.gender),
             designation: e.designations?.role?.trim() || undefined,
+            isActive: (e as { isActive?: boolean }).isActive !== false,
           });
         }
         setEmployeeProfiles(map);
@@ -429,6 +443,8 @@ export default function DriveDetail() {
             res;
           const row = c as Record<string, unknown>;
           const role = row.contactRole as { name?: string } | undefined;
+          const isActive =
+            row.isActive !== false && row.isContactActive !== false;
           return {
             id,
             gender: contactGenderLabel(row.gender),
@@ -437,16 +453,21 @@ export default function DriveDetail() {
                 row.roleInCompany.trim()) ||
               role?.name?.trim() ||
               undefined,
+            isActive,
           };
         } catch {
-          return { id, gender: "—", designation: undefined };
+          return { id, gender: "—", designation: undefined, isActive: true };
         }
       }),
     ).then((rows) => {
       if (cancelled) return;
       const map = new Map<string, PersonProfile>();
       for (const r of rows) {
-        map.set(r.id, { gender: r.gender, designation: r.designation });
+        map.set(r.id, {
+          gender: r.gender,
+          designation: r.designation,
+          isActive: r.isActive,
+        });
       }
       setContactProfiles(map);
     });
@@ -457,11 +478,20 @@ export default function DriveDetail() {
 
   const getProfileFor = useCallback(
     (r: CourtesyRecipient): PersonProfile => {
-      const map =
-        r.memberType === "EMPLOYEE" ? employeeProfiles : contactProfiles;
-      return map.get(r.personId) ?? {};
+      if (r.memberType === "EMPLOYEE") {
+        const fromProfile = employeeProfiles.get(r.personId);
+        if (fromProfile) return fromProfile;
+        const emp = employees.find((e) => String(e.employeeId) === r.personId);
+        return { isActive: emp ? emp.isActive !== false : undefined };
+      }
+      return contactProfiles.get(r.personId) ?? {};
     },
-    [employeeProfiles, contactProfiles],
+    [employeeProfiles, contactProfiles, employees],
+  );
+
+  const recipientIsInactive = useCallback(
+    (r: CourtesyRecipient) => getProfileFor(r).isActive === false,
+    [getProfileFor],
   );
 
   const recipientGender = useCallback(
@@ -475,10 +505,11 @@ export default function DriveDetail() {
   );
 
   const genderFilterOptions = useMemo(() => {
-    if (!drive) return [];
-    return Array.from(
-      new Set(drive.recipients.map((r) => recipientGender(r))),
-    ).sort((a, b) => a.localeCompare(b));
+    const standardGenders = ["Male", "Female", "Other"];
+    const recipientGenders = drive
+      ? drive.recipients.map((recipient) => recipientGender(recipient))
+      : [];
+    return Array.from(new Set([...standardGenders, ...recipientGenders]));
   }, [drive, recipientGender]);
 
   const designationFilterOptions = useMemo(() => {
@@ -536,28 +567,15 @@ export default function DriveDetail() {
 
   const tableRows = useMemo(() => {
     if (!drive) return [];
-    return drive.recipients.filter((r) => {
-      if (statusFilter !== "ALL" && r.status !== statusFilter) return false;
-      if (sourceFilter !== "ALL" && r.memberType !== sourceFilter) return false;
-      if (areaFilter && (r.area || "") !== areaFilter) return false;
-      if (genderFilter !== "ALL" && recipientGender(r) !== genderFilter)
-        return false;
-      if (
-        designationFilter !== "ALL" &&
-        recipientDesignation(r) !== designationFilter
-      )
-        return false;
-      if (modeFilter !== "ALL" && r.mode !== modeFilter) return false;
-      return true;
-    });
+    return drive.recipients.filter((recipient) =>
+      matchesGiftRunFilters(recipient, filters, {
+        gender: recipientGender(recipient),
+        designation: recipientDesignation(recipient),
+      }),
+    );
   }, [
     drive,
-    statusFilter,
-    sourceFilter,
-    areaFilter,
-    genderFilter,
-    designationFilter,
-    modeFilter,
+    filters,
     recipientGender,
     recipientDesignation,
   ]);
@@ -568,6 +586,23 @@ export default function DriveDetail() {
       drive.recipients.map((r) => `${r.memberType}:${r.personId}`),
     );
   }, [drive]);
+
+  const existingPickerPeople = useMemo<PersonRef[]>(
+    () =>
+      drive?.recipients.map((r) => ({
+        memberType: r.memberType,
+        personId: r.personId,
+        fullName: r.fullName,
+        companyName: r.companyName,
+        area: r.area,
+        address: r.address,
+        phone: r.phone,
+        email: r.email,
+        avatarUrl: r.avatarUrl,
+        giftQuantity: r.quantity,
+      })) ?? [],
+    [drive],
+  );
 
   const employeeAvatarById = useMemo(() => {
     const m = new Map<string, string>();
@@ -581,6 +616,27 @@ export default function DriveDetail() {
     () => courtesyDeskAssigneeOptions(employees),
     [employees],
   );
+
+  const recipientAssigneeFilterOptions = useMemo(() => {
+    const assigned = new Map<string, string>();
+    drive?.recipients.forEach((recipient) => {
+      if (recipient.assigneeEmployeeId) {
+        assigned.set(
+          recipient.assigneeEmployeeId,
+          recipient.assigneeName || "Former employee",
+        );
+      }
+    });
+    return [
+      { value: "ALL", label: "All" },
+      { value: "UNASSIGNED", label: "None" },
+      ...Array.from(assigned, ([value, label]) => ({ value, label })).sort(
+        (a, b) => a.label.localeCompare(b.label),
+      ),
+    ];
+  }, [drive]);
+
+  const activeFilterCount = giftRunActiveFilterCount(filters);
 
   const toastApiErr = (err: unknown) =>
     toast.error(apiErrorMessage(err, "Something went wrong"));
@@ -603,6 +659,15 @@ export default function DriveDetail() {
     );
   }, [drive, tableRows]);
 
+  const tableQuantityTotal = useMemo(
+    () =>
+      tableRows.reduce(
+        (sum, recipient) => sum + Math.max(1, recipient.quantity || 1),
+        0,
+      ),
+    [tableRows],
+  );
+
   const columns = useMemo<MRT_ColumnDef<CourtesyRecipient>[]>(() => {
     const unitCost = Number(drive?.costPerGift);
     const hasCost = Number.isFinite(unitCost) && unitCost >= 0;
@@ -617,6 +682,7 @@ export default function DriveDetail() {
         ),
         Cell: ({ row }) => {
           const r = row.original;
+          const inactive = recipientIsInactive(r);
           const href =
             r.memberType === "CONTACT"
               ? `/contacts/${r.personId}`
@@ -628,8 +694,14 @@ export default function DriveDetail() {
               ? employeeAvatarById.get(r.personId)
               : undefined);
           const nameEl = isDemo ? (
-            <Typography fontWeight={600} variant="body2" noWrap>
+            <Typography
+              fontWeight={600}
+              variant="body2"
+              noWrap
+              sx={inactive ? { color: "text.disabled" } : undefined}
+            >
               {r.fullName}
+              {inactive ? " (Inactive)" : ""}
             </Typography>
           ) : (
             <Link
@@ -638,10 +710,14 @@ export default function DriveDetail() {
               fontWeight={600}
               variant="body2"
               onClick={(e) => e.stopPropagation()}
-              sx={{ display: "block" }}
+              sx={{
+                display: "block",
+                ...(inactive ? { color: "text.disabled" } : {}),
+              }}
               noWrap
             >
               {r.fullName}
+              {inactive ? " (Inactive)" : ""}
             </Link>
           );
           return (
@@ -649,7 +725,7 @@ export default function DriveDetail() {
               direction="row"
               spacing={1.25}
               alignItems="center"
-              sx={{ minWidth: 0 }}
+              sx={{ minWidth: 0, opacity: inactive ? 0.72 : 1 }}
             >
               <PersonAvatar
                 person={{ fullName: r.fullName, avatarUrl }}
@@ -665,6 +741,23 @@ export default function DriveDetail() {
                 >
                   {nameEl}
                   <MemberTypeChip memberType={r.memberType} />
+                  {inactive ? (
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      sx={{
+                        px: 0.75,
+                        py: 0.1,
+                        borderRadius: 1,
+                        bgcolor: "action.hover",
+                        color: "text.secondary",
+                        fontWeight: 700,
+                        fontSize: 10,
+                      }}
+                    >
+                      Inactive
+                    </Typography>
+                  ) : null}
                   {(r.rosterSource ?? "GROUP") === "DRIVE_ONLY" && (
                     <Typography
                       component="span"
@@ -736,6 +829,11 @@ export default function DriveDetail() {
             }}
             sx={{ width: 80 }}
           />
+        ),
+        Footer: () => (
+          <Typography fontWeight={800} sx={{ fontSize: "0.8rem" }}>
+            {tableQuantityTotal.toLocaleString()}
+          </Typography>
         ),
       },
       {
@@ -908,9 +1006,11 @@ export default function DriveDetail() {
     employeeAvatarById,
     recipientDesignation,
     recipientGender,
+    recipientIsInactive,
     runEditable,
     sensitive.cls,
     tableAmountTotal,
+    tableQuantityTotal,
   ]);
 
   if (!drive) {
@@ -928,55 +1028,16 @@ export default function DriveDetail() {
     );
   }
 
-  /** UI sentinel when recipients disagree — stored on drive as MIXED. */
-  const wholeModeSelectValue =
-    drive.defaultMode === "MIXED" ? "ALL" : drive.defaultMode || "IN_PERSON";
-  const wholeAssignee = drive.defaultAssigneeEmployeeId || "";
-
-  const applyWholeAssignee = (assigneeId: string) => {
-    if (!runEditable) return;
-    if (!assigneeId) {
-      void updateDriveMetaToApi(drive.id, {
-        defaultAssigneeEmployeeId: "",
-        defaultAssigneeName: "",
-      }).catch((err: unknown) => toastApiErr(err));
+  const applyBulkFields = () => {
+    if (!runEditable || !driveId || !drive) return;
+    const applyingToAll = selectedRows.length === 0;
+    const targetIds = applyingToAll
+      ? drive.recipients.map((r) => r.id)
+      : selectedRows.map((r) => r.id);
+    if (!targetIds.length) {
+      toast.warning("No recipients to update.");
       return;
     }
-    const found = assigneeOptions.find((a) => a.id === assigneeId);
-    void applyDriveAssigneeModeToApi(drive.id, {
-      assigneeEmployeeId: assigneeId,
-      assigneeName: found?.name || "",
-      mode: "IN_PERSON",
-    })
-      .then(() =>
-        toast.success(
-          `Assigned ${found?.name || "person"} to all (In Person).`,
-        ),
-      )
-      .catch((err: unknown) => toastApiErr(err));
-  };
-
-  const applyWholeMode = (mode: DeliveryMode | "ALL") => {
-    if (!runEditable || mode === "ALL") return;
-    if (mode === "COURIER") {
-      void applyDriveAssigneeModeToApi(drive.id, { mode: "COURIER" })
-        .then(() => toast.success("Mode set to Courier for all."))
-        .catch((err: unknown) => toastApiErr(err));
-      return;
-    }
-    const id = drive.defaultAssigneeEmployeeId || assigneeOptions[0]?.id;
-    const found = assigneeOptions.find((a) => a.id === id);
-    void applyDriveAssigneeModeToApi(drive.id, {
-      mode: "IN_PERSON",
-      assigneeEmployeeId: id,
-      assigneeName: found?.name || "",
-    })
-      .then(() => toast.success("Mode set to In Person for all."))
-      .catch((err: unknown) => toastApiErr(err));
-  };
-
-  const applyFieldsToSelected = () => {
-    if (!runEditable || !selectedRows.length || !driveId) return;
     const patch: Parameters<typeof bulkUpdateRecipientsToApi>[2] = {};
     if (selectionStatus) {
       patch.status = selectionStatus;
@@ -1004,17 +1065,53 @@ export default function DriveDetail() {
       toast.warning("Choose at least one field to update.");
       return;
     }
-    void bulkUpdateRecipientsToApi(
-      driveId,
-      selectedRows.map((r) => r.id),
-      patch,
-    )
-      .then(() => {
-        toast.success(`Updated ${selectedRows.length} recipient(s).`);
-        setSelectedRows([]);
-        setTableSelectionReset((n) => n + 1);
-      })
-      .catch(toastApiErr);
+    void ask({
+      variant: "confirm",
+      title: applyingToAll ? "Apply to all" : "Apply to selected",
+      message: applyingToAll
+        ? `Apply these changes to all ${targetIds.length} recipient(s)?`
+        : `Apply these changes to ${targetIds.length} selected recipient(s)?`,
+      confirmLabel: "Apply",
+      icon: "bi-check-circle",
+    }).then((ok) => {
+      if (!ok) return;
+      void bulkUpdateRecipientsToApi(driveId, targetIds, patch)
+        .then(() => {
+          if (
+            applyingToAll &&
+            (selectionAssigneeId ||
+              selectionMode === "IN_PERSON" ||
+              selectionMode === "COURIER")
+          ) {
+            const found = selectionAssigneeId
+              ? assigneeOptions.find((a) => a.id === selectionAssigneeId)
+              : undefined;
+            return updateDriveMetaToApi(drive.id, {
+              ...(selectionAssigneeId
+                ? {
+                    defaultAssigneeEmployeeId: selectionAssigneeId,
+                    defaultAssigneeName: found?.name || "",
+                  }
+                : {}),
+              ...(selectionMode === "IN_PERSON" || selectionMode === "COURIER"
+                ? { defaultMode: selectionMode as DeliveryMode }
+                : {}),
+            });
+          }
+        })
+        .then(() => {
+          toast.success(
+            applyingToAll
+              ? `Updated all ${targetIds.length} recipient(s).`
+              : `Updated ${targetIds.length} recipient(s).`,
+          );
+          if (!applyingToAll) {
+            setSelectedRows([]);
+            setTableSelectionReset((n) => n + 1);
+          }
+        })
+        .catch(toastApiErr);
+    });
   };
 
   const removeSelectedFromRun = () => {
@@ -1039,7 +1136,7 @@ export default function DriveDetail() {
 
   const openAddPeople = () => {
     if (!runEditable) return;
-    setPickerPeople([]);
+    setPickerPeople(existingPickerPeople);
     setAddPeopleOpen(true);
   };
 
@@ -1052,125 +1149,32 @@ export default function DriveDetail() {
       toast.warning("No new people selected.");
       return;
     }
-    setAddingPeople(true);
-    void addPeopleToDriveToApi(driveId, toAdd)
-      .then(() => {
-        toast.success(
-          `Added ${toAdd.length} to Gift Run (not added to group).`,
-        );
-        setAddPeopleOpen(false);
-        setPickerPeople([]);
-      })
-      .catch(toastApiErr)
-      .finally(() => setAddingPeople(false));
+    void ask({
+      variant: "confirm",
+      title: "Add people to Gift Run",
+      message: `Add ${toAdd.length} person(s)  to this Gift Run? They will not be added to the People Group.`,
+      confirmLabel: "Add",
+      icon: "bi-people",
+    }).then((ok) => {
+      if (!ok) return;
+      setAddingPeople(true);
+      void addPeopleToDriveToApi(driveId, toAdd)
+        .then(() => {
+          toast.success(
+            `Added ${toAdd.length} to Gift Run (not added to group).`,
+          );
+          setAddPeopleOpen(false);
+          setPickerPeople([]);
+        })
+        .catch(toastApiErr)
+        .finally(() => setAddingPeople(false));
+    });
   };
-
-  const toolbarFilters = (
-    <Stack
-      direction="row"
-      spacing={1}
-      alignItems="center"
-      flexWrap="wrap"
-      useFlexGap
-    >
-      <TextField
-        select
-        size="small"
-        label="Delivery Status"
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value)}
-        sx={{ minWidth: 130 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        {deliveryStatuses.map((s: ConfigOption) => (
-          <MenuItem key={s.id} value={s.id}>
-            {s.name}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        select
-        size="small"
-        label="Source"
-        value={sourceFilter}
-        onChange={(e) => setSourceFilter(e.target.value as typeof sourceFilter)}
-        sx={{ minWidth: 120 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        <MenuItem value="CONTACT">Contact</MenuItem>
-        <MenuItem value="EMPLOYEE">Employee</MenuItem>
-      </TextField>
-      <TextField
-        select
-        size="small"
-        label="Gender"
-        value={genderFilter}
-        onChange={(e) => setGenderFilter(e.target.value)}
-        sx={{ minWidth: 110 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        {genderFilterOptions.map((g) => (
-          <MenuItem key={g} value={g}>
-            {g}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        select
-        size="small"
-        label="Designation"
-        value={designationFilter}
-        onChange={(e) => setDesignationFilter(e.target.value)}
-        sx={{ minWidth: 140 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        {designationFilterOptions.map((d) => (
-          <MenuItem key={d} value={d}>
-            {d}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        select
-        size="small"
-        label="Mode"
-        value={modeFilter}
-        onChange={(e) => setModeFilter(e.target.value)}
-        sx={{ minWidth: 120 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        {deliveryModes.map((m: ConfigOption) => (
-          <MenuItem key={m.id} value={m.id}>
-            {m.name}
-          </MenuItem>
-        ))}
-      </TextField>
-      {/* <TextField
-        select
-        size="small"
-        label="Area"
-        value={areaFilter}
-        onChange={(e) => setAreaFilter(e.target.value)}
-        sx={{ minWidth: 120 }}
-      >
-        <MenuItem value="">All</MenuItem>
-        {areas.map((a) => (
-          <MenuItem key={a} value={a}>
-            {a}
-          </MenuItem>
-        ))}
-      </TextField> */}
-      {runEditable ? (
-        <Button size="large" variant="contained" onClick={openAddPeople}>
-          Add people
-        </Button>
-      ) : null}
-    </Stack>
-  );
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       {confirmDialog}
+      {promptDialog}
       <Button
         size="small"
         variant="text"
@@ -1247,19 +1251,32 @@ export default function DriveDetail() {
               <Button
                 size="small"
                 variant="outlined"
+                startIcon={<AppIcon name="bi-gift" />}
+                onClick={() => setCreateFromRunOpen(true)}
+              >
+                Add
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
                 startIcon={<AppIcon name="bi-copy" />}
                 onClick={() => {
-                  const title = window.prompt(
-                    `New ${GIFT_RUN_LABEL} title`,
-                    `${drive.title} (copy)`,
-                  );
-                  if (!title) return;
-                  void cloneDriveToApi(drive.id, title)
-                    .then((cloned) => {
-                      toast.success(`${GIFT_RUN_LABEL} cloned.`);
-                      navigate(`${GIFT_MANAGEMENT_BASE}/drives/${cloned.id}`);
-                    })
-                    .catch((err: unknown) => toastApiErr(err));
+                  void askText({
+                    title: `Clone ${GIFT_RUN_LABEL}`,
+                    message: `This will create a copy of the ${GIFT_RUN_LABEL} with the same Assignees, modes, and quantities.`,
+                    label: `${GIFT_RUN_LABEL} title`,
+                    defaultValue: `${drive.title} (copy)`,
+                    confirmLabel: "Clone",
+                    icon: "bi-copy",
+                  }).then((title) => {
+                    if (!title) return;
+                    void cloneDriveToApi(drive.id, title)
+                      .then((cloned) => {
+                        toast.success(`${GIFT_RUN_LABEL} cloned.`);
+                        navigate(`${GIFT_MANAGEMENT_BASE}/drives/${cloned.id}`);
+                      })
+                      .catch((err: unknown) => toastApiErr(err));
+                  });
                 }}
               >
                 Clone
@@ -1316,36 +1333,15 @@ export default function DriveDetail() {
                     Delete
                   </Button>
                 </>
-              ) : (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="warning"
-                  startIcon={<AppIcon name="bi-archive" />}
-                  onClick={() => {
-                    void ask({
-                      variant: "delete",
-                      title: `Archive ${GIFT_RUN_LABEL}`,
-                      message: `Archive “${drive.title}”? You can unarchive it later.`,
-                      confirmLabel: "Archive",
-                      icon: "archive",
-                    }).then((ok) => {
-                      if (!ok) return;
-                      void archiveDriveToApi(drive.id)
-                        .then(() =>
-                          toast.success(`${GIFT_RUN_LABEL} archived.`),
-                        )
-                        .catch((err: unknown) => toastApiErr(err));
-                    });
-                  }}
-                >
-                  Archive
-                </Button>
-              )}
+              ) : null}
               <GiftHistoryButton kind="drive" id={drive.id} />
             </Stack>
           </Stack>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+          <Typography
+            variant="subtitle1"
+            color="text.secondary"
+            sx={{ mb: 0.5 }}
+          >
             {occasionLabel(desk.config, drive.occasionType)}
             {drive.giftItem ? ` · ${drive.giftItem}` : ""}
             {drive.driveDate ? ` · ${drive.driveDate}` : ""}
@@ -1355,7 +1351,10 @@ export default function DriveDetail() {
                 <Box
                   component="span"
                   className={sensitive.cls}
-                  sx={{ display: "inline-block" }}
+                  sx={{
+                    display: "inline-block",
+                    fontWeight: 700,
+                  }}
                 >
                   {formatCurrencyCompact(Number(drive.costPerGift))}
                 </Box>
@@ -1434,7 +1433,9 @@ export default function DriveDetail() {
           }}
         >
           <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>
-            Assign for whole {GIFT_RUN_LABEL}
+            {selectedRows.length > 0
+              ? `Edit selected (${selectedRows.length})`
+              : "Apply to whole Gift Run"}
           </Typography>
           <Typography
             variant="caption"
@@ -1442,156 +1443,105 @@ export default function DriveDetail() {
             display="block"
             sx={{ mb: 1.5 }}
           >
-            Per person: use the Assignee column in the table. Select rows for a
-            batch assignee (below or in the table toolbar).
+            {selectedRows.length > 0
+              ? "Changes apply only to the selected people."
+              : "No rows selected — changes apply to everyone. Select rows to limit the update."}
           </Typography>
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={2}
-            alignItems={{ sm: "flex-end" }}
-          >
-            <AssigneeFieldSelect
-              label="Assignee (all)"
-              value={wholeAssignee}
-              fallbackName={drive.defaultAssigneeName}
-              options={assigneeOptions}
-              onChange={(id) => applyWholeAssignee(id)}
-            />
-            <TextField
-              select
-              size="small"
-              label="Mode (all)"
-              value={wholeModeSelectValue}
-              onChange={(e) =>
-                applyWholeMode(e.target.value as DeliveryMode | "ALL")
-              }
-              sx={{ minWidth: 180 }}
+          <Stack spacing={2}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={2}
+              alignItems={{ sm: "flex-end" }}
+              flexWrap="wrap"
+              useFlexGap
             >
-              {wholeModeSelectValue === "ALL" && (
-                <MenuItem value="ALL">All</MenuItem>
-              )}
-              {deliveryModes.map((m: ConfigOption) => (
-                <MenuItem key={m.id} value={m.id}>
-                  {m.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
-
-          {selectedRows.length > 0 && (
-            <>
-              <Typography
-                variant="subtitle2"
-                fontWeight={700}
-                sx={{ mt: 2.5, mb: 1.5 }}
+              <AssigneeFieldSelect
+                label="Assignee"
+                value={selectionAssigneeId}
+                options={assigneeOptions}
+                onChange={setSelectionAssigneeId}
+              />
+              <TextField
+                select
+                size="small"
+                label="Delivery status"
+                value={selectionStatus}
+                onChange={(e) => setSelectionStatus(e.target.value)}
+                sx={{ minWidth: 160 }}
               >
-                Edit selected ({selectedRows.length})
-              </Typography>
-              <Stack spacing={2}>
-                <Stack
-                  direction={{ xs: "column", sm: "row" }}
-                  spacing={2}
-                  alignItems={{ sm: "flex-end" }}
-                  flexWrap="wrap"
-                  useFlexGap
+                <MenuItem value="">—</MenuItem>
+                {deliveryStatuses.map((s: ConfigOption) => (
+                  <MenuItem key={s.id} value={s.id}>
+                    {s.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                size="small"
+                label="Mode"
+                value={selectionMode}
+                onChange={(e) => setSelectionMode(e.target.value)}
+                sx={{ minWidth: 140 }}
+              >
+                <MenuItem value="">—</MenuItem>
+                {deliveryModes.map((m: ConfigOption) => (
+                  <MenuItem key={m.id} value={m.id}>
+                    {m.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                type="number"
+                size="small"
+                label="Qty"
+                value={selectionQty}
+                onChange={(e) => setSelectionQty(e.target.value)}
+                inputProps={{ min: 1 }}
+                sx={{ width: 90 }}
+              />
+              <TextField
+                size="small"
+                label="Remark"
+                value={selectionRemark}
+                onChange={(e) => setSelectionRemark(e.target.value)}
+                sx={{ minWidth: 160 }}
+              />
+              {selectionStatus === "SKIPPED" && (
+                <TextField
+                  select
+                  size="small"
+                  label="Skip reason"
+                  value={selectionSkipReason || "REFUSED"}
+                  onChange={(e) => setSelectionSkipReason(e.target.value)}
+                  sx={{ minWidth: 150 }}
                 >
-                  <TextField
-                    select
-                    size="small"
-                    label="Delivery status"
-                    value={selectionStatus}
-                    onChange={(e) => setSelectionStatus(e.target.value)}
-                    sx={{ minWidth: 160 }}
-                  >
-                    <MenuItem value="">—</MenuItem>
-                    {deliveryStatuses.map((s: ConfigOption) => (
-                      <MenuItem key={s.id} value={s.id}>
-                        {s.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                  <TextField
-                    select
-                    size="small"
-                    label="Mode"
-                    value={selectionMode}
-                    onChange={(e) => setSelectionMode(e.target.value)}
-                    sx={{ minWidth: 140 }}
-                  >
-                    <MenuItem value="">—</MenuItem>
-                    {deliveryModes.map((m: ConfigOption) => (
-                      <MenuItem key={m.id} value={m.id}>
-                        {m.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                  <TextField
-                    type="number"
-                    size="small"
-                    label="Qty"
-                    value={selectionQty}
-                    onChange={(e) => setSelectionQty(e.target.value)}
-                    inputProps={{ min: 1 }}
-                    sx={{ width: 90 }}
-                  />
-                  <TextField
-                    size="small"
-                    label="Remark"
-                    value={selectionRemark}
-                    onChange={(e) => setSelectionRemark(e.target.value)}
-                    sx={{ minWidth: 160 }}
-                  />
-                  {selectionStatus === "SKIPPED" && (
-                    <TextField
-                      select
-                      size="small"
-                      label="Skip reason"
-                      value={selectionSkipReason || "REFUSED"}
-                      onChange={(e) => setSelectionSkipReason(e.target.value)}
-                      sx={{ minWidth: 150 }}
-                    >
-                      {SKIP_REASON_OPTIONS.map((o) => (
-                        <MenuItem key={o.id} value={o.id}>
-                          {o.name}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                </Stack>
-                <Stack spacing={1}>
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={2}
-                    alignItems={{ sm: "flex-end" }}
-                    flexWrap="wrap"
-                    useFlexGap
-                  >
-                    <AssigneeFieldSelect
-                      label="Assignee"
-                      value={selectionAssigneeId}
-                      options={assigneeOptions}
-                      onChange={setSelectionAssigneeId}
-                    />
-                    <Button
-                      size="medium"
-                      variant="contained"
-                      onClick={applyFieldsToSelected}
-                    >
-                      Apply to selected
-                    </Button>
-                    <Button
-                      size="medium"
-                      color="error"
-                      variant="contained"
-                      onClick={removeSelectedFromRun}
-                    >
-                      Remove from Gift Run
-                    </Button>
-                  </Stack>
-                </Stack>
-              </Stack>
-            </>
-          )}
+                  {SKIP_REASON_OPTIONS.map((o) => (
+                    <MenuItem key={o.id} value={o.id}>
+                      {o.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+              <Button
+                size="medium"
+                variant="contained"
+                onClick={applyBulkFields}
+              >
+                {selectedRows.length > 0 ? "Apply to selected" : "Apply to all"}
+              </Button>
+              {selectedRows.length > 0 ? (
+                <Button
+                  size="medium"
+                  color="error"
+                  variant="contained"
+                  onClick={removeSelectedFromRun}
+                >
+                  Remove from Gift Run
+                </Button>
+              ) : null}
+            </Stack>
+          </Stack>
         </Box>
       ) : (
         <Alert severity="info" sx={{ mb: 2 }}>
@@ -1605,6 +1555,12 @@ export default function DriveDetail() {
         open={editOpen}
         drive={drive}
         onClose={() => setEditOpen(false)}
+      />
+
+      <DriveCreateModal
+        open={createFromRunOpen}
+        onClose={() => setCreateFromRunOpen(false)}
+        fromDrive={drive}
       />
 
       <GlassDialog
@@ -1625,7 +1581,13 @@ export default function DriveDetail() {
             These people are added only to this run — not to the linked People
             Group.
           </Typography>
-          <PersonPicker selected={pickerPeople} onChange={setPickerPeople} />
+          <PersonPicker
+            selected={pickerPeople}
+            onChange={setPickerPeople}
+            baselineSelected={existingPickerPeople}
+            baselineLabel="Gift Run"
+            hideSelectedPanels
+          />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
           <WtButton
@@ -1641,6 +1603,51 @@ export default function DriveDetail() {
         </DialogActions>
       </GlassDialog>
 
+      <GiftRunFilterSheet
+        open={filterSheetOpen}
+        value={filters}
+        visibleCount={tableRows.length}
+        totalCount={drive.recipients.length}
+        statusOptions={[
+          { value: "ALL", label: "All" },
+          ...deliveryStatuses.map((status) => ({
+            value: status.id,
+            label: status.name,
+          })),
+        ]}
+        modeOptions={[
+          { value: "ALL", label: "All" },
+          ...deliveryModes.map((mode) => ({
+            value: mode.id,
+            label: mode.name,
+          })),
+        ]}
+        genderOptions={[
+          { value: "ALL", label: "All" },
+          ...genderFilterOptions.map((gender) => ({
+            value: gender,
+            label: gender,
+          })),
+        ]}
+        designationOptions={[
+          { value: "ALL", label: "All" },
+          ...designationFilterOptions.map((designation) => ({
+            value: designation,
+            label: designation,
+          })),
+        ]}
+        areaOptions={[
+          { value: "ALL", label: "All" },
+          ...areas.map((area) => ({ value: area, label: area })),
+        ]}
+        assigneeOptions={recipientAssigneeFilterOptions}
+        onClose={() => setFilterSheetOpen(false)}
+        onApply={(nextFilters) => {
+          setFilters(nextFilters);
+          setFilterSheetOpen(false);
+        }}
+      />
+
       <MaterialTable
         key={`Courtesy-Gift-Run-Recipients-${tableSelectionReset}`}
         tableName="Courtesy-Gift-Run-Recipients"
@@ -1652,7 +1659,17 @@ export default function DriveDetail() {
         enableRowSelection={runEditable}
         showColumnFooter
         onSelectedRowsChange={setSelectedRows}
-        renderTopToolbarRightActions={() => toolbarFilters}
+        renderToolbarIconActions={() => (
+          <FilterSheetButton
+            count={activeFilterCount}
+            onClick={() => setFilterSheetOpen(true)}
+          />
+        )}
+        renderTopToolbarRightActions={
+          runEditable
+            ? () => <WtButton onClick={openAddPeople}>Add people</WtButton>
+            : undefined
+        }
         muiTableProps={{
           muiTableBodyRowProps: ({ row }) => ({
             sx: {

@@ -1,65 +1,38 @@
-import React from "react";
-import RadioInput, { RadioButton } from "@app/modules/common/inputs/RadioInput";
-import HighlightErrors from "@app/modules/errors/components/HighlightErrors";
-import TextInput from "@app/modules/common/inputs/TextInput";
+import { Box } from "@mui/material";
+import { WtChoiceField, WtFieldFormik } from "@app/modules/common/components/ui";
 
-const mealPreferencesRadioBtns: RadioButton[] = [
+const mealPreferences = [
   { label: "Vegetarian", value: "0" },
   { label: "Non-Vegetarian", value: "1" },
   { label: "Vegan", value: "2" },
 ];
 
-function MealPreferences({ formikProps }: any) {
+function MealPreferences({ formikProps: _formikProps }: { formikProps?: any }) {
   return (
-    <div className="d-flex flex-column" style={{ gap: "0px" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       {/* Row 1: Meal Preference */}
-      <div className="row g-3 m-0">
-        <div className="col-12">
-          <label className="form-label fw-semibold mb-4">Meal Preference</label>
-
-          {/* Radios in one row on desktop, stacked on mobile */}
-          <div className="d-flex flex-lg-row flex-column gap-3 flex-wrap">
-            {mealPreferencesRadioBtns.map((btn, i) => (
-              <div key={i}>
-                <RadioInput
-                  isRequired={false}
-                  radioBtns={[btn]} // one per input
-                  formikField="meal"
-                  hideError // render one shared error below instead of three duplicates
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Single error message for the whole "meal" radio group. */}
-          <HighlightErrors isRequired={false} formikField="meal" />
-        </div>
-      </div>
+      <Box>
+          <WtChoiceField name="meal" label="Meal Preference" variant="segmented" options={mealPreferences} />
+      </Box>
 
       {/* Row 2: Hobbies */}
-      <div className="row g-3 m-0">
-        <div className="col-12">
-          <TextInput
-            isRequired={false}
+      <Box>
+          <WtFieldFormik
+            required={false}
             label="Hobbies"
-            formikField="hobbies"
-            margin="mb-0"
+            name="hobbies"
           />
-        </div>
-      </div>
+      </Box>
 
       {/* Row 3: Notes */}
-      <div className="row g-3 m-0">
-        <div className="col-12">
-          <TextInput
-            isRequired={false}
+      <Box>
+          <WtFieldFormik
+            required={false}
             label="Notes"
-            formikField="notes"
-            margin="mb-0"
+            name="notes"
           />
-        </div>
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 

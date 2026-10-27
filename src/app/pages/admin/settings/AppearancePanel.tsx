@@ -11,7 +11,8 @@
  * Layout follows the Billing entity pattern: a “now” summary strip of glass
  * cards, then accent-topped {@link SettingsSection}s for each axis.
  */
-import type { ChangeEvent } from 'react';
+import { useCallback, useState, type ChangeEvent } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import {
@@ -20,7 +21,12 @@ import {
   SegmentedControl,
   SettingsSection,
   WtButton,
+  toast,
 } from '@app/modules/common/components/ui';
+import { usePermission } from '@hooks/usePermission';
+import { saveCurrentCompanyInfo } from '@redux/slices/company';
+import type { RootState } from '@redux/store';
+import { updateCompanyOverview } from '@services/company';
 import { TRIO } from '@app/modules/common/components/ui/tw/tokens';
 import { sheetSx, accentWash, onAccent as contrastOn } from '@app/theme/surfaces';
 import { useAppearance } from '@app/theme/ColorMode';
@@ -31,6 +37,7 @@ import {
   readableOn,
   type BrandPalette,
   type ColorPreference,
+  type SurfacePreference,
   type SurfaceStyle,
 } from '@app/theme/appearance';
 import { SettingsNowTile } from './SettingsNowTile';
@@ -41,10 +48,73 @@ const MODE_OPTIONS = [
   { value: 'system' as const, label: 'System' },
 ];
 
-const SURFACE_OPTIONS = [
+const ORG_SURFACE_OPTIONS = [
   { value: 'glass' as const, label: 'Glass' },
   { value: 'material' as const, label: 'Material' },
 ];
+
+const SURFACE_OPTIONS = [{ value: 'inherit' as const, label: 'Org default' }, ...ORG_SURFACE_OPTIONS];
+
+/**
+ * The organisation's Interface Style default — what everyone on "Org default" sees.
+ * Same save path and permission as the organisation time format (DateTimePanel).
+ */
+function OrgSurfaceDefault() {
+  const dispatch = useDispatch();
+  const canManageOrg = usePermission('settings.manage.all');
+  const { orgSurface } = useAppearance();
+  // The whole record: saveCurrentCompanyInfo REPLACES currentCompany rather than merging.
+  const currentCompany = useSelector((s: RootState) => (s as any)?.company?.currentCompany);
+  const companyId: string | undefined = currentCompany?.id;
+  const [saving, setSaving] = useState(false);
+
+  const save = useCallback(async (next: SurfaceStyle) => {
+    if (!companyId) {
+      toast({ icon: 'error', title: 'Could not load your organisation', text: 'Reload the page and try again.' });
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await updateCompanyOverview(companyId, { interfaceStyle: next } as any);
+      if (!res || res.hasError) throw new Error('Update rejected');
+      dispatch(saveCurrentCompanyInfo({ ...currentCompany, interfaceStyle: next }) as any);
+      toast({ icon: 'success', title: `Organisation default is now ${next === 'glass' ? 'Glass' : 'Material'}` });
+    } catch {
+      toast({ icon: 'error', title: 'Could not save the organisation interface style' });
+    } finally {
+      setSaving(false);
+    }
+  }, [companyId, currentCompany, dispatch]);
+
+  if (!canManageOrg) return null;
+
+  return (
+    <Stack
+      direction={{ xs: 'column', sm: 'row' }}
+      spacing={1.5}
+      alignItems={{ xs: 'flex-start', sm: 'center' }}
+      justifyContent="space-between"
+      sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}
+    >
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>Organisation default</Typography>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          {orgSurface ? 'Applies to everyone on “Org default”.' : 'Not set — everyone on “Org default” sees Material.'}
+        </Typography>
+      </Box>
+      <SegmentedControl<SurfaceStyle>
+        options={ORG_SURFACE_OPTIONS.map((o) => ({
+          ...o,
+          disabled: saving || !companyId,
+          disabledReason: saving ? 'Saving…' : 'Organisation not loaded yet',
+        }))}
+        value={orgSurface ?? 'material'}
+        onChange={save}
+        ariaLabel="Organisation interface style"
+      />
+    </Stack>
+  );
+}
 
 /** The four roles, named for what they DO rather than for where they sit in the logo. */
 const BRAND_ROLES: ReadonlyArray<{ key: keyof BrandPalette; label: string; hint: string }> = [
@@ -72,7 +142,7 @@ export function AppearanceHeaderActions() {
 
 export function AppearancePanel() {
   const theme = useTheme();
-  const { mode, preference, setPreference, brand, setBrand, surface, setSurface } = useAppearance();
+  const { mode, preference, setPreference, brand, setBrand, surface, surfacePreference, setSurface } = useAppearance();
 
   const isDefaultBrand = BRAND_ROLES.every(
     ({ key }) => brand[key].toLowerCase() === DEFAULT_BRAND[key].toLowerCase(),
@@ -110,7 +180,7 @@ export function AppearancePanel() {
           trio={TRIO.cyan}
           label="Surface"
           value={surface === 'glass' ? 'Glass' : 'Material'}
-          hint={surface === 'glass' ? 'Frost + blur' : 'Opaque elevation'}
+          hint={surfacePreference === 'inherit' ? 'Organisation default' : surface === 'glass' ? 'Frost + blur' : 'Opaque elevation'}
         />
       </Box>
 
@@ -218,19 +288,21 @@ export function AppearancePanel() {
           title="interface style"
           description="Frosted translucent surfaces, or opaque ones with flat elevation."
           action={
-            <SegmentedControl<SurfaceStyle>
+            <SegmentedControl<SurfacePreference>
               options={SURFACE_OPTIONS}
-              value={surface}
+              value={surfacePreference}
               onChange={setSurface}
-              ariaLabel="Interface style"
+              ariaLabel="Your interface style"
             />
           }
         >
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            {surfacePreference === 'inherit' && `Following your organisation: ${surface === 'glass' ? 'Glass' : 'Material'}. `}
             {surface === 'glass'
               ? 'Glass: surfaces are translucent and blur what is behind them, the way macOS and iOS panels do.'
               : 'Material: surfaces are opaque and separated by elevation instead of blur — steadier on low-powered devices and easier to read over busy backgrounds.'}
           </Typography>
+          <OrgSurfaceDefault />
         </SettingsSection>
       </Box>
 

@@ -11,7 +11,7 @@ import { Form, Formik, FormikValues } from 'formik';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { successConfirmation } from '@utils/modal';
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
-import RadioInput from '@app/modules/common/inputs/RadioInput';
+import { WtChoiceField } from '@app/modules/common/components/ui';
 import { onSiteAndHolidayWeekendSettingsOnOffName } from '@constants/statistics';
 
 const ruleSchema = Yup.object({
@@ -93,7 +93,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
         };
 
         await saveConfig(payload);
-        successConfirmation('Rule deleted successfully');
+        successConfirmation('Rule deleted.');
         fetchLeaveConfiguration();
     }
 
@@ -132,7 +132,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
             if (editMode) {
                 await saveConfig(payload);
                 setLoading(false);
-                successConfirmation('Rule updated successfully');
+                successConfirmation('Rule updated.');
                 fetchLeaveConfiguration();
                 setShow(false);
                 setEditMode(false);
@@ -141,7 +141,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
 
             await saveConfig(payload);
             setLoading(false);
-            successConfirmation('Rule created successfully');
+            successConfirmation('Rule created.');
             fetchLeaveConfiguration();
             setShow(false);
         } catch (err) {
@@ -256,13 +256,15 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
                                     {initialState?.name == onSiteAndHolidayWeekendSettingsOnOffName ?
                                     <div className="row px-3 my-3">
                                         <div className="col-lg-12 fv-row">
-                                            <RadioInput
-                                                isRequired={true}
-                                                formikField="value"
-                                                radioBtns={[
-                                                    { label: 'On', value: '1' },
-                                                    { label: 'Off', value: '0' },
+                                            <WtChoiceField
+                                                name="value"
+                                                label="Setting"
+                                                variant="switch"
+                                                options={[
+                                                    { value: "true", label: "Enabled" },
+                                                    { value: "false", label: "Disabled" },
                                                 ]}
+                                                required
                                             />
                                         </div>
                                     </div> :

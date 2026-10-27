@@ -7,7 +7,8 @@ import { useIsDark } from './tw/useIsDark';
 /**
  * Reusable button primitives for the premium UI kit — single source of truth for CTA physics.
  *
- * **Brand CTA (locked):** navy primary (`tone="primary"`) + white Cancel (`ghost`).
+ * **Global default:** compact, flat accent CTA. Opt into the navy primary
+ * (`tone="primary"`) for a high-emphasis action; Cancel stays white (`ghost`).
  * Sandwich Add Rule is the visual benchmark. Appearance may theme other chrome;
  * do **not** invent gold Cancel, yellow-on-navy primary, or a second button component.
  *
@@ -19,17 +20,19 @@ import { useIsDark } from './tw/useIsDark';
  *   • spring-ish easing cubic-bezier(.22,.61,.36,1)
  *
  * Recipe matrix:
- *   Create / Save / Submit / Add → `<WtButton>` (default primary)
+ *   Default CTA                  → `<WtButton>` (compact, flat accent)
+ *   High-emphasis Create / Save  → `<WtButton tone="primary" flat={false} size="medium">`
  *   Cancel / secondary close     → `<WtButton ghost>`
  *   Header Add on gradient       → `<WtButton inverted>`
  *   Delete / destructive         → `<WtButton tone="danger">`
  *   Success confirm              → `<WtButton tone="success">`
- *   Adjacent toolbar CTAs        → `<WtButton flat>` or `size="small"`
+ *   Spacious CTA                 → `<WtButton size="medium">`
  *   Icon-only                    → `WtIconButton` / `ActionIconButton` / `WtCloseButton`
  *   Dialog Cancel + Submit       → `GlassDialogActions` (not hand-rolled DialogActions)
  *
  * Usage:
- *   <WtButton tone="primary">Save</WtButton>
+ *   <WtButton>Save</WtButton>
+ *   <WtButton tone="primary" flat={false} size="medium">Save</WtButton>
  *   <WtButton tone="danger" startIcon={...}>Delete</WtButton>
  *   <WtButton ghost>Cancel</WtButton>
  *   <WtIconButton title="Edit" color="#2563eb"><KTIcon iconName="pencil" className="fs-3" /></WtIconButton>
@@ -200,24 +203,24 @@ const ctaDarkSx: SxProps<Theme> = {
 };
 
 export interface WtButtonProps extends ButtonProps {
-  /** CTA gradient tone. Ignored when `ghost` or `inverted` is set. Default 'primary'. */
+  /** CTA gradient tone. Ignored when `ghost` or `inverted` is set. Default 'accent'. */
   tone?: WtCtaTone;
   /** Quiet text-button variant (the standard Cancel). */
   ghost?: boolean;
   /** White pill with navy text (the gradient-header "Add" pill) — secondary/launch actions. */
   inverted?: boolean;
-  /** Same colour, no coloured glow — for toolbars where CTAs sit side by side. */
+  /** Same colour, no coloured glow. Defaults to true for the compact global CTA recipe. */
   flat?: boolean;
 }
 
 export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function WtButton(
-  { tone = 'primary', ghost = false, inverted = false, flat = false, size, sx, variant, children, ...rest }, ref,
+  { tone = 'accent', ghost = false, inverted = false, flat = true, size = 'small', sx, variant, children, ...rest }, ref,
 ) {
   // Read dark from the html class ColorModeProvider stamps — not MUI useTheme —
   // so CTAs stay mode-aware even when a subtree's ThemeContext is briefly unavailable (HMR).
   const dark = useIsDark();
-  // `small` = toolbar / ListHeader (40px + flatter glow). `medium` = spacious (44px).
-  // Default = mid density (40px). Toolbar CTAs force flat so glow doesn't bloom beside search.
+  // Default = compact accent CTA (40px + neutral elevation); opt into medium/primary
+  // when a spacious, high-emphasis action needs the full colored glow.
   const compact = size === 'small';
   const spacious = size === 'medium' || size === 'large';
   const h = spacious ? WT_CONTROL_HEIGHT_MD : WT_CONTROL_HEIGHT;

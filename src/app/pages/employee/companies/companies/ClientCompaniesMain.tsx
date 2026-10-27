@@ -21,6 +21,7 @@ import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { crmListRowSx } from "../crmListRowSx";
 
 interface ProcessedCompany extends Company {
   companyTypeName: string;
@@ -522,7 +523,7 @@ const ClientCompaniesMain = ({
   const handleDelete = (company: Company) => {
     const deleteCompany = async () => {
       try {
-        const sure = await deleteConfirmation("Company deleted successfully");
+        const sure = await deleteConfirmation("Company deleted.");
         if (!sure) return;
         console.warn("companyId", company.id);
 
@@ -609,77 +610,10 @@ const ClientCompaniesMain = ({
         muiTableProps={{
 
           muiTableBodyRowProps: ({ row }) => ({
-            // sx: {
-            //     cursor: 'pointer',
-            //     backgroundColor: `${row.original?.status?.color}`,
-            //     // borderRadius: '8px',
-            //     // margin:"20px !important"
-            // },
-            sx: {
-              cursor: "pointer",
-              // Blacklisted companies are shown as a solid black row (text turns white below
-              // so it stays readable against the black background).
-              backgroundColor: row.original?.blacklisted
-                ? "#1a1a1a"
-                : `${row.original?.companyTypeName?.color}30`,
-              // The gap between rows: a transparent border, because a virtualized table (CSS
-              // grid, not table layout) ignores `border-spacing`, and a border is measured into
-              // the row's height so the virtualizer spaces for it. No row padding — a <tr>
-              // ignored it in table layout, but in grid layout it pads every row.
-              borderBottom: "6px solid transparent",
-              backgroundClip: "padding-box",
-
-              "& .MuiTableCell-root": {
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                fontSize: "14px",
-                fontFamily: "Inter",
-                fontWeight: "400",
-                // Solid black on the CELLS (not just the row) with readable white text, so the
-                // table's default hover highlight can't wash the blacklisted row out.
-                color: row.original?.blacklisted ? "#ffffff !important" : undefined,
-                backgroundColor: row.original?.blacklisted ? "#1a1a1a !important" : undefined,
-                padding: "8px 16px !important",
-                borderBottom: "2px solid white",
-                borderTop: "2px solid white",
-                // borderLeft:"5px solid white"
-                // margin:"20px !important"
-              },
-              "& .MuiTableCell-root:first-of-type": {
-                borderTopLeftRadius: "12px",
-                borderBottomLeftRadius: "12px",
-                // marginTop:"40px !important"
-                borderLeft: "3px solid white",
-              },
-              "& .MuiTableCell-root:last-of-type": {
-                borderTopRightRadius: "12px",
-                borderBottomRightRadius: "12px",
-                borderRight: "3px solid white",
-              },
-              "&:hover": {
-                // Blacklisted rows shift to a slightly lighter charcoal on hover (a subtle,
-                // visible change) while keeping WHITE text so the content stays fully readable.
-                backgroundColor: row.original?.blacklisted
-                  ? "#3a3a3a"
-                  : `${row.original?.status?.color}99`,
-                "& td": {
-                  color: row.original?.blacklisted ? "#ffffff !important" : "black",
-                },
-              },
-              // A global rule (`.MuiTableBody-root tr.MuiTableRow-root:hover td`) forces a light
-              // hover background with !important; this higher-specificity selector overrides it so
-              // the blacklisted row keeps its dark background + white text on hover.
-              "&.MuiTableRow-root:hover .MuiTableCell-root": row.original?.blacklisted
-                ? { backgroundColor: "#3a3a3a !important", color: "#ffffff !important" }
-                : {},
-            },
-
-            // onClick: () => {
-            //     navigate(`/leads/${row.original.id}`, {
-            //         state: { leadData: row.original.id },
-            //     });
-            // },
+            // ACTIVE → soft green; CLOSED (Inactive) → soft slate. Blacklist still wins.
+            sx: crmListRowSx(row.original.status === "ACTIVE", {
+              blacklisted: !!row.original.blacklisted,
+            }),
           }),
         }}
       />

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import ClientContactsForm from "../../contacts/components/ClientContactsForm";
 import { getClientContactsByCompanyId, deleteClientContact } from "@services/companies";
+import { crmListRowSx } from "../../crmListRowSx";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -70,7 +71,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
 
   const handleDelete = async (contact: any) => {
     try {
-      const sure = await deleteConfirmation("Contact deleted successfully");
+      const sure = await deleteConfirmation("Contact deleted.");
       if (!sure) return;
       const response = await deleteClientContact(contact.id);
       fetchClientContacts();
@@ -203,6 +204,11 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         viewOthers={true}
         checkOwnWithOthers={true}
         defaultSorting={[{ id: "fullName", desc: false }]}
+        muiTableProps={{
+          muiTableBodyRowProps: ({ row }) => ({
+            sx: crmListRowSx(row.original.isContactActive !== false),
+          }),
+        }}
       />
 
       {/* Form for adding new contacts */}

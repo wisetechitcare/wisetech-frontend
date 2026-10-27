@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Box,
-  MenuItem,
   Stack,
-  TextField,
   Typography,
   alpha,
   useTheme,
@@ -21,7 +19,15 @@ import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { actionsColumn } from "@app/modules/common/components/table/columns";
 import {
   ActionIconButton,
+  AppIcon,
+  FilterSheet,
+  FilterSheetButton,
+  FormSection,
+  TRIO,
+  WtField,
+  countActiveFilters,
   useConfirmDialog,
+  usePromptDialog,
 } from "@app/modules/common/components/ui";
 import { SolidChip } from "@app/pages/billing/operations/TrackerCells";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
@@ -50,26 +56,29 @@ import {
 } from "./DriveCreate";
 import { T } from "@app/modules/common/components/ui/tokens";
 
+const EMPTY_FILTERS = { occasion: "ALL", status: "ALL" };
+
 export default function DrivesList() {
   const theme = useTheme();
   const desk = useCourtesyDesk();
   const navigate = useNavigate();
   const sensitive = useSensitiveData();
   const { ask, dialog: confirmDialog } = useConfirmDialog();
+  const { askText, dialog: promptDialog } = usePromptDialog();
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
   const [editDrive, setEditDrive] = useState<CourtesyDrive | null>(null);
   const [presetGroupId, setPresetGroupId] = useState<string | undefined>();
-  const [occasionFilter, setOccasionFilter] = useState<"ALL" | string>("ALL");
-  const [giftRunStatusFilter, setGiftRunStatusFilter] = useState<
-    "ALL" | string
-  >("ALL");
+  const [fromDrive, setFromDrive] = useState<CourtesyDrive | null>(null);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const employeeId = useSelector(
     (s: RootState) => s.employee.currentEmployee?.id,
   );
 
   useEffect(() => {
     if (searchParams.get("new") !== "1") return;
+    setFromDrive(null);
     setPresetGroupId(searchParams.get("groupId") || undefined);
     setCreateOpen(true);
     const next = new URLSearchParams(searchParams);
@@ -79,13 +88,21 @@ export default function DrivesList() {
   }, [searchParams, setSearchParams]);
 
   const openCreate = (groupId?: string) => {
+    setFromDrive(null);
     setPresetGroupId(groupId);
+    setCreateOpen(true);
+  };
+
+  const openCreateFromDrive = (drive: CourtesyDrive) => {
+    setPresetGroupId(undefined);
+    setFromDrive(drive);
     setCreateOpen(true);
   };
 
   const closeCreate = () => {
     setCreateOpen(false);
     setPresetGroupId(undefined);
+    setFromDrive(null);
   };
   // Always include archived so the status filter can surface them.
   const drives = listDrives(true);
@@ -94,14 +111,14 @@ export default function DrivesList() {
 
   const filteredDrives = useMemo(() => {
     return drives.filter((d) => {
-      if (occasionFilter !== "ALL" && d.occasionType !== occasionFilter)
+      if (filters.occasion !== "ALL" && d.occasionType !== filters.occasion)
         return false;
       // "All" keeps archived out of the default list; pick "Archived" (or a
       // specific status) to see those rows.
-      if (giftRunStatusFilter === "ALL") return d.status !== "ARCHIVED";
-      return d.status === giftRunStatusFilter;
+      if (filters.status === "ALL") return d.status !== "ARCHIVED";
+      return d.status === filters.status;
     });
-  }, [drives, occasionFilter, giftRunStatusFilter]);
+  }, [drives, filters]);
 
   const filteredAmountTotal = useMemo(
     () => filteredDrives.reduce((sum, d) => sum + giftRunTotalAmount(d), 0),
@@ -189,13 +206,15 @@ export default function DrivesList() {
           return (
             <SolidChip
               label={s?.name || row.original.status}
-              color={s?.color || giftRunStatusColor(desk.config, row.original.status)}
+              color={
+                s?.color || giftRunStatusColor(desk.config, row.original.status)
+              }
             />
           );
         },
       },
       actionsColumn({
-        size: 160,
+        size: 200,
         Cell: ({ row }) => {
           const d = row.original;
           const archived = d.status === "ARCHIVED";
@@ -216,28 +235,38 @@ export default function DrivesList() {
                 />
               ) : null}
               <ActionIconButton
+                icon={<AppIcon name="bi-gift" className="fs-6" />}
+                title={`Add ${GIFT_RUN_LABEL} (people from this run)`}
+                size="sm"
+                tone="brand"
+                onClick={() => openCreateFromDrive(d)}
+              />
+              <ActionIconButton
                 iconName="copy"
                 title={`Clone ${GIFT_RUN_LABEL}`}
                 size="sm"
                 tone="brand"
                 onClick={() => {
-                  const title = window.prompt(
-                    `New ${GIFT_RUN_LABEL} title`,
-                    `${d.title} (copy)`,
-                  );
-                  if (!title) return;
-                  void cloneDriveToApi(d.id, title)
-                    .then((cloned) => {
-                      toast.success(`${GIFT_RUN_LABEL} cloned.`);
-                      navigate(
-                        `${GIFT_MANAGEMENT_BASE}/drives/${cloned.id}`,
+                  void askText({
+                    title: `Clone ${GIFT_RUN_LABEL}`,
+                    message: `This will create a copy of the ${GIFT_RUN_LABEL} with the same Assignees, modes, and quantities.`,
+                    label: `${GIFT_RUN_LABEL} title`,
+                    defaultValue: `${d.title} (copy)`,
+                    confirmLabel: "Clone",
+                    icon: "bi-copy",
+                  }).then((title) => {
+                    if (!title) return;
+                    void cloneDriveToApi(d.id, title)
+                      .then((cloned) => {
+                        toast.success(`${GIFT_RUN_LABEL} cloned.`);
+                        navigate(`${GIFT_MANAGEMENT_BASE}/drives/${cloned.id}`);
+                      })
+                      .catch((err: unknown) =>
+                        toast.error(
+                          apiErrorMessage(err, "Something went wrong"),
+                        ),
                       );
-                    })
-                    .catch((err: unknown) =>
-                      toast.error(
-                        apiErrorMessage(err, "Something went wrong"),
-                      ),
-                    );
+                  });
                 }}
               />
               {archived ? (
@@ -330,6 +359,7 @@ export default function DrivesList() {
     ],
     [
       ask,
+      askText,
       desk.config,
       filteredAmountTotal,
       giftRunStatuses,
@@ -343,50 +373,10 @@ export default function DrivesList() {
     return alpha(c, theme.palette.mode === "dark" ? 0.22 : 0.12);
   };
 
-  const toolbarFilters = (
-    <Stack
-      direction="row"
-      spacing={1}
-      alignItems="center"
-      flexWrap="wrap"
-      useFlexGap
-    >
-      <TextField
-        select
-        size="small"
-        label="Occasion"
-        value={occasionFilter}
-        onChange={(e) => setOccasionFilter(e.target.value)}
-        sx={{ minWidth: 150 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        {occasions.map((o) => (
-          <MenuItem key={o.id} value={o.id}>
-            {o.name}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        select
-        size="small"
-        label="Gift Run status"
-        value={giftRunStatusFilter}
-        onChange={(e) => setGiftRunStatusFilter(e.target.value)}
-        sx={{ minWidth: 160 }}
-      >
-        <MenuItem value="ALL">All</MenuItem>
-        {giftRunStatuses.map((s) => (
-          <MenuItem key={s.id} value={s.id}>
-            {s.name}
-          </MenuItem>
-        ))}
-      </TextField>
-    </Stack>
-  );
-
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       {confirmDialog}
+      {promptDialog}
       <Stack
         direction={{ xs: "column", md: "row" }}
         justifyContent="space-between"
@@ -418,7 +408,12 @@ export default function DrivesList() {
         enableGrouping={false}
         enableStatusColorCoding={false}
         showColumnFooter
-        renderTopToolbarRightActions={() => toolbarFilters}
+        renderToolbarIconActions={() => (
+          <FilterSheetButton
+            count={countActiveFilters(filters, EMPTY_FILTERS)}
+            onClick={() => setFilterSheetOpen(true)}
+          />
+        )}
         muiTablePaperStyle={{
           borderRadius: `${T.radius.lg}px`,
           border: `1px solid ${T.color.line}`,
@@ -449,10 +444,54 @@ export default function DrivesList() {
         }}
       />
 
+      <FilterSheet
+        open={filterSheetOpen}
+        value={filters}
+        empty={EMPTY_FILTERS}
+        title={`Filter ${GIFT_RUN_LABEL_PLURAL}`}
+        description={`${filteredDrives.length.toLocaleString()} of ${drives.length.toLocaleString()} ${GIFT_RUN_LABEL_PLURAL} currently shown`}
+        onClose={() => setFilterSheetOpen(false)}
+        onApply={(next) => {
+          setFilters(next);
+          setFilterSheetOpen(false);
+        }}
+      >
+        {(draft, set) => (
+          <FormSection
+            tone={TRIO.green}
+            icon="gift"
+            title={GIFT_RUN_LABEL}
+            desc="Narrow the list by occasion and progress. Archived runs show only when picked."
+          >
+            <WtField
+              label="Occasion"
+              value={draft.occasion}
+              onChange={(next) => set("occasion", next)}
+              options={[
+                { value: "ALL", label: "All" },
+                ...occasions.map((o) => ({ value: o.id, label: o.name })),
+              ]}
+              fullWidth
+            />
+            <WtField
+              label={`${GIFT_RUN_LABEL} status`}
+              value={draft.status}
+              onChange={(next) => set("status", next)}
+              options={[
+                { value: "ALL", label: "All (except archived)" },
+                ...giftRunStatuses.map((st) => ({ value: st.id, label: st.name })),
+              ]}
+              fullWidth
+            />
+          </FormSection>
+        )}
+      </FilterSheet>
+
       <DriveCreateModal
         open={createOpen}
         onClose={closeCreate}
         presetGroupId={presetGroupId}
+        fromDrive={fromDrive}
       />
       <DriveEditModal
         open={!!editDrive}

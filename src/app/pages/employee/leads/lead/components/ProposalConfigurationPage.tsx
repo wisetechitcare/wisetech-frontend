@@ -1,3 +1,4 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect } from "react";
 import {
   Form,
@@ -6,8 +7,7 @@ import {
   Card,
   Row,
   Col,
-  Badge,
-  Modal,
+  Badge
 } from "react-bootstrap";
 import {
   getProposalConfigurations,
@@ -209,7 +209,7 @@ const ProposalConfigurationPage: React.FC = () => {
         { ...selectedConfig, rules: flattenedRules },
         templateBase64,
       );
-      showSuccess("Success", "Proposal configuration saved successfully.");
+      showSuccess("Success", "Proposal configuration saved.");
 
       const [configs] = await Promise.all([
         getProposalConfigurations(),

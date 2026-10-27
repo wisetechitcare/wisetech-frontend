@@ -8,14 +8,13 @@ import { ACCESS_SIDEBAR_LAYOUT, AccessLayoutGroup, AccessLayoutNode, layoutLeave
 import { SECTION_ICON } from "@hooks/useNavContainers";
 import { sectionAccent } from "@components/navigation/NavContainers/navTheme";
 import { navIcon } from "@components/navigation/NavContainers/navIcons";
-import { AppIcon, WtTooltip } from "@app/modules/common/components/ui";
+import { AppIcon, WtButton, WtIconButton, WtTooltip } from "@app/modules/common/components/ui";
 
 import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
 import type { EffLevel } from "./accessControlTypes";
 import { SECTION_TABS } from "@utils/sectionTabs";
 import { SecurityPinRowChip, SECURITY_PIN_ROW_AREAS, SupportAccessPolicyChip } from "@app/modules/common/components/SecurityPin";
-import { coloredActionBtn } from "@app/modules/configuration";
 
 // The configure screens' own icon buttons (Project Points): tinted in the permission's colour when on,
 // slate when off. Read is that screen's show/hide eye — green when on, red and slashed when off.
@@ -37,19 +36,16 @@ const ToggleIcon: React.FC<{ kind: keyof typeof KINDS; on: boolean }> = ({ kind,
 const Toggle: React.FC<{ kind: keyof typeof KINDS; on: boolean; onClick: () => void; disabled?: boolean; tip: string }> = ({ kind, on, onClick, disabled, tip }) => {
   const { name, color } = KINDS[kind];
   return (
-    <WtTooltip title={<><b>{name}</b> · {on ? "on" : "off"}<br />{tip}</>}>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        aria-label={`${name}: ${tip}`}
-        disabled={disabled}
-        onClick={onClick}
-        style={coloredActionBtn(kind === "read" && !on ? "#ef4444" : on ? color : OFF, disabled)}
-      >
-        <ToggleIcon kind={kind} on={on} />
-      </button>
-    </WtTooltip>
+    <WtIconButton
+      title={`${name}: ${on ? "on" : "off"}. ${tip}`}
+      color={kind === "read" && !on ? "#ef4444" : on ? color : OFF}
+      aria-pressed={on}
+      disabled={disabled}
+      onClick={onClick}
+      sx={{ width: 36, height: 36, p: 0.5 }}
+    >
+      <ToggleIcon kind={kind} on={on} />
+    </WtIconButton>
   );
 };
 
@@ -108,12 +104,6 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
   const allExpanded = Array.from(allKeys).every((k) => open.has(k));
   const allCollapsed = open.size === 0;
   const isOpenLevel = (m: string) => (levels[m] || "none") !== "none";
-
-  const toolBtn = (disabled: boolean): React.CSSProperties => ({
-    display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
-    border: "1px solid rgba(100,116,139,0.28)", background: "transparent", color: "inherit", fontWeight: 500, fontSize: 12,
-    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.55 : 1, whiteSpace: "nowrap",
-  });
 
   const chevron = (isOpen: boolean) => (
     <span style={{ width: 16, textAlign: "center", flexShrink: 0, color: "#8893a0", transition: "transform .18s ease", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}>
@@ -196,16 +186,14 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
           {/* Card actions, top-right: reset to role, and the section's tabs (Advanced). */}
           <Box sx={{ display: "flex", gap: 0.5, alignSelf: "flex-start", flexShrink: 0 }}>
             {isCustom && !readOnly && (
-              <WtTooltip title="Reset to role">
-                <button
-                  type="button"
-                  aria-label={`Reset ${node.label} to role`}
-                  onClick={() => onResetToRole?.(node.module)}
-                  style={coloredActionBtn("#64748B")}
-                >
-                  <RestartAltRounded sx={{ fontSize: 16 }} />
-                </button>
-              </WtTooltip>
+              <WtIconButton
+                title={`Reset ${node.label} to role`}
+                color="#64748B"
+                onClick={() => onResetToRole?.(node.module)}
+                sx={{ width: 28, height: 28, p: 0.25 }}
+              >
+                <RestartAltRounded sx={{ fontSize: 16 }} />
+              </WtIconButton>
             )}
             {pinSubject && SECURITY_PIN_ROW_AREAS[node.module] && <SecurityPinRowChip subject={pinSubject} label={node.label} areas={SECURITY_PIN_ROW_AREAS[node.module]} />}
             {pinSubject && node.module === "settings.developerMfa" && <SupportAccessPolicyChip subject={pinSubject} />}
@@ -243,17 +231,22 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
             style={{ width: "100%", height: 36, border: "1px solid rgba(100,116,139,0.28)", borderRadius: 8, padding: "0 30px 0 32px", fontSize: 13, outline: "none", color: "inherit", background: "transparent", boxSizing: "border-box" }}
           />
           {query && (
-            <button type="button" onClick={() => setQuery("")} aria-label="Clear search" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aab2bd" }}>
+            <WtIconButton
+              title="Clear search"
+              color="#aab2bd"
+              onClick={() => setQuery("")}
+              sx={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, p: 0.25 }}
+            >
               <AppIcon name="bi-x-lg" className="fs-8" />
-            </button>
+            </WtIconButton>
           )}
         </div>
-        <button type="button" onClick={() => setOpen(new Set(allKeys))} disabled={allExpanded || !!q} style={toolBtn(allExpanded || !!q)}>
-          <AppIcon name="bi-arrows-expand" /> Expand all
-        </button>
-        <button type="button" onClick={() => setOpen(new Set())} disabled={allCollapsed || !!q} style={toolBtn(allCollapsed || !!q)}>
-          <AppIcon name="bi-arrows-collapse" /> Collapse all
-        </button>
+        <WtButton ghost size="small" onClick={() => setOpen(new Set(allKeys))} disabled={allExpanded || !!q} startIcon={<AppIcon name="bi-arrows-expand" />}>
+          Expand all
+        </WtButton>
+        <WtButton ghost size="small" onClick={() => setOpen(new Set())} disabled={allCollapsed || !!q} startIcon={<AppIcon name="bi-arrows-collapse" />}>
+          Collapse all
+        </WtButton>
       </div>
 
       {blocks.length === 0 ? (

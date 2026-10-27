@@ -53,7 +53,7 @@ export const HeaderEmployee = () => {
     if (!currEmployee.id) {
       return;
     }
-    const url = getAvatar(currEmployee?.avatar || "", Number(currEmployee.gender) == 0 ? 0 : Number(currEmployee.gender) == 1 ? 1 : 2)
+    const url = getAvatar(currEmployee?.avatar || "", currEmployee.gender)
     
     setAvatarUrl(url)
   }, [currEmployee])

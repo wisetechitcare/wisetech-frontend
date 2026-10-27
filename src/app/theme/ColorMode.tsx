@@ -1,4 +1,7 @@
-import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@redux/store';
+import { ensureCurrentCompanyLoaded } from '@utils/file';
 import { ThemeProvider } from '@mui/material/styles';
 import { IconButton, IconButtonProps, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
@@ -11,11 +14,13 @@ import {
   readAppearance,
   readableOn,
   resolveMode,
+  resolveSurface,
   shade,
   writeAppearance,
   type AppearanceSettings,
   type BrandPalette,
   type ColorPreference,
+  type SurfacePreference,
   type SurfaceStyle,
   type ThemeMode,
 } from './appearance';
@@ -32,7 +37,7 @@ import {
  */
 
 type Mode = ThemeMode;
-export type { ColorPreference, SurfaceStyle, BrandPalette } from './appearance';
+export type { ColorPreference, SurfaceStyle, SurfacePreference, BrandPalette } from './appearance';
 
 const prefersDark = (): boolean => {
   try { return window.matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; }
@@ -45,11 +50,15 @@ interface ColorModeCtx {
   preference: ColorPreference;
   /** The four brand roles. */
   brand: BrandPalette;
-  /** Frosted or opaque. */
+  /** Frosted or opaque — the RESOLVED treatment everything paints from. */
   surface: SurfaceStyle;
+  /** This browser's own choice, `inherit` included. */
+  surfacePreference: SurfacePreference;
+  /** The organisation default, or null when the org has no opinion. */
+  orgSurface: SurfaceStyle | null;
   setPreference: (p: ColorPreference) => void;
   setBrand: (b: BrandPalette) => void;
-  setSurface: (s: SurfaceStyle) => void;
+  setSurface: (s: SurfacePreference) => void;
   /** Back to the shipped navy, glass, light. */
   reset: () => void;
   setMode: (m: Mode) => void;
@@ -70,7 +79,19 @@ export function ColorModeProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppearanceSettings>(readAppearance);
   const [systemDark, setSystemDark] = useState(prefersDark);
 
-  const { preference, brand, surface } = settings;
+  const { preference, brand, surface: surfacePreference } = settings;
+
+  // The organisation layer of Interface Style. `company.currentCompany` is filled lazily,
+  // so load it once the signed-in employee is known — otherwise an org default would only
+  // apply after someone happened to open a screen that loads the company.
+  const rawOrgSurface = useSelector((s: RootState) => (s as any)?.company?.currentCompany?.interfaceStyle);
+  const orgSurface: SurfaceStyle | null = rawOrgSurface === 'glass' || rawOrgSurface === 'material' ? rawOrgSurface : null;
+  const employeeCompanyId = useSelector((s: RootState) => (s as any)?.employee?.currentEmployee?.companyId);
+  useEffect(() => {
+    if (employeeCompanyId) ensureCurrentCompanyLoaded().catch(() => { /* stays on the user/fallback layers */ });
+  }, [employeeCompanyId]);
+
+  const surface = resolveSurface(surfacePreference, orgSurface);
 
   // Follow the OS while — and only while — the user asked us to. Registered
   // unconditionally so the answer is already current the moment they switch to
@@ -95,7 +116,7 @@ export function ColorModeProvider({ children }: { children: React.ReactNode }) {
 
   const setPreference = useCallback((p: ColorPreference) => commit({ preference: p }), [commit]);
   const setBrand = useCallback((b: BrandPalette) => commit({ brand: normalizeBrand(b) }), [commit]);
-  const setSurface = useCallback((s: SurfaceStyle) => commit({ surface: s }), [commit]);
+  const setSurface = useCallback((s: SurfacePreference) => commit({ surface: s }), [commit]);
   const reset = useCallback(() => commit(DEFAULT_APPEARANCE), [commit]);
 
   // Unchanged for existing callers: setting an explicit mode pins it.
@@ -172,8 +193,8 @@ export function ColorModeProvider({ children }: { children: React.ReactNode }) {
 
   const theme = useMemo(() => makeWisetechTheme(mode, brand), [mode, brand]);
   const ctx = useMemo(
-    () => ({ mode, preference, brand, surface, setPreference, setBrand, setSurface, reset, setMode, toggle }),
-    [mode, preference, brand, surface, setPreference, setBrand, setSurface, reset, setMode, toggle],
+    () => ({ mode, preference, brand, surface, surfacePreference, orgSurface, setPreference, setBrand, setSurface, reset, setMode, toggle }),
+    [mode, preference, brand, surface, surfacePreference, orgSurface, setPreference, setBrand, setSurface, reset, setMode, toggle],
   );
 
   return (

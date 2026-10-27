@@ -1,5 +1,6 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect } from "react";
-import { Modal, Button, Form } from "react-bootstrap";
+import { Button, Form } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import { createMeetingSchedule, updateMeetingSchedule } from "@services/meetingSchedule";
 import { showSuccess } from "@utils/modal";
@@ -167,11 +168,11 @@ const MeetingScheduleModal: React.FC<MeetingScheduleModalProps> = ({
     try {
       if (isEditing && initialData?.id) {
         await updateMeetingSchedule(initialData.id, payload);
-        showSuccess("Success", "Meeting schedule updated successfully.");
+        showSuccess("Success", "Meeting schedule updated.");
         eventBus.emit(EVENT_KEYS.meetingScheduleUpdated, { id: initialData.id });
       } else {
         const res = await createMeetingSchedule(payload);
-        showSuccess("Success", "Meeting schedule created successfully.");
+        showSuccess("Success", "Meeting schedule created.");
         eventBus.emit(EVENT_KEYS.meetingScheduleCreated, { id: res?.meetingSchedule?.id || "created" });
       }
       if (onSuccess) onSuccess();
@@ -374,7 +375,7 @@ const MeetingScheduleModal: React.FC<MeetingScheduleModalProps> = ({
       </Modal.Body>
 
       <Modal.Footer style={{ borderTop: "none" }}>
-        <Button variant="light" onClick={onClose} disabled={isSubmitting}>
+        <Button variant="light" data-unsaved-changes-close onClick={onClose} disabled={isSubmitting}>
           Cancel
         </Button>
         <Button

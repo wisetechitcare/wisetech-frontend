@@ -6,8 +6,6 @@ import { getAvatar } from "@utils/avatar";
 import ScoreBar from "./ScoreBar";
 import { ToneChip } from "@app/modules/common/components/ui";
 
-type Gender = 0 | 1 | 2;
-
 // Helper to add ordinal suffix to rank number
 function getOrdinalSuffix(rank: number): string {
   const j = rank % 10,
@@ -47,10 +45,7 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
     fromAdmin ? state.employee?.selectedEmployee : state.employee.currentEmployee
   );
 
-  const avatar = getAvatar(
-    employee.avatar || "",
-    employee.gender as unknown as Gender
-  );
+  const avatar = getAvatar(employee.avatar || "", employee.gender);
 
   const percentage = Math.max(0, Math.min((yourPoints / (maxTotal || 1)) * 100, 100));
 

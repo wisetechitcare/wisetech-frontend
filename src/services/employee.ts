@@ -1822,8 +1822,10 @@ export const fetchReimbursementPaymentQueueCount = async () => {
     return data;
 };
 
-export const fetchReimbursementBatchById = async (batchId: string) => {
-    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_BATCH}/${batchId}`);
+export const fetchReimbursementBatchById = async (batchId: string, approverOnly = false) => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_BATCH}/${batchId}`, {
+        params: approverOnly ? { scope: 'approver' } : undefined,
+    });
     return data;
 };
 

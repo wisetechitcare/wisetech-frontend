@@ -2,14 +2,18 @@
  * The appearance engine's pure half — the parts that decide what a setting
  * MEANS, independent of React or the DOM.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  DEFAULT_APPEARANCE,
   DEFAULT_BRAND,
   BRAND_PRESETS,
   normalizeBrand,
+  readAppearance,
   readableOn,
   resolveMode,
+  resolveSurface,
   shade,
+  writeAppearance,
 } from './appearance';
 
 describe('mode resolves, and system keeps following', () => {
@@ -74,5 +78,43 @@ describe('derived colours', () => {
     const lightened = shade(DEFAULT_BRAND.primary, 0.42);
     expect(lightened).not.toBe(DEFAULT_BRAND.primary);
     expect(readableOn(lightened)).toBeTruthy();
+  });
+});
+
+describe('interface style cascade', () => {
+  it('a personal choice beats the org default; inherit follows it; nothing set is Material', () => {
+    expect(resolveSurface('material', 'glass')).toBe('material');
+    expect(resolveSurface('inherit', 'glass')).toBe('glass');
+    expect(resolveSurface('inherit', null)).toBe('material');
+    expect(resolveSurface('inherit', 'junk')).toBe('material');
+  });
+});
+
+describe('stored surface migration', () => {
+  const backing = new Map<string, string>();
+  beforeEach(() => {
+    backing.clear();
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => backing.get(k) ?? null,
+      setItem: (k: string, v: string) => void backing.set(k, v),
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const stored = (v: object) => backing.set('wt-appearance', JSON.stringify(v));
+
+  // Before the org default, every save wrote the default 'material', so it cannot mean "chosen".
+  it('old material becomes inherit, old glass stays glass', () => {
+    stored({ preference: 'light', surface: 'material' });
+    expect(readAppearance().surface).toBe('inherit');
+    stored({ preference: 'light', surface: 'glass' });
+    expect(readAppearance().surface).toBe('glass');
+  });
+
+  it('an explicit Material chosen after the migration survives a reload', () => {
+    writeAppearance({ ...DEFAULT_APPEARANCE, surface: 'material' });
+    expect(readAppearance().surface).toBe('material');
+    writeAppearance({ ...DEFAULT_APPEARANCE, surface: 'inherit' });
+    expect(readAppearance().surface).toBe('inherit');
   });
 });

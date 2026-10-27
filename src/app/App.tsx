@@ -16,8 +16,11 @@ import { usePushSubscription } from '../hooks/usePushSubscription';
 import { Toaster } from 'sonner';
 import { ColorModeProvider } from '@app/theme/ColorMode';
 import { GlassToastProvider } from '@app/modules/common/components/ui';
+import { DialogServiceHost } from '@app/modules/common/components/ui/dialogService';
+import { UnsavedChangesProvider } from '@app/modules/common/components/ui/UnsavedChangesProvider';
 import { useTimeFormat } from '@hooks/useTimeFormat';
 import { useCurrencyCode } from '@hooks/useCurrency';
+import { PwaHost } from './pwa/PwaHost';
 // import { MaintenancePage } from './modules/errors/MaintenancePage';
 // import { NoInternetPage } from './modules/errors/NoInternetPage';
 
@@ -208,9 +211,15 @@ const App = () => {
                   No CssBaseline so Metronic/Bootstrap global styles stay intact. */}
               <ColorModeProvider>
                 <GlassToastProvider>
-                  <Outlet key={`${timeFormat}:${currency}`} />
+                  <UnsavedChangesProvider>
+                    <Outlet key={`${timeFormat}:${currency}`} />
+                  </UnsavedChangesProvider>
                   <MasterInit />
                   <Toaster richColors position="top-right" />
+                  <PwaHost />
+                  {/* The one imperative dialog (showDialog / confirmDialog / utils/modal helpers).
+                      Mounted for signed-out screens too — login errors use it. */}
+                  <DialogServiceHost />
 
                   {/* Global Timer Modal - only render when authenticated */}
                   {isAuthenticated && <GlobalTimerModal />}

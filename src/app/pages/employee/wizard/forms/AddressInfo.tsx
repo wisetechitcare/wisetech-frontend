@@ -335,9 +335,9 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
     };
 
     return (
-        <div className="d-flex flex-column gap-4">
+        <div className="flex flex-col gap-4">
   {/* Current Address Section */}
-  <div className="d-flex flex-column gap-3">
+  <div className="flex flex-col gap-3">
     {/* Header */}
     <p
       style={{
@@ -361,8 +361,8 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
     />
 
     {/* Row 1: Address */}
-    <div className="row g-3">
-      <div className="col-12">
+    <div className="grid grid-cols-1 gap-3">
+      <div className="col-span-full">
         <WtFieldFormik
           name="addressInfo.presentAddressLine1"
           label="Address"
@@ -373,9 +373,9 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
     </div>
 
     {/* Row 2: Country, State, City */}
-    <div className="row g-3">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
       <div
-        className="col-lg-4 col-md-6 col-sm-12"
+        className="min-w-0"
         onClick={fetchCountries}
       >
         <LocationDropdown
@@ -405,7 +405,7 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
       </div>
 
       <div
-        className="col-lg-4 col-md-6 col-sm-12"
+        className="min-w-0"
         onClick={fetchPresentStates}
       >
         <LocationDropdown
@@ -432,7 +432,7 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
       </div>
 
       <div
-        className="col-lg-4 col-md-6 col-sm-12"
+        className="min-w-0"
         onClick={fetchPresentCities}
       >
         <LocationDropdown
@@ -456,19 +456,19 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
     </div>
 
     {/* Row 3: Address Line 2, Zip Code */}
-    <div className="row g-3">
-      <div className="col-lg-6 col-md-6 col-sm-12">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="min-w-0">
         <WtFieldFormik name="addressInfo.presentAddressLine2" label="Address Line 2" fullWidth />
       </div>
 
-      <div className="col-lg-6 col-md-6 col-sm-12">
+      <div className="min-w-0">
         <WtFieldFormik name="addressInfo.presentPostalCode" label="Zip Code" fullWidth />
       </div>
     </div>
   </div>
 
   {/* Permanent Address Section */}
-  <div className="d-flex flex-column gap-3">
+  <div className="flex flex-col gap-3">
     {/* Header */}
     <p
       style={{
@@ -484,18 +484,15 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
     </p>
 
     {/* Checkbox - Same as current address */}
-    <div className="d-flex align-items-center gap-2 mb-2">
-      <label
-        className="form-check form-check-sm form-check-custom form-check-solid m-0"
-      >
+    <div className="flex items-center gap-2 mb-2">
+      <label>
         <input
-          className="form-check-input"
           type="checkbox"
           value="checked"
           checked={isSameAddress}
           onChange={handleSameAsAbove}
         />
-        <span className="form-check-label">Same as current address</span>
+        <span>Same as current address</span>
       </label>
     </div>
 
@@ -511,8 +508,8 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
     )}
 
     {/* Row 1: Address */}
-    <div className="row g-3">
-      <div className="col-12">
+    <div className="grid grid-cols-1 gap-3">
+      <div className="col-span-full">
         <WtFieldFormik
           name="addressInfo.permanentAddressLine1"
           label="Address"
@@ -523,9 +520,9 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
     </div>
 
     {/* Row 2: Country, State, City */}
-    <div className="row g-3">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
       <div
-        className="col-lg-4 col-md-6 col-sm-12"
+        className="min-w-0"
         onClick={fetchCountries}
       >
         <LocationDropdown
@@ -553,7 +550,7 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
       </div>
 
       <div
-        className="col-lg-4 col-md-6 col-sm-12"
+        className="min-w-0"
         onClick={fetchPermanentStates}
       >
         <LocationDropdown
@@ -580,7 +577,7 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
       </div>
 
       <div
-        className="col-lg-4 col-md-6 col-sm-12"
+        className="min-w-0"
         onClick={fetchPermanentCities}
       >
         <LocationDropdown
@@ -604,12 +601,12 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
     </div>
 
     {/* Row 3: Address Line 2, Zip Code */}
-    <div className="row g-3">
-      <div className="col-lg-6 col-md-6 col-sm-12">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="min-w-0">
         <WtFieldFormik name="addressInfo.permanentAddressLine2" label="Address Line 2" fullWidth />
       </div>
 
-      <div className="col-lg-6 col-md-6 col-sm-12">
+      <div className="min-w-0">
         <WtFieldFormik name="addressInfo.permanentPostalCode" label="Zip Code" fullWidth />
       </div>
     </div>

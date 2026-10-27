@@ -1,5 +1,6 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState } from "react";
-import { Modal, Button } from "react-bootstrap";
+import { Button } from "react-bootstrap";
 import Select from "react-select";
 import { createSubService, updateSubService } from "@services/companies";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
@@ -51,7 +52,7 @@ const SubServiceModal: React.FC<Props> = ({ show, onClose, services, defaultPare
         ? await updateSubService(initialData!.id, payload)
         : await createSubService(payload);
       const saved = res?.subService ?? res?.data?.subService ?? res;
-      successConfirmation(`Sub-service ${isEditing ? "updated" : "created"} successfully`);
+      successConfirmation(`Sub-service ${isEditing ? "updated" : "created"}`);
       eventBus.emit(EVENT_KEYS.subServiceCreated, { id: saved?.id ?? initialData?.id });
       onCreated?.({ id: saved?.id ?? initialData!.id, name: saved?.name ?? name.trim(), parentServiceId });
       onClose();

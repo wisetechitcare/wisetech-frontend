@@ -27,21 +27,15 @@ export function MenuInner() {
         >
           <MenuInnerWithSub
             title='Profile'
-            to='/crafted/pages/profile'
+            to='/employee/profile/overview'
             hasArrow={true}
             hasBullet={true}
             menuPlacement='right-start'
             menuTrigger={`{default:'click', lg: 'hover'}`}
           >
-            <MenuItem to='/crafted/pages/profile/overview' title='Overview' hasBullet={true} />
-            <MenuItem to='/crafted/pages/profile/projects' title='Projects' hasBullet={true} />
-            <MenuItem to='/crafted/pages/profile/campaigns' title='Campaigns' hasBullet={true} />
-            <MenuItem to='/crafted/pages/profile/documents' title='Documents' hasBullet={true} />
-            <MenuItem
-              to='/crafted/pages/profile/connections'
-              title='Connections'
-              hasBullet={true}
-            />
+            <MenuItem to='/employee/profile/overview' title='Overview' hasBullet={true} />
+            <MenuItem to='/employee/profile/edit' title='Edit Profile' hasBullet={true} />
+            <MenuItem to='/employee/profile/documents' title='Documents' hasBullet={true} />
           </MenuInnerWithSub>
           <MenuInnerWithSub
             title='Wizards'
@@ -56,18 +50,6 @@ export function MenuInner() {
           </MenuInnerWithSub>
         </MenuInnerWithSub>
 
-        {/* ACCOUNT */}
-        <MenuInnerWithSub
-          title='Accounts'
-          to='/crafted/accounts'
-          fontIcon='bi-person'
-          hasArrow={true}
-          menuPlacement='right-start'
-          menuTrigger={`{default:'click', lg: 'hover'}`}
-        >
-          <MenuItem to='/crafted/account/overview' title='Overview' hasBullet={true} />
-          <MenuItem to='/crafted/account/settings' title='Settings' hasBullet={true} />
-        </MenuInnerWithSub>
 
         {/* ERRORS */}
         <MenuInnerWithSub

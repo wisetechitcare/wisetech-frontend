@@ -2,9 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
     Avatar, Box, CircularProgress, Dialog, DialogContent, Stack, Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
-import Swal from 'sweetalert2';
 import { KTIcon } from '@metronic/helpers';
-import { PlainDialogHeader, WtButton } from '@app/modules/common/components/ui';
+import { PlainDialogHeader, WtButton, confirmDialog } from '@app/modules/common/components/ui';
 import { getMeetingAttendance, setMeetingAttendance } from '@services/employee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { apiErrorMessage } from '@app/pages/employee/tasks/taskDomain';
@@ -113,19 +112,17 @@ const MeetingAttendeesDialog: React.FC<MeetingAttendeesDialogProps> = ({
             // list and the meeting leaves their timesheet. Naming both is what makes it a
             // decision rather than a click.
             const self = a.employeeId === employeeId;
-            const result = await Swal.fire({
+            // Title is plain text (React escapes the name); the body is fixed copy only.
+            const confirmed = await confirmDialog({
+                icon: 'question',
                 title: self ? 'Mark yourself as absent?' : `Mark ${a.name} as absent?`,
                 html: `${self ? 'You are' : 'They are'} removed from the attendee list, and this meeting `
                     + `no longer appears in ${self ? 'your' : 'their'} timesheet.`
                     + '<br/><br/>The invitation is retained, and this can be reversed.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#B45309',
-                cancelButtonColor: '#64748B',
-                confirmButtonText: 'Mark absent',
-                cancelButtonText: 'Cancel',
+                confirmText: 'Mark absent',
+                cancelText: 'Cancel',
             });
-            if (!result.isConfirmed) return;
+            if (!confirmed) return;
         }
         setSaving(a.employeeId);
         try {

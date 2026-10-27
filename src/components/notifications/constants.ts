@@ -38,10 +38,12 @@ export const STATUS_PRIORITY: Record<string, NotificationPriority> = {
   attendance_late_confirmed:    'high',
   attendance_missing_checkout:  'high',
   approval_pending:             'high',
+  approval_rejected:            'warning',
   attendance_late_warning:      'warning',
   attendance_checkin_reminder:  'info',
   attendance_checkout_reminder: 'info',
   attendance_early_checkin:     'success',
+  approval_approved:            'success',
 };
 
 /**
@@ -55,6 +57,7 @@ export const IMPORTANT_STATUSES = new Set<string>([
   'attendance_missing_checkin',  // no check-in recorded
   'attendance_checkin_anomaly',  // check-in after cutoff → likely checkout-as-checkin
   'approval_pending',            // an approval awaits action
+  'approval_rejected',           // your leave / attendance request was rejected
 ]);
 
 /** Modules whose notifications are always treated as important. */

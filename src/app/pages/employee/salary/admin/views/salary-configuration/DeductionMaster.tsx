@@ -19,9 +19,8 @@ import {
   ComponentVersion,
   DependencyMap,
 } from '@modules/payroll/services/payrollService';
-import { successConfirmation } from '@utils/modal';
-import Swal from 'sweetalert2';
-import { WtSwitch, AppIcon } from "@app/modules/common/components/ui";
+import { errorConfirmation, successConfirmation } from '@utils/modal';
+import { WtSwitch, AppIcon, confirmDialog, showDialog } from "@app/modules/common/components/ui";
 import { useDispatch, useSelector } from 'react-redux';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppDispatch, RootState } from '@redux/store';
@@ -1315,13 +1314,14 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
 
   const handleDelete = async (item: PayrollComponent) => {
     // All components are now permanently deleted (hard delete)
-    const { isConfirmed, value: reason } = await Swal.fire({
+    const { isConfirmed, value: reason } = await showDialog({
+      variant: 'warning',
+      danger: true,
       title: `Permanently delete "${item.displayName}"?`,
-      text: 'This permanently removes the component and its history. Salary records already calculated are unaffected. This cannot be undone.',
-      input: 'text', inputPlaceholder: 'Reason (optional)',
-      icon: 'warning', showCancelButton: true,
-      confirmButtonColor: '#dc2626', cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Delete permanently', cancelButtonText: 'Cancel',
+      message: 'This permanently removes the component and its history. Salary records already calculated are unaffected. This cannot be undone.',
+      input: { placeholder: 'Reason (optional)' },
+      confirmLabel: 'Delete permanently',
+      cancelLabel: 'Cancel',
     });
     if (!isConfirmed) return;
     try {
@@ -1331,7 +1331,7 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
       onItemsChange(allItems.filter(i => !(i.key === item.key && i.employeeId === item.employeeId)));
       successConfirmation('Component deleted');
     } catch (e: any) {
-      Swal.fire('Error', e?.response?.data?.message || 'Cannot delete', 'error');
+      errorConfirmation(e?.response?.data?.message || 'Cannot delete');
     }
   };
 
@@ -1341,7 +1341,7 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
       onItemsChange(allItems.map(i => i.id === item.id ? { ...i, ...updated } : i));
       successConfirmation('Component restored');
     } catch (e: any) {
-      Swal.fire('Error', e?.response?.data?.message || 'Cannot restore', 'error');
+      errorConfirmation(e?.response?.data?.message || 'Cannot restore');
     }
   };
 
@@ -1601,11 +1601,11 @@ export default function DeductionMaster() {
   useEffect(() => { load(); }, [load]);
 
   const handleSeed = async () => {
-    const { isConfirmed } = await Swal.fire({
+    const isConfirmed = await confirmDialog({
+      icon: 'question',
       title: 'Re-seed All Default Components?',
       text: 'This will restore all system components (Earnings, Allowances, Deductions) to their defaults. Your custom components are unaffected.',
-      icon: 'question', showCancelButton: true,
-      confirmButtonColor: '#1E3A8A', confirmButtonText: 'Seed Defaults',
+      confirmText: 'Seed Defaults',
     });
     if (!isConfirmed) return;
     setSeeding(true);

@@ -15,7 +15,21 @@ import { WtCloseButton } from "./tw/WtCloseButton";
 import { T } from "./tokens";
 import { TRIO } from "./patterns";
 
-export type ConfirmDialogVariant = "confirm" | "delete";
+export type ConfirmDialogVariant =
+  | "confirm"
+  | "delete"
+  | "discard"
+  /** Notices — usually paired with `showCancel={false}` (one acknowledge button). */
+  | "success"
+  | "error"
+  | "info"
+  | "warning";
+
+/**
+ * How the dialog was dismissed. `cancel` = the Cancel button, `close` = the corner X,
+ * `backdrop` = a click outside, `esc` = the Escape key.
+ */
+export type ConfirmDialogDismissReason = "cancel" | "close" | "backdrop" | "esc";
 
 const VARIANT_DEFAULTS: Record<
   ConfirmDialogVariant,
@@ -25,25 +39,66 @@ const VARIANT_DEFAULTS: Record<
     cancelLabel: string;
     iconName: string;
     submitTone: WtCtaTone;
-    /** Icon-box accent — brand navy for confirm, rose for delete. */
-    mediaColor: string;
+    /** Icon-box accent. A getter: TRIO is read at render, not at import (import cycle via patterns). */
+    mediaColor: () => string;
   }
 > = {
   confirm: {
     title: "Confirm",
     confirmLabel: "Confirm",
     cancelLabel: "Cancel",
-    iconName: "bi-check-circle",
+    iconName: "check-circle",
     submitTone: "primary",
-    mediaColor: T.color.brand,
+    mediaColor: () => T.color.brand,
   },
   delete: {
     title: "Confirm Deletion",
     confirmLabel: "Delete",
     cancelLabel: "Cancel",
-    iconName: "bi-trash",
+    iconName: "trash",
     submitTone: "danger",
-    mediaColor: TRIO.rose.c,
+    mediaColor: () => TRIO.rose.c,
+  },
+  /** Leaving a form with unsaved edits. Cancel keeps the user where they are. */
+  discard: {
+    title: "Discard unsaved changes?",
+    confirmLabel: "Discard",
+    cancelLabel: "Keep editing",
+    iconName: "warning",
+    submitTone: "danger",
+    mediaColor: () => TRIO.amber.c,
+  },
+  success: {
+    title: "Done",
+    confirmLabel: "OK",
+    cancelLabel: "Cancel",
+    iconName: "check-circle",
+    submitTone: "success",
+    mediaColor: () => TRIO.green.c,
+  },
+  error: {
+    title: "That Didn't Work",
+    confirmLabel: "Close",
+    cancelLabel: "Cancel",
+    iconName: "cross-circle",
+    submitTone: "danger",
+    mediaColor: () => TRIO.rose.c,
+  },
+  info: {
+    title: "Notice",
+    confirmLabel: "OK",
+    cancelLabel: "Cancel",
+    iconName: "information-5",
+    submitTone: "primary",
+    mediaColor: () => TRIO.blue.c,
+  },
+  warning: {
+    title: "Warning",
+    confirmLabel: "OK",
+    cancelLabel: "Cancel",
+    iconName: "warning",
+    submitTone: "primary",
+    mediaColor: () => TRIO.amber.c,
   },
 };
 
@@ -67,6 +122,24 @@ export interface ConfirmDialogProps {
   confirmDisabled?: boolean;
   /** Extra content under the message (lists, hints). */
   children?: ReactNode;
+  /**
+   * Rich body rendered in place of `message` (sanitised HTML from the dialog service, or any
+   * node). `message` is ignored when this is set.
+   */
+  messageNode?: ReactNode;
+  /** `false` = a single acknowledge button (notices). Default true. */
+  showCancel?: boolean;
+  /** A third, outlined action between Cancel and Confirm (e.g. "Update Only"). */
+  secondaryAction?: { label: string; onClick: () => void };
+  /** Overrides the variant's CTA tone — e.g. a warning icon with a danger button. */
+  confirmTone?: WtCtaTone;
+  /**
+   * Told HOW the dialog was dismissed. When set it is called INSTEAD of `onClose` for the
+   * Cancel button, the corner X, a backdrop click and Escape.
+   */
+  onDismiss?: (reason: ConfirmDialogDismissReason) => void;
+  /** Stacking override — the dialog service lifts itself above already-open modals. */
+  zIndex?: number;
 }
 
 /**
@@ -95,14 +168,24 @@ export function ConfirmDialog({
   loadingLabel = "Please wait…",
   confirmDisabled = false,
   children,
+  messageNode,
+  showCancel = true,
+  secondaryAction,
+  confirmTone,
+  onDismiss,
+  zIndex,
 }: ConfirmDialogProps) {
   const theme = useTheme();
   const defaults = VARIANT_DEFAULTS[variant];
-  const accent = defaults.mediaColor;
+  const accent = defaults.mediaColor();
   const resolvedTitle = title ?? defaults.title;
   const resolvedConfirm = confirmLabel ?? defaults.confirmLabel;
   const resolvedCancel = cancelLabel ?? defaults.cancelLabel;
   const isDark = theme.palette.mode === "dark";
+  const dismiss = (reason: ConfirmDialogDismissReason) => {
+    if (onDismiss) onDismiss(reason);
+    else onClose();
+  };
 
   const media =
     typeof icon === "string" || icon === undefined ? (
@@ -117,18 +200,22 @@ export function ConfirmDialog({
   return (
     <GlassDialog
       open={open}
-      onClose={() => !loading && onClose()}
+      onClose={(_event, reason) => {
+        if (loading) return;
+        dismiss(reason === "escapeKeyDown" ? "esc" : "backdrop");
+      }}
       maxWidth="xs"
       fullWidth
       plain
       mobileFullScreen={false}
+      sx={zIndex === undefined ? undefined : { zIndex }}
     >
       <DialogContent sx={{ pt: 3, pb: 1.5, px: 3, position: "relative" }}>
         <Box sx={{ position: "absolute", top: 10, right: 10 }}>
           <WtCloseButton
             variant="plain"
             size={34}
-            onClick={onClose}
+            onClick={() => dismiss("close")}
             disabled={loading}
           />
         </Box>
@@ -155,9 +242,10 @@ export function ConfirmDialog({
             <Typography
               variant="body1"
               color="text.secondary"
-              sx={{ lineHeight: 1.55 }}
+              component={messageNode ? "div" : "p"}
+              sx={{ lineHeight: 1.55, overflowWrap: "anywhere" }}
             >
-              {message}
+              {messageNode ?? message}
             </Typography>
           </Box>
           {children ? (
@@ -172,13 +260,26 @@ export function ConfirmDialog({
           gap: 1.25,
           // 50/50 footer — both CTAs share the modal width equally
           "& > *": { flex: 1, minWidth: 0 },
+          // Three CTAs do not fit one row at 360px — wrap rather than crush the labels.
+          ...(secondaryAction && {
+            flexWrap: "wrap",
+            "& > *": { flex: "1 1 96px", minWidth: 0 },
+            "& > :not(style) ~ :not(style)": { ml: 0 },
+          }),
         }}
       >
-        <WtButton ghost onClick={onClose} disabled={loading}>
-          {resolvedCancel}
-        </WtButton>
+        {showCancel ? (
+          <WtButton ghost onClick={() => dismiss("cancel")} disabled={loading}>
+            {resolvedCancel}
+          </WtButton>
+        ) : null}
+        {secondaryAction ? (
+          <WtButton inverted onClick={secondaryAction.onClick} disabled={loading}>
+            {secondaryAction.label}
+          </WtButton>
+        ) : null}
         <WtButton
-          tone={defaults.submitTone}
+          tone={confirmTone ?? defaults.submitTone}
           onClick={onConfirm}
           disabled={loading || confirmDisabled}
         >

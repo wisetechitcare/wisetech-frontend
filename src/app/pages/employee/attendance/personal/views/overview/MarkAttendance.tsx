@@ -28,7 +28,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { Status } from "@constants/statistics";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { ToneChip } from '@app/modules/common/components/ui';
+import { ToneChip, WtButton } from '@app/modules/common/components/ui';
 
 interface MarkAttendanceProps {
     variant?: 'default' | 'dashboard';
@@ -894,7 +894,7 @@ const getBlockingMessage = async () => {
     //  thisisforattendance
 
     return (
-        <div className={isDashboard ? "d-flex flex-column" : "mb-10 "}>
+        <div className={isDashboard ? "d-flex flex-column" : "mb-0"}>
             {isDashboard ? (
                 <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                     <div>
@@ -906,7 +906,7 @@ const getBlockingMessage = async () => {
                     <ToneChip dense tone="brand" label={formattedDate} />
                 </div>
             ) : (
-                <div className="mb-6">
+                <div className="mb-3">
                     <h4 className="text-uppercase text-black-50 mb-1 fs-4 fw-bold">Hello, {userName?.trim()}!</h4>
                     <h2 className="fw-bolder fs-1 font-barlow text-dark">Mark attendance for today, {formattedDate}</h2>
                 </div>
@@ -977,26 +977,40 @@ const getBlockingMessage = async () => {
 
 
             <div className={isDashboard ? "py-1 rounded-3 mb-2" : "py-1 rounded-3 mb-4"}>
-                <button
-                    className={`d-flex justify-content-between align-items-center w-100 border-0 rounded-3 transition-all ${
-                        hasCheckin && hasCheckin !== null && hasCheckin !== ""
-                            ? "attendance-checkout-btn text-white"
-                            : "attendance-checkin-btn text-white"
-                    } ${isDashboard ? 'fs-6 py-3 px-4' : 'btn-lg fs-5 py-4 px-5'}`}
+                <WtButton
+                    type="button"
+                    tone={hasCheckin && hasCheckin !== null && hasCheckin !== "" ? "danger" : "primary"}
+                    flat={false}
+                    size="medium"
+                    fullWidth
                     onClick={handleCheckClick}
                     disabled={
                         !!isLocationLoading || 
                         !((!!latitudeNew && !!longitudeNew) && !!isDeviceNotDesktop) || 
                         (!previousAttendanceMarked && lengthOfAttendanceHistory > 0 && !isFirstDay)
                     }
-                    style={{
-                        height: isDashboard ? '52px' : '60px',
-                        fontWeight: '600',
+                    aria-busy={isLocationLoading}
+                    sx={{
+                        height: isDashboard ? 52 : 60,
+                        justifyContent: 'space-between',
+                        px: { xs: 2, sm: 3 },
+                        color: 'common.white',
+                        '& .wt-timer-pill': { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
+                        // Disabled: everything inside inherits ONE readable colour. The timer and
+                        // arrow were hardcoded white, and `text.disabled` (38% opacity) was too
+                        // faint on the grey — the label, the time and the icon all washed out.
+                        '&.Mui-disabled': {
+                            color: 'text.secondary',
+                            backgroundImage: 'none',
+                            backgroundColor: 'action.disabledBackground',
+                            boxShadow: 'none',
+                            '& .wt-timer-pill': { backgroundColor: 'action.hover' },
+                        },
                     }}
                 >
                     <div className="d-flex align-items-center">
                         {hasCheckin && hasCheckin !== null && hasCheckin !== "" && (
-                            <div className="d-flex align-items-center bg-white bg-opacity-20 px-3 py-1.5 rounded-pill me-3 fs-7" style={{ height: '34px' }}>
+                            <div className="wt-timer-pill d-flex align-items-center px-3 py-1.5 rounded-pill me-3 fs-7" style={{ height: '34px' }}>
                                 <Timer />
                             </div>
                         )}
@@ -1006,53 +1020,18 @@ const getBlockingMessage = async () => {
                             {hasCheckin && hasCheckin !== null && hasCheckin !== "" ? "Mark Checkout" : "Mark Attendance"}
                         </span>
                         {isLocationLoading ? (
-                            <span className='spinner-border spinner-border-sm text-white' role='status' aria-hidden='true'></span>
+                            <span className='spinner-border spinner-border-sm' role='status' aria-hidden='true'></span>
                         ) : (
-                            <KTIcon iconName="arrow-right" className="fs-4 text-white" />
+                            <KTIcon iconName="arrow-right" className="fs-4" />
                         )}
                     </div>
-                </button>
+                </WtButton>
             </div>
 
             {/* <LeaveOverview /> */}
             <div>
                 <AttendanceOverview notificationToggle={notificationToggle} dashboard={!isDashboard} />
             </div>
-
-            <style>{`
-                .attendance-checkout-btn {
-                    background: linear-gradient(135deg, #E06C6C 0%, #C44343 100%) !important;
-                    box-shadow: 0 4px 15px rgba(196, 67, 67, 0.2);
-                    transition: all 0.2s ease-in-out;
-                }
-                .attendance-checkout-btn:hover:not(:disabled) {
-                    transform: translateY(-2px);
-                    box-shadow: 0 6px 20px rgba(196, 67, 67, 0.35);
-                    background: linear-gradient(135deg, #E87A7A 0%, #D14D4D 100%) !important;
-                }
-                .attendance-checkout-btn:disabled, .attendance-checkin-btn:disabled {
-                    background: #E4E6EF !important;
-                    color: #A1A5B7 !important;
-                    box-shadow: none !important;
-                    cursor: not-allowed;
-                }
-                .attendance-checkout-btn:disabled .text-white, .attendance-checkin-btn:disabled .text-white {
-                    color: #A1A5B7 !important;
-                }
-                .attendance-checkin-btn {
-                    background: linear-gradient(135deg, #5B72EE 0%, #3850D6 100%) !important;
-                    box-shadow: 0 4px 15px rgba(56, 80, 214, 0.2);
-                    transition: all 0.2s ease-in-out;
-                }
-                .attendance-checkin-btn:hover:not(:disabled) {
-                    transform: translateY(-2px);
-                    box-shadow: 0 6px 20px rgba(56, 80, 214, 0.35);
-                    background: linear-gradient(135deg, #6C81F2 0%, #465EDE 100%) !important;
-                }
-                .attendance-checkout-btn:active:not(:disabled), .attendance-checkin-btn:active:not(:disabled) {
-                    transform: translateY(0);
-                }
-            `}</style>
 
             <Dialog
                 open={show}

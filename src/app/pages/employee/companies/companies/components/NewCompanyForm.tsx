@@ -16,19 +16,17 @@ import {
   fetchAllStates,
 } from "@services/options";
 
-import { Modal, Button } from "react-bootstrap";
-import { Formik, Form as FormikForm, Field, FieldArray } from "formik";
+import { Formik, Form as FormikForm, FieldArray, type FormikProps } from "formik";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import { WtDateField, AppIcon } from "@app/modules/common/components/ui";
-import { useEffect, useMemo, useState } from "react";
+import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtSwitch, WtField, WtFieldFormik, FloatingLabels, FloatingLabelFrame } from "@app/modules/common/components/ui";
+import { Box } from "@mui/material";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Select from "react-select";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
-import { Close } from "@mui/icons-material";
-import { Box, IconButton, Typography } from "@mui/material";
 import CompanyConfigForm from "../../companyConfig/components/CompanyConfigForm";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -43,6 +41,20 @@ import DragDropFileField from "@app/modules/common/components/DragDropFileField"
 import { IFormField, IFormSection } from "@models/company";
 import { cloneCompanyDefaults, mergeCompanySchema } from "./companyFormSchema";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
+import { FullscreenWizardModal } from "@app/pages/employee/forms/shared/FullscreenWizardModal";
+import { CompanyWorkspace } from "../../forms/CompanyWorkspace";
+import { CrmSection } from "../../forms/CrmSection";
+import { ContactAddressSection } from "../../forms/ContactAddressSection";
+import {
+  CRM_ACTIVE_COLOR,
+  CRM_INACTIVE_COLOR,
+} from "../../crmListRowSx";
+
+const COMPANY_STATUS_OPTIONS = [
+  { value: "ACTIVE", label: "Active", color: CRM_ACTIVE_COLOR },
+  { value: "CLOSED", label: "Inactive", color: CRM_INACTIVE_COLOR },
+];
+
 
 // Type definitions
 interface CompanyType {
@@ -133,6 +145,26 @@ const validationSchema = Yup.object().shape({
   services: Yup.array().of(Yup.string()),
 });
 
+// Built-ins an admin marked required in Manage Fields. Multi-selects need a pick, text
+// needs content; the blacklist toggle and the references list have no "empty" to reject.
+const ARRAY_FIELDS = new Set(["companyTypes", "subTypes", "services"]);
+const UNREQUIRABLE = new Set(["blacklisted", "references", "companyName"]);
+const schemaFor = (sections: IFormSection[]) =>
+  validationSchema.shape(
+    Object.fromEntries(
+      sections
+        .flatMap((s) => s.fields)
+        .filter((f) => f.isSystem && f.required && !f.hidden && !UNREQUIRABLE.has(f.id))
+        .map((f) => {
+          const msg = `${f.label} is required`;
+          const base = (validationSchema.fields as Record<string, unknown>)[f.id];
+          if (ARRAY_FIELDS.has(f.id)) return [f.id, Yup.array().of(Yup.string()).min(1, msg)];
+          // Keep the field's own rule (email format…) and add presence on top.
+          return [f.id, (base instanceof Yup.StringSchema ? base : Yup.string()).trim().required(msg)];
+        })
+    )
+  );
+
 const NewCompanyForm: React.FC<Props> = ({
   show,
   onClose,
@@ -140,6 +172,9 @@ const NewCompanyForm: React.FC<Props> = ({
 }) => {
   const [companyTypes, setCompanyTypes] = useState<CompanyType[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
+  // X / Esc / footer Cancel ask before throwing away unsaved edits (the ONE kit prompt).
+  const formikRef = useRef<FormikProps<FormValues>>(null);
+  const discard = useDiscardConfirm(() => Boolean(formikRef.current?.dirty), onClose);
 
   // Split the flat type list into MAIN types and SUB-types (one level deep, with the same
   // orphan-promotion as the chart/tree so nothing ever disappears). Drives the cascading
@@ -218,6 +253,7 @@ const NewCompanyForm: React.FC<Props> = ({
   // Per-company admin-defined custom sections/fields (mirrors the Organisation edit form).
   // Seeded with the built-in section anchors so they appear in the schema manager.
   const [formSections, setFormSections] = useState<IFormSection[]>(cloneCompanyDefaults());
+  const liveSchema = useMemo(() => schemaFor(formSections), [formSections]);
   const [showSchemaManager, setShowSchemaManager] = useState(false);
   const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
 
@@ -649,14 +685,6 @@ const NewCompanyForm: React.FC<Props> = ({
     }
   };
 
-  const viewLocation = (latitude: string, longitude: string) => {
-    if (latitude && longitude) {
-      const googleMapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-      window.open(googleMapsUrl, '_blank');
-    } else {
-      errorConfirmation('Please enter latitude and longitude first');
-    }
-  };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
@@ -712,37 +740,33 @@ const NewCompanyForm: React.FC<Props> = ({
         />
       );
     }
+    // Kit fields, so custom fields float their labels like the built-ins around them.
     if (field.type === "date") {
       return (
-        <>
-          <label className="form-label">{field.label}{reqMark}</label>
-          <WtDateField
-            value={field.value ?? ""}
-            onChange={(v) => updateCustomValue(sectionId, field.id, v)}
-          />
-          {customErrors[field.id] && <div className="text-danger small mt-1">{customErrors[field.id]}</div>}
-        </>
+        <WtDateField
+          label={field.label}
+          required={field.required}
+          value={field.value ?? ""}
+          onChange={(v) => updateCustomValue(sectionId, field.id, v)}
+          error={!!customErrors[field.id]}
+          helperText={customErrors[field.id]}
+          fullWidth
+        />
       );
     }
     const isNumber = field.type === "number";
     return (
-      <>
-        <label className="form-label">{field.label}{reqMark}</label>
-        <input
-          type="text"
-          inputMode={isNumber ? "decimal" : undefined}
-          className="form-control"
-          placeholder={field.label}
-          value={field.value ?? ""}
-          onChange={(e) => {
-            const next = isNumber
-              ? e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
-              : e.target.value;
-            updateCustomValue(sectionId, field.id, next);
-          }}
-        />
-        {customErrors[field.id] && <div className="text-danger small mt-1">{customErrors[field.id]}</div>}
-      </>
+      <WtField
+        label={field.label}
+        required={field.required}
+        inputMode={isNumber ? "decimal" : undefined}
+        value={field.value ?? ""}
+        onChange={(v) => {
+          const raw = String(v ?? "");
+          updateCustomValue(sectionId, field.id, isNumber ? raw.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1") : raw);
+        }}
+        error={customErrors[field.id]}
+      />
     );
   };
 
@@ -923,7 +947,7 @@ const NewCompanyForm: React.FC<Props> = ({
           companyTypeIds: companyTypeIdsMerged,
           overallRating: weightedAverageRating ?? 0.0,
         });
-        successConfirmation("Company updated successfully");
+        successConfirmation("Company updated.");
         onClose();
         eventBus.emit("companyCreated");
       } else {
@@ -932,7 +956,7 @@ const NewCompanyForm: React.FC<Props> = ({
           companyTypeIds: companyTypeIdsMerged,
           overallRating: weightedAverageRating ?? 0.0,
         });
-        successConfirmation("Company created successfully");
+        successConfirmation("Company created.");
         onClose();
         eventBus.emit("companyCreated");
       }
@@ -957,250 +981,66 @@ const NewCompanyForm: React.FC<Props> = ({
 
   return (
     <>
-      <Modal
+      <FullscreenWizardModal
         show={show}
-        onHide={onClose}
-        size="xl"
-        centered
-        aria-labelledby="responsive-modal"
-        dialogClassName="responsive-modal"
+        onClose={discard.requestClose}
+        closeLabel="Close company form"
       >
-        <Box
-          sx={{
-            position: "relative",
-            backgroundColor: "#F3F4F7",
-            p: { xs: 0, md: 3 },
-          }}
+        <Formik
+          innerRef={formikRef}
+          initialValues={initialValues}
+          onSubmit={handleSubmit}
+          validationSchema={liveSchema}
+          enableReinitialize={true}
         >
-          <Typography
-            variant="h6"
-            component="h2"
-            sx={{ fontWeight: 600, pl: { xs: 2, md: 0 }, pt: { xs: 1, md: 0 } }}
-            style={{
-              fontSize: "20px",
-              fontFamily: "Barlow",
-              fontWeight: "600",
-            }}
-          >
-            {isEditMode ? "Edit Company" : "Add New Company"}
-            {/* <button
-              className="btn btn-primary ms-9"
-              onClick={() => {
-                setShowSubCompanyForm(true);
-                onClose();
-              }}
-            >
-              Add Sub Company
-            </button> */}
-            <p style={{ marginBottom: "10px", fontSize: "15px" }}>
-              {prefix && `Company Id: ${prefix}`}
-            </p>
-          </Typography>
-          <IconButton
-            onClick={onClose}
-            sx={{
-              position: "absolute",
-              right: 8,
-              top: 8,
-              color: "text.secondary",
-            }}
-          >
-            <Close />
-          </IconButton>
-          <Formik
-            initialValues={initialValues}
-            onSubmit={handleSubmit}
-            validationSchema={validationSchema}
-            enableReinitialize={true}
-          >
-            {({ setFieldValue, values, isSubmitting }) => {
-              return (
-              <FormikForm>
-                {/* <Modal.Header>
+          {({ setFieldValue, values, isSubmitting }) => {
+            // ── Schema-driven rendering ────────────────────────────────────────────
+            // Every field — built-in or custom — comes from `formSections`, so the
+            // Manage Fields dialog's label / required / hidden / order / section edits
+            // all reach the form. Built-ins keep their bespoke widgets; only the
+            // label and required flag are the admin's.
+            const COLS: Record<string, string> = {
+              companyName: "col-12", references: "col-12", gstAddress: "col-12", note: "col-12",
+              companyTypes: "col-lg-4", subTypes: "col-lg-4", services: "col-lg-4",
+              email: "col-lg-4", website: "col-lg-4", fax: "col-lg-4",
+            };
+            const colOf = (f: IFormField) =>
+              COLS[f.id] ?? (!f.isSystem && f.type === "file" ? "col-12" : "col-lg-6");
 
-              </Modal.Header> */}
-                <Modal.Body style={{ maxHeight: "80vh", overflowY: "auto" }}>
-                  {isDataLoading ? (
-                    <div className="text-center p-4">
-                      <div className="spinner-border" role="status">
-                        <span className="visually-hidden">Loading...</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Manage custom sections & fields (per-company schema) */}
-                      <div className="d-flex justify-content-end mb-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowSchemaManager(true)}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            background: "#fff",
-                            border: "1.5px solid #1E3A8A",
-                            borderRadius: "8px",
-                            padding: "6px 16px",
-                            color: "#1E3A8A",
-                            fontWeight: 700,
-                            fontSize: "13px",
-                            cursor: "pointer",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          <AppIcon name="bi-gear-fill" className="fs-5" style={{ lineHeight: 1 }} />
-                          Manage Sections &amp; Fields
-                        </button>
-                      </div>
-
-                      {/* Logo */}
-                      <div className="mb-4">
-                        <label
-                          className="form-label fw-semibold"
-                          style={{
-                            fontSize: "17px",
-                            fontFamily: "Inter",
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px 2px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            fontWeight: "600",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          Logo
-                          <div
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "100%",
-                              height: "0px",
-                            }}
-                          ></div>
-                        </label>
-                        <div className="d-flex align-items-center ms-6" style={{ gap: 16 }}>
-                          {/* Circular logo preview — matches how the logo appears in SmartAvatar */}
-                          <label htmlFor="logo" style={{ cursor: "pointer", flexShrink: 0 }}>
-                            <div
-                              style={{
-                                width: 80,
-                                height: 80,
-                                borderRadius: "50%",
-                                border: logoPreview ? "2.5px solid #1E3A8A" : "2px dashed #ccc",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                overflow: "hidden",
-                                background: "#f8f9fa",
-                                boxShadow: logoPreview ? "0 2px 10px rgba(30, 58, 138,0.15)" : "none",
-                                transition: "border-color .2s, box-shadow .2s",
-                              }}
-                            >
-                              {logoPreview ? (
-                                <img
-                                  src={logoPreview}
-                                  alt="Logo"
-                                  style={{ width: "82%", height: "82%", objectFit: "contain" }}
-                                />
-                              ) : (
-                                <span style={{ fontSize: 11, color: "#aab2bd", textAlign: "center", lineHeight: 1.4, padding: "0 6px" }}>
-                                  Choose<br />Logo
-                                </span>
-                              )}
-                            </div>
-                          </label>
-                          <div>
-                            <input
-                              type="file"
-                              id="logo"
-                              accept="image/*"
-                              onChange={handleLogoChange}
-                              style={{ display: "none" }}
-                            />
-                            <div className="text-muted small">{logoFile?.name || "No file chosen"}</div>
-                            <div style={{ fontSize: 11, color: "#aab2bd", marginTop: 3 }}>Click the circle to change</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Basic */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          PROJECT DETAILS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
-                          <div className="row g-3">
-                            <div className="col-md-12">
-                              <TextInput
-                                formikField="companyName"
-                                label="Company Name"
-                                isRequired={true}
-                              />
-                            </div>
-                            <div className="col-lg-4">
-                              {/* Company Type — MAIN types only (sub-types live in the next field). */}
-                              <MultiSelectWithInlineCreate
-                                formikField="companyTypes"
-                                inputLabel="Company type"
-                                options={transformToOptions(mainTypes)}
-                                placeholder="Select company type(s)..."
-                                isRequired={false}
-                                onCreate={createNewCompanyType}
-                                onRefreshOptions={handleRefreshCompanyTypes}
-                                createModalTitle="Create New Company Type"
-                                createButtonText="Add New Company Type"
-                                createFieldLabel="Company Type Name"
-                                createFieldPlaceholder="Enter company type name..."
-                              />
-                            </div>
-                            <div className="col-lg-4">
-                              {/* Services — children of the selected company type(s). */}
-                              <MultiSelectWithInlineCreate
-                                formikField="subTypes"
-                                inputLabel="Services"
-                                placeholder={
-                                  (values.companyTypes || []).length === 0
-                                    ? "Select a company type first…"
-                                    : "Select service(s)..."
-                                }
+            const renderBuiltin = (f: IFormField): React.ReactNode => {
+              const label = f.label;
+              const req = f.required;
+              switch (f.id) {
+                case "companyName":
+                  return <TextInput formikField="companyName" label={label} isRequired />;
+                case "companyTypes":
+                  return (
+                    // Company Type — MAIN types only (sub-types live in the next field).
+                    <MultiSelectWithInlineCreate
+                      formikField="companyTypes"
+                      inputLabel={label}
+                      options={transformToOptions(mainTypes)}
+                      placeholder="Select company type(s)..."
+                      isRequired={req}
+                      onCreate={createNewCompanyType}
+                      onRefreshOptions={handleRefreshCompanyTypes}
+                      createModalTitle="Create New Company Type"
+                      createButtonText="Add New Company Type"
+                      createFieldLabel="Company Type Name"
+                      createFieldPlaceholder="Enter company type name..."
+                    />
+                  );
+                case "subTypes":
+                  return (
+                    // Services — children of the selected company type(s).
+                    <MultiSelectWithInlineCreate
+                      formikField="subTypes"
+                      inputLabel={label}
+                      placeholder={
+                        (values.companyTypes || []).length === 0
+                          ? "Select a company type first…"
+                          : "Select service(s)..."
+                      }
                                 options={(() => {
                                   // Show sub-types whose parent is among the selected main types, grouped by parent.
                                   const selectedMains = (values.companyTypes || []) as string[];
@@ -1216,31 +1056,33 @@ const NewCompanyForm: React.FC<Props> = ({
                                     })
                                     .filter(Boolean) as any[];
                                 })() as any}
-                                isRequired={false}
-                                onCreate={createNewServiceUnderType}
-                                onRefreshOptions={handleRefreshCompanyTypes}
-                                createModalTitle="Create New Service"
-                                createButtonText="Add New Service"
-                                createFieldLabel="Service Name"
-                                createFieldPlaceholder="Enter service name..."
-                                // A Service is filed under a Company Type — let the user pick which.
-                                parentSelectLabel="Company Type"
-                                parentPlaceholder="Select company type..."
-                                parentOptions={(values.companyTypes || []).map((id: string) => {
-                                  const t = (companyTypes as any[]).find((x) => x.id === id);
-                                  return { value: id, label: t?.name || id };
-                                })}
-                                defaultParentId={
-                                  (values.companyTypes || []).length === 1 ? values.companyTypes[0] : undefined
-                                }
-                                requireParent
-                                parentEmptyHint="Select a company type first to add a service under it."
-                              />
-                            </div>
-                            <div className="col-lg-4">
-                              <MultiSelectWithInlineCreate
-                                formikField="services"
-                                inputLabel="Sub-services"
+                      isRequired={req}
+                      onCreate={createNewServiceUnderType}
+                      onRefreshOptions={handleRefreshCompanyTypes}
+                      createModalTitle="Create New Service"
+                      createButtonText="Add New Service"
+                      createFieldLabel="Service Name"
+                      createFieldPlaceholder="Enter service name..."
+                      // A Service is filed under a Company Type — let the user pick which.
+                      parentSelectLabel="Company Type"
+                      parentPlaceholder="Select company type..."
+                      parentOptions={(values.companyTypes || []).map((id: string) => {
+                        const t = (companyTypes as any[]).find((x) => x.id === id);
+                        return { value: id, label: t?.name || id };
+                      })}
+                      defaultParentId={
+                        (values.companyTypes || []).length === 1 ? values.companyTypes[0] : undefined
+                      }
+                      requireParent
+                      parentEmptyHint="Select a company type first to add a service under it."
+                    />
+                  );
+                case "services":
+                  return (
+                    <>
+                      <MultiSelectWithInlineCreate
+                        formikField="services"
+                        inputLabel={label}
                                 options={(() => {
                                   // Strict cascade: when a type/sub-type is chosen, show ONLY services
                                   // filed under it. No type chosen → show all. Broken-link (filed under a
@@ -1256,76 +1098,38 @@ const NewCompanyForm: React.FC<Props> = ({
                                   );
                                   return transformToOptions(visible);
                                 })()}
-                                placeholder="Select sub-services..."
-                                isRequired={false}
-                                onCreate={createNewCompanyService}
-                                onRefreshOptions={handleRefreshServices}
-                                createModalTitle="Create New Sub-service"
-                                createButtonText="Add New Sub-service"
-                                createFieldLabel="Sub-service Name"
-                                createFieldPlaceholder="Enter sub-service name..."
-                                // A Sub-service is filed under a Service — let the user pick which.
-                                parentSelectLabel="Service"
-                                parentPlaceholder="Select service..."
-                                parentOptions={(values.subTypes || []).map((id: string) => {
-                                  const t = (companyTypes as any[]).find((x) => x.id === id);
-                                  return { value: id, label: t?.name || id };
-                                })}
-                                defaultParentId={
-                                  (values.subTypes || []).length === 1 ? values.subTypes[0] : undefined
-                                }
-                                requireParent
-                                parentEmptyHint="Select a service first to add a sub-service under it."
-                              />
-                              {((values.companyTypes || []).length > 0 || (values.subTypes || []).length > 0) && (
-                                <small className="text-muted d-block mt-1">
-                                  Showing sub-services filed under the selected service(s). Manage these in <b>Configure → Company Type &amp; Services</b>.
-                                </small>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </fieldset>
-
-                      {/* References */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          REFERENCES
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
-                          <div className="row g-3">
-                            <FieldArray name="referenceType">
+                        placeholder="Select sub-services..."
+                        isRequired={req}
+                        onCreate={createNewCompanyService}
+                        onRefreshOptions={handleRefreshServices}
+                        createModalTitle="Create New Sub-service"
+                        createButtonText="Add New Sub-service"
+                        createFieldLabel="Sub-service Name"
+                        createFieldPlaceholder="Enter sub-service name..."
+                        // A Sub-service is filed under a Service — let the user pick which.
+                        parentSelectLabel="Service"
+                        parentPlaceholder="Select service..."
+                        parentOptions={(values.subTypes || []).map((id: string) => {
+                          const t = (companyTypes as any[]).find((x) => x.id === id);
+                          return { value: id, label: t?.name || id };
+                        })}
+                        defaultParentId={
+                          (values.subTypes || []).length === 1 ? values.subTypes[0] : undefined
+                        }
+                        requireParent
+                        parentEmptyHint="Select a service first to add a sub-service under it."
+                      />
+                      {((values.companyTypes || []).length > 0 || (values.subTypes || []).length > 0) && (
+                        <small className="text-muted d-block mt-1">
+                          Showing sub-services filed under the selected service(s). Manage these in <b>Configure → Company Type &amp; Services</b>.
+                        </small>
+                      )}
+                    </>
+                  );
+                case "references":
+                  return (
+                    <div className="row g-3">
+                      <FieldArray name="referenceType">
                               {({ push, remove }) => (
                                 <>
                                   {values.referenceType.map(
@@ -1537,583 +1341,245 @@ const NewCompanyForm: React.FC<Props> = ({
                                 </>
                               )}
                             </FieldArray>
-                          </div>
-                        </div>
-                      </fieldset>
+                    </div>
+                  );
+                case "phone":
+                case "phone2":
+                  return <PhoneNumberInput formikField={f.id} label={label} placeholder={`Enter ${label.toLowerCase()}`} isRequired={req} />;
+                case "email":
+                  return <TextInput formikField="email" label={label} placeholder="name@company.com" isRequired={req} />;
+                case "website":
+                  return <TextInput formikField="website" label={label} placeholder="https://" isRequired={req} />;
+                case "gstDocument":
+                case "panDocument": {
+                  const url = values[f.id as "gstDocument" | "panDocument"];
+                  return (
+                    <DragDropFileField
+                      label={label}
+                      required={req}
+                      compact
+                      labelClassName="fs-6 form-label mb-2"
+                      currentFileUrl={url}
+                      currentFileName={url ? url.split("/").pop() : ""}
+                      uploadFn={uploadCompanyAsset}
+                      onChange={(next) => setFieldValue(f.id, next)}
+                    />
+                  );
+                }
+                case "status":
+                  return (
+                    <DropDownInput
+                      inputLabel={label}
+                      placeholder="Select status"
+                      isRequired={req}
+                      formikField="status"
+                      options={COMPANY_STATUS_OPTIONS}
+                      showColor
+                      disableAlphabeticalSort
+                      onChange={(value) => {
+                        const next =
+                          value && typeof value === "object" && "value" in value
+                            ? value.value
+                            : value;
+                        setFieldValue("status", next || "ACTIVE");
+                      }}
+                      value={
+                        COMPANY_STATUS_OPTIONS.find((o) => o.value === values.status) ||
+                        COMPANY_STATUS_OPTIONS[0]
+                      }
+                    />
+                  );
+                case "blacklisted":
+                  // A toggle always has a value, so its label sits in the border like the
+                  // filled Status dropdown beside it. A blacklisted company is highlighted in the list.
+                  return (
+                    <FloatingLabelFrame label={label} filled>
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, minHeight: 42, px: 1.5, border: 1, borderColor: "divider", borderRadius: "8px", bgcolor: "background.paper" }}>
+                        <Box component="span" sx={{ fontSize: 13.5, fontWeight: 600, color: values.blacklisted ? "error.main" : "text.secondary" }}>
+                          {values.blacklisted ? "Yes — blacklisted" : "No"}
+                        </Box>
+                        <WtSwitch
+                          size="sm"
+                          tone="#DC2626"
+                          aria-label={label}
+                          checked={!!values.blacklisted}
+                          onChange={(_, checked) => setFieldValue("blacklisted", checked)}
+                        />
+                      </Box>
+                    </FloatingLabelFrame>
+                  );
+                case "note":
+                  return (
+                    <WtFieldFormik name="note" label={label} required={req} multiline minRows={3} placeholder="Enter note" />
+                  );
+                default:
+                  // gstNumber, panNumber, gstAddress, fax — plain text built-ins.
+                  return <TextInput formikField={f.id} label={label} isRequired={req} />;
+              }
+            };
 
-                      {/* Contact */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          CONTACT DETAILS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
-                          <div className="row g-3">
-                            <div className="col-lg-4">
-                              <PhoneNumberInput
-                                formikField="phone"
-                                label="Phone"
-                                isRequired={false}
-                                placeholder="Enter phone"
-                              />
-                            </div>
-                            <div className="col-lg-4">
-                              <PhoneNumberInput
-                                formikField="phone2"
-                                label="Phone 2"
-                                isRequired={false}
-                                placeholder="Enter phone 2"
-                              />
-                            </div>
-                            <div className="col-lg-4">
-                              <TextInput
-                                formikField="fax"
-                                label="FAX"
-                                isRequired={false}
-                              />
-                            </div>
-                            <div className="col-lg-6">
-                              <TextInput
-                                formikField="email"
-                                label="Email"
-                                isRequired={false}
-                              />
-                            </div>
-                            <div className="col-lg-6">
-                              <TextInput
-                                formikField="website"
-                                label="Website"
-                                isRequired={false}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </fieldset>
-
-                      {/* Address */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 14px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          ADDRESS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
-                          <div className="row g-3">
-                            <div className="col-lg-6">
-                              <TextInput
-                                formikField="addressLine1"
-                                label="Address"
-                                isRequired={false}
-                              />
-                            </div>
-                            <div className="col-lg-6">
-                              <DropDownInput
-                                formikField="country"
-                                inputLabel="Country"
-                                isRequired={false}
-                                options={countries.map((c) => ({
-                                  label: c.name,
-                                  value: c.id,
-                                }))}
-                                onChange={(option: any) => {
-                                  setFieldValue("country", option?.value || "");
-                                  setFieldValue("state", "");
-                                  setFieldValue("city", "");
-                                  if (option?.value) {
-                                    handleCountryChange(option.value);
-                                  } else {
-                                    setStates([]);
-                                    setCities([]);
-                                  }
-                                }}
-                                value={
-                                  values.country
-                                    ? {
-                                        label: countries.find(
-                                          (c) => c.id === values.country
-                                        )?.name,
-                                        value: values.country,
-                                      }
-                                    : null
-                                }
-                              />
-                            </div>
-                            <div className="col-lg-6">
-                              <DropDownInput
-                                formikField="state"
-                                inputLabel="State"
-                                isRequired={false}
-                                options={values.country ? states.map((s) => ({
-                                  label: s.name,
-                                  value: s.id,
-                                })) : []}
-                                placeholder={!values.country ? "Please select country first" : "Select State"}
-                                onChange={(option: any) => {
-                                  setFieldValue("state", option?.value || "");
-                                  setFieldValue("city", "");
-                                  if (option?.value) {
-                                    handleStateChange(
-                                      values.country,
-                                      option.value
-                                    );
-                                  } else {
-                                    setCities([]);
-                                  }
-                                }}
-                                value={
-                                  values.state
-                                    ? {
-                                        label: states.find(
-                                          (s) => s.id === values.state
-                                        )?.name,
-                                        value: values.state,
-                                      }
-                                    : null
-                                }
-                                disabled={!values.country}
-                              />
-                            </div>
-                            <div className="col-lg-6">
-                              <DropDownInput
-                                formikField="city"
-                                inputLabel="City"
-                                isRequired={false}
-                                options={values.state ? cities.map((ci) => ({
-                                  label: ci.name,
-                                  value: ci.id,
-                                })) : []}
-                                placeholder={!values.state ? "Please select state first" : "Select City"}
-                                onChange={(option: any) => {
-                                  setFieldValue("city", option?.value || "");
-                                }}
-                                value={
-                                  values.city
-                                    ? {
-                                        label: cities.find(
-                                          (c) => c.id === values.city
-                                        )?.name,
-                                        value: values.city,
-                                      }
-                                    : null
-                                }
-                                disabled={!values.state}
-                              />
-                            </div>
-                            <div className="col-lg-6">
-                              <TextInput
-                                formikField="area"
-                                label="Locality"
-                                isRequired={false}
-                              />
-                            </div>
-                            <div className="col-lg-6">
-                              <TextInput
-                                formikField="zipCode"
-                                label="Zip Code"
-                                isRequired={false}
-                              />
-                            </div>                                     <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
-                                <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
-                                <div className="row g-3">
-                                  <div className="col-lg-3">
-                                    <TextInput
-                                      formikField="googleMapsLink"
-                                      label="Google Map Link"
-                                      isRequired={false}
-                                    />
-                                  </div>
-                                  <div className="col-lg-3">
-                                    <TextInput
-                                      formikField="gmbProfileUrl"
-                                      label="Google Business Link"
-                                      isRequired={false}
-                                    />
-                                  </div>
-                                  <div className="col-lg-3">
-                                    <TextInput
-                                      formikField="latitude"
-                                      label="Latitude"
-                                      isRequired={false}
-                                      inputValidation="signed-decimal"
-                                    />
-                                  </div>
-                                  <div className="col-lg-3">
-                                    <TextInput
-                                      formikField="longitude"
-                                      label="Longitude"
-                                      isRequired={false}
-                                      inputValidation="signed-decimal"
-                                    />
-                                  </div>
-                                </div>
-                                <div 
-                                  className="d-flex justify-content-end mt-4" 
-                                  onClick={() => viewLocation(
-                                    values.latitude || '', 
-                                    values.longitude || ''
-                                  )}
-                                  style={{
-                                    cursor: 'pointer',
-                                    color: '#0D47A1',
-                                    fontWeight: '600',
-                                    fontSize: '13px'
-                                  }}
-                                >
-                                  View Location On Map
-                                </div>
-                              </div>
-
-
-                        </div>
-                        </div>
-                      </fieldset>
-
-                      {/* GST & Statutory */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          GST &amp; STATUTORY DETAILS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
-                          <div className="row g-3">
-                            {/* GST: number + its own compact attachment */}
-                            <div className="col-lg-6">
-                              <TextInput
-                                formikField="gstNumber"
-                                label="GST Number"
-                                isRequired={false}
-                              />
-                            </div>
-                            <div className="col-lg-6">
-                              <DragDropFileField
-                                label="GST Document"
-                                compact
-                                labelClassName="fs-6 form-label mb-2"
-                                currentFileUrl={values.gstDocument}
-                                currentFileName={
-                                  values.gstDocument ? values.gstDocument.split("/").pop() : ""
-                                }
-                                uploadFn={uploadCompanyAsset}
-                                onChange={(url) => setFieldValue("gstDocument", url)}
-                              />
-                            </div>
-                            {/* PAN: number + its own compact attachment */}
-                            <div className="col-lg-6">
-                              <TextInput
-                                formikField="panNumber"
-                                label="PAN Number"
-                                isRequired={false}
-                              />
-                            </div>
-                            <div className="col-lg-6">
-                              <DragDropFileField
-                                label="PAN Document"
-                                compact
-                                labelClassName="fs-6 form-label mb-2"
-                                currentFileUrl={values.panDocument}
-                                currentFileName={
-                                  values.panDocument ? values.panDocument.split("/").pop() : ""
-                                }
-                                uploadFn={uploadCompanyAsset}
-                                onChange={(url) => setFieldValue("panDocument", url)}
-                              />
-                            </div>
-                            <div className="col-md-12">
-                              <TextInput
-                                formikField="gstAddress"
-                                label="GST Address"
-                                isRequired={false}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </fieldset>
-
-                      {/* Admin-defined custom fields (per-company schema). Built-in fields are
-                          rendered by the form above; only custom fields appear here, grouped
-                          under their section title. */}
-                      {formSections.map((section) => {
-                        const visibleFields = section.fields.filter((f) => !f.isSystem && !f.hidden);
-                        if (visibleFields.length === 0) return null;
-                        return (
-                          <fieldset
-                            key={section.id}
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              padding: "clamp(14px, 2vw, 15px)",
-                            }}
-                            className="mt-7"
-                          >
-                            <legend
-                              style={{
-                                fontSize: "17px",
-                                fontWeight: 600,
-                                fontFamily: "Inter",
-                                marginTop: "-25px",
-                                marginLeft: "-17px",
-                                backgroundColor: "#F3F4F7",
-                                width: "auto",
-                                lineHeight: "1",
-                                letterSpacing: 0,
-                                color: "#1E3A8A",
-                                padding: "2px 2px 8px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                              }}
-                            >
-                              <div
-                                className="ms-5"
-                                style={{
-                                  borderTop: "1px solid #1E3A8A",
-                                  width: "30px",
-                                  height: "0px",
-                                }}
-                              ></div>
-                              {section.title || "CUSTOM SECTION"}
-                            </legend>
-                            <div className="card-body card responsive-card p-md-10 p-3 ">
-                              <div className="row g-3">
-                                {visibleFields.map((field) => (
-                                  <div
-                                    key={field.id}
-                                    className={field.type === "file" ? "col-md-12" : "col-lg-6"}
-                                  >
-                                    {renderCustomField(field, section.id)}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </fieldset>
-                        );
-                      })}
-
-                      {/* Other */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 14px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          <span>OTHERS</span>
-                          {/* <div style={{borderTop: "1px solid #1E3A8A", width: "100px", height: "0px",}}></div> */}
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
-                          <div className="mb-3">
-                            {/* Status drives the company's active/inactive state: ACTIVE = active,
-                                CLOSED = inactive. Styled like the contact form's status dropdown
-                                (colour dots) since both convey the same active/inactive meaning. */}
-                            <DropDownInput
-                              inputLabel="Status"
-                              placeholder="Select status"
-                              isRequired={false}
-                              formikField="status"
-                              showColor={true}
-                              options={[
-                                { value: "ACTIVE", label: "Active", color: "#50cd89" },
-                                { value: "CLOSED", label: "Inactive", color: "#f1416c" },
-                              ]}
-                            />
-                          </div>
-                          {/* Blacklist toggle — a blacklisted company is highlighted in the list. */}
-                          <div className="mb-3 d-flex align-items-center gap-3">
-                            <label className="form-label mb-0" htmlFor="blacklistedToggle">
-                              Is Blacklisted
-                            </label>
-                            <div className="form-check form-switch m-0">
-                              <Field
-                                type="checkbox"
-                                name="blacklisted"
-                                id="blacklistedToggle"
-                                className="form-check-input"
-                                role="switch"
-                              />
-                            </div>
-                          </div>
-                          {/* <div className="mb-3">
-                            <label className="form-label">Visibility</label>
-                            <div className="d-flex flex-wrap gap-4">
-                              {[
-                                "ONLY_ME",
-                                "EVERYONE",
-                                "SUPER_ADMIN",
-                                "ADMIN",
-                                "TEMPORARY",
-                              ].map((val) => (
-                                <label key={val} className="form-check">
-                                  <Field
-                                    type="radio"
-                                    name="visibility"
-                                    value={val}
-                                    className="form-check-input"
-                                  />
-                                  <span className="form-check-label">
-                                    {val
-                                      .split("_")
-                                      .map(
-                                        (word) =>
-                                          word.charAt(0) +
-                                          word.slice(1).toLowerCase()
-                                      )
-                                      .join(" ")}
-                                  </span>
-                                </label>
-                              ))}
-                            </div>
-                          </div> */}
-                          <div className="mb-3">
-                            <label className="form-label">Note</label>
-                            <Field
-                              as="textarea"
-                              name="note"
-                              className="form-control"
-                              rows={3}
-                              placeholder="Enter note"
-                            />
-                          </div>
-                        </div>
-                      </fieldset>
-                    </>
-                  )}
-                </Modal.Body>
-                <div className="d-flex justify-content-start gap-2 mt-4 mb-4 p-4">
-                  {/* <Button variant="outline-secondary" onClick={onClose}>
-                  Cancel
-                </Button> */}
-                  <Button
-                    variant="primary"
-                    type="submit"
-                    disabled={isSubmitting || isDataLoading}
-                  >
-                    {isSubmitting
-                      ? "Saving..."
-                      : isEditMode
-                      ? "Update"
-                      : "Submit"}
-                  </Button>
-                </div>
-              </FormikForm>
+            const renderSection = (section?: IFormSection) => {
+              if (!section) return null;
+              if (section.id === "address") {
+                return (
+                  <ContactAddressSection
+                    key={section.id}
+                    title={section.title}
+                    schema={section.fields}
+                    countries={countries}
+                    states={states}
+                    cities={cities}
+                    selectedCountry={values.country}
+                    selectedState={values.state}
+                    // Company keeps country/state in Formik only; the section already writes them there.
+                    setSelectedCountry={() => {}}
+                    setSelectedState={() => {}}
+                    handleCountryChange={handleCountryChange}
+                    handleStateChange={handleStateChange}
+                    fields={{ address: "addressLine1", googleMapLink: "googleMapsLink", gmbLink: "gmbProfileUrl" }}
+                  />
+                );
+              }
+              const visible = section.fields.filter((f) => !f.hidden);
+              if (!visible.length) return null;
+              return (
+                <CrmSection key={section.id} title={section.title || "Custom Fields"}>
+                  <div className="row g-3">
+                    {visible.map((f) => (
+                      <div key={f.id} className={colOf(f)}>
+                        {f.isSystem ? renderBuiltin(f) : renderCustomField(f, section.id)}
+                      </div>
+                    ))}
+                  </div>
+                </CrmSection>
               );
-            }}
-          </Formik>
-        </Box>
-      </Modal>
+            };
+
+            // One wizard step per schema section, in the dialog's order and under its title,
+            // so the sidebar always mirrors Manage Fields. Built-ins keep a hint and icon;
+            // a section with nothing visible drops out (the address picker always stays).
+            const STEP_LOOK: Record<string, { subtitle: string; icon: string }> = {
+              project_details: { subtitle: "Logo, name, types and services", icon: "bi-building" },
+              references: { subtitle: "Related contacts and companies", icon: "bi-people" },
+              contact_details: { subtitle: "Phone, email and website", icon: "bi-telephone" },
+              address: { subtitle: "Search address, drop a pin, and fine-tune location details", icon: "bi-geo-alt" },
+              gst: { subtitle: "GST, PAN and their documents", icon: "bi-file-earmark-text" },
+              others: { subtitle: "Status, blacklist and notes", icon: "bi-journal-text" },
+            };
+            const stepPlan = formSections
+              .filter((sec) => sec.id === "address" || sec.id === "project_details" || sec.fields.some((f) => !f.hidden))
+              .map((sec) => ({
+                id: sec.id,
+                label: sec.title || "Custom Fields",
+                title: sec.title || "Custom Fields",
+                ...(STEP_LOOK[sec.id] ?? { subtitle: "Custom fields", icon: "bi-ui-checks" }),
+                sections: [sec],
+              }));
+            // Formik names behind each step, so validation errors light up the right step.
+            const formikName = (f: IFormField) => (f.id === "references" ? "referenceType" : f.id);
+            const steps = stepPlan.map(({ sections, ...step }) => {
+              const fields = sections.flatMap((sec) => (sec?.fields || []).filter((f) => f.isSystem && !f.hidden));
+              return {
+                ...step,
+                fields: fields.map(formikName),
+                requiredFields: fields.filter((f) => f.required).map(formikName),
+                content: (
+                  <>
+                    {step.id === "project_details" && (
+                      <CrmSection title="Company Logo">
+                        <div className="crm-avatar-wrap">
+                          <label
+                            htmlFor="logo"
+                            className={`crm-avatar-circle${logoPreview ? " has-image" : ""}`}
+                            title="Upload company logo"
+                          >
+                            {logoPreview ? (
+                              <img src={logoPreview} alt="Logo preview" />
+                            ) : (
+                              <span className="crm-avatar-placeholder">
+                                <AppIcon name="bi-building" />
+                                <span>Add logo</span>
+                              </span>
+                            )}
+                          </label>
+                          <div className="crm-avatar-actions">
+                            <button
+                              type="button"
+                              className="wt-btn wt-btn-outline-primary"
+                              style={{ fontSize: 13, fontWeight: 600 }}
+                              onClick={() => document.getElementById("logo")?.click()}
+                            >
+                              {logoPreview ? "Change logo" : "Upload logo"}
+                            </button>
+                            <span className="crm-avatar-hint">
+                              {logoFile?.name || "PNG or JPG · shown on company lists"}
+                            </span>
+                          </div>
+                          <input
+                            type="file"
+                            id="logo"
+                            accept="image/*"
+                            onChange={handleLogoChange}
+                            style={{ display: "none" }}
+                          />
+                        </div>
+                      </CrmSection>
+                    )}
+                    {sections.map(renderSection)}
+                  </>
+                ),
+              };
+            });
+
+            return (
+              <FormikForm style={{ height: "100%" }}>
+                {/* Every field in the wizard: label rests in the empty box, floats up on focus/value. */}
+                <FloatingLabels>
+                <CompanyWorkspace
+                  isEdit={isEditMode}
+                  onCancel={discard.requestClose}
+                  isSubmitting={isSubmitting || isDataLoading}
+                  headerMeta={
+                    prefix ? (
+                      <span className="wizard-meta-chip">
+                        <AppIcon name="bi-hash" /> {prefix}
+                      </span>
+                    ) : undefined
+                  }
+                  headerActions={
+                    <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)} startIcon={<AppIcon name="bi-gear" className="fs-6" />}>
+                      Manage fields
+                    </WtButton>
+                  }
+                
+                  sections={
+                    isDataLoading
+                      ? [
+                          {
+                            id: "loading",
+                            label: "Loading",
+                            title: "Loading",
+                            fields: [],
+                            icon: "bi-hourglass-split",
+                            content: (<div className="text-center p-4">
+                      <div className="spinner-border" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                      </div>
+                    </div>),
+                          },
+                        ]
+                      : [
+                          ...steps,
+                        ]
+                  }
+                />
+                </FloatingLabels>
+              </FormikForm>
+            );
+          }}
+        </Formik>
+      </FullscreenWizardModal>
+      {discard.dialog}
 
       <CompanyConfigForm
         show={showCompanyTypeModal}
@@ -2129,7 +1595,6 @@ const NewCompanyForm: React.FC<Props> = ({
         show={showSchemaManager}
         sections={formSections}
         infoPageLabel="Company"
-        lockBuiltinFields
         onSave={(sections) => {
           setFormSections(sections);
           setShowSchemaManager(false);

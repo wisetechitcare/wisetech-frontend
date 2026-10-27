@@ -2,16 +2,11 @@ import { useEffect } from "react";
 import { useFormikContext } from "formik";
 import { useQuery } from "@tanstack/react-query";
 import { Box, Typography } from "@mui/material";
-import {
-    WorkOutlineOutlined,
-    CampaignOutlined,
-    QuizOutlined,
-} from "@mui/icons-material";
 import { FormSection, TRIO, FORM_SPACE, WtField } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { getRequisitionById } from "@services/recruitment";
 import { SEARCHABLE_FROM } from "@utils/requisitions";
-import type { OnboardingGroup } from "../forms/onboarding/OnboardingWizard";
+import type { WizardGroup } from '@/shared/form-engine';
 import type { OnboardingSectionsProps } from "../forms/onboarding/OnboardingSections";
 import { RequisitionFormFields } from "./RequisitionFormFields";
 import { PostingFormFields, type PostingRoleOption } from "./PostingFormFields";
@@ -186,16 +181,23 @@ function ScreeningLeaf({ args }: { args: BuildJobCreateArgs }) {
 const attachRoleChosen = (v: JobCreateFormValues) => Boolean(v.advert?.requisitionId);
 
 /**
+ * Leaf ids in rail order. The host keys its Summary aside and Review cards by these,
+ * so a renamed leaf cannot silently lose its rows.
+ */
+export const JOB_CREATE_LEAF_IDS = ["role", "advert", "screening"] as const;
+export type JobCreateLeafId = (typeof JOB_CREATE_LEAF_IDS)[number];
+
+/**
  * Create / Edit / Attach Advert wizard rail — Role · Advert · Screening.
  * Attach reuses Advert + Screening; Role step is a picker (no new requisition).
  */
-export function buildJobCreateWizardGroups(args: BuildJobCreateArgs): OnboardingGroup[] {
+export function buildJobCreateWizardGroups(args: BuildJobCreateArgs): WizardGroup<OnboardingSectionsProps>[] {
     const attach = Boolean(args.attachMode);
     return [
         {
             id: "role-group",
             label: "Role",
-            icon: <WorkOutlineOutlined />,
+            icon: "briefcase",
             children: [
                 attach
                     ? {
@@ -203,7 +205,8 @@ export function buildJobCreateWizardGroups(args: BuildJobCreateArgs): Onboarding
                         label: "Choose role",
                         title: "Choose role",
                         subtitle: "Approved open role this advert belongs to",
-                        icon: <WorkOutlineOutlined />,
+                        icon: "briefcase",
+                        tone: TRIO.blue,
                         fields: ["advert"],
                         requiredFields: ["advert"],
                         isComplete: (v) => attachRoleChosen(v as JobCreateFormValues),
@@ -214,7 +217,8 @@ export function buildJobCreateWizardGroups(args: BuildJobCreateArgs): Onboarding
                         label: "Internal role",
                         title: "Internal role",
                         subtitle: "Title, org, headcount and CTC",
-                        icon: <WorkOutlineOutlined />,
+                        icon: "briefcase",
+                        tone: TRIO.blue,
                         fields: ["role", "headcountText"],
                         requiredFields: ["role"],
                         isComplete: (v) => roleSectionComplete(v as JobCreateFormValues),
@@ -225,14 +229,15 @@ export function buildJobCreateWizardGroups(args: BuildJobCreateArgs): Onboarding
         {
             id: "advert-group",
             label: "Advert",
-            icon: <CampaignOutlined />,
+            icon: "share",
             children: [
                 {
                     id: "advert",
                     label: "Careers advert",
                     title: "Careers advert",
                     subtitle: "Public title, location and description",
-                    icon: <CampaignOutlined />,
+                    icon: "share",
+                    tone: TRIO.cyan,
                     fields: ["advert"],
                     render: (_p: OnboardingSectionsProps) => <AdvertLeaf args={args} />,
                 },
@@ -241,14 +246,15 @@ export function buildJobCreateWizardGroups(args: BuildJobCreateArgs): Onboarding
         {
             id: "screening-group",
             label: "Screening",
-            icon: <QuizOutlined />,
+            icon: "questionnaire-tablet",
             children: [
                 {
                     id: "screening",
                     label: "Questions",
                     title: "Screening questions",
                     subtitle: "Optional apply-form fields",
-                    icon: <QuizOutlined />,
+                    icon: "questionnaire-tablet",
+                    tone: TRIO.purple,
                     fields: ["applyFormConfig"],
                     render: (_p: OnboardingSectionsProps) => <ScreeningLeaf args={args} />,
                 },

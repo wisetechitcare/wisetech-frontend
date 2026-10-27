@@ -1,6 +1,7 @@
-import KeyboardArrowLeftRoundedIcon from '@mui/icons-material/KeyboardArrowLeftRounded';
-import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded';
+import KeyboardArrowLeftRoundedIconModule from '@mui/icons-material/KeyboardArrowLeftRounded';
+import KeyboardArrowRightRoundedIconModule from '@mui/icons-material/KeyboardArrowRightRounded';
 import { useState } from 'react';
+import { resolveReactComponent } from '@utils/resolveReactComponent';
 import {
     Box, IconButton, SxProps, Theme, Typography, Tooltip, useMediaQuery, useTheme,
 } from '@mui/material';
@@ -10,6 +11,9 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import { WtDateField } from '@app/modules/common/components/ui';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
+
+const KeyboardArrowLeftRoundedIcon = resolveReactComponent<typeof KeyboardArrowLeftRoundedIconModule>(KeyboardArrowLeftRoundedIconModule);
+const KeyboardArrowRightRoundedIcon = resolveReactComponent<typeof KeyboardArrowRightRoundedIconModule>(KeyboardArrowRightRoundedIconModule);
 
 /**
  * How the click-to-jump picker behaves. Day = full calendar; month = year+month

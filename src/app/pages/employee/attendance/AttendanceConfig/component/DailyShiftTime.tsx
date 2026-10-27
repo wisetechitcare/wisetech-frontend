@@ -445,7 +445,7 @@ const handleSubmit = async (values: ShiftValues) => {
       console.error('[DailyShiftTime] Error saving LEAVE_MANAGEMENT config:', error);
     }
 
-    successConfirmation('Shift configuration saved successfully!');
+    successConfirmation('Shift settings saved.');
     // window.location.reload();
   } catch (error) {
     console.error('[DailyShiftTime] Error saving shift configuration:', error);

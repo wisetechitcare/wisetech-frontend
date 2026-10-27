@@ -111,6 +111,13 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
   
 
   const checkInTimeParsed = data.checkInTime ? dayjs(data.checkInTime) : null;
+  const hasCheckedIn = Boolean(data.checkInTime && data.checkInTime !== "-NA-");
+  const hasCheckedOut = Boolean(data.checkOutTime && data.checkOutTime !== "-NA-" && data.checkOutTime !== "");
+  const attendanceStatus = hasCheckedIn && !hasCheckedOut
+      ? checkInTimeParsed && dayjs().isBefore(checkInTimeParsed.add(30, "second"))
+        ? "Checked in"
+        : "Working now"
+      : "";
   
   const formattedAddress = (address: string) => {
     return address.length > 20 ? `${address.substring(0, 20)}...` : address;
@@ -119,31 +126,10 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
 
   return (
     <div className="attendance-overview-container mt-2">
-      {/* Dynamic Status Badge */}
-      <div className="mb-4">
-        {data.checkOutTime && data.checkOutTime !== "-NA-" && data.checkOutTime !== '' ? (
-          <div className="d-flex align-items-center gap-2 px-3 py-2 rounded-3" style={{ backgroundColor: '#EBF9F1', width: 'fit-content' }}>
-            <span className="bullet bullet-dot bg-success h-8px w-8px"></span>
-            <span className="text-success fs-7 fw-semibold">Session Completed</span>
-          </div>
-        ) : (
-          data.checkInTime && data.checkInTime !== "-NA-" && (
-            <div className="d-flex align-items-center gap-2 px-3 py-2 rounded-3" style={{ backgroundColor: '#EBF5FF', width: 'fit-content' }}>
-              <span className="bullet bullet-dot bg-primary h-8px w-8px animate-blink"></span>
-              <span className="text-primary fs-7 fw-semibold">
-                {checkInTimeParsed && dayjs().isBefore(checkInTimeParsed.add(30, "second"))
-                  ? "Checked In"
-                  : "You are working now.."}
-              </span>
-            </div>
-          )
-        )}
-      </div>
-
       {/* Grid of times */}
-      <div className="row g-3 mb-3">
+      <div className="row g-2 mb-2">
         {/* Check-In Card */}
-        <div className={dashboard ? "col-sm-6" : "col-6"}>
+        <div className="col-6">
           <div className="p-3 rounded-3 bg-light d-flex align-items-center gap-3 border border-gray-100 h-100">
             <div 
               className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
@@ -156,17 +142,29 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
             >
               <KTIcon iconName="time" className="fs-3" />
             </div>
-            <div className="overflow-hidden">
+            {/* minWidth: 0 (not overflow-hidden) lets the text truncate WITHOUT clipping the
+                status dot: its pulse is a 5px box-shadow ring that overflow-hidden — here and
+                on the status row — cut off, so the dot looked broken. Truncation lives on the
+                text spans only. */}
+            <div style={{ minWidth: 0 }}>
               <span className="text-muted d-block fs-8 fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>Check In</span>
-              <span className="fw-bolder fs-7 text-gray-800 text-truncate">
-                {data.checkInTime && data.checkInTime !== "-NA-" ? dayjs(data.checkInTime).format(getTimeTokens().TIME_WITH_SECONDS) : "—"}
-              </span>
+            <span className="d-block fw-bolder fs-7 text-gray-800 text-truncate">
+              {data.checkInTime && data.checkInTime !== "-NA-" ? dayjs(data.checkInTime).format(getTimeTokens().TIME_WITH_SECONDS) : "—"}
+            </span>
+              {attendanceStatus && (
+                <span role="status" className="d-flex align-items-center gap-2 text-success fs-9 fw-semibold">
+                  <span className="bullet bullet-dot bg-success h-6px w-6px flex-shrink-0 wt-dot-pulse"></span>
+                  <span className="text-truncate" style={{ minWidth: 0 }}>
+                    {attendanceStatus === "Working now" ? "You are working now.." : attendanceStatus}
+                  </span>
+                </span>
+              )}
             </div>
           </div>
         </div>
 
         {/* Check-Out Card */}
-        <div className={dashboard ? "col-sm-6" : "col-6"}>
+        <div className="col-6">
           <div className="p-3 rounded-3 bg-light d-flex align-items-center gap-3 border border-gray-100 h-100">
             <div 
               className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
@@ -181,16 +179,22 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
             </div>
             <div className="overflow-hidden">
               <span className="text-muted d-block fs-8 fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>Check Out</span>
-              <span className="fw-bolder fs-7 text-gray-800 text-truncate">
-                {data.checkOutTime && data.checkOutTime !== "-NA-" && data.checkOutTime !== '' ? dayjs(data.checkOutTime).format(getTimeTokens().TIME_WITH_SECONDS) : "—"}
-              </span>
+            <span className="fw-bolder fs-7 text-gray-800 text-truncate">
+              {data.checkOutTime && data.checkOutTime !== "-NA-" && data.checkOutTime !== '' ? dayjs(data.checkOutTime).format(getTimeTokens().TIME_WITH_SECONDS) : "—"}
+            </span>
+              {hasCheckedOut && (
+                <span className="d-flex align-items-center gap-1 text-success fs-9 fw-semibold text-truncate">
+                  <span className="bullet bullet-dot bg-success h-6px w-6px flex-shrink-0"></span>
+                  Session completed
+                </span>
+              )}
             </div>
           </div>
         </div>
 
         {/* Working Method Card */}
         {dashboard && (
-          <div className="col-sm-6">
+          <div className="col-6">
             <div className="p-3 rounded-3 bg-light d-flex align-items-center gap-3 border border-gray-100 h-100">
               <div 
                 className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
@@ -215,7 +219,7 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
 
         {/* Location Card */}
         {dashboard && (
-          <div className="col-sm-6">
+          <div className="col-6">
             <div className="p-3 rounded-3 bg-light d-flex align-items-center gap-3 border border-gray-100 h-100">
               <div 
                 className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
@@ -243,15 +247,6 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
         )}
       </div>
 
-      <style>{`
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-        .animate-blink {
-          animation: blink 1.8s infinite ease-in-out;
-        }
-      `}</style>
     </div>
   );
 }

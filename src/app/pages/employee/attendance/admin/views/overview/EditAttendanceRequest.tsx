@@ -67,7 +67,7 @@ const EditAttendanceRequest = ({ show, onHide, selectedAttendanceRequest }: Edit
       request={request}
       asAdmin
       title="Edit Attendance Request"
-      successMessage="Attendance Request saved successfully"
+      successMessage="Attendance request saved."
       onSaved={({ id }) => {
         eventBus.emit(EVENT_KEYS.attendanceRequestUpdated, { id });
       }}

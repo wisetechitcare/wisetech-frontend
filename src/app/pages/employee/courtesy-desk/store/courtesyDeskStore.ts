@@ -492,6 +492,15 @@ export function unarchiveGroup(groupId: string) {
   setState({ ...state, groups });
 }
 
+export async function deleteGroupToApi(groupId: string) {
+  requireApi();
+  await giftsApi.deleteGroupApi(groupId);
+  setState({
+    ...state,
+    groups: state.groups.filter((g) => g.id !== groupId),
+  });
+}
+
 export function listDrives(includeArchived = false) {
   return state.drives
     .filter((d) => includeArchived || d.status !== "ARCHIVED")
@@ -551,7 +560,8 @@ export async function createDriveToApi(input: {
   occasionType: string;
   giftItem: string;
   driveDate?: string;
-  sourceGroupId: string;
+  sourceGroupId?: string;
+  fromRunId?: string;
   defaultQuantity?: number;
   costPerGift?: number | null;
 }) {

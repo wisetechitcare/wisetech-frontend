@@ -12,6 +12,8 @@ interface Company {
          * the note on the initial state below.
          */
         showDateIn12HourFormat?: string | boolean | null;
+        /** Organisation Interface Style default. `null` = no opinion (or not loaded yet). */
+        interfaceStyle?: 'glass' | 'material' | null;
     },
     currentBranch: {
         id: string;
@@ -27,6 +29,7 @@ const initialState: Company = {
         // Not '0'. This slice is populated lazily, and '0' would have read as an
         // explicit '24 hour' for every user until it was — see utils/timeFormat.ts.
         showDateIn12HourFormat: null,
+        interfaceStyle: null,
     },
     currentBranch: {
         id: "",

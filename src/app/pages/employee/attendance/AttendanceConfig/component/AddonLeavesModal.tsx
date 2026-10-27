@@ -102,7 +102,7 @@ export function AddonLeavesModal({ open, onClose, readOnly }: AddonLeavesModalPr
 
       const res = await upsertAddonLeavesAllowances(payload);
       if (res.success) {
-        await successConfirmation('Addon leaves allowance saved successfully!');
+        await successConfirmation('Add-on leave allowance saved.');
         eventBus.emit(EVENT_KEYS.addonLeavesAllowanceUpdated, {});
         onClose();
       } else {

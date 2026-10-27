@@ -1,7 +1,10 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
-import CountUp from "react-countup";
+import CountUpModule from "react-countup";
 import { PipelineHealth } from "./leadAnalyticsUtils";
+import { resolveReactComponent } from "@utils/resolveReactComponent";
+
+const CountUp = resolveReactComponent<typeof CountUpModule>(CountUpModule);
 
 interface PipelineHealthRingProps {
   health: PipelineHealth;

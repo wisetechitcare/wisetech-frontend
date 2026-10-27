@@ -38,7 +38,7 @@ describe("chartStatsFromCalendarDays", () => {
         expect(donut.get(ABSENT)).toBe(1);
     });
 
-    it("weights half-day leave as 0.5 and scores a worked half as Present", () => {
+    it("weights a worked half day as 0.5 Present + 0.5 leave (1 day total)", () => {
         const days = [
             day({
                 date: "2026-08-04",
@@ -49,7 +49,35 @@ describe("chartStatsFromCalendarDays", () => {
         ];
         const { donut } = chartStatsFromCalendarDays(days);
         expect(donut.get(ON_LEAVE)).toBe(0.5);
+        expect(donut.get(PRESENT)).toBe(0.5);
+    });
+
+    it("keeps a full-day leave weight on a worked half_day and counts it fully Present", () => {
+        const days = [
+            day({
+                date: "2026-08-06",
+                status: "half_day",
+                leave: { type: "Casual", fraction: 1, session: null, leaveId: "l2" },
+                actual: { checkIn: "09:00", checkOut: "13:00", minutesWorked: 240 },
+            }),
+        ];
+        const { donut } = chartStatsFromCalendarDays(days);
+        expect(donut.get(ON_LEAVE)).toBe(1);
         expect(donut.get(PRESENT)).toBe(1);
+    });
+
+    it("sums two worked half days to 1 Present + 1 leave", () => {
+        const half = (date: string) =>
+            day({
+                date,
+                status: "half_day",
+                leave: { type: "Casual", fraction: 0.5, session: "second_half", leaveId: date },
+                actual: { checkIn: "09:00", checkOut: "13:00", minutesWorked: 240 },
+            });
+        const { workingDays, donut } = chartStatsFromCalendarDays([half("2026-08-04"), half("2026-08-05")]);
+        expect(workingDays).toBe(2);
+        expect(donut.get(PRESENT)).toBe(1);
+        expect(donut.get(ON_LEAVE)).toBe(1);
     });
 
     it("puts worked-on-off-day into Extra Days, not Present", () => {

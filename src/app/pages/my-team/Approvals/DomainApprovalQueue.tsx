@@ -1,3 +1,4 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import apiErrorMessage from '@utils/apiError';
 import { MRT_ColumnDef, MRT_Row } from 'material-react-table';
@@ -10,15 +11,14 @@ import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
-import { Modal } from 'react-bootstrap';
+
 import { getSocket } from '@utils/socketClient';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { BatchDetailModal, fmtAmount } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
 import dayjs from 'dayjs';
-import Swal from 'sweetalert2';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
 import { getApprovalDomain, getApprovalDetail } from './domains/registry';
-// Direct module import (not the ui/ barrel) — the barrel drags Swal/glass/notifications into this
+// Direct module import (not the ui/ barrel) — the barrel drags glass/notifications into this
 // file's type+bundle graph for one chip.
 import { ToneChip } from '@app/modules/common/components/ui/chips';
 import { WtIconButton } from '@app/modules/common/components/ui/buttons';
@@ -236,7 +236,7 @@ function RejectModal({ step, onClose, onConfirm, submitting, variant = 'reject' 
         )}
       </Modal.Body>
       <Modal.Footer style={{ gap: 8 }}>
-        <button className='btn btn-sm btn-light' onClick={onClose} disabled={submitting}>
+        <button className='btn btn-sm btn-light' data-unsaved-changes-close onClick={onClose} disabled={submitting}>
           Cancel
         </button>
         <button
@@ -485,7 +485,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     try {
       await processApprovalAction(step.instance.id, 'approve');
       setSteps((prev) => prev.filter((s) => s.id !== step.id));
-      successConfirmation('Request has been approved successfully.', 'Approved!');
+      successConfirmation('Request approved.', 'Approved');
     } catch (err: any) {
       errorConfirmation(apiErrorMessage(err, 'Failed to approve this request.'));
     } finally {
@@ -530,7 +530,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     setInfoSubmitting(true);
     try {
       const batchId = step.instance.requestId;
-      const res = await fetchReimbursementBatchById(batchId);
+      const res = await fetchReimbursementBatchById(batchId, true);
       const batch = res?.data?.batch || res?.batch;
       const pendingLines: any[] = (batch?.reimbursements ?? []).filter((r: any) => Number(r.status) === 0);
 
@@ -1155,6 +1155,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         onClose={() => { setBatchDetailId(null); setBatchDetailInstanceId(null); }}
         onBatchActionDone={() => load(activeTab)}
         approvalInstanceId={batchDetailInstanceId}
+        approverOnly
       />
     </>
   );

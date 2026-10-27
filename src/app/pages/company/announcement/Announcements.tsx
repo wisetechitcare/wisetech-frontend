@@ -59,7 +59,7 @@ function Announcements() {
         try {
             const res = await deleteAnnouncementById(id);
             if (!res?.hasError) {
-                successConfirmation("Announcement deleted successfully");
+                successConfirmation("Announcement deleted.");
                 setRefetch(!refetch);
             } else {
                 errorConfirmation("Failed to delete announcement");

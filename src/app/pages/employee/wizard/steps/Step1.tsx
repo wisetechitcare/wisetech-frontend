@@ -1,5 +1,5 @@
 import { ErrorMessage, Field } from "formik";
-import { KTIcon } from "@metronic/helpers";
+import { AppIcon } from "@app/modules/common/components/ui";
 
 function Step1() {
 
@@ -19,7 +19,7 @@ function Step1() {
                         className='p-7 d-flex align-items-center mb-10 employee__form_wizard__step1__label'
                         htmlFor='employee_onboarding_form_method_manual'
                     >
-                        <KTIcon iconName='notepad-edit' className='fs-3x me-5' />
+                        <AppIcon name='notepad-edit' className='fs-3x me-5' aria-hidden />
 
                         <span className='d-block text-start'>
                             <span className='text-gray-900 fw-bold d-block fs-4 mb-2'>Add Manually</span>
@@ -42,7 +42,7 @@ function Step1() {
                         className='p-7 d-flex align-items-center mb-10 employee__form_wizard__step1__label'
                         htmlFor='employee_onboarding_form_method_email'
                     >
-                        <KTIcon iconName='sms' className='fs-3x me-5' />
+                        <AppIcon name='sms' className='fs-3x me-5' aria-hidden />
 
                         <span className='d-block text-start'>
                             <span className='text-gray-900 fw-bold d-block fs-4 mb-2'>Invite via email</span>

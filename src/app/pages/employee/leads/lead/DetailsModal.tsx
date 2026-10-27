@@ -1,4 +1,5 @@
-import { Modal } from "react-bootstrap";
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+
 import { useEffect, useState } from "react";
 import LeadWizardModal from "./LeadWizardModal";
 import SelectLeadOrganizationDialog from "./SelectLeadOrganizationDialog";

@@ -1,6 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import Swal from 'sweetalert2';
+import {
+  ConfirmDialog,
+  type ConfirmDialogDismissReason,
+} from '@app/modules/common/components/ui/ConfirmDialog';
 import { logoutUser } from '@redux/slices/auth';
 import { getAuth, removeAuth, AUTH_LOCAL_STORAGE_KEY } from '@app/modules/auth/core/AuthHelpers';
 import { logout as logoutApi } from '@services/auth';
@@ -24,8 +27,41 @@ const ACTIVITY_WRITE_THROTTLE_MS = 2 * 1000;
 // (each tab used to run a private timer and clear the shared session).
 const ACTIVITY_KEY = 'wt_last_activity_at';
 
+/**
+ * Same layer as the dialog service (dialogService.tsx DIALOG_Z_INDEX): above MUI dialogs (1300),
+ * react-bootstrap modals (1055) and the 1500-level legacy modals such as GlobalTimerModal, so the
+ * warning can never open behind a modal the idle user left open.
+ */
+const WARNING_Z_INDEX = 2000;
+
+interface WarningState {
+  open: boolean;
+  /** Logout deadline (epoch ms) — the countdown is derived from it, never decremented. */
+  deadline: number;
+  /** Last countdown tick (epoch ms). */
+  now: number;
+}
+
+const secondsLeft = ({ deadline, now }: WarningState) =>
+  Math.max(0, Math.ceil((deadline - now) / 1000));
+
 export const IdleLogoutGuard = () => {
   const dispatch = useDispatch();
+  const [warning, setWarning] = useState<WarningState>({ open: false, deadline: 0, now: 0 });
+  // The two user choices live inside the effect's closure (they read/write its flags); the
+  // dialog calls them through this ref.
+  const actionsRef = useRef<{ stay: () => void; signOut: () => void } | null>(null);
+
+  // Countdown render tick. Derived from the deadline timestamp (not decremented per tick), so
+  // it stays correct when the browser throttles timers in background tabs or after sleep. The
+  // check loop performs the actual logout; this only renders.
+  useEffect(() => {
+    if (!warning.open) return undefined;
+    const id = setInterval(() => {
+      setWarning((w) => (w.open ? { ...w, now: Date.now() } : w));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [warning.open]);
 
   useEffect(() => {
     // Even with idle logout disabled, the cross-tab sign-out sync below must
@@ -36,7 +72,6 @@ export const IdleLogoutGuard = () => {
     let lastActivityWriteAt = 0;
     let warningShown = false;
     let loggingOut = false;
-    let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
     // Newest activity across ALL tabs (shared key), falling back to this
     // tab's in-memory value if storage is unavailable/corrupted.
@@ -60,20 +95,15 @@ export const IdleLogoutGuard = () => {
       }
     };
 
-    const clearCountdown = () => {
-      if (countdownInterval) {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
-      }
-    };
+    // Programmatic close — no user choice is recorded (the old Swal.close()).
+    const closeWarning = () => setWarning((w) => (w.open ? { ...w, open: false } : w));
 
     // Leave this tab only (no server call) — used when another tab already
     // ended the session and blacklisted the token.
     const leaveToLogin = () => {
       if (loggingOut) return;
       loggingOut = true;
-      clearCountdown();
-      Swal.close();
+      closeWarning();
       dispatch(logoutUser());
       window.location.href = '/auth';
     };
@@ -81,8 +111,7 @@ export const IdleLogoutGuard = () => {
     const performLogout = async () => {
       if (loggingOut) return;
       loggingOut = true;
-      clearCountdown();
-      Swal.close();
+      closeWarning();
       // Best-effort server logout first, so the idle session's JWT is
       // blacklisted on the backend — mirrors the manual Sign Out flow.
       try {
@@ -101,50 +130,31 @@ export const IdleLogoutGuard = () => {
     const dismissWarning = () => {
       if (warningShown) {
         warningShown = false;
-        clearCountdown();
-        Swal.close();
+        closeWarning();
       }
-    };
-
-    const warningHtml = (deadline: number) => {
-      const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      return `Your session will expire in <strong>${seconds}</strong> seconds due to inactivity.<br><br>Would you like to stay signed in?`;
     };
 
     const showWarning = (deadline: number) => {
       if (warningShown || loggingOut) return;
       warningShown = true;
+      setWarning({ open: true, deadline, now: Date.now() });
+    };
 
-      Swal.fire({
-        title: 'Session Expiring',
-        html: warningHtml(deadline),
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Stay signed in',
-        cancelButtonText: 'Sign out',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        didOpen: () => {
-          // Countdown is derived from the deadline timestamp (not decremented
-          // per tick), so it stays correct even when the browser throttles
-          // timers in background tabs or after system sleep.
-          countdownInterval = setInterval(() => {
-            Swal.update({ html: warningHtml(deadline) });
-            // The check loop performs the actual logout; this only renders.
-          }, 1000);
-        },
-      }).then((result) => {
-        clearCountdown();
-        if (result.isConfirmed) {
-          // "Stay signed in" — counts as activity for every tab.
-          warningShown = false;
-          markActivity(true);
-        } else if (result.isDismissed && result.dismiss === Swal.DismissReason.cancel) {
-          warningShown = false;
-          performLogout();
-        }
-        // Programmatic Swal.close() (dismissWarning/logout) needs no handling.
-      });
+    // User choices. Both are ignored once the warning was closed programmatically
+    // (dismissWarning / logout) — a click landing during the exit animation is no choice.
+    actionsRef.current = {
+      stay: () => {
+        if (!warningShown || loggingOut) return;
+        // "Stay signed in" — counts as activity for every tab.
+        warningShown = false;
+        closeWarning();
+        markActivity(true);
+      },
+      signOut: () => {
+        if (!warningShown || loggingOut) return;
+        warningShown = false;
+        performLogout();
+      },
     };
 
     // Single source of truth: compare shared last-activity to the deadline.
@@ -207,7 +217,7 @@ export const IdleLogoutGuard = () => {
 
     return () => {
       if (intervalId) clearInterval(intervalId);
-      clearCountdown();
+      actionsRef.current = null;
       events.forEach((event) => window.removeEventListener(event, handleActivity));
       window.removeEventListener('storage', handleStorage);
       document.removeEventListener('visibilitychange', handleVisibility);
@@ -215,6 +225,35 @@ export const IdleLogoutGuard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // This component doesn't render anything
-  return null;
+  const handleDismiss = (reason: ConfirmDialogDismissReason) => {
+    // Backdrop and Escape do nothing — the choice must be explicit (the old
+    // allowOutsideClick / allowEscapeKey: false). The corner X is a click by a present
+    // user closing the warning, so it counts as staying signed in.
+    if (reason === 'cancel') actionsRef.current?.signOut();
+    else if (reason === 'close') actionsRef.current?.stay();
+  };
+
+  return (
+    <ConfirmDialog
+      open={warning.open}
+      variant="warning"
+      title="Session Expiring"
+      message=""
+      messageNode={
+        <>
+          Your session will expire in <strong>{secondsLeft(warning)}</strong> seconds due to
+          inactivity.
+          <br />
+          <br />
+          Would you like to stay signed in?
+        </>
+      }
+      confirmLabel="Stay signed in"
+      cancelLabel="Sign out"
+      onConfirm={() => actionsRef.current?.stay()}
+      onClose={() => undefined}
+      onDismiss={handleDismiss}
+      zIndex={WARNING_Z_INDEX}
+    />
+  );
 };

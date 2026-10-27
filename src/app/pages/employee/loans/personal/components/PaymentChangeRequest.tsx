@@ -1,4 +1,5 @@
-﻿import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import MaterialTable from '@app/modules/common/components/MaterialTable';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { InstallmentTypeEnum, LoanType, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, Status } from '@constants/statistics';
 import { KTIcon } from '@metronic/helpers';
@@ -11,7 +12,7 @@ import dayjs from 'dayjs';
 import { Form, Formik, useFormikContext } from 'formik';
 import { MRT_ColumnDef } from 'material-react-table';
 import React, { useEffect, useMemo, useState } from 'react'
-import { Modal } from 'react-bootstrap';
+
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 

@@ -33,7 +33,7 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
       try {
         await dmsService.renameDocument(file.id, newName.trim());
         dispatch({ type: 'UPDATE_FILE', payload: { id: file.id, name: newName.trim() } });
-        successConfirmation('File renamed successfully!');
+        successConfirmation('File renamed.');
       } catch (err) {
         console.error('Rename failed:', err);
         errorConfirmation('Failed to rename file.');
@@ -51,7 +51,7 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
       
       if (confirmed) {
         await deleteFiles([file.id]);
-        successConfirmation('Document deleted successfully!');
+        successConfirmation('Document deleted.');
         onClose();
       }
     } catch (err) {

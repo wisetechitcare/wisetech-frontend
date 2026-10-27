@@ -9,7 +9,15 @@ import { fetchEmpsAttendance } from "@pages/employee/attendance/admin/views/over
 import { saveTotalEmployeeCount, saveEmployeesAttendance } from "@redux/slices/attendance";
 import { Attendance } from "@models/employee";
 import { EARLY_CHECKOUT, EXTRA_DAYS, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
-import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
+import { donutaDataLabel } from "@utils/statistics";
+import {
+  serverIsNonWorkingDay,
+  serverIsLate,
+  serverIsEarlyCheckout,
+  serverLateMinutes,
+  serverEarlyMinutes,
+  formatVerdictMinutes,
+} from "@utils/attendanceVerdicts";
 import { fetchDayWiseShifts } from "@services/dayWiseShift";
 import { fetchConfiguration } from "@services/company";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
@@ -28,22 +36,13 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 // drifts from StatDetailModal's menu the moment an option is added there.
 type SortOption = StatSortOption;
 
-/**
- * Returns true when the total worked duration is < 8 hours.
- * Uses dayjs diff so no string parsing is needed — works directly with ISO timestamps.
- * Returns false if either timestamp is missing (e.g. employee hasn't checked out yet).
- */
-function isAttendanceDurationShort(checkIn: string | undefined, checkOut: string | undefined): boolean {
-    if (!checkIn || !checkOut) return false;
-    const minutes = dayjs(checkOut).diff(dayjs(checkIn), 'minute');
-    return minutes > 0 && minutes < 480; // 8h = 480 min
-}
 
 // Modal shell and the employee card grid are shared with the admin Attendance
 // Overview - see the two components below, not a local copy.
 import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
 import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
 import { ToneChip, AppIcon, WtTooltip, InlineNotice, TRIO } from '@app/modules/common/components/ui';
+import AttendanceDayTimes from '@app/modules/common/components/AttendanceDayTimes';
 import { getTimeTokens } from '@utils/timeFormat';
 import { useStoredState } from '@app/hooks/useStoredState';
 
@@ -170,7 +169,6 @@ const DashboardDailyAttendanceOverview = () => {
   const rolesAndPermissionsLoaded = useSelector((state: RootState) =>
     state.rolesAndPermissions && Object.keys(state.rolesAndPermissions).length > 0
   );
-  const lateEarlyCheckInOut = multipleRadialBarData(attendance, dayWiseShifts) || new Map();
 
   // Get current employee to access weekend configuration
   const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee, shallowEqual);
@@ -254,23 +252,36 @@ const DashboardDailyAttendanceOverview = () => {
     return hours * 60 + minutes;
   };
 
-  // Calculate late check-in count: employees who checked in after (shift check-in time + grace time)
-  const lateCheckInsCount = visibleAttendance.filter(att => {
-    if (!att.checkIn) return false;
+  // ── One predicate per card ────────────────────────────────────────────────
+  // Each card's NUMBER and its LIST/modal used to come from separate copies of the
+  // logic. The counts read the server's verdicts; the lists re-derived them without
+  // the calendar — so an off-Saturday showed "0 Early Check-outs" above a list of
+  // names. Every card below now filters with ONE of these, and its count is the
+  // length of that list.
 
-    // THE SERVER'S VERDICT decides when present. This screen shares DailyAttendance's
-    // fetch, so its rows already carry `lateMark` — nothing was reading it. Everything
-    // below is the pre-fix derivation, kept only as a fallback for responses without a
-    // verdict: it applies just the ON-SITE third of the master switch and never consults
-    // the calendar, which is what showed red late marks on an exempted Saturday.
-    const serverVerdict = (att as any).lateMark as { isLate: boolean } | undefined;
-    if (serverVerdict) return serverVerdict.isLate;
+  /** Non-working day for THIS row's employee: the server's `dayKind`, else the local calendar. */
+  const isNonWorkingRow = (att: any): boolean => {
+    const serverVerdict = serverIsNonWorkingDay(att);
+    if (serverVerdict !== undefined) return serverVerdict;
+    const stamp = att?.checkIn || att?.checkOut;
+    return stamp ? checkIfWeekendOrHoliday(new Date(stamp)) : false;
+  };
+
+  /** Late check-in: the server's verdict when present (same engine as payroll). */
+  const isLateRow = (att: any): boolean => {
+    if (!att?.checkIn) return false;
+
+    // THE SERVER'S VERDICT decides when present. Everything below is a fallback for
+    // responses without one.
+    // (`serverIsLate` also honours the legacy `lateWaived` flag.)
+    const serverVerdict = serverIsLate(att);
+    if (serverVerdict !== undefined) return serverVerdict;
 
     const attendanceDate = new Date(att.checkIn);
 
-    // Get shift for this date
+    // Get shift for this date (the API rows carry `check_in`; `checkIn` is the legacy name)
     const shift = getShiftForDate(attendanceDate);
-    const shiftCheckIn = shift?.checkIn || appSettings.checkinTime;
+    const shiftCheckIn = (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
 
     if (!shiftCheckIn) return false;
 
@@ -278,8 +289,8 @@ const DashboardDailyAttendanceOverview = () => {
     const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
     const isOnSite = workingMethod?.includes("onsite");
 
-    // If on-site settings is ON, skip on-site employees from late check-in
-    if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+    // Master switch — all three legs (on-site, holiday, weekend), as the server applies it.
+    if (isOnSiteSettingsOn === '1' && (isOnSite || isNonWorkingRow(att))) return false;
     const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
     const graceTime = parseGraceTime(graceTimeStr);
 
@@ -296,26 +307,30 @@ const DashboardDailyAttendanceOverview = () => {
 
     // Return true if checked in after expected time (shift time + grace time)
     return actualCheckIn.isAfter(expectedCheckIn);
-  }).length;
+  };
 
-  // Calculate early check-out count: employees who checked out before shift check-out time
-  const earlyCheckOutsCount = visibleAttendance.filter(att => {
-    if (!att.checkOut) return false;
+  /** Early check-out: before the shift end, on a working day only. */
+  const isEarlyRow = (att: any): boolean => {
+    if (!att?.checkOut) return false;
+
+    // THE SERVER'S VERDICT decides when present (it already exempts non-working days and,
+    // under the master switch, on-site). Everything below is a fallback.
+    const serverVerdict = serverIsEarlyCheckout(att);
+    if (serverVerdict !== undefined) return serverVerdict;
 
     const attendanceDate = new Date(att.checkOut);
     // A check-out on a non-working day cannot be "early" — there is no shift to be early
     // against. The server stamps `dayKind`; fall back to the local calendar check.
-    const kind = (att as any).dayKind as string | undefined;
-    if (kind ? kind !== 'working' : checkIfWeekendOrHoliday(attendanceDate)) return false;
+    if (isNonWorkingRow(att)) return false;
 
     // If on-site settings is ON, skip on-site employees from early check-out
     const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
     const isOnSite = workingMethod?.includes("onsite");
     if (isOnSiteSettingsOn === '1' && isOnSite) return false;
 
-    // Get shift for this date
+    // Get shift for this date (the API rows carry `check_out`; `checkOut` is the legacy name)
     const shift = getShiftForDate(attendanceDate);
-    const shiftCheckOut = shift?.checkOut || appSettings.checkoutTime;
+    const shiftCheckOut = (shift?.check_out ?? shift?.checkOut) || appSettings.checkoutTime;
 
     if (!shiftCheckOut) return false;
 
@@ -329,26 +344,19 @@ const DashboardDailyAttendanceOverview = () => {
 
     // Return true if checked out before expected time
     return actualCheckOut.isBefore(expectedCheckOut);
-  }).length;
+  };
 
-  // Calculate absent count.
-  // employeesOnLeave from the API is a NUMBER (count), not an array — .length on a number
-  // returns undefined, silently making on-leave employees appear as absent.
-  // Use employesLeaveDatas (the ARRAY of leave detail objects) for the correct count.
   // Nobody is absent on a day the company does not work. Without this the whole roster
   // minus whoever came in was reported as absent on weekends and holidays — the "32
   // absent" on an exempted Saturday. Prefer the server's per-employee `dayKind`; fall
-  // back to the local calendar check when no row carries one.
+  // back to the local calendar check when no row carries one. Applied to the absent
+  // LIST below, and the count is that list's length.
   const dashboardDayKinds = visibleAttendance
     .map((a: any) => a.dayKind as string | undefined)
     .filter(Boolean) as string[];
   const isNonWorkingDay = dashboardDayKinds.length
     ? dashboardDayKinds.every((k) => k !== 'working')
     : checkIfWeekendOrHoliday(date.toDate());
-
-  const absentCount = isNonWorkingDay
-    ? 0
-    : Math.max(0, visibleEmployees.length - (visibleLeaveDatas?.length || 0) - visibleAttendance.length);
 
   // Modal handlers
   const handleCardClick = (type: ModalType) => {
@@ -474,7 +482,28 @@ const DashboardDailyAttendanceOverview = () => {
     return visibleLeaveDatas;
   };
 
+  // The employee's row for the day, looked up once (was a linear `find` per employee
+  // per card per render).
+  const attendanceByEmployee = useMemo(() => {
+    const byId = new Map<string, any>();
+    for (const a of visibleAttendance) {
+      if (a.employeeId && !byId.has(a.employeeId)) byId.set(a.employeeId, a);
+    }
+    return byId;
+  }, [visibleAttendance]);
+
+  /** Visible employees whose day row satisfies `predicate`, with that row attached. */
+  const employeesWhere = (predicate: (att: any) => boolean): EmployeeWithAttendance[] =>
+    visibleEmployees.flatMap((emp) => {
+      const att = attendanceByEmployee.get(emp._id);
+      return att && predicate(att) ? [{ ...emp, attendance: att }] : [];
+    });
+
   const getAllAbsentEmployees = () => {
+    // Nobody is absent on a non-working day — the same gate the count used to apply
+    // on its own, so the list showed the roster under a "0".
+    if (isNonWorkingDay) return [];
+
     const presentEmployeeIds = new Set(
       (visibleAttendance || []).map(a => a.employeeId)
     );
@@ -501,106 +530,14 @@ const DashboardDailyAttendanceOverview = () => {
       );
   };
 
-  const getAllExtraDayEmployees = () => {
-    // Get employees who worked on weekends or holidays
-    // Must have BOTH checkIn AND checkOut to count as extra day (matching Overview.tsx logic)
-    return visibleEmployees
-      .filter(emp => {
-        const empAttendance = attendance.find(a => a.employeeId === emp._id);
+  // Extra day = a complete punch (in AND out) on a non-working day for THIS employee —
+  // judged by their own branch calendar (`dayKind`), not the viewing admin's.
+  const getAllExtraDayEmployees = () =>
+    employeesWhere((att) => Boolean(att.checkIn && att.checkOut) && isNonWorkingRow(att));
 
-        // Must have both checkIn and checkOut
-        if (!empAttendance?.checkIn || !empAttendance?.checkOut) return false;
+  const getAllLateCheckInEmployees = () => employeesWhere(isLateRow);
 
-        // Check if this attendance is on a weekend or holiday
-        const attendanceDate = new Date(empAttendance.checkIn);
-        return checkIfWeekendOrHoliday(attendanceDate);
-      })
-      .map(emp => ({
-        ...emp,
-        attendance: attendance.find(a => a.employeeId === emp._id)
-      }));
-  };
-
-  const getAllLateCheckInEmployees = () => {
-    const lateEmployees = visibleEmployees.filter(emp => {
-      const empAttendance = attendance.find(a => a.employeeId === emp._id);
-
-      if (!empAttendance?.checkIn) return false;
-
-      const attendanceDate = new Date(empAttendance.checkIn);
-
-      // Get shift for this date
-      const shift = getShiftForDate(attendanceDate);
-      const shiftCheckIn = shift?.checkIn || appSettings.checkinTime;
-
-      if (!shiftCheckIn) return false;
-
-      // Use on-site grace time for on-site employees, office grace time for others
-      const workingMethod = empAttendance.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
-      const isOnSite = workingMethod?.includes("onsite");
-
-      // If on-site settings is ON, skip on-site employees from late check-in
-      if (isOnSiteSettingsOn === '1' && isOnSite) return false;
-      const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
-      const graceTime = parseGraceTime(graceTimeStr);
-
-      // Create expected check-in time with grace period for the attendance date
-      const expectedCheckIn = dayjs(empAttendance.checkIn)
-        .startOf('day')
-        .add(dayjs(shiftCheckIn, 'h:mm A').hour(), 'hour')
-        .add(dayjs(shiftCheckIn, 'h:mm A').minute(), 'minute')
-        .add(graceTime.hours, 'hour')
-        .add(graceTime.minutes, 'minute')
-        .add(graceTime.seconds, 'second');
-
-      const actualCheckIn = dayjs(empAttendance.checkIn);
-
-      // Return true if checked in after expected time (shift time + grace time)
-      return actualCheckIn.isAfter(expectedCheckIn);
-    });
-
-    return lateEmployees.map(emp => ({
-      ...emp,
-      attendance: attendance.find(a => a.employeeId === emp._id)
-    }));
-  };
-
-  const getAllEarlyCheckOutEmployees = () => {
-    const earlyEmployees = visibleEmployees.filter(emp => {
-      const empAttendance = attendance.find(a => a.employeeId === emp._id);
-
-      if (!empAttendance?.checkOut) return false;
-
-      const attendanceDate = new Date(empAttendance.checkOut);
-
-      // If on-site settings is ON, skip on-site employees from early check-out
-      const workingMethod = empAttendance.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
-      const isOnSite = workingMethod?.includes("onsite");
-      if (isOnSiteSettingsOn === '1' && isOnSite) return false;
-
-      // Get shift for this date
-      const shift = getShiftForDate(attendanceDate);
-      const shiftCheckOut = shift?.checkOut || appSettings.checkoutTime;
-
-      if (!shiftCheckOut) return false;
-
-      // Create expected check-out time for the attendance date
-      const expectedCheckOut = dayjs(empAttendance.checkOut)
-        .startOf('day')
-        .add(dayjs(shiftCheckOut, 'h:mm A').hour(), 'hour')
-        .add(dayjs(shiftCheckOut, 'h:mm A').minute(), 'minute');
-
-      const actualCheckOut = dayjs(empAttendance.checkOut);
-
-      // Return true if checked out before expected time
-      return actualCheckOut.isBefore(expectedCheckOut);
-    });
-
-    return earlyEmployees.map(emp => ({
-      ...emp,
-      attendance: attendance.find(a => a.employeeId === emp._id)
-    }));
-  };
+  const getAllEarlyCheckOutEmployees = () => employeesWhere(isEarlyRow);
 
   // Modal content generator
   const getModalContent = () => {
@@ -664,10 +601,16 @@ const DashboardDailyAttendanceOverview = () => {
 
           // Add additional info for late check-ins
           employees.forEach(emp => {
+            // The server's verdict carries the minutes payroll uses — show those.
+            const serverMinutes = serverLateMinutes(emp.attendance);
+            if (emp.attendance?.checkIn && serverMinutes !== undefined) {
+              additionalInfo[emp._id] = `Late by ${formatVerdictMinutes(serverMinutes)} (Checked in at ${dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)})`;
+              return;
+            }
             if (emp.attendance?.checkIn) {
               const attendanceDate = new Date(emp.attendance.checkIn);
               const shift = getShiftForDate(attendanceDate);
-              const shiftCheckIn = shift?.checkIn || appSettings.checkinTime;
+              const shiftCheckIn = (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
 
               if (shiftCheckIn) {
                 // Use on-site grace time for on-site employees, office grace time for others
@@ -685,9 +628,7 @@ const DashboardDailyAttendanceOverview = () => {
 
                 const actualCheckIn = dayjs(emp.attendance.checkIn);
                 const lateByMinutes = actualCheckIn.diff(expectedCheckIn, 'minute');
-                const lateHours = Math.floor(lateByMinutes / 60);
-                const lateMins = lateByMinutes % 60;
-                additionalInfo[emp._id] = `Late by ${lateHours > 0 ? lateHours + 'h ' : ''}${lateMins}m (Checked in at ${actualCheckIn.format(getTimeTokens().TIME)})`;
+                additionalInfo[emp._id] = `Late by ${formatVerdictMinutes(lateByMinutes)} (Checked in at ${actualCheckIn.format(getTimeTokens().TIME)})`;
               }
             }
           });
@@ -698,10 +639,16 @@ const DashboardDailyAttendanceOverview = () => {
 
           // Add additional info for early check-outs
           employees.forEach(emp => {
+            // The server's verdict carries the minutes payroll uses — show those.
+            const serverMinutes = serverEarlyMinutes(emp.attendance);
+            if (emp.attendance?.checkOut && serverMinutes !== undefined) {
+              additionalInfo[emp._id] = `Early by ${formatVerdictMinutes(serverMinutes)} (Checked out at ${dayjs(emp.attendance.checkOut).format(getTimeTokens().TIME)})`;
+              return;
+            }
             if (emp.attendance?.checkOut) {
               const attendanceDate = new Date(emp.attendance.checkOut);
               const shift = getShiftForDate(attendanceDate);
-              const shiftCheckOut = shift?.checkOut || appSettings.checkoutTime;
+              const shiftCheckOut = (shift?.check_out ?? shift?.checkOut) || appSettings.checkoutTime;
 
               if (shiftCheckOut) {
                 const expectedCheckOut = dayjs(emp.attendance.checkOut)
@@ -711,9 +658,7 @@ const DashboardDailyAttendanceOverview = () => {
 
                 const actualCheckOut = dayjs(emp.attendance.checkOut);
                 const earlyByMinutes = expectedCheckOut.diff(actualCheckOut, 'minute');
-                const earlyHours = Math.floor(earlyByMinutes / 60);
-                const earlyMins = earlyByMinutes % 60;
-                additionalInfo[emp._id] = `Early by ${earlyHours > 0 ? earlyHours + 'h ' : ''}${earlyMins}m (Checked out at ${actualCheckOut.format(getTimeTokens().TIME)})`;
+                additionalInfo[emp._id] = `Early by ${formatVerdictMinutes(earlyByMinutes)} (Checked out at ${actualCheckOut.format(getTimeTokens().TIME)})`;
               }
             }
           });
@@ -755,166 +700,53 @@ const DashboardDailyAttendanceOverview = () => {
           meta: hasMeta ? (
                 <>
                   {additionalInfo[emp._id] && (
-                    <div className="text-primary small mt-1">
-                      <AppIcon name="bi-info-circle" className="me-1" />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, color: 'primary.main', fontSize: '0.8125rem' }}>
+                      <AppIcon name="bi-info-circle" className="fs-7" />
                       {additionalInfo[emp._id]}
-                    </div>
+                    </Box>
                   )}
-                  {!additionalInfo[emp._id] && (emp.attendance?.checkIn || emp.attendance?.checkOut) && (
-                    <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
-                      {emp.attendance?.checkIn && emp.attendance?.checkOut && (() => {
-                        // Check if weekend/holiday worker
-                        const attendanceDate = new Date(emp.attendance.checkIn);
-                        const isWeekendOrHoliday = checkIfWeekendOrHoliday(attendanceDate);
-
-                        // Get shift for this date
-                        const shift = getShiftForDate(attendanceDate);
-                        const shiftCheckIn = shift?.checkIn || appSettings.checkinTime;
-                        const shiftCheckOut = shift?.checkOut || appSettings.checkoutTime;
-
-                        // Check working method for on-site
-                        const workingMethod = emp.attendance?.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
-                        const isOnSite = workingMethod?.includes("onsite");
-
-                        // If on-site settings is ON and employee is on-site, always show green
-                        const skipLateEarlyCheck = (isOnSiteSettingsOn === '1' && isOnSite) || isWeekendOrHoliday;
-
-                        let isLateCheckIn = false;
-                        let isEarlyCheckOut = false;
-
-                        if (!skipLateEarlyCheck && shiftCheckIn && shiftCheckOut) {
-                          // Calculate late check-in
-                          const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
-                          const graceTime = parseGraceTime(graceTimeStr);
-
-                          const expectedCheckIn = dayjs(emp.attendance.checkIn)
-                            .startOf('day')
-                            .add(dayjs(shiftCheckIn, 'h:mm A').hour(), 'hour')
-                            .add(dayjs(shiftCheckIn, 'h:mm A').minute(), 'minute')
-                            .add(graceTime.hours, 'hour')
-                            .add(graceTime.minutes, 'minute')
-                            .add(graceTime.seconds, 'second');
-
-                          const actualCheckIn = dayjs(emp.attendance.checkIn);
-                          // Late-night waiver (server verdict) wins over the shift+grace comparison.
-                          isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn)
-                            && !(emp.attendance as any)?.lateWaived;
-
-                          // Calculate early check-out
-                          const expectedCheckOut = dayjs(emp.attendance.checkOut)
-                            .startOf('day')
-                            .add(dayjs(shiftCheckOut, 'h:mm A').hour(), 'hour')
-                            .add(dayjs(shiftCheckOut, 'h:mm A').minute(), 'minute');
-
-                          const actualCheckOut = dayjs(emp.attendance.checkOut);
-                          isEarlyCheckOut = actualCheckOut.isBefore(expectedCheckOut);
-                        }
-
-                        // RED if: late check-in OR total worked < 8 hours
-                        const isShortDuration = isAttendanceDurationShort(emp.attendance.checkIn, emp.attendance.checkOut);
-                        return (
-                          <>
-                            <span className={(isLateCheckIn || isShortDuration) ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                              <AppIcon name="bi-clock" className="me-1" />
-                              {dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}
-                            </span>
-                            <span className={isEarlyCheckOut ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                              <AppIcon name="bi-clock-fill" className="me-1" />
-                              {dayjs(emp.attendance.checkOut).format(getTimeTokens().TIME)}
-                            </span>
-                          </>
-                        );
-                      })()}
-                      {emp.attendance?.checkIn && !emp.attendance?.checkOut && (() => {
-                        // Check if weekend/holiday worker
-                        const attendanceDate = new Date(emp.attendance.checkIn);
-                        const isWeekendOrHoliday = checkIfWeekendOrHoliday(attendanceDate);
-
-                        // Get shift for this date
-                        const shift = getShiftForDate(attendanceDate);
-                        const shiftCheckIn = shift?.checkIn || appSettings.checkinTime;
-
-                        // Check working method for on-site
-                        const workingMethod = emp.attendance?.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
-                        const isOnSite = workingMethod?.includes("onsite");
-
-                        // If on-site settings is ON and employee is on-site, always show green
-                        const skipLateCheck = (isOnSiteSettingsOn === '1' && isOnSite) || isWeekendOrHoliday;
-
-                        let isLateCheckIn = false;
-
-                        if (!skipLateCheck && shiftCheckIn) {
-                          // Calculate late check-in
-                          const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
-                          const graceTime = parseGraceTime(graceTimeStr);
-
-                          const expectedCheckIn = dayjs(emp.attendance.checkIn)
-                            .startOf('day')
-                            .add(dayjs(shiftCheckIn, 'h:mm A').hour(), 'hour')
-                            .add(dayjs(shiftCheckIn, 'h:mm A').minute(), 'minute')
-                            .add(graceTime.hours, 'hour')
-                            .add(graceTime.minutes, 'minute')
-                            .add(graceTime.seconds, 'second');
-
-                          const actualCheckIn = dayjs(emp.attendance.checkIn);
-                          // Late-night waiver (server verdict) wins over the shift+grace comparison.
-                          isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn)
-                            && !(emp.attendance as any)?.lateWaived;
-                        }
-
-                        // Employee hasn't checked out yet — duration is unknown, so only flag late check-in
-                        return (
-                          <span className={isLateCheckIn ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                            <AppIcon name="bi-clock" className="me-1" />
-                            {dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)}
-                          </span>
-                        );
-                      })()}
-                      {showModal === 'working' && emp.attendance?.workingMethod && (
-                        <span
-                          style={{
+                  {!additionalInfo[emp._id] && emp.attendance?.checkIn && (
+                    // One rule for the colours (AttendanceDayTimes): check-in red ONLY for a
+                    // late mark, check-out red only for an early check-out, and the DURATION
+                    // red when the shift is short — never the check-in for a short day.
+                    <AttendanceDayTimes
+                      checkIn={emp.attendance.checkIn}
+                      checkOut={emp.attendance.checkOut}
+                      isLate={isLateRow(emp.attendance)}
+                      isEarly={isEarlyRow(emp.attendance)}
+                      skipDurationHighlight={isNonWorkingRow(emp.attendance)}
+                      trailing={showModal === 'working' && emp.attendance?.workingMethod ? (
+                        <Box
+                          component="span"
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            fontWeight: 600,
                             color:
                               emp.attendance.workingMethod.type === 'Office' ? workingLocationColors?.officeColor :
                               emp.attendance.workingMethod.type === 'Hybrid' ? workingLocationColors?.remoteColor :
-                              emp.attendance.workingMethod.type === 'On-site' ? workingLocationColors?.onSiteColor : '#6c757d',
-                            fontWeight: '600',
-                            display: 'inline-flex',
-                            alignItems: 'center'
+                              emp.attendance.workingMethod.type === 'On-site' ? workingLocationColors?.onSiteColor : 'text.secondary',
                           }}
                         >
                           {emp.attendance.workingMethod.type}
                           {emp.attendance.workingMethod.type === 'On-site' && emp.attendance.checkInLocation && emp.attendance.latitude && emp.attendance.longitude && (
                             <WtTooltip title={emp.attendance.checkInLocation}>
-                              <a
+                              <Box
+                                component="a"
                                 href={`https://www.google.com/maps?q=${emp.attendance.latitude},${emp.attendance.longitude}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{
-                                  marginLeft: '6px',
-                                  textDecoration: 'none',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  verticalAlign: 'middle'
-                                }}
-                                onClick={(e) => e.stopPropagation()}
+                                aria-label={`Open check-in location in Google Maps: ${emp.attendance.checkInLocation}`}
+                                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                sx={{ ml: 0.75, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
                               >
-                                <img
-                                  src={locationIcon}
-                                  alt="location"
-                                  style={{
-                                    width: '20px',
-                                    height: '20px',
-                                    objectFit: 'contain',
-                                    display: 'block'
-                                  }}
-                                />
-                              </a>
+                                <Box component="img" src={locationIcon} alt="" sx={{ width: 20, height: 20, objectFit: 'contain', display: 'block' }} />
+                              </Box>
                             </WtTooltip>
                           )}
-                        </span>
-                      )}
-                    </div>
+                        </Box>
+                      ) : undefined}
+                    />
                   )}
                 </>
           ) : null,
@@ -1056,21 +888,12 @@ const DashboardDailyAttendanceOverview = () => {
   const lateCheckInEmployees = getAllLateCheckInEmployees();
   const earlyCheckOutEmployees = getAllEarlyCheckOutEmployees();
 
-  // Calculate extra days count from actual data
+  // Every count IS its list's length — the card number and the names under it can
+  // no longer disagree.
   const extraDays = extraDayEmployees.length;
-
-  // Debug logging
-  console.log('Dashboard Data:', {
-    allEmployees: allEmployees.length,
-    employeesPresentAttendance: employeesPresentAttendance.length,
-    attendance: attendance.length,
-    workingEmployees: workingEmployees.length,
-    leaveEmployees: leaveEmployees.length,
-    absentEmployees: absentEmployees.length,
-    extraDayEmployees: extraDayEmployees.length,
-    lateCheckInEmployees: lateCheckInEmployees.length,
-    earlyCheckOutEmployees: earlyCheckOutEmployees.length
-  });
+  const absentCount = absentEmployees.length;
+  const lateCheckInsCount = lateCheckInEmployees.length;
+  const earlyCheckOutsCount = earlyCheckOutEmployees.length;
 
   if (isLoading && allEmployees.length === 0) {
     return (

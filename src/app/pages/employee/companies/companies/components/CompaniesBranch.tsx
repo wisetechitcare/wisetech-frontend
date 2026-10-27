@@ -97,7 +97,7 @@ const CompaniesBranch = ({
 
   const handleDelete = async (branch: Branch) => {
     try {
-      const sure = await deleteConfirmation("Branch deleted successfully");
+      const sure = await deleteConfirmation("Branch deleted.");
       if (!sure) return;
       await deleteClientBranch(branch.id);
       fetchBranches();

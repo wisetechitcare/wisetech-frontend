@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Swal from "sweetalert2";
 import { useQuery } from "@tanstack/react-query";
 import {
   Box, Checkbox, CircularProgress, DialogActions, DialogContent,
   MenuItem, Stack, TextField, Typography,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, WtButton, ToneChip, toast, alertDialog, safeHtml } from "@app/modules/common/components/ui";
+import { GlassDialog, GlassHeader, WtButton, ToneChip, toast, alertDialog, confirmDialog, safeHtml } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { getProjectStages } from "@services/projectExecution";
 import {
@@ -115,39 +114,18 @@ const NewBillingRequestDialog: React.FC<{
         const employeeName = data?.meta?.employeeName || "the employee";
 
         if (requesterEmployeeId) {
-          const confirmed = await Swal.fire({
+          const confirmed = await confirmDialog({
             icon: "error",
             title: "Approval Chain Required",
             // safeHtml, not a plain template: `employeeName` comes off an API error
             // payload and originates in an employee record, so a name containing
-            // markup would otherwise be parsed as markup by SweetAlert.
-            html: safeHtml`
-              <div class="text-start py-2">
-                <p class="mb-4 fs-6 text-gray-700">No Billing Request approval chain is configured for <strong>${employeeName}</strong>. Approval chains must be set before submitting requests.</p>
-                <div class="bg-light-danger border border-danger border-dashed p-4 rounded d-flex align-items-center">
-                  <i class="ki-duotone ki-information-5 fs-2x text-danger me-3"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
-                  <div class="text-gray-800 fs-7">
-                    The billing request has been saved as draft <strong>${created.requestNumber}</strong>. You can configure the approval chain and submit it from the list later.
-                  </div>
-                </div>
-              </div>
-            `,
-            showCancelButton: true,
-            confirmButtonText: "Configure Now",
-            cancelButtonText: "Close",
-            buttonsStyling: false,
-            customClass: {
-              container: 'wt-swal-container',
-              popup: 'wt-swal-popup',
-              title: 'wt-swal-title text-danger text-start px-6 pt-6',
-              htmlContainer: 'wt-swal-html px-6',
-              actions: 'wt-swal-actions px-6 pb-6 justify-content-end',
-              confirmButton: 'btn btn-danger fw-bold px-6 py-3',
-              cancelButton: 'btn btn-light fw-bold px-6 py-3 ms-3',
-            }
+            // markup would otherwise be parsed as markup by the dialog.
+            html: safeHtml`<p>No Billing Request approval chain is configured for <strong>${employeeName}</strong>. Approval chains must be set before submitting requests.</p><p>The billing request has been saved as draft <strong>${created.requestNumber}</strong>. You can configure the approval chain and submit it from the list later.</p>`,
+            confirmText: "Configure Now",
+            cancelText: "Close",
           });
 
-          if (confirmed.isConfirmed) {
+          if (confirmed) {
             navigate(`/employees/${requesterEmployeeId}?openSettings=true`);
           }
         } else {

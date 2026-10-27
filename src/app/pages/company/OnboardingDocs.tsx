@@ -1,7 +1,8 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useMemo, useState } from "react";
 import { Form, Formik, FormikValues } from "formik";
-import { Modal } from "react-bootstrap";
+
 import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
@@ -148,7 +149,7 @@ function OnBoardingDocs() {
 
             await createOnboardingDocs(payload);
             setData(prevData => [...prevData, values]);
-            successConfirmation("Onboarding document created successfully");
+            successConfirmation("Onboarding document created.");
             setShowModal(false);
             setEditMode(false);
         } catch (err) {
@@ -172,7 +173,7 @@ function OnBoardingDocs() {
             setData(prevData =>
                 prevData.map(doc => doc.id === documentId ? { ...doc, ...payload } : doc)
             );
-            successConfirmation("Onboarding document updated successfully");
+            successConfirmation("Onboarding document updated.");
             setShowModal(false);
             setEditMode(false);
         } catch (err) {

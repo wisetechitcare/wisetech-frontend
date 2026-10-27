@@ -1,4 +1,5 @@
-﻿import { getAllClientCompanies, getAllCompanyTypes, getAllCompanyServices, createCompanyService } from "@services/companies";
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { getAllClientCompanies, getAllCompanyTypes, getAllCompanyServices, createCompanyService } from "@services/companies";
 import { uploadCompanyAsset } from "@services/uploader";
 import {
   fetchAllCities,
@@ -6,7 +7,7 @@ import {
   fetchAllStates,
 } from "@services/options";
 
-import { Modal, Button } from "react-bootstrap";
+import { Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field } from "formik";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
@@ -559,10 +560,10 @@ const SubCompanyForm: React.FC<Props> = ({
 
       if (editingSubCompanyId) {
         await updateSubCompany(editingSubCompanyId, finalCleanPayload);
-        successConfirmation("Sub-company updated successfully");
+        successConfirmation("Sub-company updated.");
       } else {
         await createSubCompany(finalCleanPayload);
-        successConfirmation("Sub-company created successfully");
+        successConfirmation("Sub-company created.");
       }
 
       // eventBus.emit("subCompanyCreated");

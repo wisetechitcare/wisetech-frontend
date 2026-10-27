@@ -1,9 +1,10 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import React from 'react'
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues } from "formik";
-import { Modal } from "react-bootstrap";
+
 import { MRT_ColumnDef } from "material-react-table";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -151,7 +152,7 @@ function EmployeeTypes() {
           if (editMode) {
               await updateEmployeeTypeById(values);
               setLoading(false);
-              successConfirmation('Employee Type updated successfully');
+              successConfirmation('Employee Type updated.');
               setShowModal(false);
               setEditMode(false);
               return;
@@ -159,7 +160,7 @@ function EmployeeTypes() {
           const payload = { companyId: companyId, employeeTypes: [values.employeeType] };
           await createNewEmployeeType(payload);
           setLoading(false);
-          successConfirmation('Employee Type created successfully');
+          successConfirmation('Employee Type created.');
           setShowModal(false);
       } catch (err) {
           setLoading(false);

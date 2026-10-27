@@ -2,9 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
-  MenuItem,
   Stack,
-  TextField,
   Typography,
   alpha,
   useTheme,
@@ -20,7 +18,14 @@ import { actionsColumn } from "@app/modules/common/components/table/columns";
 import {
   ActionIconButton,
   AppIcon,
+  FilterSheet,
+  FilterSheetButton,
+  FormSection,
+  TRIO,
+  WtField,
+  countActiveFilters,
   useConfirmDialog,
+  usePromptDialog,
 } from "@app/modules/common/components/ui";
 import { T } from "@app/modules/common/components/ui/tokens";
 import { toast } from "react-toastify";
@@ -30,6 +35,8 @@ import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import {
   archiveGroupToApi,
   cloneGroupToApi,
+  deleteGroupToApi,
+  listDrives,
   listGroups,
   unarchiveGroupToApi,
 } from "../store/courtesyDeskStore";
@@ -38,17 +45,31 @@ import { groupStatusColor, parseGroupStatus } from "../types";
 
 type GroupStatusScope = "ACTIVE" | "ARCHIVED" | "ALL";
 
+// Reset lands on Active — archived groups stay out of the default list.
+const EMPTY_FILTERS: { status: GroupStatusScope } = { status: "ACTIVE" };
+
 export default function PeopleGroupsList() {
   const theme = useTheme();
   useCourtesyDesk();
   const navigate = useNavigate();
   const { ask, dialog: confirmDialog } = useConfirmDialog();
+  const { askText, dialog: promptDialog } = usePromptDialog();
   const employeeId = useSelector(
     (s: RootState) => s.employee.currentEmployee?.id,
   );
-  const [statusScope, setStatusScope] = useState<GroupStatusScope>("ACTIVE");
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const statusScope = filters.status;
   // Re-read on every store-driven render (useCourtesyDesk above).
   const allGroups = listGroups(true);
+  const drives = listDrives(true);
+  const runCountByGroup = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const d of drives) {
+      map.set(d.sourceGroupId, (map.get(d.sourceGroupId) || 0) + 1);
+    }
+    return map;
+  }, [drives]);
   const groups =
     statusScope === "ALL"
       ? allGroups
@@ -132,19 +153,26 @@ export default function PeopleGroupsList() {
                 size="sm"
                 tone="brand"
                 onClick={() => {
-                  const name = window.prompt(
-                    "New group name",
-                    `${g.name} (copy)`,
-                  );
-                  if (!name) return;
-                  void cloneGroupToApi(g.id, name)
-                    .then((cloned) => {
-                      toast.success("Group cloned.");
-                      navigate(`${GIFT_MANAGEMENT_BASE}/groups/${cloned.id}`);
-                    })
-                    .catch((err: unknown) =>
-                      toast.error(apiErrorMessage(err, "Something went wrong")),
-                    );
+                  void askText({
+                    title: "Clone group",
+                    message: `This will create a copy of the group with the same members.`,
+                    label: "Group name",
+                    defaultValue: `${g.name} (copy)`,
+                    confirmLabel: "Clone",
+                    icon: "bi-copy",
+                  }).then((name) => {
+                    if (!name) return;
+                    void cloneGroupToApi(g.id, name)
+                      .then((cloned) => {
+                        toast.success("Group cloned.");
+                        navigate(`${GIFT_MANAGEMENT_BASE}/groups/${cloned.id}`);
+                      })
+                      .catch((err: unknown) =>
+                        toast.error(
+                          apiErrorMessage(err, "Something went wrong"),
+                        ),
+                      );
+                  });
                 }}
               />
               {g.status === "ACTIVE" ? (
@@ -173,26 +201,57 @@ export default function PeopleGroupsList() {
                   }}
                 />
               ) : (
-                <ActionIconButton
-                  icon={
-                    <AppIcon
-                      name="bi-arrow-counterclockwise"
-                      className="fs-6"
-                    />
-                  }
-                  title="Restore group"
-                  size="sm"
-                  tone="success"
-                  onClick={() =>
-                    void unarchiveGroupToApi(g.id)
-                      .then(() => toast.success("Group restored."))
-                      .catch((err: unknown) =>
-                        toast.error(
-                          apiErrorMessage(err, "Something went wrong"),
-                        ),
-                      )
-                  }
-                />
+                <>
+                  <ActionIconButton
+                    icon={
+                      <AppIcon
+                        name="bi-arrow-counterclockwise"
+                        className="fs-6"
+                      />
+                    }
+                    title="Restore group"
+                    size="sm"
+                    tone="success"
+                    onClick={() =>
+                      void unarchiveGroupToApi(g.id)
+                        .then(() => toast.success("Group restored."))
+                        .catch((err: unknown) =>
+                          toast.error(
+                            apiErrorMessage(err, "Something went wrong"),
+                          ),
+                        )
+                    }
+                  />
+                  <ActionIconButton
+                    iconName="trash"
+                    title={
+                      (runCountByGroup.get(g.id) || 0) > 0
+                        ? `Delete ${runCountByGroup.get(g.id)} linked Gift Run(s) first`
+                        : "Delete group permanently"
+                    }
+                    size="sm"
+                    tone="danger"
+                    disabled={(runCountByGroup.get(g.id) || 0) > 0}
+                    onClick={() => {
+                      void ask({
+                        variant: "delete",
+                        title: "Delete group",
+                        message: `Permanently delete “${g.name}”? This cannot be undone.`,
+                        confirmLabel: "Delete permanently",
+                        icon: "trash",
+                      }).then((ok) => {
+                        if (!ok) return;
+                        void deleteGroupToApi(g.id)
+                          .then(() => toast.success("Group deleted."))
+                          .catch((err: unknown) =>
+                            toast.error(
+                              apiErrorMessage(err, "Something went wrong"),
+                            ),
+                          );
+                      });
+                    }}
+                  />
+                </>
               )}
               <ActionIconButton
                 icon={<AppIcon name="bi-gift" className="fs-6" />}
@@ -210,12 +269,13 @@ export default function PeopleGroupsList() {
         },
       }),
     ],
-    [ask, navigate],
+    [ask, askText, navigate, runCountByGroup],
   );
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       {confirmDialog}
+      {promptDialog}
       <Stack
         direction={{ xs: "column", md: "row" }}
         justifyContent="space-between"
@@ -231,26 +291,12 @@ export default function PeopleGroupsList() {
             Reusable lists — use Update Group to edit
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <TextField
-            select
-            size="small"
-            label="Status"
-            value={statusScope}
-            onChange={(e) => setStatusScope(e.target.value as GroupStatusScope)}
-            sx={{ minWidth: 150 }}
-          >
-            <MenuItem value="ALL">All</MenuItem>
-            <MenuItem value="ACTIVE">Active</MenuItem>
-            <MenuItem value="ARCHIVED">Archive</MenuItem>
-          </TextField>
-          <PremiumButton
-            icon="bi-plus-lg"
-            onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/groups/new`)}
-          >
-            New Group
-          </PremiumButton>
-        </Stack>
+        <PremiumButton
+          icon="bi-plus-lg"
+          onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/groups/new`)}
+        >
+          New Group
+        </PremiumButton>
       </Stack>
 
       <MaterialTable
@@ -261,6 +307,12 @@ export default function PeopleGroupsList() {
         enableFilters={false}
         enableGrouping={false}
         enableStatusColorCoding={false}
+        renderToolbarIconActions={() => (
+          <FilterSheetButton
+            count={countActiveFilters(filters, EMPTY_FILTERS)}
+            onClick={() => setFilterSheetOpen(true)}
+          />
+        )}
         muiTablePaperStyle={{
           borderRadius: `${T.radius.lg}px`,
           border: `1px solid ${T.color.line}`,
@@ -290,6 +342,40 @@ export default function PeopleGroupsList() {
           },
         }}
       />
+
+      <FilterSheet
+        open={filterSheetOpen}
+        value={filters}
+        empty={EMPTY_FILTERS}
+        title="Filter People Groups"
+        description={`${groups.length.toLocaleString()} of ${allGroups.length.toLocaleString()} groups currently shown`}
+        onClose={() => setFilterSheetOpen(false)}
+        onApply={(next) => {
+          setFilters(next);
+          setFilterSheetOpen(false);
+        }}
+      >
+        {(draft, set) => (
+          <FormSection
+            tone={TRIO.cyan}
+            icon="people"
+            title="Group"
+            desc="Active groups show by default; pick Archived or All to see the rest."
+          >
+            <WtField
+              label="Status"
+              value={draft.status}
+              onChange={(next) => set("status", next as GroupStatusScope)}
+              options={[
+                { value: "ACTIVE", label: "Active" },
+                { value: "ARCHIVED", label: "Archived" },
+                { value: "ALL", label: "All" },
+              ]}
+              fullWidth
+            />
+          </FormSection>
+        )}
+      </FilterSheet>
     </Box>
   );
 }

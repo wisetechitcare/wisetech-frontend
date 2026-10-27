@@ -30,8 +30,7 @@ import BranchCard from '@app/modules/common/components/BranchCard'
 import {
   Box, Stack, Typography, Paper, CircularProgress, IconButton,
 } from '@mui/material'
-import { GlassDialog, GlassHeader, WtButton, AutoGrid, ListHeader, Eyebrow } from '@app/modules/common/components/ui'
-import Swal from 'sweetalert2'
+import { GlassDialog, GlassHeader, WtButton, WtChoiceField, AutoGrid, ListHeader, Eyebrow, confirmDialog } from '@app/modules/common/components/ui'
 import { safeHtml } from '@app/modules/common/components/ui/safeHtml'
 import TextInput from '@app/modules/common/inputs/TextInput'
 import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle'
@@ -45,7 +44,6 @@ import { useCountryDirectory } from '@hooks/useCurrency'
 import { getCurrencySymbol } from '@utils/currency'
 import LocationDropdown from '@app/modules/common/inputs/LocationDropdown'
 import DropDownInput from '@app/modules/common/inputs/DropdownInput'
-import RadioInput from '@app/modules/common/inputs/RadioInput'
 import { Option } from '@models/dropdown'
 import { UAParser } from 'ua-parser-js'
 import { hasPermission } from '@utils/authAbac'
@@ -255,19 +253,16 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
 
   const handlePromoteBranch = async (branch: any) => {
     const empCount = branch._count?.Employees ?? 0
-    const result = await Swal.fire({
+    const confirmed = await confirmDialog({
       title: 'Promote to Sub-Organization?',
-      // safeHtml: `branch.name` is user-entered and SweetAlert parses `html` as
-      // markup, so a name containing tags would otherwise become elements.
+      // safeHtml: `branch.name` is user-entered and `html` renders as markup, so a name
+      // containing tags would otherwise become elements (the dialog also DOMPurifies it).
       html: safeHtml`This will create a sub-organization <b>"${branch.name}"</b> under the current organization and move this branch${empCount ? ` and its ${empCount} employee(s)` : ''} into it. Employees stay in this branch.`,
       icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Promote',
-      cancelButtonText: 'Cancel',
-      customClass: { confirmButton: 'btn btn-primary fw-bold px-6', cancelButton: 'btn btn-light fw-bold px-6 ms-3' },
-      buttonsStyling: false,
+      confirmText: 'Promote',
+      cancelText: 'Cancel',
     })
-    if (!result.isConfirmed) return
+    if (!confirmed) return
     try {
       const res = await promoteBranchToSubOrg(branch.id)
       if (res && !res.hasError) {
@@ -299,7 +294,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
       // delete succeeded — do not gate on res.hasError (res is empty on 204).
       await deleteBranchById(branch.id)
       setLoading(prev => !prev) // trigger refetch
-      await successConfirmation('Branch deleted successfully')
+      await successConfirmation('Branch deleted.')
     } catch (err: any) {
       errorConfirmation(err?.response?.data?.message || 'Failed to delete branch')
     }
@@ -501,7 +496,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
           showDateIn12HourFormat: toBranchTimeFormat(values.showDateIn12HourFormat),
         })
         setLoading(false)
-        successConfirmation('Branch updated successfully')
+        successConfirmation('Branch updated.')
         setShow(false)
         setEditMode(false)
         return
@@ -517,7 +512,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       ]
       const response = await createNewBranch(payload)
       setLoading(false)
-      successConfirmation('Branch created successfully')
+      successConfirmation('Branch created.')
       setShow(false)
     } catch (err) {
       setLoading(false)
@@ -1206,15 +1201,15 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                         the one above it has no opinion. A Yes/No control cannot say "no
                         opinion", so every save asserted one and the branch permanently
                         shadowed the organisation. See utils/timeFormat.ts. */}
-                    <RadioInput
-                      isRequired={false}
-                      inputLabel='Time Format'
-                      radioBtns={[
+                    <WtChoiceField
+                      name="showDateIn12HourFormat"
+                      label="Time Format"
+                      variant="segmented"
+                      options={[
                         { label: 'Organisation default', value: 'inherit' },
                         { label: '12-hour', value: '1' },
                         { label: '24-hour', value: '0' },
                       ]}
-                      formikField='showDateIn12HourFormat'
                     />
                   </FormSection>
 

@@ -1,5 +1,6 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect } from "react";
-import { Modal, Button, Form } from "react-bootstrap";
+import { Button, Form } from "react-bootstrap";
 import PaymentPlanStagesTree from "./PaymentPlanStagesTree";
 import PlanScopePicker from "./PlanScopePicker";
 import { settlePercentages, toPlanStage, type PlanStage } from "./paymentPlanStages";
@@ -172,11 +173,11 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
     try {
       if (isEditing && initialData?.id) {
         await updatePaymentPlan(initialData.id, payload);
-        showSuccess("Success", "Payment plan updated successfully.");
+        showSuccess("Success", "Payment plan updated.");
         eventBus.emit(EVENT_KEYS.paymentPlanUpdated, { id: initialData.id });
       } else {
         const res = await createPaymentPlan(payload);
-        showSuccess("Success", "Payment plan created successfully.");
+        showSuccess("Success", "Payment plan created.");
         eventBus.emit(EVENT_KEYS.paymentPlanCreated, { id: res?.paymentPlan?.id || "created" });
       }
       if (onSuccess) onSuccess();
@@ -275,7 +276,7 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
       </Modal.Body>
 
       <Modal.Footer style={{ borderTop: "none" }}>
-        <Button variant="light" onClick={onClose} disabled={isSubmitting}>
+        <Button variant="light" data-unsaved-changes-close onClick={onClose} disabled={isSubmitting}>
           Cancel
         </Button>
         <Button

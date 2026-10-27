@@ -284,7 +284,7 @@ const CompanyConfigMain = () => {
 
   const handleRatingFactorDelete = async (id: string) => {
     try {
-      const confirmed = await deleteConfirmation("Rating factor deleted successfully");
+      const confirmed = await deleteConfirmation("Rating factor deleted.");
       if (confirmed) {
         await deleteRatingFactor(id);
         fetchRatingFactors();
@@ -296,7 +296,7 @@ const CompanyConfigMain = () => {
 
   const handleCompanyServiceDelete = async (id: string) => {
     try {
-      const confirmed = await deleteConfirmation("Sub-service deleted successfully");
+      const confirmed = await deleteConfirmation("Sub-service deleted.");
       if (confirmed) {
         await deleteCompanyService(id);
         fetchCompanyServices();

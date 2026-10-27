@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
-import { Modal } from 'react-bootstrap';
+
 import { Form, Formik, FormikValues } from 'formik';
 import * as Yup from 'yup';
 import dayjs from 'dayjs';
@@ -31,7 +31,7 @@ import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
 import { getReimbursementProjectOptions, getAllProjectStatuses } from '@services/projects';
 import TextInput from '@app/modules/common/inputs/TextInput';
-import { WtField, WtFieldFormik } from '@app/modules/common/components/ui';
+import { WtField, WtFieldFormik, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import DateInput from '@app/modules/common/inputs/DateInput';
 import ReimbursementDropdown from '@app/modules/common/inputs/ReimbursementDropdown';
 import { Option } from '@models/dropdown';
@@ -66,10 +66,8 @@ const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
 
 // ── Employee profile card (left panel) ────────────────────────────────────────
 
-type Gender = 0 | 1 | 2;
-
 function ReimbEmployeeProfileCard({ employee }: { employee: any }) {
-  const avatar = getAvatar(employee?.avatar || '', employee?.gender as unknown as Gender);
+  const avatar = getAvatar(employee?.avatar || '', employee?.gender);
   const name = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim() || 'Employee';
   const hasProfessionalFees = !!employee?.professionalFeesEnabled;
 
@@ -447,7 +445,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
         await updatePendingReimbursementDraft(currentReimbursement.id, values);
         setFormLoading(false);
-        successConfirmation('Reimbursement updated successfully');
+        successConfirmation('Reimbursement updated.');
         setShow(false);
         setEditMode(false);
         loadDrafts();
@@ -537,7 +535,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   };
 
   const handleDelete = async (id: string) => {
-    const confirmed = await deleteConfirmation('Draft deleted successfully');
+    const confirmed = await deleteConfirmation('Draft deleted.');
     if (!confirmed) return;
     try {
       await deletePendingReimbursementDraft(id);

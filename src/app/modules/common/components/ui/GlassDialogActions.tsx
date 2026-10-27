@@ -3,11 +3,13 @@ import { DialogActions, type DialogActionsProps } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { WtButton, type WtCtaTone } from './buttons';
 import { FORM_SPACE } from './FormSection';
+import { DialogCloseContext } from './UnsavedChangesContext';
 
 /**
  * Shared Cancel / Save (or custom) footer for GlassDialog — **dialog footer SSOT**.
  *
- * Renders brand CTA: `WtButton ghost` Cancel (white) + `WtButton` Submit (navy primary).
+ * Renders `WtButton ghost` Cancel (white) + `WtButton` Submit. The built-in submit
+ * explicitly defaults to navy primary; its density and flat treatment follow WtButton defaults.
  * Sandwich Add Rule is the visual benchmark. Prefer this over hand-rolled
  * `DialogActions sx={{ px, py, borderTop }}` so every form dialog agrees on footer
  * rhythm (FORM_SPACE) and button look.
@@ -66,10 +68,18 @@ export function GlassDialogActions({
   ...rest
 }: GlassDialogActionsProps) {
   const busy = submitting;
+  const dialogClose = React.useContext(DialogCloseContext);
   const content = children ?? (
     <>
       {onCancel ? (
-        <WtButton ghost onClick={onCancel} disabled={cancelDisabled || busy}>
+        <WtButton
+          ghost
+          onClick={() => {
+            if (dialogClose) dialogClose.requestClose(onCancel);
+            else onCancel();
+          }}
+          disabled={cancelDisabled || busy}
+        >
           {cancelLabel}
         </WtButton>
       ) : null}

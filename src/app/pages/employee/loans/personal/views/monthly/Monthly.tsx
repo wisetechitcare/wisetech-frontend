@@ -1,4 +1,5 @@
-﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { KTIcon } from "@metronic/helpers";
 import { useMemo, useState, useEffect } from "react";
 import { MRT_ColumnDef } from "material-react-table";
@@ -12,7 +13,7 @@ import { hasPermission } from "@utils/authAbac";
 import { InstallmentTypeEnum, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import CommonCard from "@app/modules/common/components/CommonCard";
 import { useNavigate } from "react-router-dom";
-import { Modal } from "react-bootstrap";
+
 import { Form, Formik } from "formik";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { formatNumber } from "@utils/statistics";

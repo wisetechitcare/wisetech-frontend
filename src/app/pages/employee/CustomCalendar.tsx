@@ -1,3 +1,4 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { safeJsonParse } from '@utils/safeJson';
 import { T as UiTokens } from '@app/modules/common/components/ui/tokens';
 import { useEffect, useRef, useState } from 'react';
@@ -5,7 +6,7 @@ import { parseWorkingDays } from '@utils/workingDays';
 import { anniversaryDateOrNull } from '@utils/anniversary';
 import { useFormik } from 'formik';
 import Flatpickr from "react-flatpickr";
-import { Modal } from 'react-bootstrap';
+
 import dayjs from 'dayjs';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -321,7 +322,7 @@ function CustomCalendar() {
                 });
                 if (res && !res.hasError) {
                     setShowEventForm(false);
-                    successConfirmation('Successfully created calendar event');
+                    successConfirmation('Created calendar event.');
                     if (selectedDateTimeInfo) {
                         const calendarApi = (selectedDateTimeInfo as any).view.calendar;
                         calendarApi.unselect();
@@ -410,7 +411,7 @@ function CustomCalendar() {
     // const handleEventClick = async (clickInfo: any) => {
     //     const isPublicHoliday = holidays.filter((holiday: any) => holiday.title === clickInfo.event.title).length > 0;
     //     if (isPublicHoliday) return;
-    //     const userRes = await deleteConfirmation('Your event has been deleted successfully');
+    //     const userRes = await deleteConfirmation('Your event has been deleted.');
     //     if (userRes) {
     //         clickInfo.event.remove();
     //         await archiveEvent(clickInfo.event.title);
@@ -1757,7 +1758,7 @@ function CustomCalendar() {
                     setShowNewHolidayForm={undefined} 
                     selectedDateTimeInfo={selectedDateTimeInfo}
                     setRefetch={setHolidayRefresh}
-                    sendNotification={() => successConfirmation('Holiday added successfully')}
+                    sendNotification={() => successConfirmation('Holiday added.')}
                 />
                 </Modal.Body>
             </Modal>

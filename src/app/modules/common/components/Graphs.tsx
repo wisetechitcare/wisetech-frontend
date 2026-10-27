@@ -1,21 +1,27 @@
-import { safeJsonParse } from '@utils/safeJson';
-import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import {
+  safeJsonParse } from '@utils/safeJson';
+import { KTIcon,
+  toAbsoluteUrl } from '@metronic/helpers';
 import AttendanceStatusBadge from './AttendanceStatusBadge';
-import AttendanceCheckCell, {
+import AttendanceCheckCell,
+  {
     AttendanceCoordinates,
-    formatAttendanceCheckExport,
-    hasValidMapCoordinates,
-    resolveAttendanceCoordinates,
-} from './AttendanceCheckCell';
+  formatAttendanceCheckExport,
+  hasValidMapCoordinates,
+  resolveAttendanceCoordinates,
+  } from './AttendanceCheckCell';
 import AttendanceDurationCell from './AttendanceDurationCell';
 import {
     resolveCheckInColor,
-    resolveCheckOutColor,
-    shouldApplyCheckInColoring,
-} from '@utils/attendanceColorUtils';
-import { RootState, store } from '@redux/store';
+  resolveCheckOutColor,
+  shouldApplyCheckInColoring,
+  } from '@utils/attendanceColorUtils';
+import { RootState,
+  store } from '@redux/store';
 import ReactApexChart from 'react-apexcharts';
-import { Image, Card, Col, Modal, OverlayTrigger } from 'react-bootstrap';
+import { Image, Card, Col, OverlayTrigger } from 'react-bootstrap';
+import MuiGrid from '@mui/material/Grid';
 import Identifiers from '../utils/Identifiers';
 import { ATTENDANCE_STATUS, LEAVE_STATUS, LeaveStatus, WORKING_METHOD_TYPE } from '@constants/attendance';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
@@ -575,7 +581,7 @@ export const StokedCircle = ({ stokedCircleSeries, totalWorkedDays, totalDays = 
     );
 };
 
-export const StreakIndicator = ({ currentStreak, lastStreak, totalDays }: { currentStreak: string, lastStreak: string, totalDays: number }) => {
+export const StreakIndicator = ({ currentStreak, lastStreak, totalDays, layout = 'bootstrap' }: { currentStreak: string, lastStreak: string, totalDays: number, layout?: 'bootstrap' | 'mui' }) => {
     const current = parseInt(currentStreak) || 0;
     const last = parseInt(lastStreak) || 0;
     const pct = totalDays > 0 ? Math.min(100, Math.round((current / totalDays) * 100)) : 0;
@@ -594,21 +600,20 @@ export const StreakIndicator = ({ currentStreak, lastStreak, totalDays }: { curr
         ? Math.min(100, Math.round(((pct - rating.min) / (nextLevel.min - rating.min)) * 100))
         : 100;
 
-    return (
-        <Col md={4} className="mb-4" style={{ display: 'flex' }}>
-            <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', display: 'flex', flexDirection: 'column' }}>
+    const card = (
+        <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', display: 'flex', flexDirection: 'column' }}>
 
                 {/* Header */}
-                <div style={{ padding: '18px 20px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ padding: '12px 14px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 4, height: 18, background: 'linear-gradient(180deg,#fbbf24,#f59e0b)', borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
-                    <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Check-in Streak</span>
+                    <h3 style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#111827' }}>Check-in Streak</h3>
                     <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: rating.color, background: rating.bg, padding: '3px 10px', borderRadius: 20 }}>{rating.label}</span>
                 </div>
 
                 {/* Hero row */}
-                <div style={{ padding: '0 20px 14px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ padding: '0 14px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
-                        width: 54, height: 54, borderRadius: 15, flexShrink: 0,
+                        width: 44, height: 44, borderRadius: 13, flexShrink: 0,
                         background: 'linear-gradient(135deg,#fbbf24,#f59e0b)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         boxShadow: '0 4px 14px rgba(251,191,36,0.35)',
@@ -623,12 +628,19 @@ export const StreakIndicator = ({ currentStreak, lastStreak, totalDays }: { curr
                             out of <strong style={{ color: '#374151' }}>{totalDays}</strong> working days
                         </div>
                         {/* Inline progress bar */}
-                        <div style={{ marginTop: 9 }}>
+                        <div style={{ marginTop: 6 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attendance Progress</span>
+                                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attendance Progress</span>
                                 <span style={{ fontSize: 11, fontWeight: 700, color: rating.color }}>{pct}%</span>
                             </div>
-                            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 99, overflow: 'hidden' }}>
+                            <div
+                                role="progressbar"
+                                aria-label="Attendance streak progress"
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-valuenow={pct}
+                                style={{ height: 6, background: '#f3f4f6', borderRadius: 99, overflow: 'hidden' }}
+                            >
                                 <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg,${rating.color}bb,${rating.color})`, borderRadius: 99, transition: 'width 0.5s ease' }} />
                             </div>
                         </div>
@@ -636,20 +648,20 @@ export const StreakIndicator = ({ currentStreak, lastStreak, totalDays }: { curr
                 </div>
 
                 {/* Stat tiles */}
-                <div style={{ padding: '0 20px 14px', display: 'flex', gap: 8 }}>
-                    <div style={{ flex: 1, padding: '10px 12px', background: '#f9fafb', borderRadius: 10, border: '1px solid #f0f0f0' }}>
+                <div style={{ padding: '0 14px 10px', display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1, padding: '8px 10px', background: '#f9fafb', borderRadius: 10, border: '1px solid #f0f0f0' }}>
+                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 3, fontWeight: 500 }}>Last streak</div>
                         <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', lineHeight: 1 }}>{last}<span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 500, marginLeft: 4 }}>days</span></div>
-                        <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3, fontWeight: 500 }}>Last streak</div>
                     </div>
-                    <div style={{ flex: 1, padding: '10px 12px', background: '#f9fafb', borderRadius: 10, border: '1px solid #f0f0f0' }}>
+                    <div style={{ flex: 1, padding: '8px 10px', background: '#f9fafb', borderRadius: 10, border: '1px solid #f0f0f0' }}>
+                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 3, fontWeight: 500 }}>Remaining</div>
                         <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', lineHeight: 1 }}>{daysLeft}<span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 500, marginLeft: 4 }}>days</span></div>
-                        <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3, fontWeight: 500 }}>Remaining</div>
                     </div>
                 </div>
 
                 {/* Next goal / Top performance */}
                 {nextLevel ? (
-                    <div style={{ margin: '0 20px 18px', padding: '13px 14px', background: nextLevel.bg, borderRadius: 12, border: `1px solid ${nextLevel.color}22`, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+                    <div style={{ margin: '0 14px 12px', padding: '9px 10px', background: nextLevel.bg, borderRadius: 12, border: `1px solid ${nextLevel.color}22`, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: nextLevel.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Next: {nextLevel.label}</span>
                             <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500, background: '#fff', borderRadius: 20, padding: '1px 7px' }}>{daysToNext} days needed</span>
@@ -662,7 +674,7 @@ export const StreakIndicator = ({ currentStreak, lastStreak, totalDays }: { curr
                         </div>
                     </div>
                 ) : (
-                    <div style={{ margin: '0 20px 18px', padding: '14px', background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius: 12, border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ margin: '0 14px 12px', padding: '10px', background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius: 12, border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#22c55e,#16a34a)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 10px rgba(34,197,94,0.3)' }}>
                             <AppIcon name="bi-trophy-fill" className="fs-3" color="#fff" />
                         </div>
@@ -673,9 +685,12 @@ export const StreakIndicator = ({ currentStreak, lastStreak, totalDays }: { curr
                     </div>
                 )}
 
-            </Card>
-        </Col>
+        </Card>
     );
+
+    return layout === 'mui'
+        ? <MuiGrid item xs={12} md={4} className="mb-2" style={{ display: 'flex' }}>{card}</MuiGrid>
+        : <Col md={4} className="mb-2" style={{ display: 'flex' }}>{card}</Col>;
 };
 
 export const TotalWorkingTime = ({ totalWorkingTime, totalAllowedTime }: { totalWorkingTime: string, totalAllowedTime: string }) => {
@@ -2058,10 +2073,10 @@ export const ReportsTable = ({
     const deleteRequest = async (values: any) => {
 
         try {
-            const confirm = await deleteConfirmation('Attendance Request deleted successfully');
+            const confirm = await deleteConfirmation('Attendance request deleted.');
             if (!confirm) return;
             await deleteAttendanceRequestById(values.id);
-            // successConfirmation('Attendance Request deleted successfully');
+            // successConfirmation('Attendance Request deleted.');
             dispatch(saveToggleChange(!toggleChange));
             return;
         } catch (e) {

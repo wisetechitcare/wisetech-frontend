@@ -13,6 +13,7 @@ import {
 import { controlHeightSxFor } from './buttons';
 import { menuGeometryInBoundary, menuPropsInside, useDropdownBoundary } from './dropdownBoundary';
 import { wtFieldSelectChromePx, wtFieldSelectWidthPx } from './wtFieldSelectWidth';
+import { FloatingLabelFrame, useFloatingLabels } from './FloatingLabel';
 
 export type { WtAddOption, WtAddOptionPlacement } from './WtAddOption';
 
@@ -108,6 +109,7 @@ export interface WtFieldProps {
      */
     value?: string | number | string[];
     onChange?: WtFieldChangeHandler;
+    onBlur?: React.FocusEventHandler<HTMLInputElement | HTMLTextAreaElement>;
 
     /** Present ⇒ this is a select. Absent ⇒ a text/number input. */
     options?: WtFieldOption[];
@@ -118,7 +120,12 @@ export interface WtFieldProps {
     error?: string;
     required?: boolean;
     disabled?: boolean;
+    readOnly?: boolean;
     placeholder?: string;
+    /** Optional display transform for formatted values such as INR amounts. */
+    formatValue?: (value: string) => string;
+    /** Optional wire-value transform paired with `formatValue`. */
+    parseValue?: (value: string) => string;
 
     /**
      * `'sm'` (default) = mid-density (40px) — toolbars, lists, most forms.
@@ -159,6 +166,7 @@ export interface WtFieldProps {
     inputMode?: 'text' | 'numeric' | 'decimal' | 'tel' | 'email';
     min?: number;
     max?: number;
+    maxLength?: number;
     /** `'any'` allows any decimal — without it a number input treats 1200000.50 as invalid. */
     step?: number | 'any';
 
@@ -274,16 +282,19 @@ const controlSx = (
 const ADD_OPTION_VALUE = '__wt_add__';
 
 export const WtField: React.FC<WtFieldProps> = ({
-    label, ariaLabel, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, placeholder,
+    label, ariaLabel, labelPlacement = 'floating', value = '', onChange = () => {}, options, hint, error, required, disabled, readOnly, placeholder,
     size = 'sm', fullWidth = true, fitContent, minWidth, icon, prefix, tone,
-    type = 'text', multiline, minRows = 3, maxRows, inputMode, min, max, step,
+    type = 'text', multiline, minRows = 3, maxRows, inputMode, min, max, maxLength, step, onBlur, formatValue, parseValue,
     searchable, multiple, limitTags, addOption, onAddOption, addOptionLabel, clearable, id, name, autoFocus, sx, children,
 }) => {
     const reactId = useId();
     const fieldId = id ?? `wtf-${reactId}`;
+    // Inside <FloatingLabels>: labels rest in the box and float up on focus/value.
+    const floating = useFloatingLabels();
     const messageId = `${fieldId}-msg`;
     const invalid = Boolean(error);
     const message = error || hint;
+    const displayValue = !options && formatValue ? formatValue(String(value ?? '')) : value ?? '';
     const hasValue = Array.isArray(value)
         ? value.length > 0
         : String(value ?? '').length > 0;
@@ -570,11 +581,15 @@ export const WtField: React.FC<WtFieldProps> = ({
                                 error={invalid}
                                 helperText={message}
                                 FormHelperTextProps={invalid ? { role: 'alert' } : undefined}
-                                InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
+                                InputLabelProps={floating ? params.InputLabelProps : { ...params.InputLabelProps, shrink: true }}
                                 InputProps={{
                                     ...params.InputProps,
-                                    notched: true,
-                                    startAdornment: <>{startAdornment}{avatarStart}{params.InputProps.startAdornment}</>,
+                                    notched: floating ? undefined : true,
+                                    // MUI lifts the label whenever a start adornment exists, so an
+                                    // empty fragment would pin a floating label up for good.
+                                    startAdornment: startAdornment || avatarStart || params.InputProps.startAdornment
+                                        ? <>{startAdornment}{avatarStart}{params.InputProps.startAdornment}</>
+                                        : undefined,
                                 }}
                                 sx={controlSx(activeTone, invalid, size)}
                             />
@@ -587,6 +602,31 @@ export const WtField: React.FC<WtFieldProps> = ({
 
     /** Anything handed in as `children` cannot cut a gap in a border, so it takes a label on its own line. */
     const custom = children ?? null;
+
+    if (custom && floating && label) {
+        const filled = Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== '';
+        return (
+            <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 0.5 }, ...(frameSx as object[])] as SxProps<Theme>}>
+                {addOnLabel && (
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <WtAddOptionButton label={addOnLabel.label} onAdd={addOnLabel.onAdd} disabled={disabled} />
+                    </Box>
+                )}
+                <FloatingLabelFrame label={label} required={required} filled={filled} error={invalid} disabled={disabled}>
+                    {custom}
+                </FloatingLabelFrame>
+                {message && (
+                    <Typography
+                        id={messageId}
+                        role={invalid ? 'alert' : undefined}
+                        sx={{ fontSize: messageFs, lineHeight: 1.4, color: invalid ? 'error.main' : 'text.secondary' }}
+                    >
+                        {message}
+                    </Typography>
+                )}
+            </Box>
+        );
+    }
 
     if (custom || labelPlacement === 'above') {
         return (
@@ -625,8 +665,9 @@ export const WtField: React.FC<WtFieldProps> = ({
                     <TextField
                         id={fieldId}
                         name={name}
-                        value={value ?? ''}
-                        onChange={(e) => onChange(e.target.value)}
+                        value={displayValue}
+                        onChange={(e) => onChange(parseValue ? parseValue(e.target.value) : e.target.value)}
+                        onBlur={onBlur}
                         placeholder={placeholder}
                         disabled={disabled}
                         autoFocus={autoFocus}
@@ -637,8 +678,8 @@ export const WtField: React.FC<WtFieldProps> = ({
                         size={muiSize}
                         fullWidth
                         error={invalid}
-                        InputProps={{ startAdornment, endAdornment: clearButton }}
-                        inputProps={{ inputMode, min, max, step, 'aria-label': label ? undefined : ariaLabel, 'aria-describedby': message ? messageId : undefined }}
+                        InputProps={{ readOnly, startAdornment, endAdornment: clearButton }}
+                        inputProps={{ inputMode, min, max, maxLength, step, 'aria-label': label ? undefined : ariaLabel, 'aria-describedby': message ? messageId : undefined }}
                         sx={controlSx(activeTone, invalid, size, false, !multiline)}
                     />
                 )}
@@ -676,10 +717,12 @@ export const WtField: React.FC<WtFieldProps> = ({
                 label={label}
                 required={required}
                 select={isSelect}
-                value={isSelect ? String(value ?? '') : (value ?? '')}
-                onChange={(e) => onChange(e.target.value)}
+                value={isSelect ? String(value ?? '') : displayValue}
+                onChange={(e) => onChange(parseValue && !isSelect ? parseValue(e.target.value) : e.target.value)}
+                onBlur={onBlur}
                 placeholder={placeholder}
                 disabled={disabled}
+                InputProps={{ readOnly, startAdornment, endAdornment: isSelect ? undefined : clearButton, notched: floating && !isSelect ? undefined : true }}
                 autoFocus={autoFocus}
                 type={isSelect ? undefined : type}
                 multiline={!isSelect && multiline}
@@ -692,13 +735,10 @@ export const WtField: React.FC<WtFieldProps> = ({
                 // Sandwich Leave look: label always notched into the border (even when empty).
                 // Selects need it for `displayEmpty`; text fields need it so Allergies /
                 // Name do not look like bare placeholders sitting inside the box.
-                InputLabelProps={{ shrink: true }}
-                InputProps={{
-                    startAdornment,
-                    endAdornment: isSelect ? undefined : clearButton,
-                    notched: true,
-                }}
-                inputProps={isSelect ? { 'aria-label': label ? undefined : ariaLabel } : { inputMode, min, max, step, 'aria-label': label ? undefined : ariaLabel }}
+                // Floating text fields let MUI animate the label; a select keeps it up because
+                // `displayEmpty` paints its placeholder where a resting label would sit.
+                InputLabelProps={floating && !isSelect ? undefined : { shrink: true }}
+                inputProps={isSelect ? { 'aria-label': label ? undefined : ariaLabel } : { inputMode, min, max, maxLength, step, 'aria-label': label ? undefined : ariaLabel }}
                 // No `id` here, and no hand-written `aria-describedby` above. TextField
                 // already mints `${id}-helper-text`, puts it on the helper text and points
                 // the input at it — renaming one half silently unlinks the pair.

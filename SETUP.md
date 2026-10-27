@@ -103,6 +103,7 @@ any edit.
 | `VITE_APP_GOOGLE_MAP_KEY` | Maps; leave unset until you touch that screen |
 | `VITE_APP_OPEN_CAGE_API_KEY` | Geocoding; same |
 | `VITE_APP_PREVIEW_DOCS_URL` | Document preview host |
+| `VITE_ATTENDANCE_COGNITO_IDENTITY_POOL_ID` | Optional Cognito identity pool used only for Rekognition liveness streaming. Required when face verification is offered. |
 
 ## 5. Run it
 

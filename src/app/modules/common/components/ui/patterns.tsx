@@ -382,7 +382,7 @@ export function SectionHead({
   desc,
 }: {
   tone: Trio;
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   desc?: string;
 }) {
@@ -689,13 +689,18 @@ export function UnderlineTabs<K extends string>({
   // moving the row only — scrollIntoView would also scroll the page.
   const listRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
-    const list = listRef.current;
-    const active = list?.querySelector<HTMLElement>('[aria-selected="true"]');
-    if (!list || !active) return;
-    const left = active.offsetLeft - list.offsetLeft;
-    const right = left + active.offsetWidth;
-    if (left < list.scrollLeft) list.scrollLeft = left - 8;
-    else if (right > list.scrollLeft + list.clientWidth) list.scrollLeft = right - list.clientWidth + 8;
+    const keepActiveTabVisible = () => {
+      const list = listRef.current;
+      const active = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+      if (!list || !active) return;
+      const left = active.offsetLeft - list.offsetLeft;
+      const right = left + active.offsetWidth;
+      if (left < list.scrollLeft) list.scrollLeft = left - 8;
+      else if (right > list.scrollLeft + list.clientWidth) list.scrollLeft = right - list.clientWidth + 8;
+    };
+    keepActiveTabVisible();
+    window.addEventListener("resize", keepActiveTabVisible);
+    return () => window.removeEventListener("resize", keepActiveTabVisible);
   }, [value]);
 
   // Which ends have more tabs hidden past them — those ends fade out, so a clipped tab
