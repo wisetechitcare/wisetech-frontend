@@ -31,7 +31,11 @@ export interface DragHandleProps {
 export interface ReorderableGroupProps<T> {
   items: T[];
   getItemId: (item: T) => string;
+  /** Fires continuously while dragging — use it to paint the new order. */
   onReorder: (items: T[]) => void;
+  /** Fires once when a drag is dropped, with the final order — persist here when saving
+   *  is expensive (one request per item), instead of on every `onReorder` step. */
+  onReorderEnd?: (items: T[]) => void;
   /** `handleProps` is provided only when `withHandle` is on — spread it onto your grip element. */
   renderItem: (item: T, handleProps?: DragHandleProps) => React.ReactNode;
   axis?: 'x' | 'y';
@@ -100,6 +104,7 @@ function ReorderableGroup<T>({
   items,
   getItemId,
   onReorder,
+  onReorderEnd,
   renderItem,
   axis = 'x',
   className,
@@ -111,9 +116,17 @@ function ReorderableGroup<T>({
   const ids = items.map(getItemId);
   const byId = new Map(items.map((it) => [getItemId(it), it]));
 
+  // The order as of the last `onReorder`, so the drop reports it even if the parent's
+  // re-render with that order has not landed yet.
+  const latestRef = useRef<T[]>(items);
+  latestRef.current = items;
+
   const handleReorder = (newIds: string[]) => {
-    onReorder(newIds.map((id) => byId.get(id)).filter(Boolean) as T[]);
+    const next = newIds.map((id) => byId.get(id)).filter(Boolean) as T[];
+    latestRef.current = next;
+    onReorder(next);
   };
+  const handleDragEnd = onReorderEnd ? () => onReorderEnd(latestRef.current) : undefined;
 
   if (disabled) {
     return (
@@ -145,6 +158,7 @@ function ReorderableGroup<T>({
             className={itemClassName}
             style={itemStyle}
             withHandle={withHandle}
+            onDragEnd={handleDragEnd}
             renderItem={(handleProps) => renderItem(item, handleProps)}
           />
         );
@@ -158,12 +172,14 @@ function ReorderableItem({
   className,
   style,
   withHandle,
+  onDragEnd,
   renderItem,
 }: {
   id: string;
   className?: string;
   style?: React.CSSProperties;
   withHandle: boolean;
+  onDragEnd?: () => void;
   renderItem: (handleProps?: DragHandleProps) => React.ReactNode;
 }) {
   // Track whether the pointer interaction was a drag, so we can swallow the
@@ -186,7 +202,10 @@ function ReorderableItem({
       whileDrag={{ scale: 1.02, zIndex: 20, boxShadow: '0 12px 28px rgba(0,0,0,0.18)' }}
       transition={{ type: 'spring', stiffness: 600, damping: 40 }}
       onDragStart={() => { draggedRef.current = true; }}
-      onDragEnd={() => { window.setTimeout(() => { draggedRef.current = false; }, 0); }}
+      onDragEnd={() => {
+        window.setTimeout(() => { draggedRef.current = false; }, 0);
+        onDragEnd?.();
+      }}
       onClickCapture={(e: React.MouseEvent) => {
         if (draggedRef.current) {
           e.preventDefault();

@@ -10,7 +10,6 @@ import {SidebarCollapseProvider} from './core/SidebarCollapseContext'
 import {PinnedMenuProvider} from './core/PinnedMenuContext'
 import {NavTransformProvider} from '@/contexts/NavTransformContext'
 import {WorkspaceShellState} from '@components/workspace/WorkspaceShellContext'
-import {ActivityDrawer, DrawerMessenger, InviteUsers, UpgradePlan} from '../partials'
 import {MenuComponent} from '../assets/ts/components'
 import {BottomNav} from '@components/navigation/BottomNavigation'
 import {NotificationCenter} from '@components/notifications'
@@ -59,16 +58,6 @@ const MasterLayout = () => {
           <Footer />
         </div>
       </div>
-
-      {/* begin:: Drawers */}
-      <ActivityDrawer />
-      <DrawerMessenger />
-      {/* end:: Drawers */}
-
-      {/* begin:: Modals */}
-      <InviteUsers />
-      <UpgradePlan />
-      {/* end:: Modals */}
 
       {/* Mobile-only bottom navigation (renders null on desktop) */}
       <BottomNav />

@@ -37,6 +37,10 @@ concurrency:
 
 jobs:
   verify:
+    # Shown in the PR checks list as "Frontend CI / <name>". The trigger used to be the only
+    # difference between the two rows ("verify (push)" / "verify (pull_request)"), which read
+    # like deployments. Say what each run is for instead.
+    name: ${{ github.event_name == 'pull_request' && 'PR check (tests, types, build)' || format('Branch check — {0} (tests, types)', github.ref_name) }}
     runs-on: ubuntu-latest
     # 25 to match the backend: a PR run now bundles, and the Vite build needs a 4 GB heap.
     # Push runs (main/dev) skip the bundle and finish well inside this.

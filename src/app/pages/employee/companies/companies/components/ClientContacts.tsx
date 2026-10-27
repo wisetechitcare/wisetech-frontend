@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import ClientContactsForm from "../../contacts/components/ClientContactsForm";
 import { getClientContactsByCompanyId, deleteClientContact } from "@services/companies";
-import { crmListRowSx } from "../../crmListRowSx";
+import { crmListRowSx, CRM_FORMER_COLOR } from "../../crmListRowSx";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -13,6 +13,9 @@ import { KTIcon } from "@metronic/helpers";
 import { deleteConfirmation } from "@utils/modal";
 import { canSection } from "@utils/can";
 import { getAllClientBranches } from "@services/lead";
+import dayjs from "dayjs";
+import { Box } from "@mui/material";
+import { ToneChip } from "@app/modules/common/components/ui";
 
 const ClientContacts = ({ companyId }: { companyId: string }) => {
   const canWrite = canSection("crm.companies", "write");
@@ -21,6 +24,8 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [editingContactData, setEditingContactData] = useState<any>(null); // Separate state for editing data
   const [contacts, setContacts] = useState<any[]>([]);
+  // People who worked here and moved on — read-only, their current company owns them now.
+  const [formerContacts, setFormerContacts] = useState<any[]>([]);
   const [allBranches, setAllBranches] = useState<any[]>([]);
   const employeeId = useSelector((state: RootState) => state.auth.currentUser?.id);
   const navigate = useNavigate();
@@ -29,6 +34,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
     try {
       const response = await getClientContactsByCompanyId(companyId);
       setContacts(response.data?.contacts || []);
+      setFormerContacts(response.data?.formerContacts || []);
       const branchesResponse = await getAllClientBranches();
       setAllBranches(branchesResponse?.data?.leadBranches || []);
     } catch (error) {
@@ -80,6 +86,19 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
     }
   };
 
+  // Former contacts share the table, flagged by `__former` (their stint at THIS company):
+  // the role is what they were here, and the branch belongs to their new employer, so blank.
+  const rows = useMemo(
+    () => [
+      ...contacts,
+      ...formerContacts.map((c) => {
+        const stint = c.companyHistory?.[0];
+        return { ...c, __former: stint, branch: null, roleInCompany: stint?.contactRole?.name || stint?.roleInCompany || "" };
+      }),
+    ],
+    [contacts, formerContacts],
+  );
+
   const columns = useMemo<MRT_ColumnDef<any, any>[]>(
     () => [
       {
@@ -100,13 +119,19 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         accessorKey: "fullName",
         header: "Full Name",
         Cell: ({ row }) => (
-          <button
-            className="btn btn-link p-0 text-start text-decoration-none"
-            style={{ color: "inherit", fontWeight: 600, fontSize: "14px" }}
-            onClick={() => navigate(`/contacts/${row.original.id}`)}
-          >
-            {row.original.fullName || "NA"}
-          </button>
+          // nowrap + no shrink: squeezed flex children wrapped one letter per line.
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, whiteSpace: "nowrap", "& > *": { flexShrink: 0 } }}>
+            <button
+              className="btn btn-link p-0 text-start text-decoration-none"
+              style={{ color: "inherit", fontWeight: 600, fontSize: "14px", whiteSpace: "nowrap" }}
+              onClick={() => navigate(`/contacts/${row.original.id}`)}
+            >
+              {row.original.fullName || "NA"}
+            </button>
+            {row.original.__former && (
+              <ToneChip dense color={CRM_FORMER_COLOR} label={`Former · left ${dayjs(row.original.__former.endDate).format("MMM YYYY")}`} />
+            )}
+          </Box>
         ),
       },
       {
@@ -114,6 +139,10 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         header: "Branch",
         Cell: ({ row }) => {
           const { branch } = row.original;
+          // A former contact's branch is their new employer's — say where they went instead.
+          if (row.original.__former) {
+            return row.original.company?.companyName ? `Now at ${row.original.company.companyName}` : "";
+          }
 
           const branchName = allBranches.find((branchs: any) => branchs.id === branch)?.name;
 
@@ -163,7 +192,8 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
       ...(canWrite ? [{
         accessorKey: "actions",
         header: "Actions",
-        Cell: ({ row }: any) => (
+        // A former contact is edited from their current company, not from here.
+        Cell: ({ row }: any) => row.original.__former ? null : (
           <div className="d-flex align-items-center gap-2">
             <button
               className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
@@ -196,7 +226,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
 
       <MaterialTable
         columns={columns}
-        data={contacts}
+        data={rows}
         employeeId={employeeId}
         tableName="Client Contacts"
         resource="CLIENT_CONTACTS"
@@ -206,7 +236,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         defaultSorting={[{ id: "fullName", desc: false }]}
         muiTableProps={{
           muiTableBodyRowProps: ({ row }) => ({
-            sx: crmListRowSx(row.original.isContactActive !== false),
+            sx: crmListRowSx(row.original.isContactActive !== false, { former: !!row.original.__former }),
           }),
         }}
       />
