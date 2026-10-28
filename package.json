@@ -16,6 +16,8 @@
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "test": "vitest run --project unit",
     "audit:choices": "node scripts/audit-choice-fields.mjs",
+    "audit:buttons": "node scripts/audit-buttons.mjs",
+    "audit:buttons:check": "node scripts/audit-buttons.mjs --check",
     "test:watch": "vitest --project unit",
     "preview": "vite preview",
     "lint:ui:baseline": "eslint \"src/**/*.{ts,tsx}\" -f json > .eslint-ui-tmp.json; node scripts/gen-ui-baseline.cjs < .eslint-ui-tmp.json; rm -f .eslint-ui-tmp.json",
