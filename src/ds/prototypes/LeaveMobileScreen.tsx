@@ -1,11 +1,12 @@
 import { useState } from "react"
 import { toast } from "sonner"
-import { ArrowLeft, CalendarDays, Info, Send } from "lucide-react"
+import { parseDate } from "@internationalized/date"
+import { ArrowLeft, Info, Send } from "lucide-react"
 import { Button } from "@/ds/ui/button"
 import { Badge } from "@/ds/ui/badge"
 import { Card, CardContent } from "@/ds/ui/card"
+import { DateRangePicker } from "@/ds/ui/date-picker"
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet, FieldTitle } from "@/ds/ui/field"
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/ds/ui/input-group"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/ds/ui/item"
 import { RadioGroup, RadioGroupItem } from "@/ds/ui/radio-group"
 import { Switch } from "@/ds/ui/switch"
@@ -23,6 +24,8 @@ const REQUESTS = [
   { when: "14 Oct", type: "Sick · ½ day", status: { label: "Approved", variant: "success" as const } },
   { when: "2 Sep", type: "Earned · 2 days", status: { label: "Approved", variant: "success" as const } },
 ]
+
+const DEFAULT_DATES = { start: parseDate("2026-10-28"), end: parseDate("2026-10-31") }
 
 export function LeaveMobileScreen() {
   const [type, setType] = useState<(typeof TYPES)[number]["id"]>("casual")
@@ -67,26 +70,7 @@ export function LeaveMobileScreen() {
             <Card size="sm">
               <CardContent>
                 <FieldGroup>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field>
-                      <FieldLabel htmlFor="from">From</FieldLabel>
-                      <InputGroup>
-                        <InputGroupAddon>
-                          <CalendarDays />
-                        </InputGroupAddon>
-                        <InputGroupInput id="from" defaultValue="28 Oct" />
-                      </InputGroup>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="to">To</FieldLabel>
-                      <InputGroup>
-                        <InputGroupAddon>
-                          <CalendarDays />
-                        </InputGroupAddon>
-                        <InputGroupInput id="to" defaultValue="31 Oct" />
-                      </InputGroup>
-                    </Field>
-                  </div>
+                  <DateRangePicker label="Dates" defaultValue={DEFAULT_DATES} />
                   <Field orientation="horizontal">
                     <FieldContent>
                       <FieldLabel htmlFor="half">Half day on last day</FieldLabel>

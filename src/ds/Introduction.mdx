@@ -30,6 +30,9 @@ changes, each marked in the file:
   hover, press to 0.975, spring easing (motion only when the user allows it).
 - **Toaster** — follows our light/dark engine instead of `next-themes`.
 - **cmdk** (behind Command) — patched for three screen-reader bugs; see `pnpm-workspace.yaml`.
+- **Calendar, DateField, TimeField, DatePicker, NumberField** — React Aria (locale-aware: day-first dates,
+  1,00,000 grouping). The Calendar is shadcn's own React Aria calendar, adapted by hand: the CLI would replace
+  our Base UI Button and Select with React Aria ones. `KitProvider` (`src/ds/provider.tsx`) supplies the locale.
 
 Screens and patterns are composed only from these components; `src/ds/consistency.test.ts` fails the
 build if one hand-builds a button, input, textarea, kbd or card.
@@ -50,6 +53,8 @@ Use the toolbar above any story:
 - **Foundations** — colour roles, status, type scale, radius & shadow, spacing & density.
 - **Components** — the shadcn components in `src/ds/ui`.
 - **Patterns** — page header, stat card, empty state (`src/ds/patterns`).
+- **Effects** — moments only (KPI counters, one insight highlight, real celebrations), one implementation each,
+  CSS-first, nothing under reduced motion (`src/ds/effects`). Never in tables, forms, wizards or approvals.
 - **Screens** — prototypes of the new app shell and hero screens (`src/ds/prototypes`).
 
 For agents: the Storybook MCP server (`wisetech-storybook`) exposes these docs — check props with

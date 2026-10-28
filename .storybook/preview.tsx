@@ -1,7 +1,7 @@
 import { useLayoutEffect, type ReactNode } from 'react'
 import type { Decorator, Preview } from '@storybook/react-vite'
 import '../src/ds/styles/globals.css'
-import { TooltipProvider } from '../src/ds/ui/tooltip'
+import { KitProvider } from '../src/ds/provider'
 import { Toaster } from '../src/ds/ui/sonner'
 import { applyAppearance, BRAND_PRESETS, type Density, type Mode, type Surface } from '../src/ds/lib/appearance'
 
@@ -22,10 +22,10 @@ function Appearance({ mode, surface, density, brand, children }: Globals & { chi
     })
   }, [mode, surface, density, preset])
   return (
-    <TooltipProvider delay={150}>
+    <KitProvider>
       {children}
       <Toaster position="bottom-right" closeButton />
-    </TooltipProvider>
+    </KitProvider>
   )
 }
 
@@ -62,7 +62,7 @@ const preview: Preview = {
       test: 'error',
     },
     options: {
-      storySort: { order: ['Introduction', 'Foundations', 'Components', 'Patterns', 'Screens'] },
+      storySort: { order: ['Introduction', 'Foundations', 'Components', 'Patterns', 'Effects', 'Screens'] },
     },
   },
 }
