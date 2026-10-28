@@ -104,7 +104,7 @@ export default defineConfig({
   },
   css: {
     // Bootstrap/Metronic utilities skip v2 kit elements (see the plugin file).
-    postcss: { plugins: [kitExemption()] },
+    postcss: { plugins: [kitExemption(path.resolve(__dirname, './src/ds'))] },
     preprocessorOptions: {
       scss: {
         quietDeps: true,
