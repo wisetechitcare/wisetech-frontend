@@ -8,12 +8,22 @@
  */
 export const CRM_ACTIVE_COLOR = "#50cd89";
 export const CRM_INACTIVE_COLOR = "#64748b";
+/** Company / sub-company status options — the colours above, so the dropdown matches the list rows. */
+export const COMPANY_STATUS_OPTIONS = [
+  { value: "ACTIVE", label: "Active", color: CRM_ACTIVE_COLOR },
+  { value: "CLOSED", label: "Inactive", color: CRM_INACTIVE_COLOR },
+];
+
+/** Someone who moved to another company — violet, so it reads as neither active nor inactive. */
+export const CRM_FORMER_COLOR = "#7c3aed";
 
 const BLACKLISTED = { bg: "#1a1a1a", hover: "#3a3a3a", text: "#ffffff" };
 
 type CrmListRowOpts = {
   /** Company blacklist wins over active/inactive. */
   blacklisted?: boolean;
+  /** A former contact listed on their old company — wins over active/inactive. */
+  former?: boolean;
 };
 
 /** MRT `muiTableBodyRowProps` `.sx` for active / inactive / blacklisted rows. */
@@ -58,8 +68,10 @@ export function crmListRowSx(active: boolean, opts: CrmListRowOpts = {}) {
     };
   }
 
-  const color = active ? CRM_ACTIVE_COLOR : CRM_INACTIVE_COLOR;
-  const text = active ? "#333" : CRM_INACTIVE_COLOR;
+  const color = opts.former ? CRM_FORMER_COLOR : active ? CRM_ACTIVE_COLOR : CRM_INACTIVE_COLOR;
+  const text = active || opts.former ? "#333" : CRM_INACTIVE_COLOR;
+  // Hover deepens the row's OWN tint. A neutral grey hover made an active row look inactive.
+  const hoverBg = `${color}38 !important`;
 
   return {
     cursor: "pointer",
@@ -93,8 +105,7 @@ export function crmListRowSx(active: boolean, opts: CrmListRowOpts = {}) {
       borderRight: "3px solid white",
     },
     "&:hover": {
-      backgroundColor: (t: { palette: { background: { default: string } } }) =>
-        `${t.palette.background.default} !important`,
+      backgroundColor: hoverBg,
       boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
       "& td": { color: text },
       "& .MuiTableCell-root:first-of-type": {
@@ -102,8 +113,7 @@ export function crmListRowSx(active: boolean, opts: CrmListRowOpts = {}) {
       },
     },
     "&.MuiTableRow-root:hover .MuiTableCell-root": {
-      backgroundColor: (t: { palette: { background: { default: string } } }) =>
-        `${t.palette.background.default} !important`,
+      backgroundColor: hoverBg,
       color: `${text} !important`,
     },
   };

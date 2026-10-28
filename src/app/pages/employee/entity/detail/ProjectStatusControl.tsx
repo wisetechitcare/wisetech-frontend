@@ -110,32 +110,32 @@ const ProjectStatusControl: React.FC<{
         onMouseEnter={() => canWrite && setHover(true)}
         onMouseLeave={() => setHover(false)}
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 9,
+          // minHeight is a thumb-sized target; maxWidth lets a long status name truncate in the
+          // label below instead of pushing the pencil off the edge of a phone.
+          display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 34, maxWidth: '100%', textAlign: 'left',
           border: `1px solid ${color}3D`,
           background: `linear-gradient(180deg, ${color}17, ${color}0A)`,
           color,
           borderRadius: 10,
-          padding: '6px 8px 6px 13px',
+          padding: '4px 5px 4px 12px',
           cursor: !canWrite ? 'default' : saving ? 'wait' : 'pointer',
           fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 700,
           letterSpacing: '-0.1px',
-          boxShadow: hover ? `0 2px 8px ${color}26` : `0 1px 2px ${color}14`,
-          transform: hover ? 'translateY(-1px)' : 'none',
+          boxShadow: hover ? `0 2px 8px ${color}26` : 'none',
           transition: 'box-shadow 0.15s ease, transform 0.15s ease, background 0.15s ease',
         }}
       >
         <span
           style={{
-            width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block',
-            boxShadow: `0 0 0 3px ${color}22`,
+            width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0,
           }}
         />
-        <span>{saving ? 'Saving…' : `${prefix}${name}`}</span>
+        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{saving ? 'Saving…' : `${prefix}${name}`}</span>
         {canWrite && <span
           aria-hidden
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 22, height: 22, borderRadius: 7,
+            width: 24, height: 24, borderRadius: 7, flexShrink: 0,
             background: hover ? `${color}26` : `${color}17`,
             transition: 'background 0.15s ease',
           }}

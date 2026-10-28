@@ -43,6 +43,22 @@ export const toPlanStage = (
 
 export const pct = (value: number | string): number => parseFloat(String(value)) || 0;
 
+/** A lead's own stage as stored on `Lead.paymentStages`. `paymentPlanStageId` is the plan
+ *  stage it was seeded from (its deliverables follow it into the project); null = added on the lead. */
+export interface LeadPaymentStage {
+  name: string;
+  percentage: number | string;
+  paymentPlanStageId?: string | null;
+}
+
+// In the editor, `id` carries the plan-stage provenance — the lead-side tree never uses it
+// for deliverables (showDeliverables=false), so the one field serves both.
+export const fromLeadStages = (rows: LeadPaymentStage[]): PlanStage[] =>
+  rows.map((r) => toPlanStage(r.name, r.percentage, r.paymentPlanStageId ?? undefined));
+
+export const toLeadStages = (rows: PlanStage[]): LeadPaymentStage[] =>
+  rows.map((r) => ({ name: r.name.trim(), percentage: pct(r.percentage), paymentPlanStageId: r.id ?? null }));
+
 /** Rounded to 3dp to match the backend's Decimal(6,3): summing floats otherwise gives
  *  100.00000000000001, which fails the `=== 100` check and prints nonsense in the total. */
 export const stageTotal = (stages: PlanStage[]): number =>

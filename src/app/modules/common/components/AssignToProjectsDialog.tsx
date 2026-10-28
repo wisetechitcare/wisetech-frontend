@@ -79,12 +79,25 @@ export const AssignToProjectsDialog: React.FC<AssignToProjectsDialogProps> = ({ 
     });
 
     const selectableVisible = rows.filter((p) => !p.alreadyAdded);
-    const allVisibleSelected = selectableVisible.length > 0 && selectableVisible.every((p) => selected.has(p.id));
-    const toggleAllVisible = () => setSelected((prev) => {
+    const allSelected = (group: AssignableProject[]) => group.length > 0 && group.every((p) => selected.has(p.id));
+    /** Select every project in `group`, or clear them if they are all selected already. Visible rows only, so a search narrows it. */
+    const toggleGroup = (group: AssignableProject[]) => setSelected((prev) => {
         const next = new Set(prev);
-        selectableVisible.forEach((p) => (allVisibleSelected ? next.delete(p.id) : next.add(p.id)));
+        const clear = group.every((p) => prev.has(p.id));
+        group.forEach((p) => (clear ? next.delete(p.id) : next.add(p.id)));
         return next;
     });
+    const allVisibleSelected = allSelected(selectableVisible);
+
+    // Quick picks by the same team flag each row's badge shows. Employees only — a contact
+    // goes on the external team, which has no membership to check.
+    const groups = isEmployee
+        ? [
+            { key: 'in', label: 'In team', rows: selectableVisible.filter((p) => p.inTeam === true) },
+            { key: 'out', label: 'Not in team', rows: selectableVisible.filter((p) => p.inTeam === false) },
+            { key: 'none', label: 'No team', rows: selectableVisible.filter((p) => p.inTeam === null) },
+        ].filter((g) => g.rows.length > 0)
+        : [];
 
     const save = async () => {
         const picked = projects.filter((p) => selected.has(p.id));
@@ -163,9 +176,22 @@ export const AssignToProjectsDialog: React.FC<AssignToProjectsDialogProps> = ({ 
             </div>
 
             <div className="shrink-0 flex flex-wrap items-center gap-2 px-3 sm:px-5 py-2 text-[12px] text-slate-500">
-                <WtButton inverted onClick={toggleAllVisible} disabled={!selectableVisible.length}>
-                    {allVisibleSelected ? 'Clear selection' : `Select all (${selectableVisible.length})`}
+                <WtButton inverted onClick={() => toggleGroup(selectableVisible)} disabled={!selectableVisible.length} aria-pressed={allVisibleSelected}>
+                    {allVisibleSelected ? 'Unselect all' : `Select all (${selectableVisible.length})`}
                 </WtButton>
+                {groups.map((g) => {
+                    const on = allSelected(g.rows);
+                    return (
+                        <WtButton key={g.key} inverted onClick={() => toggleGroup(g.rows)} aria-pressed={on}>
+                            {on ? `Unselect ${g.label.toLowerCase()}` : `Select ${g.label.toLowerCase()} (${g.rows.length})`}
+                        </WtButton>
+                    );
+                })}
+                {selected.size > 0 && (
+                    <WtButton inverted onClick={() => setSelected(new Set())}>
+                        Clear ({selected.size})
+                    </WtButton>
+                )}
                 <WtButton inverted onClick={() => setShowAdded((v) => !v)} disabled={!addedCount} aria-pressed={showAdded}>
                     {showAdded ? `Hide already added (${addedCount})` : `Show already added (${addedCount})`}
                 </WtButton>
