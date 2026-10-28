@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent } from 'storybook/test'
-import { Download, Plus, Settings, Trash2 } from 'lucide-react'
+import { CloudUpload, Download, Plus, Send, Settings, Trash2 } from 'lucide-react'
 import { Button, buttonVariants } from './button'
 
 /** The one button. Variants carry meaning: one primary action per view, destructive only for irreversible actions. */
@@ -9,7 +9,7 @@ const meta = {
   component: Button,
   args: { children: 'Add employee', onClick: fn() },
   argTypes: {
-    variant: { control: 'select', options: ['default', 'secondary', 'outline', 'ghost', 'destructive', 'link'] },
+    variant: { control: 'select', options: ['default', 'inverted', 'secondary', 'outline', 'ghost', 'destructive', 'link'] },
     size: { control: 'select', options: ['xs', 'sm', 'default', 'lg', 'icon'] },
   },
 } satisfies Meta<typeof Button>
@@ -31,6 +31,9 @@ export const Variants: Story = {
     <div className="flex flex-wrap items-center gap-2">
       <Button {...args}>
         <Plus /> Add employee
+      </Button>
+      <Button {...args} variant="inverted">
+        <CloudUpload /> Choose image
       </Button>
       <Button {...args} variant="secondary">
         Save draft
@@ -95,3 +98,69 @@ export const AsLink: Story = {
     await expect(canvas.getByRole('link', { name: 'Read the leave policy' })).toHaveAttribute('href', '#policy')
   },
 }
+
+/**
+ * The live app's dialog footer (New Announcement), rebuilt on the kit: WtButton `inverted` →
+ * `inverted`, `ghost` (the standard Cancel) → `outline`, the accent CTA → `default`.
+ */
+export const DialogFooter: Story = {
+  render: () => (
+    <div className="flex w-[34rem] flex-col gap-4 rounded-2xl border bg-card p-5">
+      <div>
+        <Button variant="inverted" size="sm">
+          <CloudUpload data-icon="inline-start" /> Choose Image
+        </Button>
+      </div>
+      <div className="flex justify-end gap-2 border-t pt-4">
+        <Button variant="outline">Cancel</Button>
+        <Button>
+          <Send data-icon="inline-start" /> Post Announcement
+        </Button>
+      </div>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    for (const name of ['Choose Image', 'Cancel', 'Post Announcement']) {
+      await expect(canvas.getByRole('button', { name })).toBeEnabled()
+    }
+  },
+}
+
+const STATE_VARIANTS = ['default', 'inverted', 'outline', 'secondary', 'ghost', 'destructive'] as const
+const STATES = ['rest', 'hover', 'focus', 'pressed', 'disabled'] as const
+
+/** Every variant in every state, forced with real CSS states (storybook-addon-pseudo-states), not simulated events. */
+export const States: Story = {
+  parameters: {
+    pseudo: { hover: ['[data-state-demo="hover"]'], focusVisible: ['[data-state-demo="focus"]'], active: ['[data-state-demo="pressed"]'] },
+  },
+  render: () => (
+    <table className="border-separate border-spacing-x-4 border-spacing-y-3 text-left text-xs text-muted-foreground">
+      <thead>
+        <tr>
+          <th scope="col" className="font-medium">Variant</th>
+          {STATES.map((state) => (
+            <th key={state} scope="col" className="font-medium capitalize">{state}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {STATE_VARIANTS.map((variant) => (
+          <tr key={variant}>
+            <th scope="row" className="font-medium">{variant}</th>
+            {STATES.map((state) => (
+              <td key={state}>
+                <Button variant={variant} data-state-demo={state} disabled={state === 'disabled'}>
+                  {variant === 'destructive' ? 'Delete' : 'Save'}
+                </Button>
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  ),
+}
+
+/** The same grid in dark mode. */
+export const StatesDark: Story = { ...States, globals: { mode: 'dark' } }

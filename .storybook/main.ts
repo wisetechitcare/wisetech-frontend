@@ -9,7 +9,8 @@ const config: StorybookConfig = {
     "@storybook/addon-a11y",
     "@storybook/addon-docs",
     "@storybook/addon-mcp",
-    "@storybook/addon-vitest"
+    "@storybook/addon-vitest",
+    "storybook-addon-pseudo-states"
   ],
   "framework": "@storybook/react-vite",
   // Storybook MCP docs toolset (docs-list / docs-show / docs-show-story) reads this manifest.
