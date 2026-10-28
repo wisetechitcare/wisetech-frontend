@@ -98,7 +98,7 @@ export function FilterSheet<T extends object>({
           >
             Reset filters
           </WtButton>
-          <WtButton fullWidth size="medium" tone="primary" flat={false} onClick={() => onApply(draft)}>
+          <WtButton fullWidth size="medium" flat={false} onClick={() => onApply(draft)}>
             {draftCount ? `Apply filters (${draftCount})` : "Apply"}
           </WtButton>
         </Stack>

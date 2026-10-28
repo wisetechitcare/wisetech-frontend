@@ -979,7 +979,7 @@ const getBlockingMessage = async () => {
             <div className={isDashboard ? "py-1 rounded-3 mb-2" : "py-1 rounded-3 mb-4"}>
                 <WtButton
                     type="button"
-                    tone={hasCheckin && hasCheckin !== null && hasCheckin !== "" ? "danger" : "primary"}
+                    tone={hasCheckin && hasCheckin !== null && hasCheckin !== "" ? "danger" : "accent"}
                     flat={false}
                     size="medium"
                     fullWidth

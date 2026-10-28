@@ -15,9 +15,7 @@
      (src/ds/lib/appearance.ts). The pair below is the live WtButton gradient, kept exact. */
   --brand: #1E3A8A;
   --brand-bright: #2563EB;
-  /* The rest of the live WtButton tones (ui/buttons.tsx CTA table): the strong primary's dark end,
-     and the danger and success gradients. */
-  --brand-deep: #172554;
+  /* The rest of the live WtButton tones (ui/buttons.tsx CTA table): the danger and success gradients. */
   --cta-danger: #E11D48;
   --cta-danger-deep: #9F1239;
   --cta-success: #16A34A;

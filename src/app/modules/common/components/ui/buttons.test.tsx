@@ -20,11 +20,11 @@ describe('WtButton renders the kit Button', () => {
     expect(has(b, 'shadow-cta')).toBe(true);
   });
 
-  test('size="medium" tone="primary" flat={false}: spacious strong CTA with the glow', () => {
-    render(<WtButton size="medium" tone="primary" flat={false}>Save</WtButton>);
+  test('size="medium" flat={false}: spacious hero CTA with the glow', () => {
+    render(<WtButton size="medium" flat={false}>Save</WtButton>);
     const b = button('Save');
     expect(has(b, 'h-11')).toBe(true);
-    expect(has(b, 'to-(--brand-deep)')).toBe(true);
+    expect(has(b, 'from-(--brand-bright)')).toBe(true);
     expect(has(b, 'shadow-glow')).toBe(true);
   });
 

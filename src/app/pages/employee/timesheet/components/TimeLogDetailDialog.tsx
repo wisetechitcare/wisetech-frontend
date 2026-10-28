@@ -327,7 +327,6 @@ export const TimeLogDetailDialog = ({
                     <WtButton ghost onClick={onClose}>Close</WtButton>
                     {canWrite && (
                         <WtButton
-                            tone="primary"
                             disabled={!log}
                             onClick={() => setEditing(true)}
                             startIcon={<KTIcon iconName="pencil" className="fs-5" />}

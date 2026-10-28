@@ -260,7 +260,7 @@ const AddStageDialog: React.FC<{ open: boolean; onClose: () => void; onSave: (na
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <WtButton ghost onClick={close} disabled={saving}>Cancel</WtButton>
-        <WtButton tone="primary" disabled={!name.trim() || saving} onClick={() => void save()}>{saving ? "Adding…" : "Add Stage"}</WtButton>
+        <WtButton disabled={!name.trim() || saving} onClick={() => void save()}>{saving ? "Adding…" : "Add Stage"}</WtButton>
       </DialogActions>
     </GlassDialog>
   );
@@ -308,7 +308,7 @@ const AddDeliverableDialog: React.FC<{
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <WtButton ghost onClick={close} disabled={saving}>Cancel</WtButton>
-        <WtButton tone="primary" disabled={!task || saving} onClick={() => void save()}>{saving ? "Adding…" : "Add Deliverable"}</WtButton>
+        <WtButton disabled={!task || saving} onClick={() => void save()}>{saving ? "Adding…" : "Add Deliverable"}</WtButton>
       </DialogActions>
     </GlassDialog>
   );
@@ -372,7 +372,7 @@ const DeliverablesSection: React.FC<{ lead: any }> = ({ lead }) => {
   };
 
   const addStageButton = (
-    <WtButton tone="primary" size="small" ghost onClick={() => setAddingStage(true)} startIcon={<KTIcon iconName="plus" className="fs-6" />}
+    <WtButton size="small" ghost onClick={() => setAddingStage(true)} startIcon={<KTIcon iconName="plus" className="fs-6" />}
       sx={{ minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}>
       Add Stage
     </WtButton>

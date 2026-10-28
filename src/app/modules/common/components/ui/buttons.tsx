@@ -14,8 +14,8 @@ import { useIsDark } from './tw/useIsDark';
  * maps the WtButton API onto it. ctaSx / ghostSx / invertedSx stay for the rare plain MUI Button
  * that has to keep its own element; the kit is the source of truth for how a button looks.
  *
- * **Global default:** compact, flat accent CTA. Opt into the navy primary
- * (`tone="primary"`) for a high-emphasis action; Cancel stays white (`ghost`).
+ * **Global default:** compact, flat accent CTA (the kit's `default` variant), used for every action:
+ * since 2026-10-28 there is no navy "primary" tone, default always. Cancel stays white (`ghost`).
  * Sandwich Add Rule is the visual benchmark. Appearance may theme other chrome;
  * do **not** invent gold Cancel, yellow-on-navy primary, or a second button component.
  *
@@ -28,7 +28,7 @@ import { useIsDark } from './tw/useIsDark';
  *
  * Recipe matrix:
  *   Default CTA                  → `<WtButton>` (compact, flat accent)
- *   High-emphasis Create / Save  → `<WtButton tone="primary" flat={false} size="medium">`
+ *   High-emphasis Create / Save  → `<WtButton flat={false} size="medium">`
  *   Cancel / secondary close     → `<WtButton ghost>`
  *   Header Add on gradient       → `<WtButton inverted>`
  *   Delete / destructive         → `<WtButton tone="danger">`
@@ -39,7 +39,7 @@ import { useIsDark } from './tw/useIsDark';
  *
  * Usage:
  *   <WtButton>Save</WtButton>
- *   <WtButton tone="primary" flat={false} size="medium">Save</WtButton>
+ *   <WtButton flat={false} size="medium">Save</WtButton>
  *   <WtButton tone="danger" startIcon={...}>Delete</WtButton>
  *   <WtButton ghost>Cancel</WtButton>
  *   <WtIconButton title="Edit" color="#2563eb"><KTIcon iconName="pencil" className="fs-3" /></WtIconButton>
@@ -96,12 +96,11 @@ export const controlHeightSxFor = (density: 'sm' | 'md' = 'sm') => {
 /** Default (40px) — alias kept so existing imports keep working. */
 export const controlHeightSx = controlHeightSxFor('sm');
 
-export type WtCtaTone = 'primary' | 'accent' | 'danger' | 'success';
+export type WtCtaTone = 'accent' | 'danger' | 'success';
 
-// Gradient stops per tone. 'primary' = core theme navy; 'accent' = a brighter blue
-// variant for secondary emphasis. Both stay within the unified blue theme.
+// Gradient stops per tone. 'accent' = bright brand blue into the brand navy: the one CTA look
+// (the kit's `default`). The former navy 'primary' tone was retired 2026-10-28: default always.
 const CTA: Record<WtCtaTone, { from: string; to: string; glow: string }> = {
-  primary: { from: '#1E3A8A', to: '#172554', glow: '#1E3A8A' },
   accent:  { from: '#2563EB', to: '#1E3A8A', glow: '#2563EB' },
   danger:  { from: '#e11d48', to: '#9f1239', glow: '#e11d48' },
   success: { from: '#16a34a', to: '#15803d', glow: '#16a34a' },
@@ -115,7 +114,7 @@ const CTA: Record<WtCtaTone, { from: string; to: string; glow: string }> = {
  * side by side in a toolbar and the two halos bloom into each other and the row reads as
  * lit up rather than as a pair of buttons. Reach for it whenever CTAs sit adjacent.
  */
-export const ctaSx = (tone: WtCtaTone = 'primary', flat = false): SxProps<Theme> => {
+export const ctaSx = (tone: WtCtaTone = 'accent', flat = false): SxProps<Theme> => {
   const c = CTA[tone];
   const rest = flat
     ? '0 1px 2px rgba(16,24,40,.10), 0 2px 6px -2px rgba(16,24,40,.10), inset 0 1px 0 rgba(255,255,255,.16)'
@@ -196,9 +195,8 @@ export interface WtButtonProps extends ButtonProps {
   flat?: boolean;
 }
 
-const KIT_TONE: Record<WtCtaTone, 'default' | 'primary' | 'destructive' | 'success'> = {
+const KIT_TONE: Record<WtCtaTone, 'default' | 'destructive' | 'success'> = {
   accent: 'default',
-  primary: 'primary',
   danger: 'destructive',
   success: 'success',
 };
@@ -227,7 +225,7 @@ const raiseSx = (sx: SxProps<Theme>): SxProps<Theme> =>
 /**
  * The app's button. Same API as before; it renders the v2 kit Button (src/ds/ui/button.tsx, the one
  * shown in Storybook), so colours, depth, motion and shape come from the kit. Mapping:
- * tone accent/primary/danger/success → default/primary/destructive/success, ghost → outline,
+ * tone accent/danger/success → default/destructive/success, ghost → outline,
  * inverted → inverted, size small → default (40px), medium/large → lg (44px),
  * flat={false} at medium/large → glow.
  */

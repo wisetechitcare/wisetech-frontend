@@ -180,7 +180,6 @@ export const RaiseBillDialog: React.FC<{
                 <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 2.5 }}>
                     <WtButton ghost onClick={onClose} disabled={busy}>Cancel</WtButton>
                     <WtButton
-                        tone="primary"
                         disabled={busy || amount <= 0}
                         onClick={() =>
                             onSubmit({
@@ -293,7 +292,6 @@ export const RecordPaymentDialog: React.FC<{
                 <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 2.5 }}>
                     <WtButton ghost onClick={onClose} disabled={busy}>Cancel</WtButton>
                     <WtButton
-                        tone="primary"
                         disabled={busy || !valid}
                         onClick={() =>
                             onSubmit({

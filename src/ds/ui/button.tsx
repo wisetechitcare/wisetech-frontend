@@ -1,18 +1,21 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
+import { Loader2 } from "lucide-react"
 
 // WiseTech override of shadcn's base-maia Button: the live app's WtButton recipe, exactly
 // (src/app/modules/common/components/ui/buttons.tsx), finalised 2026-10-28.
 //   • size: 40px default, 44px lg (the live heights); shape stays shadcn's pill
-//   • tones: default = live "accent" (bright brand → brand), primary = live "primary"
-//     (brand → deep brand), destructive and success = the live danger / success gradients
+//   • tones: default = live "accent" (bright brand → brand), the one CTA look: every action uses it
+//     (2026-10-28, "default always"; the navy "primary" variant was retired). destructive and success
+//     = the live danger / success gradients
 //   • depth: neutral elevation by default (adjacent glows bloom into each other); `glow` opts a
 //     single hero action into the long coloured glow
 //   • motion: lift on hover, press to .975, spring easing; focus = 2px outline in the tone colour
 //   • outline = live "ghost" (the standard Cancel), inverted = brand text on white
-// API is stock shadcn plus the `primary` / `success` variants and the `glow` flag.
-const CTA: Array<"default" | "primary" | "destructive" | "success"> = ["default", "primary", "destructive", "success"]
+//   • tinted = the live tinted icon button (ActionIconButton / WtIconButton / WtCloseButton on headers)
+// API is stock shadcn plus the `success` / `tinted` variants, `glow` and `loading`.
+const CTA: Array<"default" | "destructive" | "success"> = ["default", "destructive", "success"]
 
 const ctaClass =
   "bg-linear-135/srgb font-bold text-white hover:brightness-[1.04] motion-safe:hover:-translate-y-[1.5px] disabled:bg-none disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none dark:disabled:bg-white/10 dark:disabled:text-white/40"
@@ -23,7 +26,6 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: cn(ctaClass, "bg-(--brand) from-(--brand-bright) to-(--brand) [--glow:var(--brand-bright)]"),
-        primary: cn(ctaClass, "bg-(--brand) from-(--brand) to-(--brand-deep) [--glow:var(--brand)]"),
         destructive: cn(ctaClass, "bg-(--cta-danger) from-(--cta-danger) to-(--cta-danger-deep) [--glow:var(--cta-danger)]"),
         success: cn(ctaClass, "bg-(--cta-success) from-(--cta-success) to-(--cta-success-deep) [--glow:var(--cta-success)]"),
         // Live "ghost": white on a visible border; hover goes darker, never toward the surface.
@@ -37,6 +39,12 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground disabled:opacity-50 dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline disabled:opacity-50",
+        // Live tinted icon button (ActionIconButton / WtIconButton): a pastel of --tint at rest that
+        // deepens toward the same colour on hover. Ink is --tint held dark enough (light) / light enough
+        // (dark) for 4.5:1 on its own pastel. Set --tint per use (style={{ "--tint": color }}); on a
+        // coloured header use --tint and --tint-ink white.
+        tinted:
+          "border-[color-mix(in_oklch,var(--tint)_28%,transparent)] bg-[color-mix(in_oklch,var(--tint)_12%,transparent)] text-(--tint-ink) [--glow:var(--tint)] [--tint:var(--primary)] [--tint-ink:oklch(from_var(--tint)_min(l,0.5)_c_h)] dark:[--tint-ink:oklch(from_var(--tint)_max(l,0.8)_c_h)] hover:border-[color-mix(in_oklch,var(--tint)_45%,transparent)] hover:bg-[color-mix(in_oklch,var(--tint)_28%,transparent)] hover:shadow-[0_5px_12px_color-mix(in_oklch,var(--tint)_28%,transparent)] motion-safe:hover:-translate-y-px motion-safe:active:not-aria-[haspopup]:scale-[.93] disabled:opacity-50 dark:border-[color-mix(in_oklch,var(--tint)_40%,transparent)] dark:bg-[color-mix(in_oklch,var(--tint)_22%,transparent)] dark:hover:border-[color-mix(in_oklch,var(--tint)_62%,transparent)] dark:hover:bg-[color-mix(in_oklch,var(--tint)_40%,transparent)]",
       },
       size: {
         default:
@@ -63,20 +71,36 @@ const buttonVariants = cva(
   }
 )
 
+type ButtonProps = ButtonPrimitive.Props &
+  VariantProps<typeof buttonVariants> & {
+    /** Busy: disabled, announced as busy, with a spinner (replacing the glyph on icon-only sizes). */
+    loading?: boolean
+  }
+
 function Button({
   className,
   variant = "default",
   size = "default",
   glow = false,
+  loading = false,
+  disabled,
+  children,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonProps) {
+  const iconOnly = typeof size === "string" && size.startsWith("icon")
+  const spinner = <Loader2 data-icon={iconOnly ? undefined : "inline-start"} className="animate-spin" aria-hidden />
   return (
     <ButtonPrimitive
       data-slot="button"
+      data-loading={loading || undefined}
+      aria-busy={loading || undefined}
+      disabled={disabled || loading}
       className={cn(buttonVariants({ variant, size, glow, className }))}
       {...props}
-    />
+    >
+      {loading && iconOnly ? spinner : <>{loading && spinner}{children}</>}
+    </ButtonPrimitive>
   )
 }
 
-export { Button, buttonVariants }
+export { Button, buttonVariants, type ButtonProps }

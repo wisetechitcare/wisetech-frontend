@@ -228,7 +228,6 @@ export function OptionPickerDialog({
         <WtButton ghost onClick={onClose} disabled={loading}>{cancelLabel}</WtButton>
         {onConfirm && (
           <WtButton
-            tone="primary"
             onClick={onConfirm}
             disabled={confirmDisabled || loading}
             startIcon={loading ? <CircularProgress size={16} color="inherit" /> : undefined}

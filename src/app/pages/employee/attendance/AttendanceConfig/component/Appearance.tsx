@@ -910,7 +910,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
           {/* Save Button */}
           <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, width: '100%' }}>
             <WtButton
-              type="submit" tone="primary" disabled={loading || !formik.isValid}
+              type="submit" disabled={loading || !formik.isValid}
               startIcon={loading ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <KTIcon iconName="check-circle" className="fs-3" />}
               sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 200 } }}
             >

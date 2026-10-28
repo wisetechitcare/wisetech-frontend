@@ -173,7 +173,7 @@ export function RejectReasonModal({
         <Stack direction="row" gap={1} justifyContent="flex-end">
           <WtButton ghost onClick={onClose} disabled={submitting}>Cancel</WtButton>
           <WtButton
-            tone={variant === 'reject' ? 'danger' : 'primary'}
+            tone={variant === 'reject' ? 'danger' : 'accent'}
             disabled={submitting || (needsText && !trimmed)}
             // Empty box + a real topic → the topic IS the text. Every caller downstream (batch
             // reject, reject-all, the approvals queue) still receives non-empty prose, so none of

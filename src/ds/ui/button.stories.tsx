@@ -1,13 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import type { CSSProperties } from 'react'
 import { expect, fn, userEvent } from 'storybook/test'
-import { Check, ChevronLeft, ChevronRight, CloudUpload, Download, Plus, Send, Settings, Trash2 } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, CloudUpload, Download, Pencil, Plus, Send, Settings, Trash2, X } from 'lucide-react'
 import { Button, buttonVariants } from './button'
 
 /**
  * The one button: the live app's WtButton recipe (colours, gradients, depth, motion, 40px
  * height) in shadcn's pill shape. Variants carry meaning: one strong action per view, destructive only for irreversible
- * actions. WtButton mapping: default tone (accent) → `default`, `tone="primary"` → `primary`,
- * `tone="danger"` → `destructive`, `tone="success"` → `success`, `ghost` → `outline`,
+ * actions. Every ordinary action is `default` (there is no navy "primary": default always).
+ * WtButton mapping: default tone (accent) → `default`, `tone="danger"` → `destructive`, `tone="success"` → `success`, `ghost` → `outline`,
  * `inverted` → `inverted`, `size="medium"` → `lg`, `flat={false}` → `glow`.
  */
 const meta = {
@@ -15,32 +16,30 @@ const meta = {
   component: Button,
   args: { children: 'Add employee', onClick: fn() },
   argTypes: {
-    variant: { control: 'select', options: ['default', 'primary', 'success', 'inverted', 'secondary', 'outline', 'ghost', 'destructive', 'link'] },
+    variant: { control: 'select', options: ['default', 'success', 'inverted', 'secondary', 'outline', 'ghost', 'destructive', 'link', 'tinted'] },
     size: { control: 'select', options: ['xs', 'sm', 'default', 'lg', 'icon'] },
     glow: { control: 'boolean' },
+    loading: { control: 'boolean' },
   },
 } satisfies Meta<typeof Button>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** The primary action of a view. Clicking calls `onClick`. */
-export const Primary: Story = {
+/** The everyday action: `default`, used for every main action in the app. Clicking calls `onClick`. */
+export const Default: Story = {
   play: async ({ args, canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Add employee' }))
     await expect(args.onClick).toHaveBeenCalledTimes(1)
   },
 }
 
-/** Secondary and outline actions sit beside a primary one. */
+/** Every variant; secondary and outline actions sit beside the main (default) one. */
 export const Variants: Story = {
   render: (args) => (
     <div className="flex flex-wrap items-center gap-2">
       <Button {...args}>
         <Plus /> Add employee
-      </Button>
-      <Button {...args} variant="primary">
-        Save &amp; Continue
       </Button>
       <Button {...args} variant="success">
         <Check /> Approve
@@ -74,11 +73,44 @@ export const Glow: Story = {
   render: (args) => (
     <div className="flex flex-wrap items-center gap-3">
       <Button {...args} size="lg" glow>Create Event</Button>
-      <Button {...args} size="lg" variant="primary" glow>Save &amp; Continue</Button>
       <Button {...args} size="lg" variant="destructive" glow>Delete</Button>
       <Button {...args} size="lg" variant="success" glow>Approve</Button>
     </div>
   ),
+}
+
+/**
+ * Row and card actions (the live ActionIconButton / WtIconButton): a pastel of the tone that deepens on
+ * hover. Set the tone with the --tint CSS variable; white is the close control on coloured headers.
+ */
+export const Tinted: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-center gap-3">
+      <Button variant="tinted" size="icon" aria-label="Edit"><Pencil /></Button>
+      <Button variant="tinted" size="icon" aria-label="Delete" style={{ '--tint': 'var(--cta-danger)' } as CSSProperties}><Trash2 /></Button>
+      <Button variant="tinted" size="icon" aria-label="Approve" style={{ '--tint': 'var(--cta-success)' } as CSSProperties}><Check /></Button>
+      <Button variant="tinted" size="sm" style={{ '--tint': 'var(--cta-success)' } as CSSProperties}><Send data-icon="inline-start" /> Share</Button>
+      <div className="rounded-2xl bg-(--brand) p-3">
+        <Button variant="tinted" size="icon-sm" aria-label="Close" style={{ '--tint': 'white', '--tint-ink': 'white' } as CSSProperties}><X /></Button>
+      </div>
+    </div>
+  ),
+}
+
+/** Busy: disabled and announced as busy, with a spinner; icon-only buttons swap the glyph for it. */
+export const Loading: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-center gap-3">
+      <Button loading>Saving</Button>
+      <Button variant="outline" loading>Exporting</Button>
+      <Button variant="tinted" size="icon" aria-label="Refresh" loading><Settings /></Button>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const saving = canvas.getByRole('button', { name: 'Saving' })
+    await expect(saving).toBeDisabled()
+    await expect(saving).toHaveAttribute('aria-busy', 'true')
+  },
 }
 
 /** Sizes for dense toolbars through to prominent CTAs. */
@@ -173,7 +205,7 @@ export const WizardFooter: Story = {
         <Button variant="outline" disabled>
           <ChevronLeft data-icon="inline-start" /> Back
         </Button>
-        <Button variant="primary">
+        <Button>
           Save &amp; Continue <ChevronRight data-icon="inline-end" />
         </Button>
       </div>
@@ -185,7 +217,7 @@ export const WizardFooter: Story = {
   },
 }
 
-const STATE_VARIANTS = ['default', 'primary', 'success', 'destructive', 'inverted', 'outline', 'secondary', 'ghost'] as const
+const STATE_VARIANTS = ['default', 'success', 'destructive', 'inverted', 'outline', 'secondary', 'ghost', 'tinted'] as const
 const STATES = ['rest', 'hover', 'focus', 'pressed', 'disabled'] as const
 
 /** Every variant in every state, forced with real CSS states (storybook-addon-pseudo-states), not simulated events. */

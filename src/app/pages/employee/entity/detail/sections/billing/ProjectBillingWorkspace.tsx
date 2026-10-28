@@ -417,7 +417,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
             }
             return (
                 <WtButton
-                    size="small" tone="primary" disabled={!canBill || raise.isPending}
+                    size="small" disabled={!canBill || raise.isPending}
                     onClick={() => setRaiseOn(row)}
                     sx={btn}
                 >
@@ -430,7 +430,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
             <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="flex-end">
                 {bill.status === "DRAFT" && (
                     <WtButton
-                        size="small" tone="primary"
+                        size="small"
                         disabled={!canBill || proforma.isPending}
                         onClick={() =>
                             bill.proformaDocumentId && bill.proformaStatus === "DRAFT"
@@ -445,7 +445,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
 
                 {(bill.status === "PROFORMA" || bill.status === "PARTIALLY_PAID") && (
                     <WtButton
-                        size="small" tone="primary" disabled={!canPay || pay.isPending}
+                        size="small" disabled={!canPay || pay.isPending}
                         onClick={() => setPayOn(row)}
                         sx={btn}
                     >
@@ -457,7 +457,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     <Tooltip title="The client has settled the proforma, so the tax invoice can be raised.">
                         <span>
                             <WtButton
-                                size="small" tone="primary" disabled={!canPay || invoice.isPending}
+                                size="small" disabled={!canPay || invoice.isPending}
                                 onClick={() =>
                                     bill.invoiceDocumentId && bill.invoiceStatus === "DRAFT"
                                         ? openDocument(bill.invoiceDocumentId, "DRAFT")

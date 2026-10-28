@@ -762,7 +762,7 @@ export function GroupedWizard<TProps>({
         </Box>
         <Box sx={{ display: 'flex', gap: 1, flex: '1 1 auto', justifyContent: 'flex-end' }}>
           <WtButton ghost startIcon={<ChevronLeft />} onClick={handleBack} disabled={isFirst || isSubmitting}>Back</WtButton>
-          <WtButton tone="primary" endIcon={<ChevronRight />} onClick={handleNext} disabled={isSubmitting}>
+          <WtButton endIcon={<ChevronRight />} onClick={handleNext} disabled={isSubmitting}>
             {isSubmitting ? 'Saving…' : isLast ? submitText : 'Save & Continue'}
           </WtButton>
         </Box>

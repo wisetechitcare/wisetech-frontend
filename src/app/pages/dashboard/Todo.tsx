@@ -230,7 +230,7 @@ const TodoList = memo(() => {
             >
               My To-Do’s
             </Typography>
-            <WtButton tone="primary" onClick={() => setShowModal(true)}>
+            <WtButton onClick={() => setShowModal(true)}>
               New To-Do
             </WtButton>
           </Stack>
@@ -451,7 +451,7 @@ const TodoList = memo(() => {
                 <WtButton ghost type="button" onClick={handleClose}>
                   Cancel
                 </WtButton>
-                <WtButton tone="primary" type="submit" disabled={isSubmitting}>
+                <WtButton type="submit" disabled={isSubmitting}>
                   {isSubmitting ? 'Saving…' : 'Save'}
                 </WtButton>
               </Stack>
@@ -491,7 +491,7 @@ const TodoList = memo(() => {
             <WtButton ghost type="button" onClick={handleEditClose}>
               Cancel
             </WtButton>
-            <WtButton tone="primary" type="button" onClick={handleUpdateTodo}>
+            <WtButton type="button" onClick={handleUpdateTodo}>
               Save
             </WtButton>
           </Stack>
